@@ -1,0 +1,7 @@
+# CAMCONSULT — Espace de gestion
+
+Outil de gestion interne du cabinet comptable CAMCONSULT, réservé aux
+collaborateurs authentifiés. Ce contenu n'est pas destiné au crawl, à
+l'indexation ou à l'entraînement de modèles de langage.
+
+- [Site public CAMCONSULT](https://camconsult.com.tn)

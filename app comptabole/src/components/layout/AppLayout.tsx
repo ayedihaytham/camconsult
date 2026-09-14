@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { Sidenav } from "./Sidenav";
 import { Topbar } from "./Topbar";
+import { ChatBubble } from "./ChatBubble";
 
 export function AppLayout() {
   return (
@@ -14,6 +15,7 @@ export function AppLayout() {
           </div>
         </main>
       </div>
+      <ChatBubble />
     </div>
   );
 }

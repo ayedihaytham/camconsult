@@ -23,7 +23,7 @@ services:
       retries: 15
 
   app-comptable:
-    image: ayedihaytham/app-comptable:latest
+    image: merba7/app-comptable:latest
     container_name: app-comptable
     restart: unless-stopped
     depends_on:
@@ -47,7 +47,7 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
 
   camconsult-site:
-    image: ayedihaytham/camconsult-site:latest
+    image: merba7/camconsult-site:latest
     container_name: camconsult-site
     restart: unless-stopped
     environment:

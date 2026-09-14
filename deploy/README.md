@@ -3,7 +3,7 @@
 Le VPS ne contient **que ce dossier** (`docker-compose.yml`, `nginx-camconsult.conf`,
 `.env`) — jamais le code source. Les images sont construites par GitHub
 Actions à chaque push sur `main` et poussées sur Docker Hub
-(`ayedihaytham/app-comptable`, `ayedihaytham/camconsult-site`) ; le service
+(`merba7/app-comptable`, `merba7/camconsult-site`) ; le service
 `watchtower` du `docker-compose.yml` les tire et relance les conteneurs tout
 seul (vérification toutes les 60s).
 
@@ -14,7 +14,7 @@ and variables → Actions → New repository secret**, ajouter :
 
 | Secret | Valeur |
 | --- | --- |
-| `DOCKERHUB_USERNAME` | `ayedihaytham` |
+| `DOCKERHUB_USERNAME` | `merba7` |
 | `DOCKERHUB_TOKEN` | un **access token** Docker Hub (pas ton mot de passe) — généré sur hub.docker.com → Account Settings → Security → New Access Token, permission "Read & Write" |
 
 Dès qu'un push touche `app comptabole/**` ou `camconsult/**` sur `main`,

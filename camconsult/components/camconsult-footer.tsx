@@ -47,7 +47,7 @@ export function CamconsultFooter({ lang = 'fr', clientPortalUrl }: CamconsultFoo
         <div className="grid gap-12 border-b border-white/15 pb-14 lg:grid-cols-[1.35fr_0.8fr_1.15fr_1.15fr] lg:gap-10">
           <div>
             <a href="#accueil" className="inline-flex items-center gap-3 text-white" aria-label="CAMCONSULT">
-              <span className="grid size-11 place-items-center rounded-full border border-gold text-gold"><span className="font-serif text-xl">C</span></span>
+              <span className="grid size-11 place-items-center"><img src="/brand/logo-mark-dark.png" alt="CAMCONSULT" className="size-9 object-contain" /></span>
               <span className="text-sm font-semibold tracking-[0.28em]">CAMCONSULT</span>
             </a>
             <p className="mt-6 max-w-xs text-sm leading-7 text-white/65">{isArabic ? 'الخبرة المحاسبية والاستشارات الاستراتيجية لخدمة طموحاتكم.' : 'L’expertise comptable et le conseil stratégique au service de vos ambitions.'}</p>

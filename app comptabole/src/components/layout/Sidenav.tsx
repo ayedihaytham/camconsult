@@ -245,8 +245,7 @@ export function Sidenav() {
             showLabels ? "px-5" : "justify-center",
           )}
         >
-          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-sidebar-accent text-sidebar-accent">
-            <span className="font-serif text-lg font-bold">C</span>
+          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
             <div
               className="absolute inset-0 rounded-full opacity-30"
               style={{
@@ -254,6 +253,11 @@ export function Sidenav() {
                   "radial-gradient(circle, hsl(var(--sidebar-accent)) 0%, transparent 70%)",
               }}
               aria-hidden="true"
+            />
+            <img
+              src="/brand/logo-mark-dark.png"
+              alt="CAMCONSULT"
+              className="relative h-9 w-9 object-contain"
             />
           </div>
           {showLabels && (

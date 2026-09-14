@@ -50,9 +50,13 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
         <div className="flex min-w-0 flex-1 items-center gap-0 xl:flex-none xl:min-w-[248px]">
           <div className={cn('h-12 w-px transition-all duration-300', isScrolled ? 'bg-gold/40' : 'bg-gold/60')} aria-hidden="true" />
           <a href="/" className={cn('ml-5 flex shrink-0 items-center gap-2.5', isScrolled || !isNavy ? 'text-navy' : 'text-white')} aria-label={isArabic ? 'CAMCONSULT الرئيسية' : 'CAMCONSULT accueil'}>
-            <div className={cn('relative grid size-9 place-items-center rounded-full border-2 transition-all duration-300', isScrolled ? 'border-gold/70 text-gold/70' : 'border-gold text-gold')}>
-              <span className="font-serif text-base font-bold">C</span>
+            <div className="relative grid size-9 place-items-center">
               <div className="absolute inset-0 rounded-full animate-pulse opacity-30" style={{ background: 'radial-gradient(circle, #C9A96A 0%, transparent 70%)' }} aria-hidden="true" />
+              <img
+                src={isScrolled || !isNavy ? '/brand/logo-mark-light.png' : '/brand/logo-mark-dark.png'}
+                alt="CAMCONSULT"
+                className="relative size-8 object-contain"
+              />
             </div>
             <span className={cn('text-xs font-bold tracking-widest transition-opacity duration-300', isScrolled ? 'opacity-90' : 'opacity-100')}>CAMCONSULT</span>
           </a>

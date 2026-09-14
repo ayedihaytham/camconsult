@@ -43,9 +43,7 @@ export function LoginPage() {
           <div className="absolute -right-32 -bottom-20 size-[420px] rotate-45 border border-accent/25" />
         </div>
         <div className="relative z-10 inline-flex w-fit items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-full border border-accent font-serif text-xl text-accent">
-            C
-          </span>
+          <img src="/brand/logo-mark-dark.png" alt="CAMCONSULT" className="h-10 w-10 object-contain" />
           <span className="text-sm font-semibold tracking-[0.28em]">
             CAMCONSULT
           </span>
@@ -72,8 +70,8 @@ export function LoginPage() {
       <section className="flex min-h-full flex-col items-center justify-center bg-background px-4 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex flex-col items-center text-center lg:hidden">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-accent text-accent">
-              <span className="font-serif text-xl">C</span>
+            <div className="mb-4 flex h-12 w-12 items-center justify-center">
+              <img src="/brand/logo-mark-light.png" alt="CAMCONSULT" className="h-11 w-11 object-contain" />
             </div>
             <h1 className="text-lg font-semibold tracking-tight text-foreground">
               Cabinet Comptable

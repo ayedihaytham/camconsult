@@ -141,10 +141,10 @@ export function GlobalSearch() {
           }
         }}
         placeholder="Rechercher…"
-        className="w-64 rounded-full border-transparent bg-secondary/70 pl-10 pr-12 shadow-none transition-colors focus-visible:border-input focus-visible:bg-card"
+        className="w-64 rounded-full border-border bg-background pl-10 pr-12 shadow-none transition-colors focus-visible:bg-card"
         aria-label="Recherche globale"
       />
-      <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-border/70 bg-card px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+      <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-accent">
         ⌘K
       </kbd>
       {open && query.trim().length >= 2 && (
@@ -165,7 +165,7 @@ export function GlobalSearch() {
                       i === active ? "bg-accent/10" : "hover:bg-secondary/60",
                     )}
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-primary">
                       <r.icon className="h-4 w-4" />
                     </span>
                     <span className="min-w-0 flex-1">

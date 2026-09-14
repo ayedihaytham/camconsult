@@ -15,7 +15,6 @@ import {
   MessageSquare,
   ScrollText,
   Settings,
-  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -93,6 +92,14 @@ export function Topbar() {
   const nom = session?.nom ?? "Utilisateur";
   const role = session?.fonction ?? "";
   const isAdmin = session?.role === "admin";
+  const initiales =
+    nom
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0])
+      .join("")
+      .toUpperCase() || "?";
 
   async function handleLogout() {
     await logout();
@@ -102,16 +109,7 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card no-print">
-      {/* Filet d'accent — clin d'œil au filet de registre comptable, en
-          version couleur : marque la section active dans la teinte de sa
-          rubrique. */}
-      <div
-        className={cn(
-          "h-[3px] w-full bg-gradient-to-r from-transparent via-current to-transparent",
-          ACCENTS[accent].rule,
-        )}
-      />
-      <div className="flex h-[60px] items-center gap-3 px-4 lg:px-6">
+      <div className="flex h-[64px] items-center gap-3 px-4 lg:px-6">
         <Button
           variant="ghost"
           size="icon"
@@ -145,9 +143,9 @@ export function Topbar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 rounded-2xl py-1 pl-1 pr-1.5 transition-colors hover:bg-secondary sm:pr-2.5">
-                <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary via-chart-2 to-accent p-[2px]">
-                  <span className="flex h-full w-full items-center justify-center rounded-full bg-card text-primary">
-                    <UserRound className="h-[18px] w-[18px]" />
+                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-primary text-accent">
+                  <span className="text-xs font-bold tracking-wide">
+                    {initiales}
                   </span>
                   <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-success" />
                 </span>

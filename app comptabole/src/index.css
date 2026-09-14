@@ -1,0 +1,128 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Neutres — blanc cassé / ardoise */
+    --background: 210 20% 98%;
+    --foreground: 215 30% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 30% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 30% 16%;
+
+    /* Primaire — bleu marine (identité CAMCONSULT, #0B2545) */
+    --primary: 213 72% 16%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 24% 94%;
+    --secondary-foreground: 215 30% 24%;
+
+    --muted: 210 24% 95%;
+    --muted-foreground: 215 16% 46%;
+
+    /* Accent — or CAMCONSULT (#C9A96A) : fond de bouton/badge + décoratif
+       uniquement, jamais en texte de paragraphe (voir DESIGN-SYSTEM.md §2). */
+    --accent: 40 47% 60%;
+    --accent-foreground: 213 72% 16%;
+
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success garde l'ancienne teinte émeraude, désormais seule porteuse du
+       vert (avant, elle coïncidait par hasard avec --accent). */
+    --success: 160 84% 33%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 33 92% 45%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 214 20% 89%;
+    --input: 214 20% 86%;
+    --ring: 40 47% 60%;
+    /* Ledger Rule : filet renforcé toutes les 5 lignes des tableaux denses. */
+    --rule-strong: 215 18% 74%;
+
+    /* Palette graphiques (jauges, anneaux) — 5 teintes distinctes dérivées
+       de primary/accent + 2 teintes additionnelles, jamais la couleur seule
+       pour distinguer une série (toujours accompagnée d'une légende). */
+    --chart-1: 211 68% 18%;
+    --chart-2: 211 90% 55%;
+    --chart-3: 160 84% 33%;
+    --chart-4: 172 66% 40%;
+    --chart-5: 215 16% 65%;
+
+    --radius: 0.625rem;
+
+    /* Sidenav — bleu marine profond */
+    --sidebar: 213 60% 13%;
+    --sidebar-foreground: 210 30% 88%;
+    --sidebar-muted: 211 30% 62%;
+    --sidebar-border: 212 44% 20%;
+    --sidebar-accent: 40 47% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Scrollbar sobre */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .no-print {
+  }
+}
+
+@media print {
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .print-full {
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .print-section {
+    break-before: page;
+  }
+  .print-section:first-child {
+    break-before: avoid;
+  }
+}

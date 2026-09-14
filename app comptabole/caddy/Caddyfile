@@ -1,0 +1,7 @@
+# Reverse-proxy HTTPS automatique (Let's Encrypt) devant l'application.
+# Change le nom de domaine ci-dessous si besoin.
+
+camconsult.com.tn, www.camconsult.com.tn {
+	encode gzip
+	reverse_proxy app:8080
+}

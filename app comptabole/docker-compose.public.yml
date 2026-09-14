@@ -1,0 +1,33 @@
+# Exposition directe via ton IP publique (154.108.67.71) :
+# Caddy écoute sur 80/443, obtient un certificat HTTPS automatiquement,
+# et transmet à l'application.
+#
+# À utiliser EN PLUS du stack principal :
+#   docker compose -f docker-compose.prod.yml -f docker-compose.public.yml up -d --build
+#
+# Prérequis (voir DEPLOIEMENT-IP-PUBLIQUE.md) :
+#   - enregistrements DNS A  @  et  www  ->  ton IP publique
+#   - redirection des ports 80 et 443 de ta box  ->  ce PC
+#   - pare-feu Windows : 80 et 443 entrants autorisés
+
+name: camconsult
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: camconsult-caddy
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

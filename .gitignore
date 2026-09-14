@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+.next/
+out/
+
+# env files (jamais commités)
+.env
+.env.*
+!.env.example
+
+# archives de déploiement locales
+deploy-archives/
+*.tar.gz
+
+# logs / debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# éditeurs / OS
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts

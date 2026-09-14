@@ -1,0 +1,40 @@
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+
+interface LedgerPageHeaderProps {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  breadcrumb?: ReactNode;
+  className?: string;
+}
+
+/** Même rôle que PageHeader (titre + description + actions), typographie Ledger. */
+export function LedgerPageHeader({
+  title,
+  description,
+  actions,
+  breadcrumb,
+  className,
+}: LedgerPageHeaderProps) {
+  return (
+    <div className={cn("mb-1.5 space-y-2.5", className)}>
+      {breadcrumb}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-[1.4rem] font-extrabold tracking-tight text-foreground">
+            {title}
+          </h1>
+          {description && (
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          )}
+        </div>
+        {actions && (
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-2 no-print">
+            {actions}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

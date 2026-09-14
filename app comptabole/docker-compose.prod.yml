@@ -1,0 +1,52 @@
+# Application complète (API + site + PostgreSQL) dans Docker.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Puis :  http://localhost:8080   (et http://IP-DE-CE-PC:8080 depuis un autre poste)
+#
+# Variables lues depuis le fichier .env de ce dossier :
+#   JWT_SECRET (obligatoire), ADMIN_PASSWORD (obligatoire),
+#   DB_PASSWORD, ADMIN_IDENTIFIANT, ADMIN_NOM, ADMIN_ROLE, APP_PORT (défaut 8080)
+
+# Projet Docker isolé : n'interfère pas avec `docker-compose.yml` (base de dev).
+name: camconsult
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: camconsult-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cabinet
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cabinet}
+      POSTGRES_DB: cabinet
+    volumes:
+      - camconsult_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cabinet -d cabinet"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  app:
+    build: .
+    container_name: camconsult-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 8080
+      DATABASE_URL: postgres://cabinet:${DB_PASSWORD:-cabinet}@db:5432/cabinet
+      JWT_SECRET: ${JWT_SECRET:?Definissez JWT_SECRET dans .env}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      ADMIN_IDENTIFIANT: ${ADMIN_IDENTIFIANT:-mohamed.ayedi}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Definissez ADMIN_PASSWORD dans .env}
+      ADMIN_NOM: ${ADMIN_NOM:-Mohamed Ayedi}
+      ADMIN_ROLE: ${ADMIN_ROLE:-Expert-comptable — Responsable du cabinet}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+
+volumes:
+  camconsult_pgdata:

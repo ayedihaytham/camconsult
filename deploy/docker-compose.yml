@@ -1,0 +1,73 @@
+# Tout ce dont le VPS a besoin : ce fichier + nginx-camconsult.conf + .env.
+# Aucun code source sur le serveur — les images sont construites par GitHub
+# Actions et poussées sur Docker Hub à chaque push ; Watchtower les tire et
+# relance les conteneurs automatiquement (voir service "watchtower").
+
+name: camconsult
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: camconsult-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cabinet
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Definissez DB_PASSWORD dans .env}
+      POSTGRES_DB: cabinet
+    volumes:
+      - camconsult_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cabinet -d cabinet"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  app-comptable:
+    image: ayedihaytham/app-comptable:latest
+    container_name: app-comptable
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 8080
+      DATABASE_URL: postgres://cabinet:${DB_PASSWORD}@db:5432/cabinet
+      JWT_SECRET: ${JWT_SECRET:?Definissez JWT_SECRET dans .env}
+      CORS_ORIGIN: https://cabinet.camconsult.com.tn
+      ADMIN_IDENTIFIANT: ${ADMIN_IDENTIFIANT:-mohamed.ayedi}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Definissez ADMIN_PASSWORD dans .env}
+      ADMIN_NOM: ${ADMIN_NOM:-Mohamed Ayedi}
+      ADMIN_ROLE: ${ADMIN_ROLE:-Expert-comptable — Responsable du cabinet}
+    ports:
+      # Nginx (sur l'hôte) fait le reverse-proxy depuis cabinet.camconsult.com.tn
+      - "127.0.0.1:5181:8080"
+    labels:
+      # Seuls les conteneurs applicatifs sont candidats à la mise à jour auto.
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  camconsult-site:
+    image: ayedihaytham/camconsult-site:latest
+    container_name: camconsult-site
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    ports:
+      # Nginx (sur l'hôte) fait le reverse-proxy depuis camconsult.com.tn / www
+      - "127.0.0.1:3000:3000"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Vérifie Docker Hub toutes les 60s, ne touche qu'aux conteneurs labellisés
+    # ci-dessus (jamais "db"), supprime les anciennes images après mise à jour.
+    command: --interval 60 --label-enable --cleanup
+
+volumes:
+  camconsult_pgdata:

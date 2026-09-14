@@ -1,0 +1,487 @@
+export type SocieteTheme =
+  | "PME"
+  | "Grande entreprise"
+  | "Association"
+  | "Profession libérale"
+  | "Auto-entrepreneur";
+
+export type Statut = "actif" | "inactif" | "en_attente";
+
+export interface Societe {
+  id: string;
+  raisonSociale: string;
+  rne: string;
+  tva: string;
+  theme: SocieteTheme;
+  code: string;
+  /** @deprecated l'authentification société a été retirée */
+  identifiant?: string;
+  /** @deprecated l'authentification société a été retirée */
+  motDePasse?: string;
+  statut: Statut;
+  telephone: string;
+  email: string;
+  adresse: string;
+  creeLe: string; // ISO
+}
+
+export type EmployeType = "Comptable" | "Assistant" | "Stagiaire" | "Gestionnaire de paie";
+
+/** collaborateur = équipe interne du cabinet ; societe_employe = employé d'une société cliente. */
+export type EmployeRole = "collaborateur" | "societe_employe";
+
+export type PermissionKey =
+  | "consulterDossiers"
+  | "deposerFichiers"
+  | "modifierSocietes"
+  | "supprimer"
+  | "messagerie";
+
+export type EmployePermissions = Record<PermissionKey, boolean>;
+
+export interface Employe {
+  id: string;
+  nom: string;
+  prenom: string;
+  identifiant: string;
+  motDePasse: string;
+  type: EmployeType;
+  role: EmployeRole;
+  /** défini uniquement pour role = "societe_employe" */
+  societeId?: string | null;
+  email: string;
+  statut: Statut;
+  societesAssignees: string[]; // ids de sociétés (role = "collaborateur")
+  permissions: EmployePermissions;
+  derniereConnexion?: string | null; // ISO
+  creeLe: string;
+}
+
+export type TacheStatut = "a_faire" | "en_cours" | "termine";
+
+export interface Tache {
+  id: string;
+  titre: string;
+  description: string;
+  societeId: string;
+  assigneId: string | null; // id d'un collaborateur
+  statut: TacheStatut;
+  creePar: string;
+  creeLe: string; // ISO
+  majLe: string; // ISO
+  termineLe: string | null; // ISO
+}
+
+export const TACHE_STATUT_LABELS: Record<TacheStatut, string> = {
+  a_faire: "À faire",
+  en_cours: "En cours",
+  termine: "Terminé",
+};
+
+export type NotificationType =
+  | "tache_assignee"
+  | "tache_statut"
+  | "tache_modifiee"
+  | "document"
+  | "societe"
+  | "compte"
+  | "acces"
+  | "message"
+  | "collecte";
+
+// ── Collecte de pièces ────────────────────────────
+export type CollecteStatut =
+  | "brouillon"
+  | "transmis"
+  | "valide"
+  | "a_corriger"
+  | "archive";
+export type RecapStatut = "none" | "envoye" | "repondu";
+
+export interface CollecteSection {
+  id: string;
+  onglet: string;
+  commentaire: string;
+}
+
+export type CollecteNoteKind = "note" | "manque" | "reponse";
+
+export interface CollecteNote {
+  id: string;
+  onglet: string;
+  kind: CollecteNoteKind;
+  parentId: string | null;
+  auteur: "admin" | "client";
+  ref: string;
+  /** kind=manque : index de ligne visée (null = tableau entier) */
+  cibleOrdre: number | null;
+  /** kind=manque : clé de colonne visée (null = tableau entier) */
+  cibleCol: string | null;
+  texte: string;
+  resolu: boolean;
+  creeLe: string;
+}
+
+export interface CollecteLigne {
+  id: string;
+  onglet: string;
+  ordre: number;
+  data: Record<string, unknown>;
+}
+
+export interface Collecte {
+  id: string;
+  societeId: string;
+  periode: string;
+  statut: CollecteStatut;
+  recapStatut: RecapStatut;
+  onglets: string[];
+  devise: string;
+  creeLe: string;
+  majLe: string;
+  transmisLe: string | null;
+  valideLe: string | null;
+}
+
+export interface CollecteFull extends Collecte {
+  sections: CollecteSection[];
+  lignes: CollecteLigne[];
+  notes: CollecteNote[];
+}
+
+// ── Bordereaux bancaires (registre interne cabinet) ──
+export type BordereauType = "virement" | "remise_traite" | "remise_cheque";
+export type BordereauVolet = "client" | "fournisseur";
+
+export interface BordereauLigne {
+  id?: string;
+  ordre: number;
+  cheque: string;
+  tiers: string;
+  montant: number;
+  facture: string;
+  remarque: string;
+}
+
+export interface Bordereau {
+  id: string;
+  type: BordereauType;
+  volet: BordereauVolet;
+  numero: string;
+  dateOperation: string | null;
+  pointe: boolean;
+  note: string;
+  creeLe: string;
+  majLe: string;
+  lignes: BordereauLigne[];
+}
+
+export const BORDEREAU_TYPE_LABELS: Record<BordereauType, string> = {
+  virement: "Virements",
+  remise_traite: "Remises de traites",
+  remise_cheque: "Remises de chèques",
+};
+
+export const BORDEREAU_VOLET_LABELS: Record<BordereauVolet, string> = {
+  client: "Clients (411)",
+  fournisseur: "Fournisseurs (401)",
+};
+
+// ── Gestion de stock (par société) ────────────────
+export interface StockMouvement {
+  id: string;
+  societeId: string;
+  ordre: number;
+  natureMarchandise: string;
+
+  achatDate: string | null;
+  achatNumFacture: string;
+  achatDocType: string;
+  fournisseur: string;
+  achatQuantite: number;
+  achatPu: number;
+  achatMontantDevise: number;
+  achatDevise: string;
+  achatCours: number;
+  achatMontantTnd: number;
+
+  venteDate: string | null;
+  venteNumFacture: string;
+  venteDocType: string;
+  client: string;
+  venteQuantite: number;
+  ventePu: number;
+  venteMontantDevise: number;
+  venteDevise: string;
+  venteCours: number;
+  venteMontantTnd: number;
+
+  douaneNumDeclaration: string;
+  douaneDate: string | null;
+  douaneRegime: string;
+  douaneReference: string;
+
+  /** document source (PDF/image en data URL) conservé pour vérification */
+  achatDocDataUrl: string | null;
+  venteDocDataUrl: string | null;
+  douaneDocDataUrl: string | null;
+
+  note: string;
+  /** achatQuantite - venteQuantite (calculé côté serveur) */
+  ecart: number;
+  creeLe: string;
+  majLe: string;
+}
+
+export type StockDocType = "achat" | "vente" | "douane";
+
+export interface StockExtractResult {
+  source: "texte" | "ocr";
+  texte: string;
+  champs: Record<string, string | number>;
+}
+
+// ── États financiers : balance par société/exercice, reclassée par
+// code AFFECTAT (grille de reclassement cabinet) ──
+export interface BalanceLigne {
+  id: string;
+  ordre: number;
+  compte: string;
+  libelle: string;
+  debit: number;
+  credit: number;
+  affectat: string;
+  /** debit - credit, calculé côté serveur (jamais stocké). */
+  solde: number;
+}
+
+export interface Balance {
+  id: string;
+  societeId: string;
+  exercice: string;
+  note: string;
+  creeLe: string;
+  majLe: string;
+}
+
+export interface BalanceFull extends Balance {
+  lignes: BalanceLigne[];
+}
+
+/** Un point de la table 4 : total du solde pour un code AFFECTAT donné. */
+export interface AffectatSynthese {
+  code: string;
+  libelle: string;
+  solde: number;
+}
+
+export interface GrilleAffectatCode {
+  code: string;
+  libelle: string;
+  /** Clé de poste Bilan/Etat de résultat (voir src/lib/etatsFinanciers/postes.ts), vide si non assigné. */
+  poste: string;
+  majLe: string;
+}
+
+export interface GrilleCompte {
+  compte: string;
+  affectatCode: string;
+  libelleCompte: string;
+  majLe: string;
+}
+
+// ── États financiers, étape 3 : mouvements non déductibles de la seule
+// balance de fin d'exercice — saisie manuelle dédiée ──
+export type ImmoMasse = "incorporelles" | "corporelles" | "financieres";
+
+export interface ImmoMouvement {
+  societeId: string;
+  exercice: string;
+  masse: ImmoMasse;
+  acquisitions: number;
+  cessions: number;
+  dotations: number;
+  reprises: number;
+  majLe: string;
+}
+
+export interface FinancementMouvement {
+  societeId: string;
+  exercice: string;
+  empruntsContractes: number;
+  empruntsRembourses: number;
+  dividendesDistribues: number;
+  capitalNumeraire: number;
+  /** Ajustement d'exploitation du Flux (méthode indirecte) — ne se déduit
+   * pas de la balance, saisi ici comme les autres mouvements manuels. */
+  interetsCourusNonEchus: number;
+  majLe: string;
+}
+
+export type TdrfKind = "reintegration" | "deduction";
+
+export interface TdrfLigne {
+  id: string;
+  societeId: string;
+  exercice: string;
+  ordre: number;
+  kind: TdrfKind;
+  libelle: string;
+  montant: number;
+  majLe: string;
+}
+
+export interface TdrfParametres {
+  societeId: string;
+  exercice: string;
+  chiffreAffairesLocal: number;
+  chiffreAffairesExport: number;
+  tauxImposition: number;
+  tauxExport: number;
+  tauxMinimum: number;
+  plancherMinimum: number;
+  contributionSociale: number;
+  excedentsAcomptes: number;
+  majLe: string | null;
+}
+
+// ── Notes aux états financiers (étape 4) ──
+export interface NotesModele {
+  texte: string;
+  majLe: string | null;
+}
+
+export interface ObjetSocialBloc {
+  titre: string;
+  texte: string;
+}
+
+export interface Associe {
+  nom: string;
+  valeurParts: number;
+  parts: number;
+}
+
+export interface FicheSociete {
+  societeId: string;
+  formeJuridique: string;
+  statutFiscal: string;
+  dateCreation: string | null;
+  capitalInitial: number;
+  partsInitiales: number;
+  valeurNominale: number;
+  objetSocial: ObjetSocialBloc[];
+  associes: Associe[];
+  majLe: string | null;
+}
+
+export interface BlocLibre {
+  titre: string;
+  texte: string;
+}
+
+export interface NotesExercice {
+  societeId: string;
+  exercice: string;
+  texteOverride: string;
+  blocsLibres: BlocLibre[];
+  majLe: string | null;
+}
+
+/** Une ligne du détail par compte (Clients, Fournisseurs, Liquidités...) —
+ * regroupée par compte pour un poste et un exercice donnés. */
+export interface DetailCompteLigne {
+  exercice: string;
+  poste: string;
+  compte: string;
+  libelle: string;
+  solde: number;
+}
+
+// ── Registre d'immobilisations (étape 5) ──
+export type ImmoMasseCategorie = "incorporelle" | "corporelle";
+
+export interface ImmoCategorie {
+  id: string;
+  nom: string;
+  taux: number;
+  masse: ImmoMasseCategorie;
+  majLe: string;
+}
+
+export interface ImmoBien {
+  id: string;
+  societeId: string;
+  categorieId: string;
+  libelle: string;
+  dateAcquisition: string;
+  coutAcquisition: number;
+  taux: number;
+  dateCession: string | null;
+  valeurCession: number;
+  majLe: string;
+}
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  titre: string;
+  corps: string;
+  lien: string;
+  lu: boolean;
+  creeLe: string; // ISO
+}
+
+export type NoeudType = "dossier" | "fichier";
+
+export interface Noeud {
+  id: string;
+  libelle: string;
+  description: string;
+  type: NoeudType;
+  societeId: string | null;
+  parentId: string | null;
+  format?: string; // pdf, xlsx…
+  taille?: string; // "1,2 Mo"
+  /** Contenu encodé (data URL) pour les petits fichiers importés — permet le téléchargement. */
+  dataUrl?: string;
+  creeLe: string;
+  majLe: string;
+}
+
+export type MessageStatut = "envoye" | "lu";
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  auteurId: string; // "me" pour le comptable connecté
+  contenu: string;
+  envoyeLe: string;
+  statut: MessageStatut;
+  pieceJointe?: { noeudId: string; libelle: string };
+}
+
+export type ConversationType = "direct" | "groupe";
+
+export interface Conversation {
+  id: string;
+  type: ConversationType;
+  titre?: string; // groupes
+  membreIds?: string[]; // groupes
+  employeId: string | null; // null pour un groupe
+  societeId: string | null; // conversation directe liée à un dossier/société
+  dernierMessage: string;
+  dernierMessageLe: string;
+  nonLus: number;
+  enLigne: boolean;
+  derniereConnexion?: string | null; // conversation directe : dernière connexion de l'employé
+}
+
+/** Enregistrement serveur d'une conversation de groupe. */
+export interface GroupConversation {
+  id: string;
+  type: "groupe";
+  titre: string;
+  membreIds: string[];
+  creeLe: string;
+}

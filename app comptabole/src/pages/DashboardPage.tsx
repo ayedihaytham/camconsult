@@ -1,0 +1,499 @@
+import { useNavigate } from "react-router-dom";
+import {
+  ArrowUpRight,
+  Building2,
+  FileSpreadsheet,
+  FileText,
+  FolderTree,
+  ListChecks,
+  TrendingUp,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
+import { LedgerSheet, LedgerSheetHeader, LedgerSheetLink } from "@/components/ledger/LedgerSheet";
+import { StatutDot } from "@/components/ledger/StatusDot";
+import { CircularGauge } from "@/components/charts/CircularGauge";
+import { RadialBarChart, type RadialSegment } from "@/components/charts/RadialBarChart";
+import { cn, formatNumber, formatDate, isCurrentMonth } from "@/lib/utils";
+import {
+  useSocietes,
+  useEmployes,
+  useCollaborateurs,
+  useNoeuds,
+  useTaches,
+  useConversations,
+} from "@/store/data";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/store/auth";
+import { employeNomComplet } from "@/data/employes";
+import { TACHE_STATUT_LABELS } from "@/types";
+
+interface Kpi {
+  key: string;
+  label: string;
+  value: number;
+  delta: number;
+  icon: LucideIcon;
+  to: string;
+  ringClassName: string;
+  iconClassName: string;
+}
+
+/** Silhouette carrée + pictogramme dédié au type de fichier — jamais la couleur seule
+ * pour distinguer (voir DESIGN-SYSTEM.md §5). Le format reste aussi affiché en texte. */
+function FileMark({ format }: { format?: string }) {
+  const isSheet = /^(xlsx?|csv|ods)$/i.test(format ?? "");
+  const Icon = isSheet ? FileSpreadsheet : FileText;
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-border text-muted-foreground">
+      <Icon className="h-4 w-4" />
+    </span>
+  );
+}
+
+export function DashboardPage() {
+  const navigate = useNavigate();
+  const { isAdmin, canSeeSociete, employeId } = usePermissions();
+  const allSocietes = useSocietes();
+  const employes = useEmployes();
+  const collaborateurs = useCollaborateurs();
+  const allNoeuds = useNoeuds();
+  const taches = useTaches();
+  const adminName = useAuth((s) => s.session?.cabinetNom ?? "Cabinet");
+
+  const societes = allSocietes.filter((s) => canSeeSociete(s.id));
+  const noeuds = allNoeuds.filter((n) => canSeeSociete(n.societeId));
+  const tachesOuvertes = taches.filter((t) => t.statut !== "termine").length;
+  const conversations = useConversations(
+    isAdmin ? "me" : (employeId ?? "me"),
+  ).filter((c) => isAdmin || c.type === "groupe" || c.employeId === employeId);
+
+  const fichiers = noeuds.filter((n) => n.type === "fichier");
+  const nbFichiers = fichiers.length;
+  const isEmpty =
+    isAdmin &&
+    societes.length === 0 &&
+    collaborateurs.length === 0 &&
+    noeuds.length === 0 &&
+    taches.length === 0;
+
+  const kpis: Kpi[] = [
+    {
+      key: "clients",
+      label: isAdmin ? "Nombre de clients" : "Mes sociétés",
+      value: societes.length,
+      delta: societes.filter((s) => isCurrentMonth(s.creeLe)).length,
+      icon: Building2,
+      to: "/societes",
+      ringClassName: "stroke-chart-1",
+      iconClassName: "bg-chart-1/10 text-chart-1",
+    },
+    {
+      key: "fichiers",
+      label: "Nombre de fichiers",
+      value: nbFichiers,
+      delta: fichiers.filter((n) => isCurrentMonth(n.creeLe)).length,
+      icon: FileText,
+      to: "/structuration",
+      ringClassName: "stroke-chart-3",
+      iconClassName: "bg-chart-3/10 text-chart-3",
+    },
+    ...(isAdmin
+      ? [
+          {
+            key: "collaborateurs",
+            label: "Collaborateurs",
+            value: collaborateurs.length,
+            delta: collaborateurs.filter((e) => isCurrentMonth(e.creeLe))
+              .length,
+            icon: Users,
+            to: "/employes",
+            ringClassName: "stroke-chart-4",
+            iconClassName: "bg-chart-4/10 text-chart-4",
+          },
+        ]
+      : []),
+    {
+      key: "taches",
+      label: isAdmin ? "Tâches en cours" : "Mes tâches à faire",
+      value: tachesOuvertes,
+      delta: taches.filter((t) => isCurrentMonth(t.creeLe)).length,
+      icon: ListChecks,
+      to: "/taches",
+      ringClassName: "stroke-chart-2",
+      iconClassName: "bg-chart-2/10 text-chart-2",
+    },
+  ];
+  const kpiMax = Math.max(1, ...kpis.map((k) => k.value));
+
+  const themeCounts = societes.reduce<Record<string, number>>((acc, s) => {
+    acc[s.theme] = (acc[s.theme] ?? 0) + 1;
+    return acc;
+  }, {});
+  const themeEntries = Object.entries(themeCounts).sort((a, b) => b[1] - a[1]);
+  const RADIAL_COLORS = ["stroke-chart-1", "stroke-chart-2", "stroke-chart-3", "stroke-chart-4", "stroke-chart-5"];
+  const DOT_COLORS = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"];
+  const themeSegments: RadialSegment[] = themeEntries.map(([theme, count], i) => ({
+    label: theme,
+    value: count,
+    colorClassName: RADIAL_COLORS[i % RADIAL_COLORS.length],
+  }));
+
+  const recentFiles = [...noeuds]
+    .filter((n) => n.type === "fichier")
+    .sort((a, b) => b.majLe.localeCompare(a.majLe))
+    .slice(0, 5);
+
+  const recentConversations = [...conversations]
+    .sort((a, b) => b.dernierMessageLe.localeCompare(a.dernierMessageLe))
+    .slice(0, 4);
+
+  const actifs = societes.filter((s) => s.statut === "actif").length;
+
+  const tacheParStatut = {
+    a_faire: taches.filter((t) => t.statut === "a_faire").length,
+    en_cours: taches.filter((t) => t.statut === "en_cours").length,
+    termine: taches.filter((t) => t.statut === "termine").length,
+  };
+  const chargeParCollaborateur = collaborateurs
+    .map((c) => {
+      const list = taches.filter((t) => t.assigneId === c.id);
+      const done = list.filter((t) => t.statut === "termine").length;
+      return { c, total: list.length, done };
+    })
+    .filter((x) => x.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
+  return (
+    <div>
+      <LedgerPageHeader
+        title="Tableau de bord"
+        description="Vue d'ensemble de l'activité du cabinet."
+      />
+
+      {/* KPI — jauges circulaires ; la progression encode value/max du
+          groupe affiché (pas un pourcentage inventé), la couleur n'est
+          jamais le seul repère puisque le libellé et la valeur restent en
+          texte à côté. */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <button
+              key={kpi.key}
+              onClick={() => navigate(kpi.to)}
+              className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card p-5 text-center shadow-card transition-shadow hover:shadow-card-hover"
+            >
+              <CircularGauge
+                progress={kpi.value / kpiMax}
+                colorClassName={kpi.ringClassName}
+                size={104}
+                strokeWidth={9}
+              >
+                <span className="flex flex-col items-center">
+                  <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl", kpi.iconClassName)}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="mt-1 text-xl font-extrabold tabular-nums tracking-tight text-foreground">
+                    {formatNumber(kpi.value)}
+                  </span>
+                </span>
+              </CircularGauge>
+              <span className="text-sm font-semibold text-foreground">{kpi.label}</span>
+              {kpi.delta > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <TrendingUp className="h-3 w-3 text-success" aria-hidden />
+                  +{kpi.delta} ce mois-ci
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {isEmpty ? (
+        <LedgerSheet className="mt-7">
+          <div className="p-8">
+            <h2 className="text-base font-semibold text-foreground">
+              Bienvenue — commençons la configuration
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Aucune donnée n'est encore enregistrée. Créez vos premières fiches
+              pour alimenter le cabinet.
+            </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <OnboardingStep
+                icon={Building2}
+                title="Ajouter des sociétés"
+                desc="Enregistrez vos clients et leurs accès."
+                onClick={() => navigate("/societes")}
+              />
+              <OnboardingStep
+                icon={Users}
+                title="Ajouter des collaborateurs"
+                desc="Créez les comptes de votre équipe."
+                onClick={() => navigate("/employes")}
+              />
+              <OnboardingStep
+                icon={FolderTree}
+                title="Structurer les dossiers"
+                desc="Montez l'arborescence documentaire."
+                onClick={() => navigate("/structuration")}
+              />
+            </div>
+          </div>
+        </LedgerSheet>
+      ) : (
+        <>
+          <div className="mt-7 grid gap-5 lg:grid-cols-3">
+            <LedgerSheet>
+              <LedgerSheetHeader title="Répartition des clients" />
+              <div className="space-y-4 p-[18px]">
+                {themeEntries.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Aucune société enregistrée.
+                  </p>
+                )}
+                {themeEntries.length > 0 && (
+                  <div className="flex items-center gap-5">
+                    <RadialBarChart segments={themeSegments} size={132} strokeWidth={9} gap={3} />
+                    <div className="flex-1 space-y-1.5">
+                      {themeEntries.map(([theme, count], i) => (
+                        <div key={theme} className="flex items-center justify-between gap-3 text-sm">
+                          <span className="flex items-center gap-2 text-muted-foreground">
+                            <span className={cn("h-2 w-2 shrink-0 rounded-full", DOT_COLORS[i % DOT_COLORS.length])} />
+                            {theme}
+                          </span>
+                          <span className="font-bold tabular-nums text-foreground">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {societes.length > 0 && (
+                  <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
+                    <span className="text-muted-foreground">
+                      Sociétés actives
+                    </span>
+                    <span className="font-bold tabular-nums text-foreground">
+                      {actifs} / {societes.length}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </LedgerSheet>
+
+            <LedgerSheet>
+              <LedgerSheetHeader
+                title="Fichiers récents"
+                action={
+                  <LedgerSheetLink onClick={() => navigate("/structuration")}>
+                    Tout voir
+                  </LedgerSheetLink>
+                }
+              />
+              <div className="p-1.5">
+                {recentFiles.length === 0 && (
+                  <p className="px-3 py-2.5 text-sm text-muted-foreground">
+                    Aucun fichier.
+                  </p>
+                )}
+                {recentFiles.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => navigate("/structuration")}
+                    className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                  >
+                    <FileMark format={f.format} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-foreground">
+                        {f.libelle}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        Modifié le {formatDate(f.majLe)}
+                      </span>
+                    </span>
+                    {f.format && (
+                      <span className="shrink-0 text-[0.68rem] font-bold uppercase tracking-wide text-muted-foreground">
+                        {f.format}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </LedgerSheet>
+
+            <LedgerSheet>
+              <LedgerSheetHeader
+                title="Échanges récents"
+                action={
+                  <LedgerSheetLink onClick={() => navigate("/messagerie")}>
+                    Ouvrir
+                  </LedgerSheetLink>
+                }
+              />
+              <div className="p-1.5">
+                {recentConversations.length === 0 && (
+                  <p className="px-3 py-2.5 text-sm text-muted-foreground">
+                    Aucune conversation.
+                  </p>
+                )}
+                {recentConversations.map((c) => {
+                  const emp = employes.find((e) => e.id === c.employeId);
+                  const label =
+                    c.type === "groupe"
+                      ? (c.titre ?? "Groupe")
+                      : isAdmin
+                        ? emp
+                          ? employeNomComplet(emp)
+                          : "—"
+                        : adminName;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => navigate("/messagerie")}
+                      className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                    >
+                      {/* Cercle = personne, carré arrondi = groupe (silhouette,
+                          pas seulement la couleur — voir DESIGN-SYSTEM.md §5) */}
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center border border-border text-xs font-bold text-foreground",
+                          c.type === "groupe" ? "rounded-[9px]" : "rounded-full",
+                        )}
+                      >
+                        {label.slice(0, 2).toUpperCase()}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-foreground">
+                          {label}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {c.dernierMessage}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </LedgerSheet>
+          </div>
+
+          {isAdmin && taches.length > 0 && (
+            <LedgerSheet className="mt-7">
+              <LedgerSheetHeader
+                title="Avancement des tâches"
+                action={
+                  <LedgerSheetLink onClick={() => navigate("/taches")}>
+                    Ouvrir les tâches
+                  </LedgerSheetLink>
+                }
+              />
+              <div className="grid grid-cols-3 divide-x divide-border">
+                {(["a_faire", "en_cours", "termine"] as const).map((k) => (
+                  <div key={k} className="px-3 py-4 text-center">
+                    <p className="text-2xl font-extrabold tabular-nums text-foreground">
+                      {tacheParStatut[k]}
+                    </p>
+                    <p className="mt-0.5 text-[0.72rem] font-bold uppercase tracking-wide text-muted-foreground">
+                      {TACHE_STATUT_LABELS[k]}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {chargeParCollaborateur.length > 0 && (
+                <div className="space-y-3 border-t border-border p-[18px]">
+                  {chargeParCollaborateur.map(({ c, total, done }) => (
+                    <div key={c.id}>
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {c.prenom} {c.nom}
+                        </span>
+                        <span className="font-bold tabular-nums text-foreground">
+                          {done}/{total}
+                        </span>
+                      </div>
+                      <div className="h-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{
+                            width: `${total ? (done / total) * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </LedgerSheet>
+          )}
+
+          {societes.length > 0 && (
+            <LedgerSheet className="mt-7">
+              <LedgerSheetHeader
+                title="Dernières sociétés ajoutées"
+                action={
+                  <LedgerSheetLink onClick={() => navigate("/societes")}>
+                    Voir toutes les sociétés
+                  </LedgerSheetLink>
+                }
+              />
+              <div>
+                {[...societes]
+                  .sort((a, b) => b.creeLe.localeCompare(a.creeLe))
+                  .slice(0, 3)
+                  .map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => navigate("/societes")}
+                      className="flex w-full items-center justify-between gap-3 border-b border-border px-[18px] py-3 text-left transition-colors last:border-b-0 hover:bg-primary/[0.03]"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-foreground">
+                          {s.raisonSociale}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {s.code} · Ajoutée le {formatDate(s.creeLe)}
+                        </span>
+                      </span>
+                      <StatutDot statut={s.statut} />
+                    </button>
+                  ))}
+              </div>
+            </LedgerSheet>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function OnboardingStep({
+  icon: Icon,
+  title,
+  desc,
+  onClick,
+}: {
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-start gap-2 rounded-sm border border-border p-4 text-left transition-colors hover:border-accent/40 hover:bg-muted"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-[9px] border border-primary/30 text-primary">
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="text-sm font-medium text-foreground">{title}</span>
+      <span className="text-xs text-muted-foreground">{desc}</span>
+      <span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-foreground">
+        Commencer <ArrowUpRight className="h-3.5 w-3.5 text-accent" />
+      </span>
+    </button>
+  );
+}

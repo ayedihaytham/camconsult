@@ -1,0 +1,19 @@
+# Tunnel Cloudflare : publie l'application sur https://camconsult.com.tn
+# sans IP publique ni ouverture de port sur la box.
+#
+# À utiliser EN PLUS du stack principal :
+#   docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
+#
+# Prérequis : un jeton de tunnel Cloudflare dans .env  ->  CLOUDFLARE_TUNNEL_TOKEN=...
+# (voir DEPLOIEMENT-DOMAINE-CLOUDFLARE.md)
+
+name: camconsult
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: camconsult-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Definissez CLOUDFLARE_TUNNEL_TOKEN dans .env}
+    depends_on:
+      - app

@@ -60,7 +60,10 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
 
   watchtower:
-    image: containrrr/watchtower
+    # containrrr/watchtower est archivé (client Docker embarqué trop ancien
+    # pour les moteurs Docker récents) ; nickfedor/watchtower est le fork
+    # activement maintenu qui le remplace.
+    image: nickfedor/watchtower
     container_name: watchtower
     restart: unless-stopped
     volumes:

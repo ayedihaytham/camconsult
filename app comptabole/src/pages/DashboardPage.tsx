@@ -10,7 +10,6 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet, LedgerSheetHeader, LedgerSheetLink } from "@/components/ledger/LedgerSheet";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { CircularGauge } from "@/components/charts/CircularGauge";
@@ -38,6 +37,20 @@ interface Kpi {
   to: string;
   ringClassName: string;
   iconClassName: string;
+  barClassName: string;
+}
+
+const TODAY_LABEL = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+}).format(new Date());
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Bonjour";
+  if (h < 18) return "Bon après-midi";
+  return "Bonsoir";
 }
 
 /** Silhouette carrée + pictogramme dédié au type de fichier — jamais la couleur seule
@@ -61,6 +74,8 @@ export function DashboardPage() {
   const allNoeuds = useNoeuds();
   const taches = useTaches();
   const adminName = useAuth((s) => s.session?.cabinetNom ?? "Cabinet");
+  const sessionNom = useAuth((s) => s.session?.nom ?? "");
+  const prenom = sessionNom.split(" ")[0] || "";
 
   const societes = allSocietes.filter((s) => canSeeSociete(s.id));
   const noeuds = allNoeuds.filter((n) => canSeeSociete(n.societeId));
@@ -88,6 +103,7 @@ export function DashboardPage() {
       to: "/societes",
       ringClassName: "stroke-chart-1",
       iconClassName: "bg-chart-1/10 text-chart-1",
+      barClassName: "bg-chart-1",
     },
     {
       key: "fichiers",
@@ -98,6 +114,7 @@ export function DashboardPage() {
       to: "/structuration",
       ringClassName: "stroke-chart-3",
       iconClassName: "bg-chart-3/10 text-chart-3",
+      barClassName: "bg-chart-3",
     },
     ...(isAdmin
       ? [
@@ -111,6 +128,7 @@ export function DashboardPage() {
             to: "/employes",
             ringClassName: "stroke-chart-4",
             iconClassName: "bg-chart-4/10 text-chart-4",
+            barClassName: "bg-chart-4",
           },
         ]
       : []),
@@ -123,6 +141,7 @@ export function DashboardPage() {
       to: "/taches",
       ringClassName: "stroke-chart-2",
       iconClassName: "bg-chart-2/10 text-chart-2",
+      barClassName: "bg-chart-2",
     },
   ];
   const kpiMax = Math.max(1, ...kpis.map((k) => k.value));
@@ -168,10 +187,33 @@ export function DashboardPage() {
 
   return (
     <div>
-      <LedgerPageHeader
-        title="Tableau de bord"
-        description="Vue d'ensemble de l'activité du cabinet."
-      />
+      {/* Bandeau d'accueil — identité de marque (marine + or), personnalisé
+          plutôt qu'un simple titre de page générique. */}
+      <div className="relative mb-6 overflow-hidden rounded-3xl bg-primary px-6 py-7 text-primary-foreground sm:px-8 sm:py-8">
+        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+          <div className="absolute -right-16 -top-24 size-72 rounded-full border border-accent/25" />
+          <div className="absolute -right-4 top-10 size-40 rounded-full border border-accent/15" />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(circle at 88% 15%, hsl(var(--accent) / 0.18), transparent 48%)",
+            }}
+          />
+        </div>
+        <div className="relative">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-accent">
+            {TODAY_LABEL}
+          </p>
+          <h1 className="mt-2 font-serif text-[1.9rem] font-bold leading-tight sm:text-[2.15rem]">
+            {greeting()}
+            {prenom ? `, ${prenom}` : ""}
+          </h1>
+          <p className="mt-1.5 max-w-md text-sm text-primary-foreground/70">
+            Vue d'ensemble de l'activité du cabinet.
+          </p>
+        </div>
+      </div>
 
       {/* KPI — jauges circulaires ; la progression encode value/max du
           groupe affiché (pas un pourcentage inventé), la couleur n'est
@@ -184,26 +226,37 @@ export function DashboardPage() {
             <button
               key={kpi.key}
               onClick={() => navigate(kpi.to)}
-              className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-card p-5 text-center shadow-card transition-shadow hover:shadow-card-hover"
+              className="group relative overflow-hidden rounded-2xl border border-border bg-card p-5 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
             >
-              <CircularGauge
-                progress={kpi.value / kpiMax}
-                colorClassName={kpi.ringClassName}
-                size={104}
-                strokeWidth={9}
-              >
-                <span className="flex flex-col items-center">
-                  <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl", kpi.iconClassName)}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="mt-1 text-xl font-extrabold tabular-nums tracking-tight text-foreground">
-                    {formatNumber(kpi.value)}
-                  </span>
+              <span
+                className={cn("absolute inset-x-0 top-0 h-[3px]", kpi.barClassName)}
+                aria-hidden="true"
+              />
+              <div className="flex items-start justify-between">
+                <span
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105",
+                    kpi.iconClassName,
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
                 </span>
-              </CircularGauge>
-              <span className="text-sm font-semibold text-foreground">{kpi.label}</span>
+                <CircularGauge
+                  progress={kpi.value / kpiMax}
+                  colorClassName={kpi.ringClassName}
+                  trackClassName="stroke-border"
+                  size={38}
+                  strokeWidth={4}
+                />
+              </div>
+              <p className="mt-4 text-[1.75rem] font-extrabold tabular-nums leading-none tracking-tight text-foreground">
+                {formatNumber(kpi.value)}
+              </p>
+              <p className="mt-1.5 text-sm font-medium text-muted-foreground">
+                {kpi.label}
+              </p>
               {kpi.delta > 0 && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
                   <TrendingUp className="h-3 w-3 text-success" aria-hidden />
                   +{kpi.delta} ce mois-ci
                 </span>
@@ -215,28 +268,34 @@ export function DashboardPage() {
 
       {isEmpty ? (
         <LedgerSheet className="mt-7">
-          <div className="p-8">
-            <h2 className="text-base font-semibold text-foreground">
+          <div className="p-6 sm:p-8">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary/70">
+              Premiers pas
+            </p>
+            <h2 className="mt-1.5 font-serif text-2xl font-bold text-foreground">
               Bienvenue — commençons la configuration
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1.5 text-sm text-muted-foreground">
               Aucune donnée n'est encore enregistrée. Créez vos premières fiches
               pour alimenter le cabinet.
             </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
               <OnboardingStep
+                index="01"
                 icon={Building2}
                 title="Ajouter des sociétés"
                 desc="Enregistrez vos clients et leurs accès."
                 onClick={() => navigate("/societes")}
               />
               <OnboardingStep
+                index="02"
                 icon={Users}
                 title="Ajouter des collaborateurs"
                 desc="Créez les comptes de votre équipe."
                 onClick={() => navigate("/employes")}
               />
               <OnboardingStep
+                index="03"
                 icon={FolderTree}
                 title="Structurer les dossiers"
                 desc="Montez l'arborescence documentaire."
@@ -471,11 +530,13 @@ export function DashboardPage() {
 }
 
 function OnboardingStep({
+  index,
   icon: Icon,
   title,
   desc,
   onClick,
 }: {
+  index: string;
   icon: LucideIcon;
   title: string;
   desc: string;
@@ -484,15 +545,22 @@ function OnboardingStep({
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-start gap-2 rounded-sm border border-border p-4 text-left transition-colors hover:border-accent/40 hover:bg-muted"
+      className="group relative flex flex-col items-start gap-2 overflow-hidden rounded-2xl border border-border p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-card-hover"
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-[9px] border border-primary/30 text-primary">
+      <span
+        className="pointer-events-none absolute -right-1 -top-3 select-none font-serif text-6xl font-bold text-primary/[0.06]"
+        aria-hidden="true"
+      >
+        {index}
+      </span>
+      <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
         <Icon className="h-5 w-5" />
       </span>
-      <span className="text-sm font-medium text-foreground">{title}</span>
-      <span className="text-xs text-muted-foreground">{desc}</span>
-      <span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-foreground">
-        Commencer <ArrowUpRight className="h-3.5 w-3.5 text-accent" />
+      <span className="relative text-sm font-semibold text-foreground">{title}</span>
+      <span className="relative text-xs text-muted-foreground">{desc}</span>
+      <span className="relative mt-1 inline-flex items-center gap-1 text-xs font-bold text-foreground">
+        Commencer
+        <ArrowUpRight className="h-3.5 w-3.5 text-accent transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </span>
     </button>
   );

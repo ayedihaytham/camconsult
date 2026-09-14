@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { LedgerSheet, LedgerSheetHeader, LedgerSheetLink } from "@/components/ledger/LedgerSheet";
 import { StatutDot } from "@/components/ledger/StatusDot";
-import { CircularGauge } from "@/components/charts/CircularGauge";
 import { RadialBarChart, type RadialSegment } from "@/components/charts/RadialBarChart";
 import { cn, formatNumber, formatDate, isCurrentMonth } from "@/lib/utils";
 import {
@@ -35,7 +34,6 @@ interface Kpi {
   delta: number;
   icon: LucideIcon;
   to: string;
-  ringClassName: string;
   iconClassName: string;
   barClassName: string;
 }
@@ -101,7 +99,6 @@ export function DashboardPage() {
       delta: societes.filter((s) => isCurrentMonth(s.creeLe)).length,
       icon: Building2,
       to: "/societes",
-      ringClassName: "stroke-chart-1",
       iconClassName: "bg-chart-1/10 text-chart-1",
       barClassName: "bg-chart-1",
     },
@@ -112,7 +109,6 @@ export function DashboardPage() {
       delta: fichiers.filter((n) => isCurrentMonth(n.creeLe)).length,
       icon: FileText,
       to: "/structuration",
-      ringClassName: "stroke-chart-3",
       iconClassName: "bg-chart-3/10 text-chart-3",
       barClassName: "bg-chart-3",
     },
@@ -126,7 +122,6 @@ export function DashboardPage() {
               .length,
             icon: Users,
             to: "/employes",
-            ringClassName: "stroke-chart-4",
             iconClassName: "bg-chart-4/10 text-chart-4",
             barClassName: "bg-chart-4",
           },
@@ -139,13 +134,10 @@ export function DashboardPage() {
       delta: taches.filter((t) => isCurrentMonth(t.creeLe)).length,
       icon: ListChecks,
       to: "/taches",
-      ringClassName: "stroke-chart-2",
       iconClassName: "bg-chart-2/10 text-chart-2",
       barClassName: "bg-chart-2",
     },
   ];
-  const kpiMax = Math.max(1, ...kpis.map((k) => k.value));
-
   const themeCounts = societes.reduce<Record<string, number>>((acc, s) => {
     acc[s.theme] = (acc[s.theme] ?? 0) + 1;
     return acc;
@@ -191,6 +183,14 @@ export function DashboardPage() {
           plutôt qu'un simple titre de page générique. */}
       <div className="relative mb-6 overflow-hidden rounded-3xl bg-primary px-6 py-7 text-primary-foreground sm:px-8 sm:py-8">
         <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+          {/* Motif géométrique discret — filet diagonal fin, sous les cercles */}
+          <div
+            className="absolute inset-0 opacity-[0.05]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(135deg, hsl(var(--accent)) 0, hsl(var(--accent)) 1px, transparent 1px, transparent 22px)",
+            }}
+          />
           <div className="absolute -right-16 -top-24 size-72 rounded-full border border-accent/25" />
           <div className="absolute -right-4 top-10 size-40 rounded-full border border-accent/15" />
           <div
@@ -209,7 +209,7 @@ export function DashboardPage() {
             {greeting()}
             {prenom ? `, ${prenom}` : ""}
           </h1>
-          <p className="mt-1.5 max-w-md text-sm text-primary-foreground/70">
+          <p className="mt-1.5 max-w-md text-sm text-primary-foreground/80">
             Vue d'ensemble de l'activité du cabinet.
           </p>
         </div>
@@ -232,22 +232,21 @@ export function DashboardPage() {
                 className={cn("absolute inset-x-0 top-0 h-[3px]", kpi.barClassName)}
                 aria-hidden="true"
               />
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <span
                   className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105",
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105",
                     kpi.iconClassName,
                   )}
                 >
                   <Icon className="h-5 w-5" />
                 </span>
-                <CircularGauge
-                  progress={kpi.value / kpiMax}
-                  colorClassName={kpi.ringClassName}
-                  trackClassName="stroke-border"
-                  size={38}
-                  strokeWidth={4}
-                />
+                {kpi.delta > 0 && (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success/10 px-2 py-1 text-xs font-bold text-success">
+                    <TrendingUp className="h-3 w-3" aria-hidden />
+                    +{kpi.delta}
+                  </span>
+                )}
               </div>
               <p className="mt-4 text-[1.75rem] font-extrabold tabular-nums leading-none tracking-tight text-foreground">
                 {formatNumber(kpi.value)}
@@ -256,10 +255,9 @@ export function DashboardPage() {
                 {kpi.label}
               </p>
               {kpi.delta > 0 && (
-                <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-                  <TrendingUp className="h-3 w-3 text-success" aria-hidden />
+                <p className="mt-2 text-[0.72rem] text-muted-foreground/80">
                   +{kpi.delta} ce mois-ci
-                </span>
+                </p>
               )}
             </button>
           );
@@ -545,15 +543,15 @@ function OnboardingStep({
   return (
     <button
       onClick={onClick}
-      className="group relative flex flex-col items-start gap-2 overflow-hidden rounded-2xl border border-border p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-card-hover"
+      className="group relative flex flex-col items-start gap-2 overflow-hidden rounded-2xl border border-border bg-card p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent/[0.03] hover:shadow-card-hover"
     >
       <span
-        className="pointer-events-none absolute -right-1 -top-3 select-none font-serif text-6xl font-bold text-primary/[0.06]"
+        className="pointer-events-none absolute -right-2 -top-2 select-none font-serif text-4xl font-bold text-primary/[0.05] transition-colors duration-200 group-hover:text-accent/[0.12]"
         aria-hidden="true"
       >
         {index}
       </span>
-      <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+      <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors duration-200 group-hover:bg-primary group-hover:text-accent">
         <Icon className="h-5 w-5" />
       </span>
       <span className="relative text-sm font-semibold text-foreground">{title}</span>

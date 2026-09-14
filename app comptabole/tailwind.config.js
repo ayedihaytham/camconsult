@@ -76,6 +76,7 @@ export default {
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar))",
+          deep: "hsl(var(--sidebar-deep))",
           foreground: "hsl(var(--sidebar-foreground))",
           muted: "hsl(var(--sidebar-muted))",
           border: "hsl(var(--sidebar-border))",

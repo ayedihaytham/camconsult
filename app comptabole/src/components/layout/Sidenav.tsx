@@ -223,15 +223,25 @@ export function Sidenav() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col bg-sidebar text-sidebar-foreground transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 no-print",
+          "fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col overflow-hidden bg-gradient-to-b from-sidebar to-sidebar-deep text-sidebar-foreground transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 no-print",
           collapsed ? "lg:w-20" : "lg:w-[272px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
+        {/* Halo décoratif — évite l'aplat plat, écho aux motifs du site vitrine */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-56 opacity-70"
+          style={{
+            background:
+              "radial-gradient(120% 100% at 20% 0%, hsl(var(--sidebar-accent) / 0.12), transparent 60%)",
+          }}
+          aria-hidden="true"
+        />
+
         {/* Marque */}
         <div
           className={cn(
-            "flex h-20 shrink-0 items-center gap-3",
+            "relative flex h-20 shrink-0 items-center gap-3",
             showLabels ? "px-5" : "justify-center",
           )}
         >
@@ -252,16 +262,18 @@ export function Sidenav() {
             </span>
           )}
         </div>
-        <div className="mx-5 h-px shrink-0 bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+        <nav className="relative flex-1 space-y-6 overflow-y-auto px-3 py-4">
           {groups.map((group, gi) => (
             <div key={group.label ?? `g${gi}`}>
               {showLabels && group.label && (
-                <p className="mb-1.5 px-2.5 text-[0.66rem] font-bold uppercase tracking-[0.12em] text-sidebar-muted/70">
-                  {group.label}
-                </p>
+                <div className="mb-2 mt-1 flex items-center gap-2 px-2.5">
+                  <p className="shrink-0 text-[0.66rem] font-bold uppercase tracking-[0.14em] text-sidebar-muted/60">
+                    {group.label}
+                  </p>
+                  <span className="h-px flex-1 bg-gradient-to-r from-sidebar-border/70 to-transparent" />
+                </div>
               )}
               <div className="space-y-0.5">
                 {group.items.map((item) => {
@@ -329,7 +341,7 @@ export function Sidenav() {
                             "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors",
                             active
                               ? "text-sidebar-accent"
-                              : "text-sidebar-muted hover:bg-white/5 hover:text-white",
+                              : "text-sidebar-muted hover:bg-sidebar-accent/10 hover:text-white",
                           )}
                         >
                           <Icon className="h-[18px] w-[18px] shrink-0" />
@@ -354,7 +366,7 @@ export function Sidenav() {
                                     "block truncate rounded-lg px-2.5 py-1.5 text-[0.83rem] transition-colors",
                                     isActive
                                       ? "font-semibold text-sidebar-accent"
-                                      : "text-sidebar-muted hover:bg-white/5 hover:text-white",
+                                      : "text-sidebar-muted hover:bg-sidebar-accent/10 hover:text-white",
                                   )
                                 }
                               >
@@ -386,8 +398,8 @@ export function Sidenav() {
                         cn(
                           "relative flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors",
                           isActive
-                            ? "bg-sidebar-accent/15 text-sidebar-accent"
-                            : "text-sidebar-muted hover:bg-white/5 hover:text-white",
+                            ? "bg-gradient-to-r from-sidebar-accent/20 via-sidebar-accent/8 to-transparent text-sidebar-accent"
+                            : "text-sidebar-muted hover:bg-sidebar-accent/10 hover:text-white",
                         )
                       }
                     >
@@ -422,7 +434,7 @@ export function Sidenav() {
             <button
               type="button"
               onClick={toggleCollapsed}
-              className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-white/5 hover:text-white"
+              className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-accent/10 hover:text-white"
             >
               <ChevronsLeft className="h-[18px] w-[18px] shrink-0" />
               Réduire
@@ -433,7 +445,7 @@ export function Sidenav() {
                 <button
                   type="button"
                   onClick={toggleCollapsed}
-                  className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl text-sidebar-muted transition-colors hover:bg-white/5 hover:text-white"
+                  className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl text-sidebar-muted transition-colors hover:bg-sidebar-accent/10 hover:text-white"
                   aria-label="Déplier le menu"
                 >
                   <ChevronsRight className="h-4 w-4" />
@@ -466,8 +478,8 @@ function RailIcon({
           className={cn(
             "relative mx-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200",
             active
-              ? "bg-sidebar-accent/15 text-sidebar-accent"
-              : "text-sidebar-muted hover:bg-white/5 hover:text-white",
+              ? "bg-gradient-to-r from-sidebar-accent/20 via-sidebar-accent/8 to-transparent text-sidebar-accent"
+              : "text-sidebar-muted hover:bg-sidebar-accent/10 hover:text-white",
           )}
         >
           {active && (

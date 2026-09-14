@@ -52,19 +52,24 @@
     /* Ledger Rule : filet renforcé toutes les 5 lignes des tableaux denses. */
     --rule-strong: 215 18% 74%;
 
-    /* Palette graphiques (jauges, anneaux) — 5 teintes distinctes dérivées
-       de primary/accent + 2 teintes additionnelles, jamais la couleur seule
-       pour distinguer une série (toujours accompagnée d'une légende). */
-    --chart-1: 211 68% 18%;
-    --chart-2: 211 90% 55%;
-    --chart-3: 160 84% 33%;
-    --chart-4: 172 66% 40%;
-    --chart-5: 215 16% 65%;
+    /* Palette graphiques (jauges, anneaux, badges) — 5 teintes harmonisées
+       (même famille de saturation/luminosité « sobre », jamais un aplat vif
+       façon SaaS générique), dérivées de primary/accent + 3 teintes
+       additionnelles assez sombres pour rester lisibles en texte (badges).
+       Jamais la couleur seule pour distinguer une série (toujours accompagnée
+       d'une légende/d'un libellé). */
+    --chart-1: 213 72% 16%; /* marine — identique à --primary */
+    --chart-2: 211 55% 42%; /* bleu ardoise sourd */
+    --chart-3: 160 45% 32%; /* vert sauge sourd */
+    --chart-4: 172 40% 34%; /* sarcelle sourde */
+    --chart-5: 280 28% 40%; /* prune sourde — écho luxe navy/or */
 
     --radius: 0.625rem;
 
-    /* Sidenav — bleu marine profond */
+    /* Sidenav — bleu marine profond, dégradé subtil (haut → bas) plutôt
+       qu'un aplat plat : --sidebar-deep est le point d'arrivée du dégradé. */
     --sidebar: 213 60% 13%;
+    --sidebar-deep: 213 65% 9%;
     --sidebar-foreground: 210 30% 88%;
     --sidebar-muted: 211 30% 62%;
     --sidebar-border: 212 44% 20%;

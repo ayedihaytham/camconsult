@@ -268,7 +268,7 @@ export function Sidenav() {
         </div>
 
         {/* Navigation */}
-        <nav className="relative flex-1 space-y-6 overflow-y-auto px-3 py-4">
+        <nav className="no-scrollbar relative flex-1 space-y-6 overflow-y-auto px-3 py-4">
           {groups.map((group, gi) => (
             <div key={group.label ?? `g${gi}`}>
               {showLabels && group.label && (

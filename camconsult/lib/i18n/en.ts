@@ -22,6 +22,7 @@ const en: Dictionary = {
     mobileNavLabel: 'Mobile navigation',
     openMenu: 'Open menu',
     closeMenu: 'Close menu',
+    backToTop: 'Back to top',
   },
 
   footer: {

@@ -20,6 +20,7 @@ const fr = {
     mobileNavLabel: 'Navigation mobile',
     openMenu: 'Ouvrir le menu',
     closeMenu: 'Fermer le menu',
+    backToTop: 'Haut de page',
   },
 
   footer: {

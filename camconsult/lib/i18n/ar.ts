@@ -22,6 +22,7 @@ const ar: Dictionary = {
     mobileNavLabel: 'التنقل للجوال',
     openMenu: 'فتح القائمة',
     closeMenu: 'إغلاق القائمة',
+    backToTop: 'العودة إلى الأعلى',
   },
 
   footer: {

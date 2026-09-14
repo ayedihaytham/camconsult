@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import { LOCALES, isLang, getDictionary } from '@/lib/i18n'
+import { BackToTop } from '@/components/back-to-top'
 import '../globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -27,11 +28,13 @@ export default async function RootLayout({
   const { lang } = await params
   if (!isLang(lang)) notFound()
   const dir = lang === 'ar' ? 'rtl' : 'ltr'
+  const dict = getDictionary(lang)
 
   return (
     <html lang={lang} dir={dir}>
       <body className={`${inter.variable} ${playfair.variable} antialiased`}>
         {children}
+        <BackToTop label={dict.nav.backToTop} />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

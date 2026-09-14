@@ -290,7 +290,11 @@ export function Sidenav() {
                       return (
                         <DropdownMenu key={item.label}>
                           <DropdownMenuTrigger asChild>
-                            <button type="button" className="block w-full">
+                            <button
+                              type="button"
+                              className="block w-full"
+                              aria-label={item.label}
+                            >
                               <RailIcon icon={Icon} label={item.label} active={active} />
                             </button>
                           </DropdownMenuTrigger>
@@ -311,7 +315,7 @@ export function Sidenav() {
                                   cn(
                                     "block rounded-xl px-3 py-2 text-sm transition-colors",
                                     isActive
-                                      ? "bg-accent/10 font-semibold text-accent"
+                                      ? "bg-primary/8 font-semibold text-primary"
                                       : "text-foreground/80 hover:bg-secondary hover:text-foreground",
                                   )
                                 }
@@ -381,7 +385,12 @@ export function Sidenav() {
 
                   if (!showLabels) {
                     return (
-                      <NavLink key={item.to} to={item.to!} end={item.to === "/"}>
+                      <NavLink
+                        key={item.to}
+                        to={item.to!}
+                        end={item.to === "/"}
+                        aria-label={item.label}
+                      >
                         {({ isActive }) => (
                           <RailIcon icon={Icon} label={item.label} active={isActive} badge={badge} />
                         )}

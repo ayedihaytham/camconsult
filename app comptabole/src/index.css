@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap");
+/* Polices chargées via <link rel="preconnect"/"stylesheet"> dans index.html
+   (plus rapide qu'un @import CSS, qui bloque le rendu). */
 
 @tailwind base;
 @tailwind components;

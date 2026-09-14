@@ -154,14 +154,23 @@ export function Sidenav() {
         )}
       >
         {/* Marque — monogramme CAMCONSULT */}
-        <div className="flex h-20 items-center justify-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-sidebar-accent text-sidebar-accent">
+        <div className="flex h-20 shrink-0 items-center justify-center">
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-sidebar-accent text-sidebar-accent">
             <span className="font-serif text-lg font-bold">C</span>
+            <div
+              className="absolute inset-0 rounded-full opacity-30"
+              style={{
+                background:
+                  "radial-gradient(circle, hsl(var(--sidebar-accent)) 0%, transparent 70%)",
+              }}
+              aria-hidden="true"
+            />
           </div>
         </div>
+        <div className="mx-5 h-px shrink-0 bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3.5 py-2">
+        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3.5 py-3">
           {nav.map((item) => {
             const Icon = item.icon;
             const badge =
@@ -240,12 +249,18 @@ function RailIcon({
       <TooltipTrigger asChild>
         <span
           className={cn(
-            "relative mx-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-colors",
+            "relative mx-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200",
             active
-              ? "bg-sidebar-accent/20 text-sidebar-accent ring-1 ring-sidebar-accent/40"
+              ? "bg-sidebar-accent/15 text-sidebar-accent"
               : "text-sidebar-muted hover:bg-white/5 hover:text-white",
           )}
         >
+          {active && (
+            <span
+              className="absolute -left-3.5 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-accent"
+              aria-hidden="true"
+            />
+          )}
           <Icon className="h-5 w-5" />
           {badge ? (
             <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sidebar-accent px-1 text-[10px] font-bold text-white">

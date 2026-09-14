@@ -22,7 +22,7 @@ export function LedgerPageHeader({
       {breadcrumb}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-[1.4rem] font-extrabold tracking-tight text-foreground">
+          <h1 className="font-serif text-[1.65rem] font-bold tracking-tight text-foreground">
             {title}
           </h1>
           {description && (

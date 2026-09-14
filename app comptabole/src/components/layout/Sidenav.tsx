@@ -1,9 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Boxes,
   Building2,
   Calculator,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
   ClipboardList,
   FolderTree,
   Landmark,
@@ -46,66 +49,103 @@ interface NavItem {
   /** masqué pour un employé de société cliente */
   hideForSocieteEmploye?: boolean;
 }
+interface NavGroup {
+  /** pas d'en-tête pour le groupe « Vue d'ensemble » (un seul item) */
+  label?: string;
+  items: NavItem[];
+}
 
-const NAV: NavItem[] = [
-  { label: "Dashboard", to: "/", icon: LayoutDashboard },
+const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Sociétés",
-    icon: Building2,
-    hideForSocieteEmploye: true,
-    children: [
-      { label: "Liste des sociétés", to: "/societes" },
-      { label: "Collaborateurs", to: "/employes", adminOnly: true },
+    items: [{ label: "Dashboard", to: "/", icon: LayoutDashboard }],
+  },
+  {
+    label: "Clients & travail",
+    items: [
+      {
+        label: "Sociétés",
+        icon: Building2,
+        hideForSocieteEmploye: true,
+        children: [
+          { label: "Liste des sociétés", to: "/societes" },
+          { label: "Collaborateurs", to: "/employes", adminOnly: true },
+        ],
+      },
+      {
+        label: "Tâches",
+        to: "/taches",
+        icon: ListChecks,
+        hideForSocieteEmploye: true,
+      },
+      { label: "Collecte de pièces", to: "/collectes", icon: ClipboardList },
+      {
+        label: "Gestion de stock",
+        to: "/stock",
+        icon: Boxes,
+        hideForSocieteEmploye: true,
+      },
     ],
   },
   {
-    label: "Tâches",
-    to: "/taches",
-    icon: ListChecks,
-    hideForSocieteEmploye: true,
-  },
-  { label: "Collecte de pièces", to: "/collectes", icon: ClipboardList },
-  {
-    label: "Gestion de stock",
-    to: "/stock",
-    icon: Boxes,
-    hideForSocieteEmploye: true,
-  },
-  {
-    label: "États financiers",
-    icon: Calculator,
-    hideForSocieteEmploye: true,
-    children: [
-      { label: "Balance & synthèse", to: "/etats-financiers" },
-      { label: "Grille de reclassement", to: "/grille-affectat", adminOnly: true },
+    label: "Comptabilité",
+    items: [
+      {
+        label: "États financiers",
+        icon: Calculator,
+        hideForSocieteEmploye: true,
+        children: [
+          { label: "Balance & synthèse", to: "/etats-financiers" },
+          {
+            label: "Grille de reclassement",
+            to: "/grille-affectat",
+            adminOnly: true,
+          },
+        ],
+      },
+      {
+        label: "Bordereaux bancaires",
+        to: "/bordereaux",
+        icon: Landmark,
+        adminOnly: true,
+      },
     ],
   },
   {
-    label: "Bordereaux bancaires",
-    to: "/bordereaux",
-    icon: Landmark,
-    adminOnly: true,
+    label: "Organisation",
+    items: [
+      { label: "Structuration", to: "/structuration", icon: FolderTree },
+      {
+        label: "Messagerie",
+        to: "/messagerie",
+        icon: MessageSquare,
+        badgeKey: "unread",
+        perm: "messagerie",
+      },
+    ],
   },
-  { label: "Structuration", to: "/structuration", icon: FolderTree },
   {
-    label: "Messagerie",
-    to: "/messagerie",
-    icon: MessageSquare,
-    badgeKey: "unread",
-    perm: "messagerie",
+    label: "Administration",
+    items: [
+      { label: "Journal", to: "/journal", icon: ScrollText, adminOnly: true },
+      {
+        label: "Paramètres",
+        to: "/parametres",
+        icon: Settings,
+        adminOnly: true,
+      },
+    ],
   },
-  { label: "Journal", to: "/journal", icon: ScrollText, adminOnly: true },
-  { label: "Paramètres", to: "/parametres", icon: Settings, adminOnly: true },
 ];
 
 /**
- * Rail d'icônes fixe (jamais dépliée en texte) avec sous-menu flottant au
- * clic pour les rubriques à enfants — direction visuelle "SaaS moderne"
- * (fond bleu marine, coins arrondis) plutôt que l'accordéon texte
- * précédent. Sur mobile, le rail se glisse en overlay (voir mobileOpen).
+ * Rail de navigation à deux modes : déplié (icône + libellé, groupes
+ * en accordéon — lisible et prévisible pour un usage quotidien) et replié
+ * (icônes seules avec info-bulle + sous-menu flottant, pour gagner de la
+ * place). L'état replié est un choix desktop persisté ; sur mobile, le
+ * tiroir s'ouvre toujours en mode déplié quel que soit ce réglage.
  */
 export function Sidenav() {
-  const { mobileOpen, setMobileOpen } = useUi();
+  const { mobileOpen, setMobileOpen, collapsed, toggleCollapsed } = useUi();
   const { isAdmin, can, employeId, lectureSeule } = usePermissions();
   const conversations = useConversations(isAdmin ? "me" : (employeId ?? "me"));
   const unreadMessages = conversations
@@ -113,22 +153,56 @@ export function Sidenav() {
     .reduce((n, c) => n + c.nonLus, 0);
   const location = useLocation();
 
-  const nav = NAV.filter((item) => {
-    if (item.adminOnly && !isAdmin) return false;
-    if (item.hideForSocieteEmploye && lectureSeule) return false;
-    if (item.perm && !can(item.perm)) return false;
-    return true;
-  }).map((item) =>
-    item.children
-      ? {
-          ...item,
-          children: item.children.filter((c) => !c.adminOnly || isAdmin),
-        }
-      : item,
+  // Mobile est toujours affiché tiroir ouvert = déplié, quel que soit le
+  // réglage desktop (mobileOpen n'est jamais vrai sur desktop, le bouton
+  // qui le déclenche est masqué à partir de lg:).
+  const showLabels = mobileOpen || !collapsed;
+
+  const groups = useMemo(
+    () =>
+      NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items
+          .filter((item) => {
+            if (item.adminOnly && !isAdmin) return false;
+            if (item.hideForSocieteEmploye && lectureSeule) return false;
+            if (item.perm && !can(item.perm)) return false;
+            return true;
+          })
+          .map((item) =>
+            item.children
+              ? {
+                  ...item,
+                  children: item.children.filter(
+                    (c) => !c.adminOnly || isAdmin,
+                  ),
+                }
+              : item,
+          ),
+      })).filter((group) => group.items.length > 0),
+    [isAdmin, lectureSeule, can],
   );
 
   const isChildActive = (children?: NavChild[]) =>
     children?.some((c) => location.pathname.startsWith(c.to)) ?? false;
+
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const group of groups) {
+        for (const item of group.items) {
+          if (item.children && isChildActive(item.children) && !next.has(item.label)) {
+            next.add(item.label);
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -149,13 +223,19 @@ export function Sidenav() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-20 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 no-print",
+          "fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col bg-sidebar text-sidebar-foreground transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 no-print",
+          collapsed ? "lg:w-20" : "lg:w-[272px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        {/* Marque — monogramme CAMCONSULT */}
-        <div className="flex h-20 shrink-0 items-center justify-center">
-          <div className="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-sidebar-accent text-sidebar-accent">
+        {/* Marque */}
+        <div
+          className={cn(
+            "flex h-20 shrink-0 items-center gap-3",
+            showLabels ? "px-5" : "justify-center",
+          )}
+        >
+          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-sidebar-accent text-sidebar-accent">
             <span className="font-serif text-lg font-bold">C</span>
             <div
               className="absolute inset-0 rounded-full opacity-30"
@@ -166,68 +246,203 @@ export function Sidenav() {
               aria-hidden="true"
             />
           </div>
+          {showLabels && (
+            <span className="min-w-0 truncate text-sm font-bold tracking-[0.16em] text-sidebar-foreground">
+              CAMCONSULT
+            </span>
+          )}
         </div>
         <div className="mx-5 h-px shrink-0 bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3.5 py-3">
-          {nav.map((item) => {
-            const Icon = item.icon;
-            const badge =
-              item.badgeKey === "unread" && unreadMessages > 0
-                ? unreadMessages
-                : null;
+        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+          {groups.map((group, gi) => (
+            <div key={group.label ?? `g${gi}`}>
+              {showLabels && group.label && (
+                <p className="mb-1.5 px-2.5 text-[0.66rem] font-bold uppercase tracking-[0.12em] text-sidebar-muted/70">
+                  {group.label}
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const badge =
+                    item.badgeKey === "unread" && unreadMessages > 0
+                      ? unreadMessages
+                      : null;
 
-            if (item.children) {
-              const active = isChildActive(item.children);
-              return (
-                <DropdownMenu key={item.label}>
-                  <DropdownMenuTrigger asChild>
-                    <button type="button" className="block w-full">
-                      <RailIcon icon={Icon} label={item.label} active={active} />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    side="right"
-                    align="start"
-                    sideOffset={14}
-                    className="w-56 rounded-2xl border-border/60 p-2 shadow-pop"
-                  >
-                    <DropdownMenuLabel className="px-2 pb-1 pt-1 text-[0.72rem] font-bold uppercase tracking-wide text-foreground">
-                      {item.label}
-                    </DropdownMenuLabel>
-                    {item.children.map((child) => (
-                      <NavLink
-                        key={child.to}
-                        to={child.to}
-                        className={({ isActive }) =>
-                          cn(
-                            "block rounded-xl px-3 py-2 text-sm transition-colors",
-                            isActive
-                              ? "bg-accent/10 font-semibold text-accent"
-                              : "text-foreground/80 hover:bg-secondary hover:text-foreground",
-                          )
-                        }
-                      >
-                        {child.label}
+                  if (item.children) {
+                    const active = isChildActive(item.children);
+
+                    if (!showLabels) {
+                      return (
+                        <DropdownMenu key={item.label}>
+                          <DropdownMenuTrigger asChild>
+                            <button type="button" className="block w-full">
+                              <RailIcon icon={Icon} label={item.label} active={active} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            side="right"
+                            align="start"
+                            sideOffset={14}
+                            className="w-56 rounded-2xl border-border/60 p-2 shadow-pop"
+                          >
+                            <DropdownMenuLabel className="px-2 pb-1 pt-1 text-[0.72rem] font-bold uppercase tracking-wide text-foreground">
+                              {item.label}
+                            </DropdownMenuLabel>
+                            {item.children.map((child) => (
+                              <NavLink
+                                key={child.to}
+                                to={child.to}
+                                className={({ isActive }) =>
+                                  cn(
+                                    "block rounded-xl px-3 py-2 text-sm transition-colors",
+                                    isActive
+                                      ? "bg-accent/10 font-semibold text-accent"
+                                      : "text-foreground/80 hover:bg-secondary hover:text-foreground",
+                                  )
+                                }
+                              >
+                                {child.label}
+                              </NavLink>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      );
+                    }
+
+                    const open = openGroups.has(item.label);
+                    return (
+                      <div key={item.label}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenGroups((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(item.label)) next.delete(item.label);
+                              else next.add(item.label);
+                              return next;
+                            })
+                          }
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors",
+                            active
+                              ? "text-sidebar-accent"
+                              : "text-sidebar-muted hover:bg-white/5 hover:text-white",
+                          )}
+                        >
+                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          <span className="min-w-0 flex-1 truncate text-left">
+                            {item.label}
+                          </span>
+                          <ChevronDown
+                            className={cn(
+                              "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                              open && "rotate-180",
+                            )}
+                          />
+                        </button>
+                        {open && (
+                          <div className="ml-[26px] mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3.5">
+                            {item.children.map((child) => (
+                              <NavLink
+                                key={child.to}
+                                to={child.to}
+                                className={({ isActive }) =>
+                                  cn(
+                                    "block truncate rounded-lg px-2.5 py-1.5 text-[0.83rem] transition-colors",
+                                    isActive
+                                      ? "font-semibold text-sidebar-accent"
+                                      : "text-sidebar-muted hover:bg-white/5 hover:text-white",
+                                  )
+                                }
+                              >
+                                {child.label}
+                              </NavLink>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (!showLabels) {
+                    return (
+                      <NavLink key={item.to} to={item.to!} end={item.to === "/"}>
+                        {({ isActive }) => (
+                          <RailIcon icon={Icon} label={item.label} active={isActive} badge={badge} />
+                        )}
                       </NavLink>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              );
-            }
+                    );
+                  }
 
-            return (
-              <NavLink key={item.to} to={item.to!} end={item.to === "/"}>
-                {({ isActive }) => (
-                  <RailIcon icon={Icon} label={item.label} active={isActive} badge={badge} />
-                )}
-              </NavLink>
-            );
-          })}
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to!}
+                      end={item.to === "/"}
+                      className={({ isActive }) =>
+                        cn(
+                          "relative flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-sidebar-accent/15 text-sidebar-accent"
+                            : "text-sidebar-muted hover:bg-white/5 hover:text-white",
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {isActive && (
+                            <span
+                              className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-accent"
+                              aria-hidden="true"
+                            />
+                          )}
+                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                          {badge ? (
+                            <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-sidebar-accent px-1 text-[10px] font-bold text-sidebar">
+                              {badge}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        <div className="h-4" />
+        {/* Repli / dépli (desktop uniquement) */}
+        <div className="hidden shrink-0 border-t border-sidebar-border p-3 lg:block">
+          {showLabels ? (
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <ChevronsLeft className="h-[18px] w-[18px] shrink-0" />
+              Réduire
+            </button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleCollapsed}
+                  className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl text-sidebar-muted transition-colors hover:bg-white/5 hover:text-white"
+                  aria-label="Déplier le menu"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Déplier</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </aside>
     </>
   );
@@ -263,7 +478,7 @@ function RailIcon({
           )}
           <Icon className="h-5 w-5" />
           {badge ? (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sidebar-accent px-1 text-[10px] font-bold text-white">
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sidebar-accent px-1 text-[10px] font-bold text-sidebar">
               {badge}
             </span>
           ) : null}

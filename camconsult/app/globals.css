@@ -14,20 +14,34 @@
 html { scroll-behavior: smooth; scrollbar-width: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; width: 0; height: 0; }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-inter), Arial, sans-serif; }
-.font-serif { font-family: var(--font-playfair), Georgia, serif; }
-.eyebrow { color: #C9A96A; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; }
-.badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.35rem 0.7rem; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.badge-gold { background: #C9A96A; color: #0B2545; }
-.field-label { display: flex; flex-direction: column; gap: 0.5rem; color: #667080; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
-.field-input { width: 100%; border: 1px solid #D8D5CE; border-radius: 0.25rem; background: #F8F7F4; padding: 0.7rem 0.8rem; color: #1A1A1A; font: inherit; font-size: 0.85rem; outline: none; transition: border-color 200ms, box-shadow 200ms; }
-.field-input:focus { border-color: #C9A96A; box-shadow: 0 0 0 3px rgb(201 169 106 / 18%); }
-.swatch { aspect-ratio: 1.8; border-radius: 0.2rem; border: 1px solid rgb(255 255 255 / 15%); }
-.footer-heading { color: #C9A96A; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
-.footer-link { color: rgb(255 255 255 / 62%); font-size: 0.82rem; line-height: 1.35; transition: color 200ms ease; }
-.footer-link:hover { color: #C9A96A; }
-.footer-contact { display: inline-flex; align-items: center; gap: 0.65rem; transition: color 200ms ease; }
-.footer-contact:hover { color: #FFFFFF; }
-.client-portal-link:hover .client-portal-lock { transform: rotate(-12deg) translateY(-1px); }
+
+/* Classes composants dans la couche Tailwind idoine : les rendre non-couchées
+   (comme avant) leur donnait une priorité de cascade supérieure à N'IMPORTE
+   quelle classe utilitaire (les couches CSS non nommées passent toujours
+   devant les couches nommées), ce qui empêchait par exemple `bg-white/10
+   text-white` d'un formulaire sur fond marine de l'emporter sur le fond/texte
+   par défaut de `.field-input` — d'où des placeholders illisibles. */
+@layer components {
+  .eyebrow { color: #C9A96A; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; }
+  .badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.35rem 0.7rem; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .badge-gold { background: #C9A96A; color: #0B2545; }
+  .field-label { display: flex; flex-direction: column; gap: 0.5rem; color: #667080; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
+  .field-input { width: 100%; border: 1px solid #D8D5CE; border-radius: 0.25rem; background: #F8F7F4; padding: 0.7rem 0.8rem; color: #1A1A1A; font: inherit; font-size: 0.85rem; outline: none; transition: border-color 200ms, box-shadow 200ms, background-color 200ms, color 200ms; }
+  .field-input:focus { border-color: #C9A96A; box-shadow: 0 0 0 3px rgb(201 169 106 / 18%); }
+  .swatch { aspect-ratio: 1.8; border-radius: 0.2rem; border: 1px solid rgb(255 255 255 / 15%); }
+  .footer-heading { color: #C9A96A; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+  .footer-link { color: rgb(255 255 255 / 62%); font-size: 0.82rem; line-height: 1.35; transition: color 200ms ease; }
+  .footer-link:hover { color: #C9A96A; }
+  .footer-contact { display: inline-flex; align-items: center; gap: 0.65rem; transition: color 200ms ease; }
+  .footer-contact:hover { color: #FFFFFF; }
+  .client-portal-link:hover .client-portal-lock { transform: rotate(-12deg) translateY(-1px); }
+}
+
+/* Note : pas de règle .font-serif ici — `--font-serif` est déclaré dans
+   @theme inline plus haut, Tailwind génère donc déjà l'utilitaire
+   `font-serif` correspondant ; une règle non-couchée en double aurait
+   entraîné le même problème de priorité que ci-dessus. */
+
 [dir='rtl'] { direction: rtl; font-family: Arial, 'Noto Sans Arabic', sans-serif; }
 [dir='rtl'] .font-serif { font-family: Arial, 'Noto Sans Arabic', sans-serif; font-weight: 700; }
 [dir='rtl'] .rtl-mirror { transform: scaleX(-1); }

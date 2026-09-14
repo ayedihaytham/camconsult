@@ -157,13 +157,39 @@ l'accessibilité, la forme se reconnaît plus vite que la lecture d'un texte) :
 
 ## 7. Périmètre validé
 
-Direction figée sur **5 écrans** : Dashboard, Sociétés, Collecte de pièces,
-Gestion de stock, Bordereaux bancaires — plus le rail et la topbar (chrome
-globale, utilisée par tous les écrans sans exception).
+Direction étendue à **toute l'application** (chrome globale + composants
+partagés `src/components/ui` et `src/components/common`, qui cascadent
+automatiquement vers tous les écrans qui les consomment). Les écrans
+spécifiques déjà passés en revue en détail : Dashboard, Sociétés, Collecte
+de pièces, Gestion de stock, Bordereaux bancaires, rail de navigation,
+topbar, connexion. Les autres écrans (Tâches, Employés, Structuration,
+Messagerie, Journal, Paramètres) héritent des mêmes composants partagés
+mais n'ont pas encore été revus individuellement pour du contenu bespoke
+propre à chaque page.
 
-**Non couverts par cette validation** : Tâches, Employés, Structuration,
-Messagerie, Journal, Notifications, Paramètres. Ces écrans utilisent des
-composants partagés avec les écrans migrés (`DataTable`, `StatusBadge`,
-`RowActions`, `Badge`, `PageHeader`) — voir la note de risque envoyée en
-même temps que ce document avant toute modification de `src/components/ui`
-ou `src/components/common`.
+## 8. Guide de style — synthèse
+
+Référence rapide pour tout nouveau composant (voir §1–§6 pour le détail et
+le raisonnement).
+
+**Typographie**
+| Usage | Classe | Notes |
+|---|---|---|
+| Titre de page (H1) | `font-serif text-2xl font-bold` (`LedgerPageHeader`/`PageHeader`) | seul niveau en serif (Playfair Display) — signature de marque |
+| Titre de section (H2, feuilles) | `text-[0.86rem] font-bold` sans-serif | `LedgerSheetHeader` |
+| Corps / tableaux / formulaires | `text-sm` Inter | jamais de serif sur du texte dense — lisibilité |
+| Méta / labels | `text-xs font-bold uppercase tracking-wide` | boutons-liens, en-têtes de colonnes triables |
+
+**Rayons** (cohérents sur toute l'app, jamais mélangés sur un même type de surface) :
+- `rounded-full` — badges/pills, avatars, monogramme de marque.
+- `rounded-2xl` — feuilles/cartes (`LedgerSheet`, `DataTable`), modales (`Dialog`, `Sheet`).
+- `rounded-xl` — champs de formulaire (`Input`, `Select`, `Textarea`), boutons, listes de tabs.
+- `rounded-lg` / `rounded-sm` — éléments internes plus petits (items de select/dropdown).
+
+**États interactifs**
+- Focus (champs) : bordure `--ring` + halo `ring-2 ring-ring/40` (pas d'offset) — jamais l'or clair de `--accent` seul, insuffisant en contraste non-textuel sur fond blanc (voir `--ring` dans `index.css`).
+- Focus (boutons/icônes) : `ring-2 ring-ring ring-offset-2`.
+- Hover (cartes cliquables) : léger soulèvement (`hover:-translate-y-0.5`) + `shadow-card-hover`, jamais de changement de couleur de fond brutal.
+- Disabled : `opacity-50` + `pointer-events-none`/`cursor-not-allowed`, jamais de suppression du contraste du texte en dessous de AA.
+
+**Couleur** — voir §1bis et §2 : `--primary` (marine) = encre/texte, `--accent` (or) = fond de bouton/badge/icône/décor uniquement (jamais texte de paragraphe), `--success`/`--warning` = pastille uniquement, `--chart-1..5` = wayfinding (séries de graphiques, badges de catégorie, filet d'accent par section topbar/KPI) — jamais une couleur choisie au hasard hors de cette liste.

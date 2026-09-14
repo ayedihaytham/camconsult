@@ -126,7 +126,7 @@ export function DataTable<T>({
   const colSpan = columns.length + (enableSelection ? 1 : 0);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-card">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
       <Table>
         <TableHeader className="bg-muted/40">
           <TableRow className="hover:bg-transparent even:bg-transparent">

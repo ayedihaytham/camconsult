@@ -44,7 +44,11 @@
 
     --border: 214 20% 89%;
     --input: 214 20% 86%;
-    --ring: 40 47% 60%;
+    /* Anneau de focus : variante plus dense de l'or (--accent) — un or clair
+       en contour de 2px sur fond blanc tombe sous le seuil de contraste
+       non-textuel (3:1, WCAG 1.4.11) ; celui-ci reste lisible sur toutes les
+       surfaces claires tout en restant dans la même famille de teinte. */
+    --ring: 38 55% 46%;
     /* Ledger Rule : filet renforcé toutes les 5 lignes des tableaux denses. */
     --rule-strong: 215 18% 74%;
 

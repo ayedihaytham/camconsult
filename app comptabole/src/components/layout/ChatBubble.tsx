@@ -100,7 +100,13 @@ export function ChatBubble() {
   }, [conversations, search]);
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
+  const isActiveGroup = activeConv?.type === "groupe";
   const activeEmp = activeConv?.employeId ? empById(activeConv.employeId) : null;
+  const senderName = (auteurId: string) => {
+    if (auteurId === "me") return adminName;
+    const emp = empById(auteurId);
+    return emp ? employeNomComplet(emp) : "—";
+  };
   const threadMessages = useMemo(
     () =>
       messages
@@ -189,10 +195,17 @@ export function ChatBubble() {
                     Aucun message. Écrivez le premier ci-dessous.
                   </p>
                 )}
-                {threadMessages.map((m) => {
+                {threadMessages.map((m, i) => {
                   const mine = m.auteurId === viewerAuthor;
+                  const prev = threadMessages[i - 1];
+                  const showSender = isActiveGroup && !mine && (!prev || prev.auteurId !== m.auteurId);
                   return (
-                    <div key={m.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                    <div key={m.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
+                      {showSender && (
+                        <span className="mb-0.5 px-1 text-[10px] font-bold text-primary">
+                          {senderName(m.auteurId)}
+                        </span>
+                      )}
                       <div
                         className={cn(
                           "max-w-[80%] rounded-md px-3 py-1.5 text-[13px]",

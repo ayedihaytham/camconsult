@@ -103,6 +103,14 @@ export function MessageriePage() {
           : "?"
         : initials(adminName) || "CB";
 
+  /** Nom de l'expéditeur d'un message dans un groupe — indispensable pour
+   * s'y retrouver dès qu'il y a plus de deux interlocuteurs. */
+  const senderName = (auteurId: string) => {
+    if (auteurId === "me") return adminName;
+    const emp = empById(auteurId);
+    return emp ? employeNomComplet(emp) : "—";
+  };
+
   // Sélectionne la première conversation par défaut
   useEffect(() => {
     if (!activeId && conversations.length > 0) {
@@ -477,6 +485,10 @@ export function MessageriePage() {
                     !prev ||
                     new Date(prev.envoyeLe).toDateString() !==
                       new Date(m.envoyeLe).toDateString();
+                  const showSender =
+                    isGroup &&
+                    !mine &&
+                    (showDay || !prev || prev.auteurId !== m.auteurId);
                   return (
                     <div key={m.id}>
                       {showDay && (
@@ -488,10 +500,16 @@ export function MessageriePage() {
                       )}
                       <div
                         className={cn(
-                          "flex",
-                          mine ? "justify-end" : "justify-start",
+                          "flex flex-col",
+                          mine ? "items-end" : "items-start",
+                          showSender ? "mt-2.5" : "mt-0.5",
                         )}
                       >
+                        {showSender && (
+                          <span className="mb-0.5 px-1 text-[11px] font-bold text-primary">
+                            {senderName(m.auteurId)}
+                          </span>
+                        )}
                         <div
                           className={cn(
                             "max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",

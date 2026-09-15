@@ -9,7 +9,7 @@ import {
   Users2,
   X,
 } from "lucide-react";
-import { cn, formatTime, initials } from "@/lib/utils";
+import { avatarColor, cn, formatTime, initials } from "@/lib/utils";
 import { useData, useEmployes, useSocietes, useConversations } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/store/auth";
@@ -145,16 +145,27 @@ export function ChatBubble() {
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-                <span
-                  className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center border border-border text-xs font-bold text-foreground",
-                    activeConv.type === "groupe" ? "rounded-[9px]" : "rounded-full",
-                  )}
-                >
-                  {activeConv.type === "groupe" ? (
-                    <Users2 className="h-4 w-4" />
-                  ) : (
-                    partnerInitials(activeConv, activeEmp)
+                <span className="relative shrink-0">
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center text-xs font-bold",
+                      activeConv.type === "groupe" ? "rounded-[9px] bg-accent/12 text-accent" : cn("rounded-full", avatarColor(activeConv.employeId ?? activeConv.id)),
+                    )}
+                  >
+                    {activeConv.type === "groupe" ? (
+                      <Users2 className="h-4 w-4" />
+                    ) : (
+                      partnerInitials(activeConv, activeEmp)
+                    )}
+                  </span>
+                  {activeConv.type !== "groupe" && activeConv.enLigne !== undefined && (
+                    <span
+                      className={cn(
+                        "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-card",
+                        activeConv.enLigne ? "bg-success" : "bg-muted-foreground/40",
+                      )}
+                      aria-hidden="true"
+                    />
                   )}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
@@ -199,28 +210,30 @@ export function ChatBubble() {
                   );
                 })}
               </div>
-              <div className="flex items-end gap-2 border-t border-border p-2.5">
-                <Textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      send();
-                    }
-                  }}
-                  placeholder="Écrivez un message…"
-                  className="max-h-24 min-h-[36px] flex-1 resize-none py-1.5 text-sm"
-                  rows={1}
-                />
-                <button
-                  onClick={send}
-                  disabled={!draft.trim()}
-                  aria-label="Envoyer"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-accent to-accent/90 text-accent-foreground shadow-md shadow-accent/30 transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-50"
-                >
-                  <Send className="h-4 w-4" />
-                </button>
+              <div className="border-t border-border p-2.5">
+                <div className="flex items-end gap-1.5 rounded-2xl border border-border bg-background p-1 pl-2 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
+                  <Textarea
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        send();
+                      }
+                    }}
+                    placeholder="Écrivez un message…"
+                    className="max-h-24 min-h-[32px] flex-1 resize-none border-0 bg-transparent px-1 py-1 text-sm shadow-none focus-visible:ring-0"
+                    rows={1}
+                  />
+                  <button
+                    onClick={send}
+                    disabled={!draft.trim()}
+                    aria-label="Envoyer"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-accent to-accent/90 text-accent-foreground shadow-md shadow-accent/30 transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -274,13 +287,24 @@ export function ChatBubble() {
                       onClick={() => setActiveId(c.id)}
                       className="flex w-full gap-2.5 border-b border-border/60 px-3 py-2.5 text-left transition-colors hover:bg-secondary/60"
                     >
-                      <span
-                        className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center border border-border text-[11px] font-bold text-foreground",
-                          c.type === "groupe" ? "rounded-[9px]" : "rounded-full",
+                      <span className="relative shrink-0">
+                        <span
+                          className={cn(
+                            "flex h-8 w-8 items-center justify-center text-[11px] font-bold",
+                            c.type === "groupe" ? "rounded-[9px] bg-accent/12 text-accent" : cn("rounded-full", avatarColor(c.employeId ?? c.id)),
+                          )}
+                        >
+                          {c.type === "groupe" ? <Users2 className="h-4 w-4" /> : partnerInitials(c, emp)}
+                        </span>
+                        {c.type !== "groupe" && c.enLigne !== undefined && (
+                          <span
+                            className={cn(
+                              "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-card",
+                              c.enLigne ? "bg-success" : "bg-muted-foreground/40",
+                            )}
+                            aria-hidden="true"
+                          />
                         )}
-                      >
-                        {c.type === "groupe" ? <Users2 className="h-4 w-4" /> : partnerInitials(c, emp)}
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
@@ -288,7 +312,7 @@ export function ChatBubble() {
                             {partnerLabel(c, emp)}
                           </span>
                           {c.nonLus > 0 && (
-                            <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-sidebar-accent px-1 text-[10px] font-bold text-sidebar">
+                            <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground">
                               {c.nonLus}
                             </span>
                           )}

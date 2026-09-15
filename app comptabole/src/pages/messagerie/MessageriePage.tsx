@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  avatarColor,
   cn,
   formatTime,
   formatDayLabel,
@@ -253,16 +254,21 @@ export function MessageriePage() {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {filteredConvs.length === 0 && (
-                <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                  {isAdmin
-                    ? "Ajoutez des employés ou créez un groupe."
-                    : "Aucune conversation."}
-                </p>
+                <EmptyState
+                  icon={MessageSquare}
+                  title="Aucune conversation"
+                  description={
+                    isAdmin
+                      ? "Ajoutez des employés ou créez un groupe."
+                      : "Aucune conversation pour le moment."
+                  }
+                />
               )}
               {filteredConvs.map((c) => {
                 const emp = c.employeId ? empById(c.employeId) : null;
                 const soc = socById(c.societeId);
                 const active = c.id === activeId;
+                const colorClass = c.type === "groupe" ? "bg-accent/12 text-accent" : avatarColor(c.employeId ?? c.id);
                 return (
                   <button
                     key={c.id}
@@ -271,27 +277,44 @@ export function MessageriePage() {
                       setMobileView("chat");
                     }}
                     className={cn(
-                      "flex w-full gap-3 border-b border-border/60 px-3 py-3 text-left transition-colors hover:bg-secondary/60",
-                      active && "bg-secondary",
+                      "relative flex w-full gap-3 border-b border-border/40 px-3 py-3 text-left transition-colors duration-150 hover:bg-secondary/50",
+                      active && "bg-accent/[0.06]",
                     )}
                   >
+                    {active && (
+                      <span className="absolute inset-y-0 left-0 w-[3px] bg-accent" aria-hidden="true" />
+                    )}
                     {/* Cercle = personne, carré arrondi = groupe (silhouette,
-                        pas seulement le libellé) — voir DESIGN-SYSTEM.md §5. */}
-                    <span
-                      className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center border border-border text-xs font-bold text-foreground",
-                        c.type === "groupe" ? "rounded-[11px]" : "rounded-full",
-                      )}
-                    >
-                      {c.type === "groupe" ? (
-                        <Users2 className="h-5 w-5" />
-                      ) : (
-                        partnerInitials(c, emp)
+                        pas seulement le libellé) — voir DESIGN-SYSTEM.md §5.
+                        Couleur stable par personne (avatarColor) pour repérer
+                        un interlocuteur d'un coup d'œil, façon Slack/Teams. */}
+                    <span className="relative shrink-0">
+                      <span
+                        className={cn(
+                          "flex h-10 w-10 items-center justify-center text-xs font-bold",
+                          c.type === "groupe" ? "rounded-[11px]" : "rounded-full",
+                          colorClass,
+                        )}
+                      >
+                        {c.type === "groupe" ? (
+                          <Users2 className="h-5 w-5" />
+                        ) : (
+                          partnerInitials(c, emp)
+                        )}
+                      </span>
+                      {c.type !== "groupe" && c.enLigne !== undefined && (
+                        <span
+                          className={cn(
+                            "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
+                            c.enLigne ? "bg-success" : "bg-muted-foreground/40",
+                          )}
+                          aria-hidden="true"
+                        />
                       )}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-medium text-foreground">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className={cn("truncate text-sm text-foreground", c.nonLus > 0 ? "font-bold" : "font-medium")}>
                           {partnerLabel(c, emp)}
                         </span>
                         <span className="shrink-0 text-[11px] text-muted-foreground">
@@ -299,23 +322,23 @@ export function MessageriePage() {
                         </span>
                       </div>
                       {c.type === "groupe" ? (
-                        <span className="mt-0.5 block truncate text-[11px] font-medium text-foreground">
+                        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                           {c.membreIds?.length ?? 0} membre
                           {(c.membreIds?.length ?? 0) > 1 ? "s" : ""}
                         </span>
                       ) : (
                         soc && (
-                          <span className="mt-0.5 block truncate text-[11px] font-medium text-foreground">
+                          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                             {soc.raisonSociale}
                           </span>
                         )
                       )}
                       <div className="mt-0.5 flex items-center justify-between gap-2">
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className={cn("truncate text-xs", c.nonLus > 0 ? "font-medium text-foreground" : "text-muted-foreground")}>
                           {c.dernierMessage}
                         </span>
                         {c.nonLus > 0 && (
-                          <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-[3px] bg-foreground px-1.5 text-[11px] font-bold text-primary-foreground">
+                          <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-accent-foreground">
                             {c.nonLus}
                           </span>
                         )}
@@ -343,16 +366,28 @@ export function MessageriePage() {
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </button>
-                <span
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center border border-border text-xs font-bold text-foreground",
-                    isGroup ? "rounded-[10px]" : "rounded-full",
-                  )}
-                >
-                  {isGroup ? (
-                    <Users2 className="h-4 w-4" />
-                  ) : (
-                    partnerInitials(activeConv, activeEmp)
+                <span className="relative shrink-0">
+                  <span
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center text-xs font-bold",
+                      isGroup ? "rounded-[10px]" : "rounded-full",
+                      isGroup ? "bg-accent/12 text-accent" : avatarColor(activeConv.employeId ?? activeConv.id),
+                    )}
+                  >
+                    {isGroup ? (
+                      <Users2 className="h-4 w-4" />
+                    ) : (
+                      partnerInitials(activeConv, activeEmp)
+                    )}
+                  </span>
+                  {!isGroup && activeConv.enLigne !== undefined && (
+                    <span
+                      className={cn(
+                        "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
+                        activeConv.enLigne ? "bg-success" : "bg-muted-foreground/40",
+                      )}
+                      aria-hidden="true"
+                    />
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -428,9 +463,11 @@ export function MessageriePage() {
               >
                 {threadMessages.length === 0 && (
                   <div className="flex h-full items-center justify-center">
-                    <p className="text-sm text-muted-foreground">
-                      Aucun message. Écrivez le premier ci-dessous.
-                    </p>
+                    <EmptyState
+                      icon={Send}
+                      title="Aucun message"
+                      description="Écrivez le premier ci-dessous."
+                    />
                   </div>
                 )}
                 {threadMessages.map((m, i) => {
@@ -457,10 +494,10 @@ export function MessageriePage() {
                       >
                         <div
                           className={cn(
-                            "max-w-[78%] rounded-md px-3.5 py-2 text-sm",
+                            "max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
                             mine
-                              ? "rounded-br-sm bg-primary text-primary-foreground"
-                              : "rounded-bl-sm border border-border bg-card text-foreground",
+                              ? "rounded-br-md bg-primary text-primary-foreground"
+                              : "rounded-bl-md border border-border bg-card text-foreground",
                           )}
                         >
                           {m.contenu && (
@@ -521,13 +558,13 @@ export function MessageriePage() {
                     </button>
                   </div>
                 )}
-                <div className="flex items-end gap-2">
+                <div className="flex items-end gap-2 rounded-2xl border border-border bg-card p-1.5 pl-2 shadow-card transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="shrink-0 text-muted-foreground"
+                        className="shrink-0 rounded-xl text-muted-foreground"
                         aria-label="Joindre un document"
                         disabled={fichiers.length === 0}
                       >
@@ -570,14 +607,14 @@ export function MessageriePage() {
                       }
                     }}
                     placeholder="Écrivez un message… (Entrée pour envoyer)"
-                    className="max-h-32 min-h-[40px] flex-1 resize-none py-2"
+                    className="max-h-32 min-h-[36px] flex-1 resize-none border-0 bg-transparent px-1 py-1.5 shadow-none focus-visible:ring-0"
                     rows={1}
                   />
 
                   <Button
                     variant="ledger"
                     size="icon"
-                    className="shrink-0"
+                    className="shrink-0 rounded-xl"
                     onClick={send}
                     disabled={!draft.trim() && !attachment}
                     aria-label="Envoyer"

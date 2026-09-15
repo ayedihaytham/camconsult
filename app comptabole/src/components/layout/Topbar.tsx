@@ -21,7 +21,6 @@ import {
 import { toast } from "sonner";
 import { cn, formatRelative } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { GlobalSearch } from "@/components/layout/GlobalSearch";
 import { useUi } from "@/store/ui";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
@@ -137,8 +136,7 @@ export function Topbar() {
           </p>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <GlobalSearch />
+        <div className="ml-auto flex items-center gap-2.5">
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -78,6 +78,28 @@ export function isCurrentMonth(d: string | Date | null | undefined): boolean {
   );
 }
 
+/** Classes Tailwind écrites en toutes lettres (jamais construites par
+ * interpolation) — le scanner JIT de Tailwind ne détecte que des chaînes
+ * littérales présentes dans le code source. */
+const AVATAR_PALETTE = [
+  "bg-chart-1/12 text-chart-1",
+  "bg-chart-2/12 text-chart-2",
+  "bg-chart-3/12 text-chart-3",
+  "bg-chart-4/12 text-chart-4",
+  "bg-chart-5/12 text-chart-5",
+] as const;
+
+/** Couleur d'avatar stable par identifiant — chaque personne garde toujours
+ * la même teinte (dérivée de la palette de graphiques du thème), pour se
+ * repérer visuellement dans une liste de conversations comme Slack/Teams. */
+export function avatarColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+}
+
 export function initials(name: string): string {
   return name
     .split(" ")

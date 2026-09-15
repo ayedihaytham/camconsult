@@ -17,6 +17,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/common/EmptyState";
 import { cn, formatNumber } from "@/lib/utils";
 
 export interface DataTableColumn<T> {
@@ -206,9 +207,7 @@ export function DataTable<T>({
             <TableRow className="even:bg-transparent hover:bg-transparent">
               <TableCell colSpan={colSpan} className="p-0">
                 {emptyState ?? (
-                  <div className="py-12 text-center text-sm text-muted-foreground">
-                    Aucun résultat.
-                  </div>
+                  <EmptyState title="Aucun résultat" description="Essayez d'ajuster votre recherche ou vos filtres." />
                 )}
               </TableCell>
             </TableRow>

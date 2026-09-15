@@ -127,7 +127,9 @@ tachesRouter.patch("/:id", noSocieteEmploye, async (req, res) => {
   const v = parsed.data;
   const isAdmin = req.session.role === "admin";
 
-  // Un collaborateur ne peut changer que le statut d'une tâche qui lui est assignée.
+  // Un collaborateur ne peut changer que le statut d'une tâche qui lui est
+  // assignée, et seulement vers l'avant : revenir sur un statut déjà
+  // dépassé reste une décision du cabinet (voir aussi TachesPage.tsx).
   if (!isAdmin) {
     if (existing.assigne_id !== req.session.employeId)
       return res.status(403).json({ error: "Tâche hors de votre périmètre" });
@@ -136,6 +138,10 @@ tachesRouter.patch("/:id", noSocieteEmploye, async (req, res) => {
       return res
         .status(403)
         .json({ error: "Vous pouvez seulement changer le statut" });
+    if (STATUTS.indexOf(v.statut) < STATUTS.indexOf(existing.statut))
+      return res.status(403).json({
+        error: "Seul l'administrateur peut faire reculer une tâche",
+      });
   }
 
   if (isAdmin && v.societeId) {

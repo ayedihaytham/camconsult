@@ -145,6 +145,7 @@ interface DataState {
   deleteNoeudsCascade: (ids: string[]) => Promise<void>;
 
   addMessage: (msg: Omit<Message, "id">) => Promise<void>;
+  refreshMessages: () => Promise<void>;
   markConversationRead: (
     conversationId: string,
     viewerAuthorId?: string,
@@ -432,6 +433,17 @@ export const useData = create<DataState>((set, get) => ({
       set((st) => ({ messages: [...st.messages, m] }));
     } catch (e) {
       fail(e);
+    }
+  },
+  // Pas de websocket : on repasse périodiquement derrière (voir
+  // refreshNotifications) pour faire apparaître les messages envoyés par
+  // l'autre partie sans recharger la page.
+  refreshMessages: async () => {
+    try {
+      const list = await api.get<Message[]>("/messages");
+      set({ messages: list });
+    } catch {
+      /* silencieux : rafraîchissement d'arrière-plan */
     }
   },
   markConversationRead: async (conversationId, viewerAuthorId = "me") => {

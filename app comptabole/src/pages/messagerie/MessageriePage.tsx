@@ -585,6 +585,11 @@ export function MessageriePage() {
                         size="icon"
                         className="shrink-0 rounded-xl text-muted-foreground"
                         aria-label="Joindre un document"
+                        title={
+                          fichiers.length === 0
+                            ? "Aucun document dans la structuration à joindre — déposez-en d'abord depuis Structuration"
+                            : "Joindre un document"
+                        }
                         disabled={fichiers.length === 0}
                       >
                         <Paperclip />

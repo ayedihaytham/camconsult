@@ -123,7 +123,11 @@ export function TachesPage() {
     );
   }, [filteredBase, statutFilter]);
 
-  const canMove = (t: Tache) => isAdmin || t.assigneId === employeId;
+  // Un collaborateur peut faire avancer sa propre tâche, mais seul l'admin
+  // peut la faire reculer (revenir sur un statut déjà dépassé doit rester
+  // une décision du cabinet, pas de l'exécutant).
+  const canMoveForward = (t: Tache) => isAdmin || t.assigneId === employeId;
+  const canMoveBackward = (_t: Tache) => isAdmin;
 
   function move(t: Tache, dir: -1 | 1) {
     const i = ORDER.indexOf(t.statut);
@@ -338,24 +342,28 @@ export function TachesPage() {
                               <span className="text-[11px] text-muted-foreground">
                                 {formatRelative(t.creeLe)}
                               </span>
-                              {canMove(t) && (
+                              {(canMoveBackward(t) || canMoveForward(t)) && (
                                 <div className="flex gap-1">
-                                  <button
-                                    disabled={t.statut === "a_faire"}
-                                    onClick={() => move(t, -1)}
-                                    className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-muted-foreground enabled:hover:bg-secondary enabled:hover:text-foreground disabled:opacity-30"
-                                    title="Reculer"
-                                  >
-                                    <ChevronLeft className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    disabled={t.statut === "termine"}
-                                    onClick={() => move(t, 1)}
-                                    className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-muted-foreground enabled:hover:bg-secondary enabled:hover:text-foreground disabled:opacity-30"
-                                    title="Avancer"
-                                  >
-                                    <ChevronRight className="h-3.5 w-3.5" />
-                                  </button>
+                                  {canMoveBackward(t) && (
+                                    <button
+                                      disabled={t.statut === "a_faire"}
+                                      onClick={() => move(t, -1)}
+                                      className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-muted-foreground enabled:hover:bg-secondary enabled:hover:text-foreground disabled:opacity-30"
+                                      title="Reculer"
+                                    >
+                                      <ChevronLeft className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                  {canMoveForward(t) && (
+                                    <button
+                                      disabled={t.statut === "termine"}
+                                      onClick={() => move(t, 1)}
+                                      className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-muted-foreground enabled:hover:bg-secondary enabled:hover:text-foreground disabled:opacity-30"
+                                      title="Avancer"
+                                    >
+                                      <ChevronRight className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -443,7 +451,7 @@ export function TachesPage() {
                             </td>
                           )}
                           <td className="px-3 py-2.5">
-                            {canMove(t) ? (
+                            {canMoveForward(t) || canMoveBackward(t) ? (
                               <Select
                                 value={t.statut}
                                 onValueChange={(v) =>
@@ -454,7 +462,11 @@ export function TachesPage() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {COLUMNS.map((c) => (
+                                  {COLUMNS.filter(
+                                    (c) =>
+                                      canMoveBackward(t) ||
+                                      ORDER.indexOf(c) >= ORDER.indexOf(t.statut),
+                                  ).map((c) => (
                                     <SelectItem key={c} value={c}>
                                       {TACHE_STATUT_LABELS[c]}
                                     </SelectItem>

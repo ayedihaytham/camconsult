@@ -44,6 +44,7 @@ export function ChatBubble() {
   const societes = useSocietes();
   const messages = useData((s) => s.messages);
   const addMessage = useData((s) => s.addMessage);
+  const refreshMessages = useData((s) => s.refreshMessages);
   const markConversationRead = useData((s) => s.markConversationRead);
   const allConversations = useConversations(viewerAuthor);
   const conversations = isAdmin
@@ -63,6 +64,24 @@ export function ChatBubble() {
     if (open) document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
+
+  // Pas de websocket : on repasse chercher les nouveaux messages toutes les
+  // 5s (même onglet en arrière-plan, où le navigateur ralentit fortement les
+  // timers), + immédiatement au retour sur l'onglet — monté une fois ici
+  // (AppLayout, sur toutes les pages) pour que la Messagerie complète en
+  // profite aussi sans avoir son propre minuteur redondant.
+  useEffect(() => {
+    if (!hasAccess) return;
+    const id = setInterval(refreshMessages, 5_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshMessages();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [hasAccess, refreshMessages]);
 
   const empById = (id: string) => employes.find((e) => e.id === id) ?? null;
   const socById = (id: string | null) =>

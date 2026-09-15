@@ -24,7 +24,6 @@ import { LedgerTable } from "@/components/ledger/LedgerTable";
 import type { DataTableColumn } from "@/components/common/DataTable";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { StatutDot } from "@/components/ledger/StatusDot";
-import { ThemeBadge } from "@/components/common/badges";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -90,6 +89,16 @@ const THEME_ACCENT: Record<SocieteTheme, string> = {
   Association: "bg-warning/12 text-warning",
   "Profession libérale": "bg-chart-4/10 text-chart-4",
   "Auto-entrepreneur": "bg-chart-5/12 text-chart-5",
+};
+
+// Même palette que THEME_ACCENT, en teinte pleine (barre de couleur pleine
+// hauteur dans la table "maximaliste" plutôt qu'un badge séparé).
+const THEME_BAR: Record<SocieteTheme, string> = {
+  PME: "bg-chart-1",
+  "Grande entreprise": "bg-chart-2",
+  Association: "bg-warning",
+  "Profession libérale": "bg-chart-4",
+  "Auto-entrepreneur": "bg-chart-5",
 };
 
 /** Pictogramme par thème — un repère instantané dans la vue Cartes, en plus
@@ -424,55 +433,47 @@ export function SocietesListPage() {
   const columns: DataTableColumn<Societe>[] = [
     {
       id: "raisonSociale",
-      header: "Raison sociale",
+      header: "Société",
       sortable: true,
       sortAccessor: (s) => s.raisonSociale.toLowerCase(),
-      cell: (s) => (
-        <div className="flex min-w-[200px] items-center gap-2.5">
-          <span
-            className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold",
-              avatarColor(s.id),
-            )}
-            aria-hidden
-          >
-            {s.raisonSociale.slice(0, 2).toUpperCase()}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-foreground">{s.raisonSociale}</p>
-            <p className="truncate text-xs text-muted-foreground">{s.email}</p>
+      // Cellule "riche" pleine hauteur (avatar XL + barre de couleur par
+      // thème + 2 lignes de repères) plutôt que d'étaler RNE/TVA/Thème/
+      // Employés sur 4 colonnes fines — table plus dense en information par
+      // ligne, moins large. p-0 : on gère nous-mêmes le padding interne pour
+      // que la barre de couleur touche les bords haut/bas de la ligne.
+      className: "relative p-0",
+      cell: (s) => {
+        const n = employeCount.get(s.id) ?? 0;
+        return (
+          <div className="flex min-w-[260px] items-center gap-3 py-3 pl-4 pr-2">
+            <span
+              className={cn("absolute inset-y-0 left-0 w-1", THEME_BAR[s.theme])}
+              aria-hidden
+            />
+            <span
+              className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
+                avatarColor(s.id),
+              )}
+              aria-hidden
+            >
+              {s.raisonSociale.slice(0, 2).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-[0.95rem] font-bold text-foreground">
+                {s.raisonSociale}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {n === 0 ? "Aucun employé" : `${n} employé${n > 1 ? "s" : ""}`} ·{" "}
+                {clientSince(s.creeLe)}
+              </p>
+              <p className="truncate text-xs text-muted-foreground/75">
+                {s.rne || "—"} · {s.tva || "—"} · {s.theme}
+              </p>
+            </div>
           </div>
-        </div>
-      ),
-    },
-    {
-      id: "rne",
-      header: "RNE",
-      sortable: true,
-      sortAccessor: (s) => s.rne,
-      headerClassName: "hidden lg:table-cell",
-      className: "hidden lg:table-cell",
-      cell: (s) => (
-        <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-          {s.rne}
-        </span>
-      ),
-    },
-    {
-      id: "tva",
-      header: "TVA",
-      headerClassName: "hidden xl:table-cell",
-      className: "hidden xl:table-cell",
-      cell: (s) => (
-        <span className="font-mono text-xs text-muted-foreground">{s.tva}</span>
-      ),
-    },
-    {
-      id: "theme",
-      header: "Thème",
-      sortable: true,
-      sortAccessor: (s) => s.theme,
-      cell: (s) => <ThemeBadge theme={s.theme} />,
+        );
+      },
     },
     {
       id: "code",
@@ -484,20 +485,6 @@ export function SocietesListPage() {
           {s.code}
         </span>
       ),
-    },
-    {
-      id: "employes",
-      header: "Employés",
-      sortable: true,
-      sortAccessor: (s) => employeCount.get(s.id) ?? 0,
-      cell: (s) => {
-        const n = employeCount.get(s.id) ?? 0;
-        return (
-          <span className="text-sm text-muted-foreground">
-            {n === 0 ? "—" : `${n} employé${n > 1 ? "s" : ""}`}
-          </span>
-        );
-      },
     },
     {
       id: "statut",

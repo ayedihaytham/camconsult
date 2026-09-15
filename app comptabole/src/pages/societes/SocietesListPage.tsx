@@ -2,20 +2,15 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Briefcase,
   Building2,
   Copy,
   FolderOpen,
   GripVertical,
-  HeartHandshake,
-  Landmark,
   Pencil,
   Plus,
   Trash2,
-  UserRound,
   Eye,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerToolbar } from "@/components/ledger/LedgerToolbar";
@@ -40,7 +35,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
-import { cn, formatRelative, sinceLabel } from "@/lib/utils";
+import { avatarColor, cn, formatRelative, sinceLabel } from "@/lib/utils";
+import { THEME_ACCENT, THEME_BAR, THEME_ICON, THEME_OPTIONS } from "@/lib/societeTheme";
 import {
   useData,
   useSocietes,
@@ -57,61 +53,6 @@ import {
   type SocieteFormValues,
 } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
-
-// Classes écrites en toutes lettres (le scanner JIT Tailwind ne détecte pas
-// les noms de classe construits par interpolation).
-const AVATAR_COLORS = [
-  "bg-chart-1/10 text-chart-1",
-  "bg-chart-2/10 text-chart-2",
-  "bg-chart-3/10 text-chart-3",
-  "bg-chart-4/10 text-chart-4",
-  "bg-chart-5/10 text-chart-5",
-];
-/** Couleur stable par société (dérivée de l'id, pas aléatoire à chaque
- * rendu) — simple repère visuel, jamais le seul indice d'information. */
-function avatarColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
-}
-
-const THEME_OPTIONS: SocieteTheme[] = [
-  "PME",
-  "Grande entreprise",
-  "Association",
-  "Profession libérale",
-  "Auto-entrepreneur",
-];
-
-// Mêmes teintes que ThemeBadge (badges.tsx) — cohérence entre le tableau,
-// les puces de filtre et la vue Cartes.
-const THEME_ACCENT: Record<SocieteTheme, string> = {
-  PME: "bg-chart-1/10 text-chart-1",
-  "Grande entreprise": "bg-chart-2/10 text-chart-2",
-  Association: "bg-warning/12 text-warning",
-  "Profession libérale": "bg-chart-4/10 text-chart-4",
-  "Auto-entrepreneur": "bg-chart-5/12 text-chart-5",
-};
-
-// Même palette que THEME_ACCENT, en teinte pleine (barre de couleur pleine
-// hauteur dans la table "maximaliste" plutôt qu'un badge séparé).
-const THEME_BAR: Record<SocieteTheme, string> = {
-  PME: "bg-chart-1",
-  "Grande entreprise": "bg-chart-2",
-  Association: "bg-warning",
-  "Profession libérale": "bg-chart-4",
-  "Auto-entrepreneur": "bg-chart-5",
-};
-
-/** Pictogramme par thème — un repère instantané dans la vue Cartes, en plus
- * du nom (jamais la seule information : voir DESIGN-SYSTEM.md). */
-const THEME_ICON: Record<SocieteTheme, LucideIcon> = {
-  PME: Building2,
-  "Grande entreprise": Landmark,
-  Association: HeartHandshake,
-  "Profession libérale": Briefcase,
-  "Auto-entrepreneur": UserRound,
-};
 
 /** Panneau de l'accordéon inline (voir LedgerTable `renderExpanded`) —
  * composant à part entière (et non une fonction inline appelée pour chaque

@@ -1,16 +1,27 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Boxes, ChevronRight } from "lucide-react";
+import { Boxes } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
+import { SocieteCard } from "@/components/ledger/SocieteCard";
 import { EmptyState } from "@/components/common/EmptyState";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useSocietes } from "@/store/data";
+import { useData, useSocietes } from "@/store/data";
 
 export function StockPage() {
   const navigate = useNavigate();
   const { canSeeSociete } = usePermissions();
   const allSocietes = useSocietes();
   const societes = allSocietes.filter((s) => canSeeSociete(s.id));
+  const employes = useData((s) => s.employes);
+  const employeCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of employes) {
+      if (e.role === "societe_employe" && e.societeId)
+        m.set(e.societeId, (m.get(e.societeId) ?? 0) + 1);
+    }
+    return m;
+  }, [employes]);
 
   return (
     <div>
@@ -28,33 +39,16 @@ export function StockPage() {
           />
         </LedgerSheet>
       ) : (
-        <LedgerSheet className="mt-4">
-          {societes.map((s, i) => (
-            <button
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {societes.map((s) => (
+            <SocieteCard
               key={s.id}
+              societe={s}
+              employeCount={employeCount.get(s.id) ?? 0}
               onClick={() => navigate(`/stock/${s.id}`)}
-              className={
-                "flex w-full items-center justify-between gap-3 border-border px-[18px] py-3 text-left transition-colors hover:bg-primary/[0.03] " +
-                (i === societes.length - 1
-                  ? ""
-                  : (i + 1) % 5 === 0
-                    ? "border-b-[1.5px] border-rule-strong"
-                    : "border-b")
-              }
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-foreground">
-                  {s.raisonSociale}
-                </p>
-                <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{s.theme}</span>
-                  <span className="font-mono">{s.code}</span>
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </button>
+            />
           ))}
-        </LedgerSheet>
+        </div>
       )}
     </div>
   );

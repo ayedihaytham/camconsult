@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn, formatRelative } from "@/lib/utils";
+import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useUi } from "@/store/ui";
 import { useAuth } from "@/store/auth";
@@ -88,7 +88,7 @@ export function Topbar() {
   const navigate = useNavigate();
   const { title, icon: PageIcon, accent } = pageMetaFor(pathname);
 
-  const nom = session?.nom ?? "Utilisateur";
+  const nom = toTitleCase(session?.nom ?? "Utilisateur");
   const role = session?.fonction ?? "";
   const isAdmin = session?.role === "admin";
   const initiales =

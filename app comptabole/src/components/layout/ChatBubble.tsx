@@ -29,7 +29,7 @@ import type { Conversation } from "@/types";
 export function ChatBubble() {
   const { isAdmin, can, employeId } = usePermissions();
   const hasAccess = isAdmin || can("messagerie");
-  const adminName = useAuth((s) => s.session?.cabinetNom ?? "Cabinet");
+  const adminName = toTitleCase(useAuth((s) => s.session?.cabinetNom ?? "Cabinet"));
   const viewerAuthor = isAdmin ? "me" : (employeId ?? "me");
 
   const [open, setOpen] = useState(false);

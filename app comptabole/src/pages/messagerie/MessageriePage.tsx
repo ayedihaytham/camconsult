@@ -49,7 +49,7 @@ import type { Conversation } from "@/types";
 
 export function MessageriePage() {
   const { isAdmin, can, canSeeSociete, employeId } = usePermissions();
-  const adminName = useAuth((s) => s.session?.cabinetNom ?? "Cabinet");
+  const adminName = toTitleCase(useAuth((s) => s.session?.cabinetNom ?? "Cabinet"));
   const adminLastSeen = useAuth((s) => s.session?.cabinetDerniereConnexion);
   const viewerAuthor = isAdmin ? "me" : (employeId ?? "me");
   const hasAccess = isAdmin || can("messagerie");

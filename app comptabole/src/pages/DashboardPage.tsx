@@ -71,8 +71,8 @@ export function DashboardPage() {
   const collaborateurs = useCollaborateurs();
   const allNoeuds = useNoeuds();
   const taches = useTaches();
-  const adminName = useAuth((s) => s.session?.cabinetNom ?? "Cabinet");
-  const sessionNom = useAuth((s) => s.session?.nom ?? "");
+  const adminName = toTitleCase(useAuth((s) => s.session?.cabinetNom ?? "Cabinet"));
+  const sessionNom = toTitleCase(useAuth((s) => s.session?.nom ?? ""));
   const prenom = sessionNom.split(" ")[0] || "";
 
   const societes = allSocietes.filter((s) => canSeeSociete(s.id));
@@ -219,7 +219,12 @@ export function DashboardPage() {
           groupe affiché (pas un pourcentage inventé), la couleur n'est
           jamais le seul repère puisque le libellé et la valeur restent en
           texte à côté. */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div
+        className={cn(
+          "grid gap-4",
+          kpis.length >= 4 ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-3",
+        )}
+      >
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (

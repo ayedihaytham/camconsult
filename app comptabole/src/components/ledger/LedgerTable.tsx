@@ -1,11 +1,12 @@
 import {
+  Fragment,
   useEffect,
   useMemo,
   useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { ArrowDown, ArrowUp, ChevronsUpDown, GripVertical } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronsUpDown, GripVertical } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -67,6 +68,12 @@ interface LedgerTableProps<T> {
   enableColumnResize?: boolean;
   /** Bascule Confortable / Compact affichée au-dessus du tableau. */
   enableDensityToggle?: boolean;
+  /** Ligne expansible : chevron en première colonne, déplie un panneau sous
+   * la ligne (accordéon inline) sans quitter la page. État contrôlé par
+   * l'appelant, comme la sélection. */
+  expandedIds?: string[];
+  onExpandedIdsChange?: (ids: string[]) => void;
+  renderExpanded?: (row: T) => ReactNode;
 }
 
 type SortState = { columnId: string; direction: "asc" | "desc" } | null;
@@ -194,6 +201,9 @@ export function LedgerTable<T>({
   enableColumnReorder = false,
   enableColumnResize = false,
   enableDensityToggle = false,
+  expandedIds = [],
+  onExpandedIdsChange,
+  renderExpanded,
 }: LedgerTableProps<T>) {
   const [sort, setSort] = useState<SortState>(initialSort ?? null);
   const [page, setPage] = useState(0);
@@ -300,7 +310,17 @@ export function LedgerTable<T>({
     }
   }
 
-  const colSpan = columns.length + (enableSelection ? 1 : 0);
+  function toggleExpanded(id: string) {
+    if (!onExpandedIdsChange) return;
+    onExpandedIdsChange(
+      expandedIds.includes(id)
+        ? expandedIds.filter((x) => x !== id)
+        : [...expandedIds, id],
+    );
+  }
+
+  const colSpan =
+    columns.length + (enableSelection ? 1 : 0) + (renderExpanded ? 1 : 0);
   const headerPad = density === "compact" ? "py-1.5" : "py-3";
   const cellPad = density === "compact" ? "py-1" : "py-2.5";
 
@@ -360,6 +380,9 @@ export function LedgerTable<T>({
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-secondary/50">
+              {renderExpanded && (
+                <th className={cn("w-8 border-b border-border pl-3", headerPad)} />
+              )}
               {enableSelection && (
                 <th className={cn("w-10 border-b border-border pl-4", headerPad)}>
                   <Checkbox
@@ -372,6 +395,7 @@ export function LedgerTable<T>({
                     }
                     onCheckedChange={togglePage}
                     aria-label="Tout sélectionner"
+                    className="transition-all duration-200 data-[state=checked]:rounded-full data-[state=checked]:scale-110"
                   />
                 </th>
               )}
@@ -442,6 +466,11 @@ export function LedgerTable<T>({
             {isLoading ? (
               Array.from({ length: pageSize }).map((_, i) => (
                 <tr key={i} className="border-b border-border">
+                  {renderExpanded && (
+                    <td className="pl-3">
+                      <Skeleton className="h-4 w-4" />
+                    </td>
+                  )}
                   {enableSelection && (
                     <td className="py-2.5 pl-4">
                       <Skeleton className="h-4 w-4" />
@@ -468,44 +497,73 @@ export function LedgerTable<T>({
               pageRows.map((row) => {
                 const id = getRowId(row);
                 const selected = selectedIds.includes(id);
+                const expanded = Boolean(renderExpanded) && expandedIds.includes(id);
                 return (
-                  <tr
-                    key={id}
-                    onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    className={cn(
-                      "group relative border-b border-border/70 last:border-b-0 transition-all duration-200 ease-out",
-                      onRowClick && "cursor-pointer",
-                      selected
-                        ? "bg-accent/[0.06]"
-                        : "hover:z-10 hover:-translate-y-px hover:bg-card hover:[filter:drop-shadow(0_4px_10px_rgba(15,23,42,0.12))]",
+                  <Fragment key={id}>
+                    <tr
+                      onClick={onRowClick ? () => onRowClick(row) : undefined}
+                      className={cn(
+                        "group relative border-b border-border/70 transition-all duration-200 ease-out",
+                        !expanded && "last:border-b-0",
+                        onRowClick && "cursor-pointer",
+                        selected
+                          ? "bg-accent/[0.06]"
+                          : "hover:z-10 hover:-translate-y-px hover:bg-card hover:[filter:drop-shadow(0_4px_10px_rgba(15,23,42,0.12))]",
+                      )}
+                    >
+                      {renderExpanded && (
+                        <td className="pl-3" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(id)}
+                            aria-expanded={expanded}
+                            aria-label={expanded ? "Réduire" : "Détails rapides"}
+                            className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                          >
+                            <ChevronDown
+                              className={cn(
+                                "h-3.5 w-3.5 transition-transform duration-200",
+                                expanded && "rotate-180",
+                              )}
+                            />
+                          </button>
+                        </td>
+                      )}
+                      {enableSelection && (
+                        <td className="pl-4" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => toggleRow(id)}
+                            aria-label="Sélectionner la ligne"
+                            className="transition-all duration-200 data-[state=checked]:rounded-full data-[state=checked]:scale-110"
+                          />
+                        </td>
+                      )}
+                      {orderedColumns.map((col) => (
+                        <td
+                          key={col.id}
+                          style={{
+                            width: colWidths[col.id] ? `${colWidths[col.id]}px` : undefined,
+                          }}
+                          className={cn(
+                            "px-3",
+                            cellPad,
+                            alignClass[col.align ?? "left"],
+                            col.className,
+                          )}
+                        >
+                          {col.cell(row)}
+                        </td>
+                      ))}
+                    </tr>
+                    {expanded && renderExpanded && (
+                      <tr className="border-b border-border/70 last:border-b-0">
+                        <td colSpan={colSpan} className="animate-in fade-in slide-in-from-top-1 bg-secondary/20 p-0 duration-200">
+                          {renderExpanded(row)}
+                        </td>
+                      </tr>
                     )}
-                  >
-                    {enableSelection && (
-                      <td className="pl-4" onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={selected}
-                          onCheckedChange={() => toggleRow(id)}
-                          aria-label="Sélectionner la ligne"
-                        />
-                      </td>
-                    )}
-                    {orderedColumns.map((col) => (
-                      <td
-                        key={col.id}
-                        style={{
-                          width: colWidths[col.id] ? `${colWidths[col.id]}px` : undefined,
-                        }}
-                        className={cn(
-                          "px-3",
-                          cellPad,
-                          alignClass[col.align ?? "left"],
-                          col.className,
-                        )}
-                      >
-                        {col.cell(row)}
-                      </td>
-                    ))}
-                  </tr>
+                  </Fragment>
                 );
               })
             )}

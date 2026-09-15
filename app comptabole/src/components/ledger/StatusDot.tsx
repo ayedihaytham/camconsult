@@ -36,6 +36,7 @@ export function StatusDot({
   label,
   className,
   pill = false,
+  pulse = false,
 }: {
   tone: StatusTone;
   label: string;
@@ -44,7 +45,13 @@ export function StatusDot({
    * simple point + texte — même contenu accessible, juste plus visuel dans
    * un tableau. */
   pill?: boolean;
+  /** Léger halo qui pulse autour du point — réservé aux statuts "vivants"
+   * (ex. actif). Purement décoratif (CSS uniquement, animation lente et
+   * discrète) : l'information reste portée par le point + le texte, jamais
+   * par l'animation seule. */
+  pulse?: boolean;
 }) {
+  const shape = pill ? "rounded-full" : "rounded-[2px]";
   return (
     <span
       className={cn(
@@ -53,14 +60,18 @@ export function StatusDot({
         className,
       )}
     >
-      <span
-        className={cn(
-          "h-[7px] w-[7px] shrink-0",
-          pill ? "rounded-full" : "rounded-[2px]",
-          toneDot[tone],
+      <span className="relative inline-flex h-[7px] w-[7px] shrink-0" aria-hidden>
+        {pulse && (
+          <span
+            className={cn(
+              "absolute inset-0 opacity-50 [animation:ledger-pulse_2.4s_ease-out_infinite]",
+              shape,
+              toneDot[tone],
+            )}
+          />
         )}
-        aria-hidden
-      />
+        <span className={cn("relative h-[7px] w-[7px]", shape, toneDot[tone])} />
+      </span>
       {label}
     </span>
   );
@@ -74,9 +85,17 @@ const SOCIETE_STATUT: Record<Statut, { label: string; tone: StatusTone }> = {
 
 /** Statut générique actif/inactif/en_attente — sociétés ET collaborateurs
  * partagent le même type `Statut`. */
-export function StatutDot({ statut, pill }: { statut: Statut; pill?: boolean }) {
+export function StatutDot({
+  statut,
+  pill,
+  pulse,
+}: {
+  statut: Statut;
+  pill?: boolean;
+  pulse?: boolean;
+}) {
   const { label, tone } = SOCIETE_STATUT[statut];
-  return <StatusDot tone={tone} label={label} pill={pill} />;
+  return <StatusDot tone={tone} label={label} pill={pill} pulse={pulse} />;
 }
 
 const COLLECTE_STATUT_TONE: Record<CollecteStatut, StatusTone> = {

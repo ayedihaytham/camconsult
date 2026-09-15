@@ -5,6 +5,7 @@ import {
   Building2,
   Copy,
   FolderOpen,
+  GripVertical,
   Pencil,
   Plus,
   Trash2,
@@ -309,15 +310,47 @@ export function SocietesListPage() {
       header: "Statut",
       sortable: true,
       sortAccessor: (s) => s.statut,
-      cell: (s) => <StatutDot statut={s.statut} pill />,
+      cell: (s) => <StatutDot statut={s.statut} pill pulse={s.statut === "actif"} />,
     },
     {
       id: "actions",
       header: "",
       align: "right",
       headerClassName: "w-[1%]",
+      fixed: true,
       cell: (s) => (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center justify-end gap-0.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Actions rapides : masquées par défaut, révélées au survol de la
+              ligne ET au focus clavier (group-focus-within) — jamais
+              seulement au survol, pour rester utilisables sans souris. */}
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+            <button
+              type="button"
+              onClick={() => openView(s)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label={`Voir ${s.raisonSociale}`}
+              title="Voir"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(s);
+                  setFormOpen(true);
+                }}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                aria-label={`Modifier ${s.raisonSociale}`}
+                title="Modifier"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
           <LedgerRowMenu
             actions={[
               {
@@ -431,6 +464,9 @@ export function SocietesListPage() {
           onSelectedIdsChange={setSelectedIds}
           onRowClick={openView}
           initialSort={{ columnId: "raisonSociale", direction: "asc" }}
+          enableColumnReorder
+          enableColumnResize
+          enableDensityToggle
           emptyState={
             rows.length === 0 ? (
               <EmptyState
@@ -472,7 +508,10 @@ export function SocietesListPage() {
       </LedgerSheet>
       <p className="mt-2.5 text-xs text-muted-foreground">
         Clic sur une ligne pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-        la fiche société. Le menu « ⋯ » regroupe les autres actions.
+        la fiche société. Le menu « ⋯ » regroupe les autres actions —
+        glissez l'icône <GripVertical className="mb-0.5 inline h-3 w-3" />{" "}
+        d'un en-tête pour réordonner les colonnes, ou son bord droit pour la
+        redimensionner.
       </p>
 
       <SocieteFormSheet

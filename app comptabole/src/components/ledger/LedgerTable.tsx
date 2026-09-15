@@ -1,5 +1,29 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type Modifier,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatNumber } from "@/lib/utils";
@@ -19,6 +43,9 @@ import type { DataTableColumn } from "@/components/common/DataTable";
  *   actions secondaires/destructrices vont dans une colonne dédiée
  *   (typiquement un <LedgerRowMenu/>, ou des icônes directes s'il n'y en a
  *   que 1-2 — voir DESIGN-SYSTEM.md §4).
+ * - `enableColumnReorder` / `enableColumnResize` / `enableDensityToggle`
+ *   sont opt-in (par défaut désactivés) : aucun autre écran migré n'est
+ *   affecté tant qu'il ne les active pas explicitement.
  */
 
 interface LedgerTableProps<T> {
@@ -33,15 +60,124 @@ interface LedgerTableProps<T> {
   initialSort?: { columnId: string; direction: "asc" | "desc" };
   emptyState?: ReactNode;
   isLoading?: boolean;
+  /** Glisser-déposer les en-têtes pour réordonner les colonnes (colonne
+   * "actions" toujours épinglée à droite, non réordonnable). */
+  enableColumnReorder?: boolean;
+  /** Poignée de redimensionnement sur le bord droit de chaque en-tête. */
+  enableColumnResize?: boolean;
+  /** Bascule Confortable / Compact affichée au-dessus du tableau. */
+  enableDensityToggle?: boolean;
 }
 
 type SortState = { columnId: string; direction: "asc" | "desc" } | null;
+type Density = "comfortable" | "compact";
 
 const alignClass = {
   left: "text-left",
   right: "text-right",
   center: "text-center",
 } as const;
+
+const MIN_COL_WIDTH = 88;
+const MAX_COL_WIDTH = 520;
+
+/** Neutralise le déplacement vertical pendant le drag d'un en-tête : on ne
+ * réordonne qu'horizontalement, la colonne ne doit pas "flotter". */
+const restrictToHorizontalAxis: Modifier = ({ transform }) => ({
+  ...transform,
+  y: 0,
+});
+
+function ResizeHandle({
+  colId,
+  onResize,
+}: {
+  colId: string;
+  onResize: (id: string, width: number) => void;
+}) {
+  function handlePointerDown(e: ReactPointerEvent<HTMLSpanElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = e.currentTarget.closest("th");
+    const startWidth = th?.getBoundingClientRect().width ?? 160;
+    const startX = e.clientX;
+    function onMove(ev: PointerEvent) {
+      const next = Math.min(
+        MAX_COL_WIDTH,
+        Math.max(MIN_COL_WIDTH, startWidth + (ev.clientX - startX)),
+      );
+      onResize(colId, next);
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  return (
+    <span
+      onPointerDown={handlePointerDown}
+      className="group/resize absolute right-0 top-1/2 z-10 h-6 w-3 -translate-y-1/2 cursor-col-resize touch-none select-none"
+      aria-hidden
+    >
+      <span className="mx-auto block h-full w-px bg-border transition-colors group-hover/resize:bg-accent" />
+    </span>
+  );
+}
+
+function SortableTh({
+  id,
+  align,
+  headerClassName,
+  width,
+  resizable,
+  onResize,
+  children,
+}: {
+  id: string;
+  align: "left" | "right" | "center";
+  headerClassName?: string;
+  width?: number;
+  resizable?: boolean;
+  onResize?: (id: string, width: number) => void;
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  return (
+    <th
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        width: width ? `${width}px` : undefined,
+      }}
+      className={cn(
+        "relative whitespace-nowrap border-b border-border px-3 py-3 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground",
+        alignClass[align],
+        isDragging && "z-20 bg-secondary",
+        headerClassName,
+      )}
+    >
+      <div className={cn("flex items-center gap-1", align === "right" && "flex-row-reverse")}>
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="shrink-0 cursor-grab touch-none rounded text-muted-foreground/30 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 active:cursor-grabbing"
+          aria-label="Réordonner la colonne (glisser, ou flèches gauche/droite au clavier)"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        {children}
+      </div>
+      {resizable && onResize && <ResizeHandle colId={id} onResize={onResize} />}
+    </th>
+  );
+}
 
 export function LedgerTable<T>({
   columns,
@@ -55,9 +191,61 @@ export function LedgerTable<T>({
   initialSort,
   emptyState,
   isLoading = false,
+  enableColumnReorder = false,
+  enableColumnResize = false,
+  enableDensityToggle = false,
 }: LedgerTableProps<T>) {
   const [sort, setSort] = useState<SortState>(initialSort ?? null);
   const [page, setPage] = useState(0);
+  const [density, setDensity] = useState<Density>("comfortable");
+  const reorderableIds = useMemo(
+    () => columns.filter((c) => !c.fixed).map((c) => c.id),
+    [columns],
+  );
+  const [colOrder, setColOrder] = useState<string[]>(() => reorderableIds);
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+
+  // Recale l'ordre si l'ensemble des colonnes réordonnables change (nouvelles
+  // colonnes ajoutées à la fin, colonnes retirées simplement oubliées) —
+  // sans jamais réinitialiser l'ordre déjà choisi par l'utilisateur.
+  useEffect(() => {
+    setColOrder((prev) => {
+      const kept = prev.filter((id) => reorderableIds.includes(id));
+      const added = reorderableIds.filter((id) => !kept.includes(id));
+      return kept.length === reorderableIds.length && added.length === 0
+        ? prev
+        : [...kept, ...added];
+    });
+  }, [reorderableIds]);
+
+  const orderedColumns = useMemo(() => {
+    if (!enableColumnReorder) return columns;
+    const byId = new Map(columns.map((c) => [c.id, c]));
+    const sorted = colOrder
+      .map((id) => byId.get(id))
+      .filter((c): c is DataTableColumn<T> => Boolean(c));
+    return [...sorted, ...columns.filter((c) => c.fixed)];
+  }, [columns, colOrder, enableColumnReorder]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setColOrder((prev) => {
+      const oldIndex = prev.indexOf(String(active.id));
+      const newIndex = prev.indexOf(String(over.id));
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  }
+
+  function handleResize(id: string, width: number) {
+    setColWidths((prev) => ({ ...prev, [id]: width }));
+  }
 
   const sortedData = useMemo(() => {
     if (!sort) return data;
@@ -113,15 +301,67 @@ export function LedgerTable<T>({
   }
 
   const colSpan = columns.length + (enableSelection ? 1 : 0);
+  const headerPad = density === "compact" ? "py-1.5" : "py-3";
+  const cellPad = density === "compact" ? "py-1" : "py-2.5";
+
+  function headerContent(col: DataTableColumn<T>) {
+    const isSorted = sort?.columnId === col.id;
+    if (!col.sortable) return <span className="truncate">{col.header}</span>;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(col.id)}
+        className={cn(
+          "inline-flex items-center gap-1 truncate transition-colors hover:text-foreground",
+          col.align === "right" && "flex-row-reverse",
+          isSorted && "text-foreground",
+        )}
+      >
+        {col.header}
+        {isSorted ? (
+          sort?.direction === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
+        ) : (
+          <ChevronsUpDown className="h-3 w-3 opacity-40" />
+        )}
+      </button>
+    );
+  }
 
   return (
     <div>
+      {enableDensityToggle && (
+        <div className="flex justify-end border-b border-border bg-secondary/30 px-3 py-1.5">
+          <div className="inline-flex items-center gap-0.5 rounded-full bg-secondary/70 p-0.5 text-xs">
+            {(["comfortable", "compact"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDensity(d)}
+                aria-pressed={density === d}
+                className={cn(
+                  "rounded-full px-2.5 py-1 font-medium transition-colors",
+                  density === d
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {d === "comfortable" ? "Confortable" : "Compact"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-secondary/50">
               {enableSelection && (
-                <th className="w-10 border-b border-border py-3 pl-4">
+                <th className={cn("w-10 border-b border-border pl-4", headerPad)}>
                   <Checkbox
                     checked={
                       allPageSelected
@@ -135,44 +375,67 @@ export function LedgerTable<T>({
                   />
                 </th>
               )}
-              {columns.map((col) => {
-                const isSorted = sort?.columnId === col.id;
-                return (
+              {enableColumnReorder ? (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                  modifiers={[restrictToHorizontalAxis]}
+                >
+                  <SortableContext items={colOrder} strategy={horizontalListSortingStrategy}>
+                    {orderedColumns.map((col) =>
+                      col.fixed ? (
+                        <th
+                          key={col.id}
+                          style={{
+                            width: colWidths[col.id] ? `${colWidths[col.id]}px` : undefined,
+                          }}
+                          className={cn(
+                            "whitespace-nowrap border-b border-border px-3 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground",
+                            headerPad,
+                            alignClass[col.align ?? "left"],
+                            col.headerClassName,
+                          )}
+                        >
+                          {headerContent(col)}
+                        </th>
+                      ) : (
+                        <SortableTh
+                          key={col.id}
+                          id={col.id}
+                          align={col.align ?? "left"}
+                          headerClassName={cn(headerPad, col.headerClassName)}
+                          width={colWidths[col.id]}
+                          resizable={enableColumnResize}
+                          onResize={handleResize}
+                        >
+                          {headerContent(col)}
+                        </SortableTh>
+                      ),
+                    )}
+                  </SortableContext>
+                </DndContext>
+              ) : (
+                orderedColumns.map((col) => (
                   <th
                     key={col.id}
+                    style={{
+                      width: colWidths[col.id] ? `${colWidths[col.id]}px` : undefined,
+                    }}
                     className={cn(
-                      "whitespace-nowrap border-b border-border px-3 py-3 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground",
+                      "relative whitespace-nowrap border-b border-border px-3 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground",
+                      headerPad,
                       alignClass[col.align ?? "left"],
                       col.headerClassName,
                     )}
                   >
-                    {col.sortable ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleSort(col.id)}
-                        className={cn(
-                          "inline-flex items-center gap-1 transition-colors hover:text-foreground",
-                          col.align === "right" && "flex-row-reverse",
-                          isSorted && "text-foreground",
-                        )}
-                      >
-                        {col.header}
-                        {isSorted ? (
-                          sort?.direction === "asc" ? (
-                            <ArrowUp className="h-3 w-3" />
-                          ) : (
-                            <ArrowDown className="h-3 w-3" />
-                          )
-                        ) : (
-                          <ChevronsUpDown className="h-3 w-3 opacity-40" />
-                        )}
-                      </button>
-                    ) : (
-                      col.header
+                    {headerContent(col)}
+                    {enableColumnResize && !col.fixed && (
+                      <ResizeHandle colId={col.id} onResize={handleResize} />
                     )}
                   </th>
-                );
-              })}
+                ))
+              )}
             </tr>
           </thead>
           <tbody>
@@ -184,7 +447,7 @@ export function LedgerTable<T>({
                       <Skeleton className="h-4 w-4" />
                     </td>
                   )}
-                  {columns.map((col) => (
+                  {orderedColumns.map((col) => (
                     <td key={col.id} className="px-3 py-2.5">
                       <Skeleton className="h-4 w-full max-w-[140px]" />
                     </td>
@@ -210,9 +473,11 @@ export function LedgerTable<T>({
                     key={id}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                     className={cn(
-                      "border-b border-border/70 last:border-b-0 transition-colors",
-                      onRowClick && "cursor-pointer hover:bg-secondary/50",
-                      selected && "bg-accent/[0.06]",
+                      "group relative border-b border-border/70 last:border-b-0 transition-all duration-200 ease-out",
+                      onRowClick && "cursor-pointer",
+                      selected
+                        ? "bg-accent/[0.06]"
+                        : "hover:z-10 hover:-translate-y-px hover:bg-card hover:[filter:drop-shadow(0_4px_10px_rgba(15,23,42,0.12))]",
                     )}
                   >
                     {enableSelection && (
@@ -224,11 +489,15 @@ export function LedgerTable<T>({
                         />
                       </td>
                     )}
-                    {columns.map((col) => (
+                    {orderedColumns.map((col) => (
                       <td
                         key={col.id}
+                        style={{
+                          width: colWidths[col.id] ? `${colWidths[col.id]}px` : undefined,
+                        }}
                         className={cn(
-                          "px-3 py-2.5",
+                          "px-3",
+                          cellPad,
                           alignClass[col.align ?? "left"],
                           col.className,
                         )}

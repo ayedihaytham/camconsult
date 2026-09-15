@@ -31,6 +31,10 @@ export interface DataTableColumn<T> {
   align?: "left" | "right" | "center";
   /** Épingle la colonne au bord droit (reste visible au scroll horizontal). */
   stickyRight?: boolean;
+  /** Exclut la colonne du glisser-déposer / redimensionnement (LedgerTable
+   * uniquement) — toujours rendue en dernier, à sa position d'origine.
+   * Utilisé pour la colonne d'actions. */
+  fixed?: boolean;
 }
 
 interface DataTableProps<T> {

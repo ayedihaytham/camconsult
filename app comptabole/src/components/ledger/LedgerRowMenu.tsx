@@ -24,7 +24,7 @@ export function LedgerRowMenu({ actions }: { actions: RowAction[] }) {
           type="button"
           onClick={(e) => e.stopPropagation()}
           aria-label="Actions"
-          className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary"
         >
           <span className="flex flex-col items-center gap-[2.5px]">
             <span className="h-[3px] w-[3px] rounded-full bg-current" />

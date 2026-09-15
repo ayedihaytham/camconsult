@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
+import { avatarColor, cn, initials } from "@/lib/utils";
 import { employeNomComplet } from "@/data/employes";
 import { logJournal } from "@/store/journal";
 import {
@@ -228,9 +229,8 @@ export function EmployesListPage() {
       sortAccessor: (e) => e.nom.toLowerCase(),
       cell: (e) => (
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-xs font-bold text-foreground">
-            {e.prenom[0]}
-            {e.nom[0]}
+          <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold", avatarColor(e.id))}>
+            {initials(employeNomComplet(e))}
           </span>
           <div>
             <p className="font-semibold text-foreground">

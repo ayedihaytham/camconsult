@@ -9,7 +9,7 @@ import {
   Users2,
   X,
 } from "lucide-react";
-import { avatarColor, cn, formatTime, initials } from "@/lib/utils";
+import { avatarColor, cn, formatTime, initials, toTitleCase } from "@/lib/utils";
 import { useData, useEmployes, useSocietes, useConversations } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/store/auth";
@@ -70,7 +70,7 @@ export function ChatBubble() {
   type Emp = ReturnType<typeof empById>;
   const partnerLabel = (c: Conversation, emp: Emp) =>
     c.type === "groupe"
-      ? (c.titre ?? "Groupe")
+      ? toTitleCase(c.titre ?? "Groupe")
       : isAdmin
         ? (emp ? employeNomComplet(emp) : "—")
         : adminName;

@@ -26,7 +26,7 @@ export function RowActions({ actions }: { actions: RowAction[] }) {
               onClick={action.onClick}
               aria-label={action.label}
               className={cn(
-                "h-7 w-7 text-muted-foreground hover:text-foreground",
+                "h-7 w-7 text-muted-foreground hover:bg-accent/10 hover:text-primary",
                 action.destructive &&
                   "hover:bg-destructive/10 hover:text-destructive",
               )}

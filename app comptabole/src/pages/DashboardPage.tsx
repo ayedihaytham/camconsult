@@ -13,7 +13,7 @@ import {
 import { LedgerSheet, LedgerSheetHeader, LedgerSheetLink } from "@/components/ledger/LedgerSheet";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { RadialBarChart, type RadialSegment } from "@/components/charts/RadialBarChart";
-import { cn, formatNumber, formatDate, isCurrentMonth } from "@/lib/utils";
+import { avatarColor, cn, formatNumber, formatDate, isCurrentMonth, toTitleCase } from "@/lib/utils";
 import {
   useSocietes,
   useEmployes,
@@ -401,7 +401,7 @@ export function DashboardPage() {
                   const emp = employes.find((e) => e.id === c.employeId);
                   const label =
                     c.type === "groupe"
-                      ? (c.titre ?? "Groupe")
+                      ? toTitleCase(c.titre ?? "Groupe")
                       : isAdmin
                         ? emp
                           ? employeNomComplet(emp)
@@ -417,8 +417,8 @@ export function DashboardPage() {
                           pas seulement la couleur — voir DESIGN-SYSTEM.md §5) */}
                       <span
                         className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center border border-border text-xs font-bold text-foreground",
-                          c.type === "groupe" ? "rounded-[9px]" : "rounded-full",
+                          "flex h-8 w-8 shrink-0 items-center justify-center text-xs font-bold",
+                          c.type === "groupe" ? "rounded-[9px] bg-accent/12 text-accent" : cn("rounded-full", avatarColor(c.employeId ?? c.id)),
                         )}
                       >
                         {label.slice(0, 2).toUpperCase()}

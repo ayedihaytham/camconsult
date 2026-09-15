@@ -30,6 +30,7 @@ import {
   formatDayLabel,
   formatRelative,
   initials,
+  toTitleCase,
 } from "@/lib/utils";
 import {
   useData,
@@ -90,7 +91,7 @@ export function MessageriePage() {
   type Emp = ReturnType<typeof empById>;
   const partnerLabel = (c: Conversation, emp: Emp) =>
     c.type === "groupe"
-      ? (c.titre ?? "Groupe")
+      ? toTitleCase(c.titre ?? "Groupe")
       : isAdmin
         ? (emp ? employeNomComplet(emp) : "—")
         : adminName;

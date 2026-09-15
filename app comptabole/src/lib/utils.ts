@@ -100,6 +100,17 @@ export function avatarColor(id: string): string {
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
 }
 
+/** Casse capitalisée respectueuse des accents/traits d'union/apostrophes
+ * (« haytham ayedi » → « Haytham Ayedi », « jean-pierre » → « Jean-Pierre »)
+ * — les noms sont normalisés à l'affichage, jamais en base, quelle que soit
+ * la façon dont ils ont été saisis. */
+export function toTitleCase(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/(^|[\s'-])\p{L}/gu, (m) => m.toUpperCase());
+}
+
 export function initials(name: string): string {
   return name
     .split(" ")

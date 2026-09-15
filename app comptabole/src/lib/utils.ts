@@ -119,3 +119,19 @@ export function initials(name: string): string {
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
 }
+
+/** "{prefix} X mois/ans" à partir d'une date ISO — donnée réelle (jamais une
+ * estimation), utilisé pour les repères "Client depuis…" / "Collaborateur
+ * depuis…" dans les tableaux d'entités. */
+export function sinceLabel(iso: string, prefix: string): string {
+  const start = new Date(iso);
+  if (Number.isNaN(start.getTime())) return "";
+  const now = new Date();
+  const months =
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    (now.getMonth() - start.getMonth());
+  if (months < 1) return `${prefix} ce mois-ci`;
+  if (months < 12) return `${prefix} ${months} mois`;
+  const years = Math.floor(months / 12);
+  return `${prefix} ${years} an${years > 1 ? "s" : ""}`;
+}

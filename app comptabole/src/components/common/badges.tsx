@@ -1,20 +1,26 @@
 import { Badge } from "@/components/ui/badge";
 import type { EmployeType, SocieteTheme, Statut } from "@/types";
 
+export const STATUT_LABELS: Record<Statut, string> = {
+  actif: "Actif",
+  inactif: "Inactif",
+  en_attente: "En attente",
+};
+
+const STATUT_VARIANT: Record<Statut, "success" | "muted" | "warning"> = {
+  actif: "success",
+  inactif: "muted",
+  en_attente: "warning",
+};
+
 export function StatusBadge({ statut }: { statut: Statut }) {
-  const map: Record<Statut, { label: string; variant: "success" | "muted" | "warning" }> = {
-    actif: { label: "Actif", variant: "success" },
-    inactif: { label: "Inactif", variant: "muted" },
-    en_attente: { label: "En attente", variant: "warning" },
-  };
-  const { label, variant } = map[statut];
   return (
-    <Badge variant={variant}>
+    <Badge variant={STATUT_VARIANT[statut]}>
       <span
         className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full bg-current"
         aria-hidden
       />
-      {label}
+      {STATUT_LABELS[statut]}
     </Badge>
   );
 }

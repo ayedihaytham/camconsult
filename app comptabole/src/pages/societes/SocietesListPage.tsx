@@ -24,8 +24,10 @@ import { LedgerTable } from "@/components/ledger/LedgerTable";
 import type { DataTableColumn } from "@/components/common/DataTable";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { StatutDot } from "@/components/ledger/StatusDot";
+import { FilterChip } from "@/components/ledger/FilterChip";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { STATUT_LABELS } from "@/components/common/badges";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -38,7 +40,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
-import { cn, formatRelative } from "@/lib/utils";
+import { cn, formatRelative, sinceLabel } from "@/lib/utils";
 import {
   useData,
   useSocietes,
@@ -110,43 +112,6 @@ const THEME_ICON: Record<SocieteTheme, LucideIcon> = {
   "Profession libérale": Briefcase,
   "Auto-entrepreneur": UserRound,
 };
-
-const STATUT_LABELS: Record<Statut, string> = {
-  actif: "Actif",
-  inactif: "Inactif",
-  en_attente: "En attente",
-};
-
-/** Depuis quand la société est cliente — donnée réelle (creeLe), jamais une
- * estimation ; sert de repère de fidélité dans la vue Cartes. */
-function clientSince(creeLe: string): string {
-  const start = new Date(creeLe);
-  if (Number.isNaN(start.getTime())) return "";
-  const now = new Date();
-  const months =
-    (now.getFullYear() - start.getFullYear()) * 12 +
-    (now.getMonth() - start.getMonth());
-  if (months < 1) return "Client depuis ce mois-ci";
-  if (months < 12) return `Client depuis ${months} mois`;
-  const years = Math.floor(months / 12);
-  return `Client depuis ${years} an${years > 1 ? "s" : ""}`;
-}
-
-function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 py-1.5 pl-3 pr-1.5 text-xs font-semibold text-primary">
-      {label}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="flex h-4 w-4 items-center justify-center rounded-full text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={`Retirer le filtre ${label}`}
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </span>
-  );
-}
 
 /** Panneau de l'accordéon inline (voir LedgerTable `renderExpanded`) —
  * composant à part entière (et non une fonction inline appelée pour chaque
@@ -465,7 +430,7 @@ export function SocietesListPage() {
               </p>
               <p className="truncate text-xs text-muted-foreground">
                 {n === 0 ? "Aucun employé" : `${n} employé${n > 1 ? "s" : ""}`} ·{" "}
-                {clientSince(s.creeLe)}
+                {sinceLabel(s.creeLe, "Client depuis")}
               </p>
               <p className="truncate text-xs text-muted-foreground/75">
                 {s.rne || "—"} · {s.tva || "—"} · {s.theme}
@@ -658,7 +623,6 @@ export function SocietesListPage() {
             initialSort={{ columnId: "raisonSociale", direction: "asc" }}
             enableColumnReorder
             enableColumnResize
-            enableDensityToggle
             expandedIds={expandedIds}
             onExpandedIdsChange={setExpandedIds}
             renderExpanded={(s) => (
@@ -767,7 +731,7 @@ export function SocietesListPage() {
                       {n === 0 ? "Aucun employé" : `${n} employé${n > 1 ? "s" : ""}`}
                     </span>
                     <span aria-hidden>·</span>
-                    <span>{clientSince(s.creeLe)}</span>
+                    <span>{sinceLabel(s.creeLe, "Client depuis")}</span>
                   </div>
                   <div
                     className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"

@@ -1,13 +1,20 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  Calculator,
   Copy,
   Eye,
+  GraduationCap,
+  GripVertical,
   Pencil,
   Plus,
   ShieldCheck,
   Trash2,
+  UserRound,
   Users,
+  Wallet,
+  X,
+  type LucideIcon,
 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerToolbar } from "@/components/ledger/LedgerToolbar";
@@ -16,20 +23,24 @@ import { LedgerTable } from "@/components/ledger/LedgerTable";
 import type { DataTableColumn } from "@/components/common/DataTable";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { StatutDot } from "@/components/ledger/StatusDot";
+import { FilterChip } from "@/components/ledger/FilterChip";
+import { STATUT_LABELS } from "@/components/common/badges";
 import { PasswordCell } from "@/components/common/PasswordCell";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
-import { avatarColor, cn, initials } from "@/lib/utils";
+import { avatarColor, cn, initials, sinceLabel } from "@/lib/utils";
 import { employeNomComplet } from "@/data/employes";
 import { logJournal } from "@/store/journal";
 import {
@@ -39,7 +50,7 @@ import {
   defaultPermissions,
   PERMISSION_LABELS,
 } from "@/store/data";
-import type { Employe, EmployeType, PermissionKey } from "@/types";
+import type { Employe, EmployeType, PermissionKey, Statut } from "@/types";
 import { EmployeFormSheet, type EmployeFormValues } from "./EmployeFormSheet";
 import { EmployeAccesSheet } from "./EmployeAccesSheet";
 import { EmployeViewSheet } from "./EmployeViewSheet";
@@ -51,8 +62,87 @@ const TYPES: EmployeType[] = [
   "Gestionnaire de paie",
 ];
 
-const selectTriggerClass =
-  "h-auto w-auto gap-1.5 rounded-none border-0 border-b border-border bg-transparent px-0 pb-1.5 text-sm shadow-none focus:ring-0 data-[placeholder]:text-muted-foreground";
+// Même logique de wayfinding par couleur que Sociétés (barre pleine hauteur
+// + fond teinté) — chart-1..5 = catégorie, jamais un statut (voir
+// DESIGN-SYSTEM.md §1bis/§5). Le texte du type reste toujours non coloré.
+const TYPE_ACCENT: Record<EmployeType, string> = {
+  Comptable: "bg-chart-1/10 text-chart-1",
+  Assistant: "bg-chart-4/10 text-chart-4",
+  Stagiaire: "bg-warning/12 text-warning",
+  "Gestionnaire de paie": "bg-chart-2/10 text-chart-2",
+};
+const TYPE_BAR: Record<EmployeType, string> = {
+  Comptable: "bg-chart-1",
+  Assistant: "bg-chart-4",
+  Stagiaire: "bg-warning",
+  "Gestionnaire de paie": "bg-chart-2",
+};
+const TYPE_ICON: Record<EmployeType, LucideIcon> = {
+  Comptable: Calculator,
+  Assistant: UserRound,
+  Stagiaire: GraduationCap,
+  "Gestionnaire de paie": Wallet,
+};
+
+/** Panneau de l'accordéon inline (voir LedgerTable `renderExpanded`) —
+ * composant à part entière car les droits/sociétés assignées ont besoin
+ * d'accéder à `societes` (via prop plutôt qu'un hook, ici pas de store
+ * dédié nécessaire). */
+function EmployeExpandedPanel({
+  employe,
+  societes,
+  onOpenFull,
+}: {
+  employe: Employe;
+  societes: ReturnType<typeof useSocietes>;
+  onOpenFull: () => void;
+}) {
+  const societesNoms = employe.societesAssignees
+    .map((id) => societes.find((s) => s.id === id)?.raisonSociale)
+    .filter((n): n is string => Boolean(n));
+  const droitsActifs = (Object.keys(PERMISSION_LABELS) as PermissionKey[]).filter(
+    (k) => employe.permissions?.[k],
+  );
+
+  return (
+    <div className="grid gap-4 border-t border-border/70 px-6 py-4 sm:grid-cols-[1fr_1fr_auto]">
+      <div className="min-w-0">
+        <p className="mb-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-muted-foreground">
+          Sociétés assignées
+        </p>
+        {societesNoms.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucune société assignée.</p>
+        ) : (
+          <ul className="space-y-1">
+            {societesNoms.slice(0, 3).map((nom) => (
+              <li key={nom} className="truncate text-sm text-foreground">
+                {nom}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="mb-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-muted-foreground">
+          Droits actifs
+        </p>
+        {droitsActifs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun droit accordé.</p>
+        ) : (
+          <p className="text-sm text-foreground">
+            {droitsActifs.map((k) => PERMISSION_LABELS[k]).join(" · ")}
+          </p>
+        )}
+      </div>
+      <div className="flex items-start">
+        <Button variant="outline" size="sm" className="rounded-full" onClick={onOpenFull}>
+          <Eye className="h-3.5 w-3.5" />
+          Fiche complète
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function EmployesListPage() {
   const rows = useCollaborateurs();
@@ -66,6 +156,8 @@ export function EmployesListPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [vue, setVue] = useState<"tableau" | "cartes">("tableau");
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
@@ -134,6 +226,26 @@ export function EmployesListPage() {
       `${selectedIds.length} collaborateurs`,
     );
     toast.success(`${selectedIds.length} collaborateurs supprimés`);
+    setSelectedIds([]);
+  }
+
+  function bulkSetType(type: EmployeType) {
+    const ids = selectedIds;
+    ids.forEach((id) => updateEmploye(id, { type }));
+    logJournal("modification", "employe", `${ids.length} collaborateurs — type « ${type} »`);
+    toast.success(
+      `Type « ${type} » appliqué à ${ids.length} collaborateur${ids.length > 1 ? "s" : ""}`,
+    );
+    setSelectedIds([]);
+  }
+
+  function bulkSetInactive() {
+    const ids = selectedIds;
+    ids.forEach((id) => updateEmploye(id, { statut: "inactif" }));
+    logJournal("modification", "employe", `${ids.length} collaborateurs marqués inactifs`);
+    toast.success(
+      `${ids.length} collaborateur${ids.length > 1 ? "s" : ""} marqué${ids.length > 1 ? "s" : ""} inactif${ids.length > 1 ? "s" : ""}`,
+    );
     setSelectedIds([]);
   }
 
@@ -221,22 +333,68 @@ export function EmployesListPage() {
     setViewOpen(true);
   }
 
+  function employeMenuActions(e: Employe) {
+    return [
+      {
+        icon: ShieldCheck,
+        label: "Accès",
+        onClick: () => {
+          setAccesTarget(e);
+          setAccesOpen(true);
+        },
+      },
+      { icon: Copy, label: "Dupliquer", onClick: () => duplicate(e) },
+      {
+        icon: Pencil,
+        label: "Modifier",
+        onClick: () => {
+          setEditing(e);
+          setFormOpen(true);
+        },
+      },
+      {
+        icon: Trash2,
+        label: "Supprimer",
+        destructive: true,
+        onClick: () => setToDelete(e),
+      },
+    ];
+  }
+
   const columns: DataTableColumn<Employe>[] = [
     {
       id: "nom",
       header: "Collaborateur",
       sortable: true,
       sortAccessor: (e) => e.nom.toLowerCase(),
+      // Cellule "riche" pleine hauteur (même traitement que Sociétés) :
+      // avatar XL + barre de couleur par type + 2 lignes de repères, plutôt
+      // que d'étaler Type / Sociétés assignées / Droits sur des colonnes
+      // fines séparées (droits déplacés dans l'accordéon inline).
+      className: "relative p-0",
       cell: (e) => (
-        <div className="flex items-center gap-2.5">
-          <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold", avatarColor(e.id))}>
+        <div className="flex min-w-[240px] items-center gap-3 py-3 pl-4 pr-2">
+          <span className={cn("absolute inset-y-0 left-0 w-1", TYPE_BAR[e.type])} aria-hidden />
+          <span
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
+              avatarColor(e.id),
+            )}
+            aria-hidden
+          >
             {initials(employeNomComplet(e))}
           </span>
-          <div>
-            <p className="font-semibold text-foreground">
+          <div className="min-w-0">
+            <p className="truncate text-[0.95rem] font-bold text-foreground">
               {employeNomComplet(e)}
             </p>
-            <p className="text-xs text-muted-foreground">{e.email}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {e.type} ·{" "}
+              {e.societesAssignees.length === 0
+                ? "Aucune société"
+                : `${e.societesAssignees.length} société${e.societesAssignees.length > 1 ? "s" : ""}`}
+            </p>
+            <p className="truncate text-xs text-muted-foreground/75">{e.email}</p>
           </div>
         </div>
       ),
@@ -256,80 +414,54 @@ export function EmployesListPage() {
       ),
     },
     {
-      id: "type",
-      header: "Type",
-      sortable: true,
-      sortAccessor: (e) => e.type,
-      // Catégoriel, pas de statut : pas de couleur — voir DESIGN-SYSTEM.md §5.
-      cell: (e) => <span className="text-sm text-foreground">{e.type}</span>,
-    },
-    {
-      id: "acces_perimetre",
-      header: "Accès",
-      cell: (e) => {
-        const nbPerms = e.permissions
-          ? Object.values(e.permissions).filter(Boolean).length
-          : 0;
-        return (
-          <div className="whitespace-nowrap text-sm text-muted-foreground">
-            <span>
-              {e.societesAssignees.length} société
-              {e.societesAssignees.length > 1 ? "s" : ""}
-            </span>
-            <span className="mx-1.5 text-border">·</span>
-            <span>{nbPerms}/5 droits</span>
-          </div>
-        );
-      },
-    },
-    {
       id: "statut",
       header: "Statut",
       sortable: true,
       sortAccessor: (e) => e.statut,
-      cell: (e) => <StatutDot statut={e.statut} />,
+      cell: (e) => <StatutDot statut={e.statut} pill pulse={e.statut === "actif"} />,
     },
     {
       id: "actions",
       header: "",
       align: "right",
       headerClassName: "w-[1%]",
+      fixed: true,
       cell: (e) => (
-        <div onClick={(ev) => ev.stopPropagation()}>
-          <LedgerRowMenu
-            actions={[
-              {
-                icon: ShieldCheck,
-                label: "Accès",
-                onClick: () => {
-                  setAccesTarget(e);
-                  setAccesOpen(true);
-                },
-              },
-              { icon: Copy, label: "Dupliquer", onClick: () => duplicate(e) },
-              {
-                icon: Pencil,
-                label: "Modifier",
-                onClick: () => {
-                  setEditing(e);
-                  setFormOpen(true);
-                },
-              },
-              {
-                icon: Trash2,
-                label: "Supprimer",
-                destructive: true,
-                onClick: () => setToDelete(e),
-              },
-            ]}
-          />
+        <div
+          className="flex items-center justify-end gap-0.5"
+          onClick={(ev) => ev.stopPropagation()}
+        >
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+            <button
+              type="button"
+              onClick={() => openView(e)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label={`Voir ${employeNomComplet(e)}`}
+              title="Voir"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(e);
+                setFormOpen(true);
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label={`Modifier ${employeNomComplet(e)}`}
+              title="Modifier"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <LedgerRowMenu actions={employeMenuActions(e)} />
         </div>
       ),
     },
   ];
 
   return (
-    <div>
+    <div className={cn(vue === "tableau" && selectedIds.length > 0 && "pb-16")}>
       <LedgerPageHeader
         title="Collaborateurs"
         description="Équipe interne du cabinet : comptes, rôles et périmètre d'accès."
@@ -353,82 +485,281 @@ export function EmployesListPage() {
         searchPlaceholder="Rechercher un collaborateur, un identifiant…"
         onExport={handleExport}
         onPrint={handlePrint}
-        selectedCount={selectedIds.length}
-        onDeleteSelected={() => setBulkDeleteOpen(true)}
-        onClearSelection={() => setSelectedIds([])}
         filters={
-          <>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className={selectTriggerClass}>
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
-                {TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={statutFilter} onValueChange={setStatutFilter}>
-              <SelectTrigger className={selectTriggerClass}>
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="actif">Actif</SelectItem>
-                <SelectItem value="inactif">Inactif</SelectItem>
-                <SelectItem value="en_attente">En attente</SelectItem>
-              </SelectContent>
-            </Select>
-          </>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {typeFilter !== "all" && (
+              <FilterChip label={`Type : ${typeFilter}`} onRemove={() => setTypeFilter("all")} />
+            )}
+            {statutFilter !== "all" && (
+              <FilterChip
+                label={`Statut : ${STATUT_LABELS[statutFilter as Statut]}`}
+                onRemove={() => setStatutFilter("all")}
+              />
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-accent hover:text-primary"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Filtre
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="rounded-2xl">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Type</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="rounded-2xl">
+                    {TYPES.map((t) => (
+                      <DropdownMenuItem key={t} onClick={() => setTypeFilter(t)}>
+                        {t}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Statut</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="rounded-2xl">
+                    {(Object.keys(STATUT_LABELS) as Statut[]).map((s) => (
+                      <DropdownMenuItem key={s} onClick={() => setStatutFilter(s)}>
+                        {STATUT_LABELS[s]}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        }
+        primaryAction={
+          <div
+            role="tablist"
+            aria-label="Vue"
+            className="inline-flex items-center gap-0.5 rounded-full bg-secondary/70 p-0.5 text-xs"
+          >
+            {(["tableau", "cartes"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={vue === v}
+                onClick={() => setVue(v)}
+                className={cn(
+                  "rounded-full px-3 py-1.5 font-semibold transition-colors",
+                  vue === v
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {v === "tableau" ? "Tableau" : "Cartes"}
+              </button>
+            ))}
+          </div>
         }
       />
 
-      <LedgerSheet>
-        <LedgerTable
-          columns={columns}
-          data={filtered}
-          getRowId={(e) => e.id}
-          enableSelection
-          selectedIds={selectedIds}
-          onSelectedIdsChange={setSelectedIds}
-          onRowClick={openView}
-          initialSort={{ columnId: "nom", direction: "asc" }}
-          emptyState={
-            rows.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title="Aucun collaborateur"
-                description="Créez le premier compte collaborateur du cabinet."
-                action={
-                  <Button
-                    variant="ledger"
-                    size="sm"
-                    onClick={() => {
-                      setEditing(null);
-                      setFormOpen(true);
-                    }}
+      {vue === "tableau" ? (
+        <LedgerSheet>
+          <LedgerTable
+            columns={columns}
+            data={filtered}
+            getRowId={(e) => e.id}
+            enableSelection
+            selectedIds={selectedIds}
+            onSelectedIdsChange={setSelectedIds}
+            onRowClick={openView}
+            initialSort={{ columnId: "nom", direction: "asc" }}
+            enableColumnReorder
+            enableColumnResize
+            expandedIds={expandedIds}
+            onExpandedIdsChange={setExpandedIds}
+            renderExpanded={(e) => (
+              <EmployeExpandedPanel
+                employe={e}
+                societes={societes}
+                onOpenFull={() => openView(e)}
+              />
+            )}
+            emptyState={
+              rows.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title="Aucun collaborateur"
+                  description="Créez le premier compte collaborateur du cabinet."
+                  action={
+                    <Button
+                      variant="ledger"
+                      size="sm"
+                      onClick={() => {
+                        setEditing(null);
+                        setFormOpen(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Ajouter un collaborateur
+                    </Button>
+                  }
+                />
+              ) : (
+                <EmptyState
+                  title="Aucun résultat"
+                  description="Aucun collaborateur ne correspond à votre recherche ou à vos filtres."
+                />
+              )
+            }
+          />
+        </LedgerSheet>
+      ) : filtered.length === 0 ? (
+        <LedgerSheet>
+          {rows.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="Aucun collaborateur"
+              description="Créez le premier compte collaborateur du cabinet."
+            />
+          ) : (
+            <EmptyState
+              title="Aucun résultat"
+              description="Aucun collaborateur ne correspond à votre recherche ou à vos filtres."
+            />
+          )}
+        </LedgerSheet>
+      ) : (
+        <LedgerSheet className="p-4 sm:p-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((e) => {
+              const TypeIcon = TYPE_ICON[e.type];
+              return (
+                <div
+                  key={e.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openView(e)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter" || ev.key === " ") {
+                      ev.preventDefault();
+                      openView(e);
+                    }
+                  }}
+                  className="group relative flex cursor-pointer flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                        TYPE_ACCENT[e.type],
+                      )}
+                      aria-hidden
+                    >
+                      <TypeIcon className="h-5 w-5" />
+                    </span>
+                    <StatutDot statut={e.statut} pill pulse={e.statut === "actif"} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-foreground">
+                      {employeNomComplet(e)}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {e.identifiant} · {e.type}
+                    </p>
+                  </div>
+                  <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2.5 text-xs text-muted-foreground">
+                    <span>
+                      {e.societesAssignees.length === 0
+                        ? "Aucune société"
+                        : `${e.societesAssignees.length} société${e.societesAssignees.length > 1 ? "s" : ""}`}
+                    </span>
+                    <span aria-hidden>·</span>
+                    <span>{sinceLabel(e.creeLe, "Depuis")}</span>
+                  </div>
+                  <div
+                    className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                    onClick={(ev) => ev.stopPropagation()}
                   >
-                    <Plus className="h-4 w-4" />
-                    Ajouter un collaborateur
-                  </Button>
-                }
-              />
-            ) : (
-              <EmptyState
-                title="Aucun résultat"
-                description="Aucun collaborateur ne correspond à votre recherche ou à vos filtres."
-              />
-            )
-          }
-        />
-      </LedgerSheet>
+                    <LedgerRowMenu actions={employeMenuActions(e)} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </LedgerSheet>
+      )}
+
       <p className="mt-2.5 text-xs text-muted-foreground">
-        Clic sur une ligne pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-        la fiche collaborateur. Le menu « ⋯ » regroupe les autres actions.
+        {vue === "tableau" ? (
+          <>
+            Clic sur une ligne pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
+            la fiche collaborateur, ou sur le chevron pour un aperçu rapide
+            sans quitter la page. Le menu « ⋯ » regroupe les autres actions —
+            glissez l'icône <GripVertical className="mb-0.5 inline h-3 w-3" />{" "}
+            d'un en-tête pour réordonner les colonnes, ou son bord droit pour
+            la redimensionner.
+          </>
+        ) : (
+          <>
+            Clic sur une carte pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
+            la fiche collaborateur. Le menu « ⋯ » regroupe les autres actions.
+          </>
+        )}
       </p>
+
+      {vue === "tableau" && selectedIds.length > 0 && (
+        <div className="fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
+          <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-primary bg-primary px-3 py-2 text-sm text-primary-foreground shadow-pop animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <span className="px-2 font-semibold">
+              {selectedIds.length} collaborateur{selectedIds.length > 1 ? "s" : ""}{" "}
+              sélectionné{selectedIds.length > 1 ? "s" : ""}
+            </span>
+            <span className="mx-1 h-4 w-px bg-primary-foreground/20" aria-hidden />
+            <button
+              type="button"
+              onClick={() => handleExport("xlsx")}
+              className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-primary-foreground/10"
+            >
+              Exporter
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-primary-foreground/10"
+                >
+                  Assigner un type
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="rounded-2xl">
+                {TYPES.map((t) => (
+                  <DropdownMenuItem key={t} onClick={() => bulkSetType(t)}>
+                    {t}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button
+              type="button"
+              onClick={bulkSetInactive}
+              className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-primary-foreground/10"
+            >
+              Marquer inactif
+            </button>
+            <button
+              type="button"
+              onClick={() => setBulkDeleteOpen(true)}
+              className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-destructive/25"
+            >
+              Supprimer
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              aria-label="Annuler la sélection"
+              className="ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-primary-foreground/10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <EmployeFormSheet
         open={formOpen}

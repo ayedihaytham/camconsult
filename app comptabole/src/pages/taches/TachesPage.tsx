@@ -99,17 +99,29 @@ export function TachesPage() {
     return c ? `${c.prenom} ${c.nom}` : "Collaborateur retiré";
   };
 
-  const filtered = useMemo(() => {
+  // Filtres société/collaborateur, communs aux deux vues. Le statut n'y est
+  // volontairement pas inclus : dans le Tableau, les colonnes SONT déjà le
+  // regroupement par statut — y appliquer en plus un filtre de statut actif
+  // dans l'onglet Liste ferait disparaître une carte du tableau dès qu'on la
+  // fait changer de colonne (elle ne correspondrait plus au filtre resté actif).
+  const filteredBase = useMemo(() => {
     return taches.filter((t) => {
       if (societeFilter !== ALL && t.societeId !== societeFilter) return false;
       if (isAdmin && assigneFilter !== ALL) {
         if (assigneFilter === "none" ? t.assigneId : t.assigneId !== assigneFilter)
           return false;
       }
-      if (statutFilter !== ALL && t.statut !== statutFilter) return false;
       return true;
     });
-  }, [taches, societeFilter, assigneFilter, statutFilter, isAdmin]);
+  }, [taches, societeFilter, assigneFilter, isAdmin]);
+
+  // Vue Liste uniquement : ajoute le filtre de statut (son sélecteur n'existe
+  // que dans cette vue).
+  const filtered = useMemo(() => {
+    return filteredBase.filter(
+      (t) => statutFilter === ALL || t.statut === statutFilter,
+    );
+  }, [filteredBase, statutFilter]);
 
   const canMove = (t: Tache) => isAdmin || t.assigneId === employeId;
 
@@ -241,7 +253,7 @@ export function TachesPage() {
           {vue === "board" && (
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               {COLUMNS.map((col) => {
-                const items = filtered.filter((t) => t.statut === col);
+                const items = filteredBase.filter((t) => t.statut === col);
                 const meta = COLUMN_META[col];
                 const ColIcon = meta.icon;
                 return (

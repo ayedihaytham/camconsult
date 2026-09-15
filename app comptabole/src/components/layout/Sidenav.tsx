@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUi } from "@/store/ui";
-import { useConversations } from "@/store/data";
+import { useConversations, useNotifications } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
 import type { PermissionKey } from "@/types";
 import {
@@ -152,6 +152,15 @@ export function Sidenav() {
     .filter((c) => isAdmin || c.type === "groupe" || c.employeId === employeId)
     .reduce((n, c) => n + c.nonLus, 0);
   const location = useLocation();
+
+  // Notifications non lues ailleurs que dans la messagerie (déjà signalée
+  // par son propre badge chiffré) — un simple point d'alerte sur la rubrique
+  // concernée, pour repérer d'un coup d'œil où il y a du travail en attente.
+  const unreadNotifs = useNotifications().filter((n) => !n.lu);
+  const hasPending = (to: string) =>
+    to === "/"
+      ? unreadNotifs.some((n) => n.lien === "/")
+      : unreadNotifs.some((n) => n.lien === to || n.lien.startsWith(`${to}/`));
 
   // Mobile est toujours affiché tiroir ouvert = déplié, quel que soit le
   // réglage desktop (mobileOpen n'est jamais vrai sur desktop, le bouton
@@ -289,6 +298,7 @@ export function Sidenav() {
 
                   if (item.children) {
                     const active = isChildActive(item.children);
+                    const pending = item.children.some((c) => hasPending(c.to));
 
                     if (!showLabels) {
                       return (
@@ -299,7 +309,7 @@ export function Sidenav() {
                               className="block w-full"
                               aria-label={item.label}
                             >
-                              <RailIcon icon={Icon} label={item.label} active={active} />
+                              <RailIcon icon={Icon} label={item.label} active={active} pending={pending} />
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
@@ -317,13 +327,16 @@ export function Sidenav() {
                                 to={child.to}
                                 className={({ isActive }) =>
                                   cn(
-                                    "block rounded-xl px-3 py-2 text-sm transition-colors",
+                                    "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
                                     isActive
                                       ? "bg-primary/8 font-semibold text-primary"
                                       : "text-foreground/80 hover:bg-secondary hover:text-foreground",
                                   )
                                 }
                               >
+                                {hasPending(child.to) && (
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" aria-hidden="true" />
+                                )}
                                 {child.label}
                               </NavLink>
                             ))}
@@ -352,7 +365,12 @@ export function Sidenav() {
                               : "text-sidebar-muted hover:bg-sidebar-accent/10 hover:text-white",
                           )}
                         >
-                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          <span className="relative shrink-0">
+                            <Icon className="h-[18px] w-[18px]" />
+                            {pending && (
+                              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-destructive" aria-hidden="true" />
+                            )}
+                          </span>
                           <span className="min-w-0 flex-1 truncate text-left">
                             {item.label}
                           </span>
@@ -371,14 +389,17 @@ export function Sidenav() {
                                 to={child.to}
                                 className={({ isActive }) =>
                                   cn(
-                                    "block truncate rounded-lg px-2.5 py-1.5 text-[0.83rem] transition-colors",
+                                    "flex items-center gap-2 truncate rounded-lg px-2.5 py-1.5 text-[0.83rem] transition-colors",
                                     isActive
                                       ? "font-semibold text-sidebar-accent"
                                       : "text-sidebar-muted hover:bg-sidebar-accent/10 hover:text-white",
                                   )
                                 }
                               >
-                                {child.label}
+                                {hasPending(child.to) && (
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" aria-hidden="true" />
+                                )}
+                                <span className="truncate">{child.label}</span>
                               </NavLink>
                             ))}
                           </div>
@@ -386,6 +407,8 @@ export function Sidenav() {
                       </div>
                     );
                   }
+
+                  const pending = !badge && item.to ? hasPending(item.to) : false;
 
                   if (!showLabels) {
                     return (
@@ -396,7 +419,7 @@ export function Sidenav() {
                         aria-label={item.label}
                       >
                         {({ isActive }) => (
-                          <RailIcon icon={Icon} label={item.label} active={isActive} badge={badge} />
+                          <RailIcon icon={Icon} label={item.label} active={isActive} badge={badge} pending={pending} />
                         )}
                       </NavLink>
                     );
@@ -424,7 +447,12 @@ export function Sidenav() {
                               aria-hidden="true"
                             />
                           )}
-                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                          <span className="relative shrink-0">
+                            <Icon className="h-[18px] w-[18px]" />
+                            {pending && (
+                              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-destructive" aria-hidden="true" />
+                            )}
+                          </span>
                           <span className="min-w-0 flex-1 truncate">{item.label}</span>
                           {badge ? (
                             <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-sidebar-accent px-1 text-[10px] font-bold text-sidebar">
@@ -478,11 +506,13 @@ function RailIcon({
   label,
   active,
   badge,
+  pending,
 }: {
   icon: typeof LayoutDashboard;
   label: string;
   active: boolean;
   badge?: number | null;
+  pending?: boolean;
 }) {
   return (
     <Tooltip>
@@ -506,6 +536,8 @@ function RailIcon({
             <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sidebar-accent px-1 text-[10px] font-bold text-sidebar">
               {badge}
             </span>
+          ) : pending ? (
+            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-sidebar bg-destructive" aria-hidden="true" />
           ) : null}
         </span>
       </TooltipTrigger>

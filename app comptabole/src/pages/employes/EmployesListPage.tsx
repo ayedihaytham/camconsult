@@ -156,7 +156,6 @@ export function EmployesListPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [vue, setVue] = useState<"tableau" | "cartes">("tableau");
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -461,7 +460,7 @@ export function EmployesListPage() {
   ];
 
   return (
-    <div className={cn(vue === "tableau" && selectedIds.length > 0 && "pb-16")}>
+    <div className={cn(selectedIds.length > 0 && "md:pb-16")}>
       <LedgerPageHeader
         title="Collaborateurs"
         description="Équipe interne du cabinet : comptes, rôles et périmètre d'accès."
@@ -531,34 +530,12 @@ export function EmployesListPage() {
             </DropdownMenu>
           </div>
         }
-        primaryAction={
-          <div
-            role="tablist"
-            aria-label="Vue"
-            className="inline-flex items-center gap-0.5 rounded-full bg-secondary/70 p-0.5 text-xs"
-          >
-            {(["tableau", "cartes"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={vue === v}
-                onClick={() => setVue(v)}
-                className={cn(
-                  "rounded-full px-3 py-1.5 font-semibold transition-colors",
-                  vue === v
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {v === "tableau" ? "Tableau" : "Cartes"}
-              </button>
-            ))}
-          </div>
-        }
       />
 
-      {vue === "tableau" ? (
+      {/* Tableau sur PC/tablette, Cartes sur mobile — purement responsive,
+          jamais un choix laissé à l'utilisateur (voir SocietesListPage,
+          même traitement). */}
+      <div className="hidden md:block">
         <LedgerSheet>
           <LedgerTable
             columns={columns}
@@ -609,102 +586,101 @@ export function EmployesListPage() {
             }
           />
         </LedgerSheet>
-      ) : filtered.length === 0 ? (
-        <LedgerSheet>
-          {rows.length === 0 ? (
-            <EmptyState
-              icon={Users}
-              title="Aucun collaborateur"
-              description="Créez le premier compte collaborateur du cabinet."
-            />
-          ) : (
-            <EmptyState
-              title="Aucun résultat"
-              description="Aucun collaborateur ne correspond à votre recherche ou à vos filtres."
-            />
-          )}
-        </LedgerSheet>
-      ) : (
-        <LedgerSheet className="p-4 sm:p-5">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((e) => {
-              const TypeIcon = TYPE_ICON[e.type];
-              return (
-                <div
-                  key={e.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openView(e)}
-                  onKeyDown={(ev) => {
-                    if (ev.key === "Enter" || ev.key === " ") {
-                      ev.preventDefault();
-                      openView(e);
-                    }
-                  }}
-                  className="group relative flex cursor-pointer flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span
-                      className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                        TYPE_ACCENT[e.type],
-                      )}
-                      aria-hidden
-                    >
-                      <TypeIcon className="h-5 w-5" />
-                    </span>
-                    <StatutDot statut={e.statut} pill pulse={e.statut === "actif"} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-foreground">
-                      {employeNomComplet(e)}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {e.identifiant} · {e.type}
-                    </p>
-                  </div>
-                  <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2.5 text-xs text-muted-foreground">
-                    <span>
-                      {e.societesAssignees.length === 0
-                        ? "Aucune société"
-                        : `${e.societesAssignees.length} société${e.societesAssignees.length > 1 ? "s" : ""}`}
-                    </span>
-                    <span aria-hidden>·</span>
-                    <span>{sinceLabel(e.creeLe, "Depuis")}</span>
-                  </div>
-                  <div
-                    className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                    onClick={(ev) => ev.stopPropagation()}
-                  >
-                    <LedgerRowMenu actions={employeMenuActions(e)} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </LedgerSheet>
-      )}
+      </div>
 
-      <p className="mt-2.5 text-xs text-muted-foreground">
-        {vue === "tableau" ? (
-          <>
-            Clic sur une ligne pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-            la fiche collaborateur, ou sur le chevron pour un aperçu rapide
-            sans quitter la page. Le menu « ⋯ » regroupe les autres actions —
-            glissez l'icône <GripVertical className="mb-0.5 inline h-3 w-3" />{" "}
-            d'un en-tête pour réordonner les colonnes, ou son bord droit pour
-            la redimensionner.
-          </>
+      <div className="md:hidden">
+        {filtered.length === 0 ? (
+          <LedgerSheet>
+            {rows.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="Aucun collaborateur"
+                description="Créez le premier compte collaborateur du cabinet."
+              />
+            ) : (
+              <EmptyState
+                title="Aucun résultat"
+                description="Aucun collaborateur ne correspond à votre recherche ou à vos filtres."
+              />
+            )}
+          </LedgerSheet>
         ) : (
-          <>
-            Clic sur une carte pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-            la fiche collaborateur. Le menu « ⋯ » regroupe les autres actions.
-          </>
+          <LedgerSheet className="p-4 sm:p-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {filtered.map((e) => {
+                const TypeIcon = TYPE_ICON[e.type];
+                return (
+                  <div
+                    key={e.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openView(e)}
+                    onKeyDown={(ev) => {
+                      if (ev.key === "Enter" || ev.key === " ") {
+                        ev.preventDefault();
+                        openView(e);
+                      }
+                    }}
+                    className="group relative flex cursor-pointer flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span
+                        className={cn(
+                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                          TYPE_ACCENT[e.type],
+                        )}
+                        aria-hidden
+                      >
+                        <TypeIcon className="h-5 w-5" />
+                      </span>
+                      <StatutDot statut={e.statut} pill pulse={e.statut === "actif"} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-foreground">
+                        {employeNomComplet(e)}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {e.identifiant} · {e.type}
+                      </p>
+                    </div>
+                    <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2.5 text-xs text-muted-foreground">
+                      <span>
+                        {e.societesAssignees.length === 0
+                          ? "Aucune société"
+                          : `${e.societesAssignees.length} société${e.societesAssignees.length > 1 ? "s" : ""}`}
+                      </span>
+                      <span aria-hidden>·</span>
+                      <span>{sinceLabel(e.creeLe, "Depuis")}</span>
+                    </div>
+                    <div
+                      className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                      onClick={(ev) => ev.stopPropagation()}
+                    >
+                      <LedgerRowMenu actions={employeMenuActions(e)} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </LedgerSheet>
         )}
+      </div>
+
+      <p className="mt-2.5 hidden text-xs text-muted-foreground md:block">
+        Clic sur une ligne pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
+        la fiche collaborateur, ou sur le chevron pour un aperçu rapide
+        sans quitter la page. Le menu « ⋯ » regroupe les autres actions —
+        glissez l'icône <GripVertical className="mb-0.5 inline h-3 w-3" />{" "}
+        d'un en-tête pour réordonner les colonnes, ou son bord droit pour
+        la redimensionner.
+      </p>
+      <p className="mt-2.5 text-xs text-muted-foreground md:hidden">
+        Touchez une carte pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
+        la fiche collaborateur. Le menu « ⋯ » regroupe les autres actions.
       </p>
 
-      {vue === "tableau" && selectedIds.length > 0 && (
-        <div className="fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
+      {selectedIds.length > 0 && (
+        <div className="fixed inset-x-0 bottom-5 z-40 hidden justify-center px-4 md:flex">
           <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-primary bg-primary px-3 py-2 text-sm text-primary-foreground shadow-pop animate-in fade-in slide-in-from-bottom-2 duration-200">
             <span className="px-2 font-semibold">
               {selectedIds.length} collaborateur{selectedIds.length > 1 ? "s" : ""}{" "}

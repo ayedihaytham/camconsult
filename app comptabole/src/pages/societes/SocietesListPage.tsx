@@ -151,7 +151,6 @@ export function SocietesListPage() {
   const [themeFilter, setThemeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [vue, setVue] = useState<"tableau" | "cartes">("tableau");
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -445,7 +444,7 @@ export function SocietesListPage() {
   ];
 
   return (
-    <div className={cn(vue === "tableau" && selectedIds.length > 0 && "pb-16")}>
+    <div className={cn(selectedIds.length > 0 && "md:pb-16")}>
       <LedgerPageHeader
         title="Liste des sociétés"
         description={
@@ -524,34 +523,13 @@ export function SocietesListPage() {
             </DropdownMenu>
           </div>
         }
-        primaryAction={
-          <div
-            role="tablist"
-            aria-label="Vue"
-            className="inline-flex items-center gap-0.5 rounded-full bg-secondary/70 p-0.5 text-xs"
-          >
-            {(["tableau", "cartes"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={vue === v}
-                onClick={() => setVue(v)}
-                className={cn(
-                  "rounded-full px-3 py-1.5 font-semibold transition-colors",
-                  vue === v
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {v === "tableau" ? "Tableau" : "Cartes"}
-              </button>
-            ))}
-          </div>
-        }
       />
 
-      {vue === "tableau" ? (
+      {/* Tableau sur PC/tablette, Cartes sur mobile — jamais les deux à la
+          fois, purement responsive (pas un choix laissé à l'utilisateur) :
+          voir DESIGN-SYSTEM.md, le Tableau ne serait pas exploitable en
+          dessous du seuil `md`. */}
+      <div className="hidden md:block">
         <LedgerSheet>
           <LedgerTable
             columns={columns}
@@ -608,29 +586,32 @@ export function SocietesListPage() {
             }
           />
         </LedgerSheet>
-      ) : filtered.length === 0 ? (
-        <LedgerSheet>
-          {rows.length === 0 ? (
-            <EmptyState
-              icon={Building2}
-              title={canEdit ? "Aucune société enregistrée" : "Aucune société accessible"}
-              description={
-                canEdit
-                  ? "Ajoutez votre première société cliente pour commencer."
-                  : "Aucune société ne vous a été assignée."
-              }
-            />
-          ) : (
-            <EmptyState
-              title="Aucun résultat"
-              description="Aucune société ne correspond à votre recherche ou à vos filtres."
-            />
-          )}
-        </LedgerSheet>
-      ) : (
-        <LedgerSheet className="p-4 sm:p-5">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((s) => {
+      </div>
+
+      <div className="md:hidden">
+        {filtered.length === 0 ? (
+          <LedgerSheet>
+            {rows.length === 0 ? (
+              <EmptyState
+                icon={Building2}
+                title={canEdit ? "Aucune société enregistrée" : "Aucune société accessible"}
+                description={
+                  canEdit
+                    ? "Ajoutez votre première société cliente pour commencer."
+                    : "Aucune société ne vous a été assignée."
+                }
+              />
+            ) : (
+              <EmptyState
+                title="Aucun résultat"
+                description="Aucune société ne correspond à votre recherche ou à vos filtres."
+              />
+            )}
+          </LedgerSheet>
+        ) : (
+          <LedgerSheet className="p-4 sm:p-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {filtered.map((s) => {
               const ThemeIcon = THEME_ICON[s.theme];
               const n = employeCount.get(s.id) ?? 0;
               return (
@@ -682,31 +663,27 @@ export function SocietesListPage() {
                   </div>
                 </div>
               );
-            })}
-          </div>
-        </LedgerSheet>
-      )}
-
-      <p className="mt-2.5 text-xs text-muted-foreground">
-        {vue === "tableau" ? (
-          <>
-            Clic sur une ligne pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-            la fiche société, ou sur le chevron pour un aperçu rapide sans
-            quitter la page. Le menu « ⋯ » regroupe les autres actions —
-            glissez l'icône <GripVertical className="mb-0.5 inline h-3 w-3" />{" "}
-            d'un en-tête pour réordonner les colonnes, ou son bord droit pour
-            la redimensionner.
-          </>
-        ) : (
-          <>
-            Clic sur une carte pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-            la fiche société. Le menu « ⋯ » regroupe les autres actions.
-          </>
+              })}
+            </div>
+          </LedgerSheet>
         )}
+      </div>
+
+      <p className="mt-2.5 hidden text-xs text-muted-foreground md:block">
+        Clic sur une ligne pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
+        la fiche société, ou sur le chevron pour un aperçu rapide sans
+        quitter la page. Le menu « ⋯ » regroupe les autres actions —
+        glissez l'icône <GripVertical className="mb-0.5 inline h-3 w-3" />{" "}
+        d'un en-tête pour réordonner les colonnes, ou son bord droit pour
+        la redimensionner.
+      </p>
+      <p className="mt-2.5 text-xs text-muted-foreground md:hidden">
+        Touchez une carte pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
+        la fiche société. Le menu « ⋯ » regroupe les autres actions.
       </p>
 
-      {vue === "tableau" && selectedIds.length > 0 && (
-        <div className="fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
+      {selectedIds.length > 0 && (
+        <div className="fixed inset-x-0 bottom-5 z-40 hidden justify-center px-4 md:flex">
           <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-primary bg-primary px-3 py-2 text-sm text-primary-foreground shadow-pop animate-in fade-in slide-in-from-bottom-2 duration-200">
             <span className="px-2 font-semibold">
               {selectedIds.length} société{selectedIds.length > 1 ? "s" : ""}{" "}

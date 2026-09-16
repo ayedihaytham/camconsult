@@ -30,7 +30,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { readFileAsDataUrl } from "@/lib/file";
+import { cn } from "@/lib/utils";
 import { useStock, type StockMouvementInput } from "@/store/stock";
+import { useSocieteById } from "@/store/data";
 import type { StockDocType, StockExtractPage, StockMouvement } from "@/types";
 
 interface Props {
@@ -98,6 +100,7 @@ export function StockMouvementFormSheet({
   onSubmit,
 }: Props) {
   const isEdit = Boolean(mouvement);
+  const societe = useSocieteById(societeId);
   const extract = useStock((s) => s.extract);
   const extractPages = useStock((s) => s.extractPages);
   const reparsePage = useStock((s) => s.reparsePage);
@@ -393,54 +396,76 @@ export function StockMouvementFormSheet({
                   détectée{batchPages.length > 1 ? "s" : ""} — vérifiez le type
                   de chaque page avant d'appliquer.
                 </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Le type Achat/Vente est deviné en recherchant le nom «{" "}
+                  {societe?.raisonSociale || "…"} » dans la page (acheteur ou
+                  vendeur selon sa position). S'il n'apparaît pas — document
+                  sans lien avec cette société, ou lecture OCR imparfaite —
+                  choisissez le type vous-même ci-dessous.
+                </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {batchPages.map((page) => (
-                    <div
-                      key={page.index}
-                      className="space-y-1.5 rounded-md border border-border p-2"
-                    >
-                      {page.imageDataUrl ? (
-                        <img
-                          src={page.imageDataUrl}
-                          alt={`Page ${page.index + 1}`}
-                          className="h-28 w-full rounded border border-border object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-28 w-full items-center justify-center rounded border border-border bg-secondary/40">
-                          <FileIcon className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                      )}
-                      <p className="text-[11px] font-medium text-muted-foreground">
-                        Page {page.index + 1}
-                        {page.guessedType && (
-                          <>
-                            {" "}
-                            · deviné : {DOC_TYPE_LABELS[page.guessedType]}
-                            {page.confidence === "faible" && " (incertain)"}
-                          </>
+                  {batchPages.map((page) => {
+                    const undetected = !page.guessedType;
+                    return (
+                      <div
+                        key={page.index}
+                        className={cn(
+                          "space-y-1.5 rounded-md border p-2",
+                          undetected ? "border-warning/40 bg-warning/[0.06]" : "border-border",
                         )}
-                      </p>
-                      <Select
-                        value={batchAssignments[page.index] ?? "ignorer"}
-                        onValueChange={(val) =>
-                          setBatchAssignments((prev) => ({
-                            ...prev,
-                            [page.index]: val as BatchAssignment,
-                          }))
-                        }
                       >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="achat">Achat</SelectItem>
-                          <SelectItem value="vente">Vente</SelectItem>
-                          <SelectItem value="douane">Douane</SelectItem>
-                          <SelectItem value="ignorer">Ignorer cette page</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+                        {page.imageDataUrl ? (
+                          <img
+                            src={page.imageDataUrl}
+                            alt={`Page ${page.index + 1}`}
+                            className="h-28 w-full rounded border border-border object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-28 w-full items-center justify-center rounded border border-border bg-secondary/40">
+                            <FileIcon className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        <p className="text-[11px] font-medium text-muted-foreground">
+                          Page {page.index + 1}
+                          {page.guessedType ? (
+                            <>
+                              {" "}
+                              · deviné : {DOC_TYPE_LABELS[page.guessedType]}
+                              {page.confidence === "faible" && " (incertain)"}
+                            </>
+                          ) : (
+                            <span className="text-warning"> · type non détecté</span>
+                          )}
+                        </p>
+                        <Select
+                          value={batchAssignments[page.index] ?? "ignorer"}
+                          onValueChange={(val) =>
+                            setBatchAssignments((prev) => ({
+                              ...prev,
+                              [page.index]: val as BatchAssignment,
+                            }))
+                          }
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              "h-8 text-xs",
+                              undetected &&
+                                batchAssignments[page.index] === "ignorer" &&
+                                "border-warning/60",
+                            )}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="achat">Achat</SelectItem>
+                            <SelectItem value="vente">Vente</SelectItem>
+                            <SelectItem value="douane">Douane</SelectItem>
+                            <SelectItem value="ignorer">Ignorer cette page</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button

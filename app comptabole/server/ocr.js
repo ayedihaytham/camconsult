@@ -359,6 +359,16 @@ const INVOICE_NUM_LABEL = /INVOICE N|FACTURE N|N FACTURE|N INVOICE/;
  *     à l'autre.
  * Confiance renvoyée pour que l'écran mette en avant les cas incertains.
  */
+/** Vrai si `word` apparaît comme MOT entier dans `flatText` (déjà normalisé,
+ * espaces = séparateurs) — jamais une simple sous-chaîne. Sans ça, une
+ * société courte comme « CAM » « matchait » à tort dans « CAMSCANNER »
+ * (le filigrane que l'appli CamScanner appose sur chaque page numérisée),
+ * faussant la détection sur toutes les pages d'un coup — bug réel
+ * constaté en usage, pas juste théorique. */
+function hasWord(flatText, word) {
+  return new Set(flatText.split(" ")).has(word);
+}
+
 export function guessDocType(texte, raisonSociale) {
   const flat = normalizeFlat(texte);
   const douaneHits = DOUANE_KEYWORDS.filter((k) => flat.includes(normalizeFlat(k))).length;
@@ -369,13 +379,13 @@ export function guessDocType(texte, raisonSociale) {
     .filter((w) => w.length > 2);
   if (socWords.length === 0) return { type: null, confidence: "faible" };
 
-  const hitRatio = socWords.filter((w) => flat.includes(w)).length / socWords.length;
+  const hitRatio = socWords.filter((w) => hasWord(flat, w)).length / socWords.length;
   if (hitRatio < 0.5) return { type: null, confidence: "faible" };
 
   const lines = texte.split("\n").map(normalizeFlat);
   const nameLineIdx = lines.findIndex((l) => {
     if (!l) return false;
-    return socWords.filter((w) => l.includes(w)).length / socWords.length >= 0.5;
+    return socWords.filter((w) => hasWord(l, w)).length / socWords.length >= 0.5;
   });
   if (nameLineIdx === -1) return { type: null, confidence: "faible" };
 

@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Eye, EyeOff, FileUp, Loader2, X } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  File as FileIcon,
+  FileUp,
+  Layers,
+  Loader2,
+  X,
+} from "lucide-react";
 import {
   Sheet,
   SheetBody,
@@ -14,9 +22,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { readFileAsDataUrl } from "@/lib/file";
 import { useStock, type StockMouvementInput } from "@/store/stock";
-import type { StockDocType, StockMouvement } from "@/types";
+import type { StockDocType, StockExtractPage, StockMouvement } from "@/types";
 
 interface Props {
   open: boolean;
@@ -65,6 +80,16 @@ const DOC_FIELD: Record<StockDocType, "achatDocDataUrl" | "venteDocDataUrl" | "d
   douane: "douaneDocDataUrl",
 };
 
+const DOC_TYPE_LABELS: Record<StockDocType, string> = {
+  achat: "Achat",
+  vente: "Vente",
+  douane: "Douane",
+};
+
+/** "ignorer" : l'utilisateur choisit de ne pas utiliser cette page (type
+ * mal deviné et non pertinent, page vierge, etc.). */
+type BatchAssignment = StockDocType | "ignorer";
+
 export function StockMouvementFormSheet({
   open,
   onOpenChange,
@@ -74,6 +99,8 @@ export function StockMouvementFormSheet({
 }: Props) {
   const isEdit = Boolean(mouvement);
   const extract = useStock((s) => s.extract);
+  const extractPages = useStock((s) => s.extractPages);
+  const reparsePage = useStock((s) => s.reparsePage);
   const [v, setV] = useState<StockMouvementInput>(empty(societeId));
   const [importing, setImporting] = useState<StockDocType | null>(null);
   const [previewOpen, setPreviewOpen] = useState<Record<StockDocType, boolean>>({
@@ -87,10 +114,24 @@ export function StockMouvementFormSheet({
     douane: useRef<HTMLInputElement>(null),
   };
 
+  // Import "document complet" : un seul fichier (ex. PDF de plusieurs
+  // pages), une page par pièce (achat/vente/douane) — analysée séparément,
+  // type deviné, toujours à confirmer avant application (voir panneau plus
+  // bas et le point discuté avec l'utilisateur : jamais 100% automatique).
+  const batchInputRef = useRef<HTMLInputElement>(null);
+  const [batchImporting, setBatchImporting] = useState(false);
+  const [batchPages, setBatchPages] = useState<StockExtractPage[] | null>(null);
+  const [batchAssignments, setBatchAssignments] = useState<
+    Record<number, BatchAssignment>
+  >({});
+  const [batchApplying, setBatchApplying] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     setV(mouvement ? { ...mouvement } : empty(societeId));
     setPreviewOpen({ achat: false, vente: false, douane: false });
+    setBatchPages(null);
+    setBatchAssignments({});
   }, [open, mouvement, societeId]);
 
   function set<K extends keyof StockMouvementInput>(
@@ -157,6 +198,49 @@ export function StockMouvementFormSheet({
         douaneRegime: s("regime") || prev.douaneRegime,
         douaneReference: s("reference") || prev.douaneReference,
       }));
+    }
+  }
+
+  async function handleBatchImport(file: File) {
+    setBatchImporting(true);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const pages = await extractPages(societeId, dataUrl);
+      setBatchPages(pages);
+      setBatchAssignments(
+        Object.fromEntries(
+          pages.map((p) => [p.index, (p.guessedType ?? "ignorer") as BatchAssignment]),
+        ),
+      );
+    } catch {
+      /* le store affiche déjà l'erreur */
+    } finally {
+      setBatchImporting(false);
+    }
+  }
+
+  async function applyBatch() {
+    if (!batchPages) return;
+    setBatchApplying(true);
+    try {
+      for (const page of batchPages) {
+        const assignment = batchAssignments[page.index];
+        if (!assignment || assignment === "ignorer") continue;
+        const champs =
+          assignment === page.guessedType && page.champs
+            ? page.champs
+            : await reparsePage(page.texte, assignment);
+        applyChamps(assignment, champs);
+        if (page.imageDataUrl) set(DOC_FIELD[assignment], page.imageDataUrl);
+        setPreviewOpen((p) => ({ ...p, [assignment]: true }));
+      }
+      toast.success(
+        "Champs appliqués depuis le document complet — comparez chaque section avec sa page avant d'enregistrer.",
+      );
+      setBatchPages(null);
+      setBatchAssignments({});
+    } finally {
+      setBatchApplying(false);
     }
   }
 
@@ -252,13 +336,139 @@ export function StockMouvementFormSheet({
             {isEdit ? "Modifier le mouvement" : "Nouveau mouvement de stock"}
           </SheetTitle>
           <SheetDescription>
-            Importez un PDF par section pour pré-remplir les champs (OCR local) —
-            le document reste affiché pour vérifier les chiffres avant
-            d'enregistrer.
+            Importez un PDF par section, ou un seul document combinant
+            plusieurs pièces (voir ci-dessous), pour pré-remplir les champs
+            (OCR local) — le document reste affiché pour vérifier les
+            chiffres avant d'enregistrer.
           </SheetDescription>
         </SheetHeader>
 
         <SheetBody className="space-y-6">
+          {/* ── Import "document complet" ──────── */}
+          <div className="space-y-3 rounded-lg border border-dashed border-accent/40 bg-accent/[0.04] p-4">
+            <input
+              ref={batchInputRef}
+              type="file"
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleBatchImport(f);
+                e.target.value = "";
+              }}
+            />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Document complet (plusieurs pages)
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Un seul fichier regroupant plusieurs pièces (ex. facture
+                  d'achat + facture de vente + déclaration douanière
+                  scannées ensemble) — chaque page est analysée et son type
+                  deviné, à confirmer ci-dessous avant application.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={batchImporting}
+                onClick={() => batchInputRef.current?.click()}
+                className="shrink-0"
+              >
+                {batchImporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Layers className="h-3.5 w-3.5" />
+                )}
+                Importer le document complet
+              </Button>
+            </div>
+
+            {batchPages && (
+              <div className="space-y-3 rounded-md border border-border bg-card p-3">
+                <p className="text-xs font-medium text-foreground">
+                  {batchPages.length} page{batchPages.length > 1 ? "s" : ""}{" "}
+                  détectée{batchPages.length > 1 ? "s" : ""} — vérifiez le type
+                  de chaque page avant d'appliquer.
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {batchPages.map((page) => (
+                    <div
+                      key={page.index}
+                      className="space-y-1.5 rounded-md border border-border p-2"
+                    >
+                      {page.imageDataUrl ? (
+                        <img
+                          src={page.imageDataUrl}
+                          alt={`Page ${page.index + 1}`}
+                          className="h-28 w-full rounded border border-border object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-28 w-full items-center justify-center rounded border border-border bg-secondary/40">
+                          <FileIcon className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        Page {page.index + 1}
+                        {page.guessedType && (
+                          <>
+                            {" "}
+                            · deviné : {DOC_TYPE_LABELS[page.guessedType]}
+                            {page.confidence === "faible" && " (incertain)"}
+                          </>
+                        )}
+                      </p>
+                      <Select
+                        value={batchAssignments[page.index] ?? "ignorer"}
+                        onValueChange={(val) =>
+                          setBatchAssignments((prev) => ({
+                            ...prev,
+                            [page.index]: val as BatchAssignment,
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="achat">Achat</SelectItem>
+                          <SelectItem value="vente">Vente</SelectItem>
+                          <SelectItem value="douane">Douane</SelectItem>
+                          <SelectItem value="ignorer">Ignorer cette page</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setBatchPages(null);
+                      setBatchAssignments({});
+                    }}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ledger"
+                    size="sm"
+                    disabled={batchApplying}
+                    onClick={applyBatch}
+                  >
+                    {batchApplying && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Appliquer aux sections
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <Label>Nature de la marchandise</Label>
             <Input

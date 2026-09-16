@@ -4,7 +4,7 @@ import { query } from "../db.js";
 import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { stockMouvementDto } from "../mappers.js";
-import { extractDocument } from "../ocr.js";
+import { extractDocument, extractPages, parseFields } from "../ocr.js";
 
 export const stockRouter = Router();
 stockRouter.use(requireAuth);
@@ -194,4 +194,58 @@ stockRouter.post("/extract", async (req, res) => {
     console.error("[stock/extract]", err);
     res.status(500).json({ error: "Extraction impossible sur ce document." });
   }
+});
+
+// ── Import "document complet" : un PDF combinant plusieurs pièces ──
+// (ex. facture d'achat + facture de vente + déclaration douanière scannées
+// ensemble) — chaque page est analysée séparément et son type deviné, à
+// confirmer/corriger à l'écran avant application (voir StockMouvementFormSheet).
+const extractPagesSchema = z.object({
+  societeId: z.string().uuid(),
+  dataUrl: z.string().min(10),
+});
+
+stockRouter.post("/extract-pages", async (req, res) => {
+  const parsed = extractPagesSchema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  if (!canAccess(req.session, parsed.data.societeId))
+    return res.status(403).json({ error: "Accès au stock non autorisé" });
+
+  const soc = (
+    await query("select raison_sociale from societes where id = $1", [parsed.data.societeId])
+  ).rows[0];
+  if (!soc) return res.status(400).json({ error: "Société introuvable" });
+
+  try {
+    const pages = await extractPages(parsed.data.dataUrl, soc.raison_sociale);
+    res.json({
+      pages: pages.map((p) => ({
+        index: p.index,
+        imageDataUrl: p.imageDataUrl,
+        guessedType: p.type,
+        confidence: p.confidence,
+        texte: p.texte,
+        champs: p.type ? parseFields(p.texte, p.type) : null,
+      })),
+    });
+  } catch (err) {
+    console.error("[stock/extract-pages]", err);
+    res.status(500).json({ error: "Extraction impossible sur ce document." });
+  }
+});
+
+/** Recalcule les champs d'une page déjà OCRisée pour un type différent de
+ * celui deviné (l'utilisateur corrige le type dans l'écran) — pas d'OCR à
+ * relancer, juste les heuristiques (rapide). */
+const parseFieldsSchema = z.object({
+  texte: z.string(),
+  type: z.enum(["achat", "vente", "douane"]),
+});
+
+stockRouter.post("/parse-fields", (req, res) => {
+  const parsed = parseFieldsSchema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  res.json({ champs: parseFields(parsed.data.texte, parsed.data.type) });
 });

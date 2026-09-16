@@ -1,7 +1,12 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
-import type { StockDocType, StockExtractResult, StockMouvement } from "@/types";
+import type {
+  StockDocType,
+  StockExtractPage,
+  StockExtractResult,
+  StockMouvement,
+} from "@/types";
 
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
@@ -24,6 +29,16 @@ interface StockState {
   update: (id: string, data: Partial<StockMouvementInput>) => Promise<void>;
   remove: (id: string) => Promise<void>;
   extract: (type: StockDocType, dataUrl: string) => Promise<StockExtractResult>;
+  /** Import "document complet" : un PDF/image combinant plusieurs pièces —
+   * chaque page est analysée séparément et son type deviné. */
+  extractPages: (societeId: string, dataUrl: string) => Promise<StockExtractPage[]>;
+  /** Recalcule les champs d'une page déjà OCRisée pour un autre type que
+   * celui deviné (l'utilisateur corrige le type à l'écran) — pas de
+   * nouvel OCR, juste les heuristiques (rapide). */
+  reparsePage: (
+    texte: string,
+    type: StockDocType,
+  ) => Promise<Record<string, string | number>>;
 }
 
 export const useStock = create<StockState>((set) => ({
@@ -86,6 +101,33 @@ export const useStock = create<StockState>((set) => ({
       return fail(e);
     } finally {
       set({ extracting: false });
+    }
+  },
+
+  extractPages: async (societeId, dataUrl) => {
+    set({ extracting: true });
+    try {
+      const { pages } = await api.post<{ pages: StockExtractPage[] }>(
+        "/stock/extract-pages",
+        { societeId, dataUrl },
+      );
+      return pages;
+    } catch (e) {
+      return fail(e);
+    } finally {
+      set({ extracting: false });
+    }
+  },
+
+  reparsePage: async (texte, type) => {
+    try {
+      const { champs } = await api.post<{ champs: Record<string, string | number> }>(
+        "/stock/parse-fields",
+        { texte, type },
+      );
+      return champs;
+    } catch (e) {
+      return fail(e);
     }
   },
 }));

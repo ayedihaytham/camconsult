@@ -241,6 +241,20 @@ export interface StockExtractResult {
   champs: Record<string, string | number>;
 }
 
+export type StockDocConfidence = "haute" | "moyenne" | "faible";
+
+/** Une page d'un import "document complet" (PDF combinant plusieurs pièces
+ * — ex. facture d'achat + facture de vente + déclaration douanière
+ * scannées ensemble) : type deviné à confirmer/corriger avant application. */
+export interface StockExtractPage {
+  index: number;
+  imageDataUrl: string | null;
+  guessedType: StockDocType | null;
+  confidence: StockDocConfidence | null;
+  champs: Record<string, string | number> | null;
+  texte: string;
+}
+
 // ── États financiers : balance par société/exercice, reclassée par
 // code AFFECTAT (grille de reclassement cabinet) ──
 export interface BalanceLigne {

@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   ListChecks,
   LogOut,
-  Menu,
   MessageSquare,
   ScrollText,
   Settings,
@@ -20,8 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { useUi } from "@/store/ui";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
 import {
@@ -82,7 +80,6 @@ function pageMetaFor(pathname: string): PageMeta {
 }
 
 export function Topbar() {
-  const { setMobileOpen } = useUi();
   const { session, logout } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -109,15 +106,10 @@ export function Topbar() {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card no-print">
       <div className="flex h-[64px] items-center gap-3 px-4 lg:px-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
-          onClick={() => setMobileOpen(true)}
+        <SidebarTrigger
+          className="h-9 w-9 lg:hidden"
           aria-label="Ouvrir le menu"
-        >
-          <Menu />
-        </Button>
+        />
 
         <span
           className={cn(

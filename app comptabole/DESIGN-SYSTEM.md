@@ -52,7 +52,8 @@ identique à celui déjà défini plus haut :
 | `--primary` | marine générique (`211 68% 18%`) | marine CAMCONSULT exact, `#0B2545` (`213 72% 16%`) | encre forte : titres, boutons primaires |
 | `--accent` | émeraude (`160 84% 33%`) | or CAMCONSULT, `#C9A96A` (`40 47% 60%`) | marque, CTA (`Button variant="ledger"`), liens interactifs |
 | `--accent-foreground` | blanc | marine (`213 72% 16%`) | texte sur fond `--accent` (l'or est toujours un **fond**, jamais du texte clair sur fond clair) |
-| `--sidebar-accent` | émeraude | or (`40 47% 60%`) | filet/icône actifs du rail |
+| `--sidebar-primary` | — | or (`40 47% 60%`) | filet, icône et badge actifs du rail |
+| `--sidebar-accent` | émeraude | marine éclairci (`212 44% 20%`) | fond interactif/actif attendu par les primitives shadcn |
 | `--ring` | émeraude | or (`40 47% 60%`) | anneau de focus, aligné sur l'accent |
 | `--success` | émeraude (coïncidait avec `--accent`) | inchangé (`160 84% 33%`) | seul porteur du vert désormais — la coïncidence de valeur avec l'ancien accent disparaît |
 
@@ -144,16 +145,18 @@ l'accessibilité, la forme se reconnaît plus vite que la lecture d'un texte) :
 
 ## 6. Rail de navigation hybride
 
+- Architecture : primitives officielles shadcn `Sidebar` composées dans
+  `src/components/layout/sidebar/`, avec tiroir sous `lg` (1024 px).
 - Par défaut : **icône + libellé visibles** (pas de mode réduit par défaut).
 - Bouton « Réduire » en pied de rail : bascule vers icône seule + info-bulle
   au survol (remplace le libellé).
 - **État persisté** : déjà en place, `src/store/ui.ts` (`useUi`, middleware
   `persist`, clé `cabinet-ui`, ne persiste que `collapsed`). Rien à changer
-  ici, le rail hybride réutilise cet état existant tel quel.
-- Item actif : filet gauche 2px `--sidebar-accent` + fond teinté léger
-  (`bg-white/5`), pas de halo/pilule pleine.
-- Groupe « Sociétés » (seul group réel du menu — ne pas inventer d'autres
-  regroupements) : chevron + sous-liste indentée avec filet gauche.
+  ici : `SidebarProvider` est contrôlé par cet état.
+- Item actif : filet gauche or `--sidebar-primary` + fond interactif marine
+  `--sidebar-accent`, pas de halo/pilule pleine.
+- Groupes « Sociétés » et « États financiers » : chevron + sous-liste
+  indentée avec filet gauche ; en mode icône, accès par menu flottant.
 
 ## 7. Périmètre validé
 

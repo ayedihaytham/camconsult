@@ -79,3 +79,12 @@ concerné automatiquement. Vérifier après coup :
 ```bash
 docker compose logs -f watchtower
 ```
+
+**Exception : `nginx-camconsult.conf`** — nginx tourne sur l'hôte, pas dans
+un conteneur, donc il n'est jamais mis à jour par Watchtower. Après une
+modification de ce fichier, sur le VPS :
+
+```bash
+cp nginx-camconsult.conf /etc/nginx/sites-available/camconsult.com.tn
+nginx -t && systemctl reload nginx
+```

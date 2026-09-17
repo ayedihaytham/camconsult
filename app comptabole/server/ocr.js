@@ -106,13 +106,44 @@ export async function extractPages(dataUrl, raisonSociale) {
   const rastered = await rasterizeAllPages(buffer);
   const pages = [];
   for (const { index, png } of rastered) {
-    const { text: texte, lines } = await ocrImage(png);
+    let imagePng = png;
+    let { text: texte, lines } = await ocrImage(png);
+    let guess = guessDocType(texte, raisonSociale);
+
+    // Une déclaration douanière (grille serrée, bilingue) peut avoir son
+    // n° de déclaration / sa date totalement absents du texte à 200 DPI —
+    // vérifié en usage réel, pas une hypothèse — alors qu'ils sont
+    // parfaitement lisibles à l'œil sur le scan. On retente une fois à
+    // 400 DPI, seulement pour ce cas précis, pour ne pas ralentir les
+    // factures normales qui, elles, passent très bien à résolution standard.
+    if (guess.type === "douane") {
+      const essai = parseFields(texte, "douane", lines);
+      // numDeclaration est le signal fiable : une date "trouvée" ne veut
+      // rien dire ici — le motif de repli est si permissif (n'importe quel
+      // dd/mm/yyyy dans tout le texte) qu'il matche presque toujours
+      // quelque chose, même complètement erroné (vérifié en usage réel :
+      // "2083-01-02" au lieu de "2023-01-02"). Ne jamais s'y fier pour
+      // décider si la repasse est utile.
+      if (!essai.numDeclaration) {
+        const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
+        if (hiRes) {
+          const retry = await ocrImage(hiRes);
+          if (retry.text.trim().length > texte.trim().length * 0.5) {
+            imagePng = hiRes;
+            texte = retry.text;
+            lines = retry.lines;
+            guess = guessDocType(texte, raisonSociale);
+          }
+        }
+      }
+    }
+
     pages.push({
       index,
-      imageDataUrl: `data:image/png;base64,${png.toString("base64")}`,
+      imageDataUrl: `data:image/png;base64,${imagePng.toString("base64")}`,
       texte,
       champsByType: champsPourTousLesTypes(texte, lines),
-      ...guessDocType(texte, raisonSociale),
+      ...guess,
     });
   }
   return pages;
@@ -170,6 +201,31 @@ async function rasterizeAllPages(buffer) {
   } catch (err) {
     console.error("[ocr] rasterisation PDF impossible", err.message);
     return [];
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/** Rastérise UNE page à une résolution donnée — utilisé pour retenter en
+ * haute résolution une page où la première passe (200 DPI) n'a rien donné
+ * (voir extractPages : cas des déclarations douanières, grille serrée avec
+ * de petites cases que l'OCR peut ne pas lire du tout à résolution
+ * standard, constaté en usage réel — jamais un simple guess). */
+async function rasterizeOnePage(buffer, pageNum, dpi) {
+  const dir = await mkdtemp(join(tmpdir(), "stock-ocr-hi-"));
+  try {
+    const pdfPath = join(dir, "doc.pdf");
+    await writeFile(pdfPath, buffer);
+    await execFileAsync("pdftoppm", [
+      "-png", "-r", String(dpi), "-f", String(pageNum), "-l", String(pageNum),
+      pdfPath, join(dir, "page"),
+    ]);
+    const files = (await readdir(dir)).filter((f) => f.endsWith(".png"));
+    if (!files.length) return null;
+    return await readFile(join(dir, files[0]));
+  } catch (err) {
+    console.error("[ocr] rastérisation haute résolution impossible", err.message);
+    return null;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
@@ -743,6 +799,11 @@ export function parseFields(text, type, lines = []) {
     numDeclaration: firstMatch(t, [
       /d[ée]claration\s*(?:n[°o]|num[ée]ro)?\s*[:\s]\s*([A-Z0-9\-\/]{3,})/i,
       /\b(?:DAU|DAE)\s*(?:n[°o]|num[ée]ro)?\s*[:\s]\s*([A-Z0-9\-\/]{3,})/i,
+      // Un repli "nombre isolé à 6 chiffres" a été testé et retiré : sur ce
+      // formulaire, plusieurs valeurs sans rapport (poids, montants en
+      // devise) ont aussi 6 chiffres — vérifié en usage réel, ça a confondu
+      // une valeur douanière (170718.400) avec le numéro de déclaration.
+      // Mieux vaut laisser vide que remonter un numéro plausible mais faux.
     ]),
     date,
     regime: firstMatch(t, [/r[ée]gime\s*[:\s]\s*([^\n]{2,40})/i]),

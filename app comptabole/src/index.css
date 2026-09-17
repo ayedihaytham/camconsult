@@ -67,14 +67,19 @@
 
     --radius: 0.625rem;
 
-    /* Sidenav — bleu marine profond, dégradé subtil (haut → bas) plutôt
-       qu'un aplat plat : --sidebar-deep est le point d'arrivée du dégradé. */
-    --sidebar: 213 60% 13%;
+    /* Sidebar shadcn — sémantique adaptée à l'identité CAMCONSULT.
+       background/deep = marine ; primary = or de marque ; accent = surface
+       interactive marine plus claire (et non la couleur or). */
+    --sidebar-background: 213 60% 13%;
     --sidebar-deep: 213 65% 9%;
     --sidebar-foreground: 210 30% 88%;
     --sidebar-muted: 211 30% 62%;
+    --sidebar-primary: 40 47% 60%;
+    --sidebar-primary-foreground: 213 65% 9%;
+    --sidebar-accent: 212 44% 20%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 212 44% 20%;
-    --sidebar-accent: 40 47% 60%;
+    --sidebar-ring: 38 55% 46%;
   }
 
   * {

@@ -3,10 +3,6 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { safeLocalStorage } from "@/lib/safeStorage";
 
 interface UiState {
-  /** Sidenav ouverte en overlay (mobile/tablette) */
-  mobileOpen: boolean;
-  setMobileOpen: (v: boolean) => void;
-
   /** Rail replié en icônes seules (desktop) — état persisté. */
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
@@ -20,9 +16,6 @@ interface UiState {
 export const useUi = create<UiState>()(
   persist(
     (set, get) => ({
-      mobileOpen: false,
-      setMobileOpen: (v) => set({ mobileOpen: v }),
-
       collapsed: false,
       setCollapsed: (v) => set({ collapsed: v }),
       toggleCollapsed: () => set({ collapsed: !get().collapsed }),

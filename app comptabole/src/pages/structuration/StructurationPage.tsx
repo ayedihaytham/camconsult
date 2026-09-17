@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   Copy,
   FolderTree,
+  Network,
   Pencil,
   Plus,
   Trash2,
@@ -44,6 +45,7 @@ import { logJournal } from "@/store/journal";
 import type { Noeud } from "@/types";
 import { ArborescenceFormSheet, type ArboFormValues } from "./ArborescenceFormSheet";
 import { FileTree } from "./FileTree";
+import { OrganigrammeView } from "./OrganigrammeView";
 import { FileUploadDialog, type NewFichier } from "./FileUploadDialog";
 import { MoveNodeDialog } from "./MoveNodeDialog";
 import { FilePreviewDialog } from "./FilePreviewDialog";
@@ -54,7 +56,9 @@ const selectTriggerClass =
 export function StructurationPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const societeParam = searchParams.get("societe");
-  const initialTab = searchParams.get("vue") === "arbre" ? "arbre" : "tableau";
+  const vueParam = searchParams.get("vue");
+  const initialTab: "tableau" | "arbre" | "organigramme" =
+    vueParam === "arbre" ? "arbre" : vueParam === "organigramme" ? "organigramme" : "tableau";
 
   const allNodes = useNoeuds();
   const societes = useSocietes();
@@ -74,7 +78,7 @@ export function StructurationPage() {
   const deleteNoeudsCascade = useData((s) => s.deleteNoeudsCascade);
   const getSocieteById = (id: string | null | undefined) =>
     societes.find((s) => s.id === id) ?? null;
-  const [tab, setTab] = useState<"tableau" | "arbre">(initialTab);
+  const [tab, setTab] = useState<"tableau" | "arbre" | "organigramme">(initialTab);
   const [search, setSearch] = useState("");
   const [societeFilter, setSocieteFilter] = useState(societeParam ?? "all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -463,13 +467,14 @@ export function StructurationPage() {
         onChange={(v) => {
           setTab(v);
           const next = new URLSearchParams(searchParams);
-          if (v === "arbre") next.set("vue", "arbre");
-          else next.delete("vue");
+          if (v === "tableau") next.delete("vue");
+          else next.set("vue", v);
           setSearchParams(next, { replace: true });
         }}
         options={[
           { value: "tableau", label: "Tableau" },
           { value: "arbre", label: "Arborescence" },
+          { value: "organigramme", label: "Organigramme" },
         ]}
       />
 
@@ -581,6 +586,27 @@ export function StructurationPage() {
             onReparent={handleMove}
             onDelete={(n) => setToDelete(n)}
           />
+        </div>
+      )}
+
+      {tab === "organigramme" && (
+        <div className="mt-4">
+          {roots.length === 0 ? (
+            <LedgerSheet>
+              <EmptyState
+                icon={Network}
+                title="Aucun organigramme"
+                description="Créez une première arborescence documentaire pour voir son organigramme."
+              />
+            </LedgerSheet>
+          ) : (
+            <OrganigrammeView
+              nodes={nodes}
+              roots={roots}
+              getSocieteById={getSocieteById}
+              onOpenNode={openFolder}
+            />
+          )}
         </div>
       )}
 

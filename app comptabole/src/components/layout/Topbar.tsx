@@ -1,22 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  Bell,
-  Boxes,
-  Building2,
-  Calculator,
-  ClipboardList,
-  FolderTree,
-  Landmark,
-  LayoutDashboard,
-  ListChecks,
-  LogOut,
-  MessageSquare,
-  ScrollText,
-  Settings,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Bell, LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -31,38 +15,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-/** Classes Tailwind écrites en toutes lettres (jamais construites par
- * interpolation) : le scanner JIT de Tailwind ne détecte que des chaînes
- * littérales présentes dans le code source. */
-const ACCENTS = {
-  1: { rule: "text-chart-1", badge: "bg-chart-1/10 text-chart-1" },
-  2: { rule: "text-chart-2", badge: "bg-chart-2/10 text-chart-2" },
-  3: { rule: "text-chart-3", badge: "bg-chart-3/10 text-chart-3" },
-  4: { rule: "text-chart-4", badge: "bg-chart-4/10 text-chart-4" },
-  5: { rule: "text-chart-5", badge: "bg-chart-5/10 text-chart-5" },
-} as const;
-type AccentKey = keyof typeof ACCENTS;
-
-interface PageMeta {
-  title: string;
-  icon: LucideIcon;
-  accent: AccentKey;
-}
-
-const PAGES: Record<string, PageMeta> = {
-  "/": { title: "Tableau de bord", icon: LayoutDashboard, accent: 1 },
-  "/societes": { title: "Sociétés", icon: Building2, accent: 2 },
-  "/employes": { title: "Collaborateurs", icon: Users, accent: 2 },
-  "/taches": { title: "Tâches", icon: ListChecks, accent: 4 },
-  "/collectes": { title: "Collecte de pièces", icon: ClipboardList, accent: 3 },
-  "/stock": { title: "Gestion de stock", icon: Boxes, accent: 4 },
-  "/etats-financiers": { title: "États financiers", icon: Calculator, accent: 1 },
-  "/grille-affectat": { title: "Grille de reclassement", icon: Calculator, accent: 1 },
-  "/bordereaux": { title: "Bordereaux bancaires", icon: Landmark, accent: 2 },
-  "/structuration": { title: "Structuration", icon: FolderTree, accent: 3 },
-  "/messagerie": { title: "Messagerie", icon: MessageSquare, accent: 4 },
-  "/journal": { title: "Journal d'activité", icon: ScrollText, accent: 5 },
-  "/parametres": { title: "Paramètres", icon: Settings, accent: 5 },
+const PAGES: Record<string, string> = {
+  "/": "Tableau de bord",
+  "/societes": "Sociétés",
+  "/employes": "Collaborateurs",
+  "/taches": "Tâches",
+  "/collectes": "Collecte de pièces",
+  "/stock": "Gestion de stock",
+  "/etats-financiers": "États financiers",
+  "/grille-affectat": "Grille de reclassement",
+  "/bordereaux": "Bordereaux bancaires",
+  "/structuration": "Structuration",
+  "/messagerie": "Messagerie",
+  "/journal": "Journal d'activité",
+  "/parametres": "Paramètres",
 };
 
 const TODAY_LABEL = new Intl.DateTimeFormat("fr-FR", {
@@ -71,19 +37,19 @@ const TODAY_LABEL = new Intl.DateTimeFormat("fr-FR", {
   month: "long",
 }).format(new Date());
 
-function pageMetaFor(pathname: string): PageMeta {
+function titleFor(pathname: string): string {
   if (PAGES[pathname]) return PAGES[pathname];
   const match = Object.keys(PAGES)
     .filter((p) => p !== "/" && pathname.startsWith(p))
     .sort((a, b) => b.length - a.length)[0];
-  return match ? PAGES[match] : { title: "Cabinet", icon: LayoutDashboard, accent: 1 };
+  return match ? PAGES[match] : "Cabinet";
 }
 
 export function Topbar() {
   const { session, logout } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { title, icon: PageIcon, accent } = pageMetaFor(pathname);
+  const title = titleFor(pathname);
 
   const nom = toTitleCase(session?.nom ?? "Utilisateur");
   const role = session?.fonction ?? "";
@@ -111,14 +77,6 @@ export function Topbar() {
           aria-label="Ouvrir le menu"
         />
 
-        <span
-          className={cn(
-            "hidden h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:flex",
-            ACCENTS[accent].badge,
-          )}
-        >
-          <PageIcon className="h-5 w-5" />
-        </span>
         <div className="min-w-0 leading-tight">
           <h2 className="truncate text-sm font-bold text-foreground lg:text-base">
             {title}

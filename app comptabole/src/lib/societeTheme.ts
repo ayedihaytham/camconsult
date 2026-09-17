@@ -38,6 +38,18 @@ export const THEME_BAR: Record<SocieteTheme, string> = {
   "Auto-entrepreneur": "bg-chart-5",
 };
 
+// Même palette, en classes de bordure `before:`/`after:` complètes (pas de
+// construction dynamique de nom de classe — Tailwind ne scanne que du texte
+// littéral) : utilisé par l'organigramme de Structuration pour colorer les
+// traits de connexion de toute une branche selon le thème de sa société.
+export const THEME_LINE: Record<SocieteTheme, string> = {
+  PME: "before:border-chart-1 after:border-chart-1",
+  "Grande entreprise": "before:border-chart-2 after:border-chart-2",
+  Association: "before:border-warning after:border-warning",
+  "Profession libérale": "before:border-chart-4 after:border-chart-4",
+  "Auto-entrepreneur": "before:border-chart-5 after:border-chart-5",
+};
+
 /** Pictogramme par thème — un repère instantané en plus du nom (jamais la
  * seule information : voir DESIGN-SYSTEM.md §5). */
 export const THEME_ICON: Record<SocieteTheme, LucideIcon> = {

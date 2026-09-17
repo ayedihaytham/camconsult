@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { claudeAvailable, claudeExtractPage, champsByTypeFromClaude, champsByTypeVide } from "./claudeExtract.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -13,6 +14,11 @@ const MAX_PAGES = 15;
  *  1. Si le PDF contient du texte (généré numériquement) -> lecture directe (pdf-parse).
  *  2. Sinon (PDF/image scanné) -> rasterisation (poppler) + OCR (tesseract.js).
  * Puis extraction de champs par heuristiques (regex) selon le type de document.
+ *
+ * `extractPages` (import "document complet", ci-dessous) bascule sur Claude
+ * (Sonnet 5) quand ANTHROPIC_API_KEY est configurée — voir claudeExtract.js.
+ * Ce pipeline local (`extractDocument`, import "une section = un document")
+ * reste inchangé et sert aussi de repli si la clé n'est pas configurée.
  *
  * Utilisé par l'import "une section = un document" : toutes les pages du
  * fichier sont supposées appartenir au MÊME document (ex. une facture de
@@ -73,8 +79,21 @@ function champsPourTousLesTypes(texte, lines) {
 
 export async function extractPages(dataUrl, raisonSociale) {
   const { buffer, mime } = decodeDataUrl(dataUrl);
+  const useClaude = claudeAvailable();
 
   if (mime.startsWith("image/")) {
+    if (useClaude) {
+      const out = await claudeExtractPage({ imageDataUrl: dataUrl, raisonSociale });
+      return [
+        {
+          index: 0,
+          imageDataUrl: dataUrl,
+          champsByType: champsByTypeFromClaude(out),
+          type: out.type,
+          confidence: out.confidence,
+        },
+      ];
+    }
     const { text: texte, lines } = await ocrImage(buffer);
     return [
       {
@@ -93,6 +112,19 @@ export async function extractPages(dataUrl, raisonSociale) {
   const textPages = await tryPdfTextPages(buffer);
   const hasText = textPages.some((t) => t.trim().length > 20);
   if (hasText) {
+    if (useClaude) {
+      const pages = [];
+      for (let index = 0; index < textPages.length; index++) {
+        const texte = textPages[index];
+        if (texte.trim().length < 20) {
+          pages.push({ index, imageDataUrl: null, champsByType: champsByTypeVide(), type: null, confidence: "faible" });
+          continue;
+        }
+        const out = await claudeExtractPage({ texte, raisonSociale });
+        pages.push({ index, imageDataUrl: null, champsByType: champsByTypeFromClaude(out), type: out.type, confidence: out.confidence });
+      }
+      return pages;
+    }
     return textPages.map((texte, index) => ({
       index,
       imageDataUrl: null,
@@ -102,10 +134,41 @@ export async function extractPages(dataUrl, raisonSociale) {
     }));
   }
 
-  // PDF scanné : rasterise chaque page puis OCR individuel.
+  // PDF scanné : rasterise chaque page, puis Claude (si clé API configurée)
+  // ou OCR local (tesseract + heuristiques) en repli.
   const rastered = await rasterizeAllPages(buffer);
   const pages = [];
   for (const { index, png } of rastered) {
+    const imageDataUrl = `data:image/png;base64,${png.toString("base64")}`;
+
+    if (useClaude) {
+      let out = await claudeExtractPage({ imageDataUrl, raisonSociale });
+      let finalImage = imageDataUrl;
+      // Même repasse haute résolution que l'ancien pipeline local pour la
+      // page douane (grille serrée) — Claude lit bien mieux l'image que
+      // tesseract, mais une repasse à 400 DPI reste utile quand le numéro
+      // de déclaration n'est toujours pas lisible à 200 DPI.
+      if (out.type === "douane" && !out.numDeclaration) {
+        const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
+        if (hiRes) {
+          const hiResDataUrl = `data:image/png;base64,${hiRes.toString("base64")}`;
+          const retry = await claudeExtractPage({ imageDataUrl: hiResDataUrl, raisonSociale });
+          if (retry.numDeclaration) {
+            out = retry;
+            finalImage = hiResDataUrl;
+          }
+        }
+      }
+      pages.push({
+        index,
+        imageDataUrl: finalImage,
+        champsByType: champsByTypeFromClaude(out),
+        type: out.type,
+        confidence: out.confidence,
+      });
+      continue;
+    }
+
     let imagePng = png;
     let { text: texte, lines } = await ocrImage(png);
     let guess = guessDocType(texte, raisonSociale);

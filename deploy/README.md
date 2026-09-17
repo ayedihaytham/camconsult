@@ -46,6 +46,9 @@ ssh root@102.204.205.214
 cd /opt/camconsult
 cp .env.example .env
 nano .env        # DB_PASSWORD, JWT_SECRET (openssl rand -hex 48), ADMIN_PASSWORD...
+                  # ANTHROPIC_API_KEY est facultative (extraction OCR par Claude,
+                  # voir app comptabole/server/claudeExtract.js) — sans elle,
+                  # l'appli retombe automatiquement sur l'OCR local gratuit.
 ```
 
 ## 5. Lancer

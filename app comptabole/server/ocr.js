@@ -25,6 +25,7 @@ export async function extractDocument(dataUrl, type) {
 
   let texte = "";
   let source = "texte";
+  let lines = [];
 
   if (mime === "application/pdf") {
     const pages = await tryPdfTextPages(buffer);
@@ -33,17 +34,21 @@ export async function extractDocument(dataUrl, type) {
       source = "ocr";
       const rastered = await rasterizeAllPages(buffer);
       for (const { png } of rastered) {
-        texte += "\n" + (await ocrImage(png));
+        const r = await ocrImage(png);
+        texte += "\n" + r.text;
+        lines = lines.concat(r.lines);
       }
     }
   } else if (mime.startsWith("image/")) {
     source = "ocr";
-    texte = await ocrImage(buffer);
+    const r = await ocrImage(buffer);
+    texte = r.text;
+    lines = r.lines;
   } else {
     throw new Error("Type de fichier non pris en charge (PDF ou image attendu)");
   }
 
-  return { source, texte, champs: parseFields(texte, type) };
+  return { source, texte, champs: parseFields(texte, type, lines) };
 }
 
 /**
@@ -54,12 +59,32 @@ export async function extractDocument(dataUrl, type) {
  * `guessDocType`. Résultat toujours proposé à l'utilisateur pour
  * confirmation/correction avant application (voir StockMouvementFormSheet).
  */
+// Champs calculés à l'avance pour les 3 types possibles (achat/vente
+// utilisent la même extraction de tableau, seul le libellé
+// fournisseur/client change) — évite un aller-retour serveur quand
+// l'utilisateur corrige le type deviné à l'écran (voir StockMouvementFormSheet).
+function champsPourTousLesTypes(texte, lines) {
+  return {
+    achat: parseFields(texte, "achat", lines),
+    vente: parseFields(texte, "vente", lines),
+    douane: parseFields(texte, "douane", lines),
+  };
+}
+
 export async function extractPages(dataUrl, raisonSociale) {
   const { buffer, mime } = decodeDataUrl(dataUrl);
 
   if (mime.startsWith("image/")) {
-    const texte = await ocrImage(buffer);
-    return [{ index: 0, imageDataUrl: dataUrl, texte, ...guessDocType(texte, raisonSociale) }];
+    const { text: texte, lines } = await ocrImage(buffer);
+    return [
+      {
+        index: 0,
+        imageDataUrl: dataUrl,
+        texte,
+        champsByType: champsPourTousLesTypes(texte, lines),
+        ...guessDocType(texte, raisonSociale),
+      },
+    ];
   }
   if (mime !== "application/pdf") {
     throw new Error("Type de fichier non pris en charge (PDF ou image attendu)");
@@ -72,6 +97,7 @@ export async function extractPages(dataUrl, raisonSociale) {
       index,
       imageDataUrl: null,
       texte,
+      champsByType: champsPourTousLesTypes(texte, []),
       ...guessDocType(texte, raisonSociale),
     }));
   }
@@ -80,11 +106,12 @@ export async function extractPages(dataUrl, raisonSociale) {
   const rastered = await rasterizeAllPages(buffer);
   const pages = [];
   for (const { index, png } of rastered) {
-    const texte = await ocrImage(png);
+    const { text: texte, lines } = await ocrImage(png);
     pages.push({
       index,
       imageDataUrl: `data:image/png;base64,${png.toString("base64")}`,
       texte,
+      champsByType: champsPourTousLesTypes(texte, lines),
       ...guessDocType(texte, raisonSociale),
     });
   }
@@ -118,7 +145,11 @@ async function tryPdfTextPages(buffer) {
   }
 }
 
-/** Rasterise chaque page du PDF (poppler) en PNG, jusqu'à MAX_PAGES. */
+/** Rasterise chaque page du PDF (poppler) en PNG, jusqu'à MAX_PAGES.
+ * Testé à 300 DPI en usage réel : aucun gain sur les tableaux à police
+ * fine (toujours illisibles), et une régression ailleurs (un mot bien lu à
+ * 200 DPI mal lu à 300) — revenu à 200, qui n'est pas le facteur limitant
+ * ici (voir parseTableRowByShape pour le vrai correctif). */
 async function rasterizeAllPages(buffer) {
   const dir = await mkdtemp(join(tmpdir(), "stock-ocr-"));
   try {
@@ -155,16 +186,30 @@ async function getWorker() {
   return workerPromise;
 }
 
+/**
+ * OCR d'une image : renvoie le texte à plat (utilisé pour toutes les
+ * étiquettes — date, n° facture, fournisseur/client…) ET les lignes avec la
+ * position (bbox) de chaque mot, pour reconstruire les vraies colonnes d'un
+ * tableau plutôt que deviner sur l'ordre des nombres dans le texte à plat
+ * (voir parseTableRowByPosition) — sans ça, un nombre présent DANS la
+ * désignation (ex. « CEM I 42,5 N ») pouvait être confondu avec la quantité.
+ */
 async function ocrImage(buffer) {
   try {
     const worker = await getWorker();
-    const {
-      data: { text },
-    } = await worker.recognize(buffer);
-    return text || "";
+    const { data } = await worker.recognize(buffer);
+    const lines = (data.lines || []).map((l) => ({
+      text: l.text || "",
+      words: (l.words || []).map((w) => ({
+        text: w.text || "",
+        x0: w.bbox.x0,
+        x1: w.bbox.x1,
+      })),
+    }));
+    return { text: data.text || "", lines };
   } catch (err) {
     console.error("[ocr] tesseract a échoué", err.message);
-    return "";
+    return { text: "", lines: [] };
   }
 }
 
@@ -198,6 +243,54 @@ function toNumber(raw) {
   return Number.isFinite(n) ? n : "";
 }
 
+const WORD_ONES = {
+  one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9,
+};
+const WORD_TEENS = {
+  ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14,
+  fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+};
+const WORD_TENS = {
+  twenty: 20, thirty: 30, forty: 40, fifty: 50,
+  sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+};
+
+/** « Fifty-three thousand » -> 53000. Renvoie null au premier mot non
+ * reconnu (mieux vaut ne rien extraire qu'extraire un nombre inventé). */
+function wordsToNumber(phrase) {
+  const words = phrase
+    .toLowerCase()
+    .replace(/-/g, " ")
+    .split(/\s+/)
+    .filter((w) => w && w !== "and");
+  if (words.length === 0) return null;
+  let total = 0;
+  let current = 0;
+  for (const w of words) {
+    if (w in WORD_ONES) current += WORD_ONES[w];
+    else if (w in WORD_TEENS) current += WORD_TEENS[w];
+    else if (w in WORD_TENS) current += WORD_TENS[w];
+    else if (w === "hundred") current = (current || 1) * 100;
+    else if (w === "thousand") {
+      total += (current || 1) * 1000;
+      current = 0;
+    } else if (w === "million") {
+      total += (current || 1) * 1_000_000;
+      current = 0;
+    } else return null;
+  }
+  const result = total + current;
+  return result > 0 ? result : null;
+}
+
+/** Montant écrit en toutes lettres (anglais) après « Total amount » /
+ * « amounts to », jusqu'au mot de devise — courant sur les factures
+ * internationales et souvent bien plus lisible pour l'OCR qu'un tableau
+ * chiffré dense (voir parseFields). */
+const MONTANT_LETTRES_RE =
+  /(?:total\s*amount|amounts?\s*to)\s*[:\s]*\s*([a-z][a-z\s-]{3,60}?)\s*(?:eur|euros?|usd|dollars?|tnd|dinars?|gbp|pounds?)\b/i;
+
 // Nombre « à la française » : 1 287,00 / 1287.00 / 189,00 / 3 — espace ou point
 // en séparateur de milliers, virgule ou point en décimale.
 // Utilisé après une étiquette (« Total TTC : 1 287,00 ») où le nombre est seul sur sa portion de ligne.
@@ -209,16 +302,90 @@ const NUM_CELL = String.raw`-?\d+(?:[.,]\d+)?`;
 
 const DESC_HEADER_RE = /d[ée]signation|d[ei]s?cription|article|produit/i;
 const QTY_HEADER_RE = /qu?an?tit[ée]|qty|quantity/i;
+const PRICE_HEADER_RE = /prix|price|p\.?u\.?\b/i;
+const TOTAL_HEADER_RE = /total|montant/i;
 
 /**
- * Facture en tableau (DÉSIGNATION | QUANTITÉ | PRIX UNITAIRE | TOTAL…) :
- * repère la ligne d'en-tête puis la première ligne de données qui suit.
- * Reconnaît aussi les en-têtes anglais (factures d'import/export) et
- * « discription », faute assez répandue sur ce type de document.
- * L'ordre des colonnes n'est pas toujours désignation-en-premier : une
- * facture d'export type « Quantity | Unit | Designation | Unit Price »
- * met la quantité avant — l'ordre réel est déduit de la ligne d'en-tête
- * elle-même plutôt que supposé fixe.
+ * Facture en tableau, PAR POSITION RÉELLE des mots (bbox OCR) plutôt qu'en
+ * devinant sur l'ordre des nombres dans le texte à plat : repère la ligne
+ * d'en-tête, la position (x) du mot qui porte chaque étiquette de colonne
+ * (désignation/quantité/prix/total), puis range chaque mot d'une ligne de
+ * donnée dans la colonne dont il est le plus proche. Un nombre présent DANS
+ * la désignation (ex. « CEM I 42,5 N », un HS code, une taille de sac) ne
+ * peut plus être confondu avec la quantité ou le prix : il tombe dans la
+ * colonne désignation, pas dans une colonne numérique, parce que sa
+ * position x l'y place réellement sur le document.
+ * `lines` vient de l'OCR (voir ocrImage) ; absent pour un PDF texte natif
+ * (pas de bbox) — on retombe alors sur `parseTableRow` (texte à plat).
+ */
+function parseTableRowByPosition(lines) {
+  if (!lines || lines.length === 0) return null;
+  const headerIdx = lines.findIndex(
+    (l) => DESC_HEADER_RE.test(l.text) && QTY_HEADER_RE.test(l.text),
+  );
+  if (headerIdx === -1) return null;
+
+  const headerWords = lines[headerIdx].words;
+  const ROLE_PATTERNS = {
+    desc: DESC_HEADER_RE,
+    qty: QTY_HEADER_RE,
+    price: PRICE_HEADER_RE,
+    total: TOTAL_HEADER_RE,
+  };
+  const anchors = [];
+  for (const [role, re] of Object.entries(ROLE_PATTERNS)) {
+    const w = headerWords.find((w) => re.test(w.text));
+    if (w) anchors.push({ role, x0: w.x0 });
+  }
+  // Pas assez de colonnes repérées pour que ça vaille le coup (ex. bbox
+  // absente) : on laisse la place au filet de sécurité texte-à-plat.
+  if (anchors.length < 2) return null;
+  anchors.sort((a, b) => a.x0 - b.x0);
+
+  // Borne de chaque colonne = à mi-chemin entre son ancre et celle du
+  // voisin — un mot est rangé dans la colonne dont il est le plus proche.
+  const bounds = anchors.map((a, i) => ({
+    role: a.role,
+    from: i === 0 ? -Infinity : (anchors[i - 1].x0 + a.x0) / 2,
+    to: i === anchors.length - 1 ? Infinity : (a.x0 + anchors[i + 1].x0) / 2,
+  }));
+  const columnFor = (x0) => bounds.find((b) => x0 >= b.from && x0 < b.to)?.role ?? null;
+
+  const numRe = new RegExp(NUM_CELL, "g");
+  for (let i = headerIdx + 1; i < Math.min(lines.length, headerIdx + 8); i++) {
+    const line = lines[i];
+    if (/^(total|sous[\s-]?total|tva|remise)\b/i.test(line.text)) break;
+    if (!line.words?.length) continue;
+
+    const cells = { desc: [], qty: [], price: [], total: [] };
+    for (const w of line.words) {
+      const role = columnFor(w.x0);
+      if (role) cells[role].push(w.text);
+    }
+    const nom = cells.desc.join(" ").trim();
+    const qtyNum = cells.qty.join(" ").match(numRe)?.[0];
+    if (!nom && !qtyNum) continue;
+    if (!qtyNum) continue;
+
+    return {
+      nom,
+      quantite: qtyNum,
+      prixUnitaire: cells.price.join(" ").match(numRe)?.[0],
+      montant: cells.total.join(" ").match(numRe)?.[0],
+    };
+  }
+  return null;
+}
+
+/**
+ * Filet de sécurité quand la position des mots n'est pas disponible (PDF
+ * texte natif) : repère la ligne d'en-tête puis la première ligne de
+ * données qui suit, en devinant sur l'ordre des nombres dans le texte à
+ * plat. Reconnaît les en-têtes anglais et « discription », faute assez
+ * répandue sur ce type de document. L'ordre des colonnes n'est pas
+ * toujours désignation-en-premier : une facture d'export type
+ * « Quantity | Unit | Designation | Unit Price » met la quantité avant —
+ * déduit de la ligne d'en-tête elle-même plutôt que supposé fixe.
  */
 function parseTableRow(text) {
   const lines = text
@@ -268,6 +435,44 @@ function parseTableRow(text) {
       quantite: nums[0][0],
       prixUnitaire: nums[1][0],
       montant: nums[nums.length - 1][0],
+    };
+  }
+  return null;
+}
+
+// Doit démarrer par un nombre (la quantité), finir par 1 ou 2 nombres (prix
+// unitaire et/ou total, devise optionnelle) — le texte entre les deux, aussi
+// truffé de ses propres nombres soit-il (grade, code HS, taille de sac),
+// est pris en bloc comme désignation puisqu'il ne colle pas à lui seul au
+// bout de la ligne. Ancré aux deux extrémités : moins de faux positifs
+// qu'il n'y paraît (une ligne d'adresse ou d'IBAN ne finit jamais par un
+// nombre isolé en bout de ligne).
+const SHAPE_ROW_RE =
+  /^(-?\d+(?:[.,]\d+)?)\s+([A-Za-z].+?)\s+(-?\d+(?:[.,]\d+)?)(?:\s*[€$]?\s*(-?\d+(?:[.,]\d+)?))?\s*[€$]?$/;
+
+/**
+ * Dernier recours quand aucun en-tête de tableau n'est reconnaissable — cas
+ * constaté en usage réel : l'OCR peut rendre un en-tête de tableau (police
+ * fine, bordures serrées) totalement illisible alors que la ligne de
+ * donnée juste en dessous reste, elle, largement lisible. Plutôt que de
+ * renoncer faute d'en-tête pour s'ancrer, on cherche directement dans tout
+ * le document une ligne qui a la FORME d'une ligne de produit.
+ */
+function parseTableRowByShape(text) {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  for (const line of lines) {
+    if (/^(total|sous[\s-]?total|tva|remise)\b/i.test(line)) continue;
+    const m = SHAPE_ROW_RE.exec(line);
+    if (!m) continue;
+    const [, qty, nom, num3, num4] = m;
+    return {
+      nom: nom.trim(),
+      quantite: qty,
+      prixUnitaire: num4 !== undefined ? num3 : "",
+      montant: num4 !== undefined ? num4 : num3,
     };
   }
   return null;
@@ -405,7 +610,7 @@ export function guessDocType(texte, raisonSociale) {
     : { type: "achat", confidence: "faible" };
 }
 
-export function parseFields(text, type) {
+export function parseFields(text, type, lines = []) {
   const t = text.replace(/\r/g, "");
 
   const date = toIsoDate(
@@ -427,7 +632,10 @@ export function parseFields(text, type) {
     /invoice\s*(?:n[°o]|number)?\s*[:\s]\s*(?!\d{1,2}[\/\-.]\d{1,2}[\/\-.])(?=[A-Z0-9\-\/]*\d)([A-Z0-9][A-Z0-9\-\/]{1,})/i,
   ]);
 
-  const table = parseTableRow(t);
+  // Par position réelle des mots (fiable) d'abord, texte-à-plat en filet de
+  // sécurité seulement (PDF texte natif, ou bbox indisponible).
+  const table =
+    parseTableRowByPosition(lines) ?? parseTableRow(t) ?? parseTableRowByShape(t);
 
   const quantite = toNumber(
     firstMatch(t, [
@@ -436,7 +644,7 @@ export function parseFields(text, type) {
     ]) || table?.quantite,
   );
 
-  const prixUnitaire = toNumber(
+  let prixUnitaire = toNumber(
     firstMatch(t, [
       new RegExp(String.raw`p\.?u\.?\s*(?:ht)?\s*[:\s]\s*(${NUM})`, "i"),
       new RegExp(String.raw`prix\s*unitaire\s*[:\s]\s*(${NUM})`, "i"),
@@ -453,13 +661,25 @@ export function parseFields(text, type) {
       new RegExp(String.raw`montant\s*(?:total)?\s*[:\s]\s*(${NUM})`, "i"),
     ]) || table?.montant,
   );
-  // Filet de sécurité : un total à 0 quand quantité et prix unitaire sont
-  // connus est presque toujours une erreur d'extraction (ex. séparateur de
-  // milliers « 52 000,00 » mal découpé), jamais une vraie valeur — on le
-  // recalcule alors plutôt que de faire remonter un zéro trompeur. Ne
-  // s'applique jamais quand un montant non nul a été trouvé.
+  // Filets de sécurité : quantité × prix unitaire = montant est presque
+  // toujours vrai sur une ligne de facture — si l'un des trois manque alors
+  // que les deux autres sont connus, on le déduit plutôt que de remonter un
+  // zéro trompeur (ex. total à séparateur de milliers mal découpé, ou
+  // colonne prix unitaire absente de ce document).
   if (!montant && quantite && prixUnitaire) {
     montant = Math.round(quantite * prixUnitaire * 100) / 100;
+  }
+  // Dernier recours : le montant en toutes lettres (« Fifty-two thousand
+  // EUROS », « TOTAL AMOUNT: FIFTY-THREE THOUSAND EURO ») — courant sur les
+  // factures internationales, et l'OCR le lit souvent bien mieux qu'un
+  // tableau chiffré dense (police fine, bordures) qui peut ressortir
+  // totalement illisible.
+  if (!montant) {
+    const lettres = firstMatch(t, [MONTANT_LETTRES_RE]);
+    if (lettres) montant = wordsToNumber(lettres) || 0;
+  }
+  if (!prixUnitaire && quantite && montant) {
+    prixUnitaire = Math.round((montant / quantite) * 100) / 100;
   }
 
   // priorité à la ligne de tableau (fiable) — sinon étiquette libre

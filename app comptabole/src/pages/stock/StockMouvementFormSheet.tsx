@@ -103,7 +103,6 @@ export function StockMouvementFormSheet({
   const societe = useSocieteById(societeId);
   const extract = useStock((s) => s.extract);
   const extractPages = useStock((s) => s.extractPages);
-  const reparsePage = useStock((s) => s.reparsePage);
   const [v, setV] = useState<StockMouvementInput>(empty(societeId));
   const [importing, setImporting] = useState<StockDocType | null>(null);
   const [previewOpen, setPreviewOpen] = useState<Record<StockDocType, boolean>>({
@@ -229,11 +228,10 @@ export function StockMouvementFormSheet({
       for (const page of batchPages) {
         const assignment = batchAssignments[page.index];
         if (!assignment || assignment === "ignorer") continue;
-        const champs =
-          assignment === page.guessedType && page.champs
-            ? page.champs
-            : await reparsePage(page.texte, assignment);
-        applyChamps(assignment, champs);
+        // Déjà calculés pour les 3 types à l'extraction (voir ocr.js) : pas
+        // besoin de relancer quoi que ce soit même si l'utilisateur corrige
+        // le type deviné.
+        applyChamps(assignment, page.champsByType[assignment]);
         if (page.imageDataUrl) set(DOC_FIELD[assignment], page.imageDataUrl);
         setPreviewOpen((p) => ({ ...p, [assignment]: true }));
       }

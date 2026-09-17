@@ -4,7 +4,7 @@ import { query } from "../db.js";
 import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { stockMouvementDto } from "../mappers.js";
-import { extractDocument, extractPages, parseFields } from "../ocr.js";
+import { extractDocument, extractPages } from "../ocr.js";
 
 export const stockRouter = Router();
 stockRouter.use(requireAuth);
@@ -225,27 +225,14 @@ stockRouter.post("/extract-pages", async (req, res) => {
         imageDataUrl: p.imageDataUrl,
         guessedType: p.type,
         confidence: p.confidence,
-        texte: p.texte,
-        champs: p.type ? parseFields(p.texte, p.type) : null,
+        // Calculés pour les 3 types dès l'extraction (voir ocr.js) : quand
+        // l'utilisateur corrige le type deviné à l'écran, le bon jeu de
+        // champs est déjà prêt, sans aller-retour serveur ni ré-OCR.
+        champsByType: p.champsByType,
       })),
     });
   } catch (err) {
     console.error("[stock/extract-pages]", err);
     res.status(500).json({ error: "Extraction impossible sur ce document." });
   }
-});
-
-/** Recalcule les champs d'une page déjà OCRisée pour un type différent de
- * celui deviné (l'utilisateur corrige le type dans l'écran) — pas d'OCR à
- * relancer, juste les heuristiques (rapide). */
-const parseFieldsSchema = z.object({
-  texte: z.string(),
-  type: z.enum(["achat", "vente", "douane"]),
-});
-
-stockRouter.post("/parse-fields", (req, res) => {
-  const parsed = parseFieldsSchema.safeParse(req.body);
-  if (!parsed.success)
-    return res.status(400).json({ error: parsed.error.issues[0].message });
-  res.json({ champs: parseFields(parsed.data.texte, parsed.data.type) });
 });

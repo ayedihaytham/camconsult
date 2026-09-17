@@ -32,13 +32,6 @@ interface StockState {
   /** Import "document complet" : un PDF/image combinant plusieurs pièces —
    * chaque page est analysée séparément et son type deviné. */
   extractPages: (societeId: string, dataUrl: string) => Promise<StockExtractPage[]>;
-  /** Recalcule les champs d'une page déjà OCRisée pour un autre type que
-   * celui deviné (l'utilisateur corrige le type à l'écran) — pas de
-   * nouvel OCR, juste les heuristiques (rapide). */
-  reparsePage: (
-    texte: string,
-    type: StockDocType,
-  ) => Promise<Record<string, string | number>>;
 }
 
 export const useStock = create<StockState>((set) => ({
@@ -119,15 +112,4 @@ export const useStock = create<StockState>((set) => ({
     }
   },
 
-  reparsePage: async (texte, type) => {
-    try {
-      const { champs } = await api.post<{ champs: Record<string, string | number> }>(
-        "/stock/parse-fields",
-        { texte, type },
-      );
-      return champs;
-    } catch (e) {
-      return fail(e);
-    }
-  },
 }));

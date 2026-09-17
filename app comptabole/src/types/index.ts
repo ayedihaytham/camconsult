@@ -251,8 +251,10 @@ export interface StockExtractPage {
   imageDataUrl: string | null;
   guessedType: StockDocType | null;
   confidence: StockDocConfidence | null;
-  champs: Record<string, string | number> | null;
-  texte: string;
+  /** Champs déjà calculés pour les 3 types possibles (voir server/ocr.js) —
+   * corriger le type deviné à l'écran n'a besoin d'aucun aller-retour
+   * serveur, le bon jeu de champs est toujours prêt. */
+  champsByType: Record<StockDocType, Record<string, string | number>>;
 }
 
 // ── États financiers : balance par société/exercice, reclassée par

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,7 @@ export function SidebarNavigation({
   const { pathname } = useLocation();
   const { setOpenMobile } = useSidebar();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const previousPathname = useRef(pathname);
 
   useEffect(() => {
     setOpenGroups((previous) => {
@@ -61,7 +62,10 @@ export function SidebarNavigation({
   }, [groups, pathname]);
 
   useEffect(() => {
-    setOpenMobile(false);
+    if (previousPathname.current !== pathname) {
+      setOpenMobile(false);
+    }
+    previousPathname.current = pathname;
   }, [pathname, setOpenMobile]);
 
   return (

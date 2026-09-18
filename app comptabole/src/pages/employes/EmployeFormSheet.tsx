@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -34,16 +34,44 @@ const TYPES: EmployeType[] = [
   "Gestionnaire de paie",
 ];
 
+const NAME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ' -]*$/;
+
 const schema = z.object({
-  prenom: z.string().min(2, "Prénom requis"),
-  nom: z.string().min(2, "Nom requis"),
-  identifiant: z.string().min(3, "Identifiant requis"),
+  prenom: z.string().min(2, "Prénom requis").regex(NAME_RE, "Lettres uniquement"),
+  nom: z.string().min(2, "Nom requis").regex(NAME_RE, "Lettres uniquement"),
+  identifiant: z
+    .string()
+    .min(3, "3 caractères minimum")
+    .max(32, "32 caractères maximum")
+    .regex(
+      /^[a-z][a-z0-9._-]*$/,
+      "Minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre",
+    ),
   motDePasse: z.string().min(8, "8 caractères minimum"),
   type: z.enum(["Comptable", "Assistant", "Stagiaire", "Gestionnaire de paie"]),
   email: z.string().email("Email invalide"),
   statut: z.enum(["actif", "inactif", "en_attente"]),
   societesAssignees: z.array(z.string()),
 });
+
+/** Identifiant proposé à partir du prénom/nom (ex. « Ahmed Ben Salah » →
+ * « a.bensalah ») — accents retirés, minuscules, un seul point. Reste
+ * modifiable : la proposition s'arrête dès que l'utilisateur tape
+ * lui-même dans le champ (voir identifiantTouched). */
+function normalizeNamePart(s: string) {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function suggestIdentifiant(prenom: string, nom: string) {
+  const p = normalizeNamePart(prenom);
+  const n = normalizeNamePart(nom);
+  if (!p || !n) return "";
+  return `${p[0]}.${n}`;
+}
 
 export type EmployeFormValues = z.infer<typeof schema>;
 
@@ -85,8 +113,11 @@ export function EmployeFormSheet({
     defaultValues: emptyValues,
   });
 
+  const [identifiantTouched, setIdentifiantTouched] = useState(false);
+
   useEffect(() => {
     if (!open) return;
+    setIdentifiantTouched(false);
     reset(employe ? { ...employe } : { ...emptyValues, motDePasse: generatePassword() });
   }, [open, employe, reset]);
 
@@ -94,6 +125,13 @@ export function EmployeFormSheet({
   const statut = watch("statut");
   const motDePasse = watch("motDePasse");
   const assigned = watch("societesAssignees");
+  const prenom = watch("prenom");
+  const nom = watch("nom");
+
+  useEffect(() => {
+    if (isEdit || identifiantTouched) return;
+    setValue("identifiant", suggestIdentifiant(prenom, nom));
+  }, [prenom, nom, isEdit, identifiantTouched, setValue]);
 
   function toggleSociete(id: string) {
     setValue(
@@ -109,7 +147,7 @@ export function EmployeFormSheet({
       <SheetContent side="right" className="sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>
-            {isEdit ? "Modifier le collaborateur" : "Ajouter un comptable"}
+            {isEdit ? "Modifier le collaborateur" : "Ajouter un collaborateur"}
           </SheetTitle>
           <SheetDescription>
             {isEdit
@@ -128,17 +166,18 @@ export function EmployeFormSheet({
           <SheetBody className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <Field label="Prénom" error={errors.prenom?.message}>
-                <Input {...register("prenom")} placeholder="Camille" />
+                <Input {...register("prenom")} placeholder="Ahmed" />
               </Field>
               <Field label="Nom" error={errors.nom?.message}>
-                <Input {...register("nom")} placeholder="Moreau" />
+                <Input {...register("nom")} placeholder="Ben Salah" />
               </Field>
             </div>
 
             <Field label="Email" error={errors.email?.message}>
               <Input
                 {...register("email")}
-                placeholder="c.moreau@cabinet-comptable.fr"
+                type="email"
+                placeholder="a.bensalah@camconsult.com.tn"
               />
             </Field>
 
@@ -182,8 +221,21 @@ export function EmployeFormSheet({
                 Identifiants de connexion
               </p>
               <div className="space-y-4">
-                <Field label="Identifiant" error={errors.identifiant?.message}>
-                  <Input {...register("identifiant")} placeholder="c.moreau" />
+                <Field
+                  label="Identifiant"
+                  error={errors.identifiant?.message}
+                  hint={
+                    !isEdit && !identifiantTouched
+                      ? "Proposé à partir du prénom/nom — modifiable"
+                      : undefined
+                  }
+                >
+                  <Input
+                    {...register("identifiant", {
+                      onChange: () => setIdentifiantTouched(true),
+                    })}
+                    placeholder="a.bensalah"
+                  />
                 </Field>
                 <div className="space-y-1.5">
                   <Label>Mot de passe</Label>
@@ -258,16 +310,21 @@ export function EmployeFormSheet({
 function Field({
   label,
   error,
+  hint,
   children,
 }: {
   label: string;
   error?: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
       {children}
+      {hint && !error && (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      )}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );

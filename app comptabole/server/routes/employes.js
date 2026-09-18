@@ -17,7 +17,11 @@ employesRouter.use(requireAuth, requireAdmin);
 const schema = z.object({
   nom: z.string().min(2),
   prenom: z.string().min(2),
-  identifiant: z.string().min(3),
+  identifiant: z
+    .string()
+    .min(3)
+    .max(32)
+    .regex(/^[a-z][a-z0-9._-]*$/, "Identifiant invalide"),
   motDePasse: z.string().min(8),
   type: z
     .enum(["Comptable", "Assistant", "Stagiaire", "Gestionnaire de paie"])

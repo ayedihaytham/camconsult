@@ -10,6 +10,7 @@ import {
   concernedBySociete,
 } from "../notifications.js";
 import { societeDto } from "../mappers.js";
+import { sendSocieteWelcomeEmail } from "../mailer.js";
 
 export const societesRouter = Router();
 societesRouter.use(requireAuth);
@@ -61,7 +62,13 @@ societesRouter.post("/", requireEdit, async (req, res) => {
     ],
   );
   logAction(req.session.nom, "creation", "societe", v.raisonSociale);
-  res.status(201).json(societeDto(rows[0]));
+  const dto = societeDto(rows[0]);
+  // Jamais bloquant : la création de la société réussit même si l'email
+  // échoue (SMTP mal configuré, boîte pleine…) — juste consigné en log.
+  sendSocieteWelcomeEmail(dto).catch((err) =>
+    console.error("[mailer] envoi de bienvenue échoué", err.message),
+  );
+  res.status(201).json(dto);
 });
 
 societesRouter.patch("/:id", requireEdit, async (req, res) => {

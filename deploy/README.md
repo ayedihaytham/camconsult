@@ -49,6 +49,9 @@ nano .env        # DB_PASSWORD, JWT_SECRET (openssl rand -hex 48), ADMIN_PASSWOR
                   # ANTHROPIC_API_KEY est facultative (extraction OCR par Claude,
                   # voir app comptabole/server/claudeExtract.js) — sans elle,
                   # l'appli retombe automatiquement sur l'OCR local gratuit.
+                  # SMTP_* est facultatif (envoi d'emails réel, voir
+                  # app comptabole/server/mailer.js) — sans ça, l'envoi est
+                  # simplement sauté (aucun blocage).
 ```
 
 ## 5. Lancer

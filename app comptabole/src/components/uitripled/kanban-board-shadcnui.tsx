@@ -542,11 +542,11 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "flex h-full w-[320px] min-w-[320px] flex-col overflow-hidden rounded-xl border border-border/50 bg-muted/40 lg:min-w-[300px] lg:flex-1",
-        isOver && "border-primary/30 bg-muted/60",
+        "flex h-full w-[320px] min-w-[320px] flex-col overflow-hidden rounded-xl border border-border/70 bg-background lg:min-w-[300px] lg:flex-1",
+        isOver && "border-primary/35 ring-1 ring-primary/10",
       )}
     >
-      <div className="flex items-center justify-between border-b border-border/50 px-3.5 py-3">
+      <div className="flex items-center justify-between border-b border-border/60 px-3.5 py-3">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-foreground">
             {column.title}

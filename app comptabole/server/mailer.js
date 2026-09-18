@@ -1,0 +1,108 @@
+import nodemailer from "nodemailer";
+
+/**
+ * Envoi d'emails réel (SMTP) — facultatif : sans les variables d'env
+ * SMTP_HOST/SMTP_USER/SMTP_PASSWORD, `mailerAvailable()` renvoie false et
+ * les appelants (routes) sautent l'envoi silencieusement, sans faire
+ * échouer l'action métier (créer une société ne doit jamais planter à
+ * cause d'un email qui ne part pas).
+ */
+export function mailerAvailable() {
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD);
+}
+
+let transport = null;
+function getTransport() {
+  if (!transport) {
+    transport = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 465),
+      // 465 = SSL implicite ; 587 = STARTTLS (secure: false, upgrade en TLS après connexion).
+      secure: Number(process.env.SMTP_PORT || 465) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD,
+      },
+    });
+  }
+  return transport;
+}
+
+const BRAND = {
+  primary: "#0f2c4c", // marine — voir --primary du design system
+  accent: "#c9a24b", // or — voir --accent
+  bg: "#f4f5f7",
+};
+
+function emailShell({ title, bodyHtml }) {
+  return `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:0;background:${BRAND.bg};font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.bg};padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,44,76,0.08);">
+            <tr>
+              <td style="background:${BRAND.primary};padding:24px 32px;">
+                <span style="color:${BRAND.accent};font-size:20px;font-weight:bold;letter-spacing:0.5px;">CAMCONSULT</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <h1 style="margin:0 0 16px;font-size:18px;color:${BRAND.primary};">${title}</h1>
+                ${bodyHtml}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 32px;background:#fafafa;border-top:1px solid #eee;">
+                <p style="margin:0;font-size:12px;color:#888;">
+                  Cabinet CAMCONSULT — <a href="https://camconsult.com.tn" style="color:${BRAND.primary};">camconsult.com.tn</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+/** Email de bienvenue envoyé à l'adresse de contact d'une société, dès sa
+ * création dans le cabinet (voir server/routes/societes.js). */
+export async function sendSocieteWelcomeEmail(societe) {
+  if (!mailerAvailable()) return;
+  if (!societe.email) return;
+
+  const bodyHtml = `
+    <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">Bonjour,</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">
+      La société <strong>${escapeHtml(societe.raisonSociale)}</strong> vient d'être enregistrée
+      auprès du cabinet CAMCONSULT.
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0;width:100%;background:${BRAND.bg};border-radius:8px;">
+      <tr>
+        <td style="padding:14px 18px;font-size:13px;color:#555;">
+          <strong>Code interne :</strong> ${escapeHtml(societe.code)}<br/>
+          <strong>Statut :</strong> ${escapeHtml(societe.statut)}
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0;font-size:14px;color:#333;line-height:1.5;">
+      Pour toute question, notre équipe reste à votre disposition.
+    </p>
+  `;
+
+  await getTransport().sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: societe.email,
+    subject: `Bienvenue chez CAMCONSULT — ${societe.raisonSociale}`,
+    html: emailShell({ title: "Bienvenue au cabinet CAMCONSULT", bodyHtml }),
+  });
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}

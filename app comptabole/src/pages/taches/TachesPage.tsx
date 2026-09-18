@@ -28,9 +28,7 @@ export function TachesPage() {
   const taches = useTaches();
   const societes = useSocietes();
   const collaborateurs = useCollaborateurs();
-  const conversations = useConversations(
-    isAdmin ? "me" : (employeId ?? "me"),
-  );
+  const conversations = useConversations(isAdmin ? "me" : (employeId ?? "me"));
   const addTache = useData((state) => state.addTache);
   const updateTache = useData((state) => state.updateTache);
   const setTacheStatut = useData((state) => state.setTacheStatut);
@@ -134,10 +132,7 @@ export function TachesPage() {
         filterKey={`${societeFilter}:${assigneFilter}`}
         filterControls={
           <div className="grid gap-3 sm:grid-cols-2">
-            <Select
-              value={societeFilter}
-              onValueChange={setSocieteFilter}
-            >
+            <Select value={societeFilter} onValueChange={setSocieteFilter}>
               <SelectTrigger aria-label="Filtrer par société">
                 <SelectValue placeholder="Société" />
               </SelectTrigger>
@@ -152,10 +147,7 @@ export function TachesPage() {
             </Select>
 
             {isAdmin && (
-              <Select
-                value={assigneFilter}
-                onValueChange={setAssigneFilter}
-              >
+              <Select value={assigneFilter} onValueChange={setAssigneFilter}>
                 <SelectTrigger aria-label="Filtrer par collaborateur">
                   <SelectValue placeholder="Collaborateur" />
                 </SelectTrigger>

@@ -436,7 +436,7 @@ export function StructurationPage() {
   const activeSociete = societeParam ? getSocieteById(societeParam) : null;
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <LedgerPageHeader
         title="Structuration"
         description={

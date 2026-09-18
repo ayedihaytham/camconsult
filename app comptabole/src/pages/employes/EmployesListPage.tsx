@@ -460,11 +460,19 @@ export function EmployesListPage() {
   ];
 
   return (
-    <div className={cn("flex min-h-full flex-col", selectedIds.length > 0 && "md:pb-16")}>
+    <div className={cn("flex flex-1 flex-col", selectedIds.length > 0 && "md:pb-16")}>
       <LedgerPageHeader
         title="Collaborateurs"
         description="Équipe interne du cabinet : comptes, rôles et périmètre d'accès."
-        actions={
+      />
+
+      <LedgerToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Rechercher un collaborateur, un identifiant…"
+        onExport={handleExport}
+        onPrint={handlePrint}
+        primaryAction={
           <Button
             variant="ledger"
             onClick={() => {
@@ -476,14 +484,6 @@ export function EmployesListPage() {
             Ajouter un collaborateur
           </Button>
         }
-      />
-
-      <LedgerToolbar
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Rechercher un collaborateur, un identifiant…"
-        onExport={handleExport}
-        onPrint={handlePrint}
         filters={
           <div className="flex flex-wrap items-center gap-1.5">
             {typeFilter !== "all" && (

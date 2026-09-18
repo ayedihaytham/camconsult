@@ -444,7 +444,7 @@ export function SocietesListPage() {
   ];
 
   return (
-    <div className={cn("flex min-h-full flex-col", selectedIds.length > 0 && "md:pb-16")}>
+    <div className={cn("flex flex-1 flex-col", selectedIds.length > 0 && "md:pb-16")}>
       <LedgerPageHeader
         title="Liste des sociétés"
         description={
@@ -452,7 +452,15 @@ export function SocietesListPage() {
             ? "Gérez les sociétés clientes du cabinet."
             : "Sociétés auxquelles vous avez accès."
         }
-        actions={
+      />
+
+      <LedgerToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Rechercher une société, un RNE, un code…"
+        onExport={handleExport}
+        onPrint={handlePrint}
+        primaryAction={
           canEdit ? (
             <Button
               variant="ledger"
@@ -466,14 +474,6 @@ export function SocietesListPage() {
             </Button>
           ) : undefined
         }
-      />
-
-      <LedgerToolbar
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Rechercher une société, un RNE, un code…"
-        onExport={handleExport}
-        onPrint={handlePrint}
         filters={
           <div className="flex flex-wrap items-center gap-1.5">
             {themeFilter !== "all" && (

@@ -43,6 +43,13 @@ services:
       # Claude au lieu de l'OCR local ; absente = repli automatique sur
       # l'OCR local gratuit (voir server/ocr.js).
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Facultatif — envoi d'emails réel (SMTP) ; absent = envoi sauté
+      # silencieusement (voir server/mailer.js).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     ports:
       # Nginx (sur l'hôte) fait le reverse-proxy depuis cabinet.camconsult.com.tn
       - "127.0.0.1:5181:8080"

@@ -185,7 +185,7 @@ export function BalancesListPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <LedgerPageHeader
         breadcrumb={
           <button

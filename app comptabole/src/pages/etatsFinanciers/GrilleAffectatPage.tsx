@@ -50,7 +50,7 @@ export function GrilleAffectatPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <LedgerPageHeader
         title="Grille de reclassement"
         description="Référentiel unique du cabinet — les codes AFFECTAT appris lors des saisies et imports de balance, pour tous les clients."

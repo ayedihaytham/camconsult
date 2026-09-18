@@ -171,7 +171,7 @@ export function BordereauxPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <LedgerPageHeader
         title="Bordereaux bancaires"
         description="Registre interne du cabinet — virements, remises de traites et de chèques, par bordereau."

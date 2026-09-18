@@ -155,7 +155,7 @@ export function TachesPage() {
   const empty = taches.length === 0;
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <LedgerPageHeader
         title="Tâches"
         description={

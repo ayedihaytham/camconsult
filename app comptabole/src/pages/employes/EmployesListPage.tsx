@@ -460,7 +460,7 @@ export function EmployesListPage() {
   ];
 
   return (
-    <div className={cn("flex min-h-full flex-col", selectedIds.length > 0 && "md:pb-16")}>
+    <div className={cn("flex flex-1 flex-col", selectedIds.length > 0 && "md:pb-16")}>
       <LedgerPageHeader
         title="Collaborateurs"
         description="Équipe interne du cabinet : comptes, rôles et périmètre d'accès."

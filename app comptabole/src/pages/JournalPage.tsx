@@ -139,7 +139,7 @@ export function JournalPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <LedgerPageHeader
         title="Journal d'activité"
         description="Historique des actions sensibles (créations, modifications, suppressions, connexions)."

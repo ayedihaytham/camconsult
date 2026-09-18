@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Mail } from "lucide-react";
 import {
   Sheet,
   SheetBody,
@@ -44,7 +45,16 @@ const schema = z.object({
   ]),
   code: z.string().min(2, "Code requis"),
   statut: z.enum(["actif", "inactif", "en_attente"]),
-  telephone: z.string().optional().default(""),
+  // Numéro tunisien : 8 chiffres, jamais 0 ou 1 en tête (indicatif +216
+  // optionnel, espaces tolérés — saisis puis retirés pour la validation).
+  telephone: z
+    .string()
+    .refine(
+      (v) => !v || /^[2-9]\d{7}$/.test(v.replace(/\D/g, "").replace(/^216/, "")),
+      "Numéro tunisien invalide : 8 chiffres, sans 0 ni 1 en premier",
+    )
+    .optional()
+    .default(""),
   email: z.string().email("Email invalide").or(z.literal("")).default(""),
   adresse: z.string().optional().default(""),
 });
@@ -112,6 +122,7 @@ export function SocieteFormSheet({
 
   const theme = watch("theme");
   const statut = watch("statut");
+  const email = watch("email");
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -137,15 +148,15 @@ export function SocieteFormSheet({
         >
           <SheetBody className="space-y-5">
             <Field label="Raison sociale" error={errors.raisonSociale?.message}>
-              <Input {...register("raisonSociale")} placeholder="Ex. Dupont & Associés" />
+              <Input {...register("raisonSociale")} placeholder="Ex. STE Carthage Négoce SARL" />
             </Field>
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="RNE" error={errors.rne?.message}>
-                <Input {...register("rne")} placeholder="RNE-0000000" />
+                <Input {...register("rne")} placeholder="1234567A" />
               </Field>
               <Field label="N° TVA" error={errors.tva?.message}>
-                <Input {...register("tva")} placeholder="FR00000000000" />
+                <Input {...register("tva")} placeholder="1234567A/A/M/000" />
               </Field>
             </div>
 
@@ -198,10 +209,30 @@ export function SocieteFormSheet({
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Téléphone" error={errors.telephone?.message}>
-                  <Input {...register("telephone")} placeholder="01 23 45 67 89" />
+                  <Input
+                    {...register("telephone")}
+                    type="tel"
+                    placeholder="+216 00 00 00 00"
+                  />
                 </Field>
                 <Field label="Email" error={errors.email?.message}>
-                  <Input {...register("email")} placeholder="contact@societe.fr" />
+                  <div className="relative">
+                    <Input
+                      {...register("email")}
+                      type="email"
+                      placeholder="contact@societe.tn"
+                      className={email && !errors.email ? "pr-9" : undefined}
+                    />
+                    {email && !errors.email && (
+                      <a
+                        href={`mailto:${email}`}
+                        title="Envoyer un email à cette adresse"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-accent"
+                      >
+                        <Mail className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
                 </Field>
               </div>
               <Field label="Adresse" error={errors.adresse?.message}>

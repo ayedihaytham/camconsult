@@ -460,7 +460,7 @@ export function EmployesListPage() {
   ];
 
   return (
-    <div className={cn(selectedIds.length > 0 && "md:pb-16")}>
+    <div className={cn("flex min-h-full flex-col", selectedIds.length > 0 && "md:pb-16")}>
       <LedgerPageHeader
         title="Collaborateurs"
         description="Équipe interne du cabinet : comptes, rôles et périmètre d'accès."
@@ -535,8 +535,8 @@ export function EmployesListPage() {
       {/* Tableau sur PC/tablette, Cartes sur mobile — purement responsive,
           jamais un choix laissé à l'utilisateur (voir SocietesListPage,
           même traitement). */}
-      <div className="hidden md:block">
-        <LedgerSheet>
+      <div className="hidden md:flex md:flex-1 md:flex-col">
+        <LedgerSheet className="flex-1">
           <LedgerTable
             columns={columns}
             data={filtered}

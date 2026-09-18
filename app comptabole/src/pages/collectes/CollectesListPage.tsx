@@ -47,7 +47,7 @@ export function CollectesListPage() {
   );
 
   return (
-    <div>
+    <div className="flex min-h-full flex-col">
       <LedgerPageHeader
         title="Collecte de pièces"
         description={
@@ -80,7 +80,7 @@ export function CollectesListPage() {
       )}
 
       {shown.length === 0 ? (
-        <LedgerSheet className="mt-4">
+        <LedgerSheet className="mt-4 flex-1">
           <EmptyState
             icon={ClipboardList}
             title={
@@ -108,7 +108,7 @@ export function CollectesListPage() {
           />
         </LedgerSheet>
       ) : (
-        <LedgerSheet className={list.length > 0 ? "" : "mt-4"}>
+        <LedgerSheet className={cn("flex-1", list.length === 0 && "mt-4")}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

@@ -155,7 +155,7 @@ export function TachesPage() {
   const empty = taches.length === 0;
 
   return (
-    <div>
+    <div className="flex min-h-full flex-col">
       <LedgerPageHeader
         title="Tâches"
         description={
@@ -213,7 +213,7 @@ export function TachesPage() {
       </div>
 
       {empty ? (
-        <LedgerSheet>
+        <LedgerSheet className="flex-1">
           <EmptyState
             icon={ListChecks}
             title="Aucune tâche"
@@ -240,7 +240,7 @@ export function TachesPage() {
           />
         </LedgerSheet>
       ) : (
-        <div>
+        <div className="flex flex-1 flex-col">
           <LedgerSegmented
             value={vue}
             onChange={setVue}
@@ -384,7 +384,7 @@ export function TachesPage() {
 
           {/* ── Liste ──────────────────────────────── */}
           {vue === "list" && (
-            <div className="mt-4">
+            <div className="mt-4 flex flex-1 flex-col">
               <div className="mb-3">
                 <Select value={statutFilter} onValueChange={setStatutFilter}>
                   <SelectTrigger className={selectTriggerClass}>
@@ -401,7 +401,7 @@ export function TachesPage() {
                 </Select>
               </div>
 
-              <LedgerSheet>
+              <LedgerSheet className="flex-1">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>

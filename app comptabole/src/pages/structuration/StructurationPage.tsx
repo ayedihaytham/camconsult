@@ -436,7 +436,7 @@ export function StructurationPage() {
   const activeSociete = societeParam ? getSocieteById(societeParam) : null;
 
   return (
-    <div>
+    <div className="flex min-h-full flex-col">
       <LedgerPageHeader
         title="Structuration"
         description={
@@ -479,7 +479,7 @@ export function StructurationPage() {
       />
 
       {tab === "tableau" && (
-        <div className="mt-4">
+        <div className="mt-4 flex flex-1 flex-col">
           <LedgerToolbar
             search={search}
             onSearchChange={setSearch}
@@ -541,7 +541,7 @@ export function StructurationPage() {
             }
           />
 
-          <LedgerSheet>
+          <LedgerSheet className="flex-1">
             <LedgerTable
               columns={columns}
               data={filteredRoots}

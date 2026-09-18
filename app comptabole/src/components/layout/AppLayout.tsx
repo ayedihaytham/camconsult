@@ -19,7 +19,7 @@ export function AppLayout() {
       <SidebarInset className="min-h-0 min-w-0">
         <Topbar />
         <div className="flex-1 overflow-y-auto bg-muted px-4 py-6 lg:px-8 print-full">
-          <div className="mx-auto max-w-[1400px]">
+          <div className="mx-auto flex min-h-full max-w-[1400px] flex-col">
             <Outlet />
           </div>
         </div>

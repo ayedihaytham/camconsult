@@ -185,7 +185,7 @@ export function BalancesListPage() {
   }
 
   return (
-    <div>
+    <div className="flex min-h-full flex-col">
       <LedgerPageHeader
         breadcrumb={
           <button
@@ -226,7 +226,7 @@ export function BalancesListPage() {
 
       {vue === "exercices" ? (
         list.length === 0 ? (
-          <LedgerSheet className="mt-6">
+          <LedgerSheet className="mt-6 flex-1">
             <EmptyState
               icon={Calculator}
               title={loading ? "Chargement…" : "Aucun exercice"}
@@ -240,7 +240,7 @@ export function BalancesListPage() {
             />
           </LedgerSheet>
         ) : (
-          <LedgerSheet className="mt-6">
+          <LedgerSheet className="mt-6 flex-1">
             {list.map((b, i) => (
               <div
                 key={b.id}
@@ -277,7 +277,7 @@ export function BalancesListPage() {
           </LedgerSheet>
         )
       ) : postesParExercice.length === 0 ? (
-        <LedgerSheet className="mt-6">
+        <LedgerSheet className="mt-6 flex-1">
           <EmptyState
             icon={Calculator}
             title={loadingPostes ? "Chargement…" : "Aucune donnée"}
@@ -285,11 +285,11 @@ export function BalancesListPage() {
           />
         </LedgerSheet>
       ) : vue === "actif" ? (
-        <LedgerSheet className="mt-6">
+        <LedgerSheet className="mt-6 flex-1">
           <FinancialTable rows={ROWS_BILAN_ACTIF} exercices={postesParExercice} titre="Actif" />
         </LedgerSheet>
       ) : vue === "passif" ? (
-        <LedgerSheet className="mt-6">
+        <LedgerSheet className="mt-6 flex-1">
           <FinancialTable
             rows={ROWS_BILAN_PASSIF}
             exercices={postesParExercice}
@@ -301,7 +301,7 @@ export function BalancesListPage() {
           />
         </LedgerSheet>
       ) : vue === "resultat" ? (
-        <LedgerSheet className="mt-6">
+        <LedgerSheet className="mt-6 flex-1">
           <FinancialTable rows={ROWS_ETAT_RESULTAT} exercices={postesParExercice} titre="Etat de résultat" />
         </LedgerSheet>
       ) : vue === "sig" ? (

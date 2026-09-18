@@ -171,7 +171,7 @@ export function BordereauxPage() {
   }
 
   return (
-    <div>
+    <div className="flex min-h-full flex-col">
       <LedgerPageHeader
         title="Bordereaux bancaires"
         description="Registre interne du cabinet — virements, remises de traites et de chèques, par bordereau."
@@ -246,7 +246,7 @@ export function BordereauxPage() {
       </div>
 
       {filtered.length === 0 ? (
-        <LedgerSheet>
+        <LedgerSheet className="flex-1">
           <EmptyState
             icon={Landmark}
             title={loading ? "Chargement…" : "Aucun bordereau"}

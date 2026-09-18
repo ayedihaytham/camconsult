@@ -50,21 +50,21 @@ export function GrilleAffectatPage() {
   }
 
   return (
-    <div>
+    <div className="flex min-h-full flex-col">
       <LedgerPageHeader
         title="Grille de reclassement"
         description="Référentiel unique du cabinet — les codes AFFECTAT appris lors des saisies et imports de balance, pour tous les clients."
       />
 
       {codes.length === 0 ? (
-        <LedgerSheet className="mt-6">
+        <LedgerSheet className="mt-6 flex-1">
           <EmptyState
             title="Aucun code pour le moment"
             description="Les codes apparaîtront ici dès qu'une ligne de balance leur sera assignée."
           />
         </LedgerSheet>
       ) : (
-        <LedgerSheet className="mt-6">
+        <LedgerSheet className="mt-6 flex-1">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

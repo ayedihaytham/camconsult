@@ -444,7 +444,7 @@ export function SocietesListPage() {
   ];
 
   return (
-    <div className={cn(selectedIds.length > 0 && "md:pb-16")}>
+    <div className={cn("flex min-h-full flex-col", selectedIds.length > 0 && "md:pb-16")}>
       <LedgerPageHeader
         title="Liste des sociétés"
         description={
@@ -529,8 +529,8 @@ export function SocietesListPage() {
           fois, purement responsive (pas un choix laissé à l'utilisateur) :
           voir DESIGN-SYSTEM.md, le Tableau ne serait pas exploitable en
           dessous du seuil `md`. */}
-      <div className="hidden md:block">
-        <LedgerSheet>
+      <div className="hidden md:flex md:flex-1 md:flex-col">
+        <LedgerSheet className="flex-1">
           <LedgerTable
             columns={columns}
             data={filtered}

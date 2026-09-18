@@ -101,6 +101,47 @@ export async function sendSocieteWelcomeEmail(societe) {
   });
 }
 
+/** Email envoyé à un collaborateur (ou employé de société) dès la création
+ * de son compte, avec ses identifiants de connexion — le mot de passe est
+ * stocké en clair côté appli (comparaison directe en base, voir
+ * server/routes/auth.js) et déjà visible en clair par l'admin dans l'écran
+ * Collaborateurs, donc l'inclure ici n'ouvre pas de nouvelle surface — mais
+ * c'est un choix assumé de l'utilisateur (email en clair = un canal moins
+ * sûr qu'une remise en main propre), pas une bonne pratique par défaut. */
+export async function sendCollaborateurWelcomeEmail(employe) {
+  if (!mailerAvailable()) return;
+  if (!employe.email) return;
+
+  const bodyHtml = `
+    <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">Bonjour ${escapeHtml(employe.prenom)},</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">
+      Votre compte a été créé sur l'espace du cabinet CAMCONSULT. Voici vos identifiants de connexion :
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0;width:100%;background:${BRAND.bg};border-radius:8px;">
+      <tr>
+        <td style="padding:14px 18px;font-size:13px;color:#555;">
+          <strong>Identifiant :</strong> ${escapeHtml(employe.identifiant)}<br/>
+          <strong>Mot de passe :</strong> ${escapeHtml(employe.motDePasse)}
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 16px;font-size:14px;color:#333;line-height:1.5;">
+      Connectez-vous sur
+      <a href="https://cabinet.camconsult.com.tn" style="color:${BRAND.primary};">cabinet.camconsult.com.tn</a>.
+    </p>
+    <p style="margin:0;font-size:13px;color:#888;line-height:1.5;">
+      Pour votre sécurité, pensez à changer ce mot de passe après votre première connexion.
+    </p>
+  `;
+
+  await getTransport().sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: employe.email,
+    subject: "Bienvenue chez CAMCONSULT — vos identifiants",
+    html: emailShell({ title: "Bienvenue au cabinet CAMCONSULT", bodyHtml }),
+  });
+}
+
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]

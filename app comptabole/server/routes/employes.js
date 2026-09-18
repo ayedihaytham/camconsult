@@ -5,6 +5,7 @@ import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
 import { notify } from "../notifications.js";
 import { employeDto } from "../mappers.js";
+import { sendCollaborateurWelcomeEmail } from "../mailer.js";
 import {
   defaultPermissions,
   societeEmployePermissions,
@@ -85,7 +86,12 @@ employesRouter.post("/", async (req, res) => {
       v.role === "societe_employe" ? "employe_societe" : "employe",
       `${v.prenom} ${v.nom}`,
     );
-    res.status(201).json(employeDto(rows[0]));
+    const dto = employeDto(rows[0]);
+    // Jamais bloquant : la création du compte réussit même si l'email échoue.
+    sendCollaborateurWelcomeEmail(dto).catch((err) =>
+      console.error("[mailer] envoi identifiants échoué", err.message),
+    );
+    res.status(201).json(dto);
   } catch (err) {
     if (err.code === "23505")
       return res.status(409).json({ error: "Cet identifiant existe déjà" });

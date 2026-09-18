@@ -71,8 +71,14 @@ function emailShell({ title, bodyHtml }) {
 /** Email de bienvenue envoyé à l'adresse de contact d'une société, dès sa
  * création dans le cabinet (voir server/routes/societes.js). */
 export async function sendSocieteWelcomeEmail(societe) {
-  if (!mailerAvailable()) return;
-  if (!societe.email) return;
+  if (!mailerAvailable()) {
+    console.log("[mailer] envoi sauté (SMTP non configuré)");
+    return;
+  }
+  if (!societe.email) {
+    console.log(`[mailer] envoi sauté : société « ${societe.raisonSociale} » sans email`);
+    return;
+  }
 
   const bodyHtml = `
     <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">Bonjour,</p>
@@ -99,6 +105,7 @@ export async function sendSocieteWelcomeEmail(societe) {
     subject: `Bienvenue chez CAMCONSULT — ${societe.raisonSociale}`,
     html: emailShell({ title: "Bienvenue au cabinet CAMCONSULT", bodyHtml }),
   });
+  console.log(`[mailer] bienvenue société envoyée à ${societe.email}`);
 }
 
 /** Email envoyé à un collaborateur (ou employé de société) dès la création
@@ -109,8 +116,14 @@ export async function sendSocieteWelcomeEmail(societe) {
  * c'est un choix assumé de l'utilisateur (email en clair = un canal moins
  * sûr qu'une remise en main propre), pas une bonne pratique par défaut. */
 export async function sendCollaborateurWelcomeEmail(employe) {
-  if (!mailerAvailable()) return;
-  if (!employe.email) return;
+  if (!mailerAvailable()) {
+    console.log("[mailer] envoi sauté (SMTP non configuré)");
+    return;
+  }
+  if (!employe.email) {
+    console.log(`[mailer] envoi sauté : collaborateur « ${employe.prenom} ${employe.nom} » sans email`);
+    return;
+  }
 
   const bodyHtml = `
     <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">Bonjour ${escapeHtml(employe.prenom)},</p>
@@ -140,6 +153,7 @@ export async function sendCollaborateurWelcomeEmail(employe) {
     subject: "Bienvenue chez CAMCONSULT — vos identifiants",
     html: emailShell({ title: "Bienvenue au cabinet CAMCONSULT", bodyHtml }),
   });
+  console.log(`[mailer] identifiants collaborateur envoyés à ${employe.email}`);
 }
 
 function escapeHtml(s) {

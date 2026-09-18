@@ -77,7 +77,7 @@ function SocieteExpandedPanel({
   );
 
   return (
-    <div className="grid gap-4 border-t border-border/70 px-6 py-4 sm:grid-cols-[1fr_1fr_auto]">
+    <div className="grid gap-3 border-t border-border/70 px-4 py-3 sm:grid-cols-[1fr_1fr_auto]">
       <div className="min-w-0">
         <p className="mb-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-muted-foreground">
           Contacts clés
@@ -609,8 +609,8 @@ export function SocietesListPage() {
             )}
           </LedgerSheet>
         ) : (
-          <LedgerSheet className="p-4 sm:p-5">
-            <div className="grid gap-4 sm:grid-cols-2">
+          <LedgerSheet className="p-3 sm:p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
               {filtered.map((s) => {
               const ThemeIcon = THEME_ICON[s.theme];
               const n = employeCount.get(s.id) ?? 0;

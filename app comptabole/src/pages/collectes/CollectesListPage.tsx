@@ -66,7 +66,7 @@ export function CollectesListPage() {
       />
 
       {list.length > 0 && (
-        <div className="mb-4 mt-3">
+        <div className="mb-3 mt-2">
           <LedgerSegmented
             value={vue}
             onChange={setVue}
@@ -80,7 +80,7 @@ export function CollectesListPage() {
       )}
 
       {shown.length === 0 ? (
-        <LedgerSheet className="mt-4 flex-1">
+        <LedgerSheet className="mt-3 flex-1">
           <EmptyState
             icon={ClipboardList}
             title={
@@ -108,7 +108,7 @@ export function CollectesListPage() {
           />
         </LedgerSheet>
       ) : (
-        <LedgerSheet className={cn("flex-1", list.length === 0 && "mt-4")}>
+        <LedgerSheet className={cn("flex-1", list.length === 0 && "mt-3")}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

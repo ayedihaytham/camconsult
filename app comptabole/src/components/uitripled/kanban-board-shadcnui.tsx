@@ -320,8 +320,8 @@ export function TasksKanban({
       className={cn(
         "flex min-h-full min-w-0 flex-col overflow-hidden font-sans",
         activeView === "table"
-          ? "tasks-table-workspace gap-2 p-3 sm:p-4"
-          : "mx-auto w-full gap-5 px-8 py-10 sm:px-10 sm:py-12 lg:max-w-[1464px] lg:px-14",
+          ? "tasks-table-workspace gap-2"
+          : "w-full gap-4",
       )}
     >
       <div
@@ -439,7 +439,7 @@ export function TasksKanban({
       </DataTableToolbar>
 
       {filtersOpen && (
-        <div className="rounded-xl border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
           {filterControls}
         </div>
       )}

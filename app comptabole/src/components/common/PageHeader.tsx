@@ -17,9 +17,9 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <div className={cn("mb-6 space-y-3", className)}>
+    <div className={cn("mb-4 space-y-2", className)}>
       {breadcrumb}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             {title}

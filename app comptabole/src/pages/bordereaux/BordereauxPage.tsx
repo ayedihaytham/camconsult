@@ -176,7 +176,7 @@ export function BordereauxPage() {
         title="Bordereaux bancaires"
         description="Registre interne du cabinet — virements, remises de traites et de chèques, par bordereau."
         actions={
-          <div className="flex gap-4">
+          <div className="flex gap-2">
             <Button variant="ledger-text" onClick={exportXlsx}>
               <Download className="h-3.5 w-3.5" />
               Excel
@@ -203,7 +203,7 @@ export function BordereauxPage() {
         />
       </div>
 
-      <div className="my-4 flex flex-wrap items-end gap-6">
+      <div className="my-3 flex flex-wrap items-end gap-3">
         <Select value={volet} onValueChange={setVolet}>
           <SelectTrigger className={selectTriggerClass}>
             <SelectValue />
@@ -254,10 +254,10 @@ export function BordereauxPage() {
           />
         </LedgerSheet>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filtered.map((b) => (
             <LedgerSheet key={b.id}>
-              <div className="flex flex-wrap items-center gap-4 rounded-t-sm border-b border-border bg-muted px-4 py-2.5">
+              <div className="flex flex-wrap items-center gap-3 rounded-t-sm border-b border-border bg-muted px-3 py-2.5 sm:px-4">
                 <span className="font-extrabold text-foreground">
                   {b.numero || "—"}
                 </span>

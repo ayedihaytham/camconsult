@@ -194,7 +194,7 @@ export function JournalPage() {
                 <div
                   key={e.id}
                   className={
-                    "flex items-center gap-3 px-4 py-3 text-sm " +
+                    "flex items-center gap-3 px-3 py-2.5 text-sm sm:px-4 " +
                     (i === filtered.length - 1
                       ? ""
                       : (i + 1) % 5 === 0

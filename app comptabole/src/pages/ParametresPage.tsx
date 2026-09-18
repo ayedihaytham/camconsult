@@ -149,7 +149,7 @@ export function ParametresPage() {
         description="Compte administrateur, données et préférences de l'application."
       />
 
-      <div className="mt-3 grid gap-5 lg:grid-cols-2">
+      <div className="mt-3 grid gap-4 lg:grid-cols-2">
         {/* Compte & sécurité */}
         <LedgerSheet>
           <SheetHead

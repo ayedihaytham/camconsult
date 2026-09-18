@@ -31,7 +31,7 @@ export function EtatsFinanciersPage() {
       />
 
       {societes.length === 0 ? (
-        <LedgerSheet className="mt-4">
+        <LedgerSheet className="mt-3">
           <EmptyState
             icon={Calculator}
             title="Aucune société accessible"
@@ -39,7 +39,7 @@ export function EtatsFinanciersPage() {
           />
         </LedgerSheet>
       ) : (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {societes.map((s) => (
             <SocieteCard
               key={s.id}

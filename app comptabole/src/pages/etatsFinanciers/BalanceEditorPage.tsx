@@ -157,7 +157,7 @@ export function BalanceEditorPage() {
         title={`Balance ${current?.exercice ?? ""} — ${societe?.raisonSociale ?? "Société"}`}
         description="Une ligne par compte ; le code AFFECTAT reclasse chaque compte pour la synthèse ci-dessous."
         actions={
-          <div className="flex gap-4">
+          <div className="flex gap-2">
             <Button variant="ledger-text" onClick={() => setImportOpen(true)}>
               <Upload className="h-3.5 w-3.5" />
               Importer une balance
@@ -178,7 +178,7 @@ export function BalanceEditorPage() {
 
       {/* KPI en lignes de relevé — héros = l'écart global, le signal le plus
           critique d'une balance (doit tendre vers 0). */}
-      <LedgerSheet className="mt-6">
+      <LedgerSheet className="mt-4">
         <LedgerKpiRow
           hero
           danger={Math.abs(ecartTotal) > 0.01}
@@ -194,7 +194,7 @@ export function BalanceEditorPage() {
       </LedgerSheet>
 
       {lignes.length === 0 ? (
-        <LedgerSheet className="mt-5">
+        <LedgerSheet className="mt-4">
           <EmptyState
             icon={Calculator}
             title={loading ? "Chargement…" : "Balance vide"}
@@ -202,7 +202,7 @@ export function BalanceEditorPage() {
           />
         </LedgerSheet>
       ) : (
-        <LedgerSheet className="mt-5">
+        <LedgerSheet className="mt-4">
           <LedgerTable
             columns={columns}
             data={lignes}
@@ -218,7 +218,7 @@ export function BalanceEditorPage() {
       )}
 
       {/* Table 4 : synthèse par code AFFECTAT */}
-      <LedgerSheet className="mt-5">
+      <LedgerSheet className="mt-4">
         <div className="border-b border-border px-[18px] py-3.5">
           <h2 className="text-[0.86rem] font-bold text-foreground">
             Synthèse par code AFFECTAT

@@ -32,38 +32,27 @@ import {
   Columns3,
   Filter,
   List,
-  MoreHorizontal,
   Plus,
   Search,
   Table2,
 } from "lucide-react";
+import { DataTableToolbar } from "@/components/data-table/DataTableToolbar";
+import { DataTablePagination } from "@/components/data-table/DataTablePagination";
+import { useDataTable } from "@/components/data-table/useDataTable";
+import { TaskActionsMenu } from "@/components/tasks/TaskActionsMenu";
+import { TaskAssignee } from "@/components/tasks/TaskAssignee";
+import { TaskCompanyBadge } from "@/components/tasks/TaskCompanyBadge";
+import { TaskListView } from "@/components/tasks/TaskListView";
 import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
-import {
-  paginateTasks,
-  TASKS_PAGE_SIZE,
-} from "@/components/tasks/taskPagination";
-import type { TaskPage } from "@/components/tasks/taskPagination";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TaskTableView } from "@/components/tasks/TaskTableView";
+import { createTaskTableColumns } from "@/components/tasks/taskTableColumns";
+import { presentTasks } from "@/components/tasks/taskTypes";
+import type { PresentedTask } from "@/components/tasks/taskTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn, formatRelative } from "@/lib/utils";
-import { TACHE_STATUT_LABELS } from "@/types";
 import type { Employe, Societe, Tache, TacheStatut } from "@/types";
 
 type Column = {
@@ -72,15 +61,6 @@ type Column = {
 };
 
 type TasksView = "board" | "list" | "table";
-
-type PresentedTask = {
-  task: Tache;
-  columnId: TacheStatut;
-  societeName: string;
-  assigneeName: string;
-  assigneeInitials: string;
-  assigneeOnline: boolean | null;
-};
 
 const COLUMNS: Column[] = [
   { id: "a_faire", title: "À faire" },
@@ -123,11 +103,12 @@ export function TasksKanban({
   filterControls,
   filterKey,
 }: TasksKanbanProps) {
+  const isMobile = useIsMobile();
   const [activeTask, setActiveTask] = useState<PresentedTask | null>(null);
   const [view, setView] = useState<TasksView>("board");
+  const activeView: TasksView = isMobile ? "table" : view;
   const [searchQuery, setSearchQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [page, setPage] = useState(1);
   const [statusOverrides, setStatusOverrides] = useState<
     Record<string, TacheStatut>
   >({});
@@ -167,39 +148,12 @@ export function TasksKanban({
     const societesById = new Map(
       societes.map((societe) => [societe.id, societe.raisonSociale]),
     );
-    const collaborateursById = new Map(
-      collaborateurs.map((collaborateur) => [collaborateur.id, collaborateur]),
-    );
-
-    return tasks.map((task): PresentedTask => {
-      const assignee = task.assigneId
-        ? collaborateursById.get(task.assigneId)
-        : null;
-      const assigneeName = task.assigneId
-        ? assignee
-          ? `${assignee.prenom} ${assignee.nom}`
-          : "Collaborateur retiré"
-        : "Non assignée";
-      const assigneeInitials = task.assigneId
-        ? assigneeName
-            .split(" ")
-            .map((part) => part[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase()
-        : "—";
-
-      return {
-        task,
-        columnId: statusOverrides[task.id] ?? task.statut,
-        societeName: societesById.get(task.societeId) ?? "Société supprimée",
-        assigneeName,
-        assigneeInitials,
-        assigneeOnline:
-          task.assigneId && assignee
-            ? (collaboratorPresence.get(task.assigneId) ?? false)
-            : null,
-      };
+    return presentTasks({
+      tasks,
+      societesById,
+      collaborateurs,
+      collaboratorPresence,
+      statusOverrides,
     });
   }, [
     collaboratorPresence,
@@ -219,19 +173,6 @@ export function TasksKanban({
       ),
     );
   }, [presentedTasks, searchQuery]);
-
-  const paginatedTasks = useMemo(
-    () => paginateTasks(filteredTasks, page, TASKS_PAGE_SIZE),
-    [filteredTasks, page],
-  );
-
-  useEffect(() => {
-    setPage(1);
-  }, [filterKey, searchQuery]);
-
-  useEffect(() => {
-    if (page !== paginatedTasks.page) setPage(paginatedTasks.page);
-  }, [page, paginatedTasks.page]);
 
   function clearStatusOverride(taskId: string) {
     setStatusOverrides((current) => {
@@ -341,51 +282,129 @@ export function TasksKanban({
   const emptyMessage = hasAnyTasks
     ? "Aucune tâche ne correspond à vos filtres."
     : "Aucune tâche pour le moment.";
+  const taskActions = {
+    canManage,
+    canChangeStatus,
+    pendingTaskIds,
+    onStatusChange: changeTaskStatus,
+    onEdit,
+    onDelete,
+  };
+  const taskTable = useDataTable({
+    columns: createTaskTableColumns(taskActions),
+    data: filteredTasks,
+    getRowId: (task) => task.task.id,
+    resetKey: `${filterKey}\u0000${searchQuery}`,
+  });
+  const createTaskButton = canManage ? (
+    <Button
+      type="button"
+      className={cn(
+        "h-9 shadow-none",
+        activeView === "table"
+          ? "w-9 shrink-0 px-0 sm:w-auto sm:px-4"
+          : "w-full sm:w-auto",
+      )}
+      onClick={onCreate}
+      aria-label="Nouvelle tâche"
+    >
+      <Plus className="h-4 w-4" />
+      <span className={cn(activeView === "table" && "hidden sm:inline")}>
+        Nouvelle tâche
+      </span>
+    </Button>
+  ) : null;
 
   return (
-    <div className="flex min-h-full min-w-0 flex-col gap-5 overflow-hidden p-4 font-sans sm:p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Tâches
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    <div
+      className={cn(
+        "flex min-h-full min-w-0 flex-col overflow-hidden font-sans",
+        activeView === "table"
+          ? "tasks-table-workspace gap-2 p-3 sm:p-4"
+          : "mx-auto w-full gap-5 px-8 py-10 sm:px-10 sm:py-12 lg:max-w-[1464px] lg:px-14",
+      )}
+    >
+      <div
+        className={cn(
+          activeView === "table" && "flex items-start justify-between gap-3",
+        )}
+      >
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Tâches
+          </h1>
+          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+            {description}
+          </p>
+        </div>
+        {activeView === "table" && createTaskButton}
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div
-          className="inline-flex w-fit items-center rounded-lg border border-border bg-muted p-0.5"
-          role="group"
-          aria-label="Mode d'affichage des tâches"
-        >
-          {(
-            [
-              { value: "board", label: "Board", icon: Columns3 },
-              { value: "list", label: "Liste", icon: List },
-              { value: "table", label: "Table", icon: Table2 },
-            ] as const
-          ).map(({ value, label, icon: Icon }) => (
-            <Button
-              key={value}
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-8 rounded-md px-2.5 shadow-none",
-                view === value
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                  : "text-muted-foreground hover:bg-card hover:text-foreground",
-              )}
-              aria-pressed={view === value}
-              onClick={() => setView(value)}
+      <DataTableToolbar
+        compact={activeView === "table"}
+        table={taskTable}
+        showViewOptions={activeView === "table"}
+        primaryAction={activeView === "table" ? null : createTaskButton}
+        trailing={
+          activeView === "table" ? (
+            <>
+              <DataTablePagination
+                table={taskTable}
+                itemLabel="tâches"
+                variant="metadata"
+                className="hidden lg:block"
+              />
+              <DataTablePagination
+                table={taskTable}
+                itemLabel="tâches"
+                variant="controls"
+              />
+            </>
+          ) : null
+        }
+        leading={
+          isMobile ? null : (
+            <div
+              className="hidden w-fit items-center rounded-lg border border-border bg-muted p-0.5 lg:inline-flex"
+              role="group"
+              aria-label="Mode d'affichage des tâches"
             >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </Button>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative min-w-0 flex-1 sm:w-[240px] sm:flex-none">
+              {(
+                [
+                  { value: "board", label: "Board", icon: Columns3 },
+                  { value: "list", label: "Liste", icon: List },
+                  { value: "table", label: "Table", icon: Table2 },
+                ] as const
+              ).map(({ value, label, icon: Icon }) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-8 rounded-md px-2.5 shadow-none",
+                    view === value
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                      : "text-muted-foreground hover:bg-card hover:text-foreground",
+                  )}
+                  aria-pressed={view === value}
+                  onClick={() => setView(value)}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </Button>
+              ))}
+            </div>
+          )
+        }
+      >
+          <div
+            className={cn(
+              "relative min-w-0 flex-1 sm:flex-none",
+              activeView === "table" && "w-full",
+              activeView === "table" ? "sm:w-56 lg:w-64" : "sm:w-[240px]",
+            )}
+          >
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Rechercher une tâche..."
@@ -417,18 +436,7 @@ export function TasksKanban({
               </Badge>
             )}
           </Button>
-          {canManage && (
-            <Button
-              type="button"
-              className="h-9 w-full shadow-none sm:w-auto"
-              onClick={onCreate}
-            >
-              <Plus className="h-4 w-4" />
-              Nouvelle tâche
-            </Button>
-          )}
-        </div>
-      </div>
+      </DataTableToolbar>
 
       {filtersOpen && (
         <div className="rounded-xl border border-border bg-card p-4">
@@ -438,7 +446,7 @@ export function TasksKanban({
 
       {filteredTasks.length === 0 ? (
         <TasksEmptyState message={emptyMessage} />
-      ) : view === "board" ? (
+      ) : activeView === "board" ? (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -482,40 +490,20 @@ export function TasksKanban({
         </DndContext>
       ) : null}
 
-      {filteredTasks.length > 0 && view === "list" && (
-        <div className="space-y-3">
-          <TasksListView
-            tasks={paginatedTasks.items}
-            canManage={canManage}
-            canChangeStatus={canChangeStatus}
-            pendingTaskIds={pendingTaskIds}
-            onStatusChange={changeTaskStatus}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-          <TaskPagination
-            pagination={paginatedTasks}
-            onPageChange={setPage}
-          />
-        </div>
+      {filteredTasks.length > 0 && activeView === "list" && (
+        <TaskListView
+          table={taskTable}
+          emptyMessage={emptyMessage}
+          {...taskActions}
+        />
       )}
 
-      {filteredTasks.length > 0 && view === "table" && (
-        <div className="space-y-3">
-          <TasksTableView
-            tasks={paginatedTasks.items}
-            canManage={canManage}
-            canChangeStatus={canChangeStatus}
-            pendingTaskIds={pendingTaskIds}
-            onStatusChange={changeTaskStatus}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-          <TaskPagination
-            pagination={paginatedTasks}
-            onPageChange={setPage}
-          />
-        </div>
+      {filteredTasks.length > 0 && activeView === "table" && (
+        <TaskTableView
+          table={taskTable}
+          emptyMessage={emptyMessage}
+          {...taskActions}
+        />
       )}
     </div>
   );
@@ -644,11 +632,6 @@ function TaskCard({
     transition,
     transform: CSS.Translate.toString(transform),
   };
-  const availableStatuses = COLUMNS.filter(
-    (column) =>
-      column.id !== task.task.statut && canChangeStatus(task.task, column.id),
-  );
-  const hasActions = canManage || availableStatuses.length > 0;
   const displayDate = task.task.termineLe ?? task.task.majLe;
 
   return (
@@ -667,17 +650,12 @@ function TaskCard({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <Badge
-          variant="outline"
-          className="max-w-[250px] border-border bg-transparent px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-        >
-          <span className="truncate">{task.societeName}</span>
-        </Badge>
-        {hasActions && !isOverlay && (
+        <TaskCompanyBadge name={task.societeName} className="max-w-[250px]" />
+        {!isOverlay && (
           <TaskActionsMenu
             task={task.task}
             canManage={canManage}
-            availableStatuses={availableStatuses}
+            canChangeStatus={canChangeStatus}
             onStatusChange={onStatusChange}
             onEdit={onEdit}
             onDelete={onDelete}
@@ -708,327 +686,5 @@ function TaskCard({
         </div>
       </div>
     </div>
-  );
-}
-
-interface TasksPresentationProps {
-  tasks: PresentedTask[];
-  canManage: boolean;
-  canChangeStatus: (task: Tache, status: TacheStatut) => boolean;
-  pendingTaskIds: Set<string>;
-  onStatusChange: (task: Tache, status: TacheStatut) => Promise<void>;
-  onEdit: (task: Tache) => void;
-  onDelete: (task: Tache) => void;
-}
-
-function TaskPagination({
-  pagination,
-  onPageChange,
-}: {
-  pagination: TaskPage<PresentedTask>;
-  onPageChange: (page: number) => void;
-}) {
-  if (pagination.totalPages <= 1) return null;
-
-  return (
-    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-      <span>
-        {pagination.firstItem}–{pagination.lastItem} sur {pagination.totalItems}{" "}
-        tâches
-      </span>
-      <div className="flex items-center justify-between gap-2 sm:justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shadow-none"
-          disabled={pagination.page === 1}
-          onClick={() => onPageChange(pagination.page - 1)}
-        >
-          Précédent
-        </Button>
-        <span className="min-w-[88px] text-center font-medium text-foreground">
-          Page {pagination.page} sur {pagination.totalPages}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shadow-none"
-          disabled={pagination.page === pagination.totalPages}
-          onClick={() => onPageChange(pagination.page + 1)}
-        >
-          Suivant
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function TasksListView({ tasks, ...actions }: TasksPresentationProps) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      {tasks.length === 0 ? (
-        <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-          Aucune tâche ne correspond à vos filtres.
-        </p>
-      ) : (
-        <div className="divide-y divide-border">
-          {tasks.map((task) => {
-            const statuses = availableStatuses(
-              task.task,
-              actions.canChangeStatus,
-            );
-            const hasActions = actions.canManage || statuses.length > 0;
-            const displayDate = task.task.termineLe ?? task.task.majLe;
-
-            return (
-              <article
-                key={task.task.id}
-                className={cn(
-                  "flex flex-col gap-3 p-4 sm:flex-row sm:items-center",
-                  actions.pendingTaskIds.has(task.task.id) && "opacity-70",
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-                    {task.task.titre}
-                  </p>
-                  {task.task.description && (
-                    <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                      {task.task.description}
-                    </p>
-                  )}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-3">
-                    <Badge
-                      variant="outline"
-                      className="max-w-full border-border bg-transparent text-[10px] text-muted-foreground"
-                    >
-                      <span className="truncate">{task.societeName}</span>
-                    </Badge>
-                    <div className="min-w-0 max-w-full sm:max-w-[200px]">
-                      <TaskAssignee task={task} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex min-w-0 items-center justify-between gap-3 border-t border-border/60 pt-3 sm:w-auto sm:border-0 sm:pt-0">
-                  <TaskStatusBadge status={task.task.statut} />
-                  <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>{formatRelative(displayDate)}</span>
-                  </div>
-                  {hasActions && (
-                    <TaskActionsMenu
-                      task={task.task}
-                      canManage={actions.canManage}
-                      availableStatuses={statuses}
-                      onStatusChange={actions.onStatusChange}
-                      onEdit={actions.onEdit}
-                      onDelete={actions.onDelete}
-                    />
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TasksTableView(props: TasksPresentationProps) {
-  return (
-    <>
-      <div className="md:hidden">
-        <TasksListView {...props} />
-      </div>
-      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
-        <Table>
-          <TableHeader className="[&_th]:!h-9 [&_th]:!text-xs [&_th]:!font-semibold [&_th]:!normal-case [&_th]:!tracking-normal">
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead>Tâche</TableHead>
-              <TableHead>Société</TableHead>
-              <TableHead>Assigné à</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Mise à jour</TableHead>
-              <TableHead className="w-[1%]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {props.tasks.map((task) => {
-              const statuses = availableStatuses(
-                task.task,
-                props.canChangeStatus,
-              );
-              const hasActions = props.canManage || statuses.length > 0;
-              const displayDate = task.task.termineLe ?? task.task.majLe;
-
-              return (
-                <TableRow
-                  key={task.task.id}
-                  className={cn(
-                    "even:bg-transparent hover:bg-transparent",
-                    props.pendingTaskIds.has(task.task.id) && "opacity-70",
-                  )}
-                >
-                  <TableCell className="max-w-[320px]">
-                    <p className="truncate font-semibold text-foreground">
-                      {task.task.titre}
-                    </p>
-                    {task.task.description && (
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {task.task.description}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[200px]">
-                    <Badge
-                      variant="outline"
-                      className="max-w-full border-border bg-transparent text-[10px] text-muted-foreground"
-                    >
-                      <span className="truncate">{task.societeName}</span>
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="max-w-[190px]">
-                    <TaskAssignee task={task} />
-                  </TableCell>
-                  <TableCell>
-                    <TaskStatusBadge status={task.task.statut} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock className="h-3 w-3" />
-                      {formatRelative(displayDate)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {hasActions && (
-                      <TaskActionsMenu
-                        task={task.task}
-                        canManage={props.canManage}
-                        availableStatuses={statuses}
-                        onStatusChange={props.onStatusChange}
-                        onEdit={props.onEdit}
-                        onDelete={props.onDelete}
-                      />
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {props.tasks.length === 0 && (
-              <TableRow className="hover:bg-transparent">
-                <TableCell
-                  colSpan={6}
-                  className="py-10 text-center text-sm text-muted-foreground"
-                >
-                  Aucune tâche ne correspond à vos filtres.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </>
-  );
-}
-
-function TaskAssignee({ task }: { task: PresentedTask }) {
-  const presenceLabel = task.assigneeOnline ? "En ligne" : "Hors ligne";
-
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="relative shrink-0">
-        <Avatar className="h-7 w-7 border border-border">
-          <AvatarFallback className="bg-primary/10 text-[9px] font-semibold text-primary">
-            {task.assigneeInitials}
-          </AvatarFallback>
-        </Avatar>
-        {task.assigneeOnline !== null && (
-          <span
-            className={cn(
-              "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-background",
-              task.assigneeOnline
-                ? "bg-success"
-                : "bg-muted-foreground/40",
-            )}
-            role="img"
-            aria-label={presenceLabel}
-            title={`${task.assigneeName} — ${presenceLabel}`}
-          />
-        )}
-      </span>
-      <span className="truncate text-xs font-medium text-foreground/75">
-        {task.assigneeName}
-      </span>
-    </div>
-  );
-}
-
-function availableStatuses(
-  task: Tache,
-  canChangeStatus: (task: Tache, status: TacheStatut) => boolean,
-) {
-  return COLUMNS.filter(
-    (column) => column.id !== task.statut && canChangeStatus(task, column.id),
-  );
-}
-
-function TaskActionsMenu({
-  task,
-  canManage,
-  availableStatuses,
-  onStatusChange,
-  onEdit,
-  onDelete,
-}: {
-  task: Tache;
-  canManage: boolean;
-  availableStatuses: Column[];
-  onStatusChange: (task: Tache, status: TacheStatut) => Promise<void>;
-  onEdit: (task: Tache) => void;
-  onDelete: (task: Tache) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="text-muted-foreground opacity-60 shadow-none transition-opacity hover:opacity-100 focus-visible:opacity-100"
-          aria-label={`Actions pour ${task.titre}`}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <MoreHorizontal className="h-3 w-3" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {availableStatuses.map((column) => (
-          <DropdownMenuItem
-            key={column.id}
-            onSelect={() => void onStatusChange(task, column.id)}
-          >
-            Passer à « {TACHE_STATUT_LABELS[column.id]} »
-          </DropdownMenuItem>
-        ))}
-        {canManage && availableStatuses.length > 0 && <DropdownMenuSeparator />}
-        {canManage && (
-          <>
-            <DropdownMenuItem onSelect={() => onEdit(task)}>
-              Modifier
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() => onDelete(task)}
-            >
-              Supprimer
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

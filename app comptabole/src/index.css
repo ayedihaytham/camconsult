@@ -151,6 +151,17 @@
   }
 }
 
+@media (max-height: 850px) and (min-width: 1024px) {
+  .tasks-table-workspace {
+    gap: 0.375rem;
+    padding-block: 0.625rem;
+  }
+
+  .tasks-table-workspace table tbody tr {
+    height: 2.875rem;
+  }
+}
+
 @media print {
   .no-print,
   .no-print * {

@@ -166,10 +166,10 @@ export function EmployeFormSheet({
           <SheetBody className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <Field label="Prénom" error={errors.prenom?.message}>
-                <Input {...register("prenom")} placeholder="Ahmed" />
+                <Input {...register("prenom")} placeholder="Prénom" />
               </Field>
               <Field label="Nom" error={errors.nom?.message}>
-                <Input {...register("nom")} placeholder="Ben Salah" />
+                <Input {...register("nom")} placeholder="Nom" />
               </Field>
             </div>
 
@@ -177,7 +177,7 @@ export function EmployeFormSheet({
               <Input
                 {...register("email")}
                 type="email"
-                placeholder="a.bensalah@camconsult.com.tn"
+                placeholder="email@camconsult.com.tn"
               />
             </Field>
 
@@ -234,7 +234,7 @@ export function EmployeFormSheet({
                     {...register("identifiant", {
                       onChange: () => setIdentifiantTouched(true),
                     })}
-                    placeholder="a.bensalah"
+                    placeholder="p.nom"
                   />
                 </Field>
                 <div className="space-y-1.5">

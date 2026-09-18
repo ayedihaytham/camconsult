@@ -119,6 +119,7 @@ export function CollecteCreateDialog({
                 <SelectContent>
                   <SelectItem value="EUR">€ (euro)</SelectItem>
                   <SelectItem value="TND">DT (dinar tunisien)</SelectItem>
+                  <SelectItem value="USD">$ (dollar américain)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

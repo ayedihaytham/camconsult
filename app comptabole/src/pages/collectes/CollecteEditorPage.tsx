@@ -372,7 +372,7 @@ export function CollecteEditorPage() {
                     Date de réception
                   </th>
                   <th className="px-3 py-2.5 text-right font-medium">
-                    Total ({collecte.devise === "EUR" ? "€" : collecte.devise})
+                    Total ({collecte.devise === "EUR" ? "€" : collecte.devise === "USD" ? "$" : collecte.devise})
                   </th>
                   <th className="px-3 py-2.5 text-left font-medium">
                     Commentaire

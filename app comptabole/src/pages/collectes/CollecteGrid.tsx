@@ -87,7 +87,7 @@ export function CollecteGrid({
     }
   }
 
-  const symbol = devise === "EUR" ? "€" : devise;
+  const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
 
   const total: number | null = def.checklistTotal
     ? def.checklistTotal(derived)

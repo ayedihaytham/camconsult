@@ -1,8 +1,10 @@
 import { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Bell, LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
+import { AppBreadcrumbs } from "./AppBreadcrumbs";
+import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
@@ -15,41 +17,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const PAGES: Record<string, string> = {
-  "/": "Tableau de bord",
-  "/societes": "Sociétés",
-  "/employes": "Collaborateurs",
-  "/taches": "Tâches",
-  "/collectes": "Collecte de pièces",
-  "/stock": "Gestion de stock",
-  "/etats-financiers": "États financiers",
-  "/grille-affectat": "Grille de reclassement",
-  "/bordereaux": "Bordereaux bancaires",
-  "/structuration": "Structuration",
-  "/messagerie": "Messagerie",
-  "/journal": "Journal d'activité",
-  "/parametres": "Paramètres",
-};
-
-const TODAY_LABEL = new Intl.DateTimeFormat("fr-FR", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-}).format(new Date());
-
-function titleFor(pathname: string): string {
-  if (PAGES[pathname]) return PAGES[pathname];
-  const match = Object.keys(PAGES)
-    .filter((p) => p !== "/" && pathname.startsWith(p))
-    .sort((a, b) => b.length - a.length)[0];
-  return match ? PAGES[match] : "Cabinet";
-}
-
 export function Topbar() {
   const { session, logout } = useAuth();
-  const { pathname } = useLocation();
   const navigate = useNavigate();
-  const title = titleFor(pathname);
 
   const nom = toTitleCase(session?.nom ?? "Utilisateur");
   const role = session?.fonction ?? "";
@@ -73,20 +43,14 @@ export function Topbar() {
     <header className="sticky top-0 z-30 border-b border-border bg-card no-print">
       <div className="flex h-[64px] items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger
-          className="h-9 w-9 lg:hidden"
-          aria-label="Ouvrir le menu"
+          className="h-9 w-9 shrink-0"
+          aria-label="Afficher ou réduire le menu"
         />
 
-        <div className="min-w-0 leading-tight">
-          <h2 className="truncate text-sm font-bold text-foreground lg:text-base">
-            {title}
-          </h2>
-          <p className="hidden truncate text-xs capitalize text-muted-foreground lg:block">
-            {TODAY_LABEL}
-          </p>
-        </div>
+        <Separator orientation="vertical" className="h-4" />
+        <AppBreadcrumbs />
 
-        <div className="ml-auto flex items-center gap-2.5">
+        <div className="ml-auto flex shrink-0 items-center gap-2.5">
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

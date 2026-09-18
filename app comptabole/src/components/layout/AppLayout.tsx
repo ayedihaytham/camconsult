@@ -18,8 +18,13 @@ export function AppLayout() {
       <AppSidebar />
       <SidebarInset className="min-h-0 min-w-0">
         <Topbar />
-        <div className="flex-1 overflow-y-auto bg-muted px-4 py-6 lg:px-8 print-full">
-          <div className="mx-auto flex min-h-full max-w-[1400px] flex-col">
+        <div className="flex flex-1 flex-col overflow-y-auto bg-muted px-4 py-6 lg:px-8 print-full">
+          {/* flex-1 (flex-grow) plutôt que min-h-full (%) : une chaîne de
+              flex-grow calée sur des tailles déjà définies ailleurs, jamais
+              un pourcentage — plus fiable pour qu'une page courte remplisse
+              vraiment la hauteur restante (constaté en usage réel : min-h-full
+              ne se répercutait pas de façon fiable ici). */}
+          <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col">
             <Outlet />
           </div>
         </div>

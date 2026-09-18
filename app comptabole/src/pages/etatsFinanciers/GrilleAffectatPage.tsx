@@ -57,14 +57,14 @@ export function GrilleAffectatPage() {
       />
 
       {codes.length === 0 ? (
-        <LedgerSheet className="mt-6 flex-1">
+        <LedgerSheet className="mt-4 flex-1">
           <EmptyState
             title="Aucun code pour le moment"
             description="Les codes apparaîtront ici dès qu'une ligne de balance leur sera assignée."
           />
         </LedgerSheet>
       ) : (
-        <LedgerSheet className="mt-6 flex-1">
+        <LedgerSheet className="mt-4 flex-1">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

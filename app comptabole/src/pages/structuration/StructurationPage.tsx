@@ -479,7 +479,7 @@ export function StructurationPage() {
       />
 
       {tab === "tableau" && (
-        <div className="mt-4 flex flex-1 flex-col">
+        <div className="mt-3 flex flex-1 flex-col">
           <LedgerToolbar
             search={search}
             onSearchChange={setSearch}
@@ -564,7 +564,7 @@ export function StructurationPage() {
       )}
 
       {tab === "arbre" && (
-        <div className="mt-4">
+        <div className="mt-3">
           {/* Vue arborescence : widget d'explorateur non couvert par les
               maquettes Ledger (drag & drop, aperçu, réparentage) — laissé
               intact pour ne pas improviser un design non validé. */}
@@ -590,7 +590,7 @@ export function StructurationPage() {
       )}
 
       {tab === "organigramme" && (
-        <div className="mt-4">
+        <div className="mt-3">
           {roots.length === 0 ? (
             <LedgerSheet>
               <EmptyState

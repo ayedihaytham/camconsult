@@ -208,7 +208,7 @@ export function MessageriePage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8.5rem)] flex-col">
+    <div className="flex h-[calc(100dvh-6rem)] min-h-[32rem] flex-col">
       <LedgerPageHeader
         title="Messagerie"
         description={
@@ -216,7 +216,7 @@ export function MessageriePage() {
             ? "Échanges avec les collaborateurs, liés aux dossiers clients."
             : "Échange avec le responsable du cabinet."
         }
-        className="mb-4"
+        className="mb-3"
       />
 
       {conversations.length === 0 && !isAdmin ? (

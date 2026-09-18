@@ -18,11 +18,11 @@ export function ClientDistributionCard({
   const maxCount = Math.max(1, ...entries.map(([, count]) => count));
   return (
     <Card className="shadow-none">
-      <CardHeader className="p-4 sm:p-5">
+      <CardHeader className="p-4">
         <CardTitle>Répartition des clients</CardTitle>
         <CardDescription>Répartition par type de société</CardDescription>
       </CardHeader>
-      <CardContent className="min-w-0 p-4 pt-0 sm:p-5 sm:pt-0">
+      <CardContent className="min-w-0 p-4 pt-0">
         {entries.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucune société enregistrée.</p>
         ) : (
@@ -44,7 +44,7 @@ export function ClientDistributionCard({
           </ul>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-stretch gap-3 p-4 pt-0 sm:p-5 sm:pt-0">
+      <CardFooter className="flex-col items-stretch gap-3 p-4 pt-0">
         <Separator />
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Sociétés actives</span>

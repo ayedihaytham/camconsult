@@ -40,7 +40,7 @@ export function RecentActivityCard({
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
       <Card className="min-w-0 shadow-none">
-        <CardHeader className="min-w-0 gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
+        <CardHeader className="min-w-0 gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <CardTitle>Activité récente</CardTitle>
             <CardDescription className="mt-1">Documents et échanges du cabinet</CardDescription>
@@ -55,7 +55,7 @@ export function RecentActivityCard({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="min-w-0 p-4 pt-0 sm:p-5 sm:pt-0">
+        <CardContent className="min-w-0 p-4 pt-0">
           <TabsContent value="files" className="mt-0">
             {files.length === 0 ? (
               <EmptyActivity icon={FileText} label="Aucun fichier récent" />

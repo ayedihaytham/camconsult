@@ -15,7 +15,7 @@ export function DashboardHeader({
   onAddSociete,
 }: DashboardHeaderProps) {
   return (
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 className="text-xl font-semibold tracking-tight text-foreground">{salutation}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>

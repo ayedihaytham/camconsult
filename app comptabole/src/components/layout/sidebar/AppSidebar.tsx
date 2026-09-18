@@ -1,17 +1,14 @@
 import type { ComponentProps } from "react";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useConversations, useNotifications } from "@/store/data";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { SidebarNavigation } from "./SidebarNavigation";
 import {
@@ -33,7 +30,6 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
     isAdmin,
     employeId,
   );
-  const { state, toggleSidebar } = useSidebar();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -67,24 +63,6 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         />
       </SidebarContent>
 
-      <SidebarFooter className="hidden border-t border-sidebar-border lg:flex">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={toggleSidebar}
-              tooltip="Déplier"
-              aria-label={state === "expanded" ? "Réduire" : "Déplier le menu"}
-            >
-              {state === "expanded" ? (
-                <ChevronsLeft />
-              ) : (
-                <ChevronsRight />
-              )}
-              <span>Réduire</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

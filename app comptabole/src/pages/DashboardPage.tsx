@@ -102,7 +102,7 @@ export function DashboardPage() {
   const canAddSociete = !lectureSeule && (isAdmin || can("modifierSocietes"));
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4">
       <DashboardHeader
         salutation={`${greeting()}${prenom ? ` ${prenom}` : ""}`}
         description="Voici un aperçu de l'activité de votre cabinet."
@@ -110,11 +110,11 @@ export function DashboardPage() {
         onAddSociete={canAddSociete ? () => navigate("/societes") : undefined}
       />
 
-      <section aria-label="Indicateurs clés" className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+      <section aria-label="Indicateurs clés" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map(({ key, ...kpi }) => <KpiCard key={key} {...kpi} />)}
       </section>
 
-      <section aria-label="Informations récentes" className="grid min-w-0 gap-3 sm:gap-4 lg:grid-cols-5">
+      <section aria-label="Informations récentes" className="grid min-w-0 gap-3 lg:grid-cols-5">
         <div className="min-w-0 lg:col-span-2">
           <ClientDistributionCard entries={themeEntries} dotColors={dotColors} activeCount={societes.filter((societe) => societe.statut === "actif").length} totalCount={societes.length} />
         </div>

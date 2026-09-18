@@ -226,7 +226,7 @@ export function BalancesListPage() {
 
       {vue === "exercices" ? (
         list.length === 0 ? (
-          <LedgerSheet className="mt-6 flex-1">
+          <LedgerSheet className="mt-4 flex-1">
             <EmptyState
               icon={Calculator}
               title={loading ? "Chargement…" : "Aucun exercice"}
@@ -240,7 +240,7 @@ export function BalancesListPage() {
             />
           </LedgerSheet>
         ) : (
-          <LedgerSheet className="mt-6 flex-1">
+          <LedgerSheet className="mt-4 flex-1">
             {list.map((b, i) => (
               <div
                 key={b.id}
@@ -277,7 +277,7 @@ export function BalancesListPage() {
           </LedgerSheet>
         )
       ) : postesParExercice.length === 0 ? (
-        <LedgerSheet className="mt-6 flex-1">
+        <LedgerSheet className="mt-4 flex-1">
           <EmptyState
             icon={Calculator}
             title={loadingPostes ? "Chargement…" : "Aucune donnée"}
@@ -285,11 +285,11 @@ export function BalancesListPage() {
           />
         </LedgerSheet>
       ) : vue === "actif" ? (
-        <LedgerSheet className="mt-6 flex-1">
+        <LedgerSheet className="mt-4 flex-1">
           <FinancialTable rows={ROWS_BILAN_ACTIF} exercices={postesParExercice} titre="Actif" />
         </LedgerSheet>
       ) : vue === "passif" ? (
-        <LedgerSheet className="mt-6 flex-1">
+        <LedgerSheet className="mt-4 flex-1">
           <FinancialTable
             rows={ROWS_BILAN_PASSIF}
             exercices={postesParExercice}
@@ -301,15 +301,15 @@ export function BalancesListPage() {
           />
         </LedgerSheet>
       ) : vue === "resultat" ? (
-        <LedgerSheet className="mt-6 flex-1">
+        <LedgerSheet className="mt-4 flex-1">
           <FinancialTable rows={ROWS_ETAT_RESULTAT} exercices={postesParExercice} titre="Etat de résultat" />
         </LedgerSheet>
       ) : vue === "sig" ? (
-        <div className="mt-6">
+        <div className="mt-4">
           <SigTable exercices={postesParExercice} />
         </div>
       ) : vue === "immo" ? (
-        <div className="mt-6">
+        <div className="mt-4">
           <ImmoVariationTable
             exercices={postesParExercice}
             immoMouvements={effectiveImmoMouvements}
@@ -318,11 +318,11 @@ export function BalancesListPage() {
           />
         </div>
       ) : vue === "registre" ? (
-        <div className="mt-6">
+        <div className="mt-4">
           <ImmobilisationsRegistrePage societeId={societeId} exercices={postesParExercice} />
         </div>
       ) : vue === "flux" ? (
-        <div className="mt-6">
+        <div className="mt-4">
           <FluxTable
             exercices={postesParExercice}
             immoMouvements={effectiveImmoMouvements}
@@ -331,7 +331,7 @@ export function BalancesListPage() {
           />
         </div>
       ) : vue === "tdrf" ? (
-        <div className="mt-6">
+        <div className="mt-4">
           <TdrfTable
             exercices={postesParExercice}
             lignes={tdrfLignes}
@@ -343,7 +343,7 @@ export function BalancesListPage() {
           />
         </div>
       ) : (
-        <div className="mt-6">
+        <div className="mt-4">
           <NotesView
             societeId={societeId}
             societeName={societe?.raisonSociale ?? ""}

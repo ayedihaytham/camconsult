@@ -151,6 +151,24 @@
   }
 }
 
+@media (max-height: 850px) and (min-width: 1024px) {
+  .authenticated-page-shell {
+    padding-block: 0.625rem;
+  }
+
+  .ledger-toolbar {
+    padding-block: 0.5rem;
+  }
+
+  .tasks-table-workspace {
+    gap: 0.375rem;
+  }
+
+  .tasks-table-workspace table tbody tr {
+    height: 2.875rem;
+  }
+}
+
 @media print {
   .no-print,
   .no-print * {

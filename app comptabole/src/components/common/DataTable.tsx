@@ -258,7 +258,7 @@ export function DataTable<T>({
         </TableBody>
       </Table>
 
-      <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground sm:flex-row">
+      <div className="flex flex-col items-center justify-between gap-2 border-t border-border px-3 py-2.5 text-sm text-muted-foreground sm:flex-row sm:px-4">
         <div>
           {enableSelection && selectedIds.length > 0 ? (
             <span className="font-medium text-foreground">

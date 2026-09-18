@@ -17,6 +17,7 @@ import {
   useSocietes,
   useTaches,
 } from "@/store/data";
+import { TACHE_STATUT_LABELS } from "@/types";
 import type { Tache, TacheStatut } from "@/types";
 import { TacheFormSheet } from "./TacheFormSheet";
 
@@ -36,6 +37,7 @@ export function TachesPage() {
 
   const [societeFilter, setSocieteFilter] = useState(ALL);
   const [assigneFilter, setAssigneFilter] = useState(ALL);
+  const [statutFilter, setStatutFilter] = useState(ALL);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Tache | null>(null);
   const [toDelete, setToDelete] = useState<Tache | null>(null);
@@ -58,13 +60,14 @@ export function TachesPage() {
         return false;
       }
       if (isAdmin && assigneFilter !== ALL) {
-        return assigneFilter === "none"
+        const matchesAssignee = assigneFilter === "none"
           ? !task.assigneId
           : task.assigneId === assigneFilter;
+        if (!matchesAssignee) return false;
       }
-      return true;
+      return statutFilter === ALL || task.statut === statutFilter;
     });
-  }, [assigneFilter, isAdmin, societeFilter, taches]);
+  }, [assigneFilter, isAdmin, societeFilter, statutFilter, taches]);
 
   function canChangeStatus(task: Tache, status: TacheStatut) {
     if (status === task.statut) return true;
@@ -113,7 +116,8 @@ export function TachesPage() {
         hasAnyTasks={taches.length > 0}
         activeFilterCount={
           (societeFilter !== ALL ? 1 : 0) +
-          (isAdmin && assigneFilter !== ALL ? 1 : 0)
+          (isAdmin && assigneFilter !== ALL ? 1 : 0) +
+          (statutFilter !== ALL ? 1 : 0)
         }
         societes={societes}
         collaborateurs={collaborateurs}
@@ -129,9 +133,9 @@ export function TachesPage() {
         onCreate={openCreate}
         onEdit={openEdit}
         onDelete={setToDelete}
-        filterKey={`${societeFilter}:${assigneFilter}`}
+        filterKey={`${societeFilter}:${assigneFilter}:${statutFilter}`}
         filterControls={
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Select value={societeFilter} onValueChange={setSocieteFilter}>
               <SelectTrigger aria-label="Filtrer par société">
                 <SelectValue placeholder="Société" />
@@ -162,6 +166,20 @@ export function TachesPage() {
                 </SelectContent>
               </Select>
             )}
+
+            <Select value={statutFilter} onValueChange={setStatutFilter}>
+              <SelectTrigger aria-label="Filtrer par statut">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Tous les statuts</SelectItem>
+                {STATUS_ORDER.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {TACHE_STATUT_LABELS[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         }
       />

@@ -119,7 +119,7 @@ export function StockSocietePage() {
         title={`Stock — ${societe?.raisonSociale ?? "Société"}`}
         description="Un mouvement = un achat et/ou une vente appariés. L'écart doit tendre vers 0."
         actions={
-          <div className="flex gap-4">
+          <div className="flex gap-2">
             <Button variant="ledger-text" onClick={exportXlsx}>
               <Download className="h-3.5 w-3.5" />
               Excel
@@ -141,7 +141,7 @@ export function StockSocietePage() {
       {/* KPI en lignes de relevé — héros = Anomalies, le signal métier le
           plus critique de cet écran (écart doit tendre vers 0), pas le 1er
           indicateur par défaut. Voir DESIGN-SYSTEM.md §1. */}
-      <LedgerSheet className="mt-6">
+      <LedgerSheet className="mt-4">
         <LedgerKpiRow
           hero
           danger={nbAnomalies > 0}
@@ -153,7 +153,7 @@ export function StockSocietePage() {
         <LedgerKpiRow label="Montant achats (TND)" value={fmt(totals.achatTnd)} />
       </LedgerSheet>
 
-      <label className="my-4 flex w-fit cursor-pointer items-center gap-2 text-sm text-foreground">
+      <label className="my-3 flex w-fit cursor-pointer items-center gap-2 text-sm text-foreground">
         <span
           onClick={() => setOnlyAnomalies((v) => !v)}
           className={cn(

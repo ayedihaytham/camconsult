@@ -37,8 +37,8 @@ export function LedgerToolbar({
   onClearSelection,
 }: LedgerToolbarProps) {
   return (
-    <div className="mb-0 space-y-3 py-4 no-print">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="ledger-toolbar mb-0 space-y-2.5 py-3 no-print">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-1 flex-wrap items-end gap-3">
           <label className="flex min-w-[230px] items-center gap-2 rounded-full border border-transparent bg-secondary/70 px-3.5 py-2 transition-colors focus-within:border-input focus-within:bg-card">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />

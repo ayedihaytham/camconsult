@@ -17,7 +17,7 @@ export function TaskProgressCard({ counts, workloads, onOpenTasks }: TaskProgres
   const visibleWorkloads = showAll ? workloads : workloads.slice(0, 4);
   return (
     <Card className="min-w-0 shadow-none">
-      <CardHeader className="flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:p-5">
+      <CardHeader className="flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0">
           <CardTitle>Avancement des tâches</CardTitle>
           <CardDescription className="mt-1">Suivi de la charge de l'équipe</CardDescription>
@@ -26,7 +26,7 @@ export function TaskProgressCard({ counts, workloads, onOpenTasks }: TaskProgres
           Voir les tâches
         </Button>
       </CardHeader>
-      <CardContent className="min-w-0 p-4 pt-0 sm:p-5 sm:pt-0">
+      <CardContent className="min-w-0 p-4 pt-0">
         {total === 0 ? (
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span className="flex size-9 items-center justify-center rounded-lg bg-muted">

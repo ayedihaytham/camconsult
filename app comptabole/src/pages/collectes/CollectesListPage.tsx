@@ -5,7 +5,7 @@ import { ClipboardList, Plus, Trash2 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
-import { CollecteStatusDot } from "@/components/ledger/StatusDot";
+import { CollecteStatusDot, StatusDot } from "@/components/ledger/StatusDot";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -153,7 +153,14 @@ export function CollectesListPage() {
                       {c.periode}
                     </td>
                     <td className="px-3 py-2.5">
-                      <CollecteStatusDot statut={c.statut} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <CollecteStatusDot statut={c.statut} />
+                        {(c.statut === "brouillon" || c.statut === "a_corriger") &&
+                          c.echeance &&
+                          c.echeance < new Date().toISOString().slice(0, 10) && (
+                            <StatusDot tone="destructive" label="En retard" pill />
+                          )}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                       {c.onglets.length}

@@ -148,7 +148,7 @@ export function SocieteFormSheet({
         >
           <SheetBody className="space-y-5">
             <Field label="Raison sociale" error={errors.raisonSociale?.message}>
-              <Input {...register("raisonSociale")} placeholder="Ex. STE Carthage Négoce SARL" />
+              <Input {...register("raisonSociale")} placeholder="Ex. CAMCONSULT" />
             </Field>
 
             <div className="grid grid-cols-2 gap-4">

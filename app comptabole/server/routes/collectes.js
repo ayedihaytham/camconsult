@@ -14,7 +14,9 @@ import {
   collecteSectionDto,
   collecteLigneDto,
   collecteNoteDto,
+  collecteFichierDto,
 } from "../mappers.js";
+import { sendRelance } from "../relances.js";
 
 export const collectesRouter = Router();
 collectesRouter.use(requireAuth);
@@ -42,12 +44,13 @@ const createSchema = z.object({
   periode: z.string().min(1),
   onglets: z.array(z.string()).default([]),
   devise: z.string().default("EUR"),
+  echeance: z.string().nullish(),
 });
 
 async function loadCollecte(id) {
   const c = (await query("select * from collectes where id = $1", [id])).rows[0];
   if (!c) return null;
-  const [sections, lignes, notes] = await Promise.all([
+  const [sections, lignes, notes, fichiers] = await Promise.all([
     query("select * from collecte_sections where collecte_id = $1", [id]),
     query(
       "select * from collecte_lignes where collecte_id = $1 order by onglet, ordre",
@@ -57,12 +60,17 @@ async function loadCollecte(id) {
       "select * from collecte_notes where collecte_id = $1 order by cree_le",
       [id],
     ),
+    query(
+      "select * from collecte_fichiers where collecte_id = $1 order by cree_le desc",
+      [id],
+    ),
   ]);
   return {
     ...collecteDto(c),
     sections: sections.rows.map(collecteSectionDto),
     lignes: lignes.rows.map(collecteLigneDto),
     notes: notes.rows.map(collecteNoteDto),
+    fichiers: fichiers.rows.map(collecteFichierDto),
   };
 }
 
@@ -136,9 +144,9 @@ collectesRouter.post("/", requireAdmin, async (req, res) => {
 
   const created = await withTransaction(async (client) => {
     const { rows } = await client.query(
-      `insert into collectes (societe_id, periode, onglets, devise)
-       values ($1,$2,$3::jsonb,$4) returning *`,
-      [v.societeId, v.periode.trim(), JSON.stringify(onglets), v.devise || "EUR"],
+      `insert into collectes (societe_id, periode, onglets, devise, echeance)
+       values ($1,$2,$3::jsonb,$4,$5) returning *`,
+      [v.societeId, v.periode.trim(), JSON.stringify(onglets), v.devise || "EUR", v.echeance || null],
     );
     for (const o of onglets) {
       await client.query(
@@ -154,6 +162,7 @@ collectesRouter.post("/", requireAdmin, async (req, res) => {
     "creation",
     "collecte",
     `${soc.raison_sociale} — ${v.periode}`,
+    created.id,
   );
   const targets = await concernedBySociete(v.societeId, { includeAdmin: false });
   notifyMany(
@@ -193,7 +202,7 @@ collectesRouter.patch("/:id", async (req, res) => {
       "update collectes set statut='transmis', transmis_le=now(), maj_le=now() where id=$1 returning *",
       [req.params.id],
     );
-    logAction(req.session.nom, "modification", "collecte", `Transmise — ${socNom} ${c.periode}`);
+    logAction(req.session.nom, "modification", "collecte", `Transmise — ${socNom} ${c.periode}`, c.id);
     notify(
       "admin",
       "collecte",
@@ -218,18 +227,19 @@ collectesRouter.patch("/:id", async (req, res) => {
   const next = {
     periode: typeof b.periode === "string" && b.periode.trim() ? b.periode.trim() : c.periode,
     devise: typeof b.devise === "string" && b.devise ? b.devise : c.devise,
+    echeance: b.echeance === undefined ? c.echeance : b.echeance || null,
     onglets: b.onglets === undefined ? c.onglets : cleanOnglets(b.onglets),
     statut: STATUTS.includes(b.statut) ? b.statut : c.statut,
   };
 
   await withTransaction(async (client) => {
     await client.query(
-      `update collectes set periode=$1, devise=$2, onglets=$3::jsonb, statut=$4,
+      `update collectes set periode=$1, devise=$2, onglets=$3::jsonb, statut=$4, echeance=$6,
          transmis_le = case when $4='transmis' and transmis_le is null then now() else transmis_le end,
          valide_le   = case when $4='valide' then now() else valide_le end,
          maj_le = now()
        where id=$5`,
-      [next.periode, next.devise, JSON.stringify(next.onglets), next.statut, req.params.id],
+      [next.periode, next.devise, JSON.stringify(next.onglets), next.statut, req.params.id, next.echeance],
     );
     // Synchronise les sections avec la liste d'onglets
     const current = new Set(
@@ -257,7 +267,7 @@ collectesRouter.patch("/:id", async (req, res) => {
     }
   });
 
-  logAction(req.session.nom, "modification", "collecte", `${socNom} — ${next.periode}`);
+  logAction(req.session.nom, "modification", "collecte", `${socNom} — ${next.periode}`, req.params.id);
   if (next.statut !== c.statut) {
     const targets = (
       await concernedBySociete(c.societe_id, { includeAdmin: false })
@@ -280,7 +290,7 @@ collectesRouter.delete("/:id", requireAdmin, async (req, res) => {
     [req.params.id],
   );
   if (!rows[0]) return res.status(404).json({ error: "Collecte introuvable" });
-  logAction(req.session.nom, "suppression", "collecte", rows[0].periode);
+  logAction(req.session.nom, "suppression", "collecte", rows[0].periode, req.params.id);
   res.json({ ok: true });
 });
 
@@ -390,7 +400,7 @@ collectesRouter.post("/:id/recap/send", requireAdmin, async (req, res) => {
     [req.params.id],
   );
 
-  logAction(req.session.nom, "modification", "collecte", `Récap envoyé — ${soc?.raison_sociale ?? ""} ${c.periode}`);
+  logAction(req.session.nom, "modification", "collecte", `Récap envoyé — ${soc?.raison_sociale ?? ""} ${c.periode}`, req.params.id);
   const targets = (
     await concernedBySociete(c.societe_id, { includeAdmin: false })
   ).filter((k) => k !== notifKey(req.session));
@@ -399,30 +409,6 @@ collectesRouter.post("/:id/recap/send", requireAdmin, async (req, res) => {
     "collecte",
     `Récap à compléter : ${soc?.raison_sociale ?? ""} — ${c.periode}`,
     `${count} case(s) à remplir`,
-    `/collectes/${req.params.id}`,
-  );
-  res.json(await loadCollecte(req.params.id));
-});
-
-/** (obsolète — la complétion se fait directement dans les onglets) */
-collectesRouter.post("/:id/recap/reply", async (req, res) => {
-  const c = (await query("select * from collectes where id = $1", [req.params.id]))
-    .rows[0];
-  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
-  if (!canPostNote(req.session, c.societe_id) || req.session.role === "admin")
-    return res.status(403).json({ error: "Réservé au client de la société" });
-
-  await query(
-    "update collectes set recap_statut = 'repondu', maj_le = now() where id = $1",
-    [req.params.id],
-  );
-
-  logAction(req.session.nom, "modification", "collecte", `Récap complété par le client — ${c.periode}`);
-  notify(
-    "admin",
-    "collecte",
-    `Récap complété par ${req.session.nom}`,
-    `${c.periode}`,
     `/collectes/${req.params.id}`,
   );
   res.json(await loadCollecte(req.params.id));
@@ -444,7 +430,7 @@ collectesRouter.post("/:id/recap/submit", async (req, res) => {
   const soc = (
     await query("select raison_sociale from societes where id = $1", [c.societe_id])
   ).rows[0];
-  logAction(req.session.nom, "modification", "collecte", `Récap complété par le client — ${c.periode}`);
+  logAction(req.session.nom, "modification", "collecte", `Récap complété par le client — ${c.periode}`, req.params.id);
   notify(
     "admin",
     "collecte",
@@ -461,5 +447,91 @@ collectesRouter.post("/:id/recap/close", requireAdmin, async (req, res) => {
     "update collectes set recap_statut = 'none', maj_le = now() where id = $1",
     [req.params.id],
   );
+  res.json(await loadCollecte(req.params.id));
+});
+
+// ── Historique (journal filtré sur cette collecte) ────
+collectesRouter.get("/:id/journal", async (req, res) => {
+  const c = (await query("select * from collectes where id = $1", [req.params.id]))
+    .rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!canSeeSociete(req.session, c.societe_id))
+    return res.status(403).json({ error: "Collecte hors périmètre" });
+  const { rows } = await query(
+    "select * from journal where entity = 'collecte' and entity_id = $1 order by at desc",
+    [req.params.id],
+  );
+  res.json(
+    rows.map((r) => ({
+      id: r.id,
+      at: r.at,
+      actor: r.actor,
+      action: r.action,
+      label: r.label,
+    })),
+  );
+});
+
+// ── Relance manuelle (admin) ──────────────────────
+collectesRouter.post("/:id/relance", requireAdmin, async (req, res) => {
+  const row = (
+    await query(
+      `select c.id, c.societe_id, c.periode, c.echeance,
+              s.raison_sociale, s.email as societe_email
+       from collectes c
+       join societes s on s.id = c.societe_id
+       where c.id = $1`,
+      [req.params.id],
+    )
+  ).rows[0];
+  if (!row) return res.status(404).json({ error: "Collecte introuvable" });
+  await sendRelance(row);
+  res.json({ ok: true });
+});
+
+// ── Pièces jointes ─────────────────────────────────
+const fichierSchema = z.object({
+  onglet: z.string().default(""),
+  nom: z.string().min(1),
+  format: z.string().default(""),
+  taille: z.string().default(""),
+  dataUrl: z.string().min(10),
+});
+
+collectesRouter.post("/:id/fichiers", async (req, res) => {
+  const c = (await query("select * from collectes where id = $1", [req.params.id]))
+    .rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!canEdit(req.session, c.societe_id))
+    return res.status(403).json({ error: "Dépôt non autorisé" });
+  if (isLocked(req.session, c))
+    return res.status(400).json({ error: "Collecte verrouillée" });
+  const parsed = fichierSchema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  const v = parsed.data;
+  await query(
+    `insert into collecte_fichiers (collecte_id, onglet, nom, format, taille, data_url, depose_par)
+     values ($1,$2,$3,$4,$5,$6,$7)`,
+    [req.params.id, v.onglet, v.nom, v.format, v.taille, v.dataUrl, req.session.nom],
+  );
+  logAction(req.session.nom, "creation", "collecte", `Pièce jointe « ${v.nom} » — ${c.periode}`, req.params.id);
+  res.status(201).json(await loadCollecte(req.params.id));
+});
+
+collectesRouter.delete("/:id/fichiers/:fichierId", async (req, res) => {
+  const c = (await query("select * from collectes where id = $1", [req.params.id]))
+    .rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!canEdit(req.session, c.societe_id))
+    return res.status(403).json({ error: "Suppression non autorisée" });
+  if (isLocked(req.session, c))
+    return res.status(400).json({ error: "Collecte verrouillée" });
+  const { rows } = await query(
+    "delete from collecte_fichiers where id = $1 and collecte_id = $2 returning nom",
+    [req.params.fichierId, req.params.id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: "Fichier introuvable" });
+  logAction(req.session.nom, "suppression", "collecte", `Pièce jointe « ${rows[0].nom} » — ${c.periode}`, req.params.id);
   res.json(await loadCollecte(req.params.id));
 });

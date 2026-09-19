@@ -23,6 +23,7 @@ import { grilleAffectatRouter } from "./routes/grilleAffectat.js";
 import { notesRouter } from "./routes/notes.js";
 import { immobilisationsRouter } from "./routes/immobilisations.js";
 import { dataRouter } from "./routes/data.js";
+import { startRelancesScheduler } from "./relances.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -120,6 +121,7 @@ async function start() {
         (existsSync(dist) ? " — sert dist/" : ""),
     );
   });
+  startRelancesScheduler();
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE") {
       console.error(

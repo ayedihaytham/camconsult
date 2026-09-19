@@ -26,6 +26,7 @@ interface CollecteFormData {
   periode: string;
   onglets: string[];
   devise: string;
+  echeance: string | null;
 }
 
 interface Props {
@@ -47,6 +48,7 @@ export function CollecteCreateDialog({
   const [societeId, setSocieteId] = useState("");
   const [periode, setPeriode] = useState("");
   const [devise, setDevise] = useState("EUR");
+  const [echeance, setEcheance] = useState("");
   const [onglets, setOnglets] = useState<string[]>(
     COLLECTE_TABS.map((t) => t.key),
   );
@@ -57,6 +59,7 @@ export function CollecteCreateDialog({
     setSocieteId(initial?.societeId ?? "");
     setPeriode(initial?.periode ?? "");
     setDevise(initial?.devise ?? "EUR");
+    setEcheance(initial?.echeance ?? "");
     setOnglets(initial?.onglets ?? COLLECTE_TABS.map((t) => t.key));
     setError(null);
   }, [open, initial]);
@@ -72,7 +75,7 @@ export function CollecteCreateDialog({
     if (periode.trim().length < 1) return setError("Indiquez une période.");
     if (onglets.length === 0)
       return setError("Sélectionnez au moins un tableau.");
-    onCreate({ societeId, periode: periode.trim(), onglets, devise });
+    onCreate({ societeId, periode: periode.trim(), onglets, devise, echeance: echeance || null });
     onOpenChange(false);
   }
 
@@ -125,13 +128,23 @@ export function CollecteCreateDialog({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Période concernée</Label>
-            <Input
-              value={periode}
-              onChange={(e) => setPeriode(e.target.value)}
-              placeholder="Ex. Janvier 2026, T1 2026, Exercice 2025…"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Période concernée</Label>
+              <Input
+                value={periode}
+                onChange={(e) => setPeriode(e.target.value)}
+                placeholder="Ex. Janvier 2026, T1 2026, Exercice 2025…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Échéance (optionnel)</Label>
+              <Input
+                type="date"
+                value={echeance}
+                onChange={(e) => setEcheance(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

@@ -156,6 +156,42 @@ export async function sendCollaborateurWelcomeEmail(employe) {
   console.log(`[mailer] identifiants collaborateur envoyés à ${employe.email}`);
 }
 
+/** Relance envoyée à la société cliente pour une collecte en attente
+ * (échéance dépassée, pas encore transmise) — voir server/relances.js. */
+export async function sendCollecteRelanceEmail({ email, raisonSociale, periode, echeance }) {
+  if (!mailerAvailable()) {
+    console.log("[mailer] relance sautée (SMTP non configuré)");
+    return;
+  }
+  if (!email) {
+    console.log(`[mailer] relance sautée : société « ${raisonSociale} » sans email`);
+    return;
+  }
+
+  const bodyHtml = `
+    <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">Bonjour,</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">
+      La collecte de pièces <strong>${escapeHtml(periode)}</strong> est toujours en attente
+      de votre part${echeance ? ` — échéance dépassée depuis le ${escapeHtml(echeance)}` : ""}.
+    </p>
+    <p style="margin:0 0 16px;font-size:14px;color:#333;line-height:1.5;">
+      Merci de vous connecter à votre espace pour la compléter et la transmettre au cabinet.
+    </p>
+    <p style="margin:0;font-size:14px;color:#333;line-height:1.5;">
+      Connectez-vous sur
+      <a href="https://cabinet.camconsult.com.tn" style="color:${BRAND.primary};">cabinet.camconsult.com.tn</a>.
+    </p>
+  `;
+
+  await getTransport().sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: email,
+    subject: `Rappel — collecte de pièces en attente (${periode})`,
+    html: emailShell({ title: "Collecte de pièces en attente", bodyHtml }),
+  });
+  console.log(`[mailer] relance collecte envoyée à ${email}`);
+}
+
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]

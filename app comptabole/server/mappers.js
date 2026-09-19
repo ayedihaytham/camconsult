@@ -110,6 +110,7 @@ export const collecteDto = (r) => ({
   devise: r.devise ?? "EUR",
   echeance: r.echeance ? dateStr(r.echeance) : null,
   derniereRelanceLe: isoOrNull(r.derniere_relance_le),
+  relanceCadenceJours: r.relance_cadence_jours ?? 3,
   creeLe: isoOrNull(r.cree_le),
   majLe: isoOrNull(r.maj_le),
   transmisLe: isoOrNull(r.transmis_le),

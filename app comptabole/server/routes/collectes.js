@@ -45,6 +45,7 @@ const createSchema = z.object({
   onglets: z.array(z.string()).default([]),
   devise: z.string().default("EUR"),
   echeance: z.string().nullish(),
+  relanceCadenceJours: z.number().int().min(1).max(30).default(3),
 });
 
 async function loadCollecte(id) {
@@ -144,9 +145,12 @@ collectesRouter.post("/", requireAdmin, async (req, res) => {
 
   const created = await withTransaction(async (client) => {
     const { rows } = await client.query(
-      `insert into collectes (societe_id, periode, onglets, devise, echeance)
-       values ($1,$2,$3::jsonb,$4,$5) returning *`,
-      [v.societeId, v.periode.trim(), JSON.stringify(onglets), v.devise || "EUR", v.echeance || null],
+      `insert into collectes (societe_id, periode, onglets, devise, echeance, relance_cadence_jours)
+       values ($1,$2,$3::jsonb,$4,$5,$6) returning *`,
+      [
+        v.societeId, v.periode.trim(), JSON.stringify(onglets), v.devise || "EUR",
+        v.echeance || null, v.relanceCadenceJours || 3,
+      ],
     );
     for (const o of onglets) {
       await client.query(
@@ -224,10 +228,15 @@ collectesRouter.patch("/:id", async (req, res) => {
   }
 
   // Admin
+  const echeanceChanged = b.echeance !== undefined && (b.echeance || null) !== c.echeance;
   const next = {
     periode: typeof b.periode === "string" && b.periode.trim() ? b.periode.trim() : c.periode,
     devise: typeof b.devise === "string" && b.devise ? b.devise : c.devise,
     echeance: b.echeance === undefined ? c.echeance : b.echeance || null,
+    relanceCadenceJours:
+      typeof b.relanceCadenceJours === "number" && b.relanceCadenceJours >= 1 && b.relanceCadenceJours <= 30
+        ? b.relanceCadenceJours
+        : c.relance_cadence_jours,
     onglets: b.onglets === undefined ? c.onglets : cleanOnglets(b.onglets),
     statut: STATUTS.includes(b.statut) ? b.statut : c.statut,
   };
@@ -235,11 +244,16 @@ collectesRouter.patch("/:id", async (req, res) => {
   await withTransaction(async (client) => {
     await client.query(
       `update collectes set periode=$1, devise=$2, onglets=$3::jsonb, statut=$4, echeance=$6,
+         relance_cadence_jours=$7,
+         rappel_avant_envoye = case when $8 then false else rappel_avant_envoye end,
          transmis_le = case when $4='transmis' and transmis_le is null then now() else transmis_le end,
          valide_le   = case when $4='valide' then now() else valide_le end,
          maj_le = now()
        where id=$5`,
-      [next.periode, next.devise, JSON.stringify(next.onglets), next.statut, req.params.id, next.echeance],
+      [
+        next.periode, next.devise, JSON.stringify(next.onglets), next.statut, req.params.id,
+        next.echeance, next.relanceCadenceJours, echeanceChanged,
+      ],
     );
     // Synchronise les sections avec la liste d'onglets
     const current = new Set(
@@ -340,6 +354,13 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
       req.params.id,
     ]);
   });
+  logAction(
+    req.session.nom,
+    "modification",
+    "collecte",
+    `Tableau « ${onglet} » modifié (${parsed.data.lignes.length} ligne(s)) — ${c.periode}`,
+    req.params.id,
+  );
   res.json(await loadCollecte(req.params.id));
 });
 
@@ -353,12 +374,27 @@ collectesRouter.patch("/:id/sections/:onglet", async (req, res) => {
   if (isLocked(req.session, c))
     return res.status(400).json({ error: "Collecte verrouillée" });
   const commentaire = String(req.body?.commentaire ?? "").slice(0, 1000);
+  const previous = (
+    await query(
+      "select commentaire from collecte_sections where collecte_id=$1 and onglet=$2",
+      [req.params.id, req.params.onglet],
+    )
+  ).rows[0]?.commentaire;
   await query(
     `insert into collecte_sections (collecte_id, onglet, commentaire)
      values ($1,$2,$3)
      on conflict (collecte_id, onglet) do update set commentaire = excluded.commentaire`,
     [req.params.id, req.params.onglet, commentaire],
   );
+  if (previous !== commentaire) {
+    logAction(
+      req.session.nom,
+      "modification",
+      "collecte",
+      `Commentaire « ${req.params.onglet} » modifié — ${c.periode}`,
+      req.params.id,
+    );
+  }
   res.json(await loadCollecte(req.params.id));
 });
 
@@ -378,6 +414,13 @@ collectesRouter.post("/:id/notes", async (req, res) => {
     `insert into collecte_notes (collecte_id, onglet, kind, auteur, texte)
      values ($1,$2,'note',$3,$4)`,
     [req.params.id, onglet, noteAuteur(req.session), texte],
+  );
+  logAction(
+    req.session.nom,
+    "creation",
+    "collecte",
+    `Note ajoutée${onglet ? ` (« ${onglet} »)` : ""} — ${c.periode} : ${texte.slice(0, 80)}`,
+    req.params.id,
   );
   res.status(201).json(await loadCollecte(req.params.id));
 });
@@ -476,7 +519,7 @@ collectesRouter.get("/:id/journal", async (req, res) => {
 collectesRouter.post("/:id/relance", requireAdmin, async (req, res) => {
   const row = (
     await query(
-      `select c.id, c.societe_id, c.periode, c.echeance,
+      `select c.id, c.societe_id, c.periode, c.echeance, c.statut,
               s.raison_sociale, s.email as societe_email
        from collectes c
        join societes s on s.id = c.societe_id
@@ -485,6 +528,11 @@ collectesRouter.post("/:id/relance", requireAdmin, async (req, res) => {
     )
   ).rows[0];
   if (!row) return res.status(404).json({ error: "Collecte introuvable" });
+  // Garde-fou : une relance n'a de sens que si le client n'a pas encore
+  // transmis (constaté : l'endpoint acceptait n'importe quel statut, y
+  // compris une collecte déjà validée ou archivée).
+  if (!["brouillon", "a_corriger"].includes(row.statut))
+    return res.status(400).json({ error: "Rien à relancer — la collecte n'est pas en attente du client" });
   await sendRelance(row);
   res.json({ ok: true });
 });

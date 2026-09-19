@@ -309,6 +309,8 @@ alter table employes add column if not exists societe_id uuid references societe
 alter table collectes add column if not exists recap_statut text not null default 'none';
 alter table collectes add column if not exists echeance date;
 alter table collectes add column if not exists derniere_relance_le timestamptz;
+alter table collectes add column if not exists relance_cadence_jours int not null default 3;
+alter table collectes add column if not exists rappel_avant_envoye boolean not null default false;
 alter table journal add column if not exists entity_id uuid;
 
 create index if not exists noeuds_parent_idx on noeuds(parent_id);

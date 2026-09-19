@@ -29,11 +29,15 @@ interface CollectesState {
     onglets: string[];
     devise?: string;
     echeance?: string | null;
+    relanceCadenceJours?: number;
   }) => Promise<CollecteFull>;
   update: (
     id: string,
     patch: Partial<
-      Pick<Collecte, "periode" | "onglets" | "devise" | "statut" | "echeance">
+      Pick<
+        Collecte,
+        "periode" | "onglets" | "devise" | "statut" | "echeance" | "relanceCadenceJours"
+      >
     >,
   ) => Promise<void>;
   setStatut: (id: string, statut: CollecteStatut) => Promise<void>;

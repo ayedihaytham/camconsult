@@ -192,6 +192,42 @@ export async function sendCollecteRelanceEmail({ email, raisonSociale, periode, 
   console.log(`[mailer] relance collecte envoyée à ${email}`);
 }
 
+/** Rappel envoyé une seule fois AVANT l'échéance (contrairement à
+ * sendCollecteRelanceEmail, envoyé APRÈS) — voir server/relances.js. */
+export async function sendCollecteRappelAvantEmail({ email, raisonSociale, periode, echeance }) {
+  if (!mailerAvailable()) {
+    console.log("[mailer] rappel sauté (SMTP non configuré)");
+    return;
+  }
+  if (!email) {
+    console.log(`[mailer] rappel sauté : société « ${raisonSociale} » sans email`);
+    return;
+  }
+
+  const bodyHtml = `
+    <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">Bonjour,</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.5;">
+      La collecte de pièces <strong>${escapeHtml(periode)}</strong> approche de son échéance
+      ${echeance ? ` — à transmettre avant le ${escapeHtml(echeance)}` : ""}.
+    </p>
+    <p style="margin:0 0 16px;font-size:14px;color:#333;line-height:1.5;">
+      Merci de vous connecter à votre espace pour la compléter et la transmettre au cabinet.
+    </p>
+    <p style="margin:0;font-size:14px;color:#333;line-height:1.5;">
+      Connectez-vous sur
+      <a href="https://cabinet.camconsult.com.tn" style="color:${BRAND.primary};">cabinet.camconsult.com.tn</a>.
+    </p>
+  `;
+
+  await getTransport().sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: email,
+    subject: `Échéance proche — collecte de pièces (${periode})`,
+    html: emailShell({ title: "Échéance de collecte proche", bodyHtml }),
+  });
+  console.log(`[mailer] rappel avant échéance envoyé à ${email}`);
+}
+
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]

@@ -6,6 +6,7 @@ import {
   BellRing,
   CheckCircle2,
   Download,
+  Eye,
   File as FileIcon,
   History,
   Paperclip,
@@ -40,6 +41,7 @@ import { CollecteCreateDialog } from "./CollecteCreateDialog";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
 import { FileUploadDialog, type NewFichier } from "../structuration/FileUploadDialog";
+import { DocPreviewDialog } from "../stock/DocPreviewDialog";
 
 export function CollecteEditorPage() {
   const { id = "" } = useParams();
@@ -70,6 +72,7 @@ export function CollecteEditorPage() {
   const [preview, setPreview] = useState(false); // admin : aperçu de la vue client
   const [fichiersOpen, setFichiersOpen] = useState(false);
   const [fichierToDelete, setFichierToDelete] = useState<string | null>(null);
+  const [previewFichier, setPreviewFichier] = useState<{ title: string; dataUrl: string | null } | null>(null);
   const [relancing, setRelancing] = useState(false);
   const [journal, setJournal] = useState<CollecteJournalEntry[] | null>(null);
   const [journalLoading, setJournalLoading] = useState(false);
@@ -184,7 +187,7 @@ export function CollecteEditorPage() {
                 label={`Échéance ${formatDate(collecte.echeance)}${enRetard ? " — dépassée" : ""}`}
               />
             )}
-            {isAdmin && enRetard && (
+            {isAdmin && enAttente && (
               <Button
                 variant="outline"
                 size="sm"
@@ -535,14 +538,24 @@ export function CollecteEditorPage() {
                     </p>
                   </div>
                   {f.dataUrl && (
-                    <button
-                      type="button"
-                      onClick={() => downloadDataUrl(f.dataUrl!, f.nom)}
-                      className="shrink-0 text-muted-foreground hover:text-accent"
-                      title="Télécharger"
-                    >
-                      <Download className="h-4 w-4" />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewFichier({ title: f.nom, dataUrl: f.dataUrl! })}
+                        className="shrink-0 text-muted-foreground hover:text-accent"
+                        title="Aperçu"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadDataUrl(f.dataUrl!, f.nom)}
+                        className="shrink-0 text-muted-foreground hover:text-accent"
+                        title="Télécharger"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                    </>
                   )}
                   {editable && (
                     <button
@@ -652,6 +665,7 @@ export function CollecteEditorPage() {
             devise: collecte.devise,
             onglets: collecte.onglets,
             echeance: collecte.echeance,
+            relanceCadenceJours: collecte.relanceCadenceJours,
           }}
           onCreate={async (data) => {
             await update(id, {
@@ -659,6 +673,7 @@ export function CollecteEditorPage() {
               devise: data.devise,
               onglets: data.onglets,
               echeance: data.echeance,
+              relanceCadenceJours: data.relanceCadenceJours,
             });
             toast.success("Collecte mise à jour");
           }}
@@ -732,6 +747,13 @@ export function CollecteEditorPage() {
           if (fichierToDelete) await deleteFichier(id, fichierToDelete);
           setFichierToDelete(null);
         }}
+      />
+
+      <DocPreviewDialog
+        open={Boolean(previewFichier)}
+        onOpenChange={(o) => !o && setPreviewFichier(null)}
+        title={previewFichier?.title ?? ""}
+        dataUrl={previewFichier?.dataUrl ?? null}
       />
     </div>
   );

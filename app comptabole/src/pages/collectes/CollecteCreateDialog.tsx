@@ -27,6 +27,7 @@ interface CollecteFormData {
   onglets: string[];
   devise: string;
   echeance: string | null;
+  relanceCadenceJours: number;
 }
 
 interface Props {
@@ -49,6 +50,7 @@ export function CollecteCreateDialog({
   const [periode, setPeriode] = useState("");
   const [devise, setDevise] = useState("EUR");
   const [echeance, setEcheance] = useState("");
+  const [relanceCadenceJours, setRelanceCadenceJours] = useState(3);
   const [onglets, setOnglets] = useState<string[]>(
     COLLECTE_TABS.map((t) => t.key),
   );
@@ -60,6 +62,7 @@ export function CollecteCreateDialog({
     setPeriode(initial?.periode ?? "");
     setDevise(initial?.devise ?? "EUR");
     setEcheance(initial?.echeance ?? "");
+    setRelanceCadenceJours(initial?.relanceCadenceJours ?? 3);
     setOnglets(initial?.onglets ?? COLLECTE_TABS.map((t) => t.key));
     setError(null);
   }, [open, initial]);
@@ -75,7 +78,14 @@ export function CollecteCreateDialog({
     if (periode.trim().length < 1) return setError("Indiquez une période.");
     if (onglets.length === 0)
       return setError("Sélectionnez au moins un tableau.");
-    onCreate({ societeId, periode: periode.trim(), onglets, devise, echeance: echeance || null });
+    onCreate({
+      societeId,
+      periode: periode.trim(),
+      onglets,
+      devise,
+      echeance: echeance || null,
+      relanceCadenceJours,
+    });
     onOpenChange(false);
   }
 
@@ -146,6 +156,29 @@ export function CollecteCreateDialog({
               />
             </div>
           </div>
+
+          {echeance && (
+            <div className="space-y-1.5">
+              <Label>Rythme des relances automatiques</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  className="w-20"
+                  value={relanceCadenceJours}
+                  onChange={(e) =>
+                    setRelanceCadenceJours(
+                      Math.min(30, Math.max(1, Number(e.target.value) || 3)),
+                    )
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  jour(s) entre deux relances, une fois l'échéance dépassée
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">

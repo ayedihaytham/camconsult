@@ -159,6 +159,8 @@ export interface Collecte {
   /** Date limite de transmission par le client (AAAA-MM-JJ), facultative. */
   echeance: string | null;
   derniereRelanceLe: string | null;
+  /** Nombre de jours entre deux relances automatiques (défaut 3). */
+  relanceCadenceJours: number;
   creeLe: string;
   majLe: string;
   transmisLe: string | null;

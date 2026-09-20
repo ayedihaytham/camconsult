@@ -26,6 +26,16 @@ export function AffectatSyntheseTable({
     (a || "(sans code)").localeCompare(b || "(sans code)"),
   );
 
+  // Total général par exercice = somme de tous les codes, doit être ~0 pour
+  // une balance équilibrée (même identité que l'écart affiché sur l'écran
+  // d'import d'une balance) — un total non nul signale une balance déséquilibrée.
+  const totalByExercice = new Map(
+    exercices.map((e) => [
+      e.exercice,
+      Object.values(e.codes).reduce((s, v) => s + v, 0),
+    ]),
+  );
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -88,6 +98,30 @@ export function AffectatSyntheseTable({
             );
           })}
         </tbody>
+        <tfoot>
+          <tr>
+            <td
+              colSpan={2}
+              className="sticky left-0 border-t-2 border-foreground bg-card px-[18px] py-2.5 font-bold text-foreground"
+            >
+              Total général
+            </td>
+            {exercices.map((e) => {
+              const total = Math.round((totalByExercice.get(e.exercice) ?? 0) * 1000) / 1000;
+              return (
+                <td
+                  key={e.exercice}
+                  className={cn(
+                    "border-t-2 border-foreground px-3 py-2.5 text-right font-extrabold tabular-nums",
+                    Math.abs(total) > 0.01 && "text-warning",
+                  )}
+                >
+                  {fmt(total)}
+                </td>
+              );
+            })}
+          </tr>
+        </tfoot>
       </table>
     </div>
   );

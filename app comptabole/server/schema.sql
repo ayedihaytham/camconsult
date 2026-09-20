@@ -616,5 +616,6 @@ insert into immo_categories (id, nom, taux, masse) values
   ('00000000-0000-0000-0000-000000000002', 'Installations générales, agencements et aménagements', 10, 'corporelle'),
   ('00000000-0000-0000-0000-000000000003', 'Matériel industriel et équipements', 15, 'corporelle'),
   ('00000000-0000-0000-0000-000000000004', 'Matériel de transport', 20, 'corporelle'),
-  ('00000000-0000-0000-0000-000000000005', 'Équipements de bureau', 20, 'corporelle')
+  ('00000000-0000-0000-0000-000000000005', 'Équipements de bureau', 20, 'corporelle'),
+  ('00000000-0000-0000-0000-000000000006', 'Immobilisations à statut juridique particulier', 10, 'corporelle')
 on conflict (id) do nothing;

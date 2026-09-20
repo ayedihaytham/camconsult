@@ -25,6 +25,7 @@ const RULES_3: Record<string, string | null> = {
   "427": "P05", // Personnel — oppositions
   "428": "P05", // Personnel — charges à payer
   "431": "AC12", // État — subventions à recevoir (débiteur)
+  "432": "P05", // État — retenues à la source opérées (toujours dues à l'État, créditeur)
   "471": "AC12", // Charges constatées d'avance (actif)
   "472": "P05", // Produits constatés d'avance (passif)
   "603": "CHPR1", // Variation des stocks
@@ -72,7 +73,7 @@ const RULES_2: Record<string, string | null> = {
   "40": "P04", // Fournisseurs et comptes rattachés
   "41": "AC10", // Clients et comptes rattachés
   "42": null, // Personnel — nature mixte au-delà des sous-comptes ci-dessus
-  "43": null, // État et collectivités publiques — nature mixte (TVA déductible/collectée…)
+  "43": null, // État et collectivités publiques — nature mixte (TVA déductible/collectée, acomptes vs impôts à payer…) hors 431/432 ci-dessus
   "44": null, // Sociétés du groupe et associés — nature mixte
   "45": null, // Débiteurs divers et créditeurs divers — mixte par définition
   "46": null, // Comptes transitoires ou d'attente — à solder, jamais deviné

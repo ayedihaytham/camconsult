@@ -16,7 +16,6 @@ export function TaskTableView({
     <DataTable
       table={table}
       emptyMessage={emptyMessage}
-      className="pb-20 lg:pb-0"
       getRowClassName={(row) =>
         actions.pendingTaskIds.has(row.original.task.id)
           ? "opacity-70"

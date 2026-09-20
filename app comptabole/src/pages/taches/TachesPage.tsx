@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { MobileFab } from "@/components/layout/MobileFab";
 import { TasksKanban } from "@/components/uitripled/kanban-board-shadcnui";
 import {
   Select,
@@ -110,7 +112,7 @@ export function TachesPage() {
   }
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 pb-20 lg:pb-0">
       <TasksKanban
         tasks={filteredTasks}
         hasAnyTasks={taches.length > 0}
@@ -194,6 +196,14 @@ export function TachesPage() {
           tache={editing}
           defaultSocieteId={societeFilter !== ALL ? societeFilter : null}
           onSubmit={handleSubmit}
+        />
+      )}
+
+      {isAdmin && !formOpen && (
+        <MobileFab
+          icon={Plus}
+          label="Nouvelle tâche"
+          onClick={openCreate}
         />
       )}
 

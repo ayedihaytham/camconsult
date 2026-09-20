@@ -1,6 +1,5 @@
 import { Outlet } from "react-router-dom";
 import { Topbar } from "./Topbar";
-import { ChatBubble } from "./ChatBubble";
 import { AppSidebar } from "./sidebar/AppSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useUi } from "@/store/ui";
@@ -29,7 +28,6 @@ export function AppLayout() {
           </div>
         </div>
       </SidebarInset>
-      <ChatBubble />
     </SidebarProvider>
   );
 }

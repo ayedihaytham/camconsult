@@ -2,28 +2,34 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Building2,
+  ChevronDown,
+  ChevronRight,
   Copy,
+  Download,
   FolderOpen,
-  GripVertical,
   Pencil,
   Plus,
+  Printer,
+  Search,
   Trash2,
   Eye,
   X,
 } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerToolbar } from "@/components/ledger/LedgerToolbar";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { LedgerTable } from "@/components/ledger/LedgerTable";
-import type { DataTableColumn } from "@/components/common/DataTable";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { FilterChip } from "@/components/ledger/FilterChip";
+import { DataTable } from "@/components/data-table/DataTable";
+import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
+import { DataTablePagination } from "@/components/data-table/DataTablePagination";
+import { DataTableToolbar } from "@/components/data-table/DataTableToolbar";
+import { useDataTable } from "@/components/data-table/useDataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { EmptyState } from "@/components/common/EmptyState";
 import { STATUT_LABELS } from "@/components/common/badges";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -335,29 +341,102 @@ export function SocietesListPage() {
     ];
   }
 
-  const columns: DataTableColumn<Societe>[] = [
+  const columns: ColumnDef<Societe>[] = [
+    {
+      id: "selection",
+      enableHiding: false,
+      enableSorting: false,
+      header: ({ table }) => {
+        const pageIds = table.getRowModel().rows.map((row) => row.original.id);
+        const allSelected =
+          pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+        const someSelected = pageIds.some((id) => selectedIds.includes(id));
+        return (
+          <Checkbox
+            checked={allSelected ? true : someSelected ? "indeterminate" : false}
+            onCheckedChange={() =>
+              setSelectedIds(
+                allSelected
+                  ? selectedIds.filter((id) => !pageIds.includes(id))
+                  : [...new Set([...selectedIds, ...pageIds])],
+              )
+            }
+            aria-label="Sélectionner la page"
+          />
+        );
+      },
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedIds.includes(row.original.id)}
+          onCheckedChange={() =>
+            setSelectedIds((ids) =>
+              ids.includes(row.original.id)
+                ? ids.filter((id) => id !== row.original.id)
+                : [...ids, row.original.id],
+            )
+          }
+          onClick={(event) => event.stopPropagation()}
+          aria-label={`Sélectionner ${row.original.raisonSociale}`}
+        />
+      ),
+      meta: {
+        headerClassName: "w-10",
+        cellClassName: "w-10",
+      },
+    },
+    {
+      id: "details",
+      enableHiding: false,
+      enableSorting: false,
+      header: () => null,
+      cell: ({ row }) => {
+        const expanded = expandedIds.includes(row.original.id);
+        return (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="size-7 shadow-none"
+            aria-label={expanded ? "Masquer les détails" : "Afficher les détails"}
+            aria-expanded={expanded}
+            onClick={(event) => {
+              event.stopPropagation();
+              setExpandedIds((ids) =>
+                expanded
+                  ? ids.filter((id) => id !== row.original.id)
+                  : [...ids, row.original.id],
+              );
+            }}
+          >
+            <ChevronRight
+              className={cn("size-4 transition-transform", expanded && "rotate-90")}
+            />
+          </Button>
+        );
+      },
+      meta: {
+        headerClassName: "w-9 px-1",
+        cellClassName: "w-9 px-1",
+      },
+    },
     {
       id: "raisonSociale",
-      header: "Société",
-      sortable: true,
-      sortAccessor: (s) => s.raisonSociale.toLowerCase(),
-      // Cellule "riche" pleine hauteur (avatar XL + barre de couleur par
-      // thème + 2 lignes de repères) plutôt que d'étaler RNE/TVA/Thème/
-      // Employés sur 4 colonnes fines — table plus dense en information par
-      // ligne, moins large. p-0 : on gère nous-mêmes le padding interne pour
-      // que la barre de couleur touche les bords haut/bas de la ligne.
-      className: "relative p-0",
-      cell: (s) => {
+      accessorFn: (societe) => societe.raisonSociale.toLowerCase(),
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Société" />
+      ),
+      cell: ({ row }) => {
+        const s = row.original;
         const n = employeCount.get(s.id) ?? 0;
         return (
-          <div className="flex min-w-[260px] items-center gap-3 py-3 pl-4 pr-2">
+          <div className="flex min-w-0 items-center gap-2.5">
             <span
-              className={cn("absolute inset-y-0 left-0 w-1", THEME_BAR[s.theme])}
+              className={cn("h-9 w-1 shrink-0 rounded-full", THEME_BAR[s.theme])}
               aria-hidden
             />
             <span
               className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
+                "flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
                 avatarColor(s.id),
               )}
               aria-hidden
@@ -365,7 +444,7 @@ export function SocietesListPage() {
               {s.raisonSociale.slice(0, 2).toUpperCase()}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-[0.95rem] font-bold text-foreground">
+              <p className="truncate text-sm font-semibold text-foreground">
                 {s.raisonSociale}
               </p>
               <p className="truncate text-xs text-muted-foreground">
@@ -379,32 +458,42 @@ export function SocietesListPage() {
           </div>
         );
       },
+      meta: { label: "Société", headerClassName: "w-[55%]" },
     },
     {
-      id: "code",
-      header: "Code",
-      sortable: true,
-      sortAccessor: (s) => s.code,
-      cell: (s) => (
+      accessorKey: "code",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Code" />
+      ),
+      cell: ({ row }) => (
         <span className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-xs text-foreground">
-          {s.code}
+          {row.original.code}
         </span>
       ),
+      meta: { label: "Code", headerClassName: "w-28" },
     },
     {
-      id: "statut",
-      header: "Statut",
-      sortable: true,
-      sortAccessor: (s) => s.statut,
-      cell: (s) => <StatutDot statut={s.statut} pill pulse={s.statut === "actif"} />,
+      accessorKey: "statut",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Statut" />
+      ),
+      cell: ({ row }) => (
+        <StatutDot
+          statut={row.original.statut}
+          pill
+          pulse={row.original.statut === "actif"}
+        />
+      ),
+      meta: { label: "Statut", headerClassName: "w-32" },
     },
     {
       id: "actions",
-      header: "",
-      align: "right",
-      headerClassName: "w-[1%]",
-      fixed: true,
-      cell: (s) => (
+      enableHiding: false,
+      enableSorting: false,
+      header: () => null,
+      cell: ({ row }) => {
+        const s = row.original;
+        return (
         <div
           className="flex items-center justify-end gap-0.5"
           onClick={(e) => e.stopPropagation()}
@@ -439,13 +528,34 @@ export function SocietesListPage() {
           </div>
           <LedgerRowMenu actions={societeMenuActions(s)} />
         </div>
-      ),
+        );
+      },
+      meta: {
+        headerClassName: "w-24",
+        cellClassName: "w-24",
+      },
     },
   ];
+
+  const table = useDataTable({
+    columns,
+    data: filtered,
+    getRowId: (societe) => societe.id,
+    initialSorting: [{ id: "raisonSociale", desc: false }],
+    resetKey: `${search}\u0000${themeFilter}\u0000${statutFilter}`,
+  });
+
+  const emptyMessage =
+    rows.length === 0
+      ? canEdit
+        ? "Aucune société enregistrée."
+        : "Aucune société accessible."
+      : "Aucune société ne correspond à votre recherche ou à vos filtres.";
 
   return (
     <div className={cn("flex flex-1 flex-col", selectedIds.length > 0 && "md:pb-16")}>
       <LedgerPageHeader
+        className="mb-3"
         title="Liste des sociétés"
         description={
           isAdmin
@@ -454,16 +564,107 @@ export function SocietesListPage() {
         }
       />
 
-      <LedgerToolbar
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Rechercher une société, un RNE, un code…"
-        onExport={handleExport}
-        onPrint={handlePrint}
+      <DataTableToolbar
+        table={table}
+        ariaLabel="Outils des sociétés"
+        showViewOptions
+        className="mb-3 sm:[&>div:last-child]:ml-auto"
+        leading={
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap">
+            <div className="relative min-w-0 w-full sm:w-64 sm:flex-none lg:w-72">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Rechercher société, RNE ou code…"
+                aria-label="Rechercher une société"
+                className="h-9 bg-card pl-9 shadow-none"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {themeFilter !== "all" && (
+                <FilterChip
+                  label={`Thème : ${themeFilter}`}
+                  onRemove={() => setThemeFilter("all")}
+                />
+              )}
+              {statutFilter !== "all" && (
+                <FilterChip
+                  label={`Statut : ${STATUT_LABELS[statutFilter as Statut]}`}
+                  onRemove={() => setStatutFilter("all")}
+                />
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-9 border-dashed shadow-none">
+                    <Plus className="size-3.5" />
+                    Filtre
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>Thème</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {THEME_OPTIONS.map((theme) => (
+                        <DropdownMenuItem key={theme} onClick={() => setThemeFilter(theme)}>
+                          {theme}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>Statut</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
+                        <DropdownMenuItem key={statut} onClick={() => setStatutFilter(statut)}>
+                          {STATUT_LABELS[statut]}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:ml-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-9 shadow-none">
+                    <Download className="size-4" />
+                    Exporter
+                    <ChevronDown className="size-3.5 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExport("csv")}>
+                    Format CSV (.csv)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("xlsx")}>
+                    Format Excel (.xlsx)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="outline"
+                className="h-9 shadow-none"
+                onClick={handlePrint}
+              >
+                <Printer className="size-4" />
+                Imprimer
+              </Button>
+            </div>
+          </div>
+        }
+        trailing={
+          <>
+            <DataTablePagination table={table} itemLabel="sociétés" variant="metadata" />
+            <DataTablePagination table={table} itemLabel="sociétés" variant="controls" />
+          </>
+        }
         primaryAction={
           canEdit ? (
             <Button
               variant="ledger"
+              className="h-9 whitespace-nowrap normal-case"
               onClick={() => {
                 setEditing(null);
                 setFormOpen(true);
@@ -474,213 +675,59 @@ export function SocietesListPage() {
             </Button>
           ) : undefined
         }
-        filters={
-          <div className="flex flex-wrap items-center gap-1.5">
-            {themeFilter !== "all" && (
-              <FilterChip
-                label={`Thème : ${themeFilter}`}
-                onRemove={() => setThemeFilter("all")}
-              />
-            )}
-            {statutFilter !== "all" && (
-              <FilterChip
-                label={`Statut : ${STATUT_LABELS[statutFilter as Statut]}`}
-                onRemove={() => setStatutFilter("all")}
-              />
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-accent hover:text-primary"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Filtre
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="rounded-2xl">
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Thème</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="rounded-2xl">
-                    {THEME_OPTIONS.map((t) => (
-                      <DropdownMenuItem key={t} onClick={() => setThemeFilter(t)}>
-                        {t}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Statut</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="rounded-2xl">
-                    {(Object.keys(STATUT_LABELS) as Statut[]).map((s) => (
-                      <DropdownMenuItem key={s} onClick={() => setStatutFilter(s)}>
-                        {STATUT_LABELS[s]}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        }
       />
 
-      {/* Tableau sur PC/tablette, Cartes sur mobile — jamais les deux à la
-          fois, purement responsive (pas un choix laissé à l'utilisateur) :
-          voir DESIGN-SYSTEM.md, le Tableau ne serait pas exploitable en
-          dessous du seuil `md`. */}
-      <div className="hidden md:flex md:flex-1 md:flex-col">
-        <LedgerSheet className="flex-1">
-          <LedgerTable
-            columns={columns}
-            data={filtered}
-            getRowId={(s) => s.id}
-            enableSelection
-            selectedIds={selectedIds}
-            onSelectedIdsChange={setSelectedIds}
-            onRowClick={openView}
-            initialSort={{ columnId: "raisonSociale", direction: "asc" }}
-            enableColumnReorder
-            enableColumnResize
-            expandedIds={expandedIds}
-            onExpandedIdsChange={setExpandedIds}
-            renderExpanded={(s) => (
-              <SocieteExpandedPanel societe={s} onOpenFull={() => openView(s)} />
-            )}
-            emptyState={
-              rows.length === 0 ? (
-                <EmptyState
-                  icon={Building2}
-                  title={
-                    canEdit
-                      ? "Aucune société enregistrée"
-                      : "Aucune société accessible"
-                  }
-                  description={
-                    canEdit
-                      ? "Ajoutez votre première société cliente pour commencer."
-                      : "Aucune société ne vous a été assignée."
-                  }
-                  action={
-                    canEdit ? (
-                      <Button
-                        variant="ledger"
-                        size="sm"
-                        onClick={() => {
-                          setEditing(null);
-                          setFormOpen(true);
-                        }}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Ajouter une société
-                      </Button>
-                    ) : undefined
-                  }
-                />
-              ) : (
-                <EmptyState
-                  title="Aucun résultat"
-                  description="Aucune société ne correspond à votre recherche ou à vos filtres."
-                />
-              )
-            }
+      <DataTable
+        table={table}
+        emptyMessage={emptyMessage}
+        onRowClick={(row) => openView(row.original)}
+        isRowExpanded={(row) => expandedIds.includes(row.original.id)}
+        renderSubComponent={(row) => (
+          <SocieteExpandedPanel
+            societe={row.original}
+            onOpenFull={() => openView(row.original)}
           />
-        </LedgerSheet>
-      </div>
-
-      <div className="md:hidden">
-        {filtered.length === 0 ? (
-          <LedgerSheet>
-            {rows.length === 0 ? (
-              <EmptyState
-                icon={Building2}
-                title={canEdit ? "Aucune société enregistrée" : "Aucune société accessible"}
-                description={
-                  canEdit
-                    ? "Ajoutez votre première société cliente pour commencer."
-                    : "Aucune société ne vous a été assignée."
-                }
-              />
-            ) : (
-              <EmptyState
-                title="Aucun résultat"
-                description="Aucune société ne correspond à votre recherche ou à vos filtres."
-              />
-            )}
-          </LedgerSheet>
-        ) : (
-          <LedgerSheet className="p-3 sm:p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {filtered.map((s) => {
-              const ThemeIcon = THEME_ICON[s.theme];
-              const n = employeCount.get(s.id) ?? 0;
-              return (
-                <div
-                  key={s.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openView(s)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openView(s);
-                    }
-                  }}
-                  className="group relative flex cursor-pointer flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span
-                      className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                        THEME_ACCENT[s.theme],
-                      )}
-                      aria-hidden
-                    >
-                      <ThemeIcon className="h-5 w-5" />
-                    </span>
-                    <StatutDot statut={s.statut} pill pulse={s.statut === "actif"} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-foreground">
-                      {s.raisonSociale}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {s.code} · {s.theme}
-                    </p>
-                  </div>
-                  <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2.5 text-xs text-muted-foreground">
-                    <span>
-                      {n === 0 ? "Aucun employé" : `${n} employé${n > 1 ? "s" : ""}`}
-                    </span>
-                    <span aria-hidden>·</span>
-                    <span>{sinceLabel(s.creeLe, "Client depuis")}</span>
-                  </div>
-                  <div
-                    className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <LedgerRowMenu actions={societeMenuActions(s)} />
-                  </div>
-                </div>
-              );
-              })}
-            </div>
-          </LedgerSheet>
         )}
-      </div>
-
-      <p className="mt-2.5 hidden text-xs text-muted-foreground md:block">
-        Clic sur une ligne pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-        la fiche société, ou sur le chevron pour un aperçu rapide sans
-        quitter la page. Le menu « ⋯ » regroupe les autres actions —
-        glissez l'icône <GripVertical className="mb-0.5 inline h-3 w-3" />{" "}
-        d'un en-tête pour réordonner les colonnes, ou son bord droit pour
-        la redimensionner.
-      </p>
-      <p className="mt-2.5 text-xs text-muted-foreground md:hidden">
-        Touchez une carte pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-        la fiche société. Le menu « ⋯ » regroupe les autres actions.
-      </p>
+        mobileRow={(row) => {
+          const s = row.original;
+          const ThemeIcon = THEME_ICON[s.theme];
+          const n = employeCount.get(s.id) ?? 0;
+          return (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => openView(s)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openView(s);
+                }
+              }}
+              className="group relative rounded-xl border border-border bg-card p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <div className="flex items-start gap-3">
+                <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", THEME_ACCENT[s.theme])}>
+                  <ThemeIcon className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{s.raisonSociale}</p>
+                  <p className="truncate text-xs text-muted-foreground">{s.code} · {s.theme}</p>
+                </div>
+                <div onClick={(event) => event.stopPropagation()}>
+                  <LedgerRowMenu actions={societeMenuActions(s)} />
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2 border-t border-border/70 pt-2 text-xs text-muted-foreground">
+                <span>{n === 0 ? "Aucun employé" : `${n} employé${n > 1 ? "s" : ""}`}</span>
+                <StatutDot statut={s.statut} pill pulse={s.statut === "actif"} />
+              </div>
+            </div>
+          );
+        }}
+        mobileFooter={
+          <DataTablePagination table={table} itemLabel="sociétés" variant="mobile" />
+        }
+      />
 
       {selectedIds.length > 0 && (
         <div className="fixed inset-x-0 bottom-5 z-40 hidden justify-center px-4 md:flex">

@@ -296,11 +296,11 @@ export function TasksKanban({
     getRowId: (task) => task.task.id,
     resetKey: `${filterKey}\u0000${searchQuery}`,
   });
-  const createTaskButton = canManage ? (
+  const createTaskButton = canManage && !isMobile ? (
     <Button
       type="button"
       className={cn(
-        "h-9 shadow-none",
+        "hidden h-9 shadow-none lg:inline-flex",
         activeView === "table"
           ? "w-9 shrink-0 px-0 sm:w-auto sm:px-4"
           : "w-full sm:w-auto",

@@ -17,15 +17,29 @@ import {
   UserRound,
   Users,
   Activity,
+  ChevronDown,
+  Download,
+  Printer,
+  Search,
   type LucideIcon,
 } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerToolbar } from "@/components/ledger/LedgerToolbar";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { StatusDot, type StatusTone } from "@/components/ledger/StatusDot";
-import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { DataTable } from "@/components/data-table/DataTable";
+import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
+import { DataTablePagination } from "@/components/data-table/DataTablePagination";
+import { DataTableToolbar } from "@/components/data-table/DataTableToolbar";
+import { useDataTable } from "@/components/data-table/useDataTable";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -40,6 +54,7 @@ import {
   useJournal,
   type JournalAction,
   type JournalEntity,
+  type JournalEntry,
 } from "@/store/journal";
 
 const ENTITY_ICON: Record<JournalEntity, LucideIcon> = {
@@ -77,11 +92,9 @@ const ACTION_META: Record<JournalAction, { label: string; tone: StatusTone }> = 
   acces: { label: "Accès", tone: "warning" },
 };
 
-const selectTriggerClass =
-  "h-auto w-auto gap-1.5 rounded-none border-0 border-b border-border bg-transparent px-0 pb-1.5 text-sm shadow-none focus:ring-0 data-[placeholder]:text-muted-foreground";
-
 export function JournalPage() {
   const entries = useJournal((s) => s.entries);
+  const loading = useJournal((s) => s.loading);
   const clear = useJournal((s) => s.clear);
   const fetchJournal = useJournal((s) => s.fetch);
 
@@ -138,6 +151,90 @@ export function JournalPage() {
     });
   }
 
+  const columns = useMemo<ColumnDef<JournalEntry>[]>(
+    () => [
+      {
+        accessorKey: "at",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Date" />
+        ),
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <p className="whitespace-nowrap text-sm font-medium text-foreground">
+              {formatDate(row.original.at)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {formatTime(row.original.at)}
+            </p>
+          </div>
+        ),
+        meta: { label: "Date", headerClassName: "w-[8.5rem]" },
+      },
+      {
+        accessorKey: "actor",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Utilisateur" />
+        ),
+        cell: ({ row }) => (
+          <span className="block truncate font-medium text-foreground">
+            {row.original.actor}
+          </span>
+        ),
+        meta: { label: "Utilisateur", headerClassName: "w-[18%]" },
+      },
+      {
+        accessorKey: "action",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Action" />
+        ),
+        cell: ({ row }) => {
+          const meta = actionMetaFor(row.original.action);
+          return <StatusDot tone={meta.tone} label={meta.label} />;
+        },
+        meta: { label: "Action", headerClassName: "w-[10rem]" },
+      },
+      {
+        accessorKey: "label",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Élément" />
+        ),
+        cell: ({ row }) => {
+          const Icon = iconFor(row.original.entity);
+          return (
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground">
+                <Icon className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm text-foreground">
+                  {row.original.label}
+                </p>
+                <p className="truncate text-xs capitalize text-muted-foreground">
+                  {row.original.entity.replace("_", " ")}
+                </p>
+              </div>
+            </div>
+          );
+        },
+        meta: { label: "Élément" },
+      },
+    ],
+    [],
+  );
+
+  const table = useDataTable({
+    columns,
+    data: filtered,
+    getRowId: (entry) => entry.id,
+    initialSorting: [{ id: "at", desc: true }],
+    resetKey: `${search}\u0000${actionFilter}`,
+  });
+
+  const emptyMessage =
+    entries.length === 0
+      ? "Aucune action enregistrée pour le moment."
+      : "Aucun résultat ne correspond aux filtres.";
+
   return (
     <div className="flex flex-1 flex-col">
       <LedgerPageHeader
@@ -145,15 +242,24 @@ export function JournalPage() {
         description="Historique des actions sensibles (créations, modifications, suppressions, connexions)."
       />
 
-      <LedgerToolbar
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Rechercher un utilisateur, un élément…"
-        onExport={handleExport}
-        onPrint={handlePrint}
-        filters={
+      <DataTableToolbar
+        table={table}
+        ariaLabel="Outils du journal"
+        showViewOptions
+        leading={
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative min-w-0 flex-1 sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Rechercher un utilisateur, un élément…"
+                aria-label="Rechercher dans le journal"
+                className="h-9 bg-card pl-9 shadow-none"
+              />
+            </div>
           <Select value={actionFilter} onValueChange={setActionFilter}>
-            <SelectTrigger className={selectTriggerClass}>
+            <SelectTrigger className="h-9 w-full bg-card shadow-none sm:w-48">
               <SelectValue placeholder="Action" />
             </SelectTrigger>
             <SelectContent>
@@ -165,6 +271,13 @@ export function JournalPage() {
               ))}
             </SelectContent>
           </Select>
+          </div>
+        }
+        trailing={
+          <>
+            <DataTablePagination table={table} itemLabel="actions" variant="metadata" />
+            <DataTablePagination table={table} itemLabel="actions" variant="controls" />
+          </>
         }
         primaryAction={
           entries.length > 0 ? (
@@ -177,58 +290,69 @@ export function JournalPage() {
             </Button>
           ) : undefined
         }
-      />
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="h-9 shadow-none">
+              <Download className="size-4" />
+              Exporter
+              <ChevronDown className="size-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport("csv")}>
+              Format CSV (.csv)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport("xlsx")}>
+              Format Excel (.xlsx)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button variant="outline" className="h-9 shadow-none" onClick={handlePrint}>
+          <Printer className="size-4" />
+          Imprimer
+        </Button>
+      </DataTableToolbar>
 
-      <LedgerSheet className="flex-1">
-        {filtered.length === 0 ? (
-          <EmptyState
-            title="Journal vide"
-            description="Aucune action enregistrée pour le moment."
-          />
-        ) : (
-          <div>
-            {filtered.map((e, i) => {
-              const Icon = iconFor(e.entity);
-              const meta = actionMetaFor(e.action);
-              return (
-                <div
-                  key={e.id}
-                  className={
-                    "flex items-center gap-3 px-3 py-2.5 text-sm sm:px-4 " +
-                    (i === filtered.length - 1
-                      ? ""
-                      : (i + 1) % 5 === 0
-                        ? "border-b-[1.5px] border-rule-strong"
-                        : "border-b border-border")
-                  }
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-border text-muted-foreground">
-                    {e.action === "connexion" ? (
-                      <LogIn className="h-4 w-4" />
-                    ) : e.action === "deconnexion" ? (
-                      <LogOut className="h-4 w-4" />
-                    ) : (
-                      <Icon className="h-4 w-4" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-foreground">
-                      <span className="font-semibold">{e.actor}</span>{" "}
-                      <span className="text-muted-foreground">
-                        · {e.label}
-                      </span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(e.at)} à {formatTime(e.at)}
-                    </p>
-                  </div>
-                  <StatusDot tone={meta.tone} label={meta.label} />
+      <DataTable
+        table={table}
+        isLoading={loading}
+        emptyMessage={emptyMessage}
+        mobileRow={(row) => {
+          const entry = row.original;
+          const Icon =
+            entry.action === "connexion"
+              ? LogIn
+              : entry.action === "deconnexion"
+                ? LogOut
+                : iconFor(entry.entity);
+          const meta = actionMetaFor(entry.action);
+          return (
+            <div className="rounded-xl border border-border bg-card p-3">
+              <div className="flex items-start gap-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground">
+                  <Icon className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {entry.actor}
+                  </p>
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                    {entry.label}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </LedgerSheet>
+                <StatusDot tone={meta.tone} label={meta.label} />
+              </div>
+              <p className="mt-2 border-t border-border/70 pt-2 text-xs text-muted-foreground">
+                {formatDate(entry.at)} à {formatTime(entry.at)}
+              </p>
+            </div>
+          );
+        }}
+        mobileFooter={
+          <DataTablePagination table={table} itemLabel="actions" variant="mobile" />
+        }
+      />
 
       <ConfirmDialog
         open={clearOpen}

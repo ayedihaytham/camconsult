@@ -17,6 +17,7 @@ interface UseDataTableOptions<TData> {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
   getRowId?: (row: TData) => string;
+  initialSorting?: SortingState;
   pageSize?: number;
   resetKey?: string;
 }
@@ -25,10 +26,11 @@ export function useDataTable<TData>({
   columns,
   data,
   getRowId,
+  initialSorting = [],
   pageSize = DATA_TABLE_PAGE_SIZE,
   resetKey,
 }: UseDataTableOptions<TData>) {
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>(initialSorting);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -79,4 +81,3 @@ export function useDataTable<TData>({
 
   return table;
 }
-

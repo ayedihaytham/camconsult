@@ -1,13 +1,16 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Bell, LogOut, Settings } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { Bell, LogOut, MessageCircle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { AppBreadcrumbs } from "./AppBreadcrumbs";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/store/auth";
-import { useData, useNotifications } from "@/store/data";
+import { useConversations, useData, useNotifications } from "@/store/data";
+import { unreadMessageCount } from "./sidebar/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,8 +53,9 @@ export function Topbar() {
         <Separator orientation="vertical" className="h-4" />
         <AppBreadcrumbs />
 
-        <div className="ml-auto flex shrink-0 items-center gap-2.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
           <NotificationBell />
+          <MessengerShortcut />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 rounded-2xl py-1 pl-1 pr-1.5 transition-colors hover:bg-secondary sm:pr-2.5">
@@ -92,6 +96,59 @@ export function Topbar() {
         </div>
       </div>
     </header>
+  );
+}
+
+function MessengerShortcut() {
+  const { isAdmin, can, employeId } = usePermissions();
+  const hasAccess = isAdmin || can("messagerie");
+  const conversations = useConversations(
+    isAdmin ? "me" : (employeId ?? "me"),
+  );
+  const refreshMessages = useData((state) => state.refreshMessages);
+  const unreadMessages = unreadMessageCount(
+    conversations,
+    isAdmin,
+    employeId,
+  );
+
+  useEffect(() => {
+    if (!hasAccess) return;
+    const id = setInterval(refreshMessages, 5_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshMessages();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [hasAccess, refreshMessages]);
+
+  if (!hasAccess) return null;
+
+  return (
+    <NavLink
+      to="/messagerie"
+      aria-label="Messagerie"
+      className={({ isActive }) =>
+        cn(
+          "relative flex h-9 w-9 items-center justify-center rounded-2xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
+          isActive && "bg-secondary text-foreground",
+        )
+      }
+    >
+      <MessageCircle className="h-[18px] w-[18px]" aria-hidden="true" />
+      {unreadMessages > 0 && (
+        <Badge
+          variant="destructive"
+          className="absolute -right-0.5 -top-0.5 h-4 min-w-4 justify-center border-0 px-1 py-0 text-[10px] font-bold"
+          aria-label={`${unreadMessages} message${unreadMessages > 1 ? "s" : ""} non lu${unreadMessages > 1 ? "s" : ""}`}
+        >
+          {unreadMessages > 9 ? "9+" : unreadMessages}
+        </Badge>
+      )}
+    </NavLink>
   );
 }
 

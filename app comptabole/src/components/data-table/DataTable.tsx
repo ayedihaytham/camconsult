@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from "react";
+import { Fragment, type ComponentProps, type ReactNode } from "react";
 import {
   flexRender,
   type Row,
@@ -20,8 +20,11 @@ interface DataTableProps<TData> extends ComponentProps<"div"> {
   footer?: ReactNode;
   getRowClassName?: (row: Row<TData>) => string | undefined;
   isLoading?: boolean;
+  isRowExpanded?: (row: Row<TData>) => boolean;
   mobileRow?: (row: Row<TData>) => ReactNode;
   mobileFooter?: ReactNode;
+  onRowClick?: (row: Row<TData>) => void;
+  renderSubComponent?: (row: Row<TData>) => ReactNode;
   table: TanstackTable<TData>;
 }
 
@@ -31,8 +34,11 @@ export function DataTable<TData>({
   footer,
   getRowClassName,
   isLoading = false,
+  isRowExpanded,
   mobileRow,
   mobileFooter,
+  onRowClick,
+  renderSubComponent,
   className,
   ...props
 }: DataTableProps<TData>) {
@@ -78,28 +84,41 @@ export function DataTable<TData>({
           <TableBody>
             {rows.length > 0 ? (
               rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={cn(
-                    "h-12 bg-card hover:bg-muted/30",
-                    getRowClassName?.(row),
+                <Fragment key={row.id}>
+                  <TableRow
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    className={cn(
+                      "h-12 bg-card hover:bg-muted/30",
+                      onRowClick && "cursor-pointer",
+                      getRowClassName?.(row),
+                    )}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          "min-w-0 px-3 py-1.5",
+                          cell.column.columnDef.meta?.cellClassName,
+                        )}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                  {renderSubComponent && isRowExpanded?.(row) && (
+                    <TableRow className="bg-muted/15 hover:bg-muted/15">
+                      <TableCell
+                        colSpan={table.getVisibleLeafColumns().length}
+                        className="p-0"
+                      >
+                        {renderSubComponent(row)}
+                      </TableCell>
+                    </TableRow>
                   )}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cn(
-                        "min-w-0 px-3 py-1.5",
-                        cell.column.columnDef.meta?.cellClassName,
-                      )}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
+                </Fragment>
               ))
             ) : (
               <TableRow className="hover:bg-transparent">

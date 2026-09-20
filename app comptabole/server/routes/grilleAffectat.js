@@ -3,7 +3,7 @@ import { z } from "zod";
 import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
-import { grilleAffectatCodeDto, grilleCompteDto } from "../mappers.js";
+import { grilleAffectatCodeDto, grilleCompteDto, grilleCompteSocieteDto } from "../mappers.js";
 
 export const grilleAffectatRouter = Router();
 grilleAffectatRouter.use(requireAuth);
@@ -18,10 +18,24 @@ grilleAffectatRouter.get("/", async (req, res) => {
     return res.status(403).json({ error: "Accès non autorisé" });
   const codes = (await query("select * from grille_affectat_codes order by code")).rows;
   const comptes = (await query("select * from grille_comptes order by compte")).rows;
-  res.json({
+  const result = {
     codes: codes.map(grilleAffectatCodeDto),
     comptes: comptes.map(grilleCompteDto),
-  });
+  };
+  // Override par société (voir grille_comptes_societe) : consultés en
+  // priorité côté frontend pour préremplir l'import d'une balance, sans
+  // jamais changer le mapping cabinet-wide ci-dessus.
+  const societeId = req.query.societeId;
+  if (societeId) {
+    const comptesSociete = (
+      await query(
+        "select * from grille_comptes_societe where societe_id = $1 order by compte",
+        [societeId],
+      )
+    ).rows;
+    result.comptesSociete = comptesSociete.map(grilleCompteSocieteDto);
+  }
+  res.json(result);
 });
 
 const codeUpdateSchema = z.object({

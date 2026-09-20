@@ -40,9 +40,9 @@ export function BalanceEditorPage() {
 
   useEffect(() => {
     fetchOne(balanceId);
-    fetchGrille();
+    fetchGrille(societeId);
     return () => clearCurrent();
-  }, [balanceId, fetchOne, fetchGrille, clearCurrent]);
+  }, [balanceId, societeId, fetchOne, fetchGrille, clearCurrent]);
 
   const lignes = current?.lignes ?? [];
 
@@ -277,7 +277,12 @@ export function BalanceEditorPage() {
         onSubmit={handleSubmit}
       />
 
-      <ImportBalanceDialog open={importOpen} onOpenChange={setImportOpen} balanceId={balanceId} />
+      <ImportBalanceDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        balanceId={balanceId}
+        societeId={societeId}
+      />
 
       <ConfirmDialog
         open={Boolean(toDelete)}

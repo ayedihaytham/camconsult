@@ -1,7 +1,12 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
-import type { Collecte, CollecteFull, CollecteStatut } from "@/types";
+import type {
+  Collecte,
+  CollecteFull,
+  CollecteJournalEntry,
+  CollecteStatut,
+} from "@/types";
 
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
@@ -23,15 +28,28 @@ interface CollectesState {
     periode: string;
     onglets: string[];
     devise?: string;
+    echeance?: string | null;
+    relanceCadenceJours?: number;
   }) => Promise<CollecteFull>;
   update: (
     id: string,
     patch: Partial<
-      Pick<Collecte, "periode" | "onglets" | "devise" | "statut">
+      Pick<
+        Collecte,
+        "periode" | "onglets" | "devise" | "statut" | "echeance" | "relanceCadenceJours"
+      >
     >,
   ) => Promise<void>;
   setStatut: (id: string, statut: CollecteStatut) => Promise<void>;
   remove: (id: string) => Promise<void>;
+
+  fetchJournal: (id: string) => Promise<CollecteJournalEntry[]>;
+  relanceNow: (id: string) => Promise<void>;
+  uploadFichier: (
+    id: string,
+    fichier: { onglet?: string; nom: string; format: string; taille: string; dataUrl: string },
+  ) => Promise<void>;
+  deleteFichier: (id: string, fichierId: string) => Promise<void>;
 
   saveLignes: (
     id: string,
@@ -177,6 +195,46 @@ export const useCollectes = create<CollectesState>((set, get) => ({
   closeRecap: async (id) => {
     try {
       const c = await api.post<CollecteFull>(`/collectes/${id}/recap/close`);
+      set((st) => ({
+        current: st.current?.id === id ? c : st.current,
+        list: st.list.map((x) => (x.id === id ? c : x)),
+      }));
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  fetchJournal: async (id) => {
+    try {
+      return await api.get<CollecteJournalEntry[]>(`/collectes/${id}/journal`);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  relanceNow: async (id) => {
+    try {
+      await api.post(`/collectes/${id}/relance`);
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  uploadFichier: async (id, fichier) => {
+    try {
+      const c = await api.post<CollecteFull>(`/collectes/${id}/fichiers`, fichier);
+      set((st) => ({
+        current: st.current?.id === id ? c : st.current,
+        list: st.list.map((x) => (x.id === id ? c : x)),
+      }));
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  deleteFichier: async (id, fichierId) => {
+    try {
+      const c = await api.del<CollecteFull>(`/collectes/${id}/fichiers/${fichierId}`);
       set((st) => ({
         current: st.current?.id === id ? c : st.current,
         list: st.list.map((x) => (x.id === id ? c : x)),

@@ -1,5 +1,19 @@
-const dateStr = (d) =>
-  d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10);
+// node-postgres renvoie une colonne `date` comme un Date JS à minuit HEURE
+// LOCALE du serveur — passer par toISOString() (qui convertit en UTC
+// d'abord) décale donc la date d'un jour dès que le fuseau local est en
+// avance sur UTC (ex. Tunisie, UTC+1 : minuit local = 23h la veille en UTC).
+// Constaté en usage réel sur `echeance` (Collecte de pièces) : 2020-01-01
+// envoyé, 2019-12-31 relu. On relit donc les composants en HEURE LOCALE
+// (mêmes getters que ceux utilisés pour construire le Date), jamais via UTC.
+const dateStr = (d) => {
+  if (d instanceof Date) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  return String(d).slice(0, 10);
+};
 
 export const societeDto = (r) => ({
   id: r.id,
@@ -94,10 +108,24 @@ export const collecteDto = (r) => ({
   recapStatut: r.recap_statut ?? "none",
   onglets: Array.isArray(r.onglets) ? r.onglets : [],
   devise: r.devise ?? "EUR",
+  echeance: r.echeance ? dateStr(r.echeance) : null,
+  derniereRelanceLe: isoOrNull(r.derniere_relance_le),
+  relanceCadenceJours: r.relance_cadence_jours ?? 3,
   creeLe: isoOrNull(r.cree_le),
   majLe: isoOrNull(r.maj_le),
   transmisLe: isoOrNull(r.transmis_le),
   valideLe: isoOrNull(r.valide_le),
+});
+
+export const collecteFichierDto = (r) => ({
+  id: r.id,
+  onglet: r.onglet ?? "",
+  nom: r.nom,
+  format: r.format ?? "",
+  taille: r.taille ?? "",
+  dataUrl: r.data_url,
+  deposePar: r.depose_par ?? "",
+  creeLe: isoOrNull(r.cree_le),
 });
 
 export const collecteNoteDto = (r) => ({
@@ -227,6 +255,10 @@ export const grilleCompteDto = (r) => ({
   libelleCompte: r.libelle_compte ?? "",
   majLe: isoOrNull(r.maj_le),
 });
+
+/** Même forme que grilleCompteDto — la portée (quelle société) est portée
+ * par le tableau dans lequel le DTO est renvoyé, pas par le DTO lui-même. */
+export const grilleCompteSocieteDto = grilleCompteDto;
 
 export const immoMouvementDto = (r) => ({
   societeId: r.societe_id,

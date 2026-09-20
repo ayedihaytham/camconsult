@@ -130,6 +130,20 @@ create table if not exists collecte_notes (
 alter table collecte_notes add column if not exists cible_ordre int;
 alter table collecte_notes add column if not exists cible_col text;
 
+-- Pièces jointes réellement déposées (PDF/photo), au niveau de la collecte
+-- ou rattachées à un onglet précis (onglet = '' -> pièce générale).
+create table if not exists collecte_fichiers (
+  id          uuid primary key default gen_random_uuid(),
+  collecte_id uuid not null references collectes(id) on delete cascade,
+  onglet      text not null default '',
+  nom         text not null,
+  format      text,
+  taille      text,
+  data_url    text not null,
+  depose_par  text not null default '',
+  cree_le     timestamptz not null default now()
+);
+
 -- Bordereaux bancaires : registre interne du cabinet (comptable seul).
 -- 1 bordereau = 1 opération bancaire groupant plusieurs lignes.
 create table if not exists bordereaux (
@@ -285,6 +299,23 @@ create table if not exists grille_comptes (
   maj_le         timestamptz not null default now()
 );
 
+-- Override par société du mapping compte -> code AFFECTAT ci-dessus : un
+-- même numéro de compte peut avoir un sens différent chez deux clients (une
+-- fois improbable pour la numérotation standard SCE, mais réel dès qu'un
+-- comptable corrige un cas particulier) — cette table est consultée EN
+-- PRIORITÉ sur grille_comptes pour la société concernée, sans jamais
+-- modifier le mapping cabinet-wide des autres dossiers. Voir la case à
+-- cocher « appliquer seulement à ce dossier » dans l'import de balance.
+create table if not exists grille_comptes_societe (
+  societe_id     uuid not null references societes(id) on delete cascade,
+  compte         text not null,
+  affectat_code  text not null default '',
+  libelle_compte text not null default '',
+  cree_le        timestamptz not null default now(),
+  maj_le         timestamptz not null default now(),
+  primary key (societe_id, compte)
+);
+
 -- Ajouts idempotents sur bases existantes
 alter table noeuds   add column if not exists cree_le date not null default current_date;
 alter table app_meta add column if not exists last_login timestamptz;
@@ -293,6 +324,11 @@ alter table employes add column if not exists last_login timestamptz;
 alter table employes add column if not exists role text not null default 'collaborateur';
 alter table employes add column if not exists societe_id uuid references societes(id) on delete cascade;
 alter table collectes add column if not exists recap_statut text not null default 'none';
+alter table collectes add column if not exists echeance date;
+alter table collectes add column if not exists derniere_relance_le timestamptz;
+alter table collectes add column if not exists relance_cadence_jours int not null default 3;
+alter table collectes add column if not exists rappel_avant_envoye boolean not null default false;
+alter table journal add column if not exists entity_id uuid;
 
 create index if not exists noeuds_parent_idx on noeuds(parent_id);
 create index if not exists noeuds_societe_idx on noeuds(societe_id);
@@ -306,6 +342,8 @@ create index if not exists collectes_societe_idx on collectes(societe_id);
 create index if not exists collecte_sections_idx on collecte_sections(collecte_id);
 create index if not exists collecte_lignes_idx on collecte_lignes(collecte_id, onglet, ordre);
 create index if not exists collecte_notes_idx on collecte_notes(collecte_id);
+create index if not exists collecte_fichiers_idx on collecte_fichiers(collecte_id);
+create index if not exists journal_entity_idx on journal(entity, entity_id);
 create index if not exists bordereaux_type_idx on bordereaux(type, date_operation desc);
 create index if not exists bordereau_lignes_idx on bordereau_lignes(bordereau_id, ordre);
 create index if not exists stock_mouvements_societe_idx on stock_mouvements(societe_id, ordre);
@@ -335,6 +373,7 @@ insert into grille_affectat_codes (code, libelle, poste) values
   ('P03', 'Provisions', 'passif.provisions'),
   ('P04', 'Fournisseurs et comptes rattachés', 'passif.fournisseurs'),
   ('P05', 'Autres passifs courants', 'passif.autres_passifs_courants'),
+  ('P06', 'Emprunts', 'passif.emprunts'),
   ('PR01', 'Ventes de marchandises', 'cpc.ventes_marchandises'),
   ('CH02', 'Achats consommés', 'cpc.achats_consommes'),
   ('CHPR1', 'Variation de stock', 'cpc.achats_consommes'),

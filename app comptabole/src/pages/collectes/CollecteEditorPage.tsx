@@ -3,11 +3,18 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  BellRing,
   CheckCircle2,
   Download,
+  Eye,
+  File as FileIcon,
+  History,
+  Paperclip,
   RotateCcw,
   Send,
   SlidersHorizontal,
+  Trash2,
+  UploadCloud,
 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -26,11 +33,15 @@ import {
 import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
 import { exportCollecteXlsx } from "@/lib/collecte/exportXlsx";
-import type { CollecteStatut } from "@/types";
+import { downloadDataUrl } from "@/lib/file";
+import { formatDate, formatRelative } from "@/lib/utils";
+import type { CollecteJournalEntry, CollecteStatut } from "@/types";
 import { CollecteGrid } from "./CollecteGrid";
 import { CollecteCreateDialog } from "./CollecteCreateDialog";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
+import { FileUploadDialog, type NewFichier } from "../structuration/FileUploadDialog";
+import { DocPreviewDialog } from "../stock/DocPreviewDialog";
 
 export function CollecteEditorPage() {
   const { id = "" } = useParams();
@@ -48,6 +59,10 @@ export function CollecteEditorPage() {
   const saveComment = useCollectes((s) => s.saveComment);
   const submitRecap = useCollectes((s) => s.submitRecap);
   const sendRecap = useCollectes((s) => s.sendRecap);
+  const relanceNow = useCollectes((s) => s.relanceNow);
+  const uploadFichier = useCollectes((s) => s.uploadFichier);
+  const deleteFichier = useCollectes((s) => s.deleteFichier);
+  const fetchJournal = useCollectes((s) => s.fetchJournal);
 
   const [confirm, setConfirm] = useState<
     null | "transmis" | "valide" | "a_corriger" | "archive"
@@ -55,11 +70,25 @@ export function CollecteEditorPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [tab, setTab] = useState("checklist");
   const [preview, setPreview] = useState(false); // admin : aperçu de la vue client
+  const [fichiersOpen, setFichiersOpen] = useState(false);
+  const [fichierToDelete, setFichierToDelete] = useState<string | null>(null);
+  const [previewFichier, setPreviewFichier] = useState<{ title: string; dataUrl: string | null } | null>(null);
+  const [relancing, setRelancing] = useState(false);
+  const [journal, setJournal] = useState<CollecteJournalEntry[] | null>(null);
+  const [journalLoading, setJournalLoading] = useState(false);
 
   useEffect(() => {
     fetchOne(id);
     return () => clearCurrent();
   }, [id, fetchOne, clearCurrent]);
+
+  useEffect(() => {
+    if (tab !== "historique" || !id) return;
+    setJournalLoading(true);
+    fetchJournal(id)
+      .then(setJournal)
+      .finally(() => setJournalLoading(false));
+  }, [tab, id, fetchJournal]);
 
   const currentRecap = collecte?.recapStatut;
   useEffect(() => {
@@ -79,6 +108,9 @@ export function CollecteEditorPage() {
     societes.find((s) => s.id === collecte.societeId)?.raisonSociale ?? "Société";
   const archivee = collecte.statut === "archive";
   const validee = collecte.statut === "valide";
+  const enAttente = collecte.statut === "brouillon" || collecte.statut === "a_corriger";
+  const enRetard =
+    enAttente && Boolean(collecte.echeance) && collecte.echeance! < new Date().toISOString().slice(0, 10);
   // Validée : le client de société passe en lecture seule (cabinet toujours modifiable).
   // Archivée : lecture seule pour TOUT LE MONDE, admin compris.
   const editable =
@@ -149,6 +181,31 @@ export function CollecteEditorPage() {
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <CollecteStatusDot statut={collecte.statut} />
+            {collecte.echeance && (
+              <StatusDot
+                tone={enRetard ? "destructive" : "muted"}
+                label={`Échéance ${formatDate(collecte.echeance)}${enRetard ? " — dépassée" : ""}`}
+              />
+            )}
+            {isAdmin && enAttente && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={relancing}
+                onClick={async () => {
+                  setRelancing(true);
+                  try {
+                    await relanceNow(id);
+                    toast.success("Relance envoyée au client");
+                  } finally {
+                    setRelancing(false);
+                  }
+                }}
+              >
+                <BellRing className="h-4 w-4" />
+                {relancing ? "Envoi…" : "Relancer maintenant"}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -330,6 +387,14 @@ export function CollecteEditorPage() {
                 />
               )}
             </TabsTrigger>
+            <TabsTrigger value="documents" className="gap-1.5">
+              Documents
+              {collecte.fichiers.length > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-semibold text-foreground">
+                  {collecte.fichiers.length}
+                </span>
+              )}
+            </TabsTrigger>
             {collecte.onglets.map((key) => {
               const n = showFlags ? (manqueCount.get(key) ?? 0) : 0;
               return (
@@ -343,6 +408,9 @@ export function CollecteEditorPage() {
                 </TabsTrigger>
               );
             })}
+            {(isAdmin || poste === "collaborateur") && (
+              <TabsTrigger value="historique">Historique</TabsTrigger>
+            )}
           </TabsList>
         </div>
 
@@ -372,7 +440,7 @@ export function CollecteEditorPage() {
                     Date de réception
                   </th>
                   <th className="px-3 py-2.5 text-right font-medium">
-                    Total ({collecte.devise === "EUR" ? "€" : collecte.devise})
+                    Total ({collecte.devise === "EUR" ? "€" : collecte.devise === "USD" ? "$" : collecte.devise})
                   </th>
                   <th className="px-3 py-2.5 text-left font-medium">
                     Commentaire
@@ -438,6 +506,73 @@ export function CollecteEditorPage() {
           )}
         </TabsContent>
 
+        {/* ── Documents (pièces jointes réelles) ─── */}
+        <TabsContent value="documents">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Scans/PDF déposés pour cette collecte — en plus des tableaux chiffrés.
+            </p>
+            {editable && (
+              <Button variant="outline" size="sm" onClick={() => setFichiersOpen(true)}>
+                <UploadCloud className="h-4 w-4" />
+                Ajouter des pièces
+              </Button>
+            )}
+          </div>
+          {collecte.fichiers.length === 0 ? (
+            <EmptyState
+              icon={Paperclip}
+              title="Aucune pièce déposée"
+              description="Ajoutez un scan ou un PDF en complément des tableaux chiffrés."
+            />
+          ) : (
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {collecte.fichiers.map((f) => (
+                <li key={f.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-foreground">{f.nom}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {f.taille || "—"} · déposé par {f.deposePar || "?"} ·{" "}
+                      {formatRelative(f.creeLe)}
+                    </p>
+                  </div>
+                  {f.dataUrl && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewFichier({ title: f.nom, dataUrl: f.dataUrl! })}
+                        className="shrink-0 text-muted-foreground hover:text-accent"
+                        title="Aperçu"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadDataUrl(f.dataUrl!, f.nom)}
+                        className="shrink-0 text-muted-foreground hover:text-accent"
+                        title="Télécharger"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                  {editable && (
+                    <button
+                      type="button"
+                      onClick={() => setFichierToDelete(f.id)}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </TabsContent>
+
         {/* ── Onglets de saisie ─────────────────── */}
         {collecte.onglets.map((key) => {
           const def = TAB_BY_KEY[key];
@@ -490,6 +625,34 @@ export function CollecteEditorPage() {
             </TabsContent>
           );
         })}
+
+        {(isAdmin || poste === "collaborateur") && (
+          <TabsContent value="historique">
+            {journalLoading ? (
+              <p className="px-1 py-4 text-sm text-muted-foreground">Chargement…</p>
+            ) : !journal || journal.length === 0 ? (
+              <EmptyState
+                icon={History}
+                title="Aucun historique"
+                description="Les actions sur cette collecte apparaîtront ici."
+              />
+            ) : (
+              <ul className="divide-y divide-border rounded-lg border border-border">
+                {journal.map((entry) => (
+                  <li key={entry.id} className="flex items-start gap-3 px-3 py-2.5">
+                    <History className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-foreground">{entry.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.actor} · {formatRelative(entry.at)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
 
       {isAdmin && (
@@ -501,12 +664,16 @@ export function CollecteEditorPage() {
             periode: collecte.periode,
             devise: collecte.devise,
             onglets: collecte.onglets,
+            echeance: collecte.echeance,
+            relanceCadenceJours: collecte.relanceCadenceJours,
           }}
           onCreate={async (data) => {
             await update(id, {
               periode: data.periode,
               devise: data.devise,
               onglets: data.onglets,
+              echeance: data.echeance,
+              relanceCadenceJours: data.relanceCadenceJours,
             });
             toast.success("Collecte mise à jour");
           }}
@@ -545,6 +712,48 @@ export function CollecteEditorPage() {
                 : "Renvoyer"
         }
         onConfirm={() => confirm && applyStatut(confirm)}
+      />
+
+      <FileUploadDialog
+        open={fichiersOpen}
+        onOpenChange={setFichiersOpen}
+        destinationLabel={`${socNom} — ${collecte.periode}`}
+        onSubmit={async (fichiers: NewFichier[]) => {
+          const skipped = fichiers.filter((f) => !f.dataUrl).length;
+          for (const f of fichiers) {
+            if (!f.dataUrl) continue;
+            await uploadFichier(id, {
+              nom: f.libelle,
+              format: f.format,
+              taille: f.taille,
+              dataUrl: f.dataUrl,
+            });
+          }
+          if (skipped > 0) {
+            toast.warning(`${skipped} fichier(s) trop volumineux, ignoré(s).`);
+          }
+          toast.success("Pièce(s) ajoutée(s)");
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(fichierToDelete)}
+        onOpenChange={(o) => !o && setFichierToDelete(null)}
+        destructive
+        title="Supprimer cette pièce ?"
+        description="Le fichier sera définitivement supprimé."
+        confirmLabel="Supprimer"
+        onConfirm={async () => {
+          if (fichierToDelete) await deleteFichier(id, fichierToDelete);
+          setFichierToDelete(null);
+        }}
+      />
+
+      <DocPreviewDialog
+        open={Boolean(previewFichier)}
+        onOpenChange={(o) => !o && setPreviewFichier(null)}
+        title={previewFichier?.title ?? ""}
+        dataUrl={previewFichier?.dataUrl ?? null}
       />
     </div>
   );

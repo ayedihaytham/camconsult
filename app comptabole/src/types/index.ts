@@ -129,6 +129,25 @@ export interface CollecteLigne {
   data: Record<string, unknown>;
 }
 
+export interface CollecteFichier {
+  id: string;
+  onglet: string;
+  nom: string;
+  format: string;
+  taille: string;
+  dataUrl?: string;
+  deposePar: string;
+  creeLe: string;
+}
+
+export interface CollecteJournalEntry {
+  id: string;
+  at: string;
+  actor: string;
+  action: string;
+  label: string;
+}
+
 export interface Collecte {
   id: string;
   societeId: string;
@@ -137,6 +156,11 @@ export interface Collecte {
   recapStatut: RecapStatut;
   onglets: string[];
   devise: string;
+  /** Date limite de transmission par le client (AAAA-MM-JJ), facultative. */
+  echeance: string | null;
+  derniereRelanceLe: string | null;
+  /** Nombre de jours entre deux relances automatiques (défaut 3). */
+  relanceCadenceJours: number;
   creeLe: string;
   majLe: string;
   transmisLe: string | null;
@@ -147,6 +171,7 @@ export interface CollecteFull extends Collecte {
   sections: CollecteSection[];
   lignes: CollecteLigne[];
   notes: CollecteNote[];
+  fichiers: CollecteFichier[];
 }
 
 // ── Bordereaux bancaires (registre interne cabinet) ──

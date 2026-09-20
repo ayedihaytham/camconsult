@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
-import { CollecteStatusDot } from "@/components/ledger/StatusDot";
+import { CollecteStatusDot, StatusDot } from "@/components/ledger/StatusDot";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
@@ -55,7 +55,9 @@ export function CollectesListPage() {
       {
         id: "societe",
         accessorFn: (collecte) => socNom(collecte.societeId),
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Société" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Société" />
+        ),
         cell: ({ row }) => (
           <span className="block truncate font-semibold text-foreground">
             {socNom(row.original.societeId)}
@@ -65,50 +67,70 @@ export function CollectesListPage() {
       },
       {
         accessorKey: "periode",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Période" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Période" />
+        ),
         meta: { label: "Période", headerClassName: "w-36" },
       },
       {
         accessorKey: "statut",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Statut" />,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Statut" />
+        ),
         cell: ({ row }) => <CollecteStatusDot statut={row.original.statut} />,
         meta: { label: "Statut", headerClassName: "w-36" },
       },
       {
         id: "onglets",
         accessorFn: (collecte) => collecte.onglets.length,
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Tableaux" />,
-        cell: ({ row }) => <span className="tabular-nums">{row.original.onglets.length}</span>,
-        meta: { label: "Tableaux", headerClassName: "w-28", cellClassName: "text-right" },
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Tableaux" />
+        ),
+        cell: ({ row }) => (
+          <span className="tabular-nums">{row.original.onglets.length}</span>
+        ),
+        meta: {
+          label: "Tableaux",
+          headerClassName: "w-28",
+          cellClassName: "text-right",
+        },
       },
       {
         accessorKey: "majLe",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Dernière activité" />,
-        cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatRelative(row.original.majLe)}</span>,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Dernière activité" />
+        ),
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            {formatRelative(row.original.majLe)}
+          </span>
+        ),
         meta: { label: "Dernière activité", headerClassName: "w-44" },
       },
       ...(isAdmin
-        ? [{
-            id: "actions",
-            enableHiding: false,
-            enableSorting: false,
-            header: () => null,
-            cell: ({ row }) => (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="size-7 text-muted-foreground hover:text-destructive"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setToDelete(row.original);
-                }}
-                aria-label={`Supprimer ${socNom(row.original.societeId)}`}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            ),
-            meta: { headerClassName: "w-10", cellClassName: "w-10" },
-          } satisfies ColumnDef<Collecte>]
+        ? [
+            {
+              id: "actions",
+              enableHiding: false,
+              enableSorting: false,
+              header: () => null,
+              cell: ({ row }) => (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-7 text-muted-foreground hover:text-destructive"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setToDelete(row.original);
+                  }}
+                  aria-label={`Supprimer ${socNom(row.original.societeId)}`}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              ),
+              meta: { headerClassName: "w-10", cellClassName: "w-10" },
+            } satisfies ColumnDef<Collecte>,
+          ]
         : []),
     ],
     [isAdmin, societes],
@@ -158,7 +180,10 @@ export function CollectesListPage() {
             value={vue}
             onChange={setVue}
             options={[
-              { value: "actives", label: `Actives (${list.length - nbArchivees})` },
+              {
+                value: "actives",
+                label: `Actives (${list.length - nbArchivees})`,
+              },
               { value: "archivees", label: `Archivées (${nbArchivees})` },
               { value: "toutes", label: "Toutes" },
             ]}
@@ -166,8 +191,16 @@ export function CollectesListPage() {
         }
         trailing={
           <>
-            <DataTablePagination table={table} itemLabel="collectes" variant="metadata" />
-            <DataTablePagination table={table} itemLabel="collectes" variant="controls" />
+            <DataTablePagination
+              table={table}
+              itemLabel="collectes"
+              variant="metadata"
+            />
+            <DataTablePagination
+              table={table}
+              itemLabel="collectes"
+              variant="controls"
+            />
           </>
         }
       />
@@ -177,7 +210,9 @@ export function CollectesListPage() {
         isLoading={loading}
         emptyMessage={emptyMessage}
         onRowClick={(row) => navigate(`/collectes/${row.original.id}`)}
-        getRowClassName={(row) => row.original.statut === "archive" ? "opacity-60" : undefined}
+        getRowClassName={(row) =>
+          row.original.statut === "archive" ? "opacity-60" : undefined
+        }
         mobileRow={(row) => {
           const collecte = row.original;
           return (
@@ -195,8 +230,12 @@ export function CollectesListPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">{socNom(collecte.societeId)}</p>
-                  <p className="text-xs text-muted-foreground">{collecte.periode} · {collecte.onglets.length} tableaux</p>
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {socNom(collecte.societeId)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {collecte.periode} · {collecte.onglets.length} tableaux
+                  </p>
                 </div>
                 <CollecteStatusDot statut={collecte.statut} />
               </div>
@@ -206,7 +245,13 @@ export function CollectesListPage() {
             </div>
           );
         }}
-        mobileFooter={<DataTablePagination table={table} itemLabel="collectes" variant="mobile" />}
+        mobileFooter={
+          <DataTablePagination
+            table={table}
+            itemLabel="collectes"
+            variant="mobile"
+          />
+        }
       />
 
       {isAdmin && (
@@ -231,7 +276,9 @@ export function CollectesListPage() {
           <>
             La collecte{" "}
             <span className="font-medium text-foreground">
-              {toDelete ? `${socNom(toDelete.societeId)} — ${toDelete.periode}` : ""}
+              {toDelete
+                ? `${socNom(toDelete.societeId)} — ${toDelete.periode}`
+                : ""}
             </span>{" "}
             et toutes les données saisies seront supprimées.
           </>

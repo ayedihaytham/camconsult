@@ -29,12 +29,22 @@ const ligneSchema = z.object({
   debit: z.coerce.number().default(0),
   credit: z.coerce.number().default(0),
   affectat: z.string().default(""),
+  // true = la ligne suivante d'apprentissage n'écrit que dans
+  // grille_comptes_societe (ce dossier), jamais dans le référentiel
+  // cabinet-wide grille_comptes — pour un compte dont le classement est
+  // particulier à cette société, sans changer les autres dossiers.
+  scopeSociete: z.coerce.boolean().default(false),
 });
 
 /** Mémorise l'association compte -> code AFFECTAT (et son libellé) pour
- * préremplir les futurs imports — référentiel partagé par tout le cabinet.
- * Ne bloque jamais l'enregistrement de la balance en cas d'échec. */
-async function learnMapping(client, lignes) {
+ * préremplir les futurs imports. Par défaut référentiel partagé par tout le
+ * cabinet (grille_comptes) ; si `scopeSociete` est coché sur la ligne,
+ * l'association n'est apprise que pour cette société (grille_comptes_societe,
+ * consultée en priorité — voir routes/grilleAffectat.js). Le code AFFECTAT
+ * lui-même (grille_affectat_codes) reste toujours cabinet-wide : seule
+ * l'association compte -> code peut être limitée à un dossier. Ne bloque
+ * jamais l'enregistrement de la balance en cas d'échec. */
+async function learnMapping(client, lignes, societeId) {
   for (const l of lignes) {
     const compte = (l.compte || "").trim();
     const affectat = (l.affectat || "").trim();
@@ -46,6 +56,18 @@ async function learnMapping(client, lignes) {
       [affectat],
     );
     if (!compte) continue;
+    if (l.scopeSociete) {
+      await client.query(
+        `insert into grille_comptes_societe (societe_id, compte, affectat_code, libelle_compte)
+         values ($1, $2, $3, $4)
+         on conflict (societe_id, compte) do update
+           set affectat_code = excluded.affectat_code,
+               libelle_compte = coalesce(nullif(excluded.libelle_compte, ''), grille_comptes_societe.libelle_compte),
+               maj_le = now()`,
+        [societeId, compte, affectat, l.libelle || ""],
+      );
+      continue;
+    }
     await client.query(
       `insert into grille_comptes (compte, affectat_code, libelle_compte)
        values ($1, $2, $3)
@@ -567,7 +589,7 @@ balancesRouter.post("/:id/lignes", async (req, res) => {
        values ($1, $2, $3, $4, $5, $6, $7) returning *`,
       [req.params.id, ordreRows[0].n, v.compte, v.libelle, v.debit, v.credit, v.affectat],
     );
-    await learnMapping(client, [v]);
+    await learnMapping(client, [v], bal.societe_id);
     return rows[0];
   });
   await query("update balances set maj_le = now() where id = $1", [req.params.id]);
@@ -597,7 +619,7 @@ balancesRouter.patch("/:id/lignes/:ligneId", async (req, res) => {
        where id = $1 returning *`,
       [req.params.ligneId, v.compte, v.libelle, v.debit, v.credit, v.affectat],
     );
-    await learnMapping(client, [v]);
+    await learnMapping(client, [v], bal.societe_id);
     return rows[0];
   });
   await query("update balances set maj_le = now() where id = $1", [req.params.id]);
@@ -639,7 +661,7 @@ balancesRouter.put("/:id/lignes", async (req, res) => {
         [req.params.id, i, l.compte, l.libelle, l.debit, l.credit, l.affectat],
       );
     }
-    await learnMapping(client, lignes);
+    await learnMapping(client, lignes, bal.societe_id);
   });
   await query("update balances set maj_le = now() where id = $1", [req.params.id]);
   logAction(req.session.nom, "import", "balance", `${lignes.length} ligne(s) importée(s)`);

@@ -157,11 +157,21 @@ export const ROWS_ETAT_RESULTAT: Row[] = [
 
   { id: "s2", label: "Charges d'exploitation", section: true },
   { id: "achats", label: "Achats consommés", posteKeys: ["cpc.achats_consommes"], sign: -1 },
+  // Version détaillée (norme tunisienne NC 01, forme développée) de la ligne
+  // "achats" ci-dessus : gardée en plus, jamais à la place — un code AFFECTAT
+  // n'est jamais rattaché aux deux à la fois, donc pas de double-comptage ;
+  // la ligne condensée reste disponible pour un cabinet qui ne détaille pas.
+  { id: "achats_marchandises", label: "Achats de marchandises consommés", posteKeys: ["cpc.achats_marchandises"], sign: -1 },
+  { id: "achats_approvisionnements", label: "Achats d'approvisionnements consommés", posteKeys: ["cpc.achats_approvisionnements"], sign: -1 },
   { id: "charges_ext", label: "Charges externes", posteKeys: ["cpc.charges_externes"], sign: -1 },
   { id: "impots_taxes_er", label: "Impôts et taxes", posteKeys: ["cpc.impots_taxes"], sign: -1 },
   { id: "charges_personnel_er", label: "Charges de personnel", posteKeys: ["cpc.charges_personnel"], sign: -1 },
   { id: "dotations_er", label: "Dotations aux amortissements et provisions", posteKeys: ["cpc.dotations_amort_provisions"], sign: -1 },
-  { id: "total_charges_expl", label: "Total des charges d'exploitation", sumOf: ["achats", "charges_ext", "impots_taxes_er", "charges_personnel_er", "dotations_er"], bold: true },
+  // Version détaillée de "dotations_er" — même principe que les achats ci-dessus.
+  { id: "dotations_amortissements_er", label: "Dotations aux amortissements et aux résorptions", posteKeys: ["cpc.dotations_amortissements"], sign: -1 },
+  { id: "dotations_provisions_er", label: "Dotations aux provisions", posteKeys: ["cpc.dotations_provisions"], sign: -1 },
+  { id: "autres_charges_expl_er", label: "Autres charges d'exploitation", posteKeys: ["cpc.autres_charges_exploitation"], sign: -1 },
+  { id: "total_charges_expl", label: "Total des charges d'exploitation", sumOf: ["achats", "achats_marchandises", "achats_approvisionnements", "charges_ext", "impots_taxes_er", "charges_personnel_er", "dotations_er", "dotations_amortissements_er", "dotations_provisions_er", "autres_charges_expl_er"], bold: true },
 
   { id: "resultat_exploitation", label: "RÉSULTAT D'EXPLOITATION", sumOf: ["total_produits_expl", "total_charges_expl"], bold: true },
 
@@ -189,10 +199,15 @@ export const CPC_LIGNES = {
   productionStockee: { keys: ["cpc.production_stockee"], label: "Production stockée", nature: "produit" },
   productionImmobilisee: { keys: ["cpc.production_immobilisee"], label: "Production immobilisée", nature: "produit" },
   achatsConsommes: { keys: ["cpc.achats_consommes"], label: "Coût d'achat des marchandises vendues", nature: "charge" },
+  achatsMarchandises: { keys: ["cpc.achats_marchandises"], label: "Achats de marchandises consommés", nature: "charge" },
+  achatsApprovisionnements: { keys: ["cpc.achats_approvisionnements"], label: "Achats d'approvisionnements consommés", nature: "charge" },
   chargesExternes: { keys: ["cpc.charges_externes"], label: "Autres charges externes", nature: "charge" },
+  autresChargesExploitation: { keys: ["cpc.autres_charges_exploitation"], label: "Autres charges d'exploitation", nature: "charge" },
   impotsTaxes: { keys: ["cpc.impots_taxes"], label: "Impôts et taxes", nature: "charge" },
   chargesPersonnel: { keys: ["cpc.charges_personnel"], label: "Charges de personnel", nature: "charge" },
   dotationsAmort: { keys: ["cpc.dotations_amort_provisions"], label: "Dotations aux amortissements et provisions", nature: "charge" },
+  dotationsAmortissements: { keys: ["cpc.dotations_amortissements"], label: "Dotations aux amortissements et aux résorptions", nature: "charge" },
+  dotationsProvisions: { keys: ["cpc.dotations_provisions"], label: "Dotations aux provisions", nature: "charge" },
   chargesFinancieres: { keys: ["cpc.charges_financieres"], label: "Charges financières nettes", nature: "charge" },
   produitsFinanciers: { keys: ["cpc.produits_financiers"], label: "Produits financiers", nature: "produit" },
   autresProduitsOrdinaires: { keys: ["cpc.autres_produits_ordinaires"], label: "Autres produits ordinaires", nature: "produit" },
@@ -236,7 +251,12 @@ export interface SigResult {
 /** Les 5 soldes intermédiaires de gestion — enchaînés, chacun repart du
  * précédent (comme sur votre capture SIG). */
 export function computeSig(postes: Postes): SigResult {
-  const margeCommerciale = contrib(postes, "cpc.ventes_marchandises", "cpc.achats_consommes");
+  // Marge commerciale = ventes − coût d'achat des MARCHANDISES revendues
+  // uniquement (jamais les approvisionnements, qui relèvent de la
+  // production/prestation, pas de la revente) — cpc.achats_consommes
+  // (ligne condensée) reste ici pour compatibilité, cpc.achats_marchandises
+  // est son équivalent détaillé, jamais les deux à la fois pour un même code.
+  const margeCommerciale = contrib(postes, "cpc.ventes_marchandises", "cpc.achats_consommes", "cpc.achats_marchandises");
   const valeurAjoutee =
     margeCommerciale +
     contrib(
@@ -245,6 +265,7 @@ export function computeSig(postes: Postes): SigResult {
       "cpc.production_stockee",
       "cpc.production_immobilisee",
       "cpc.charges_externes",
+      "cpc.achats_approvisionnements",
     );
   const ebe = valeurAjoutee + contrib(postes, "cpc.impots_taxes", "cpc.charges_personnel");
   const resultatOrdinaire =
@@ -258,6 +279,9 @@ export function computeSig(postes: Postes): SigResult {
       "cpc.autres_charges_ordinaires",
       "cpc.charges_financieres",
       "cpc.dotations_amort_provisions",
+      "cpc.dotations_amortissements",
+      "cpc.dotations_provisions",
+      "cpc.autres_charges_exploitation",
       "cpc.impot_societes",
     );
   const resultatNetVal =

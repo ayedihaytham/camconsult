@@ -299,6 +299,23 @@ create table if not exists grille_comptes (
   maj_le         timestamptz not null default now()
 );
 
+-- Override par société du mapping compte -> code AFFECTAT ci-dessus : un
+-- même numéro de compte peut avoir un sens différent chez deux clients (une
+-- fois improbable pour la numérotation standard SCE, mais réel dès qu'un
+-- comptable corrige un cas particulier) — cette table est consultée EN
+-- PRIORITÉ sur grille_comptes pour la société concernée, sans jamais
+-- modifier le mapping cabinet-wide des autres dossiers. Voir la case à
+-- cocher « appliquer seulement à ce dossier » dans l'import de balance.
+create table if not exists grille_comptes_societe (
+  societe_id     uuid not null references societes(id) on delete cascade,
+  compte         text not null,
+  affectat_code  text not null default '',
+  libelle_compte text not null default '',
+  cree_le        timestamptz not null default now(),
+  maj_le         timestamptz not null default now(),
+  primary key (societe_id, compte)
+);
+
 -- Ajouts idempotents sur bases existantes
 alter table noeuds   add column if not exists cree_le date not null default current_date;
 alter table app_meta add column if not exists last_login timestamptz;

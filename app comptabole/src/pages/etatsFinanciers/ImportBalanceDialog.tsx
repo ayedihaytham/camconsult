@@ -17,6 +17,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   balanceId: string;
+  societeId: string;
 }
 
 const HEADER_KEYS: Record<string, keyof BalanceLigneInput | "solde"> = {
@@ -87,8 +88,9 @@ function parseRows(raw: unknown[][]): BalanceLigneInput[] {
 const fmt = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
+export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }: Props) {
   const grilleComptes = useBalances((s) => s.grilleComptes);
+  const grilleComptesSociete = useBalances((s) => s.grilleComptesSociete);
   const replaceLignes = useBalances((s) => s.replaceLignes);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -99,6 +101,9 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
   // pas d'un import précédent confirmé par un comptable — à relire avant
   // de valider, marqué visuellement distinct des codes déjà « appris ».
   const [suggested, setSuggested] = useState<Set<number>>(new Set());
+  // Lignes dont l'association compte -> AFFECTAT ne doit être apprise que
+  // pour cette société (case à cocher), pas cabinet-wide.
+  const [scoped, setScoped] = useState<Set<number>>(new Set());
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -119,14 +124,23 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
         toast.error("Aucune ligne reconnue — vérifiez qu'une colonne « Compte » existe.");
         return;
       }
-      // Préremplissage AFFECTAT : d'abord la grille apprise (comptes déjà
-      // rencontrés lors d'un import précédent, fiable), sinon une suggestion
-      // par classe de compte (Système Comptable des Entreprises tunisien —
-      // voir pcgClassement.ts), à relire avant de valider.
+      // Préremplissage AFFECTAT, par priorité : 1) override propre à cette
+      // société (grille_comptes_societe) 2) grille apprise cabinet-wide
+      // (comptes déjà rencontrés lors d'un import précédent, fiable)
+      // 3) suggestion par classe de compte (Système Comptable des
+      // Entreprises tunisien — voir pcgClassement.ts), à relire avant de
+      // valider.
+      const byCompteSociete = new Map(grilleComptesSociete.map((c) => [c.compte, c.affectatCode]));
       const byCompte = new Map(grilleComptes.map((c) => [c.compte, c.affectatCode]));
       const nextSuggested = new Set<number>();
+      const nextScoped = new Set<number>();
       const preFilled = parsed.map((l, i) => {
         if (l.affectat) return l;
+        const propreSociete = byCompteSociete.get(l.compte);
+        if (propreSociete) {
+          nextScoped.add(i);
+          return { ...l, affectat: propreSociete };
+        }
         const appris = byCompte.get(l.compte);
         if (appris) return { ...l, affectat: appris };
         const devine = suggestAffectatFromCompte(l.compte);
@@ -138,6 +152,7 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
       });
       setRows(preFilled);
       setSuggested(nextSuggested);
+      setScoped(nextScoped);
       setFileName(file.name);
     } catch {
       toast.error("Fichier illisible — export Excel (.xlsx) ou CSV attendu.");
@@ -154,11 +169,21 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
     });
   }
 
+  function toggleScoped(idx: number) {
+    setScoped((s) => {
+      const next = new Set(s);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }
+
   async function confirm() {
     if (!rows) return;
     setSaving(true);
     try {
-      await replaceLignes(balanceId, rows);
+      const withScope = rows.map((l, i) => ({ ...l, scopeSociete: scoped.has(i) }));
+      await replaceLignes(balanceId, withScope, societeId);
       toast.success(`${rows.length} ligne(s) importée(s)`);
       close();
     } finally {
@@ -170,6 +195,7 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
     setRows(null);
     setFileName("");
     setSuggested(new Set());
+    setScoped(new Set());
     onOpenChange(false);
   }
 
@@ -184,7 +210,8 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
           <DialogDescription>
             Colonnes reconnues : Compte, Libellé, Débit, Crédit, Affectat (SOLDE est
             recalculé automatiquement). Remplace toutes les lignes existantes de cet
-            exercice.
+            exercice. Cochez la case à droite d'un code pour que le changement ne
+            s'applique qu'à ce dossier, sans modifier les autres sociétés.
           </DialogDescription>
         </DialogHeader>
 
@@ -243,6 +270,12 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
                     <th className="sticky top-0 w-28 border-b-2 border-foreground bg-card px-2 py-2 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
                       Affectat
                     </th>
+                    <th
+                      className="sticky top-0 w-8 border-b-2 border-foreground bg-card px-1 py-2 text-center text-[0.66rem] font-bold text-muted-foreground"
+                      title="Limiter le changement de code à ce dossier"
+                    >
+                      <span className="sr-only">Limiter à ce dossier</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -275,6 +308,15 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
                               ? "border-accent/50 text-accent"
                               : "border-input")
                           }
+                        />
+                      </td>
+                      <td className="px-1 py-1.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={scoped.has(i)}
+                          onChange={() => toggleScoped(i)}
+                          title="Limiter ce code à ce dossier uniquement (n'affecte pas les autres sociétés)"
+                          className="h-3.5 w-3.5 cursor-pointer accent-accent"
                         />
                       </td>
                     </tr>

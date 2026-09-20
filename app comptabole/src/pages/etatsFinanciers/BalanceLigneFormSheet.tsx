@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useBalances, type BalanceLigneInput } from "@/store/balances";
 import type { BalanceLigne } from "@/types";
 
@@ -23,6 +24,7 @@ const schema = z.object({
   debit: z.coerce.number(),
   credit: z.coerce.number(),
   affectat: z.string(),
+  scopeSociete: z.boolean(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -43,10 +45,11 @@ export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: P
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { compte: "", libelle: "", debit: 0, credit: 0, affectat: "" },
+    defaultValues: { compte: "", libelle: "", debit: 0, credit: 0, affectat: "", scopeSociete: false },
   });
 
   useEffect(() => {
@@ -59,13 +62,15 @@ export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: P
             debit: ligne.debit,
             credit: ligne.credit,
             affectat: ligne.affectat,
+            scopeSociete: false,
           }
-        : { compte: "", libelle: "", debit: 0, credit: 0, affectat: "" },
+        : { compte: "", libelle: "", debit: 0, credit: 0, affectat: "", scopeSociete: false },
     );
   }, [open, ligne, reset]);
 
   const debit = watch("debit");
   const credit = watch("credit");
+  const scopeSociete = watch("scopeSociete");
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -86,6 +91,7 @@ export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: P
               debit: v.debit,
               credit: v.credit,
               affectat: v.affectat.trim(),
+              scopeSociete: v.scopeSociete,
             });
             onOpenChange(false);
           })}
@@ -116,6 +122,18 @@ export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: P
                 </datalist>
               </div>
             </div>
+
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-sm border border-border bg-muted px-3 py-2.5 text-sm">
+              <Checkbox
+                checked={scopeSociete}
+                onCheckedChange={(v) => setValue("scopeSociete", Boolean(v))}
+                className="mt-0.5"
+              />
+              <span className="text-muted-foreground">
+                Limiter ce code AFFECTAT à ce dossier uniquement — ne change pas le
+                classement de ce compte pour les autres sociétés
+              </span>
+            </label>
 
             <div className="space-y-1.5">
               <Label>Libellé</Label>

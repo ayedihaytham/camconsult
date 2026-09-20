@@ -256,6 +256,10 @@ export const grilleCompteDto = (r) => ({
   majLe: isoOrNull(r.maj_le),
 });
 
+/** Même forme que grilleCompteDto — la portée (quelle société) est portée
+ * par le tableau dans lequel le DTO est renvoyé, pas par le DTO lui-même. */
+export const grilleCompteSocieteDto = grilleCompteDto;
+
 export const immoMouvementDto = (r) => ({
   societeId: r.societe_id,
   exercice: r.exercice ?? "",

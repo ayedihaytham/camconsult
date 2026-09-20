@@ -36,7 +36,11 @@ function fail(err: unknown): never {
   throw err;
 }
 
-export type BalanceLigneInput = Omit<BalanceLigne, "id" | "ordre" | "solde">;
+export type BalanceLigneInput = Omit<BalanceLigne, "id" | "ordre" | "solde"> & {
+  /** Vrai = l'association compte -> code AFFECTAT n'est apprise que pour
+   * cette société (grille_comptes_societe), jamais cabinet-wide. */
+  scopeSociete?: boolean;
+};
 
 interface BalancesState {
   list: Balance[]; // en-têtes (exercices) de la société courante
@@ -46,6 +50,10 @@ interface BalancesState {
 
   grilleCodes: GrilleAffectatCode[];
   grilleComptes: GrilleCompte[];
+  /** Overrides compte -> AFFECTAT propres à la société consultée en dernier
+   * (grille_comptes_societe) — vide tant qu'aucun fetchGrille(societeId)
+   * n'a été fait. */
+  grilleComptesSociete: GrilleCompte[];
   grilleLoaded: boolean;
 
   postesParExercice: PostesExercice[];
@@ -68,9 +76,13 @@ interface BalancesState {
     data: Partial<BalanceLigneInput>,
   ) => Promise<void>;
   removeLigne: (balanceId: string, ligneId: string) => Promise<void>;
-  replaceLignes: (balanceId: string, lignes: BalanceLigneInput[]) => Promise<void>;
+  replaceLignes: (
+    balanceId: string,
+    lignes: BalanceLigneInput[],
+    societeId?: string,
+  ) => Promise<void>;
 
-  fetchGrille: () => Promise<void>;
+  fetchGrille: (societeId?: string) => Promise<void>;
   renameCode: (code: string, newCode: string) => Promise<void>;
   updateCode: (code: string, data: { libelle?: string; poste?: string }) => Promise<void>;
   removeCode: (code: string) => Promise<void>;
@@ -147,6 +159,7 @@ export const useBalances = create<BalancesState>((set, get) => ({
 
   grilleCodes: [],
   grilleComptes: [],
+  grilleComptesSociete: [],
   grilleLoaded: false,
 
   postesParExercice: [],
@@ -276,7 +289,7 @@ export const useBalances = create<BalancesState>((set, get) => ({
     }
   },
 
-  replaceLignes: async (balanceId, lignes) => {
+  replaceLignes: async (balanceId, lignes, societeId) => {
     try {
       const saved = await api.put<BalanceLigne[]>(`/balances/${balanceId}/lignes`, {
         lignes,
@@ -286,20 +299,28 @@ export const useBalances = create<BalancesState>((set, get) => ({
           ? { current: { ...st.current, lignes: saved } }
           : {},
       );
-      // La grille (comptes -> AFFECTAT) a pu être enrichie par l'import.
-      get().fetchGrille();
+      // La grille (comptes -> AFFECTAT, cabinet-wide et/ou société) a pu
+      // être enrichie par l'import.
+      get().fetchGrille(societeId);
     } catch (e) {
       fail(e);
     }
   },
 
-  fetchGrille: async () => {
+  fetchGrille: async (societeId) => {
     try {
-      const { codes, comptes } = await api.get<{
+      const q = societeId ? `?societeId=${societeId}` : "";
+      const { codes, comptes, comptesSociete } = await api.get<{
         codes: GrilleAffectatCode[];
         comptes: GrilleCompte[];
-      }>("/grille-affectat");
-      set({ grilleCodes: codes, grilleComptes: comptes, grilleLoaded: true });
+        comptesSociete?: GrilleCompte[];
+      }>(`/grille-affectat${q}`);
+      set({
+        grilleCodes: codes,
+        grilleComptes: comptes,
+        grilleComptesSociete: comptesSociete ?? [],
+        grilleLoaded: true,
+      });
     } catch (e) {
       fail(e);
     }

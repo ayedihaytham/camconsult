@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
-import { CollecteStatusDot, StatusDot } from "@/components/ledger/StatusDot";
+import { CollecteStatusDot } from "@/components/ledger/StatusDot";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";

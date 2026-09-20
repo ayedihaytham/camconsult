@@ -24,6 +24,7 @@ import { useImmobilisations } from "@/store/immobilisations";
 import { ROWS_BILAN_ACTIF, ROWS_BILAN_PASSIF, ROWS_ETAT_RESULTAT, resultatNet } from "@/lib/etatsFinanciers/postes";
 import { massesCouvertesParRegistre, mergeImmoMouvements } from "@/lib/etatsFinanciers/immobilisationsRegistre";
 import { FinancialTable } from "./FinancialTable";
+import { AffectatSyntheseTable } from "./AffectatSyntheseTable";
 import { SigTable } from "./SigTable";
 import { ImmoVariationTable } from "./ImmoVariationTable";
 import { FluxTable } from "./FluxTable";
@@ -39,6 +40,7 @@ type Vue =
   | "passif"
   | "resultat"
   | "sig"
+  | "synthese"
   | "immo"
   | "registre"
   | "flux"
@@ -51,6 +53,7 @@ const VUE_OPTIONS: { value: Vue; label: string }[] = [
   { value: "passif", label: "Bilan Passif" },
   { value: "resultat", label: "Etat de résultat" },
   { value: "sig", label: "SIG" },
+  { value: "synthese", label: "Synthèse AFFECTAT" },
   { value: "immo", label: "TAB VAR Immob" },
   { value: "registre", label: "Registre immobilisations" },
   { value: "flux", label: "Flux de trésorerie" },
@@ -74,6 +77,9 @@ export function BalancesListPage() {
   const loadingPostes = useBalances((s) => s.loadingPostes);
   const fetchPostes = useBalances((s) => s.fetchPostes);
   const clearPostes = useBalances((s) => s.clearPostes);
+
+  const grilleCodes = useBalances((s) => s.grilleCodes);
+  const fetchGrille = useBalances((s) => s.fetchGrille);
 
   const immoMouvements = useBalances((s) => s.immoMouvements);
   const fetchImmoMouvements = useBalances((s) => s.fetchImmoMouvements);
@@ -118,6 +124,11 @@ export function BalancesListPage() {
     fetchPostes(societeId);
     return () => clearPostes();
   }, [vue, societeId, fetchPostes, clearPostes]);
+
+  useEffect(() => {
+    if (vue !== "synthese") return;
+    fetchGrille();
+  }, [vue, fetchGrille]);
 
   useEffect(() => {
     if (vue !== "immo" && vue !== "flux" && vue !== "notes") return;
@@ -308,6 +319,10 @@ export function BalancesListPage() {
         <div className="mt-4">
           <SigTable exercices={postesParExercice} />
         </div>
+      ) : vue === "synthese" ? (
+        <LedgerSheet className="mt-4 flex-1">
+          <AffectatSyntheseTable exercices={postesParExercice} grilleCodes={grilleCodes} />
+        </LedgerSheet>
       ) : vue === "immo" ? (
         <div className="mt-4">
           <ImmoVariationTable

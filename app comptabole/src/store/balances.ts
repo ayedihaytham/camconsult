@@ -24,6 +24,10 @@ export interface PostesExercice {
    * exercice à l'autre, voir suggestImmoMouvement(). */
   postesDebit: Postes;
   postesCredit: Postes;
+  /** Solde par code AFFECTAT brut ("" = lignes sans code), indépendant du
+   * reclassement en poste — pour vérifier un import (onglet « Synthèse
+   * AFFECTAT »), voir server/routes/balances.js "/postes". */
+  codes: Postes;
   /** CA local/export suggéré pour le TDRF (voir server/routes/balances.js
    * "/postes") — détecté depuis le libellé des comptes de ventes, à
    * confirmer par l'expert-comptable exercice par exercice. */

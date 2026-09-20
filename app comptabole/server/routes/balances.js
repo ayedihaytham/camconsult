@@ -132,6 +132,7 @@ balancesRouter.get("/postes", async (req, res) => {
         postes: {},
         postesDebit: {},
         postesCredit: {},
+        codes: {},
         caLocalSuggere: 0,
         caExportSuggere: 0,
       });
@@ -139,6 +140,22 @@ balancesRouter.get("/postes", async (req, res) => {
     entry.postes[r.poste] = Math.round(Number(r.solde) * 1000) / 1000;
     entry.postesDebit[r.poste] = Math.round(Number(r.debit) * 1000) / 1000;
     entry.postesCredit[r.poste] = Math.round(Number(r.credit) * 1000) / 1000;
+  }
+
+  // Synthèse par code AFFECTAT brut (pas par poste) — pour la vérification
+  // ligne par ligne d'un import (onglet "Synthèse AFFECTAT"), indépendamment
+  // du reclassement Bilan/CPC. "" = lignes sans code.
+  const { rows: codeRows } = await query(
+    `select b.exercice, coalesce(bl.affectat, '') as code, sum(bl.debit - bl.credit) as solde
+     from balances b
+     join balance_lignes bl on bl.balance_id = b.id
+     where b.societe_id = $1
+     group by b.exercice, coalesce(bl.affectat, '')`,
+    [societeId],
+  );
+  for (const r of codeRows) {
+    if (!byExercice.has(r.exercice)) continue;
+    byExercice.get(r.exercice).codes[r.code] = Math.round(Number(r.solde) * 1000) / 1000;
   }
 
   // Suggestion CA local/export (TDRF, régime partiellement exportateur) :

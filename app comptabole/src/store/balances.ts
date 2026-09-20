@@ -142,16 +142,7 @@ interface BalancesState {
   saveTdrfParametres: (
     societeId: string,
     exercice: string,
-    data: {
-      chiffreAffairesLocal: number;
-      chiffreAffairesExport: number;
-      tauxImposition: number;
-      tauxExport: number;
-      tauxMinimum: number;
-      plancherMinimum: number;
-      contributionSociale: number;
-      excedentsAcomptes: number;
-    },
+    data: Omit<TdrfParametres, "societeId" | "exercice" | "majLe">,
   ) => Promise<void>;
 }
 

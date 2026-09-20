@@ -155,6 +155,25 @@ function fluxSheet(
   return aoa;
 }
 
+// [clé sur TdrfParametres, libellé] — mêmes lignes standard que l'écran
+// (TdrfTable.tsx), pour que l'export Excel corresponde exactement à ce qui
+// s'affiche dans l'app plutôt que de ne lister que les lignes libres.
+const REINTEGRATIONS_STANDARD: { key: keyof TdrfParametres; label: string }[] = [
+  { key: "pertesChangeNonRealisees", label: "1.10 Pertes de change non réalisées" },
+  { key: "gainsChangeNonRealisesAnterieurs", label: "1.11 Gains de change non réalisés antérieurement non imposés" },
+  { key: "remunerationsExcedentairesTitres", label: "1.12 Rémunérations excédentaires des titres participatifs et des comptes courants associés" },
+  { key: "chargesEspeces5000", label: "1.13 Charges d'une valeur ≥ 5.000 dinars payée en espèces" },
+  { key: "moinsValueCessionTitresOpcvm", label: "1.14 Moins-value de cession des titres d'OPCVM dans la limite des dividendes distribués" },
+  { key: "impotsDirectsLieuAutrui", label: "1.15 Impôts directs supportés au lieu et place d'autrui" },
+  { key: "taxeVoyage", label: "1.16 Taxe de voyage" },
+  { key: "transactionsAmendesPenalites", label: "1.17 Transactions, amendes, confiscations et pénalités non déductibles" },
+  { key: "depensesEssaimage", label: "1.18 Dépenses excédentaires engagées pour la réalisation des opérations d'essaimage" },
+  { key: "facturesNonParvenues", label: "1.19 Factures non parvenues" },
+  { key: "amortissementsBiensReevalues", label: "2.1 Amortissements non déductibles relatifs aux biens réévalués" },
+  { key: "provisionsNonDeductibles", label: "3.1 Provisions non déductibles" },
+  { key: "provisionsCreancesDouteusesReintegrees", label: "3.2 Provisions pour créances douteuses (hors établissements de crédit)" },
+];
+
 function tdrfSheet(
   exercices: PostesExercice[],
   lignes: TdrfLigne[],
@@ -169,16 +188,31 @@ function tdrfSheet(
     aoa.push([`EXERCICE ${e.exercice}`]);
     aoa.push(["Résultat comptable avant impôt", round2(result.resultatComptable)]);
     aoa.push(["Réintégrations"]);
+    for (const { key, label } of REINTEGRATIONS_STANDARD) {
+      const v = Number(p?.[key] ?? 0);
+      if (v) aoa.push(["  " + label, round2(v)]);
+    }
     for (const l of lignesExercice.filter((l) => l.kind === "reintegration")) {
       aoa.push(["  " + l.libelle, round2(l.montant)]);
     }
-    aoa.push(["Total réintégrations", round2(result.totalReintegrations)]);
-    aoa.push(["Déductions"]);
+    aoa.push(["TOTAL RÉINTÉGRATIONS", round2(result.totalReintegrations)]);
+    aoa.push([]);
+    aoa.push(["Produits réalisés par les établissements situés à l'étranger", round2(p?.produitsEtranger ?? 0)]);
+    aoa.push(["Résultat fiscal avant déduction des provisions (B/P)", round2(result.resultatFiscalAvantDeductionProvisions)]);
+    aoa.push(["Provisions déductibles (plafonnées à 50%)", round2(result.provisionsDeductibles)]);
+    aoa.push(["Résultat fiscal après déduction des provisions (B/P)", round2(result.resultatFiscalApresProvisions)]);
+    aoa.push(["Moins-value de levée d'option déductible (plafonnée à 5%)", round2(result.moinsValueLeveeOptionDeductible)]);
+    aoa.push(["Résultat fiscal avant déduction des déficits et amortissements", round2(result.resultatFiscalAvantDeficitsAmortissements)]);
+    aoa.push(["Réintégration des amortissements de l'exercice", round2(p?.reintegrationAmortissementsExercice ?? 0)]);
+    aoa.push(["Déduction des déficits reportés", round2(p?.deductionDeficitsReportes ?? 0)]);
+    aoa.push(["Déduction des amortissements de l'exercice", round2(p?.deductionAmortissementsExercice ?? 0)]);
+    aoa.push(["Déduction des amortissements différés en périodes déficitaires", round2(p?.deductionAmortissementsDifferes ?? 0)]);
+    aoa.push(["Résultat fiscal après déduction des déficits et amortissements (B/P)", round2(result.resultatFiscalApresDeficitsAmortissements)]);
+    aoa.push(["Intérêts des dépôts et titres en devises ou en dinars convertibles", round2(p?.interetsDepotsTitresDevises ?? 0)]);
     for (const l of lignesExercice.filter((l) => l.kind === "deduction")) {
       aoa.push(["  " + l.libelle, round2(l.montant)]);
     }
-    aoa.push(["Total déductions", round2(result.totalDeductions)]);
-    aoa.push(["RÉSULTAT FISCAL (résultat imposable)", round2(result.resultatFiscal)]);
+    aoa.push(["RÉSULTAT IMPOSABLE", round2(result.resultatImposable)]);
     aoa.push([]);
     aoa.push(["Chiffre d'affaires local", round2(result.chiffreAffairesLocal)]);
     aoa.push(["Chiffre d'affaires export", round2(result.chiffreAffairesExport)]);
@@ -190,6 +224,10 @@ function tdrfSheet(
     aoa.push(["IMPÔTS SUR LES SOCIÉTÉS", round2(result.impotSocietes)]);
     aoa.push(["Contribution sociale de solidarité", round2(result.contributionSociale)]);
     aoa.push(["Excédents et acomptes provisionnels imputables", round2(result.excedentsAcomptes)]);
+    aoa.push(["Excédents antérieurs", round2(p?.excedentsAnterieurs ?? 0)]);
+    aoa.push(["Acomptes provisionnels payés", round2(p?.acomptesProvisionnelsPayes ?? 0)]);
+    aoa.push(["Retenue à la source", round2(p?.retenueALaSource ?? 0)]);
+    aoa.push(["Avance IRPP sur import", round2(p?.avanceIrppImport ?? 0)]);
     aoa.push(["IMPÔTS À PAYER / (REPORT)", round2(result.impotsAPayer)]);
     if (result.tauxEffectif !== null) {
       aoa.push(["Taux effectif d'imposition", round2(result.tauxEffectif)]);

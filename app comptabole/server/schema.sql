@@ -468,8 +468,66 @@ create table if not exists tdrf_parametres (
   maj_le                  timestamptz not null default now(),
   unique (societe_id, exercice)
 );
+-- Rétabli au passage à la répartition local/export : sur une base créée
+-- avant ce changement, la table porte encore l'ancienne colonne
+-- "chiffre_affaires" (jamais renommée — seul chiffre_affaires_export avait
+-- reçu un ALTER ADD COLUMN). Renomme une fois, sans effet sur une base déjà
+-- à jour ou créée après le changement (les deux exists ci-dessous sont
+-- alors déjà dans l'état voulu).
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'tdrf_parametres' and column_name = 'chiffre_affaires'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_name = 'tdrf_parametres' and column_name = 'chiffre_affaires_local'
+  ) then
+    alter table tdrf_parametres rename column chiffre_affaires to chiffre_affaires_local;
+  end if;
+end $$;
+alter table tdrf_parametres add column if not exists chiffre_affaires_local numeric not null default 0;
 alter table tdrf_parametres add column if not exists chiffre_affaires_export numeric not null default 0;
 alter table tdrf_parametres add column if not exists taux_export numeric not null default 0.20;
+
+-- TDRF détaillé (Annexe n°2 à la note commune n°26/2016) — champs nommés
+-- correspondant exactement aux lignes standard du formulaire officiel
+-- (au lieu de tdrf_lignes en texte libre, gardé en plus pour tout ce que
+-- le formulaire ne prévoit pas). Voir src/lib/etatsFinanciers/tdrf.ts pour
+-- l'enchaînement des soldes (codes B/P) et les plafonds (provisions 50%,
+-- moins-value 5%).
+-- Réintégrations — charges non déductibles (1.10 à 1.19)
+alter table tdrf_parametres add column if not exists pertes_change_non_realisees numeric not null default 0;
+alter table tdrf_parametres add column if not exists gains_change_non_realises_anterieurs numeric not null default 0;
+alter table tdrf_parametres add column if not exists remunerations_excedentaires_titres numeric not null default 0;
+alter table tdrf_parametres add column if not exists charges_especes_5000 numeric not null default 0;
+alter table tdrf_parametres add column if not exists moins_value_cession_titres_opcvm numeric not null default 0;
+alter table tdrf_parametres add column if not exists impots_directs_lieu_autrui numeric not null default 0;
+alter table tdrf_parametres add column if not exists taxe_voyage numeric not null default 0;
+alter table tdrf_parametres add column if not exists transactions_amendes_penalites numeric not null default 0;
+alter table tdrf_parametres add column if not exists depenses_essaimage numeric not null default 0;
+alter table tdrf_parametres add column if not exists factures_non_parvenues numeric not null default 0;
+-- Réintégrations — amortissements (2.1) et provisions (3.1/3.2)
+alter table tdrf_parametres add column if not exists amortissements_biens_reevalues numeric not null default 0;
+alter table tdrf_parametres add column if not exists provisions_non_deductibles numeric not null default 0;
+alter table tdrf_parametres add column if not exists provisions_creances_douteuses_reintegrees numeric not null default 0;
+-- Déductions — cascade (chaque "code B/P" est recalculé, jamais stocké)
+alter table tdrf_parametres add column if not exists produits_etranger numeric not null default 0;
+alter table tdrf_parametres add column if not exists provisions_creances_douteuses numeric not null default 0;
+alter table tdrf_parametres add column if not exists provisions_deprec_stocks_vente numeric not null default 0;
+alter table tdrf_parametres add column if not exists provisions_deprec_actions_cotees numeric not null default 0;
+alter table tdrf_parametres add column if not exists provisions_non_exigibilite_engagements numeric not null default 0;
+alter table tdrf_parametres add column if not exists moins_value_levee_option numeric not null default 0;
+alter table tdrf_parametres add column if not exists reintegration_amortissements_exercice numeric not null default 0;
+alter table tdrf_parametres add column if not exists deduction_deficits_reportes numeric not null default 0;
+alter table tdrf_parametres add column if not exists deduction_amortissements_exercice numeric not null default 0;
+alter table tdrf_parametres add column if not exists deduction_amortissements_differes numeric not null default 0;
+alter table tdrf_parametres add column if not exists interets_depots_titres_devises numeric not null default 0;
+-- Contribution sociale de solidarité — impôts à payer
+alter table tdrf_parametres add column if not exists excedents_anterieurs numeric not null default 0;
+alter table tdrf_parametres add column if not exists acomptes_provisionnels_payes numeric not null default 0;
+alter table tdrf_parametres add column if not exists retenue_a_la_source numeric not null default 0;
+alter table tdrf_parametres add column if not exists avance_irpp_import numeric not null default 0;
 
 create index if not exists immo_mouvements_societe_idx on immo_mouvements(societe_id, exercice);
 create index if not exists financement_mouvements_societe_idx on financement_mouvements(societe_id, exercice);

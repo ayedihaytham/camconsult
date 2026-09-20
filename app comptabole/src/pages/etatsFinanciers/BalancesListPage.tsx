@@ -316,9 +316,9 @@ export function BalancesListPage() {
           <FinancialTable rows={ROWS_ETAT_RESULTAT} exercices={postesParExercice} titre="Etat de résultat" />
         </LedgerSheet>
       ) : vue === "sig" ? (
-        <div className="mt-4">
+        <LedgerSheet className="mt-4 flex-1">
           <SigTable exercices={postesParExercice} />
-        </div>
+        </LedgerSheet>
       ) : vue === "synthese" ? (
         <LedgerSheet className="mt-4 flex-1">
           <AffectatSyntheseTable exercices={postesParExercice} grilleCodes={grilleCodes} />

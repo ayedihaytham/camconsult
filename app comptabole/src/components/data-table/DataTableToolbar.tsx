@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { DataTableViewOptions } from "./DataTableViewOptions";
 
 interface DataTableToolbarProps<TData> extends ComponentProps<"div"> {
+  ariaLabel?: string;
   compact?: boolean;
   leading: ReactNode;
   primaryAction?: ReactNode;
@@ -13,6 +14,7 @@ interface DataTableToolbarProps<TData> extends ComponentProps<"div"> {
 }
 
 export function DataTableToolbar<TData>({
+  ariaLabel = "Outils du tableau",
   compact = false,
   leading,
   primaryAction,
@@ -26,11 +28,11 @@ export function DataTableToolbar<TData>({
   return (
     <div
       role="toolbar"
-      aria-label="Outils des tâches"
+      aria-label={ariaLabel}
       className={cn(
         compact
           ? "flex w-full flex-wrap items-center gap-2"
-          : "flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between",
+          : "flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between",
         className,
       )}
       {...props}
@@ -52,6 +54,7 @@ export function DataTableToolbar<TData>({
           {leading}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             {children}
+            {trailing}
             {showViewOptions && <DataTableViewOptions table={table} />}
             {primaryAction}
           </div>

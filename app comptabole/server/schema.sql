@@ -356,6 +356,7 @@ insert into grille_affectat_codes (code, libelle, poste) values
   ('P03', 'Provisions', 'passif.provisions'),
   ('P04', 'Fournisseurs et comptes rattachés', 'passif.fournisseurs'),
   ('P05', 'Autres passifs courants', 'passif.autres_passifs_courants'),
+  ('P06', 'Emprunts', 'passif.emprunts'),
   ('PR01', 'Ventes de marchandises', 'cpc.ventes_marchandises'),
   ('CH02', 'Achats consommés', 'cpc.achats_consommes'),
   ('CHPR1', 'Variation de stock', 'cpc.achats_consommes'),

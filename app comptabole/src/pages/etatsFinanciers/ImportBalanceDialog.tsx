@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useBalances, type BalanceLigneInput } from "@/store/balances";
+import { suggestAffectatFromCompte } from "@/lib/etatsFinanciers/pcgClassement";
 
 interface Props {
   open: boolean;
@@ -94,6 +95,10 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
   const [rows, setRows] = useState<BalanceLigneInput[] | null>(null);
   const [fileName, setFileName] = useState("");
   const [saving, setSaving] = useState(false);
+  // Index des lignes dont l'AFFECTAT vient d'être deviné (classe du compte),
+  // pas d'un import précédent confirmé par un comptable — à relire avant
+  // de valider, marqué visuellement distinct des codes déjà « appris ».
+  const [suggested, setSuggested] = useState<Set<number>>(new Set());
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -114,13 +119,25 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
         toast.error("Aucune ligne reconnue — vérifiez qu'une colonne « Compte » existe.");
         return;
       }
-      // Préremplissage AFFECTAT depuis la grille apprise, pour les comptes déjà connus.
+      // Préremplissage AFFECTAT : d'abord la grille apprise (comptes déjà
+      // rencontrés lors d'un import précédent, fiable), sinon une suggestion
+      // par classe de compte (Système Comptable des Entreprises tunisien —
+      // voir pcgClassement.ts), à relire avant de valider.
       const byCompte = new Map(grilleComptes.map((c) => [c.compte, c.affectatCode]));
-      const preFilled = parsed.map((l) => ({
-        ...l,
-        affectat: l.affectat || byCompte.get(l.compte) || "",
-      }));
+      const nextSuggested = new Set<number>();
+      const preFilled = parsed.map((l, i) => {
+        if (l.affectat) return l;
+        const appris = byCompte.get(l.compte);
+        if (appris) return { ...l, affectat: appris };
+        const devine = suggestAffectatFromCompte(l.compte);
+        if (devine) {
+          nextSuggested.add(i);
+          return { ...l, affectat: devine };
+        }
+        return l;
+      });
       setRows(preFilled);
+      setSuggested(nextSuggested);
       setFileName(file.name);
     } catch {
       toast.error("Fichier illisible — export Excel (.xlsx) ou CSV attendu.");
@@ -129,6 +146,12 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
 
   function updateAffectat(idx: number, value: string) {
     setRows((r) => (r ? r.map((l, i) => (i === idx ? { ...l, affectat: value } : l)) : r));
+    setSuggested((s) => {
+      if (!s.has(idx)) return s;
+      const next = new Set(s);
+      next.delete(idx);
+      return next;
+    });
   }
 
   async function confirm() {
@@ -146,10 +169,12 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
   function close() {
     setRows(null);
     setFileName("");
+    setSuggested(new Set());
     onOpenChange(false);
   }
 
   const nbSansCode = rows?.filter((r) => !r.affectat).length ?? 0;
+  const nbSuggere = suggested.size;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
@@ -184,12 +209,20 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
               <span className="text-muted-foreground">
                 {fileName} · <b className="text-foreground">{rows.length}</b> ligne(s)
               </span>
-              {nbSansCode > 0 && (
-                <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-                  <span className="h-[7px] w-[7px] rounded-[2px] bg-warning" />
-                  {nbSansCode} sans code AFFECTAT
-                </span>
-              )}
+              <span className="flex items-center gap-3">
+                {nbSuggere > 0 && (
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-accent">
+                    <span className="h-[7px] w-[7px] rounded-full border border-accent" />
+                    {nbSuggere} code(s) deviné(s) — à relire
+                  </span>
+                )}
+                {nbSansCode > 0 && (
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                    <span className="h-[7px] w-[7px] rounded-[2px] bg-warning" />
+                    {nbSansCode} sans code AFFECTAT
+                  </span>
+                )}
+              </span>
             </div>
             <div className="min-h-0 flex-1 overflow-auto rounded-sm border border-border">
               <table className="w-full text-sm">
@@ -235,7 +268,13 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId }: Props) {
                           value={r.affectat}
                           onChange={(e) => updateAffectat(i, e.target.value.toUpperCase())}
                           placeholder="—"
-                          className="w-full rounded-[4px] border border-input bg-card px-1.5 py-1 font-mono text-xs uppercase outline-none focus:border-accent"
+                          title={suggested.has(i) ? "Code deviné à partir de la classe du compte — à relire" : undefined}
+                          className={
+                            "w-full rounded-[4px] border bg-card px-1.5 py-1 font-mono text-xs uppercase outline-none focus:border-accent " +
+                            (suggested.has(i)
+                              ? "border-accent/50 text-accent"
+                              : "border-input")
+                          }
                         />
                       </td>
                     </tr>

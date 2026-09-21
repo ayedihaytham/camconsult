@@ -21,6 +21,17 @@ async function aiExtractPage(params) {
   return claudeExtractPage(params);
 }
 
+/** Log explicite du fournisseur réellement utilisé — sans ça, un import qui
+ * retombe silencieusement sur l'OCR local (ex. clé API absente ou appel en
+ * échec) est indiscernable d'un import correctement traité par un modèle
+ * IA, ce qui a rendu un vrai problème de configuration difficile à
+ * diagnostiquer en usage réel. */
+function logProvider() {
+  if (openrouterAvailable()) console.log("[ocr] extraction via OpenRouter (Gemini 2.5 Flash)");
+  else if (claudeAvailable()) console.log("[ocr] extraction via Claude (OPENROUTER_API_KEY absente)");
+  else console.log("[ocr] extraction via OCR local + heuristiques (aucune clé IA configurée)");
+}
+
 const execFileAsync = promisify(execFile);
 
 const MAX_PAGES = 15;
@@ -98,6 +109,7 @@ function champsPourTousLesTypes(texte, lines) {
 export async function extractPages(dataUrl, raisonSociale) {
   const { buffer, mime } = decodeDataUrl(dataUrl);
   const useAI = aiAvailable();
+  logProvider();
 
   if (mime.startsWith("image/")) {
     if (useAI) {

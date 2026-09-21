@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Bell, LogOut, MessageCircle, Settings } from "lucide-react";
+import { Bell, ChevronDown, LogOut, MessageCircle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { AppBreadcrumbs } from "./AppBreadcrumbs";
@@ -46,7 +46,7 @@ export function Topbar() {
     <header className="sticky top-0 z-30 border-b border-border bg-card no-print">
       <div className="flex h-[64px] items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger
-          className="h-9 w-9 shrink-0"
+          className="h-10 w-10 shrink-0 lg:h-9 lg:w-9"
           aria-label="Afficher ou réduire le menu"
         />
 
@@ -58,12 +58,14 @@ export function Topbar() {
           <MessengerShortcut />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-2xl py-1 pl-1 pr-1.5 transition-colors hover:bg-secondary sm:pr-2.5">
-                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-primary text-accent">
+              <button
+                className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-1.5 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:pr-2.5"
+                aria-label={`Menu du compte de ${nom}`}
+              >
+                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-primary text-accent lg:h-9 lg:w-9">
                   <span className="text-xs font-bold tracking-wide">
                     {initiales}
                   </span>
-                  <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-success" />
                 </span>
                 <span className="hidden text-left leading-tight sm:block">
                   <span className="block text-sm font-medium text-foreground">
@@ -73,9 +75,10 @@ export function Topbar() {
                     {isAdmin ? "Administrateur" : role}
                   </span>
                 </span>
+                <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-2xl">
+            <DropdownMenuContent align="end" className="w-56 rounded-lg">
               <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {isAdmin && (
@@ -133,7 +136,7 @@ function MessengerShortcut() {
       aria-label="Messagerie"
       className={({ isActive }) =>
         cn(
-          "relative flex h-9 w-9 items-center justify-center rounded-2xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
+          "relative flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:h-9 lg:w-9",
           isActive && "bg-secondary text-foreground",
         )
       }
@@ -189,18 +192,18 @@ function NotificationBell() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="relative flex h-9 w-9 items-center justify-center rounded-2xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="relative flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:h-9 lg:w-9"
           aria-label="Notifications"
         >
           <Bell className="h-[18px] w-[18px]" />
           {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 animate-pulse items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 rounded-2xl">
+      <DropdownMenuContent align="end" className="w-80 rounded-lg">
         <div className="flex items-center justify-between px-2 py-1.5">
           <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
           {unread > 0 && (

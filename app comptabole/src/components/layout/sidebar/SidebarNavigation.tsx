@@ -23,6 +23,8 @@ import {
   type NavGroup,
 } from "./navigation";
 
+const NAV_ITEM_CLASS = "relative text-sidebar-muted data-[active=true]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']";
+
 interface SidebarNavigationProps {
   groups: NavGroup[];
   unreadMessages: number;
@@ -71,8 +73,13 @@ export function SidebarNavigation({
   return (
     <>
       {groups.map((group, groupIndex) => (
-        <SidebarGroup key={group.label ?? `group-${groupIndex}`}>
-          <SidebarGroupLabel>{group.label ?? "Overview"}</SidebarGroupLabel>
+        <SidebarGroup
+          key={group.label ?? `group-${groupIndex}`}
+          className={groupIndex === 0 ? "pb-1 pt-1.5" : "py-1.5"}
+        >
+          <SidebarGroupLabel className="h-6 px-2 text-[0.68rem] font-semibold text-sidebar-foreground/60 group-data-[collapsible=icon]:-mt-6">
+            {group.label ?? "Overview"}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {group.items.map((item) => {
@@ -103,7 +110,8 @@ export function SidebarNavigation({
                             return next;
                           })
                         }
-                        className="text-sidebar-muted data-[active=true]:text-sidebar-primary"
+                        aria-label={pending ? `${item.label}, notification en attente` : item.label}
+                        className={NAV_ITEM_CLASS}
                       >
                         <Icon />
                         <span>{item.label}</span>
@@ -116,6 +124,7 @@ export function SidebarNavigation({
                         />
                       </SidebarMenuButton>
                       {pending && <PendingBadge />}
+                      {pending && <CollapsedPendingIndicator />}
                       {open && (
                         <SidebarMenuSub>
                           {item.children.map((child) => {
@@ -161,19 +170,29 @@ export function SidebarNavigation({
                       asChild
                       isActive={active}
                       tooltip={item.label}
-                      className="text-sidebar-muted data-[active=true]:text-sidebar-primary"
+                      className={NAV_ITEM_CLASS}
                     >
-                      <NavLink to={to} end={to === "/"}>
+                      <NavLink
+                        to={to}
+                        end={to === "/"}
+                        aria-label={badge ? `${item.label}, ${badge} message${badge > 1 ? "s" : ""} non lu${badge > 1 ? "s" : ""}` : pending ? `${item.label}, notification en attente` : item.label}
+                      >
                         <Icon />
                         <span>{item.label}</span>
                       </NavLink>
                     </SidebarMenuButton>
                     {badge ? (
-                      <SidebarMenuBadge className="bg-sidebar-primary font-bold text-sidebar-primary-foreground">
-                        {badge}
-                      </SidebarMenuBadge>
+                      <>
+                        <SidebarMenuBadge className="bg-sidebar-primary font-bold text-sidebar-primary-foreground">
+                          {badge}
+                        </SidebarMenuBadge>
+                        <CollapsedUnreadBadge count={badge} />
+                      </>
                     ) : pending ? (
-                      <PendingBadge />
+                      <>
+                        <PendingBadge />
+                        <CollapsedPendingIndicator />
+                      </>
                     ) : null}
                   </SidebarMenuItem>
                 );
@@ -198,6 +217,26 @@ function PendingDot() {
   return (
     <span
       className="size-1.5 shrink-0 rounded-full bg-destructive"
+      aria-hidden="true"
+    />
+  );
+}
+
+function CollapsedUnreadBadge({ count }: { count: number }) {
+  return (
+    <span
+      className="pointer-events-none absolute -right-1 -top-1 hidden h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sidebar-primary px-0.5 text-[8px] font-bold leading-none text-sidebar-primary-foreground group-data-[collapsible=icon]:flex"
+      aria-hidden="true"
+    >
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
+function CollapsedPendingIndicator() {
+  return (
+    <span
+      className="pointer-events-none absolute -right-0.5 -top-0.5 hidden size-2.5 rounded-full border border-sidebar bg-destructive group-data-[collapsible=icon]:block"
       aria-hidden="true"
     />
   );

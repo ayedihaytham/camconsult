@@ -70,7 +70,7 @@ export function AppBreadcrumbs() {
               >
                 {isCurrent ? (
                   <BreadcrumbPage
-                    className="block max-w-[9rem] truncate text-sm font-medium sm:max-w-[14rem] lg:max-w-[22rem]"
+                    className="block max-w-[9rem] truncate text-sm font-semibold text-primary sm:max-w-[14rem] lg:max-w-[22rem]"
                     title={crumb.label}
                   >
                     {crumb.label}

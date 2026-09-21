@@ -32,9 +32,9 @@ export function AttentionList({ items, limit, grouped = false }: AttentionListPr
 
   return (
     <div>
-      {groups.map((entry) => (
-        <section key={entry.group} aria-labelledby={`attention-${entry.group}`}>
-          {grouped && <h3 id={`attention-${entry.group}`} className="flex items-center justify-between border-b border-primary/25 pb-2 pt-5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-primary first:pt-0"><span>{GROUP_LABELS[entry.group]}</span><span className="tabular-nums text-muted-foreground">{entry.items.length}</span></h3>}
+      {groups.map((entry, groupIndex) => (
+        <section key={entry.group} aria-labelledby={`attention-${entry.group}`} className={cn(grouped && groupIndex > 0 && "mt-4")}>
+          {grouped && <h3 id={`attention-${entry.group}`} className="mb-2 flex items-center justify-between border-b border-primary/25 pb-2 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-primary"><span>{GROUP_LABELS[entry.group]}</span><span className="tabular-nums text-muted-foreground">{entry.items.length}</span></h3>}
           <ul>
             {entry.items.map((item) => {
               const Icon = ICONS[item.type];

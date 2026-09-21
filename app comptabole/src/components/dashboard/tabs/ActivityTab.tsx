@@ -39,9 +39,9 @@ export function ActivityTab({ data, canUseMessaging }: { data: DashboardViewMode
   return (
     <section className="min-w-0 border-t-2 border-primary">
       <header className="flex flex-col gap-3 py-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-base font-semibold text-primary">Activité récente</h2><p className="mt-0.5 text-xs text-muted-foreground">Fichiers, échanges et opérations accessibles dans votre périmètre</p></div><div className="flex max-w-full gap-4 overflow-x-auto border-b border-border" aria-label="Filtrer l'activité">{filters.map((option) => <button key={option} type="button" onClick={() => setFilter(option)} className={cn("relative shrink-0 pb-2 text-xs font-medium text-muted-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-accent after:opacity-0", filter === option && "text-primary after:opacity-100")}>{option}</button>)}</div></header>
-      {filtered.length === 0 ? <DashboardEmptyState icon={Activity} title="Aucune activité récente" description="Les nouveaux éléments accessibles apparaîtront ici." /> : groups.map((group) => (
-        <section key={group.label} aria-labelledby={`activity-${group.label.replace(/\W/g, "-")}`}>
-          <h3 id={`activity-${group.label.replace(/\W/g, "-")}`} className="border-b border-primary/25 pb-2 pt-5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-primary first:pt-0">{group.label}</h3>
+      {filtered.length === 0 ? <DashboardEmptyState icon={Activity} title="Aucune activité récente" description="Les nouveaux éléments accessibles apparaîtront ici." /> : groups.map((group, groupIndex) => (
+        <section key={group.label} aria-labelledby={`activity-${group.label.replace(/\W/g, "-")}`} className={cn(groupIndex > 0 && "mt-4")}>
+          <h3 id={`activity-${group.label.replace(/\W/g, "-")}`} className="mb-2 border-b border-primary/25 pb-2 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-primary">{group.label}</h3>
           <ul>{group.items.map((item) => { const Icon = item.icon; return (
             <li key={item.id} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border py-3">
               <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/8 text-primary"><Icon className="size-3.5" aria-hidden="true" /></span>

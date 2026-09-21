@@ -48,10 +48,42 @@ async function trouverOuCreerDossier(
 }
 
 /**
+ * Racine documentaire d'une société : un seul dossier racine par société
+ * (parentId=null, societeId=<société>), au même niveau que le "Modèle
+ * générique" du cabinet — jamais un dossier "achat"/"vente" comme racine
+ * directement, sinon chaque catégorie apparaît comme son propre arbre
+ * déconnecté dans l'Organigramme (voir OrganigrammeView : chaque racine est
+ * rendue comme une carte "hero" séparée). Reprend le libellé du modèle
+ * générique du cabinet pour rester cohérent visuellement.
+ */
+async function trouverOuCreerRacineSociete(
+  noeuds: Noeud[],
+  addNoeud: AddNoeud,
+  societeId: string,
+): Promise<Noeud> {
+  const existante = noeuds.find(
+    (n) => n.societeId === societeId && n.parentId === null && n.type === "dossier",
+  );
+  if (existante) return existante;
+
+  const modeleGenerique = noeuds.find(
+    (n) => n.societeId === null && n.parentId === null && n.type === "dossier",
+  );
+  return addNoeud({
+    libelle: modeleGenerique?.libelle ?? "Documents",
+    description: "",
+    type: "dossier",
+    societeId,
+    parentId: null,
+  });
+}
+
+/**
  * Classe un document (facture d'achat ou de vente déjà importée dans un
  * mouvement de stock) dans le module Structuration de la société, sous
- * <achat|vente>/<année de la pièce> — créés à la volée si besoin, jamais de
- * dossier dupliqué à chaque classement (voir `trouverOuCreerDossier`).
+ * <racine société>/<achat|vente>/<année de la pièce> — créés à la volée si
+ * besoin, jamais de dossier dupliqué à chaque classement (voir
+ * `trouverOuCreerDossier`/`trouverOuCreerRacineSociete`).
  * L'année vient directement de la chaîne ISO de la date (pas de Date() +
  * getFullYear(), qui peut décaler d'un jour selon le fuseau — voir la même
  * précaution ailleurs dans l'appli pour les dates de balance).
@@ -75,14 +107,17 @@ export async function classerDansStructuration({
 }): Promise<{ noeud: Noeud; dejaClasse: boolean }> {
   const annee = date && date.length >= 4 ? date.slice(0, 4) : String(new Date().getFullYear());
 
-  const dossierCategorie = await trouverOuCreerDossier(noeuds, addNoeud, {
+  const racine = await trouverOuCreerRacineSociete(noeuds, addNoeud, societeId);
+  const noeudsAvecRacine = noeuds.some((n) => n.id === racine.id) ? noeuds : [...noeuds, racine];
+
+  const dossierCategorie = await trouverOuCreerDossier(noeudsAvecRacine, addNoeud, {
     societeId,
-    parentId: null,
+    parentId: racine.id,
     libelle: categorie,
   });
-  const noeudsAvecCategorie = noeuds.some((n) => n.id === dossierCategorie.id)
-    ? noeuds
-    : [...noeuds, dossierCategorie];
+  const noeudsAvecCategorie = noeudsAvecRacine.some((n) => n.id === dossierCategorie.id)
+    ? noeudsAvecRacine
+    : [...noeudsAvecRacine, dossierCategorie];
   const dossierAnnee = await trouverOuCreerDossier(noeudsAvecCategorie, addNoeud, {
     societeId,
     parentId: dossierCategorie.id,

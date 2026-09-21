@@ -7,6 +7,8 @@ import {
   FileUp,
   Layers,
   Loader2,
+  Plus,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -33,7 +35,8 @@ import { readFileAsDataUrl } from "@/lib/file";
 import { cn } from "@/lib/utils";
 import { useStock, type StockMouvementInput } from "@/store/stock";
 import { useSocieteById } from "@/store/data";
-import type { StockDocType, StockExtractPage, StockMouvement } from "@/types";
+import type { StockChamps, StockDocType, StockExtractPage, StockLigne, StockMouvement } from "@/types";
+import { DocPreviewDialog } from "./DocPreviewDialog";
 
 interface Props {
   open: boolean;
@@ -50,22 +53,16 @@ const empty = (societeId: string): StockMouvementInput => ({
   achatNumFacture: "",
   achatDocType: "",
   fournisseur: "",
-  achatQuantite: 0,
-  achatPu: 0,
-  achatMontantDevise: 0,
   achatDevise: "EUR",
   achatCours: 0,
-  achatMontantTnd: 0,
+  achatLignes: [],
   venteDate: null,
   venteNumFacture: "",
   venteDocType: "",
   client: "",
-  venteQuantite: 0,
-  ventePu: 0,
-  venteMontantDevise: 0,
   venteDevise: "EUR",
   venteCours: 0,
-  venteMontantTnd: 0,
+  venteLignes: [],
   douaneNumDeclaration: "",
   douaneDate: null,
   douaneRegime: "",
@@ -74,6 +71,14 @@ const empty = (societeId: string): StockMouvementInput => ({
   venteDocDataUrl: null,
   douaneDocDataUrl: null,
   note: "",
+});
+
+const ligneVide = (): StockLigne => ({
+  designation: "",
+  quantite: 0,
+  prixUnitaire: 0,
+  montantDevise: 0,
+  montantTnd: 0,
 });
 
 const DOC_FIELD: Record<StockDocType, "achatDocDataUrl" | "venteDocDataUrl" | "douaneDocDataUrl"> = {
@@ -127,6 +132,11 @@ export function StockMouvementFormSheet({
     Record<number, BatchAssignment>
   >({});
   const [batchApplying, setBatchApplying] = useState(false);
+  // Vérification avant application : lecture en grand d'une page du
+  // document complet, avant même de choisir son type — jamais d'application
+  // à l'aveugle sur la seule foi de la petite vignette (voir demande de
+  // l'utilisateur : "prévisualiser vérifier avant importer").
+  const [batchPreview, setBatchPreview] = useState<StockExtractPage | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -165,40 +175,37 @@ export function StockMouvementFormSheet({
     }
   }
 
-  function applyChamps(type: StockDocType, champs: Record<string, string | number>) {
-    const s = (k: string) => (champs[k] != null ? String(champs[k]) : "");
-    const n = (k: string) => (champs[k] !== "" && champs[k] != null ? Number(champs[k]) : 0);
+  function applyChamps(type: StockDocType, champs: StockChamps) {
     if (type === "achat") {
       setV((prev) => ({
         ...prev,
-        achatDate: s("date") || prev.achatDate,
-        achatNumFacture: s("numFacture") || prev.achatNumFacture,
-        fournisseur: s("fournisseur") || prev.fournisseur,
-        natureMarchandise: s("natureMarchandise") || prev.natureMarchandise,
-        achatQuantite: n("quantite") || prev.achatQuantite,
-        achatPu: n("prixUnitaire") || prev.achatPu,
-        achatMontantDevise: n("montantDevise") || prev.achatMontantDevise,
-        achatDevise: s("devise") || prev.achatDevise,
+        achatDate: champs.date || prev.achatDate,
+        achatNumFacture: champs.numFacture || prev.achatNumFacture,
+        fournisseur: champs.fournisseur || prev.fournisseur,
+        // Dossier auto-rempli depuis le 1er produit détecté, seulement s'il
+        // est encore vide — l'utilisateur peut toujours le personnaliser
+        // ensuite (facture à plusieurs produits, ex. « Ciment + Sacs »).
+        natureMarchandise: prev.natureMarchandise || champs.lignes?.[0]?.designation || "",
+        achatDevise: champs.devise || prev.achatDevise,
+        achatLignes: champs.lignes && champs.lignes.length > 0 ? champs.lignes : prev.achatLignes,
       }));
     } else if (type === "vente") {
       setV((prev) => ({
         ...prev,
-        venteDate: s("date") || prev.venteDate,
-        venteNumFacture: s("numFacture") || prev.venteNumFacture,
-        client: s("client") || prev.client,
-        natureMarchandise: s("natureMarchandise") || prev.natureMarchandise,
-        venteQuantite: n("quantite") || prev.venteQuantite,
-        ventePu: n("prixUnitaire") || prev.ventePu,
-        venteMontantDevise: n("montantDevise") || prev.venteMontantDevise,
-        venteDevise: s("devise") || prev.venteDevise,
+        venteDate: champs.date || prev.venteDate,
+        venteNumFacture: champs.numFacture || prev.venteNumFacture,
+        client: champs.client || prev.client,
+        natureMarchandise: prev.natureMarchandise || champs.lignes?.[0]?.designation || "",
+        venteDevise: champs.devise || prev.venteDevise,
+        venteLignes: champs.lignes && champs.lignes.length > 0 ? champs.lignes : prev.venteLignes,
       }));
     } else {
       setV((prev) => ({
         ...prev,
-        douaneNumDeclaration: s("numDeclaration") || prev.douaneNumDeclaration,
-        douaneDate: s("date") || prev.douaneDate,
-        douaneRegime: s("regime") || prev.douaneRegime,
-        douaneReference: s("reference") || prev.douaneReference,
+        douaneNumDeclaration: champs.numDeclaration || prev.douaneNumDeclaration,
+        douaneDate: champs.date || prev.douaneDate,
+        douaneRegime: champs.regime || prev.douaneRegime,
+        douaneReference: champs.reference || prev.douaneReference,
       }));
     }
   }
@@ -298,10 +305,12 @@ export function StockMouvementFormSheet({
     if (!dataUrl || !previewOpen[type]) return null;
     const isImage = dataUrl.startsWith("data:image/");
     return (
-      <div className="space-y-1.5 rounded-md border border-accent/30 bg-accent/5 p-2">
+      // sticky en colonne large : le document reste visible pendant qu'on
+      // défile/corrige les champs à côté, pour comparer sans va-et-vient.
+      <div className="space-y-1.5 rounded-md border border-accent/30 bg-accent/5 p-2 lg:sticky lg:top-0 lg:self-start">
         <div className="flex items-center justify-between px-1">
           <p className="text-xs font-medium text-foreground">
-            Document importé — comparez les chiffres ci-dessus
+            Document importé — comparez les chiffres à gauche
           </p>
           <button
             type="button"
@@ -316,13 +325,13 @@ export function StockMouvementFormSheet({
           <img
             src={dataUrl}
             alt="Document importé"
-            className="mx-auto max-h-96 rounded border border-border object-contain"
+            className="mx-auto max-h-[80vh] w-full rounded border border-border object-contain"
           />
         ) : (
           <iframe
             title="Document importé"
             src={dataUrl}
-            className="h-96 w-full rounded border border-border bg-white"
+            className="h-[80vh] w-full rounded border border-border bg-white"
           />
         )}
       </div>
@@ -330,8 +339,9 @@ export function StockMouvementFormSheet({
   }
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-2xl">
+      <SheetContent side="right" className="sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl">
         <SheetHeader>
           <SheetTitle>
             {isEdit ? "Modifier le mouvement" : "Nouveau mouvement de stock"}
@@ -391,8 +401,9 @@ export function StockMouvementFormSheet({
               <div className="space-y-3 rounded-md border border-border bg-card p-3">
                 <p className="text-xs font-medium text-foreground">
                   {batchPages.length} page{batchPages.length > 1 ? "s" : ""}{" "}
-                  détectée{batchPages.length > 1 ? "s" : ""} — vérifiez le type
-                  de chaque page avant d'appliquer.
+                  détectée{batchPages.length > 1 ? "s" : ""} — cliquez sur une
+                  page pour la lire en grand, vérifiez son type avant
+                  d'appliquer.
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   Le type Achat/Vente est deviné en recherchant le nom «{" "}
@@ -413,11 +424,18 @@ export function StockMouvementFormSheet({
                         )}
                       >
                         {page.imageDataUrl ? (
-                          <img
-                            src={page.imageDataUrl}
-                            alt={`Page ${page.index + 1}`}
-                            className="h-28 w-full rounded border border-border object-cover"
-                          />
+                          <button
+                            type="button"
+                            onClick={() => setBatchPreview(page)}
+                            className="block w-full"
+                            title="Voir la page en grand"
+                          >
+                            <img
+                              src={page.imageDataUrl}
+                              alt={`Page ${page.index + 1}`}
+                              className="h-28 w-full cursor-zoom-in rounded border border-border object-cover transition-opacity hover:opacity-80"
+                            />
+                          </button>
                         ) : (
                           <div className="flex h-28 w-full items-center justify-center rounded border border-border bg-secondary/40">
                             <FileIcon className="h-6 w-6 text-muted-foreground" />
@@ -507,80 +525,61 @@ export function StockMouvementFormSheet({
               <h3 className="text-sm font-semibold text-foreground">Achat</h3>
               <ImportButton type="achat" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Date">
-                <Input
-                  type="date"
-                  value={v.achatDate ?? ""}
-                  onChange={(e) => set("achatDate", e.target.value || null)}
+            <div
+              className={cn(
+                "grid gap-4",
+                v.achatDocDataUrl && previewOpen.achat && "lg:grid-cols-[2fr_3fr]",
+              )}
+            >
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Date">
+                    <Input
+                      type="date"
+                      value={v.achatDate ?? ""}
+                      onChange={(e) => set("achatDate", e.target.value || null)}
+                    />
+                  </Field>
+                  <Field label="N° Facture">
+                    <Input
+                      value={v.achatNumFacture}
+                      onChange={(e) => set("achatNumFacture", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Fournisseur">
+                    <Input
+                      value={v.fournisseur}
+                      onChange={(e) => set("fournisseur", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Type pièce">
+                    <Input
+                      value={v.achatDocType}
+                      onChange={(e) => set("achatDocType", e.target.value)}
+                      placeholder="Facture, avoir…"
+                    />
+                  </Field>
+                  <Field label="Devise">
+                    <Input
+                      value={v.achatDevise}
+                      onChange={(e) => set("achatDevise", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Cours (taux de change)">
+                    <Input
+                      type="number"
+                      value={v.achatCours}
+                      onChange={(e) => set("achatCours", Number(e.target.value) || 0)}
+                    />
+                  </Field>
+                </div>
+                <LignesEditor
+                  lignes={v.achatLignes}
+                  onChange={(lignes) => set("achatLignes", lignes)}
                 />
-              </Field>
-              <Field label="N° Facture">
-                <Input
-                  value={v.achatNumFacture}
-                  onChange={(e) => set("achatNumFacture", e.target.value)}
-                />
-              </Field>
-              <Field label="Fournisseur">
-                <Input
-                  value={v.fournisseur}
-                  onChange={(e) => set("fournisseur", e.target.value)}
-                />
-              </Field>
-              <Field label="Type pièce">
-                <Input
-                  value={v.achatDocType}
-                  onChange={(e) => set("achatDocType", e.target.value)}
-                  placeholder="Facture, avoir…"
-                />
-              </Field>
-              <Field label="Quantité">
-                <Input
-                  type="number"
-                  value={v.achatQuantite}
-                  onChange={(e) => set("achatQuantite", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Prix unitaire">
-                <Input
-                  type="number"
-                  value={v.achatPu}
-                  onChange={(e) => set("achatPu", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Montant devise">
-                <Input
-                  type="number"
-                  value={v.achatMontantDevise}
-                  onChange={(e) =>
-                    set("achatMontantDevise", Number(e.target.value) || 0)
-                  }
-                />
-              </Field>
-              <Field label="Devise">
-                <Input
-                  value={v.achatDevise}
-                  onChange={(e) => set("achatDevise", e.target.value)}
-                />
-              </Field>
-              <Field label="Cours (taux de change)">
-                <Input
-                  type="number"
-                  value={v.achatCours}
-                  onChange={(e) => set("achatCours", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Montant TND">
-                <Input
-                  type="number"
-                  value={v.achatMontantTnd}
-                  onChange={(e) =>
-                    set("achatMontantTnd", Number(e.target.value) || 0)
-                  }
-                />
-              </Field>
+              </div>
+              <DocPreview type="achat" />
             </div>
-            <DocPreview type="achat" />
           </section>
 
           {/* ── Vente ─────────────────────────── */}
@@ -589,77 +588,58 @@ export function StockMouvementFormSheet({
               <h3 className="text-sm font-semibold text-foreground">Vente</h3>
               <ImportButton type="vente" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Date">
-                <Input
-                  type="date"
-                  value={v.venteDate ?? ""}
-                  onChange={(e) => set("venteDate", e.target.value || null)}
+            <div
+              className={cn(
+                "grid gap-4",
+                v.venteDocDataUrl && previewOpen.vente && "lg:grid-cols-[2fr_3fr]",
+              )}
+            >
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Date">
+                    <Input
+                      type="date"
+                      value={v.venteDate ?? ""}
+                      onChange={(e) => set("venteDate", e.target.value || null)}
+                    />
+                  </Field>
+                  <Field label="N° Facture">
+                    <Input
+                      value={v.venteNumFacture}
+                      onChange={(e) => set("venteNumFacture", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Client">
+                    <Input value={v.client} onChange={(e) => set("client", e.target.value)} />
+                  </Field>
+                  <Field label="Type pièce">
+                    <Input
+                      value={v.venteDocType}
+                      onChange={(e) => set("venteDocType", e.target.value)}
+                      placeholder="Facture, avoir (CN)…"
+                    />
+                  </Field>
+                  <Field label="Devise">
+                    <Input
+                      value={v.venteDevise}
+                      onChange={(e) => set("venteDevise", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Cours (taux de change)">
+                    <Input
+                      type="number"
+                      value={v.venteCours}
+                      onChange={(e) => set("venteCours", Number(e.target.value) || 0)}
+                    />
+                  </Field>
+                </div>
+                <LignesEditor
+                  lignes={v.venteLignes}
+                  onChange={(lignes) => set("venteLignes", lignes)}
                 />
-              </Field>
-              <Field label="N° Facture">
-                <Input
-                  value={v.venteNumFacture}
-                  onChange={(e) => set("venteNumFacture", e.target.value)}
-                />
-              </Field>
-              <Field label="Client">
-                <Input value={v.client} onChange={(e) => set("client", e.target.value)} />
-              </Field>
-              <Field label="Type pièce">
-                <Input
-                  value={v.venteDocType}
-                  onChange={(e) => set("venteDocType", e.target.value)}
-                  placeholder="Facture, avoir (CN)…"
-                />
-              </Field>
-              <Field label="Quantité">
-                <Input
-                  type="number"
-                  value={v.venteQuantite}
-                  onChange={(e) => set("venteQuantite", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Prix unitaire">
-                <Input
-                  type="number"
-                  value={v.ventePu}
-                  onChange={(e) => set("ventePu", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Montant devise">
-                <Input
-                  type="number"
-                  value={v.venteMontantDevise}
-                  onChange={(e) =>
-                    set("venteMontantDevise", Number(e.target.value) || 0)
-                  }
-                />
-              </Field>
-              <Field label="Devise">
-                <Input
-                  value={v.venteDevise}
-                  onChange={(e) => set("venteDevise", e.target.value)}
-                />
-              </Field>
-              <Field label="Cours (taux de change)">
-                <Input
-                  type="number"
-                  value={v.venteCours}
-                  onChange={(e) => set("venteCours", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Montant TND">
-                <Input
-                  type="number"
-                  value={v.venteMontantTnd}
-                  onChange={(e) =>
-                    set("venteMontantTnd", Number(e.target.value) || 0)
-                  }
-                />
-              </Field>
+              </div>
+              <DocPreview type="vente" />
             </div>
-            <DocPreview type="vente" />
           </section>
 
           {/* ── Douane ────────────────────────── */}
@@ -668,35 +648,42 @@ export function StockMouvementFormSheet({
               <h3 className="text-sm font-semibold text-foreground">Douane</h3>
               <ImportButton type="douane" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="N° Déclaration">
-                <Input
-                  value={v.douaneNumDeclaration}
-                  onChange={(e) => set("douaneNumDeclaration", e.target.value)}
-                />
-              </Field>
-              <Field label="Date">
-                <Input
-                  type="date"
-                  value={v.douaneDate ?? ""}
-                  onChange={(e) => set("douaneDate", e.target.value || null)}
-                />
-              </Field>
-              <Field label="Régime">
-                <Input
-                  value={v.douaneRegime}
-                  onChange={(e) => set("douaneRegime", e.target.value)}
-                  placeholder="RS, IM4, EX1…"
-                />
-              </Field>
-              <Field label="Référence">
-                <Input
-                  value={v.douaneReference}
-                  onChange={(e) => set("douaneReference", e.target.value)}
-                />
-              </Field>
+            <div
+              className={cn(
+                "grid gap-4",
+                v.douaneDocDataUrl && previewOpen.douane && "lg:grid-cols-[2fr_3fr]",
+              )}
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="N° Déclaration">
+                  <Input
+                    value={v.douaneNumDeclaration}
+                    onChange={(e) => set("douaneNumDeclaration", e.target.value)}
+                  />
+                </Field>
+                <Field label="Date">
+                  <Input
+                    type="date"
+                    value={v.douaneDate ?? ""}
+                    onChange={(e) => set("douaneDate", e.target.value || null)}
+                  />
+                </Field>
+                <Field label="Régime">
+                  <Input
+                    value={v.douaneRegime}
+                    onChange={(e) => set("douaneRegime", e.target.value)}
+                    placeholder="RS, IM4, EX1…"
+                  />
+                </Field>
+                <Field label="Référence">
+                  <Input
+                    value={v.douaneReference}
+                    onChange={(e) => set("douaneReference", e.target.value)}
+                  />
+                </Field>
+              </div>
+              <DocPreview type="douane" />
             </div>
-            <DocPreview type="douane" />
           </section>
 
           <div className="space-y-1.5">
@@ -726,6 +713,14 @@ export function StockMouvementFormSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+
+    <DocPreviewDialog
+      open={Boolean(batchPreview)}
+      onOpenChange={(o) => !o && setBatchPreview(null)}
+      title={batchPreview ? `Page ${batchPreview.index + 1} — à vérifier avant d'appliquer` : ""}
+      dataUrl={batchPreview?.imageDataUrl ?? null}
+    />
+    </>
   );
 }
 
@@ -734,6 +729,99 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+/** Une facture peut lister plusieurs marchandises à des quantités
+ * différentes, pas une seule — une ligne par produit, ajoutée/supprimée
+ * librement (voir aussi ligneVide() et le schéma serveur stock_lignes). */
+function LignesEditor({
+  lignes,
+  onChange,
+}: {
+  lignes: StockLigne[];
+  onChange: (lignes: StockLigne[]) => void;
+}) {
+  function update(i: number, patch: Partial<StockLigne>) {
+    onChange(lignes.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  }
+  function remove(i: number) {
+    onChange(lignes.filter((_, idx) => idx !== i));
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">Produits</Label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onChange([...lignes, ligneVide()])}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Ajouter une ligne
+        </Button>
+      </div>
+      {lignes.length === 0 ? (
+        <p className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          Aucune ligne de produit.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {lignes.map((l, i) => (
+            <div key={i} className="space-y-1.5 rounded-md border border-border p-2">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={l.designation}
+                  onChange={(e) => update(i, { designation: e.target.value })}
+                  placeholder="Désignation"
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  title="Supprimer cette ligne"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                <Field label="Qté">
+                  <Input
+                    type="number"
+                    value={l.quantite}
+                    onChange={(e) => update(i, { quantite: Number(e.target.value) || 0 })}
+                  />
+                </Field>
+                <Field label="Prix unit.">
+                  <Input
+                    type="number"
+                    value={l.prixUnitaire}
+                    onChange={(e) => update(i, { prixUnitaire: Number(e.target.value) || 0 })}
+                  />
+                </Field>
+                <Field label="Mt devise">
+                  <Input
+                    type="number"
+                    value={l.montantDevise}
+                    onChange={(e) => update(i, { montantDevise: Number(e.target.value) || 0 })}
+                  />
+                </Field>
+                <Field label="Mt TND">
+                  <Input
+                    type="number"
+                    value={l.montantTnd}
+                    onChange={(e) => update(i, { montantTnd: Number(e.target.value) || 0 })}
+                  />
+                </Field>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

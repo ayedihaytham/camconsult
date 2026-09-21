@@ -179,48 +179,97 @@ export const bordereauDto = (r) => ({
 
 const num = (v) => (v == null ? 0 : Number(v));
 
-export const stockMouvementDto = (r) => ({
-  id: r.id,
-  societeId: r.societe_id,
-  ordre: r.ordre ?? 0,
-  natureMarchandise: r.nature_marchandise ?? "",
-
-  achatDate: r.achat_date ? dateStr(r.achat_date) : null,
-  achatNumFacture: r.achat_num_facture ?? "",
-  achatDocType: r.achat_doc_type ?? "",
-  fournisseur: r.fournisseur ?? "",
-  achatQuantite: num(r.achat_quantite),
-  achatPu: num(r.achat_pu),
-  achatMontantDevise: num(r.achat_montant_devise),
-  achatDevise: r.achat_devise ?? "EUR",
-  achatCours: num(r.achat_cours),
-  achatMontantTnd: num(r.achat_montant_tnd),
-
-  venteDate: r.vente_date ? dateStr(r.vente_date) : null,
-  venteNumFacture: r.vente_num_facture ?? "",
-  venteDocType: r.vente_doc_type ?? "",
-  client: r.client ?? "",
-  venteQuantite: num(r.vente_quantite),
-  ventePu: num(r.vente_pu),
-  venteMontantDevise: num(r.vente_montant_devise),
-  venteDevise: r.vente_devise ?? "EUR",
-  venteCours: num(r.vente_cours),
-  venteMontantTnd: num(r.vente_montant_tnd),
-
-  douaneNumDeclaration: r.douane_num_declaration ?? "",
-  douaneDate: r.douane_date ? dateStr(r.douane_date) : null,
-  douaneRegime: r.douane_regime ?? "",
-  douaneReference: r.douane_reference ?? "",
-
-  achatDocDataUrl: r.achat_doc_data_url ?? null,
-  venteDocDataUrl: r.vente_doc_data_url ?? null,
-  douaneDocDataUrl: r.douane_doc_data_url ?? null,
-
-  note: r.note ?? "",
-  ecart: Math.round((num(r.achat_quantite) - num(r.vente_quantite)) * 1000) / 1000,
-  creeLe: isoOrNull(r.cree_le),
-  majLe: isoOrNull(r.maj_le),
+const ligneDto = (l) => ({
+  id: l.id,
+  designation: l.designation ?? "",
+  quantite: num(l.quantite),
+  prixUnitaire: num(l.prix_unitaire),
+  montantDevise: num(l.montant_devise),
+  montantTnd: num(l.montant_tnd),
 });
+
+const normDesignation = (s) => (s || "").trim().toLowerCase();
+
+/** Écart par désignation : regroupe les lignes achat/vente d'un même
+ * mouvement par produit (une facture peut en lister plusieurs, avec des
+ * quantités différentes) — un simple total achat - total vente n'aurait pas
+ * de sens si les produits ne sont pas les mêmes des deux côtés. */
+function ecartParDesignation(achatLignes, venteLignes) {
+  const byDesignation = new Map();
+  for (const l of achatLignes) {
+    const key = normDesignation(l.designation);
+    const e = byDesignation.get(key) ?? {
+      designation: l.designation || "(sans désignation)",
+      achatQuantite: 0,
+      venteQuantite: 0,
+    };
+    e.achatQuantite += l.quantite;
+    byDesignation.set(key, e);
+  }
+  for (const l of venteLignes) {
+    const key = normDesignation(l.designation);
+    const e = byDesignation.get(key) ?? {
+      designation: l.designation || "(sans désignation)",
+      achatQuantite: 0,
+      venteQuantite: 0,
+    };
+    e.venteQuantite += l.quantite;
+    byDesignation.set(key, e);
+  }
+  return [...byDesignation.values()]
+    .map((e) => ({ ...e, ecart: Math.round((e.achatQuantite - e.venteQuantite) * 1000) / 1000 }))
+    .sort((a, b) => a.designation.localeCompare(b.designation));
+}
+
+/** `lignes` : toutes les lignes stock_lignes (achat + vente confondues) du
+ * mouvement `r`, triées par ordre — voir server/routes/stock.js. */
+export const stockMouvementDto = (r, lignes = []) => {
+  const achatLignes = lignes
+    .filter((l) => l.categorie === "achat")
+    .map(ligneDto);
+  const venteLignes = lignes
+    .filter((l) => l.categorie === "vente")
+    .map(ligneDto);
+  const sumQ = (arr) => arr.reduce((s, l) => s + l.quantite, 0);
+
+  return {
+    id: r.id,
+    societeId: r.societe_id,
+    ordre: r.ordre ?? 0,
+    natureMarchandise: r.nature_marchandise ?? "",
+
+    achatDate: r.achat_date ? dateStr(r.achat_date) : null,
+    achatNumFacture: r.achat_num_facture ?? "",
+    achatDocType: r.achat_doc_type ?? "",
+    fournisseur: r.fournisseur ?? "",
+    achatDevise: r.achat_devise ?? "EUR",
+    achatCours: num(r.achat_cours),
+    achatLignes,
+
+    venteDate: r.vente_date ? dateStr(r.vente_date) : null,
+    venteNumFacture: r.vente_num_facture ?? "",
+    venteDocType: r.vente_doc_type ?? "",
+    client: r.client ?? "",
+    venteDevise: r.vente_devise ?? "EUR",
+    venteCours: num(r.vente_cours),
+    venteLignes,
+
+    douaneNumDeclaration: r.douane_num_declaration ?? "",
+    douaneDate: r.douane_date ? dateStr(r.douane_date) : null,
+    douaneRegime: r.douane_regime ?? "",
+    douaneReference: r.douane_reference ?? "",
+
+    achatDocDataUrl: r.achat_doc_data_url ?? null,
+    venteDocDataUrl: r.vente_doc_data_url ?? null,
+    douaneDocDataUrl: r.douane_doc_data_url ?? null,
+
+    note: r.note ?? "",
+    ecart: Math.round((sumQ(achatLignes) - sumQ(venteLignes)) * 1000) / 1000,
+    ecartParDesignation: ecartParDesignation(achatLignes, venteLignes),
+    creeLe: isoOrNull(r.cree_le),
+    majLe: isoOrNull(r.maj_le),
+  };
+};
 
 export const balanceLigneDto = (r) => ({
   id: r.id,

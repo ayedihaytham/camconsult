@@ -213,6 +213,26 @@ export const BORDEREAU_VOLET_LABELS: Record<BordereauVolet, string> = {
 };
 
 // ── Gestion de stock (par société) ────────────────
+/** Une ligne de produit d'un mouvement (achat ou vente) — une facture peut
+ * en lister plusieurs, avec des quantités différentes, pas une seule. */
+export interface StockLigne {
+  id?: string;
+  designation: string;
+  quantite: number;
+  prixUnitaire: number;
+  montantDevise: number;
+  montantTnd: number;
+}
+
+/** Écart entre achat et vente pour une même désignation (produit) au sein
+ * d'un mouvement — calculé côté serveur en regroupant les lignes. */
+export interface StockEcartLigne {
+  designation: string;
+  achatQuantite: number;
+  venteQuantite: number;
+  ecart: number;
+}
+
 export interface StockMouvement {
   id: string;
   societeId: string;
@@ -223,23 +243,17 @@ export interface StockMouvement {
   achatNumFacture: string;
   achatDocType: string;
   fournisseur: string;
-  achatQuantite: number;
-  achatPu: number;
-  achatMontantDevise: number;
   achatDevise: string;
   achatCours: number;
-  achatMontantTnd: number;
+  achatLignes: StockLigne[];
 
   venteDate: string | null;
   venteNumFacture: string;
   venteDocType: string;
   client: string;
-  venteQuantite: number;
-  ventePu: number;
-  venteMontantDevise: number;
   venteDevise: string;
   venteCours: number;
-  venteMontantTnd: number;
+  venteLignes: StockLigne[];
 
   douaneNumDeclaration: string;
   douaneDate: string | null;
@@ -252,18 +266,34 @@ export interface StockMouvement {
   douaneDocDataUrl: string | null;
 
   note: string;
-  /** achatQuantite - venteQuantite (calculé côté serveur) */
+  /** Somme(achatLignes.quantite) - somme(venteLignes.quantite), calculé côté serveur */
   ecart: number;
+  /** Le même écart, détaillé par désignation — voir StockEcartLigne */
+  ecartParDesignation: StockEcartLigne[];
   creeLe: string;
   majLe: string;
 }
 
 export type StockDocType = "achat" | "vente" | "douane";
 
+/** Champs extraits d'une page (OCR/IA) pour un type de document donné —
+ * `lignes` seulement pour achat/vente (jamais douane). */
+export interface StockChamps {
+  date?: string;
+  numFacture?: string;
+  fournisseur?: string;
+  client?: string;
+  devise?: string;
+  lignes?: StockLigne[];
+  numDeclaration?: string;
+  regime?: string;
+  reference?: string;
+}
+
 export interface StockExtractResult {
   source: "texte" | "ocr";
   texte: string;
-  champs: Record<string, string | number>;
+  champs: StockChamps;
 }
 
 export type StockDocConfidence = "haute" | "moyenne" | "faible";
@@ -279,7 +309,7 @@ export interface StockExtractPage {
   /** Champs déjà calculés pour les 3 types possibles (voir server/ocr.js) —
    * corriger le type deviné à l'écran n'a besoin d'aucun aller-retour
    * serveur, le bon jeu de champs est toujours prêt. */
-  champsByType: Record<StockDocType, Record<string, string | number>>;
+  champsByType: Record<StockDocType, StockChamps>;
 }
 
 // ── États financiers : balance par société/exercice, reclassée par

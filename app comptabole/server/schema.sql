@@ -169,9 +169,15 @@ create table if not exists bordereau_lignes (
   remarque     text not null default ''
 );
 
--- Gestion de stock (par société) : une ligne = un mouvement achat + vente
--- appariés, avec écart de quantité (doit tendre vers 0 — régime suspensif
--- douanier : tout ce qui est acheté doit être revendu/réexporté).
+-- Gestion de stock (par société) : une ligne = un mouvement (dossier)
+-- achat + vente appariés. Une facture pouvant lister plusieurs
+-- marchandises/quantités, le détail produit vit dans stock_lignes
+-- (ci-dessous) ; l'écart (doit tendre vers 0 — régime suspensif douanier :
+-- tout ce qui est acheté doit être revendu/réexporté) se calcule par
+-- désignation à partir de ces lignes, pas des colonnes achat_quantite/
+-- vente_quantite ci-dessous, conservées uniquement pour ne pas perdre les
+-- mouvements saisis avant l'introduction de stock_lignes (voir migration
+-- plus bas) — plus lues ni écrites par l'application.
 create table if not exists stock_mouvements (
   id                    uuid primary key default gen_random_uuid(),
   societe_id            uuid not null references societes(id) on delete cascade,
@@ -218,6 +224,44 @@ create table if not exists stock_mouvements (
 alter table stock_mouvements add column if not exists achat_doc_data_url text;
 alter table stock_mouvements add column if not exists vente_doc_data_url text;
 alter table stock_mouvements add column if not exists douane_doc_data_url text;
+
+-- Lignes de produits d'un mouvement (plusieurs par mouvement, achat ET
+-- vente séparément) : une facture liste souvent plusieurs marchandises à
+-- des quantités différentes, pas une seule (voir commentaire sur
+-- stock_mouvements). L'écart se calcule côté application en regroupant les
+-- lignes achat/vente par désignation.
+create table if not exists stock_lignes (
+  id                uuid primary key default gen_random_uuid(),
+  mouvement_id      uuid not null references stock_mouvements(id) on delete cascade,
+  categorie         text not null check (categorie in ('achat', 'vente')),
+  ordre             int not null default 0,
+  designation       text not null default '',
+  quantite          numeric not null default 0,
+  prix_unitaire     numeric not null default 0,
+  montant_devise    numeric not null default 0,
+  montant_tnd       numeric not null default 0
+);
+create index if not exists stock_lignes_mouvement_idx on stock_lignes(mouvement_id, categorie, ordre);
+
+-- Migration ponctuelle et idempotente : reprend, pour les mouvements déjà
+-- saisis avant l'introduction de stock_lignes, les anciennes colonnes
+-- scalaires achat_*/vente_* de stock_mouvements en une ligne stock_lignes —
+-- jamais réexécutée pour un mouvement qui a déjà au moins une ligne de
+-- cette catégorie (where not exists), donc sûre à rejouer à chaque
+-- déploiement sans dupliquer quoi que ce soit.
+insert into stock_lignes (mouvement_id, categorie, ordre, designation, quantite, prix_unitaire, montant_devise, montant_tnd)
+select m.id, 'achat', 0, m.nature_marchandise, m.achat_quantite, m.achat_pu, m.achat_montant_devise, m.achat_montant_tnd
+from stock_mouvements m
+where (m.achat_quantite <> 0 or m.achat_montant_devise <> 0 or m.achat_montant_tnd <> 0
+       or m.achat_num_facture <> '' or m.fournisseur <> '' or m.achat_doc_data_url is not null)
+  and not exists (select 1 from stock_lignes l where l.mouvement_id = m.id and l.categorie = 'achat');
+
+insert into stock_lignes (mouvement_id, categorie, ordre, designation, quantite, prix_unitaire, montant_devise, montant_tnd)
+select m.id, 'vente', 0, m.nature_marchandise, m.vente_quantite, m.vente_pu, m.vente_montant_devise, m.vente_montant_tnd
+from stock_mouvements m
+where (m.vente_quantite <> 0 or m.vente_montant_devise <> 0 or m.vente_montant_tnd <> 0
+       or m.vente_num_facture <> '' or m.client <> '' or m.vente_doc_data_url is not null)
+  and not exists (select 1 from stock_lignes l where l.mouvement_id = m.id and l.categorie = 'vente');
 
 -- Notifications in-app : un enregistrement par destinataire.
 -- user_key = 'admin' pour le responsable du cabinet, sinon l'uuid de l'employé.

@@ -17,7 +17,21 @@ function aiAvailable() {
   return openrouterAvailable() || claudeAvailable();
 }
 async function aiExtractPage(params) {
-  if (openrouterAvailable()) return openrouterExtractPage(params);
+  if (openrouterAvailable()) {
+    try {
+      return await openrouterExtractPage(params);
+    } catch (err) {
+      // Échec à l'exécution (ex. 402 crédits insuffisants) : bascule sur
+      // Claude s'il est configuré, plutôt que de tomber directement sur
+      // l'OCR local — la clé Claude reste sinon inutilisée dès qu'OpenRouter
+      // est configuré, même quand elle a des crédits valides. On ne retombe
+      // sur l'OCR local (dans extractPages, plus bas) que si Claude échoue
+      // aussi ou n'est pas configuré.
+      if (!claudeAvailable()) throw err;
+      console.error(`[ocr] OpenRouter en échec, tentative Claude : ${err.message}`);
+      return claudeExtractPage(params);
+    }
+  }
   return claudeExtractPage(params);
 }
 
@@ -485,7 +499,7 @@ const TOTAL_HEADER_RE = /total|montant/i;
  * `lines` vient de l'OCR (voir ocrImage) ; absent pour un PDF texte natif
  * (pas de bbox) — on retombe alors sur `parseTableRow` (texte à plat).
  */
-function parseTableRowByPosition(lines) {
+function parseTableRowsByPosition(lines) {
   if (!lines || lines.length === 0) return null;
   const headerIdx = lines.findIndex(
     (l) => DESC_HEADER_RE.test(l.text) && QTY_HEADER_RE.test(l.text),
@@ -519,7 +533,11 @@ function parseTableRowByPosition(lines) {
   const columnFor = (x0) => bounds.find((b) => x0 >= b.from && x0 < b.to)?.role ?? null;
 
   const numRe = new RegExp(NUM_CELL, "g");
-  for (let i = headerIdx + 1; i < Math.min(lines.length, headerIdx + 8); i++) {
+  // Jusqu'à 20 lignes de produits sous l'en-tête (une facture peut lister
+  // plusieurs marchandises, pas une seule) — borné pour ne pas dériver dans
+  // le reste du document si le repère de fin de tableau n'est pas reconnu.
+  const rows = [];
+  for (let i = headerIdx + 1; i < Math.min(lines.length, headerIdx + 21); i++) {
     const line = lines[i];
     if (/^(total|sous[\s-]?total|tva|remise)\b/i.test(line.text)) break;
     if (!line.words?.length) continue;
@@ -534,14 +552,14 @@ function parseTableRowByPosition(lines) {
     if (!nom && !qtyNum) continue;
     if (!qtyNum) continue;
 
-    return {
+    rows.push({
       nom,
       quantite: qtyNum,
       prixUnitaire: cells.price.join(" ").match(numRe)?.[0],
       montant: cells.total.join(" ").match(numRe)?.[0],
-    };
+    });
   }
-  return null;
+  return rows;
 }
 
 /**
@@ -554,7 +572,7 @@ function parseTableRowByPosition(lines) {
  * « Quantity | Unit | Designation | Unit Price » met la quantité avant —
  * déduit de la ligne d'en-tête elle-même plutôt que supposé fixe.
  */
-function parseTableRow(text) {
+function parseTableRowsByText(text) {
   const lines = text
     .split("\n")
     .map((l) => l.trim())
@@ -568,7 +586,8 @@ function parseTableRow(text) {
   const qtyFirst = header.search(QTY_HEADER_RE) < header.search(DESC_HEADER_RE);
 
   const numRe = new RegExp(NUM_CELL, "g");
-  for (let i = headerIdx + 1; i < Math.min(lines.length, headerIdx + 8); i++) {
+  const rows = [];
+  for (let i = headerIdx + 1; i < Math.min(lines.length, headerIdx + 21); i++) {
     const line = lines[i];
     if (/^(total|sous[\s-]?total|tva|remise)\b/i.test(line)) break;
     const nums = [...line.matchAll(numRe)];
@@ -586,25 +605,26 @@ function parseTableRow(text) {
         .replace(/[€$]/g, "")
         .replace(/\s{2,}/g, " ")
         .trim();
-      return {
+      rows.push({
         nom,
         quantite: nums[0][0],
         prixUnitaire: nums[nums.length - 2]?.[0] ?? nums[0][0],
         montant: nums[nums.length - 1][0],
-      };
+      });
+      continue;
     }
 
     const firstNumAt = line.search(/-?\d/);
     const nom = line.slice(0, firstNumAt).trim().replace(/[\s.:\-]+$/, "");
     if (!nom) continue;
-    return {
+    rows.push({
       nom,
       quantite: nums[0][0],
       prixUnitaire: nums[1][0],
       montant: nums[nums.length - 1][0],
-    };
+    });
   }
-  return null;
+  return rows;
 }
 
 // Doit démarrer par un nombre (la quantité), finir par 1 ou 2 nombres (prix
@@ -799,66 +819,81 @@ export function parseFields(text, type, lines = []) {
     /invoice\s*(?:n[°o]|number)?\s*[:\s]\s*(?!\d{1,2}[\/\-.]\d{1,2}[\/\-.])(?=[A-Z0-9\-\/]*\d)([A-Z0-9][A-Z0-9\-\/]{1,})/i,
   ]);
 
-  // Par position réelle des mots (fiable) d'abord, texte-à-plat en filet de
-  // sécurité seulement (PDF texte natif, ou bbox indisponible).
-  const table =
-    parseTableRowByPosition(lines) ?? parseTableRow(t) ?? parseTableRowByShape(t);
-
-  const quantite = toNumber(
-    firstMatch(t, [
-      new RegExp(String.raw`qu?an?tit[ée]\s*[:\s]\s*(${NUM})`, "i"),
-      new RegExp(String.raw`qty\s*[:\s]\s*(${NUM})`, "i"),
-    ]) || table?.quantite,
-  );
-
-  let prixUnitaire = toNumber(
-    firstMatch(t, [
-      new RegExp(String.raw`p\.?u\.?\s*(?:ht)?\s*[:\s]\s*(${NUM})`, "i"),
-      new RegExp(String.raw`prix\s*unitaire\s*[:\s]\s*(${NUM})`, "i"),
-    ]) || table?.prixUnitaire,
-  );
-
   const devise = firstMatch(t, [/\b(EUR|USD|TND|GBP)\b/]) || "EUR";
 
-  let montant = toNumber(
-    firstMatch(t, [
-      new RegExp(String.raw`total\s*ttc\s*[:\s]\s*(${NUM})`, "i"),
-      new RegExp(String.raw`montant\s*(?:total)?\s*ttc\s*[:\s]\s*(${NUM})`, "i"),
-      new RegExp(String.raw`total\s*ht\s*[:\s]\s*(${NUM})`, "i"),
-      new RegExp(String.raw`montant\s*(?:total)?\s*[:\s]\s*(${NUM})`, "i"),
-    ]) || table?.montant,
-  );
-  // Filets de sécurité : quantité × prix unitaire = montant est presque
-  // toujours vrai sur une ligne de facture — si l'un des trois manque alors
-  // que les deux autres sont connus, on le déduit plutôt que de remonter un
-  // zéro trompeur (ex. total à séparateur de milliers mal découpé, ou
-  // colonne prix unitaire absente de ce document).
-  if (!montant && quantite && prixUnitaire) {
-    montant = Math.round(quantite * prixUnitaire * 100) / 100;
-  }
-  // Dernier recours : le montant en toutes lettres (« Fifty-two thousand
-  // EUROS », « TOTAL AMOUNT: FIFTY-THREE THOUSAND EURO ») — courant sur les
-  // factures internationales, et l'OCR le lit souvent bien mieux qu'un
-  // tableau chiffré dense (police fine, bordures) qui peut ressortir
-  // totalement illisible.
-  if (!montant) {
-    const lettres = firstMatch(t, [MONTANT_LETTRES_RE]);
-    if (lettres) montant = wordsToNumber(lettres) || 0;
-  }
-  if (!prixUnitaire && quantite && montant) {
-    prixUnitaire = Math.round((montant / quantite) * 100) / 100;
-  }
+  // Par position réelle des mots (fiable) d'abord, texte-à-plat en filet de
+  // sécurité seulement (PDF texte natif, ou bbox indisponible) — une facture
+  // peut lister plusieurs marchandises/quantités, pas une seule.
+  const tableRows = parseTableRowsByPosition(lines) ?? parseTableRowsByText(t) ?? [];
 
-  // priorité à la ligne de tableau (fiable) — sinon étiquette libre
-  // (« Désignation : X » sur une seule ligne, hors tableau).
-  const nature =
-    table?.nom ||
-    firstMatch(t, [
-      /d[ée]signation\s*[:\s]\s*([^\n]{3,60})/i,
-      /marchandise\s*[:\s]\s*([^\n]{3,60})/i,
-      /article\s*[:\s]\s*([^\n]{3,60})/i,
-    ]) ||
-    "";
+  let lignes = tableRows
+    .map((r) => {
+      const q = toNumber(r.quantite) || 0;
+      let pu = toNumber(r.prixUnitaire) || 0;
+      let mt = toNumber(r.montant) || 0;
+      // quantité × prix unitaire = montant est presque toujours vrai sur une
+      // ligne de facture — si l'un des trois manque, on le déduit plutôt que
+      // de remonter un zéro trompeur.
+      if (!mt && q && pu) mt = Math.round(q * pu * 100) / 100;
+      if (!pu && q && mt) pu = Math.round((mt / q) * 100) / 100;
+      return { designation: (r.nom || "").trim(), quantite: q, prixUnitaire: pu, montantDevise: mt };
+    })
+    .filter((l) => l.designation || l.quantite || l.montantDevise);
+
+  // Filet de sécurité : aucune ligne de tableau reconnue — best-effort sur
+  // une seule ligne (étiquette libre « Désignation : X », montant en toutes
+  // lettres…), comme avant la prise en charge du multi-lignes.
+  if (lignes.length === 0) {
+    const shapeRow = parseTableRowByShape(t);
+    const quantite = toNumber(
+      shapeRow?.quantite ||
+      firstMatch(t, [
+        new RegExp(String.raw`qu?an?tit[ée]\s*[:\s]\s*(${NUM})`, "i"),
+        new RegExp(String.raw`qty\s*[:\s]\s*(${NUM})`, "i"),
+      ]),
+    ) || 0;
+    let prixUnitaire = toNumber(
+      shapeRow?.prixUnitaire ||
+      firstMatch(t, [
+        new RegExp(String.raw`p\.?u\.?\s*(?:ht)?\s*[:\s]\s*(${NUM})`, "i"),
+        new RegExp(String.raw`prix\s*unitaire\s*[:\s]\s*(${NUM})`, "i"),
+      ]),
+    ) || 0;
+    let montantDevise = toNumber(
+      shapeRow?.montant ||
+      firstMatch(t, [
+        new RegExp(String.raw`total\s*ttc\s*[:\s]\s*(${NUM})`, "i"),
+        new RegExp(String.raw`montant\s*(?:total)?\s*ttc\s*[:\s]\s*(${NUM})`, "i"),
+        new RegExp(String.raw`total\s*ht\s*[:\s]\s*(${NUM})`, "i"),
+        new RegExp(String.raw`montant\s*(?:total)?\s*[:\s]\s*(${NUM})`, "i"),
+      ]),
+    ) || 0;
+    if (!montantDevise && quantite && prixUnitaire) {
+      montantDevise = Math.round(quantite * prixUnitaire * 100) / 100;
+    }
+    // Dernier recours : le montant en toutes lettres (« Fifty-two thousand
+    // EUROS », « TOTAL AMOUNT: FIFTY-THREE THOUSAND EURO ») — courant sur les
+    // factures internationales, et l'OCR le lit souvent bien mieux qu'un
+    // tableau chiffré dense (police fine, bordures) qui peut ressortir
+    // totalement illisible.
+    if (!montantDevise) {
+      const lettres = firstMatch(t, [MONTANT_LETTRES_RE]);
+      if (lettres) montantDevise = wordsToNumber(lettres) || 0;
+    }
+    if (!prixUnitaire && quantite && montantDevise) {
+      prixUnitaire = Math.round((montantDevise / quantite) * 100) / 100;
+    }
+    const designation =
+      (shapeRow?.nom || "").trim() ||
+      firstMatch(t, [
+        /d[ée]signation\s*[:\s]\s*([^\n]{3,60})/i,
+        /marchandise\s*[:\s]\s*([^\n]{3,60})/i,
+        /article\s*[:\s]\s*([^\n]{3,60})/i,
+      ]);
+    if (designation || quantite || montantDevise) {
+      lignes = [{ designation, quantite, prixUnitaire, montantDevise }];
+    }
+  }
 
   if (type === "achat") {
     const fournisseur =
@@ -871,16 +906,7 @@ export function parseFields(text, type, lines = []) {
       ]) ||
       valueAfterLabelLine(t, /^payable\s*[àa]\s*:?$/i) ||
       guessCompanyName(t);
-    return {
-      date,
-      numFacture,
-      fournisseur,
-      natureMarchandise: nature,
-      quantite,
-      prixUnitaire,
-      montantDevise: montant,
-      devise,
-    };
+    return { date, numFacture, fournisseur, devise, lignes };
   }
 
   if (type === "vente") {
@@ -893,16 +919,7 @@ export function parseFields(text, type, lines = []) {
       ]) ||
       valueAfterLabelLine(t, /^factur(?:er|é|e)\s*[àa]\s*:?$/i) ||
       guessCompanyName(t);
-    return {
-      date,
-      numFacture,
-      client,
-      natureMarchandise: nature,
-      quantite,
-      prixUnitaire,
-      montantDevise: montant,
-      devise,
-    };
+    return { date, numFacture, client, devise, lignes };
   }
 
   // douane
@@ -919,6 +936,5 @@ export function parseFields(text, type, lines = []) {
     date,
     regime: firstMatch(t, [/r[ée]gime\s*[:\s]\s*([^\n]{2,40})/i]),
     reference: firstMatch(t, [/r[ée]f[ée]rence\s*[:\s]\s*([^\n]{2,60})/i]),
-    quantite,
   };
 }

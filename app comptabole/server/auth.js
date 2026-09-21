@@ -77,7 +77,7 @@ export async function sessionFromToken(payload) {
     lectureSeule: isSocieteEmp,
     employeId: e.id,
     nom,
-    fonction: isSocieteEmp ? "Employé de société" : e.type,
+    fonction: isSocieteEmp ? "Responsable de société" : e.type,
     initiales: initials(nom),
     cabinetNom: meta?.admin_nom ?? "Cabinet",
     cabinetDerniereConnexion: meta?.last_login

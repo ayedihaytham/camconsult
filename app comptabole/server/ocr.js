@@ -113,16 +113,20 @@ export async function extractPages(dataUrl, raisonSociale) {
 
   if (mime.startsWith("image/")) {
     if (useAI) {
-      const out = await aiExtractPage({ imageDataUrl: dataUrl, raisonSociale });
-      return [
-        {
-          index: 0,
-          imageDataUrl: dataUrl,
-          champsByType: champsByTypeFromClaude(out),
-          type: out.type,
-          confidence: out.confidence,
-        },
-      ];
+      try {
+        const out = await aiExtractPage({ imageDataUrl: dataUrl, raisonSociale });
+        return [
+          {
+            index: 0,
+            imageDataUrl: dataUrl,
+            champsByType: champsByTypeFromClaude(out),
+            type: out.type,
+            confidence: out.confidence,
+          },
+        ];
+      } catch (err) {
+        console.error("[ocr] extraction IA en échec, repli sur l'OCR local :", err.message);
+      }
     }
     const { text: texte, lines } = await ocrImage(buffer);
     return [
@@ -143,17 +147,21 @@ export async function extractPages(dataUrl, raisonSociale) {
   const hasText = textPages.some((t) => t.trim().length > 20);
   if (hasText) {
     if (useAI) {
-      const pages = [];
-      for (let index = 0; index < textPages.length; index++) {
-        const texte = textPages[index];
-        if (texte.trim().length < 20) {
-          pages.push({ index, imageDataUrl: null, champsByType: champsByTypeVide(), type: null, confidence: "faible" });
-          continue;
+      try {
+        const pages = [];
+        for (let index = 0; index < textPages.length; index++) {
+          const texte = textPages[index];
+          if (texte.trim().length < 20) {
+            pages.push({ index, imageDataUrl: null, champsByType: champsByTypeVide(), type: null, confidence: "faible" });
+            continue;
+          }
+          const out = await aiExtractPage({ texte, raisonSociale });
+          pages.push({ index, imageDataUrl: null, champsByType: champsByTypeFromClaude(out), type: out.type, confidence: out.confidence });
         }
-        const out = await aiExtractPage({ texte, raisonSociale });
-        pages.push({ index, imageDataUrl: null, champsByType: champsByTypeFromClaude(out), type: out.type, confidence: out.confidence });
+        return pages;
+      } catch (err) {
+        console.error("[ocr] extraction IA en échec (page texte), repli sur l'OCR local pour tout le document :", err.message);
       }
-      return pages;
     }
     return textPages.map((texte, index) => ({
       index,
@@ -168,35 +176,45 @@ export async function extractPages(dataUrl, raisonSociale) {
   // API est configurée) ou OCR local (tesseract + heuristiques) en repli.
   const rastered = await rasterizeAllPages(buffer);
   const pages = [];
+  // Une fois l'IA en échec sur une page (quota épuisé, panne réseau...), il
+  // est inutile de retenter sur les pages suivantes de ce même document —
+  // même cause, même échec garanti — mais les pages déjà traitées avec
+  // succès avant la panne gardent leur résultat, pas de reprise à zéro.
+  let aiBroken = !useAI;
   for (const { index, png } of rastered) {
     const imageDataUrl = `data:image/png;base64,${png.toString("base64")}`;
 
-    if (useAI) {
-      let out = await aiExtractPage({ imageDataUrl, raisonSociale });
-      let finalImage = imageDataUrl;
-      // Même repasse haute résolution que l'ancien pipeline local pour la
-      // page douane (grille serrée) — un fournisseur IA lit bien mieux
-      // l'image que tesseract, mais une repasse à 400 DPI reste utile quand
-      // le numéro de déclaration n'est toujours pas lisible à 200 DPI.
-      if (out.type === "douane" && !out.numDeclaration) {
-        const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
-        if (hiRes) {
-          const hiResDataUrl = `data:image/png;base64,${hiRes.toString("base64")}`;
-          const retry = await aiExtractPage({ imageDataUrl: hiResDataUrl, raisonSociale });
-          if (retry.numDeclaration) {
-            out = retry;
-            finalImage = hiResDataUrl;
+    if (!aiBroken) {
+      try {
+        let out = await aiExtractPage({ imageDataUrl, raisonSociale });
+        let finalImage = imageDataUrl;
+        // Même repasse haute résolution que l'ancien pipeline local pour la
+        // page douane (grille serrée) — un fournisseur IA lit bien mieux
+        // l'image que tesseract, mais une repasse à 400 DPI reste utile quand
+        // le numéro de déclaration n'est toujours pas lisible à 200 DPI.
+        if (out.type === "douane" && !out.numDeclaration) {
+          const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
+          if (hiRes) {
+            const hiResDataUrl = `data:image/png;base64,${hiRes.toString("base64")}`;
+            const retry = await aiExtractPage({ imageDataUrl: hiResDataUrl, raisonSociale });
+            if (retry.numDeclaration) {
+              out = retry;
+              finalImage = hiResDataUrl;
+            }
           }
         }
+        pages.push({
+          index,
+          imageDataUrl: finalImage,
+          champsByType: champsByTypeFromClaude(out),
+          type: out.type,
+          confidence: out.confidence,
+        });
+        continue;
+      } catch (err) {
+        aiBroken = true;
+        console.error(`[ocr] extraction IA en échec (page ${index}), repli sur l'OCR local pour cette page et les suivantes :`, err.message);
       }
-      pages.push({
-        index,
-        imageDataUrl: finalImage,
-        champsByType: champsByTypeFromClaude(out),
-        type: out.type,
-        confidence: out.confidence,
-      });
-      continue;
     }
 
     let imagePng = png;

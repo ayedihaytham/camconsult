@@ -54,14 +54,14 @@ const VUE_OPTIONS: { value: Vue; label: string }[] = [
   { value: "actif", label: "Bilan Actif" },
   { value: "passif", label: "Bilan Passif" },
   { value: "resultat", label: "Etat de résultat" },
-  { value: "sig", label: "SIG" },
-  { value: "synthese", label: "Synthèse AFFECTAT" },
+  { value: "flux", label: "Flux de trésorerie" },
+  { value: "notes", label: "Notes" },
   { value: "immo", label: "TAB VAR Immob" },
   { value: "registre", label: "Registre immobilisations" },
-  { value: "flux", label: "Flux de trésorerie" },
+  { value: "sig", label: "SIG" },
   { value: "tdrf", label: "TDRF" },
   { value: "controle", label: "Contrôle" },
-  { value: "notes", label: "Notes" },
+  { value: "synthese", label: "Synthèse AFFECTAT" },
 ];
 
 export function BalancesListPage() {

@@ -17,7 +17,21 @@ function aiAvailable() {
   return openrouterAvailable() || claudeAvailable();
 }
 async function aiExtractPage(params) {
-  if (openrouterAvailable()) return openrouterExtractPage(params);
+  if (openrouterAvailable()) {
+    try {
+      return await openrouterExtractPage(params);
+    } catch (err) {
+      // Échec à l'exécution (ex. 402 crédits insuffisants) : bascule sur
+      // Claude s'il est configuré, plutôt que de tomber directement sur
+      // l'OCR local — la clé Claude reste sinon inutilisée dès qu'OpenRouter
+      // est configuré, même quand elle a des crédits valides. On ne retombe
+      // sur l'OCR local (dans extractPages, plus bas) que si Claude échoue
+      // aussi ou n'est pas configuré.
+      if (!claudeAvailable()) throw err;
+      console.error(`[ocr] OpenRouter en échec, tentative Claude : ${err.message}`);
+      return claudeExtractPage(params);
+    }
+  }
   return claudeExtractPage(params);
 }
 

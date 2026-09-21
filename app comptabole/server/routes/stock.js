@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { query } from "../db.js";
+import { query, withTransaction } from "../db.js";
 import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { stockMouvementDto } from "../mappers.js";
@@ -19,6 +19,16 @@ function canAccess(session, societeId) {
 const num = z.coerce.number().default(0);
 const dateStr = z.string().nullish();
 
+// Une facture peut lister plusieurs marchandises/quantités, pas une seule —
+// voir stock_lignes (schema.sql) et le commentaire sur stockMouvementDto.
+const ligneSchema = z.object({
+  designation: z.string().default(""),
+  quantite: num,
+  prixUnitaire: num,
+  montantDevise: num,
+  montantTnd: num,
+});
+
 const schema = z.object({
   societeId: z.string().uuid(),
   natureMarchandise: z.string().default(""),
@@ -27,23 +37,17 @@ const schema = z.object({
   achatNumFacture: z.string().default(""),
   achatDocType: z.string().default(""),
   fournisseur: z.string().default(""),
-  achatQuantite: num,
-  achatPu: num,
-  achatMontantDevise: num,
   achatDevise: z.string().default("EUR"),
   achatCours: num,
-  achatMontantTnd: num,
+  achatLignes: z.array(ligneSchema).default([]),
 
   venteDate: dateStr,
   venteNumFacture: z.string().default(""),
   venteDocType: z.string().default(""),
   client: z.string().default(""),
-  venteQuantite: num,
-  ventePu: num,
-  venteMontantDevise: num,
   venteDevise: z.string().default("EUR"),
   venteCours: num,
-  venteMontantTnd: num,
+  venteLignes: z.array(ligneSchema).default([]),
 
   douaneNumDeclaration: z.string().default(""),
   douaneDate: dateStr,
@@ -57,12 +61,12 @@ const schema = z.object({
   note: z.string().default(""),
 });
 
+// Colonnes "en-tête" de stock_mouvements — le détail produit (quantité, PU,
+// montants) vit dans stock_lignes, jamais ici (voir replaceLignes).
 const COL_NAMES = [
   "societe_id", "nature_marchandise",
-  "achat_date", "achat_num_facture", "achat_doc_type", "fournisseur", "achat_quantite", "achat_pu",
-  "achat_montant_devise", "achat_devise", "achat_cours", "achat_montant_tnd",
-  "vente_date", "vente_num_facture", "vente_doc_type", "client", "vente_quantite", "vente_pu",
-  "vente_montant_devise", "vente_devise", "vente_cours", "vente_montant_tnd",
+  "achat_date", "achat_num_facture", "achat_doc_type", "fournisseur", "achat_devise", "achat_cours",
+  "vente_date", "vente_num_facture", "vente_doc_type", "client", "vente_devise", "vente_cours",
   "douane_num_declaration", "douane_date", "douane_regime", "douane_reference",
   "achat_doc_data_url", "vente_doc_data_url", "douane_doc_data_url",
   "note",
@@ -71,14 +75,38 @@ const COL_NAMES = [
 function values(v) {
   return [
     v.societeId, v.natureMarchandise,
-    v.achatDate || null, v.achatNumFacture, v.achatDocType, v.fournisseur, v.achatQuantite, v.achatPu,
-    v.achatMontantDevise, v.achatDevise, v.achatCours, v.achatMontantTnd,
-    v.venteDate || null, v.venteNumFacture, v.venteDocType, v.client, v.venteQuantite, v.ventePu,
-    v.venteMontantDevise, v.venteDevise, v.venteCours, v.venteMontantTnd,
+    v.achatDate || null, v.achatNumFacture, v.achatDocType, v.fournisseur, v.achatDevise, v.achatCours,
+    v.venteDate || null, v.venteNumFacture, v.venteDocType, v.client, v.venteDevise, v.venteCours,
     v.douaneNumDeclaration, v.douaneDate || null, v.douaneRegime, v.douaneReference,
     v.achatDocDataUrl || null, v.venteDocDataUrl || null, v.douaneDocDataUrl || null,
     v.note,
   ];
+}
+
+/** Remplace toutes les lignes d'une catégorie (achat ou vente) d'un
+ * mouvement : supprime puis réinsère dans l'ordre donné — plus simple et
+ * plus sûr que de diffier ligne à ligne (id présents ou non, réordre…). */
+async function replaceLignes(client, mouvementId, categorie, lignes) {
+  await client.query(
+    "delete from stock_lignes where mouvement_id = $1 and categorie = $2",
+    [mouvementId, categorie],
+  );
+  for (let i = 0; i < lignes.length; i++) {
+    const l = lignes[i];
+    await client.query(
+      `insert into stock_lignes (mouvement_id, categorie, ordre, designation, quantite, prix_unitaire, montant_devise, montant_tnd)
+       values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [mouvementId, categorie, i, l.designation, l.quantite, l.prixUnitaire, l.montantDevise, l.montantTnd],
+    );
+  }
+}
+
+async function lignesOf(mouvementId) {
+  const { rows } = await query(
+    "select * from stock_lignes where mouvement_id = $1 order by ordre",
+    [mouvementId],
+  );
+  return rows;
 }
 
 stockRouter.get("/mouvements", async (req, res) => {
@@ -90,7 +118,17 @@ stockRouter.get("/mouvements", async (req, res) => {
     "select * from stock_mouvements where societe_id = $1 order by ordre, cree_le",
     [societeId],
   );
-  res.json(rows.map(stockMouvementDto));
+  const { rows: lignes } = await query(
+    "select * from stock_lignes where mouvement_id = any($1::uuid[]) order by ordre",
+    [rows.map((r) => r.id)],
+  );
+  const lignesByMouvement = new Map();
+  for (const l of lignes) {
+    const arr = lignesByMouvement.get(l.mouvement_id) ?? [];
+    arr.push(l);
+    lignesByMouvement.set(l.mouvement_id, arr);
+  }
+  res.json(rows.map((r) => stockMouvementDto(r, lignesByMouvement.get(r.id) ?? [])));
 });
 
 stockRouter.post("/mouvements", async (req, res) => {
@@ -113,19 +151,25 @@ stockRouter.post("/mouvements", async (req, res) => {
 
   const allCols = [...COL_NAMES, "ordre"];
   const allVals = [...values(v), ordreRows[0].n];
-  const { rows } = await query(
-    `insert into stock_mouvements (${allCols.join(", ")})
-     values (${allVals.map((_, i) => `$${i + 1}`).join(", ")})
-     returning *`,
-    allVals,
-  );
+  const row = await withTransaction(async (client) => {
+    const { rows } = await client.query(
+      `insert into stock_mouvements (${allCols.join(", ")})
+       values (${allVals.map((_, i) => `$${i + 1}`).join(", ")})
+       returning *`,
+      allVals,
+    );
+    await replaceLignes(client, rows[0].id, "achat", v.achatLignes);
+    await replaceLignes(client, rows[0].id, "vente", v.venteLignes);
+    return rows[0];
+  });
+
   logAction(
     req.session.nom,
     "creation",
     "stock",
     `${v.natureMarchandise || "Mouvement"} — ${soc.raison_sociale}`,
   );
-  res.status(201).json(stockMouvementDto(rows[0]));
+  res.status(201).json(stockMouvementDto(row, await lignesOf(row.id)));
 });
 
 stockRouter.patch("/mouvements/:id", async (req, res) => {
@@ -139,7 +183,8 @@ stockRouter.patch("/mouvements/:id", async (req, res) => {
   const merged = schema.partial().safeParse(req.body);
   if (!merged.success)
     return res.status(400).json({ error: merged.error.issues[0].message });
-  const v = { ...stockMouvementDto(existing), societeId: existing.societe_id, ...merged.data };
+  const existingDto = stockMouvementDto(existing, await lignesOf(existing.id));
+  const v = { ...existingDto, societeId: existing.societe_id, ...merged.data };
 
   const updCols = COL_NAMES.filter((c) => c !== "societe_id");
   const updVals = values(v).slice(1); // sans societe_id (jamais réaffecté)
@@ -147,17 +192,23 @@ stockRouter.patch("/mouvements/:id", async (req, res) => {
     .map((c, i) => `${c} = $${i + 2}`)
     .concat("maj_le = now()")
     .join(", ");
-  const { rows } = await query(
-    `update stock_mouvements set ${setClause} where id = $1 returning *`,
-    [req.params.id, ...updVals],
-  );
+  const row = await withTransaction(async (client) => {
+    const { rows } = await client.query(
+      `update stock_mouvements set ${setClause} where id = $1 returning *`,
+      [req.params.id, ...updVals],
+    );
+    await replaceLignes(client, req.params.id, "achat", v.achatLignes);
+    await replaceLignes(client, req.params.id, "vente", v.venteLignes);
+    return rows[0];
+  });
+
   logAction(
     req.session.nom,
     "modification",
     "stock",
     v.natureMarchandise || "Mouvement",
   );
-  res.json(stockMouvementDto(rows[0]));
+  res.json(stockMouvementDto(row, await lignesOf(row.id)));
 });
 
 stockRouter.delete("/mouvements/:id", async (req, res) => {

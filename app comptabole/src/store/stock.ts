@@ -15,7 +15,7 @@ function fail(err: unknown): never {
 
 export type StockMouvementInput = Omit<
   StockMouvement,
-  "id" | "ordre" | "ecart" | "creeLe" | "majLe"
+  "id" | "ordre" | "ecart" | "ecartParDesignation" | "creeLe" | "majLe"
 >;
 
 interface StockState {

@@ -14,16 +14,22 @@ export function openrouterAvailable() {
 
 const MODEL = "google/gemini-2.5-flash";
 
+const LigneSchema = z.object({
+  designation: z.string().nullable(),
+  quantite: z.number().nullable(),
+  prixUnitaire: z.number().nullable(),
+  montantDevise: z.number().nullable(),
+});
+
 const ExtractionSchema = z.object({
   type: z.enum(["achat", "vente", "douane"]),
   confidence: z.enum(["haute", "moyenne", "faible"]),
   date: z.string().nullable(),
   numFacture: z.string().nullable(),
   partie: z.string().nullable(),
-  natureMarchandise: z.string().nullable(),
-  quantite: z.number().nullable(),
-  prixUnitaire: z.number().nullable(),
-  montantDevise: z.number().nullable(),
+  // Une ligne par marchandise/quantité distincte du tableau — une facture
+  // liste souvent plusieurs produits, jamais un seul champ par facture.
+  lignes: z.array(LigneSchema).nullable(),
   devise: z.string().nullable(),
   numDeclaration: z.string().nullable(),
   regime: z.string().nullable(),
@@ -46,10 +52,11 @@ Règles strictes :
 - Dates au format ISO (AAAA-MM-JJ).
 - Nombres en notation standard (point décimal, sans séparateur de milliers) : ex. "52 000,00" → 52000.
 - "partie" = le nom de l'AUTRE société (le fournisseur si type="achat", le client si type="vente") — jamais "{{RAISON_SOCIALE}}" elle-même.
-- Pour une déclaration douanière : numDeclaration est le numéro de la déclaration (souvent une suite de chiffres proche de la date d'enregistrement / du cachet), date = date d'enregistrement, regime = régime douanier, reference = référence associée s'il y en a une.
+- "lignes" : UNE entrée par ligne de produit/marchandise distincte dans le tableau de la facture (désignation, quantité, prix unitaire, montant) — le tableau contient souvent plusieurs produits avec des quantités différentes, liste-les TOUS, pas seulement le premier. Un total/sous-total/TVA en bas de tableau n'est jamais une ligne de produit.
+- Pour une déclaration douanière : numDeclaration est le numéro de la déclaration (souvent une suite de chiffres proche de la date d'enregistrement / du cachet), date = date d'enregistrement, regime = régime douanier, reference = référence associée s'il y en a une ; "lignes" reste vide (null) pour ce type.
 
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ni après, sans balise markdown, avec EXACTEMENT ces clés :
-{"type": "achat"|"vente"|"douane", "confidence": "haute"|"moyenne"|"faible", "date": string|null, "numFacture": string|null, "partie": string|null, "natureMarchandise": string|null, "quantite": number|null, "prixUnitaire": number|null, "montantDevise": number|null, "devise": string|null, "numDeclaration": string|null, "regime": string|null, "reference": string|null}`;
+{"type": "achat"|"vente"|"douane", "confidence": "haute"|"moyenne"|"faible", "date": string|null, "numFacture": string|null, "partie": string|null, "lignes": [{"designation": string|null, "quantite": number|null, "prixUnitaire": number|null, "montantDevise": number|null}]|null, "devise": string|null, "numDeclaration": string|null, "regime": string|null, "reference": string|null}`;
 
 /** Un modèle peut entourer le JSON de ```json ... ``` malgré la consigne —
  * filet de sécurité avant JSON.parse. */

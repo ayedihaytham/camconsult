@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 import { useSocieteById, useNoeuds, useData } from "@/store/data";
 import { useStock, type StockMouvementInput } from "@/store/stock";
-import type { StockMouvement } from "@/types";
+import type { StockLigne, StockMouvement } from "@/types";
 import { classerDansStructuration } from "@/lib/classement";
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
 import { DocPreviewDialog } from "./DocPreviewDialog";
@@ -65,10 +65,10 @@ export function StockSocietePage() {
     () =>
       list.reduce(
         (acc, m) => ({
-          achatQ: acc.achatQ + m.achatQuantite,
-          venteQ: acc.venteQ + m.venteQuantite,
-          achatTnd: acc.achatTnd + m.achatMontantTnd,
-          venteTnd: acc.venteTnd + m.venteMontantTnd,
+          achatQ: acc.achatQ + m.achatLignes.reduce((s, l) => s + l.quantite, 0),
+          venteQ: acc.venteQ + m.venteLignes.reduce((s, l) => s + l.quantite, 0),
+          achatTnd: acc.achatTnd + m.achatLignes.reduce((s, l) => s + l.montantTnd, 0),
+          venteTnd: acc.venteTnd + m.venteLignes.reduce((s, l) => s + l.montantTnd, 0),
         }),
         { achatQ: 0, venteQ: 0, achatTnd: 0, venteTnd: 0 },
       ),
@@ -129,17 +129,30 @@ export function StockSocietePage() {
     const XLSX = await import("xlsx");
     const header = [
       "Nature", "Écart",
-      "Achat: Date", "N° Facture", "Fournisseur", "Quantité", "PU", "Montant devise", "Devise", "Cours", "Montant TND",
-      "Vente: Date", "N° Facture", "Client", "Quantité", "PU", "Montant devise", "Devise", "Cours", "Montant TND",
+      "Achat: Date", "N° Facture", "Fournisseur", "Produits", "Quantité", "Montant devise", "Devise", "Cours", "Montant TND",
+      "Vente: Date", "N° Facture", "Client", "Produits", "Quantité", "Montant devise", "Devise", "Cours", "Montant TND",
       "Douane: N° Déclaration", "Date", "Régime", "Référence",
       "Note",
     ];
+    // Une facture peut lister plusieurs produits (voir StockLigne) : le
+    // détail par ligne reste consultable à l'écran, l'export agrège en
+    // quantité/montant totaux + une colonne "Produits" listant chaque
+    // désignation, pour garder une ligne Excel = un dossier.
+    const sumQ = (lignes: typeof list[number]["achatLignes"]) =>
+      lignes.reduce((s, l) => s + l.quantite, 0);
+    const sumTnd = (lignes: typeof list[number]["achatLignes"]) =>
+      lignes.reduce((s, l) => s + l.montantTnd, 0);
+    const sumDevise = (lignes: typeof list[number]["achatLignes"]) =>
+      lignes.reduce((s, l) => s + l.montantDevise, 0);
+    const designations = (lignes: typeof list[number]["achatLignes"]) =>
+      lignes.map((l) => l.designation).filter(Boolean).join(", ");
+
     const rows = list.map((m) => [
       m.natureMarchandise, m.ecart,
-      m.achatDate ?? "", m.achatNumFacture, m.fournisseur, m.achatQuantite, m.achatPu,
-      m.achatMontantDevise, m.achatDevise, m.achatCours, m.achatMontantTnd,
-      m.venteDate ?? "", m.venteNumFacture, m.client, m.venteQuantite, m.ventePu,
-      m.venteMontantDevise, m.venteDevise, m.venteCours, m.venteMontantTnd,
+      m.achatDate ?? "", m.achatNumFacture, m.fournisseur, designations(m.achatLignes),
+      sumQ(m.achatLignes), sumDevise(m.achatLignes), m.achatDevise, m.achatCours, sumTnd(m.achatLignes),
+      m.venteDate ?? "", m.venteNumFacture, m.client, designations(m.venteLignes),
+      sumQ(m.venteLignes), sumDevise(m.venteLignes), m.venteDevise, m.venteCours, sumTnd(m.venteLignes),
       m.douaneNumDeclaration, m.douaneDate ?? "", m.douaneRegime, m.douaneReference,
       m.note,
     ]);
@@ -281,15 +294,34 @@ export function StockSocietePage() {
                   </div>
                 </div>
 
+                {/* Écart détaillé par produit — seulement s'il y a plus d'une
+                    désignation, sinon redondant avec l'écart total ci-dessus. */}
+                {m.ecartParDesignation.length > 1 && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 border-b border-border bg-secondary/20 px-4 py-2 text-xs">
+                    {m.ecartParDesignation.map((e) => (
+                      <span key={e.designation} className="text-muted-foreground">
+                        {e.designation}{" "}
+                        <span
+                          className={cn(
+                            "font-semibold",
+                            e.ecart !== 0 ? "text-destructive" : "text-foreground",
+                          )}
+                        >
+                          {fmtQ(e.ecart)}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <MouvementSection
                   label="Achat"
                   fields={[
                     { label: "Date", value: m.achatDate ? formatDate(m.achatDate) : "—" },
                     { label: "Fournisseur", value: m.fournisseur || "—" },
-                    { label: "Qté", value: fmtQ(m.achatQuantite) },
-                    { label: "Mt TND", value: fmt(m.achatMontantTnd) },
                     { label: "N° Fact.", value: m.achatNumFacture || "—" },
                   ]}
+                  lignes={m.achatLignes}
                   docDataUrl={m.achatDocDataUrl}
                   onPreview={() => setPreview({ title: "Facture d'achat", dataUrl: m.achatDocDataUrl })}
                   onClasser={() => handleClasser(m, "achat")}
@@ -300,10 +332,9 @@ export function StockSocietePage() {
                   fields={[
                     { label: "Date", value: m.venteDate ? formatDate(m.venteDate) : "—" },
                     { label: "Client", value: m.client || "—" },
-                    { label: "Qté", value: fmtQ(m.venteQuantite) },
-                    { label: "Mt TND", value: fmt(m.venteMontantTnd) },
                     { label: "N° Fact.", value: m.venteNumFacture || "—" },
                   ]}
+                  lignes={m.venteLignes}
                   docDataUrl={m.venteDocDataUrl}
                   onPreview={() => setPreview({ title: "Document de vente", dataUrl: m.venteDocDataUrl })}
                   onClasser={() => handleClasser(m, "vente")}
@@ -318,6 +349,7 @@ export function StockSocietePage() {
                       { label: "Régime", value: m.douaneRegime || "—" },
                       { label: "Référence", value: m.douaneReference || "—" },
                     ]}
+                    lignes={[]}
                     docDataUrl={m.douaneDocDataUrl}
                     onPreview={() => setPreview({ title: "Document douanier", dataUrl: m.douaneDocDataUrl })}
                     onClasser={() => handleClasser(m, "douane")}
@@ -370,6 +402,7 @@ export function StockSocietePage() {
 function MouvementSection({
   label,
   fields,
+  lignes,
   docDataUrl,
   onPreview,
   onClasser,
@@ -377,41 +410,64 @@ function MouvementSection({
 }: {
   label: string;
   fields: { label: string; value: string }[];
+  lignes: StockLigne[];
   docDataUrl: string | null;
   onPreview: () => void;
   onClasser: () => void;
   classing: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-border px-4 py-2.5 text-sm">
-      <span className="w-16 shrink-0 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <div className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-1">
-        {fields.map((f) => (
-          <span key={f.label} className="text-muted-foreground">
-            <span className="text-[0.66rem] uppercase tracking-wide">{f.label} </span>
-            <span className="font-medium text-foreground">{f.value}</span>
-          </span>
-        ))}
+    <div className="border-t border-border px-4 py-2.5 text-sm">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+        <span className="w-16 shrink-0 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <div className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-1">
+          {fields.map((f) => (
+            <span key={f.label} className="text-muted-foreground">
+              <span className="text-[0.66rem] uppercase tracking-wide">{f.label} </span>
+              <span className="font-medium text-foreground">{f.value}</span>
+            </span>
+          ))}
+        </div>
+        {docDataUrl && (
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              onClick={onPreview}
+              className="text-muted-foreground hover:text-accent"
+              title="Voir le document"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onClasser}
+              disabled={classing}
+              className="text-muted-foreground hover:text-accent disabled:opacity-50"
+              title="Classer dans Structuration"
+            >
+              <FolderInput className={cn("h-3.5 w-3.5", classing && "animate-pulse")} />
+            </button>
+          </div>
+        )}
       </div>
-      {docDataUrl && (
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            onClick={onPreview}
-            className="text-muted-foreground hover:text-accent"
-            title="Voir le document"
-          >
-            <Paperclip className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={onClasser}
-            disabled={classing}
-            className="text-muted-foreground hover:text-accent disabled:opacity-50"
-            title="Classer dans Structuration"
-          >
-            <FolderInput className={cn("h-3.5 w-3.5", classing && "animate-pulse")} />
-          </button>
+      {/* Une facture peut lister plusieurs produits (voir StockLigne) —
+          jamais résumés en une seule quantité/montant. */}
+      {lignes.length > 0 && (
+        <div className="mt-1.5 space-y-0.5 pl-16">
+          {lignes.map((l, i) => (
+            <div key={l.id ?? i} className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{fmtQ(l.quantite)}</span>
+              {" × "}
+              {l.designation || "(sans désignation)"}
+              {(l.montantDevise !== 0 || l.montantTnd !== 0) && (
+                <>
+                  {" — "}
+                  {fmt(l.montantDevise)}
+                  {l.montantTnd !== 0 && ` (${fmt(l.montantTnd)} TND)`}
+                </>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

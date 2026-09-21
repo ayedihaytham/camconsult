@@ -48,7 +48,7 @@ export function CollecteCreateDialog({
   const isEdit = Boolean(initial);
   const [societeId, setSocieteId] = useState("");
   const [periode, setPeriode] = useState("");
-  const [devise, setDevise] = useState("EUR");
+  const [devise, setDevise] = useState("TND");
   const [echeance, setEcheance] = useState("");
   const [relanceCadenceJours, setRelanceCadenceJours] = useState(3);
   const [onglets, setOnglets] = useState<string[]>(
@@ -60,7 +60,7 @@ export function CollecteCreateDialog({
     if (!open) return;
     setSocieteId(initial?.societeId ?? "");
     setPeriode(initial?.periode ?? "");
-    setDevise(initial?.devise ?? "EUR");
+    setDevise(initial?.devise ?? "TND");
     setEcheance(initial?.echeance ?? "");
     setRelanceCadenceJours(initial?.relanceCadenceJours ?? 3);
     setOnglets(initial?.onglets ?? COLLECTE_TABS.map((t) => t.key));
@@ -75,7 +75,6 @@ export function CollecteCreateDialog({
 
   function submit() {
     if (!societeId) return setError("Choisissez une société.");
-    if (periode.trim().length < 1) return setError("Indiquez une période.");
     if (onglets.length === 0)
       return setError("Sélectionnez au moins un tableau.");
     onCreate({
@@ -130,8 +129,8 @@ export function CollecteCreateDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="EUR">€ (euro)</SelectItem>
                   <SelectItem value="TND">DT (dinar tunisien)</SelectItem>
+                  <SelectItem value="EUR">€ (euro)</SelectItem>
                   <SelectItem value="USD">$ (dollar américain)</SelectItem>
                 </SelectContent>
               </Select>
@@ -140,7 +139,7 @@ export function CollecteCreateDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Période concernée</Label>
+              <Label>Période concernée (optionnel)</Label>
               <Input
                 value={periode}
                 onChange={(e) => setPeriode(e.target.value)}

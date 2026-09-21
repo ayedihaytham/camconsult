@@ -86,21 +86,27 @@ create table if not exists collectes (
   periode     text not null,
   statut      text not null default 'brouillon', -- brouillon | transmis | valide | a_corriger
   onglets     jsonb not null default '[]'::jsonb,
-  devise      text not null default 'EUR',
+  devise      text not null default 'TND',
   cree_le     timestamptz not null default now(),
   maj_le      timestamptz not null default now(),
   transmis_le timestamptz,
   valide_le   timestamptz
 );
 
--- Une ligne de checklist par onglet demandé (commentaire client + suivi).
+-- Une ligne de checklist par onglet demandé (commentaire client + suivi +
+-- statut de récap propre à CE tableau — l'envoi au client se fait tableau
+-- par tableau, indépendamment des autres, pas globalement pour toute la
+-- collecte : voir collectes.recap_statut, conservée mais plus lue/écrite,
+-- devenue une agrégation calculée côté app à partir de ces lignes).
 create table if not exists collecte_sections (
-  id          uuid primary key default gen_random_uuid(),
-  collecte_id uuid not null references collectes(id) on delete cascade,
-  onglet      text not null,
-  commentaire text not null default '',
+  id           uuid primary key default gen_random_uuid(),
+  collecte_id  uuid not null references collectes(id) on delete cascade,
+  onglet       text not null,
+  commentaire  text not null default '',
+  recap_statut text not null default 'none', -- none | envoye | repondu
   unique (collecte_id, onglet)
 );
+alter table collecte_sections add column if not exists recap_statut text not null default 'none';
 
 -- Lignes de saisie d'un onglet (schéma des colonnes défini côté code).
 create table if not exists collecte_lignes (

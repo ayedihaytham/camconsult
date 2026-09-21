@@ -105,9 +105,8 @@ export const collecteDto = (r) => ({
   societeId: r.societe_id,
   periode: r.periode,
   statut: r.statut,
-  recapStatut: r.recap_statut ?? "none",
   onglets: Array.isArray(r.onglets) ? r.onglets : [],
-  devise: r.devise ?? "EUR",
+  devise: r.devise ?? "TND",
   echeance: r.echeance ? dateStr(r.echeance) : null,
   derniereRelanceLe: isoOrNull(r.derniere_relance_le),
   relanceCadenceJours: r.relance_cadence_jours ?? 3,
@@ -146,6 +145,7 @@ export const collecteSectionDto = (r) => ({
   id: r.id,
   onglet: r.onglet,
   commentaire: r.commentaire ?? "",
+  recapStatut: r.recap_statut ?? "none",
 });
 
 export const collecteLigneDto = (r) => ({

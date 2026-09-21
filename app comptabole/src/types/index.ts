@@ -102,6 +102,9 @@ export interface CollecteSection {
   id: string;
   onglet: string;
   commentaire: string;
+  /** Statut de récap de CE tableau précis — indépendant des autres, voir
+   * les routes /collectes/:id/sections/:onglet/recap/*. */
+  recapStatut: RecapStatut;
 }
 
 export type CollecteNoteKind = "note" | "manque" | "reponse";
@@ -153,7 +156,6 @@ export interface Collecte {
   societeId: string;
   periode: string;
   statut: CollecteStatut;
-  recapStatut: RecapStatut;
   onglets: string[];
   devise: string;
   /** Date limite de transmission par le client (AAAA-MM-JJ), facultative. */

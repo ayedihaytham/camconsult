@@ -40,6 +40,7 @@ export function CollectesListPage() {
 
   const socNom = (id: string) =>
     societes.find((s) => s.id === id)?.raisonSociale ?? "Société";
+  const periodeLabel = (p: string) => p.trim() || "—";
 
   const nbArchivees = list.filter((c) => c.statut === "archive").length;
   const shown = list.filter((c) =>
@@ -69,6 +70,11 @@ export function CollectesListPage() {
         accessorKey: "periode",
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Période" />
+        ),
+        cell: ({ row }) => (
+          <span className={row.original.periode.trim() ? "" : "text-muted-foreground"}>
+            {periodeLabel(row.original.periode)}
+          </span>
         ),
         meta: { label: "Période", headerClassName: "w-36" },
       },
@@ -234,7 +240,7 @@ export function CollectesListPage() {
                     {socNom(collecte.societeId)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {collecte.periode} · {collecte.onglets.length} tableaux
+                    {periodeLabel(collecte.periode)} · {collecte.onglets.length} tableaux
                   </p>
                 </div>
                 <CollecteStatusDot statut={collecte.statut} />
@@ -261,7 +267,7 @@ export function CollectesListPage() {
           onCreate={async (data) => {
             const c = await create(data);
             toast.success("Collecte créée", {
-              description: `${socNom(c.societeId)} — ${c.periode}`,
+              description: `${socNom(c.societeId)} — ${periodeLabel(c.periode)}`,
             });
             navigate(`/collectes/${c.id}`);
           }}
@@ -277,7 +283,7 @@ export function CollectesListPage() {
             La collecte{" "}
             <span className="font-medium text-foreground">
               {toDelete
-                ? `${socNom(toDelete.societeId)} — ${toDelete.periode}`
+                ? `${socNom(toDelete.societeId)} — ${periodeLabel(toDelete.periode)}`
                 : ""}
             </span>{" "}
             et toutes les données saisies seront supprimées.

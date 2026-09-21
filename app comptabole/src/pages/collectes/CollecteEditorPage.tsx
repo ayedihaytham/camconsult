@@ -22,7 +22,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { StatusDot, CollecteStatusDot } from "@/components/ledger/StatusDot";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocietes } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
@@ -32,9 +32,10 @@ import {
 } from "@/lib/collecte/tabs";
 import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
+import { aggregateRecapStatut, sectionRecapStatut } from "@/lib/collecte/recap";
 import { exportCollecteXlsx } from "@/lib/collecte/exportXlsx";
 import { downloadDataUrl } from "@/lib/file";
-import { formatDate, formatRelative } from "@/lib/utils";
+import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { CollecteJournalEntry, CollecteStatut } from "@/types";
 import { CollecteGrid } from "./CollecteGrid";
 import { CollecteCreateDialog } from "./CollecteCreateDialog";
@@ -58,7 +59,6 @@ export function CollecteEditorPage() {
   const saveLignes = useCollectes((s) => s.saveLignes);
   const saveComment = useCollectes((s) => s.saveComment);
   const submitRecap = useCollectes((s) => s.submitRecap);
-  const sendRecap = useCollectes((s) => s.sendRecap);
   const relanceNow = useCollectes((s) => s.relanceNow);
   const uploadFichier = useCollectes((s) => s.uploadFichier);
   const deleteFichier = useCollectes((s) => s.deleteFichier);
@@ -90,7 +90,7 @@ export function CollecteEditorPage() {
       .finally(() => setJournalLoading(false));
   }, [tab, id, fetchJournal]);
 
-  const currentRecap = collecte?.recapStatut;
+  const currentRecap = collecte ? aggregateRecapStatut(collecte) : "none";
   useEffect(() => {
     if (poste === "societe_employe" && currentRecap === "envoye") setTab("recap");
   }, [poste, currentRecap, id]);
@@ -120,9 +120,10 @@ export function CollecteEditorPage() {
       (poste === "societe_employe" &&
         (collecte.statut === "brouillon" || collecte.statut === "a_corriger")));
 
-  // Mode « complétion récap » côté client : le cabinet a ouvert la complétion.
-  const clientRecap =
-    poste === "societe_employe" && collecte.recapStatut === "envoye";
+  // Mode « complétion récap » côté client : au moins un tableau a été
+  // envoyé par le cabinet (chaque tableau se déverrouille indépendamment
+  // des autres — voir sectionRecapStatut plus bas, utilisé par tableau).
+  const clientRecap = poste === "societe_employe" && currentRecap === "envoye";
   // Un seul bouton client : « Transmettre au cabinet » (soumet aussi le récap).
   const canSubmit =
     !isAdmin &&
@@ -145,8 +146,7 @@ export function CollecteEditorPage() {
       flaggedByTab.set(m.onglet, s);
     }
   }
-  const showFlags =
-    !archivee && (isAdmin || collecte.recapStatut !== "none");
+  const showFlags = !archivee && (isAdmin || currentRecap !== "none");
 
   const rows = checklistRows(collecte);
   const recus = rows.filter((r) => r.recu).length;
@@ -176,7 +176,7 @@ export function CollecteEditorPage() {
       </button>
 
       <LedgerPageHeader
-        title={`${socNom} — ${collecte.periode}`}
+        title={collecte.periode.trim() ? `${socNom} — ${collecte.periode}` : socNom}
         description={`Collecte de pièces · ${recus}/${rows.length} tableau(x) reçu(s)`}
         actions={
           <div className="flex flex-wrap items-center gap-3">
@@ -235,22 +235,7 @@ export function CollecteEditorPage() {
                 Transmettre au cabinet
               </Button>
             )}
-            {isAdmin && collecte.recapStatut === "none" && liveManques.length > 0 && (
-              <Button
-                variant="ledger"
-                size="sm"
-                onClick={async () => {
-                  await sendRecap(id, liveManques.length);
-                  toast.success(
-                    `Récap envoyé au client — ${liveManques.length} case(s) à compléter`,
-                  );
-                }}
-              >
-                <Send className="h-4 w-4" />
-                Envoyer le récap au client ({liveManques.length})
-              </Button>
-            )}
-            {isAdmin && collecte.recapStatut === "envoye" && (
+            {isAdmin && currentRecap === "envoye" && (
               <StatusDot tone="warning" label="Récap en attente du client" />
             )}
             {isAdmin && !archivee && liveManques.length > 0 && (
@@ -364,56 +349,71 @@ export function CollecteEditorPage() {
           sont modifiables, tout le reste est verrouillé (grisé).
         </div>
       )}
-      {poste === "societe_employe" && collecte.recapStatut === "repondu" && (
+      {poste === "societe_employe" && currentRecap === "repondu" && (
         <div className="mb-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
           Récap renvoyé au cabinet. En attente de traitement.
         </div>
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <div className="overflow-x-auto">
-          <TabsList className="h-auto flex-wrap justify-start">
-            <TabsTrigger value="checklist">Checklist</TabsTrigger>
-            <TabsTrigger value="recap" className="gap-1.5">
-              Récap
-              {collecte.recapStatut !== "none" && (
-                <span
-                  className={
-                    "h-1.5 w-1.5 rounded-full " +
-                    (collecte.recapStatut === "repondu"
-                      ? "bg-emerald-500"
-                      : "bg-amber-500")
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          <nav className="lg:w-60 lg:shrink-0">
+            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:sticky lg:top-4">
+              <div className="space-y-0.5 p-2">
+                <NavItem
+                  active={tab === "checklist"}
+                  onClick={() => setTab("checklist")}
+                  label="Checklist"
+                />
+                <NavItem
+                  active={tab === "recap"}
+                  onClick={() => setTab("recap")}
+                  label="Récap"
+                  dot={
+                    currentRecap !== "none"
+                      ? currentRecap === "repondu"
+                        ? "success"
+                        : "warning"
+                      : undefined
                   }
                 />
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="gap-1.5">
-              Documents
-              {collecte.fichiers.length > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-semibold text-foreground">
-                  {collecte.fichiers.length}
-                </span>
-              )}
-            </TabsTrigger>
-            {collecte.onglets.map((key) => {
-              const n = showFlags ? (manqueCount.get(key) ?? 0) : 0;
-              return (
-                <TabsTrigger key={key} value={key} className="gap-1.5">
-                  {TAB_BY_KEY[key]?.label ?? key}
-                  {n > 0 && (
-                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold text-white">
-                      {n}
-                    </span>
-                  )}
-                </TabsTrigger>
-              );
-            })}
-            {(isAdmin || poste === "collaborateur") && (
-              <TabsTrigger value="historique">Historique</TabsTrigger>
-            )}
-          </TabsList>
-        </div>
+                <NavItem
+                  active={tab === "documents"}
+                  onClick={() => setTab("documents")}
+                  label="Documents"
+                  badge={collecte.fichiers.length > 0 ? collecte.fichiers.length : undefined}
+                />
+                {collecte.onglets.length > 0 && (
+                  <div className="my-1.5 border-t border-border" />
+                )}
+                {collecte.onglets.map((key) => {
+                  const n = showFlags ? (manqueCount.get(key) ?? 0) : 0;
+                  return (
+                    <NavItem
+                      key={key}
+                      active={tab === key}
+                      onClick={() => setTab(key)}
+                      label={TAB_BY_KEY[key]?.label ?? key}
+                      badge={n > 0 ? n : undefined}
+                      badgeTone="warning"
+                    />
+                  );
+                })}
+                {(isAdmin || poste === "collaborateur") && (
+                  <>
+                    <div className="my-1.5 border-t border-border" />
+                    <NavItem
+                      active={tab === "historique"}
+                      onClick={() => setTab("historique")}
+                      label="Historique"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+          </nav>
 
+          <div className="min-w-0 flex-1 space-y-4">
         <TabsContent value="recap">
           <RecapTab
             collecte={collecte}
@@ -583,8 +583,11 @@ export function CollecteEditorPage() {
                 const hl = flaggedByTab.get(key);
                 const whole = wholeTab.has(key);
                 const hasManque = (hl && hl.size > 0) || whole;
-                // Le client complète cet onglet s'il a au moins une case ? (ou tableau vide)
-                const inRecap = clientRecap && hasManque;
+                // Le client complète CE tableau s'il a été envoyé indépendamment
+                // des autres (voir RecapTab) ET a au moins une case ? (ou tableau vide).
+                const clientRecapForTab =
+                  poste === "societe_employe" && sectionRecapStatut(collecte, key) === "envoye";
+                const inRecap = clientRecapForTab && hasManque;
                 // Aperçu admin : rendu identique à la vue client, en lecture seule.
                 if (preview) {
                   return (
@@ -603,7 +606,7 @@ export function CollecteEditorPage() {
                   <CollecteGrid
                     def={def}
                     lignes={collecte.lignes.filter((l) => l.onglet === key)}
-                    readOnly={clientRecap ? !inRecap : !editable}
+                    readOnly={clientRecapForTab ? !inRecap : !editable}
                     recapClient={inRecap}
                     highlight={hl}
                     wholeEditable={inRecap && whole}
@@ -653,6 +656,8 @@ export function CollecteEditorPage() {
             )}
           </TabsContent>
         )}
+          </div>
+        </div>
       </Tabs>
 
       {isAdmin && (
@@ -717,7 +722,7 @@ export function CollecteEditorPage() {
       <FileUploadDialog
         open={fichiersOpen}
         onOpenChange={setFichiersOpen}
-        destinationLabel={`${socNom} — ${collecte.periode}`}
+        destinationLabel={collecte.periode.trim() ? `${socNom} — ${collecte.periode}` : socNom}
         onSubmit={async (fichiers: NewFichier[]) => {
           const skipped = fichiers.filter((f) => !f.dataUrl).length;
           for (const f of fichiers) {
@@ -756,5 +761,63 @@ export function CollecteEditorPage() {
         dataUrl={previewFichier?.dataUrl ?? null}
       />
     </div>
+  );
+}
+
+/** Entrée du sidenav des sections de la collecte — remplace l'ancienne
+ * barre d'onglets horizontale, illisible une fois qu'il y a plus d'une
+ * dizaine de tableaux demandés. */
+function NavItem({
+  active,
+  onClick,
+  label,
+  badge,
+  badgeTone = "muted",
+  dot,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  badge?: number;
+  badgeTone?: "warning" | "muted";
+  dot?: "success" | "warning";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+        active
+          ? "bg-primary font-semibold text-primary-foreground"
+          : "text-foreground hover:bg-secondary",
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="truncate">{label}</span>
+        {dot && (
+          <span
+            className={cn(
+              "h-1.5 w-1.5 shrink-0 rounded-full",
+              dot === "success" ? "bg-emerald-500" : "bg-amber-500",
+            )}
+          />
+        )}
+      </span>
+      {badge !== undefined && (
+        <span
+          className={cn(
+            "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-semibold",
+            active
+              ? "bg-primary-foreground/20 text-primary-foreground"
+              : badgeTone === "warning"
+                ? "bg-amber-500 text-white"
+                : "bg-secondary text-foreground",
+          )}
+        >
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }

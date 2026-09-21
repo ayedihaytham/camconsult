@@ -304,10 +304,12 @@ export function StockMouvementFormSheet({
     if (!dataUrl || !previewOpen[type]) return null;
     const isImage = dataUrl.startsWith("data:image/");
     return (
-      <div className="space-y-1.5 rounded-md border border-accent/30 bg-accent/5 p-2">
+      // sticky en colonne large : le document reste visible pendant qu'on
+      // défile/corrige les champs à côté, pour comparer sans va-et-vient.
+      <div className="space-y-1.5 rounded-md border border-accent/30 bg-accent/5 p-2 lg:sticky lg:top-0 lg:self-start">
         <div className="flex items-center justify-between px-1">
           <p className="text-xs font-medium text-foreground">
-            Document importé — comparez les chiffres ci-dessus
+            Document importé — comparez les chiffres à gauche
           </p>
           <button
             type="button"
@@ -322,13 +324,13 @@ export function StockMouvementFormSheet({
           <img
             src={dataUrl}
             alt="Document importé"
-            className="mx-auto max-h-96 rounded border border-border object-contain"
+            className="mx-auto max-h-[36rem] rounded border border-border object-contain"
           />
         ) : (
           <iframe
             title="Document importé"
             src={dataUrl}
-            className="h-96 w-full rounded border border-border bg-white"
+            className="h-[36rem] w-full rounded border border-border bg-white"
           />
         )}
       </div>
@@ -338,7 +340,7 @@ export function StockMouvementFormSheet({
   return (
     <>
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-2xl">
+      <SheetContent side="right" className="sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl">
         <SheetHeader>
           <SheetTitle>
             {isEdit ? "Modifier le mouvement" : "Nouveau mouvement de stock"}
@@ -522,80 +524,87 @@ export function StockMouvementFormSheet({
               <h3 className="text-sm font-semibold text-foreground">Achat</h3>
               <ImportButton type="achat" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Date">
-                <Input
-                  type="date"
-                  value={v.achatDate ?? ""}
-                  onChange={(e) => set("achatDate", e.target.value || null)}
-                />
-              </Field>
-              <Field label="N° Facture">
-                <Input
-                  value={v.achatNumFacture}
-                  onChange={(e) => set("achatNumFacture", e.target.value)}
-                />
-              </Field>
-              <Field label="Fournisseur">
-                <Input
-                  value={v.fournisseur}
-                  onChange={(e) => set("fournisseur", e.target.value)}
-                />
-              </Field>
-              <Field label="Type pièce">
-                <Input
-                  value={v.achatDocType}
-                  onChange={(e) => set("achatDocType", e.target.value)}
-                  placeholder="Facture, avoir…"
-                />
-              </Field>
-              <Field label="Quantité">
-                <Input
-                  type="number"
-                  value={v.achatQuantite}
-                  onChange={(e) => set("achatQuantite", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Prix unitaire">
-                <Input
-                  type="number"
-                  value={v.achatPu}
-                  onChange={(e) => set("achatPu", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Montant devise">
-                <Input
-                  type="number"
-                  value={v.achatMontantDevise}
-                  onChange={(e) =>
-                    set("achatMontantDevise", Number(e.target.value) || 0)
-                  }
-                />
-              </Field>
-              <Field label="Devise">
-                <Input
-                  value={v.achatDevise}
-                  onChange={(e) => set("achatDevise", e.target.value)}
-                />
-              </Field>
-              <Field label="Cours (taux de change)">
-                <Input
-                  type="number"
-                  value={v.achatCours}
-                  onChange={(e) => set("achatCours", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Montant TND">
-                <Input
-                  type="number"
-                  value={v.achatMontantTnd}
-                  onChange={(e) =>
-                    set("achatMontantTnd", Number(e.target.value) || 0)
-                  }
-                />
-              </Field>
+            <div
+              className={cn(
+                "grid gap-4",
+                v.achatDocDataUrl && previewOpen.achat && "lg:grid-cols-2",
+              )}
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Date">
+                  <Input
+                    type="date"
+                    value={v.achatDate ?? ""}
+                    onChange={(e) => set("achatDate", e.target.value || null)}
+                  />
+                </Field>
+                <Field label="N° Facture">
+                  <Input
+                    value={v.achatNumFacture}
+                    onChange={(e) => set("achatNumFacture", e.target.value)}
+                  />
+                </Field>
+                <Field label="Fournisseur">
+                  <Input
+                    value={v.fournisseur}
+                    onChange={(e) => set("fournisseur", e.target.value)}
+                  />
+                </Field>
+                <Field label="Type pièce">
+                  <Input
+                    value={v.achatDocType}
+                    onChange={(e) => set("achatDocType", e.target.value)}
+                    placeholder="Facture, avoir…"
+                  />
+                </Field>
+                <Field label="Quantité">
+                  <Input
+                    type="number"
+                    value={v.achatQuantite}
+                    onChange={(e) => set("achatQuantite", Number(e.target.value) || 0)}
+                  />
+                </Field>
+                <Field label="Prix unitaire">
+                  <Input
+                    type="number"
+                    value={v.achatPu}
+                    onChange={(e) => set("achatPu", Number(e.target.value) || 0)}
+                  />
+                </Field>
+                <Field label="Montant devise">
+                  <Input
+                    type="number"
+                    value={v.achatMontantDevise}
+                    onChange={(e) =>
+                      set("achatMontantDevise", Number(e.target.value) || 0)
+                    }
+                  />
+                </Field>
+                <Field label="Devise">
+                  <Input
+                    value={v.achatDevise}
+                    onChange={(e) => set("achatDevise", e.target.value)}
+                  />
+                </Field>
+                <Field label="Cours (taux de change)">
+                  <Input
+                    type="number"
+                    value={v.achatCours}
+                    onChange={(e) => set("achatCours", Number(e.target.value) || 0)}
+                  />
+                </Field>
+                <Field label="Montant TND">
+                  <Input
+                    type="number"
+                    value={v.achatMontantTnd}
+                    onChange={(e) =>
+                      set("achatMontantTnd", Number(e.target.value) || 0)
+                    }
+                  />
+                </Field>
+              </div>
+              <DocPreview type="achat" />
             </div>
-            <DocPreview type="achat" />
           </section>
 
           {/* ── Vente ─────────────────────────── */}
@@ -604,77 +613,84 @@ export function StockMouvementFormSheet({
               <h3 className="text-sm font-semibold text-foreground">Vente</h3>
               <ImportButton type="vente" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Date">
-                <Input
-                  type="date"
-                  value={v.venteDate ?? ""}
-                  onChange={(e) => set("venteDate", e.target.value || null)}
-                />
-              </Field>
-              <Field label="N° Facture">
-                <Input
-                  value={v.venteNumFacture}
-                  onChange={(e) => set("venteNumFacture", e.target.value)}
-                />
-              </Field>
-              <Field label="Client">
-                <Input value={v.client} onChange={(e) => set("client", e.target.value)} />
-              </Field>
-              <Field label="Type pièce">
-                <Input
-                  value={v.venteDocType}
-                  onChange={(e) => set("venteDocType", e.target.value)}
-                  placeholder="Facture, avoir (CN)…"
-                />
-              </Field>
-              <Field label="Quantité">
-                <Input
-                  type="number"
-                  value={v.venteQuantite}
-                  onChange={(e) => set("venteQuantite", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Prix unitaire">
-                <Input
-                  type="number"
-                  value={v.ventePu}
-                  onChange={(e) => set("ventePu", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Montant devise">
-                <Input
-                  type="number"
-                  value={v.venteMontantDevise}
-                  onChange={(e) =>
-                    set("venteMontantDevise", Number(e.target.value) || 0)
-                  }
-                />
-              </Field>
-              <Field label="Devise">
-                <Input
-                  value={v.venteDevise}
-                  onChange={(e) => set("venteDevise", e.target.value)}
-                />
-              </Field>
-              <Field label="Cours (taux de change)">
-                <Input
-                  type="number"
-                  value={v.venteCours}
-                  onChange={(e) => set("venteCours", Number(e.target.value) || 0)}
-                />
-              </Field>
-              <Field label="Montant TND">
-                <Input
-                  type="number"
-                  value={v.venteMontantTnd}
-                  onChange={(e) =>
-                    set("venteMontantTnd", Number(e.target.value) || 0)
-                  }
-                />
-              </Field>
+            <div
+              className={cn(
+                "grid gap-4",
+                v.venteDocDataUrl && previewOpen.vente && "lg:grid-cols-2",
+              )}
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Date">
+                  <Input
+                    type="date"
+                    value={v.venteDate ?? ""}
+                    onChange={(e) => set("venteDate", e.target.value || null)}
+                  />
+                </Field>
+                <Field label="N° Facture">
+                  <Input
+                    value={v.venteNumFacture}
+                    onChange={(e) => set("venteNumFacture", e.target.value)}
+                  />
+                </Field>
+                <Field label="Client">
+                  <Input value={v.client} onChange={(e) => set("client", e.target.value)} />
+                </Field>
+                <Field label="Type pièce">
+                  <Input
+                    value={v.venteDocType}
+                    onChange={(e) => set("venteDocType", e.target.value)}
+                    placeholder="Facture, avoir (CN)…"
+                  />
+                </Field>
+                <Field label="Quantité">
+                  <Input
+                    type="number"
+                    value={v.venteQuantite}
+                    onChange={(e) => set("venteQuantite", Number(e.target.value) || 0)}
+                  />
+                </Field>
+                <Field label="Prix unitaire">
+                  <Input
+                    type="number"
+                    value={v.ventePu}
+                    onChange={(e) => set("ventePu", Number(e.target.value) || 0)}
+                  />
+                </Field>
+                <Field label="Montant devise">
+                  <Input
+                    type="number"
+                    value={v.venteMontantDevise}
+                    onChange={(e) =>
+                      set("venteMontantDevise", Number(e.target.value) || 0)
+                    }
+                  />
+                </Field>
+                <Field label="Devise">
+                  <Input
+                    value={v.venteDevise}
+                    onChange={(e) => set("venteDevise", e.target.value)}
+                  />
+                </Field>
+                <Field label="Cours (taux de change)">
+                  <Input
+                    type="number"
+                    value={v.venteCours}
+                    onChange={(e) => set("venteCours", Number(e.target.value) || 0)}
+                  />
+                </Field>
+                <Field label="Montant TND">
+                  <Input
+                    type="number"
+                    value={v.venteMontantTnd}
+                    onChange={(e) =>
+                      set("venteMontantTnd", Number(e.target.value) || 0)
+                    }
+                  />
+                </Field>
+              </div>
+              <DocPreview type="vente" />
             </div>
-            <DocPreview type="vente" />
           </section>
 
           {/* ── Douane ────────────────────────── */}
@@ -683,35 +699,42 @@ export function StockMouvementFormSheet({
               <h3 className="text-sm font-semibold text-foreground">Douane</h3>
               <ImportButton type="douane" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="N° Déclaration">
-                <Input
-                  value={v.douaneNumDeclaration}
-                  onChange={(e) => set("douaneNumDeclaration", e.target.value)}
-                />
-              </Field>
-              <Field label="Date">
-                <Input
-                  type="date"
-                  value={v.douaneDate ?? ""}
-                  onChange={(e) => set("douaneDate", e.target.value || null)}
-                />
-              </Field>
-              <Field label="Régime">
-                <Input
-                  value={v.douaneRegime}
-                  onChange={(e) => set("douaneRegime", e.target.value)}
-                  placeholder="RS, IM4, EX1…"
-                />
-              </Field>
-              <Field label="Référence">
-                <Input
-                  value={v.douaneReference}
-                  onChange={(e) => set("douaneReference", e.target.value)}
-                />
-              </Field>
+            <div
+              className={cn(
+                "grid gap-4",
+                v.douaneDocDataUrl && previewOpen.douane && "lg:grid-cols-2",
+              )}
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="N° Déclaration">
+                  <Input
+                    value={v.douaneNumDeclaration}
+                    onChange={(e) => set("douaneNumDeclaration", e.target.value)}
+                  />
+                </Field>
+                <Field label="Date">
+                  <Input
+                    type="date"
+                    value={v.douaneDate ?? ""}
+                    onChange={(e) => set("douaneDate", e.target.value || null)}
+                  />
+                </Field>
+                <Field label="Régime">
+                  <Input
+                    value={v.douaneRegime}
+                    onChange={(e) => set("douaneRegime", e.target.value)}
+                    placeholder="RS, IM4, EX1…"
+                  />
+                </Field>
+                <Field label="Référence">
+                  <Input
+                    value={v.douaneReference}
+                    onChange={(e) => set("douaneReference", e.target.value)}
+                  />
+                </Field>
+              </div>
+              <DocPreview type="douane" />
             </div>
-            <DocPreview type="douane" />
           </section>
 
           <div className="space-y-1.5">

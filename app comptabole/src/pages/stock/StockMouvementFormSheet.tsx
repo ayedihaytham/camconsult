@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { useStock, type StockMouvementInput } from "@/store/stock";
 import { useSocieteById } from "@/store/data";
 import type { StockDocType, StockExtractPage, StockMouvement } from "@/types";
+import { DocPreviewDialog } from "./DocPreviewDialog";
 
 interface Props {
   open: boolean;
@@ -127,6 +128,11 @@ export function StockMouvementFormSheet({
     Record<number, BatchAssignment>
   >({});
   const [batchApplying, setBatchApplying] = useState(false);
+  // Vérification avant application : lecture en grand d'une page du
+  // document complet, avant même de choisir son type — jamais d'application
+  // à l'aveugle sur la seule foi de la petite vignette (voir demande de
+  // l'utilisateur : "prévisualiser vérifier avant importer").
+  const [batchPreview, setBatchPreview] = useState<StockExtractPage | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -330,6 +336,7 @@ export function StockMouvementFormSheet({
   }
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-2xl">
         <SheetHeader>
@@ -391,8 +398,9 @@ export function StockMouvementFormSheet({
               <div className="space-y-3 rounded-md border border-border bg-card p-3">
                 <p className="text-xs font-medium text-foreground">
                   {batchPages.length} page{batchPages.length > 1 ? "s" : ""}{" "}
-                  détectée{batchPages.length > 1 ? "s" : ""} — vérifiez le type
-                  de chaque page avant d'appliquer.
+                  détectée{batchPages.length > 1 ? "s" : ""} — cliquez sur une
+                  page pour la lire en grand, vérifiez son type avant
+                  d'appliquer.
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   Le type Achat/Vente est deviné en recherchant le nom «{" "}
@@ -413,11 +421,18 @@ export function StockMouvementFormSheet({
                         )}
                       >
                         {page.imageDataUrl ? (
-                          <img
-                            src={page.imageDataUrl}
-                            alt={`Page ${page.index + 1}`}
-                            className="h-28 w-full rounded border border-border object-cover"
-                          />
+                          <button
+                            type="button"
+                            onClick={() => setBatchPreview(page)}
+                            className="block w-full"
+                            title="Voir la page en grand"
+                          >
+                            <img
+                              src={page.imageDataUrl}
+                              alt={`Page ${page.index + 1}`}
+                              className="h-28 w-full cursor-zoom-in rounded border border-border object-cover transition-opacity hover:opacity-80"
+                            />
+                          </button>
                         ) : (
                           <div className="flex h-28 w-full items-center justify-center rounded border border-border bg-secondary/40">
                             <FileIcon className="h-6 w-6 text-muted-foreground" />
@@ -726,6 +741,14 @@ export function StockMouvementFormSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+
+    <DocPreviewDialog
+      open={Boolean(batchPreview)}
+      onOpenChange={(o) => !o && setBatchPreview(null)}
+      title={batchPreview ? `Page ${batchPreview.index + 1} — à vérifier avant d'appliquer` : ""}
+      dataUrl={batchPreview?.imageDataUrl ?? null}
+    />
+    </>
   );
 }
 

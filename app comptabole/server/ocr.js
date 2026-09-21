@@ -4,6 +4,22 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { claudeAvailable, claudeExtractPage, champsByTypeFromClaude, champsByTypeVide } from "./claudeExtract.js";
+import { openrouterAvailable, openrouterExtractPage } from "./openrouterExtract.js";
+
+/** Fournisseur d'extraction IA (image/texte -> champs) : OpenRouter (Gemini
+ * 2.5 Flash) en priorité si configuré, sinon Claude, sinon aucun (repli sur
+ * l'OCR local + heuristiques regex plus bas dans ce fichier). Un seul point
+ * de choix pour les 4 emplacements de `extractPages` qui appelaient jusque-là
+ * `claudeExtractPage` directement — même schéma de sortie des deux côtés
+ * (voir openrouterExtract.js), donc `champsByTypeFromClaude`/`champsByTypeVide`
+ * restent valables quel que soit le fournisseur retenu. */
+function aiAvailable() {
+  return openrouterAvailable() || claudeAvailable();
+}
+async function aiExtractPage(params) {
+  if (openrouterAvailable()) return openrouterExtractPage(params);
+  return claudeExtractPage(params);
+}
 
 const execFileAsync = promisify(execFile);
 
@@ -15,10 +31,12 @@ const MAX_PAGES = 15;
  *  2. Sinon (PDF/image scanné) -> rasterisation (poppler) + OCR (tesseract.js).
  * Puis extraction de champs par heuristiques (regex) selon le type de document.
  *
- * `extractPages` (import "document complet", ci-dessous) bascule sur Claude
- * (Sonnet 5) quand ANTHROPIC_API_KEY est configurée — voir claudeExtract.js.
- * Ce pipeline local (`extractDocument`, import "une section = un document")
- * reste inchangé et sert aussi de repli si la clé n'est pas configurée.
+ * `extractPages` (import "document complet", ci-dessous) bascule sur un
+ * fournisseur IA (OpenRouter/Gemini 2.5 Flash en priorité, sinon Claude)
+ * quand une clé est configurée — voir `aiAvailable`/`aiExtractPage` plus
+ * haut. Ce pipeline local (`extractDocument`, import "une section = un
+ * document") reste inchangé et sert aussi de repli si aucune clé n'est
+ * configurée.
  *
  * Utilisé par l'import "une section = un document" : toutes les pages du
  * fichier sont supposées appartenir au MÊME document (ex. une facture de
@@ -79,11 +97,11 @@ function champsPourTousLesTypes(texte, lines) {
 
 export async function extractPages(dataUrl, raisonSociale) {
   const { buffer, mime } = decodeDataUrl(dataUrl);
-  const useClaude = claudeAvailable();
+  const useAI = aiAvailable();
 
   if (mime.startsWith("image/")) {
-    if (useClaude) {
-      const out = await claudeExtractPage({ imageDataUrl: dataUrl, raisonSociale });
+    if (useAI) {
+      const out = await aiExtractPage({ imageDataUrl: dataUrl, raisonSociale });
       return [
         {
           index: 0,
@@ -112,7 +130,7 @@ export async function extractPages(dataUrl, raisonSociale) {
   const textPages = await tryPdfTextPages(buffer);
   const hasText = textPages.some((t) => t.trim().length > 20);
   if (hasText) {
-    if (useClaude) {
+    if (useAI) {
       const pages = [];
       for (let index = 0; index < textPages.length; index++) {
         const texte = textPages[index];
@@ -120,7 +138,7 @@ export async function extractPages(dataUrl, raisonSociale) {
           pages.push({ index, imageDataUrl: null, champsByType: champsByTypeVide(), type: null, confidence: "faible" });
           continue;
         }
-        const out = await claudeExtractPage({ texte, raisonSociale });
+        const out = await aiExtractPage({ texte, raisonSociale });
         pages.push({ index, imageDataUrl: null, champsByType: champsByTypeFromClaude(out), type: out.type, confidence: out.confidence });
       }
       return pages;
@@ -134,25 +152,25 @@ export async function extractPages(dataUrl, raisonSociale) {
     }));
   }
 
-  // PDF scanné : rasterise chaque page, puis Claude (si clé API configurée)
-  // ou OCR local (tesseract + heuristiques) en repli.
+  // PDF scanné : rasterise chaque page, puis un fournisseur IA (si une clé
+  // API est configurée) ou OCR local (tesseract + heuristiques) en repli.
   const rastered = await rasterizeAllPages(buffer);
   const pages = [];
   for (const { index, png } of rastered) {
     const imageDataUrl = `data:image/png;base64,${png.toString("base64")}`;
 
-    if (useClaude) {
-      let out = await claudeExtractPage({ imageDataUrl, raisonSociale });
+    if (useAI) {
+      let out = await aiExtractPage({ imageDataUrl, raisonSociale });
       let finalImage = imageDataUrl;
       // Même repasse haute résolution que l'ancien pipeline local pour la
-      // page douane (grille serrée) — Claude lit bien mieux l'image que
-      // tesseract, mais une repasse à 400 DPI reste utile quand le numéro
-      // de déclaration n'est toujours pas lisible à 200 DPI.
+      // page douane (grille serrée) — un fournisseur IA lit bien mieux
+      // l'image que tesseract, mais une repasse à 400 DPI reste utile quand
+      // le numéro de déclaration n'est toujours pas lisible à 200 DPI.
       if (out.type === "douane" && !out.numDeclaration) {
         const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
         if (hiRes) {
           const hiResDataUrl = `data:image/png;base64,${hiRes.toString("base64")}`;
-          const retry = await claudeExtractPage({ imageDataUrl: hiResDataUrl, raisonSociale });
+          const retry = await aiExtractPage({ imageDataUrl: hiResDataUrl, raisonSociale });
           if (retry.numDeclaration) {
             out = retry;
             finalImage = hiResDataUrl;

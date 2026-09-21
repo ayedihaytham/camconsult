@@ -324,13 +324,13 @@ export function StockMouvementFormSheet({
           <img
             src={dataUrl}
             alt="Document importé"
-            className="mx-auto max-h-[36rem] rounded border border-border object-contain"
+            className="mx-auto max-h-[80vh] w-full rounded border border-border object-contain"
           />
         ) : (
           <iframe
             title="Document importé"
             src={dataUrl}
-            className="h-[36rem] w-full rounded border border-border bg-white"
+            className="h-[80vh] w-full rounded border border-border bg-white"
           />
         )}
       </div>
@@ -527,7 +527,7 @@ export function StockMouvementFormSheet({
             <div
               className={cn(
                 "grid gap-4",
-                v.achatDocDataUrl && previewOpen.achat && "lg:grid-cols-2",
+                v.achatDocDataUrl && previewOpen.achat && "lg:grid-cols-[2fr_3fr]",
               )}
             >
               <div className="grid grid-cols-2 gap-3">
@@ -616,7 +616,7 @@ export function StockMouvementFormSheet({
             <div
               className={cn(
                 "grid gap-4",
-                v.venteDocDataUrl && previewOpen.vente && "lg:grid-cols-2",
+                v.venteDocDataUrl && previewOpen.vente && "lg:grid-cols-[2fr_3fr]",
               )}
             >
               <div className="grid grid-cols-2 gap-3">
@@ -702,7 +702,7 @@ export function StockMouvementFormSheet({
             <div
               className={cn(
                 "grid gap-4",
-                v.douaneDocDataUrl && previewOpen.douane && "lg:grid-cols-2",
+                v.douaneDocDataUrl && previewOpen.douane && "lg:grid-cols-[2fr_3fr]",
               )}
             >
               <div className="grid grid-cols-2 gap-3">

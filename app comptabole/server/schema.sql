@@ -387,7 +387,8 @@ insert into grille_affectat_codes (code, libelle, poste) values
   ('CH09', 'Autres charges ordinaires', 'cpc.autres_charges_ordinaires'),
   ('CH10', 'Impôt sur les sociétés', 'cpc.impot_societes'),
   ('CH11', 'Impôt sur les sociétés (autres)', 'cpc.impot_societes'),
-  ('CH44', 'Reprises sur provisions antérieures', 'cpc.reprises_provisions')
+  ('CH44', 'Reprises sur provisions antérieures', 'cpc.reprises_provisions'),
+  ('CH13', 'Dotations aux provisions', 'cpc.dotations_provisions')
 on conflict (code) do update set
   poste   = case when grille_affectat_codes.poste = '' then excluded.poste else grille_affectat_codes.poste end,
   libelle = case when grille_affectat_codes.libelle = '' then excluded.libelle else grille_affectat_codes.libelle end;

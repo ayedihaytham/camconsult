@@ -31,7 +31,7 @@ const RULES_3: Record<string, string | null> = {
   "603": "CHPR1", // Variation des stocks
   "607": "CH01", // Achats de marchandises
   "681": "CH04", // Dotations aux amortissements
-  "686": "CH44", // Dotations aux provisions
+  "686": "CH13", // Dotations aux provisions
   "701": "PR02",
   "702": "PR02",
   "703": "PR02",
@@ -96,7 +96,7 @@ const RULES_2: Record<string, string | null> = {
   "65": "CH07", // Charges financières
   "66": "CH12", // Impôts, taxes et versements assimilés sur rémunérations
   "67": null, // Pertes extraordinaires — pas de code dédié (rare)
-  "68": "CH44", // Dotations aux amortissements et provisions (hors 681, amortissements)
+  "68": "CH13", // Dotations aux amortissements et provisions (hors 681, amortissements)
   "69": "CH10", // Impôts sur les bénéfices
   "70": "PR02", // Ventes (hors 707, marchandises)
   "71": null, // Production stockée — pas de code dédié

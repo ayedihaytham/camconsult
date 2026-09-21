@@ -81,7 +81,7 @@ export const NAV_GROUPS: NavGroup[] = [
         children: [
           { label: "Balance & synthèse", to: "/etats-financiers" },
           {
-            label: "Grille de reclassement",
+            label: "Paramétrage",
             to: "/grille-affectat",
             adminOnly: true,
           },

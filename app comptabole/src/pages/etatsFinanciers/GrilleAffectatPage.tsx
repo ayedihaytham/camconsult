@@ -52,8 +52,8 @@ export function GrilleAffectatPage() {
   return (
     <div className="flex flex-1 flex-col">
       <LedgerPageHeader
-        title="Grille de reclassement"
-        description="Référentiel unique du cabinet — les codes AFFECTAT appris lors des saisies et imports de balance, pour tous les clients."
+        title="Paramétrage"
+        description="Grille de reclassement — les codes AFFECTAT appris lors des saisies et imports de balance, pour tous les clients."
       />
 
       {codes.length === 0 ? (

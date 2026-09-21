@@ -71,7 +71,7 @@ function ClientInsight({ icon: Icon, label, title, meta, action, warning = false
   warning?: boolean;
 }) {
   return (
-    <section className="min-w-0 bg-card p-4">
+    <section className={`min-w-0 p-4 ${action ? "bg-card" : "bg-muted/20"}`}>
       <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <Icon className="size-4" aria-hidden="true" />
         {label}

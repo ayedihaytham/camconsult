@@ -11,7 +11,7 @@ export function TeamWorkloadChart({ members }: { members: DashboardTeamMember[] 
     <Card className="shadow-none">
       <CardHeader className="p-4">
         <CardTitle>Charge actuelle</CardTitle>
-        <CardDescription>Tâches ouvertes par collaborateur</CardDescription>
+        <CardDescription>Répartition relative des tâches ouvertes dans l'équipe</CardDescription>
       </CardHeader>
       <CardContent className="p-4 pt-0">
         {withWork.length === 0 ? (
@@ -22,7 +22,7 @@ export function TeamWorkloadChart({ members }: { members: DashboardTeamMember[] 
               <li key={member.id}>
                 <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
                   <span className="truncate font-medium">{member.name}</span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">{member.open}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{member.open} ouverte{member.open > 1 ? "s" : ""}</span>
                 </div>
                 <Progress
                   value={(member.open / maximum) * 100}
@@ -33,6 +33,7 @@ export function TeamWorkloadChart({ members }: { members: DashboardTeamMember[] 
             ))}
           </ul>
         )}
+        {withWork.length > 0 && <p className="mt-4 text-xs text-muted-foreground">La barre la plus longue indique le volume ouvert le plus élevé, pas une capacité.</p>}
       </CardContent>
     </Card>
   );

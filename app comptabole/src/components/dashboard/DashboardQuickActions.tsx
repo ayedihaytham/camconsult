@@ -34,16 +34,16 @@ export function DashboardQuickActions({ role, canAddSociete, canUseMessaging }: 
   const navigate = useNavigate();
   const actions: QuickAction[] = role === "admin"
     ? [
-        { label: "Nouvelle tâche", route: "/taches", icon: ListChecks },
-        { label: "Nouvelle collecte", route: "/collectes", icon: ClipboardCheck },
-        ...(canAddSociete ? [{ label: "Ajouter une société", route: "/societes", icon: Building2 }] : []),
-        { label: "Nouveau bordereau", route: "/bordereaux", icon: Landmark },
+        { label: "Voir les tâches", route: "/taches", icon: ListChecks },
+        { label: "Voir les collectes", route: "/collectes", icon: ClipboardCheck },
+        ...(canAddSociete ? [{ label: "Gérer les sociétés", route: "/societes", icon: Building2 }] : []),
+        { label: "Voir les bordereaux", route: "/bordereaux", icon: Landmark },
       ]
     : role === "collaborateur"
       ? [
           { label: "Mes tâches", route: "/taches", icon: ListChecks },
           { label: "Collectes", route: "/collectes", icon: ClipboardCheck },
-          ...(canAddSociete ? [{ label: "Ajouter une société", route: "/societes", icon: Building2 }] : []),
+          ...(canAddSociete ? [{ label: "Gérer les sociétés", route: "/societes", icon: Building2 }] : []),
           ...(canUseMessaging ? [{ label: "Messagerie", route: "/messagerie", icon: MessageCircle }] : []),
         ]
       : [

@@ -1,27 +1,120 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Activity, ArrowRight, FileText, MessageCircle, type LucideIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FilesActivity } from "@/components/dashboard/activity/FilesActivity";
-import { JournalActivity } from "@/components/dashboard/activity/JournalActivity";
-import { MessagesActivity } from "@/components/dashboard/activity/MessagesActivity";
+import { Separator } from "@/components/ui/separator";
+import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState";
 import type { DashboardViewModel } from "@/lib/dashboard/dashboardData";
+import { formatRelative } from "@/lib/utils";
+
+interface ActivityItem {
+  id: string;
+  label: "Fichier" | "Message" | "Journal";
+  title: string;
+  description: string;
+  updatedAt: string;
+  icon: LucideIcon;
+  route?: string;
+  unread?: number;
+}
 
 export function ActivityTab({ data, canUseMessaging }: { data: DashboardViewModel; canUseMessaging: boolean }) {
   const navigate = useNavigate();
-  const defaultTab = data.recentFiles.length > 0 ? "files" : canUseMessaging ? "messages" : data.role === "admin" ? "journal" : "files";
+  const items = useMemo<ActivityItem[]>(() => {
+    const files = data.recentFiles.map((file) => ({
+      id: `file-${file.id}`,
+      label: "Fichier" as const,
+      title: file.name,
+      description: `${file.societeName}${file.format ? ` · ${file.format.toUpperCase()}` : ""}`,
+      updatedAt: file.updatedAt,
+      icon: FileText,
+      route: "/structuration",
+    }));
+    const messages = canUseMessaging ? data.recentMessages.map((message) => ({
+      id: `message-${message.id}`,
+      label: "Message" as const,
+      title: message.label,
+      description: message.preview || "Aperçu indisponible",
+      updatedAt: message.updatedAt,
+      icon: MessageCircle,
+      route: "/messagerie",
+      unread: message.unread,
+    })) : [];
+    const journal = data.role === "admin" ? data.journalEntries.map((entry) => ({
+      id: `journal-${entry.id}`,
+      label: "Journal" as const,
+      title: entry.actor,
+      description: entry.label,
+      updatedAt: entry.at,
+      icon: Activity,
+    })) : [];
+
+    return [...files, ...messages, ...journal]
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .slice(0, 16);
+  }, [canUseMessaging, data.journalEntries, data.recentFiles, data.recentMessages, data.role]);
+
   return (
-    <Tabs defaultValue={defaultTab}>
-      <Card className="min-w-0 shadow-none">
-        <CardHeader className="gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-          <div><CardTitle>Activité récente</CardTitle><CardDescription className="mt-1">Derniers changements accessibles dans votre périmètre</CardDescription></div>
-          <div className="max-w-full overflow-x-auto pb-1"><TabsList className="w-max" aria-label="Type d'activité"><TabsTrigger value="files">Fichiers</TabsTrigger>{canUseMessaging && <TabsTrigger value="messages">Messages</TabsTrigger>}{data.role === "admin" && <TabsTrigger value="journal">Journal</TabsTrigger>}</TabsList></div>
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <TabsContent value="files" className="mt-0"><FilesActivity files={data.recentFiles} onOpen={() => navigate("/structuration")} /></TabsContent>
-          {canUseMessaging && <TabsContent value="messages" className="mt-0"><MessagesActivity messages={data.recentMessages} onOpen={() => navigate("/messagerie")} /></TabsContent>}
-          {data.role === "admin" && <TabsContent value="journal" className="mt-0"><JournalActivity entries={data.journalEntries} /></TabsContent>}
-        </CardContent>
-      </Card>
-    </Tabs>
+    <Card className="min-w-0 shadow-none">
+      <CardHeader className="p-4">
+        <CardTitle>Activité récente</CardTitle>
+        <CardDescription>Les derniers fichiers, échanges et opérations accessibles dans votre périmètre</CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 pt-0">
+        {items.length === 0 ? (
+          <DashboardEmptyState
+            icon={Activity}
+            title="Aucune activité récente"
+            description="Les nouveaux fichiers, échanges et opérations du journal apparaîtront ici."
+          />
+        ) : (
+          <ul>
+            {items.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <li key={item.id}>
+                  {index > 0 && <Separator />}
+                  <div className="flex min-w-0 items-center gap-3 py-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                      <Icon className="size-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
+                        <Badge variant="outline" className="shrink-0">
+                          {item.label}
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.description}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {item.unread && item.unread > 0 ? <Badge>{item.unread}</Badge> : null}
+                      <time dateTime={item.updatedAt} className="hidden text-[0.68rem] text-muted-foreground sm:block">
+                        {formatRelative(item.updatedAt)}
+                      </time>
+                      {item.route ? (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => { if (item.route) navigate(item.route); }}
+                          aria-label={`Ouvrir ${item.label.toLowerCase()} : ${item.title}`}
+                        >
+                          <ArrowRight className="size-4" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <time dateTime={item.updatedAt} className="mb-1 block pl-11 text-[0.68rem] text-muted-foreground sm:hidden">
+                    {formatRelative(item.updatedAt)}
+                  </time>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }

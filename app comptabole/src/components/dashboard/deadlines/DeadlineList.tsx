@@ -52,7 +52,7 @@ export function DeadlineList({ deadlines }: { deadlines: DashboardDeadline[] }) 
                       <p className="truncate text-sm font-medium text-foreground">{item.societeName}</p>
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.periode}</p>
                     </div>
-                    <Badge variant={item.bucket === "overdue" ? "destructive" : item.bucket === "today" ? "warning" : "outline"} className="hidden shrink-0 sm:inline-flex">
+                    <Badge variant={item.bucket === "overdue" ? "destructive" : item.bucket === "today" ? "warning" : "outline"} className="shrink-0">
                       {item.badge}
                     </Badge>
                     <Button variant="ghost" size="icon-sm" onClick={() => navigate(item.route)} aria-label={`Ouvrir ${item.societeName}`}>

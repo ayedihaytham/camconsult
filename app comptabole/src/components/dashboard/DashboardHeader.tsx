@@ -12,9 +12,9 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ salutation, dateLabel, role, canAddSociete, canUseMessaging }: DashboardHeaderProps) {
   return (
-    <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <header className="flex flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{salutation}</h1>
+        <h1 className="font-serif text-2xl font-semibold tracking-tight text-primary sm:text-3xl">{salutation}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {role === "societe_employe"
             ? "Voici les éléments utiles pour suivre vos échanges avec le cabinet."

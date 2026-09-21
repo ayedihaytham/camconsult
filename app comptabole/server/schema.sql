@@ -670,11 +670,22 @@ create table if not exists immo_biens (
 create index if not exists immo_biens_societe_idx on immo_biens(societe_id);
 create index if not exists immo_biens_categorie_idx on immo_biens(categorie_id);
 
+-- Taux légaux — décret n°2008-492 du 25 février 2008 (JORT n°18, taux
+-- maximum des amortissements linéaires, art. 12 bis du code de l'IRPP/IS).
 insert into immo_categories (id, nom, taux, masse) values
   ('00000000-0000-0000-0000-000000000001', 'Logiciels', 33.33, 'incorporelle'),
   ('00000000-0000-0000-0000-000000000002', 'Installations générales, agencements et aménagements', 10, 'corporelle'),
   ('00000000-0000-0000-0000-000000000003', 'Matériel industriel et équipements', 15, 'corporelle'),
   ('00000000-0000-0000-0000-000000000004', 'Matériel de transport', 20, 'corporelle'),
   ('00000000-0000-0000-0000-000000000005', 'Équipements de bureau', 20, 'corporelle'),
-  ('00000000-0000-0000-0000-000000000006', 'Immobilisations à statut juridique particulier', 10, 'corporelle')
+  ('00000000-0000-0000-0000-000000000006', 'Immobilisations à statut juridique particulier', 10, 'corporelle'),
+  -- Le décret regroupe "Equipements et logiciels informatiques" au même
+  -- taux (IV.1.g) — le matériel informatique (corporel) manquait, il
+  -- retombait par défaut sur Équipements de bureau (20%, faux).
+  ('00000000-0000-0000-0000-000000000007', 'Matériel informatique', 33.33, 'corporelle'),
+  -- Frais de constitution — quasi systématiques à la création d'une
+  -- société, absents jusqu'ici (I. Frais préliminaires).
+  ('00000000-0000-0000-0000-000000000008', 'Frais préliminaires', 100, 'incorporelle'),
+  -- II. Brevets, marques de fabrique et frais de développement capitalisés
+  ('00000000-0000-0000-0000-000000000009', 'Brevets, marques et frais de développement', 20, 'incorporelle')
 on conflict (id) do nothing;

@@ -4,26 +4,25 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md",
+          "bg-primary text-primary-foreground hover:bg-primary/90",
         accent:
-          "bg-gradient-to-br from-accent to-accent/85 text-accent-foreground shadow-sm shadow-accent/20 hover:shadow-md hover:shadow-accent/30",
+          "bg-accent text-accent-foreground hover:bg-accent/85",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "border border-input bg-card shadow-sm hover:border-accent/40 hover:bg-secondary hover:text-secondary-foreground",
+          "border border-input bg-background hover:border-accent/60 hover:bg-secondary hover:text-secondary-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/70",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/70",
         ghost: "hover:bg-secondary hover:text-secondary-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        // CTA principale de l'app — or sur marine (identité CAMCONSULT),
-        // ombre teintée or qui s'accentue au survol (petit "lift").
+        // CTA principale de l'app — or sur marine (identité CAMCONSULT).
         ledger:
-          "bg-gradient-to-b from-accent to-accent/90 text-xs font-bold uppercase tracking-wide text-accent-foreground shadow-md shadow-accent/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-accent/50 active:translate-y-0",
+          "bg-accent text-xs font-bold uppercase tracking-wide text-accent-foreground hover:bg-accent/85",
         "ledger-text":
           "h-auto rounded-sm bg-transparent p-0 text-xs font-bold uppercase tracking-wide text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground active:scale-100",
       },

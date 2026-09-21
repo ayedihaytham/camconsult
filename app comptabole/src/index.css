@@ -7,30 +7,30 @@
 
 @layer base {
   :root {
-    /* Neutres — blanc cassé / ardoise */
-    --background: 210 20% 98%;
-    --foreground: 215 30% 16%;
+    /* Neutres canoniques — papier chaud, encre et filets CamConsult. */
+    --background: 45 22.222% 96.471%;
+    --foreground: 0 0% 10.196%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 30% 16%;
+    --card-foreground: 0 0% 10.196%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 30% 16%;
+    --popover-foreground: 0 0% 10.196%;
 
     /* Primaire — bleu marine (identité CAMCONSULT, #0B2545) */
-    --primary: 213 72% 16%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 213.103 72.5% 15.686%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 24% 94%;
-    --secondary-foreground: 215 30% 24%;
+    --secondary: 210 13.333% 94.118%;
+    --secondary-foreground: 0 0% 10.196%;
 
-    --muted: 210 24% 95%;
-    --muted-foreground: 215 16% 46%;
+    --muted: 45 11.765% 93.333%;
+    --muted-foreground: 216.923 11.304% 45.098%;
 
     /* Accent — or CAMCONSULT (#C9A96A) : fond de bouton/badge + décoratif
        uniquement, jamais en texte de paragraphe (voir DESIGN-SYSTEM.md §2). */
-    --accent: 40 47% 60%;
-    --accent-foreground: 213 72% 16%;
+    --accent: 39.789 46.798% 60.196%;
+    --accent-foreground: 213.103 72.5% 15.686%;
 
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
@@ -43,13 +43,9 @@
     --warning: 33 92% 45%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 214 20% 89%;
-    --input: 214 20% 86%;
-    /* Anneau de focus : variante plus dense de l'or (--accent) — un or clair
-       en contour de 2px sur fond blanc tombe sous le seuil de contraste
-       non-textuel (3:1, WCAG 1.4.11) ; celui-ci reste lisible sur toutes les
-       surfaces claires tout en restant dans la même famille de teinte. */
-    --ring: 38 55% 46%;
+    --border: 42 15.152% 87.059%;
+    --input: 42 11.364% 82.745%;
+    --ring: 39.789 46.798% 60.196%;
     /* Ledger Rule : filet renforcé toutes les 5 lignes des tableaux denses. */
     --rule-strong: 215 18% 74%;
 
@@ -59,27 +55,27 @@
        additionnelles assez sombres pour rester lisibles en texte (badges).
        Jamais la couleur seule pour distinguer une série (toujours accompagnée
        d'une légende/d'un libellé). */
-    --chart-1: 213 72% 16%; /* marine — identique à --primary */
+    --chart-1: 213.103 72.5% 15.686%; /* marine — identique à --primary */
     --chart-2: 211 55% 42%; /* bleu ardoise sourd */
     --chart-3: 160 45% 32%; /* vert sauge sourd */
     --chart-4: 172 40% 34%; /* sarcelle sourde */
     --chart-5: 280 28% 40%; /* prune sourde — écho luxe navy/or */
 
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
     /* Sidebar shadcn — sémantique adaptée à l'identité CAMCONSULT.
        background/deep = marine ; primary = or de marque ; accent = surface
        interactive marine plus claire (et non la couleur or). */
-    --sidebar-background: 213 60% 13%;
+    --sidebar-background: 213.103 72.5% 15.686%;
     --sidebar-deep: 213 65% 9%;
     --sidebar-foreground: 210 30% 88%;
     --sidebar-muted: 211 30% 62%;
-    --sidebar-primary: 40 47% 60%;
+    --sidebar-primary: 39.789 46.798% 60.196%;
     --sidebar-primary-foreground: 213 65% 9%;
     --sidebar-accent: 212 44% 20%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 212 44% 20%;
-    --sidebar-ring: 38 55% 46%;
+    --sidebar-ring: 39.789 46.798% 60.196%;
   }
 
   * {
@@ -96,6 +92,12 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv11", "ss01";
     text-rendering: optimizeLegibility;
+    caret-color: hsl(var(--primary));
+  }
+
+  ::selection {
+    background: hsl(var(--accent) / 0.35);
+    color: hsl(var(--foreground));
   }
 
   /* Scrollbar sobre */

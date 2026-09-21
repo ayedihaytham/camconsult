@@ -22,6 +22,7 @@ interface DashboardQuickActionsProps {
   role: DashboardRole;
   canAddSociete: boolean;
   canUseMessaging: boolean;
+  inverse?: boolean;
 }
 
 interface QuickAction {
@@ -30,7 +31,7 @@ interface QuickAction {
   icon: LucideIcon;
 }
 
-export function DashboardQuickActions({ role, canAddSociete, canUseMessaging }: DashboardQuickActionsProps) {
+export function DashboardQuickActions({ role, canAddSociete, canUseMessaging, inverse = false }: DashboardQuickActionsProps) {
   const navigate = useNavigate();
   const actions: QuickAction[] = role === "admin"
     ? [
@@ -55,8 +56,12 @@ export function DashboardQuickActions({ role, canAddSociete, canUseMessaging }: 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="w-full shadow-none sm:w-auto">
-          Actions rapides
+        <Button
+          variant="outline"
+          className={inverse ? "self-start border-accent/60 bg-transparent text-accent shadow-none hover:bg-primary-foreground/10 hover:text-accent" : "w-full shadow-none sm:w-auto"}
+        >
+          <span className="sm:hidden">Actions</span>
+          <span className="hidden sm:inline">Actions rapides</span>
           <ChevronDown className="size-4" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>

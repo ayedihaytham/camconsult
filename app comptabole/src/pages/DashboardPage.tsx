@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-import { DashboardKpiGrid } from "@/components/dashboard/DashboardKpiGrid";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardData } from "@/hooks/dashboard/useDashboardData";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -40,11 +39,12 @@ export function DashboardPage() {
       <DashboardHeader
         salutation={`${greeting(now)}${firstName ? ` ${firstName}` : ""}`}
         dateLabel={dateLabel}
+        data={data}
+        loading={collectesLoading}
         role={role}
         canAddSociete={canAddSociete}
         canUseMessaging={canUseMessaging}
       />
-      <DashboardKpiGrid kpis={data.kpis} collectesLoading={collectesLoading} />
       <DashboardTabs
         data={data}
         canUseMessaging={canUseMessaging}

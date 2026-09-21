@@ -14,9 +14,12 @@ Current implementation:
 
 ## Structure
 
-1. Compact header: greeting, date, role-aware quick actions.
-2. Responsive KPI grid.
-3. URL-addressable shadcn Tabs (`?tab=`) with role-specific contents.
+1. Compact navy command surface: greeting, date, role-aware quick actions and
+   inline role metrics separated by a fine gold rule.
+2. URL-addressable shadcn Tabs (`?tab=`) rendered as a horizontally scrollable
+   ledger rail on narrow screens.
+3. Tab content uses compact ledger rows, timelines and restrained tonal
+   sections instead of a repeated grid of framed cards.
 
 Admin/collaborator tabs: `Vue d'ensemble`, `À traiter`, `Échéances`, optional
 admin `Équipe`, and `Activité`.
@@ -29,18 +32,20 @@ Company employee tabs: `Vue d'ensemble`, `Collectes`, `Documents`, and
 ### Admin
 
 - Cabinet-wide scoped bootstrap data.
-- KPIs: active clients, actionable collections, open tasks, unread messages when
-  messaging is available.
-- Overview priorities and task-status chart.
-- Attention queue, deadlines/collection flow, team workload, recent files,
-  messages and journal.
+- Command metrics: active clients, open tasks, overdue collection deadlines and
+  unread messages when messaging is available. Actionable collection counts
+  remain represented in the attention queue.
+- Asymmetric Overview with a priority ledger and warm tonal task summary.
+- Grouped attention queue, deadline timeline, unified team workload ledger,
+  and a chronological activity ledger for recent files, messages and journal.
 - Admin bordereaux contribute an unpointed attention item and aggregate values.
 
 ### Collaborateur
 
 - Server-scoped assigned societies/tasks and accessible entities.
-- KPIs: `Mes sociétés`, actionable collections, own open tasks, unread messages
-  when permitted.
+- Command metrics: `Mes sociétés`, own open tasks, scoped overdue collection
+  deadlines and unread messages when permitted. Actionable collection counts
+  remain represented in the attention queue.
 - Overview, attention, deadlines and activity; no admin team or journal tab.
 
 ### `societe_employe`
@@ -92,17 +97,19 @@ from today, then society name.
 
 Tasks have no deadline field and must not be used as fake deadline data.
 
-## Current charts
+## Current summaries
 
 - Task status: proportional segmented bar and counts for `a_faire`, `en_cours`,
-  `termine` from scoped tasks.
-- Collection flow: Progress bars for non-archived `brouillon`, `transmis`,
-  `a_corriger`, `valide` counts.
-- Team workload (admin only): Progress bars of open tasks per collaborator,
-  normalized to the largest current workload.
+  `termine` from scoped tasks, plus the next real collection deadline when one
+  exists.
+- Team workload (admin only): one row per collaborator with a relative Progress
+  bar normalized to the largest current visible workload. It is not a capacity
+  target or performance score.
 
-These are CSS/shadcn Progress-based visualizations with visible text values; the
-Dashboard does not currently render the shared `RadialBarChart`.
+These are CSS/shadcn Progress-based summaries with visible text values; the
+Dashboard does not currently render the shared `RadialBarChart`. Collection
+status counts remain in the view model for role-aware data continuity but are
+not duplicated as a standalone Overview or deadline chart.
 
 ## Data sources and performance
 

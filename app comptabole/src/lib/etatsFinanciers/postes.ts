@@ -398,6 +398,20 @@ export function computeSig(postes: Postes): SigResult {
 export const fmt = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** Signe d'affichage d'un poste quelconque (Bilan Actif/Passif ou CPC) —
+ * même convention que partout ailleurs dans le module (voir l'en-tête de ce
+ * fichier) : actif/charge débiteurs par nature, affichés tels quels ;
+ * passif/capitaux propres/produit créditeurs par nature, affichés inversés.
+ * Utilisé pour tout affichage par compte (détail des notes annexes, export
+ * Excel) qui ne passe pas par computeRows()/ROWS_*. */
+export function signForPoste(poste: string): 1 | -1 {
+  const row = [...ROWS_BILAN_ACTIF, ...ROWS_BILAN_PASSIF].find((r) => r.posteKeys?.includes(poste));
+  if (row) return row.sign ?? 1;
+  const cpcLigne = Object.values(CPC_LIGNES).find((l) => (l.keys as readonly string[]).includes(poste));
+  if (cpcLigne) return cpcLigne.nature === "produit" ? -1 : 1;
+  return 1;
+}
+
 /** Liste des postes assignables à un code AFFECTAT, pour le menu déroulant
  * de la grille de reclassement (admin). */
 export const POSTE_OPTIONS: { value: string; label: string; groupe: string }[] = [

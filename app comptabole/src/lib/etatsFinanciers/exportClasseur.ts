@@ -9,6 +9,7 @@ import {
   ROWS_ETAT_RESULTAT,
   ROWS_SIG_PRODUITS,
   ROWS_SIG_CHARGES,
+  signForPoste,
   type Row,
 } from "./postes";
 import { computeImmoVariation, MASSE_AMORT_LABELS, MASSE_LABELS } from "./immobilisations";
@@ -291,6 +292,7 @@ function notesSheet(
     const filtered = detailComptes.filter((l) => l.poste === poste);
     const comptes = [...new Set(filtered.map((l) => l.compte))].sort();
     if (comptes.length === 0) continue;
+    const sign = signForPoste(poste);
     aoa.push([titre]);
     aoa.push(["Compte", "Libellé", ...chrono.map((e) => e.exercice)]);
     for (const compte of comptes) {
@@ -298,7 +300,9 @@ function notesSheet(
       aoa.push([
         compte,
         libelle,
-        ...chrono.map((e) => round2(filtered.find((l) => l.compte === compte && l.exercice === e.exercice)?.solde ?? 0)),
+        ...chrono.map((e) =>
+          round2(sign * (filtered.find((l) => l.compte === compte && l.exercice === e.exercice)?.solde ?? 0)),
+        ),
       ]);
     }
     aoa.push([]);

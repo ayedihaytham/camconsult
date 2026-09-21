@@ -1,5 +1,5 @@
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { fmt } from "@/lib/etatsFinanciers/postes";
+import { fmt, signForPoste } from "@/lib/etatsFinanciers/postes";
 import type { DetailCompteLigne } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -25,10 +25,11 @@ export function DetailComptesSection({
 
   if (comptes.length === 0) return null;
 
+  const sign = signForPoste(poste);
   const libelleFor = (compte: string) =>
     filtered.find((l) => l.compte === compte && l.libelle)?.libelle || compte;
   const soldeFor = (compte: string, exercice: string) =>
-    filtered.find((l) => l.compte === compte && l.exercice === exercice)?.solde ?? 0;
+    sign * (filtered.find((l) => l.compte === compte && l.exercice === exercice)?.solde ?? 0);
 
   return (
     <LedgerSheet>

@@ -29,6 +29,7 @@ import { SigTable } from "./SigTable";
 import { ImmoVariationTable } from "./ImmoVariationTable";
 import { FluxTable } from "./FluxTable";
 import { TdrfTable } from "./TdrfTable";
+import { ControleTable } from "./ControleTable";
 import { NotesView } from "./NotesView";
 import { ImmobilisationsRegistrePage } from "./ImmobilisationsRegistrePage";
 import { exportClasseurExcel } from "@/lib/etatsFinanciers/exportClasseur";
@@ -45,6 +46,7 @@ type Vue =
   | "registre"
   | "flux"
   | "tdrf"
+  | "controle"
   | "notes";
 
 const VUE_OPTIONS: { value: Vue; label: string }[] = [
@@ -58,6 +60,7 @@ const VUE_OPTIONS: { value: Vue; label: string }[] = [
   { value: "registre", label: "Registre immobilisations" },
   { value: "flux", label: "Flux de trésorerie" },
   { value: "tdrf", label: "TDRF" },
+  { value: "controle", label: "Contrôle" },
   { value: "notes", label: "Notes" },
 ];
 
@@ -131,19 +134,19 @@ export function BalancesListPage() {
   }, [vue, fetchGrille]);
 
   useEffect(() => {
-    if (vue !== "immo" && vue !== "flux" && vue !== "notes") return;
+    if (vue !== "immo" && vue !== "flux" && vue !== "notes" && vue !== "controle") return;
     fetchImmoMouvements(societeId);
     return () => clearImmoMouvements();
   }, [vue, societeId, fetchImmoMouvements, clearImmoMouvements]);
 
   useEffect(() => {
-    if (vue !== "flux") return;
+    if (vue !== "flux" && vue !== "controle") return;
     fetchFinancementMouvements(societeId);
     return () => clearFinancementMouvements();
   }, [vue, societeId, fetchFinancementMouvements, clearFinancementMouvements]);
 
   useEffect(() => {
-    if (vue !== "tdrf") return;
+    if (vue !== "tdrf" && vue !== "controle") return;
     fetchTdrfLignes(societeId);
     fetchTdrfParametres(societeId);
     return () => {
@@ -153,7 +156,7 @@ export function BalancesListPage() {
   }, [vue, societeId, fetchTdrfLignes, clearTdrfLignes, fetchTdrfParametres, clearTdrfParametres]);
 
   useEffect(() => {
-    if (vue !== "immo" && vue !== "flux" && vue !== "notes" && vue !== "registre") return;
+    if (vue !== "immo" && vue !== "flux" && vue !== "notes" && vue !== "registre" && vue !== "controle") return;
     fetchImmoCategories();
     fetchImmoBiens(societeId);
     return () => clearImmoBiens();
@@ -355,6 +358,16 @@ export function BalancesListPage() {
             onUpdate={updateTdrfLigne}
             onRemove={removeTdrfLigne}
             onSaveParametres={(ex, data) => saveTdrfParametres(societeId, ex, data)}
+          />
+        </div>
+      ) : vue === "controle" ? (
+        <div className="mt-4">
+          <ControleTable
+            exercices={postesParExercice}
+            immoMouvements={effectiveImmoMouvements}
+            financementMouvements={financementMouvements}
+            tdrfLignes={tdrfLignes}
+            tdrfParametres={tdrfParametres}
           />
         </div>
       ) : (

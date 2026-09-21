@@ -31,7 +31,7 @@ const RULES_3: Record<string, string | null> = {
   "603": "CHPR1", // Variation des stocks
   "607": "CH01", // Achats de marchandises
   "681": "CH04", // Dotations aux amortissements
-  "686": "CH44", // Dotations aux provisions
+  "686": "CH13", // Dotations aux provisions
   "701": "PR02",
   "702": "PR02",
   "703": "PR02",
@@ -93,17 +93,17 @@ const RULES_2: Record<string, string | null> = {
   "62": "CH05", // Autres services extérieurs
   "63": "CH05", // Charges diverses ordinaires
   "64": "CH03", // Charges de personnel
-  "65": "CH06", // Charges financières
+  "65": "CH07", // Charges financières
   "66": "CH12", // Impôts, taxes et versements assimilés sur rémunérations
   "67": null, // Pertes extraordinaires — pas de code dédié (rare)
-  "68": "CH44", // Dotations aux amortissements et provisions (hors 681, amortissements)
+  "68": "CH13", // Dotations aux amortissements et provisions (hors 681, amortissements)
   "69": "CH10", // Impôts sur les bénéfices
   "70": "PR02", // Ventes (hors 707, marchandises)
   "71": null, // Production stockée — pas de code dédié
   "72": null, // Production immobilisée — pas de code dédié
-  "73": "PR02", // Produits divers ordinaires
+  "73": "CH08", // Produits divers ordinaires (pas "d'exploitation" — voir cpc.autres_produits_ordinaires)
   "74": "PR02", // Subventions d'exploitation
-  "75": "CH06", // Produits financiers — nettés dans « Charges financières nettes »
+  "75": "CH07", // Produits financiers — nettés dans « Charges financières nettes »
   "77": null, // Gains extraordinaires — pas de code dédié (rare)
   "78": null, // Reprises sur amortissements et provisions — pas de code dédié
   "79": null, // Transferts de charges — pas de code dédié

@@ -383,6 +383,37 @@ export interface TdrfParametres {
   plancherMinimum: number;
   contributionSociale: number;
   excedentsAcomptes: number;
+  // Réintégrations (Annexe n°2, note commune n°26/2016)
+  pertesChangeNonRealisees: number;
+  gainsChangeNonRealisesAnterieurs: number;
+  remunerationsExcedentairesTitres: number;
+  chargesEspeces5000: number;
+  moinsValueCessionTitresOpcvm: number;
+  impotsDirectsLieuAutrui: number;
+  taxeVoyage: number;
+  transactionsAmendesPenalites: number;
+  depensesEssaimage: number;
+  facturesNonParvenues: number;
+  amortissementsBiensReevalues: number;
+  provisionsNonDeductibles: number;
+  provisionsCreancesDouteusesReintegrees: number;
+  // Déductions (cascade — voir computeTdrf)
+  produitsEtranger: number;
+  provisionsCreancesDouteuses: number;
+  provisionsDeprecStocksVente: number;
+  provisionsDeprecActionsCotees: number;
+  provisionsNonExigibiliteEngagements: number;
+  moinsValueLeveeOption: number;
+  reintegrationAmortissementsExercice: number;
+  deductionDeficitsReportes: number;
+  deductionAmortissementsExercice: number;
+  deductionAmortissementsDifferes: number;
+  interetsDepotsTitresDevises: number;
+  // Contribution sociale de solidarité / impôts à payer
+  excedentsAnterieurs: number;
+  acomptesProvisionnelsPayes: number;
+  retenueALaSource: number;
+  avanceIrppImport: number;
   majLe: string | null;
 }
 

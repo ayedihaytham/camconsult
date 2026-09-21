@@ -43,6 +43,7 @@ services:
       # Claude au lieu de l'OCR local ; absente = repli automatique sur
       # l'OCR local gratuit (voir server/ocr.js).
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       # Facultatif — envoi d'emails réel (SMTP) ; absent = envoi sauté
       # silencieusement (voir server/mailer.js).
       SMTP_HOST: ${SMTP_HOST:-}

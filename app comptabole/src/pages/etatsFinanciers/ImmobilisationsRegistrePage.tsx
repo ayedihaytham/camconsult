@@ -154,28 +154,45 @@ export function ImmobilisationsRegistrePage({
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="px-[18px] py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                  <th rowSpan={2} className="px-[18px] py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground align-bottom">
                     Bien
                   </th>
-                  <th className="px-2 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                    Brut ouv.
+                  <th colSpan={4} className="border-b border-border px-2 py-1 text-center text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Valeurs brutes
                   </th>
-                  <th className="px-2 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                    Acquis.
+                  <th colSpan={4} className="border-b border-border border-l border-border px-2 py-1 text-center text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Amortissements
                   </th>
-                  <th className="px-2 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                    Cessions
-                  </th>
-                  <th className="px-2 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                    Brut clôt.
-                  </th>
-                  <th className="px-2 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                    Amort. clôt.
-                  </th>
-                  <th className="px-2 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                  <th rowSpan={2} className="border-l border-border px-2 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground align-bottom">
                     VNC
                   </th>
-                  <th className="w-[1%] px-[18px] py-2.5" />
+                  <th rowSpan={2} className="w-[1%] px-[18px] py-2.5" />
+                </tr>
+                <tr>
+                  <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Ouverture
+                  </th>
+                  <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Acquis.
+                  </th>
+                  <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Cessions
+                  </th>
+                  <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Clôture
+                  </th>
+                  <th className="border-l border-border px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Ouverture
+                  </th>
+                  <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Dotations
+                  </th>
+                  <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Cessions
+                  </th>
+                  <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Clôture
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -183,16 +200,32 @@ export function ImmobilisationsRegistrePage({
                   const items = parCategorie.get(cat.id) ?? [];
                   const sub = items.reduce(
                     (a, c) => ({
+                      brutOuverture: a.brutOuverture + c.brutOuverture,
+                      acquisitions: a.acquisitions + c.acquisitions,
+                      cessionsBrut: a.cessionsBrut + c.cessionsBrut,
                       brutCloture: a.brutCloture + c.brutCloture,
+                      amortOuverture: a.amortOuverture + c.amortOuverture,
+                      dotations: a.dotations + c.dotations,
+                      cessionsAmort: a.cessionsAmort + c.cessionsAmort,
                       amortCloture: a.amortCloture + c.amortCloture,
                       vcn: a.vcn + c.vcn,
                     }),
-                    { brutCloture: 0, amortCloture: 0, vcn: 0 },
+                    {
+                      brutOuverture: 0,
+                      acquisitions: 0,
+                      cessionsBrut: 0,
+                      brutCloture: 0,
+                      amortOuverture: 0,
+                      dotations: 0,
+                      cessionsAmort: 0,
+                      amortCloture: 0,
+                      vcn: 0,
+                    },
                   );
                   return (
                     <Fragment key={cat.id}>
                       <tr>
-                        <td colSpan={8} className="bg-muted px-[18px] py-1.5 text-[0.72rem] font-bold uppercase tracking-wide text-foreground">
+                        <td colSpan={11} className="bg-muted px-[18px] py-1.5 text-[0.72rem] font-bold uppercase tracking-wide text-foreground">
                           {cat.nom} ({cat.taux}%)
                         </td>
                       </tr>
@@ -216,8 +249,11 @@ export function ImmobilisationsRegistrePage({
                           <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{fmt(c.acquisitions)}</td>
                           <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{fmt(c.cessionsBrut)}</td>
                           <td className="px-2 py-1.5 text-right tabular-nums">{fmt(c.brutCloture)}</td>
+                          <td className="border-l border-border px-2 py-1.5 text-right tabular-nums text-muted-foreground">{fmt(c.amortOuverture)}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{fmt(c.dotations)}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{fmt(c.cessionsAmort)}</td>
                           <td className="px-2 py-1.5 text-right tabular-nums">{fmt(c.amortCloture)}</td>
-                          <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-foreground">{fmt(c.vcn)}</td>
+                          <td className="border-l border-border px-2 py-1.5 text-right font-semibold tabular-nums text-foreground">{fmt(c.vcn)}</td>
                           <td className="px-[18px] py-1.5">
                             <LedgerRowMenu
                               actions={[
@@ -251,12 +287,15 @@ export function ImmobilisationsRegistrePage({
                       ))}
                       <tr className="border-b-[1.5px] border-rule-strong font-semibold">
                         <td className="px-[18px] py-1.5 text-foreground">Sous-total</td>
-                        <td />
-                        <td />
-                        <td />
+                        <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.brutOuverture)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.acquisitions)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.cessionsBrut)}</td>
                         <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.brutCloture)}</td>
+                        <td className="border-l border-border px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.amortOuverture)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.dotations)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.cessionsAmort)}</td>
                         <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.amortCloture)}</td>
-                        <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.vcn)}</td>
+                        <td className="border-l border-border px-2 py-1.5 text-right tabular-nums text-foreground">{fmt(sub.vcn)}</td>
                         <td />
                       </tr>
                     </Fragment>
@@ -264,12 +303,15 @@ export function ImmobilisationsRegistrePage({
                 })}
                 <tr className="border-t-2 border-foreground font-bold text-foreground">
                   <td className="px-[18px] py-2">TOTAL</td>
-                  <td />
-                  <td />
-                  <td />
+                  <td className="px-2 py-2 text-right tabular-nums">{fmt(grandTotal.brutOuverture)}</td>
+                  <td className="px-2 py-2 text-right tabular-nums">{fmt(grandTotal.acquisitions)}</td>
+                  <td className="px-2 py-2 text-right tabular-nums">{fmt(grandTotal.cessionsBrut)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{fmt(grandTotal.brutCloture)}</td>
+                  <td className="border-l border-border px-2 py-2 text-right tabular-nums">{fmt(grandTotal.amortOuverture)}</td>
+                  <td className="px-2 py-2 text-right tabular-nums">{fmt(grandTotal.dotations)}</td>
+                  <td className="px-2 py-2 text-right tabular-nums">{fmt(grandTotal.cessionsAmort)}</td>
                   <td className="px-2 py-2 text-right tabular-nums">{fmt(grandTotal.amortCloture)}</td>
-                  <td className="px-2 py-2 text-right tabular-nums">{fmt(grandTotal.vcn)}</td>
+                  <td className="border-l border-border px-2 py-2 text-right tabular-nums">{fmt(grandTotal.vcn)}</td>
                   <td />
                 </tr>
               </tbody>

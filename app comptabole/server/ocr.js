@@ -4,6 +4,33 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { claudeAvailable, claudeExtractPage, champsByTypeFromClaude, champsByTypeVide } from "./claudeExtract.js";
+import { openrouterAvailable, openrouterExtractPage } from "./openrouterExtract.js";
+
+/** Fournisseur d'extraction IA (image/texte -> champs) : OpenRouter (Gemini
+ * 2.5 Flash) en priorité si configuré, sinon Claude, sinon aucun (repli sur
+ * l'OCR local + heuristiques regex plus bas dans ce fichier). Un seul point
+ * de choix pour les 4 emplacements de `extractPages` qui appelaient jusque-là
+ * `claudeExtractPage` directement — même schéma de sortie des deux côtés
+ * (voir openrouterExtract.js), donc `champsByTypeFromClaude`/`champsByTypeVide`
+ * restent valables quel que soit le fournisseur retenu. */
+function aiAvailable() {
+  return openrouterAvailable() || claudeAvailable();
+}
+async function aiExtractPage(params) {
+  if (openrouterAvailable()) return openrouterExtractPage(params);
+  return claudeExtractPage(params);
+}
+
+/** Log explicite du fournisseur réellement utilisé — sans ça, un import qui
+ * retombe silencieusement sur l'OCR local (ex. clé API absente ou appel en
+ * échec) est indiscernable d'un import correctement traité par un modèle
+ * IA, ce qui a rendu un vrai problème de configuration difficile à
+ * diagnostiquer en usage réel. */
+function logProvider() {
+  if (openrouterAvailable()) console.log("[ocr] extraction via OpenRouter (Gemini 2.5 Flash)");
+  else if (claudeAvailable()) console.log("[ocr] extraction via Claude (OPENROUTER_API_KEY absente)");
+  else console.log("[ocr] extraction via OCR local + heuristiques (aucune clé IA configurée)");
+}
 
 const execFileAsync = promisify(execFile);
 
@@ -15,10 +42,12 @@ const MAX_PAGES = 15;
  *  2. Sinon (PDF/image scanné) -> rasterisation (poppler) + OCR (tesseract.js).
  * Puis extraction de champs par heuristiques (regex) selon le type de document.
  *
- * `extractPages` (import "document complet", ci-dessous) bascule sur Claude
- * (Sonnet 5) quand ANTHROPIC_API_KEY est configurée — voir claudeExtract.js.
- * Ce pipeline local (`extractDocument`, import "une section = un document")
- * reste inchangé et sert aussi de repli si la clé n'est pas configurée.
+ * `extractPages` (import "document complet", ci-dessous) bascule sur un
+ * fournisseur IA (OpenRouter/Gemini 2.5 Flash en priorité, sinon Claude)
+ * quand une clé est configurée — voir `aiAvailable`/`aiExtractPage` plus
+ * haut. Ce pipeline local (`extractDocument`, import "une section = un
+ * document") reste inchangé et sert aussi de repli si aucune clé n'est
+ * configurée.
  *
  * Utilisé par l'import "une section = un document" : toutes les pages du
  * fichier sont supposées appartenir au MÊME document (ex. une facture de
@@ -79,20 +108,25 @@ function champsPourTousLesTypes(texte, lines) {
 
 export async function extractPages(dataUrl, raisonSociale) {
   const { buffer, mime } = decodeDataUrl(dataUrl);
-  const useClaude = claudeAvailable();
+  const useAI = aiAvailable();
+  logProvider();
 
   if (mime.startsWith("image/")) {
-    if (useClaude) {
-      const out = await claudeExtractPage({ imageDataUrl: dataUrl, raisonSociale });
-      return [
-        {
-          index: 0,
-          imageDataUrl: dataUrl,
-          champsByType: champsByTypeFromClaude(out),
-          type: out.type,
-          confidence: out.confidence,
-        },
-      ];
+    if (useAI) {
+      try {
+        const out = await aiExtractPage({ imageDataUrl: dataUrl, raisonSociale });
+        return [
+          {
+            index: 0,
+            imageDataUrl: dataUrl,
+            champsByType: champsByTypeFromClaude(out),
+            type: out.type,
+            confidence: out.confidence,
+          },
+        ];
+      } catch (err) {
+        console.error("[ocr] extraction IA en échec, repli sur l'OCR local :", err.message);
+      }
     }
     const { text: texte, lines } = await ocrImage(buffer);
     return [
@@ -112,18 +146,22 @@ export async function extractPages(dataUrl, raisonSociale) {
   const textPages = await tryPdfTextPages(buffer);
   const hasText = textPages.some((t) => t.trim().length > 20);
   if (hasText) {
-    if (useClaude) {
-      const pages = [];
-      for (let index = 0; index < textPages.length; index++) {
-        const texte = textPages[index];
-        if (texte.trim().length < 20) {
-          pages.push({ index, imageDataUrl: null, champsByType: champsByTypeVide(), type: null, confidence: "faible" });
-          continue;
+    if (useAI) {
+      try {
+        const pages = [];
+        for (let index = 0; index < textPages.length; index++) {
+          const texte = textPages[index];
+          if (texte.trim().length < 20) {
+            pages.push({ index, imageDataUrl: null, champsByType: champsByTypeVide(), type: null, confidence: "faible" });
+            continue;
+          }
+          const out = await aiExtractPage({ texte, raisonSociale });
+          pages.push({ index, imageDataUrl: null, champsByType: champsByTypeFromClaude(out), type: out.type, confidence: out.confidence });
         }
-        const out = await claudeExtractPage({ texte, raisonSociale });
-        pages.push({ index, imageDataUrl: null, champsByType: champsByTypeFromClaude(out), type: out.type, confidence: out.confidence });
+        return pages;
+      } catch (err) {
+        console.error("[ocr] extraction IA en échec (page texte), repli sur l'OCR local pour tout le document :", err.message);
       }
-      return pages;
     }
     return textPages.map((texte, index) => ({
       index,
@@ -134,39 +172,49 @@ export async function extractPages(dataUrl, raisonSociale) {
     }));
   }
 
-  // PDF scanné : rasterise chaque page, puis Claude (si clé API configurée)
-  // ou OCR local (tesseract + heuristiques) en repli.
+  // PDF scanné : rasterise chaque page, puis un fournisseur IA (si une clé
+  // API est configurée) ou OCR local (tesseract + heuristiques) en repli.
   const rastered = await rasterizeAllPages(buffer);
   const pages = [];
+  // Une fois l'IA en échec sur une page (quota épuisé, panne réseau...), il
+  // est inutile de retenter sur les pages suivantes de ce même document —
+  // même cause, même échec garanti — mais les pages déjà traitées avec
+  // succès avant la panne gardent leur résultat, pas de reprise à zéro.
+  let aiBroken = !useAI;
   for (const { index, png } of rastered) {
     const imageDataUrl = `data:image/png;base64,${png.toString("base64")}`;
 
-    if (useClaude) {
-      let out = await claudeExtractPage({ imageDataUrl, raisonSociale });
-      let finalImage = imageDataUrl;
-      // Même repasse haute résolution que l'ancien pipeline local pour la
-      // page douane (grille serrée) — Claude lit bien mieux l'image que
-      // tesseract, mais une repasse à 400 DPI reste utile quand le numéro
-      // de déclaration n'est toujours pas lisible à 200 DPI.
-      if (out.type === "douane" && !out.numDeclaration) {
-        const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
-        if (hiRes) {
-          const hiResDataUrl = `data:image/png;base64,${hiRes.toString("base64")}`;
-          const retry = await claudeExtractPage({ imageDataUrl: hiResDataUrl, raisonSociale });
-          if (retry.numDeclaration) {
-            out = retry;
-            finalImage = hiResDataUrl;
+    if (!aiBroken) {
+      try {
+        let out = await aiExtractPage({ imageDataUrl, raisonSociale });
+        let finalImage = imageDataUrl;
+        // Même repasse haute résolution que l'ancien pipeline local pour la
+        // page douane (grille serrée) — un fournisseur IA lit bien mieux
+        // l'image que tesseract, mais une repasse à 400 DPI reste utile quand
+        // le numéro de déclaration n'est toujours pas lisible à 200 DPI.
+        if (out.type === "douane" && !out.numDeclaration) {
+          const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
+          if (hiRes) {
+            const hiResDataUrl = `data:image/png;base64,${hiRes.toString("base64")}`;
+            const retry = await aiExtractPage({ imageDataUrl: hiResDataUrl, raisonSociale });
+            if (retry.numDeclaration) {
+              out = retry;
+              finalImage = hiResDataUrl;
+            }
           }
         }
+        pages.push({
+          index,
+          imageDataUrl: finalImage,
+          champsByType: champsByTypeFromClaude(out),
+          type: out.type,
+          confidence: out.confidence,
+        });
+        continue;
+      } catch (err) {
+        aiBroken = true;
+        console.error(`[ocr] extraction IA en échec (page ${index}), repli sur l'OCR local pour cette page et les suivantes :`, err.message);
       }
-      pages.push({
-        index,
-        imageDataUrl: finalImage,
-        champsByType: champsByTypeFromClaude(out),
-        type: out.type,
-        confidence: out.confidence,
-      });
-      continue;
     }
 
     let imagePng = png;

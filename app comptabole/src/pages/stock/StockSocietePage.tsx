@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Boxes,
   Download,
+  FolderInput,
   Paperclip,
   Pencil,
   Plus,
@@ -17,9 +18,10 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
-import { useSocieteById } from "@/store/data";
+import { useSocieteById, useNoeuds, useData } from "@/store/data";
 import { useStock, type StockMouvementInput } from "@/store/stock";
 import type { StockMouvement } from "@/types";
+import { classerDansStructuration } from "@/lib/classement";
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
 import { DocPreviewDialog } from "./DocPreviewDialog";
 
@@ -40,6 +42,10 @@ export function StockSocietePage() {
   const create = useStock((s) => s.create);
   const update = useStock((s) => s.update);
   const remove = useStock((s) => s.remove);
+
+  const noeuds = useNoeuds();
+  const addNoeud = useData((s) => s.addNoeud);
+  const [classing, setClassing] = useState<string | null>(null);
 
   const [onlyAnomalies, setOnlyAnomalies] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -78,6 +84,37 @@ export function StockSocietePage() {
       toast.success("Mouvement créé");
     }
     setEditing(null);
+  }
+
+  /** Classe la facture d'achat ou de vente d'un mouvement dans Structuration
+   * (achat|vente/année de la pièce, créés à la volée si besoin) — voir
+   * classement.ts. Le mouvement de stock garde son propre exemplaire du
+   * document (achatDocDataUrl/venteDocDataUrl) ; celui-ci n'en est qu'une
+   * copie archivée pour le classement du cabinet. */
+  async function handleClasser(m: StockMouvement, categorie: "achat" | "vente") {
+    const dataUrl = categorie === "achat" ? m.achatDocDataUrl : m.venteDocDataUrl;
+    if (!dataUrl) return;
+    const key = `${m.id}-${categorie}`;
+    setClassing(key);
+    try {
+      const { dejaClasse } = await classerDansStructuration({
+        noeuds,
+        addNoeud,
+        societeId,
+        categorie,
+        date: (categorie === "achat" ? m.achatDate : m.venteDate) ?? null,
+        nomBase:
+          (categorie === "achat" ? m.achatNumFacture : m.venteNumFacture) ||
+          m.natureMarchandise ||
+          "Document",
+        dataUrl,
+      });
+      toast.success(dejaClasse ? "Déjà classé dans Structuration" : "Classé dans Structuration");
+    } catch {
+      // addNoeud() affiche déjà son propre toast d'erreur (voir store/data.ts).
+    } finally {
+      setClassing(null);
+    }
   }
 
   async function exportXlsx() {
@@ -234,6 +271,21 @@ export function StockSocietePage() {
                               <Paperclip className="h-3.5 w-3.5" />
                             </button>
                           )}
+                          {m.achatDocDataUrl && (
+                            <button
+                              onClick={() => handleClasser(m, "achat")}
+                              disabled={classing === `${m.id}-achat`}
+                              className="text-muted-foreground hover:text-accent disabled:opacity-50"
+                              title="Classer dans Structuration"
+                            >
+                              <FolderInput
+                                className={cn(
+                                  "h-3.5 w-3.5",
+                                  classing === `${m.id}-achat` && "animate-pulse",
+                                )}
+                              />
+                            </button>
+                          )}
                         </span>
                       </td>
                       <td className="border-l-2 border-border px-2 py-2 text-muted-foreground">
@@ -252,6 +304,21 @@ export function StockSocietePage() {
                               title="Voir le document de vente"
                             >
                               <Paperclip className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {m.venteDocDataUrl && (
+                            <button
+                              onClick={() => handleClasser(m, "vente")}
+                              disabled={classing === `${m.id}-vente`}
+                              className="text-muted-foreground hover:text-accent disabled:opacity-50"
+                              title="Classer dans Structuration"
+                            >
+                              <FolderInput
+                                className={cn(
+                                  "h-3.5 w-3.5",
+                                  classing === `${m.id}-vente` && "animate-pulse",
+                                )}
+                              />
                             </button>
                           )}
                         </span>

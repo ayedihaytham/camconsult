@@ -22,7 +22,7 @@ describe("getAppBreadcrumbs", () => {
     ["/collectes", "Collecte de pièces"],
     ["/stock", "Gestion de stock"],
     ["/etats-financiers", "États financiers"],
-    ["/grille-affectat", "Grille de reclassement"],
+    ["/grille-affectat", "Paramétrage"],
     ["/bordereaux", "Bordereaux bancaires"],
     ["/structuration", "Structuration"],
     ["/messagerie", "Messagerie"],

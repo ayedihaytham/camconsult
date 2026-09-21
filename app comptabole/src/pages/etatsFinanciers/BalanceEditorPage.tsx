@@ -52,19 +52,6 @@ export function BalanceEditorPage() {
   );
   const sansCode = lignes.filter((l) => !l.affectat).length;
 
-  // Table 4 : synthèse par code AFFECTAT (Somme du SOLDE), calculée en direct
-  // depuis la balance — jamais stockée.
-  const synthese = useMemo(() => {
-    const byCode = new Map<string, number>();
-    for (const l of lignes) {
-      const key = l.affectat || "(sans code)";
-      byCode.set(key, (byCode.get(key) ?? 0) + l.solde);
-    }
-    return [...byCode.entries()]
-      .map(([code, solde]) => ({ code, solde: Math.round(solde * 1000) / 1000 }))
-      .sort((a, b) => a.code.localeCompare(b.code));
-  }, [lignes]);
-
   function handleSubmit(data: BalanceLigneInput) {
     if (editing) {
       updateLigne(balanceId, editing.id, data);
@@ -217,54 +204,14 @@ export function BalanceEditorPage() {
         </LedgerSheet>
       )}
 
-      {/* Table 4 : synthèse par code AFFECTAT */}
-      <LedgerSheet className="mt-4">
-        <div className="border-b border-border px-[18px] py-3.5">
-          <h2 className="text-[0.86rem] font-bold text-foreground">
-            Synthèse par code AFFECTAT
-          </h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th className="border-b-2 border-foreground px-[18px] py-2 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                  Code
-                </th>
-                <th className="border-b-2 border-foreground px-[18px] py-2 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                  Somme du solde
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {synthese.map((s, i) => (
-                <tr
-                  key={s.code}
-                  className={
-                    (i + 1) % 5 === 0
-                      ? "border-b-[1.5px] border-rule-strong"
-                      : "border-b border-border"
-                  }
-                >
-                  <td className="px-[18px] py-2 font-mono text-xs font-semibold text-foreground">
-                    {s.code}
-                  </td>
-                  <td className="px-[18px] py-2 text-right tabular-nums">{fmt(s.solde)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td className="border-t-2 border-foreground px-[18px] py-2.5 font-bold text-foreground">
-                  Total général
-                </td>
-                <td className="border-t-2 border-foreground px-[18px] py-2.5 text-right font-extrabold tabular-nums">
-                  {fmt(ecartTotal)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+      <LedgerSheet className="mt-4 flex items-center justify-between px-[18px] py-3">
+        <p className="text-sm text-muted-foreground">
+          La synthèse par code AFFECTAT (tous exercices) est désormais dans son propre
+          onglet, à côté de Bilan Actif/Passif.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => navigate(`/etats-financiers/${societeId}`)}>
+          Voir la synthèse AFFECTAT
+        </Button>
       </LedgerSheet>
 
       <BalanceLigneFormSheet

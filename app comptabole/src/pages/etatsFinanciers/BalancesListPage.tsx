@@ -24,10 +24,12 @@ import { useImmobilisations } from "@/store/immobilisations";
 import { ROWS_BILAN_ACTIF, ROWS_BILAN_PASSIF, ROWS_ETAT_RESULTAT, resultatNet } from "@/lib/etatsFinanciers/postes";
 import { massesCouvertesParRegistre, mergeImmoMouvements } from "@/lib/etatsFinanciers/immobilisationsRegistre";
 import { FinancialTable } from "./FinancialTable";
+import { AffectatSyntheseTable } from "./AffectatSyntheseTable";
 import { SigTable } from "./SigTable";
 import { ImmoVariationTable } from "./ImmoVariationTable";
 import { FluxTable } from "./FluxTable";
 import { TdrfTable } from "./TdrfTable";
+import { ControleTable } from "./ControleTable";
 import { NotesView } from "./NotesView";
 import { ImmobilisationsRegistrePage } from "./ImmobilisationsRegistrePage";
 import { exportClasseurExcel } from "@/lib/etatsFinanciers/exportClasseur";
@@ -39,10 +41,12 @@ type Vue =
   | "passif"
   | "resultat"
   | "sig"
+  | "synthese"
   | "immo"
   | "registre"
   | "flux"
   | "tdrf"
+  | "controle"
   | "notes";
 
 const VUE_OPTIONS: { value: Vue; label: string }[] = [
@@ -50,12 +54,14 @@ const VUE_OPTIONS: { value: Vue; label: string }[] = [
   { value: "actif", label: "Bilan Actif" },
   { value: "passif", label: "Bilan Passif" },
   { value: "resultat", label: "Etat de résultat" },
-  { value: "sig", label: "SIG" },
+  { value: "flux", label: "Flux de trésorerie" },
+  { value: "notes", label: "Notes" },
   { value: "immo", label: "TAB VAR Immob" },
   { value: "registre", label: "Registre immobilisations" },
-  { value: "flux", label: "Flux de trésorerie" },
+  { value: "sig", label: "SIG" },
   { value: "tdrf", label: "TDRF" },
-  { value: "notes", label: "Notes" },
+  { value: "controle", label: "Contrôle" },
+  { value: "synthese", label: "Synthèse AFFECTAT" },
 ];
 
 export function BalancesListPage() {
@@ -74,6 +80,9 @@ export function BalancesListPage() {
   const loadingPostes = useBalances((s) => s.loadingPostes);
   const fetchPostes = useBalances((s) => s.fetchPostes);
   const clearPostes = useBalances((s) => s.clearPostes);
+
+  const grilleCodes = useBalances((s) => s.grilleCodes);
+  const fetchGrille = useBalances((s) => s.fetchGrille);
 
   const immoMouvements = useBalances((s) => s.immoMouvements);
   const fetchImmoMouvements = useBalances((s) => s.fetchImmoMouvements);
@@ -120,19 +129,24 @@ export function BalancesListPage() {
   }, [vue, societeId, fetchPostes, clearPostes]);
 
   useEffect(() => {
-    if (vue !== "immo" && vue !== "flux" && vue !== "notes") return;
+    if (vue !== "synthese") return;
+    fetchGrille();
+  }, [vue, fetchGrille]);
+
+  useEffect(() => {
+    if (vue !== "immo" && vue !== "flux" && vue !== "notes" && vue !== "controle") return;
     fetchImmoMouvements(societeId);
     return () => clearImmoMouvements();
   }, [vue, societeId, fetchImmoMouvements, clearImmoMouvements]);
 
   useEffect(() => {
-    if (vue !== "flux") return;
+    if (vue !== "flux" && vue !== "controle") return;
     fetchFinancementMouvements(societeId);
     return () => clearFinancementMouvements();
   }, [vue, societeId, fetchFinancementMouvements, clearFinancementMouvements]);
 
   useEffect(() => {
-    if (vue !== "tdrf") return;
+    if (vue !== "tdrf" && vue !== "controle") return;
     fetchTdrfLignes(societeId);
     fetchTdrfParametres(societeId);
     return () => {
@@ -142,7 +156,7 @@ export function BalancesListPage() {
   }, [vue, societeId, fetchTdrfLignes, clearTdrfLignes, fetchTdrfParametres, clearTdrfParametres]);
 
   useEffect(() => {
-    if (vue !== "immo" && vue !== "flux" && vue !== "notes" && vue !== "registre") return;
+    if (vue !== "immo" && vue !== "flux" && vue !== "notes" && vue !== "registre" && vue !== "controle") return;
     fetchImmoCategories();
     fetchImmoBiens(societeId);
     return () => clearImmoBiens();
@@ -305,9 +319,13 @@ export function BalancesListPage() {
           <FinancialTable rows={ROWS_ETAT_RESULTAT} exercices={postesParExercice} titre="Etat de résultat" />
         </LedgerSheet>
       ) : vue === "sig" ? (
-        <div className="mt-4">
+        <LedgerSheet className="mt-4 flex-1">
           <SigTable exercices={postesParExercice} />
-        </div>
+        </LedgerSheet>
+      ) : vue === "synthese" ? (
+        <LedgerSheet className="mt-4 flex-1">
+          <AffectatSyntheseTable exercices={postesParExercice} grilleCodes={grilleCodes} />
+        </LedgerSheet>
       ) : vue === "immo" ? (
         <div className="mt-4">
           <ImmoVariationTable
@@ -340,6 +358,16 @@ export function BalancesListPage() {
             onUpdate={updateTdrfLigne}
             onRemove={removeTdrfLigne}
             onSaveParametres={(ex, data) => saveTdrfParametres(societeId, ex, data)}
+          />
+        </div>
+      ) : vue === "controle" ? (
+        <div className="mt-4">
+          <ControleTable
+            exercices={postesParExercice}
+            immoMouvements={effectiveImmoMouvements}
+            financementMouvements={financementMouvements}
+            tdrfLignes={tdrfLignes}
+            tdrfParametres={tdrfParametres}
           />
         </div>
       ) : (

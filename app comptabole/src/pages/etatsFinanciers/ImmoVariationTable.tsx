@@ -1,22 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { Input } from "@/components/ui/input";
 import { fmt } from "@/lib/etatsFinanciers/postes";
 import {
   computeImmoVariation,
   suggestImmoMouvement,
-  MASSE_AMORT_LABELS,
+  MASSES,
   MASSE_LABELS,
+  type ImmoVariationLigne,
 } from "@/lib/etatsFinanciers/immobilisations";
 import type { PostesExercice } from "@/store/balances";
 import type { ImmoMasse, ImmoMouvement } from "@/types";
-import { cn } from "@/lib/utils";
+
+interface MouvState {
+  acquisitions: string;
+  cessions: string;
+  dotations: string;
+  reprises: string;
+}
+
+const key = (exercice: string, masse: ImmoMasse) => `${exercice}|${masse}`;
 
 /**
- * Tableau des variations d'immobilisations — 3 masses (Incorporelles /
- * Corporelles / Financières), chacune avec ses valeurs brutes et son
- * amortissement/provision. L'ouverture et la clôture sont calculées ; seuls
- * Acquisitions/Cessions/Dotations/Reprises sont saisis pour l'exercice.
+ * État de variation des immobilisations et des amortissements — un seul
+ * tableau (Valeurs brutes : Ouverture/Acquisitions/Cessions/Clôture,
+ * Amortissements : Ouverture/Dotations/Cessions/Clôture, VNC), tous les
+ * exercices en lignes sous chaque masse, comme le document Excel de
+ * référence du cabinet — pas un tableau séparé par exercice.
  */
 export function ImmoVariationTable({
   exercices,
@@ -37,229 +47,291 @@ export function ImmoVariationTable({
 }) {
   const chrono = [...exercices].sort((a, b) => b.exercice.localeCompare(a.exercice));
 
-  return (
-    <div className="space-y-6">
-      {chrono.map((e) => {
-        // exercice juste avant : le plus grand exercice strictement inférieur
-        const prevExercice =
-          chrono
-            .filter((x) => x.exercice < e.exercice)
-            .sort((a, b) => b.exercice.localeCompare(a.exercice))[0] ?? null;
-        const lignes = computeImmoVariation(
-          e.exercice,
-          e.postes,
-          prevExercice ? prevExercice.postes : null,
-          immoMouvements,
-        );
-        return (
-          <div key={e.exercice}>
-            <p className="mb-2 px-[18px] text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-              Exercice {e.exercice}
-            </p>
-            <LedgerSheet>
-              {lignes.map((l, mi) => {
-                const hasSaved = immoMouvements.some(
-                  (m) => m.exercice === e.exercice && m.masse === l.masse,
-                );
-                const suggestion =
-                  !hasSaved && !readOnlyMasses.includes(l.masse)
-                    ? suggestImmoMouvement(
-                        l.masse,
-                        e.postesDebit,
-                        e.postesCredit,
-                        prevExercice ? prevExercice.postesDebit : null,
-                        prevExercice ? prevExercice.postesCredit : null,
-                      )
-                    : null;
-                return (
-                  <MasseBlock
-                    key={l.masse}
-                    ligne={l}
-                    exercice={e.exercice}
-                    last={mi === lignes.length - 1}
-                    readOnly={readOnlyMasses.includes(l.masse)}
-                    suggestion={suggestion}
-                    onSave={(data) => onSave(e.exercice, l.masse, data)}
-                  />
-                );
-              })}
-            </LedgerSheet>
-          </div>
-        );
-      })}
-    </div>
+  const lignesParExercice = new Map<string, ImmoVariationLigne[]>();
+  const suggestionsParExercice = new Map<
+    string,
+    Map<ImmoMasse, { acquisitions: number; cessions: number; dotations: number; reprises: number } | null>
+  >();
+  for (const e of chrono) {
+    const prevExercice =
+      chrono.filter((x) => x.exercice < e.exercice).sort((a, b) => b.exercice.localeCompare(a.exercice))[0] ??
+      null;
+    const lignes = computeImmoVariation(e.exercice, e.postes, prevExercice ? prevExercice.postes : null, immoMouvements);
+    lignesParExercice.set(e.exercice, lignes);
+    const suggestions = new Map<ImmoMasse, { acquisitions: number; cessions: number; dotations: number; reprises: number } | null>();
+    for (const l of lignes) {
+      const hasSaved = immoMouvements.some((m) => m.exercice === e.exercice && m.masse === l.masse);
+      suggestions.set(
+        l.masse,
+        !hasSaved && !readOnlyMasses.includes(l.masse)
+          ? suggestImmoMouvement(
+              l.masse,
+              e.postesDebit,
+              e.postesCredit,
+              prevExercice ? prevExercice.postesDebit : null,
+              prevExercice ? prevExercice.postesCredit : null,
+            )
+          : null,
+      );
+    }
+    suggestionsParExercice.set(e.exercice, suggestions);
+  }
+
+  const [state, setState] = useState<Record<string, MouvState>>(() =>
+    buildInitialState(chrono, lignesParExercice, suggestionsParExercice),
   );
-}
 
-function MasseBlock({
-  ligne,
-  exercice,
-  last,
-  readOnly,
-  suggestion,
-  onSave,
-}: {
-  ligne: ReturnType<typeof computeImmoVariation>[number];
-  exercice: string;
-  last: boolean;
-  readOnly?: boolean;
-  /** Mouvements suggérés depuis la balance (voir suggestImmoMouvement) —
-   * préremplissage modifiable quand rien n'a encore été saisi pour cet
-   * exercice+masse. */
-  suggestion?: { acquisitions: number; cessions: number; dotations: number; reprises: number } | null;
-  onSave: (data: { acquisitions: number; cessions: number; dotations: number; reprises: number }) => void;
-}) {
-  const initial = suggestion ?? ligne;
-  const [acquisitions, setAcquisitions] = useState(String(initial.acquisitions || ""));
-  const [cessions, setCessions] = useState(String(initial.cessions || ""));
-  const [dotations, setDotations] = useState(String(initial.dotations || ""));
-  const [reprises, setReprises] = useState(String(initial.reprises || ""));
+  // Ajoute l'état local des exercices/masses apparus après le premier rendu
+  // sans écraser ce qui a déjà été saisi.
+  useEffect(() => {
+    setState((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const e of chrono) {
+        for (const masse of MASSES) {
+          const k = key(e.exercice, masse);
+          if (k in next) continue;
+          changed = true;
+          const ligne = lignesParExercice.get(e.exercice)?.find((l) => l.masse === masse);
+          const sug = suggestionsParExercice.get(e.exercice)?.get(masse);
+          next[k] = {
+            acquisitions: String((sug?.acquisitions ?? ligne?.acquisitions ?? 0) || ""),
+            cessions: String((sug?.cessions ?? ligne?.cessions ?? 0) || ""),
+            dotations: String((sug?.dotations ?? ligne?.dotations ?? 0) || ""),
+            reprises: String((sug?.reprises ?? ligne?.reprises ?? 0) || ""),
+          };
+        }
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chrono.map((e) => e.exercice).join(",")]);
 
-  function commit() {
-    onSave({
-      acquisitions: Number(acquisitions) || 0,
-      cessions: Number(cessions) || 0,
-      dotations: Number(dotations) || 0,
-      reprises: Number(reprises) || 0,
+  // Bascule chaque suggestion en mouvement réellement enregistré dès
+  // l'affichage, une seule fois par exercice+masse.
+  const applied = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const [exercice, suggestions] of suggestionsParExercice) {
+      for (const [masse, suggestion] of suggestions) {
+        const k = key(exercice, masse);
+        if (!suggestion || applied.current.has(k)) continue;
+        applied.current.add(k);
+        onSave(exercice, masse, suggestion);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chrono.map((e) => e.exercice).join(",")]);
+
+  function updateField(exercice: string, masse: ImmoMasse, field: keyof MouvState, value: string) {
+    const k = key(exercice, masse);
+    setState((s) => ({
+      ...s,
+      [k]: { ...(s[k] ?? { acquisitions: "", cessions: "", dotations: "", reprises: "" }), [field]: value },
+    }));
+  }
+
+  function commit(exercice: string, masse: ImmoMasse) {
+    const s = state[key(exercice, masse)];
+    if (!s) return;
+    onSave(exercice, masse, {
+      acquisitions: Number(s.acquisitions) || 0,
+      cessions: Number(s.cessions) || 0,
+      dotations: Number(s.dotations) || 0,
+      reprises: Number(s.reprises) || 0,
     });
   }
 
-  // Bascule la suggestion en mouvement réellement enregistré dès l'affichage
-  // (comme demandé : générée automatiquement depuis la balance), sans
-  // attendre que l'utilisateur touche un champ — reste modifiable ensuite
-  // comme n'importe quel mouvement saisi à la main.
-  useEffect(() => {
-    if (suggestion) onSave(suggestion);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  if (chrono.length === 0) return null;
 
   return (
-    <div className={cn("px-[18px] py-3", !last && "border-b-[1.5px] border-rule-strong")}>
-      <p className="mb-2 flex items-center gap-2 text-sm font-bold text-foreground">
-        {MASSE_LABELS[ligne.masse]}
-        {readOnly && (
-          <span className="rounded-[4px] bg-muted px-1.5 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">
-            Calculé depuis le registre
-          </span>
-        )}
-        {suggestion && (
-          <span className="rounded-[4px] bg-muted px-1.5 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">
-            Généré depuis la balance — à vérifier
-          </span>
-        )}
-      </p>
+    <LedgerSheet>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="w-[180px] py-1.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground" />
-              <th className="py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                Ouverture
+              <th rowSpan={2} className="px-[18px] py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground align-bottom">
+                Exercice
               </th>
-              <th className="py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                Augmentation
+              <th colSpan={4} className="border-b border-border px-2 py-1 text-center text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
+                Valeurs brutes
               </th>
-              <th className="py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                Diminution
+              <th colSpan={4} className="border-b border-l border-border px-2 py-1 text-center text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
+                Amortissements / Provisions
               </th>
-              <th className="py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                Clôture
+              <th rowSpan={2} className="border-l border-border px-2 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground align-bottom">
+                VNC
               </th>
+            </tr>
+            <tr>
+              <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Ouverture</th>
+              <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Acquisitions</th>
+              <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Cessions</th>
+              <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Clôture</th>
+              <th className="border-l border-border px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Ouverture</th>
+              <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Dotations</th>
+              <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Cessions</th>
+              <th className="px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Clôture</th>
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-border">
-              <td className="py-1.5 text-muted-foreground">Valeurs brutes</td>
-              <td className="py-1.5 text-right tabular-nums">{fmt(ligne.brutOuverture)}</td>
-              <td className="py-1 text-right">
-                {readOnly ? (
-                  <span className="tabular-nums">{fmt(ligne.acquisitions)}</span>
-                ) : (
-                  <Input
-                    value={acquisitions}
-                    onChange={(e) => setAcquisitions(e.target.value)}
-                    onBlur={commit}
-                    placeholder="Acquisitions"
-                    className="h-7 w-28 border-0 bg-transparent text-right shadow-none focus-visible:ring-1"
-                    key={`acq-${exercice}`}
-                  />
-                )}
-              </td>
-              <td className="py-1 text-right">
-                {readOnly ? (
-                  <span className="tabular-nums">{fmt(ligne.cessions)}</span>
-                ) : (
-                  <Input
-                    value={cessions}
-                    onChange={(e) => setCessions(e.target.value)}
-                    onBlur={commit}
-                    placeholder="Cessions"
-                    className="h-7 w-28 border-0 bg-transparent text-right shadow-none focus-visible:ring-1"
-                    key={`ces-${exercice}`}
-                  />
-                )}
-              </td>
-              <td className="py-1.5 text-right font-semibold tabular-nums text-foreground">
-                {fmt(ligne.brutCloture)}
-              </td>
-            </tr>
-            <tr className="border-b border-border">
-              <td className="py-1.5 text-muted-foreground">{MASSE_AMORT_LABELS[ligne.masse]}</td>
-              <td className="py-1.5 text-right tabular-nums">{fmt(ligne.amortOuverture)}</td>
-              <td className="py-1 text-right">
-                {readOnly ? (
-                  <span className="tabular-nums">{fmt(ligne.dotations)}</span>
-                ) : (
-                  <Input
-                    value={dotations}
-                    onChange={(e) => setDotations(e.target.value)}
-                    onBlur={commit}
-                    placeholder="Dotations"
-                    className="h-7 w-28 border-0 bg-transparent text-right shadow-none focus-visible:ring-1"
-                    key={`dot-${exercice}`}
-                  />
-                )}
-              </td>
-              <td className="py-1 text-right">
-                {readOnly ? (
-                  <span className="tabular-nums">{fmt(ligne.reprises)}</span>
-                ) : (
-                  <Input
-                    value={reprises}
-                    onChange={(e) => setReprises(e.target.value)}
-                    onBlur={commit}
-                    placeholder="Reprises"
-                    className="h-7 w-28 border-0 bg-transparent text-right shadow-none focus-visible:ring-1"
-                    key={`rep-${exercice}`}
-                  />
-                )}
-              </td>
-              <td className="py-1.5 text-right font-semibold tabular-nums text-foreground">
-                {fmt(ligne.amortCloture)}
-              </td>
-            </tr>
-            <tr>
-              <td className="py-1.5 font-bold text-foreground">Valeur nette comptable</td>
-              <td className="py-1.5 text-right font-bold tabular-nums text-foreground">
-                {fmt(ligne.netOuverture)}
-              </td>
-              <td />
-              <td />
-              <td className="py-1.5 text-right font-bold tabular-nums text-foreground">
-                {fmt(ligne.netCloture)}
-              </td>
-            </tr>
+            {MASSES.map((masse) => {
+              const readOnly = readOnlyMasses.includes(masse);
+              return (
+                <MasseGroup
+                  key={masse}
+                  masse={masse}
+                  chrono={chrono}
+                  lignesParExercice={lignesParExercice}
+                  readOnly={readOnly}
+                  state={state}
+                  onChange={updateField}
+                  onCommit={commit}
+                />
+              );
+            })}
           </tbody>
         </table>
       </div>
-      {ligne.brutOuvertureEcart !== null && Math.abs(ligne.brutOuvertureEcart) > 0.5 && (
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-[2px] bg-warning" aria-hidden />
-          Écart de {fmt(Math.abs(ligne.brutOuvertureEcart))} entre l'ouverture déduite des mouvements
-          {readOnly ? " du registre" : " saisis"} et le solde brut réel de l'exercice précédent —
-          vérifiez {readOnly ? "le registre" : "les montants"}.
-        </p>
-      )}
-    </div>
+    </LedgerSheet>
+  );
+}
+
+function buildInitialState(
+  chrono: PostesExercice[],
+  lignesParExercice: Map<string, ImmoVariationLigne[]>,
+  suggestionsParExercice: Map<
+    string,
+    Map<ImmoMasse, { acquisitions: number; cessions: number; dotations: number; reprises: number } | null>
+  >,
+): Record<string, MouvState> {
+  const out: Record<string, MouvState> = {};
+  for (const e of chrono) {
+    for (const masse of MASSES) {
+      const ligne = lignesParExercice.get(e.exercice)?.find((l) => l.masse === masse);
+      const sug = suggestionsParExercice.get(e.exercice)?.get(masse);
+      out[key(e.exercice, masse)] = {
+        acquisitions: String((sug?.acquisitions ?? ligne?.acquisitions ?? 0) || ""),
+        cessions: String((sug?.cessions ?? ligne?.cessions ?? 0) || ""),
+        dotations: String((sug?.dotations ?? ligne?.dotations ?? 0) || ""),
+        reprises: String((sug?.reprises ?? ligne?.reprises ?? 0) || ""),
+      };
+    }
+  }
+  return out;
+}
+
+function MasseGroup({
+  masse,
+  chrono,
+  lignesParExercice,
+  readOnly,
+  state,
+  onChange,
+  onCommit,
+}: {
+  masse: ImmoMasse;
+  chrono: PostesExercice[];
+  lignesParExercice: Map<string, ImmoVariationLigne[]>;
+  readOnly: boolean;
+  state: Record<string, MouvState>;
+  onChange: (exercice: string, masse: ImmoMasse, field: keyof MouvState, value: string) => void;
+  onCommit: (exercice: string, masse: ImmoMasse) => void;
+}) {
+  return (
+    <>
+      <tr>
+        <td colSpan={10} className="bg-muted px-[18px] py-1.5 text-[0.72rem] font-bold uppercase tracking-wide text-foreground">
+          {MASSE_LABELS[masse]}
+          {readOnly && (
+            <span className="ml-2 rounded-[4px] bg-card px-1.5 py-0.5 text-[0.62rem] font-semibold normal-case tracking-normal text-muted-foreground">
+              Calculé depuis le registre
+            </span>
+          )}
+        </td>
+      </tr>
+      {chrono.map((e) => {
+        const ligne = lignesParExercice.get(e.exercice)?.find((l) => l.masse === masse);
+        if (!ligne) return null;
+        const s = state[key(e.exercice, masse)];
+        const ecart = ligne.brutOuvertureEcart;
+        return (
+          <tr key={e.exercice} className="border-b border-border">
+            <td className="px-[18px] py-1.5 text-foreground">
+              {e.exercice}
+              {ecart !== null && Math.abs(ecart) > 0.5 && (
+                <span
+                  className="ml-1.5 inline-block h-1.5 w-1.5 rounded-[2px] bg-warning align-middle"
+                  title={`Écart de ${fmt(Math.abs(ecart))} entre l'ouverture déduite et le solde brut réel de l'exercice précédent`}
+                />
+              )}
+            </td>
+            <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{fmt(ligne.brutOuverture)}</td>
+            <EditableOrReadonlyCell
+              readOnly={readOnly}
+              value={ligne.acquisitions}
+              text={s?.acquisitions ?? ""}
+              onChange={(v) => onChange(e.exercice, masse, "acquisitions", v)}
+              onBlur={() => onCommit(e.exercice, masse)}
+            />
+            <EditableOrReadonlyCell
+              readOnly={readOnly}
+              value={ligne.cessions}
+              text={s?.cessions ?? ""}
+              onChange={(v) => onChange(e.exercice, masse, "cessions", v)}
+              onBlur={() => onCommit(e.exercice, masse)}
+            />
+            <td className="px-2 py-1.5 text-right tabular-nums">{fmt(ligne.brutCloture)}</td>
+            <td className="border-l border-border px-2 py-1.5 text-right tabular-nums text-muted-foreground">{fmt(ligne.amortOuverture)}</td>
+            <EditableOrReadonlyCell
+              readOnly={readOnly}
+              value={ligne.dotations}
+              text={s?.dotations ?? ""}
+              onChange={(v) => onChange(e.exercice, masse, "dotations", v)}
+              onBlur={() => onCommit(e.exercice, masse)}
+            />
+            <EditableOrReadonlyCell
+              readOnly={readOnly}
+              value={ligne.reprises}
+              text={s?.reprises ?? ""}
+              onChange={(v) => onChange(e.exercice, masse, "reprises", v)}
+              onBlur={() => onCommit(e.exercice, masse)}
+            />
+            <td className="px-2 py-1.5 text-right tabular-nums">{fmt(ligne.amortCloture)}</td>
+            <td className="border-l border-border px-2 py-1.5 text-right font-semibold tabular-nums text-foreground">
+              {fmt(ligne.netCloture)}
+            </td>
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+
+function EditableOrReadonlyCell({
+  readOnly,
+  value,
+  text,
+  onChange,
+  onBlur,
+}: {
+  readOnly: boolean;
+  value: number;
+  text: string;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+}) {
+  if (readOnly) {
+    return <td className="px-2 py-1.5 text-right tabular-nums">{fmt(value)}</td>;
+  }
+  return (
+    <td className="px-1 py-1 text-right">
+      <Input
+        value={text}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        placeholder="0"
+        className="ml-auto h-7 w-24 border-0 bg-transparent text-right shadow-none focus-visible:ring-1"
+      />
+    </td>
   );
 }

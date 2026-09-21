@@ -132,6 +132,7 @@ balancesRouter.get("/postes", async (req, res) => {
         postes: {},
         postesDebit: {},
         postesCredit: {},
+        codes: {},
         caLocalSuggere: 0,
         caExportSuggere: 0,
       });
@@ -139,6 +140,22 @@ balancesRouter.get("/postes", async (req, res) => {
     entry.postes[r.poste] = Math.round(Number(r.solde) * 1000) / 1000;
     entry.postesDebit[r.poste] = Math.round(Number(r.debit) * 1000) / 1000;
     entry.postesCredit[r.poste] = Math.round(Number(r.credit) * 1000) / 1000;
+  }
+
+  // Synthèse par code AFFECTAT brut (pas par poste) — pour la vérification
+  // ligne par ligne d'un import (onglet "Synthèse AFFECTAT"), indépendamment
+  // du reclassement Bilan/CPC. "" = lignes sans code.
+  const { rows: codeRows } = await query(
+    `select b.exercice, coalesce(bl.affectat, '') as code, sum(bl.debit - bl.credit) as solde
+     from balances b
+     join balance_lignes bl on bl.balance_id = b.id
+     where b.societe_id = $1
+     group by b.exercice, coalesce(bl.affectat, '')`,
+    [societeId],
+  );
+  for (const r of codeRows) {
+    if (!byExercice.has(r.exercice)) continue;
+    byExercice.get(r.exercice).codes[r.code] = Math.round(Number(r.solde) * 1000) / 1000;
   }
 
   // Suggestion CA local/export (TDRF, régime partiellement exportateur) :
@@ -386,17 +403,56 @@ balancesRouter.get("/tdrf-parametres", async (req, res) => {
   res.json(rows.map(tdrfParametresDto));
 });
 
+// Champs numériques du TDRF détaillé (Annexe n°2, note commune n°26/2016) —
+// [clé camelCase du body, colonne snake_case] ; tous optionnels, défaut 0.
+const TDRF_NUMERIC_FIELDS = [
+  ["chiffreAffairesLocal", "chiffre_affaires_local"],
+  ["chiffreAffairesExport", "chiffre_affaires_export"],
+  ["tauxImposition", "taux_imposition"],
+  ["tauxExport", "taux_export"],
+  ["tauxMinimum", "taux_minimum"],
+  ["plancherMinimum", "plancher_minimum"],
+  ["contributionSociale", "contribution_sociale"],
+  ["excedentsAcomptes", "excedents_acomptes"],
+  ["pertesChangeNonRealisees", "pertes_change_non_realisees"],
+  ["gainsChangeNonRealisesAnterieurs", "gains_change_non_realises_anterieurs"],
+  ["remunerationsExcedentairesTitres", "remunerations_excedentaires_titres"],
+  ["chargesEspeces5000", "charges_especes_5000"],
+  ["moinsValueCessionTitresOpcvm", "moins_value_cession_titres_opcvm"],
+  ["impotsDirectsLieuAutrui", "impots_directs_lieu_autrui"],
+  ["taxeVoyage", "taxe_voyage"],
+  ["transactionsAmendesPenalites", "transactions_amendes_penalites"],
+  ["depensesEssaimage", "depenses_essaimage"],
+  ["facturesNonParvenues", "factures_non_parvenues"],
+  ["amortissementsBiensReevalues", "amortissements_biens_reevalues"],
+  ["provisionsNonDeductibles", "provisions_non_deductibles"],
+  ["provisionsCreancesDouteusesReintegrees", "provisions_creances_douteuses_reintegrees"],
+  ["produitsEtranger", "produits_etranger"],
+  ["provisionsCreancesDouteuses", "provisions_creances_douteuses"],
+  ["provisionsDeprecStocksVente", "provisions_deprec_stocks_vente"],
+  ["provisionsDeprecActionsCotees", "provisions_deprec_actions_cotees"],
+  ["provisionsNonExigibiliteEngagements", "provisions_non_exigibilite_engagements"],
+  ["moinsValueLeveeOption", "moins_value_levee_option"],
+  ["reintegrationAmortissementsExercice", "reintegration_amortissements_exercice"],
+  ["deductionDeficitsReportes", "deduction_deficits_reportes"],
+  ["deductionAmortissementsExercice", "deduction_amortissements_exercice"],
+  ["deductionAmortissementsDifferes", "deduction_amortissements_differes"],
+  ["interetsDepotsTitresDevises", "interets_depots_titres_devises"],
+  ["excedentsAnterieurs", "excedents_anterieurs"],
+  ["acomptesProvisionnelsPayes", "acomptes_provisionnels_payes"],
+  ["retenueALaSource", "retenue_a_la_source"],
+  ["avanceIrppImport", "avance_irpp_import"],
+];
+
 const tdrfParametresSchema = z.object({
   societeId: z.string().uuid(),
   exercice: z.string().min(1, "Exercice requis"),
-  chiffreAffairesLocal: z.coerce.number().default(0),
-  chiffreAffairesExport: z.coerce.number().default(0),
-  tauxImposition: z.coerce.number().default(0.2),
-  tauxExport: z.coerce.number().default(0.2),
-  tauxMinimum: z.coerce.number().default(0.002),
-  plancherMinimum: z.coerce.number().default(500),
-  contributionSociale: z.coerce.number().default(0),
-  excedentsAcomptes: z.coerce.number().default(0),
+  ...Object.fromEntries(
+    TDRF_NUMERIC_FIELDS.map(([key]) => [
+      key,
+      z.coerce.number().default(key === "tauxImposition" || key === "tauxExport" ? 0.2 : key === "tauxMinimum" ? 0.002 : key === "plancherMinimum" ? 500 : 0),
+    ]),
+  ),
 });
 
 balancesRouter.put("/tdrf-parametres", async (req, res) => {
@@ -407,33 +463,19 @@ balancesRouter.put("/tdrf-parametres", async (req, res) => {
   if (!canAccess(req.session, v.societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
 
+  const cols = TDRF_NUMERIC_FIELDS.map(([, col]) => col);
+  const values = TDRF_NUMERIC_FIELDS.map(([key]) => v[key]);
+  const placeholders = values.map((_, i) => `$${i + 3}`);
+  const updates = cols.map((c) => `${c} = excluded.${c}`);
+
   const { rows } = await query(
-    `insert into tdrf_parametres
-       (societe_id, exercice, chiffre_affaires_local, chiffre_affaires_export, taux_imposition, taux_export, taux_minimum, plancher_minimum, contribution_sociale, excedents_acomptes)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `insert into tdrf_parametres (societe_id, exercice, ${cols.join(", ")})
+     values ($1, $2, ${placeholders.join(", ")})
      on conflict (societe_id, exercice) do update set
-       chiffre_affaires_local = excluded.chiffre_affaires_local,
-       chiffre_affaires_export = excluded.chiffre_affaires_export,
-       taux_imposition = excluded.taux_imposition,
-       taux_export = excluded.taux_export,
-       taux_minimum = excluded.taux_minimum,
-       plancher_minimum = excluded.plancher_minimum,
-       contribution_sociale = excluded.contribution_sociale,
-       excedents_acomptes = excluded.excedents_acomptes,
+       ${updates.join(",\n       ")},
        maj_le = now()
      returning *`,
-    [
-      v.societeId,
-      v.exercice,
-      v.chiffreAffairesLocal,
-      v.chiffreAffairesExport,
-      v.tauxImposition,
-      v.tauxExport,
-      v.tauxMinimum,
-      v.plancherMinimum,
-      v.contributionSociale,
-      v.excedentsAcomptes,
-    ],
+    [v.societeId, v.exercice, ...values],
   );
   logAction(req.session.nom, "modification", "balance", `Paramètres TDRF ${v.exercice}`);
   res.json(tdrfParametresDto(rows[0]));

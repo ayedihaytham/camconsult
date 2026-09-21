@@ -248,6 +248,105 @@ export interface SigResult {
   resultatNet: number;
 }
 
+export interface SigLigne {
+  label: string;
+  /** Postes cpc.* sommés pour cette ligne — plusieurs quand la présentation
+   * officielle du cabinet combine la version condensée et la version
+   * détaillée d'une même ligne (ex. achats consommés / achats de
+   * marchandises consommés → une seule ligne « Coût d'achat des
+   * marchandises vendues »), jamais les deux renseignées à la fois pour un
+   * même code donc pas de double-comptage. */
+  keys: string[];
+}
+
+export interface SigBloc {
+  soldeId: keyof SigResult;
+  soldeLabel: string;
+  produits: SigLigne[];
+  charges: SigLigne[];
+}
+
+/** Regroupement des lignes CPC par solde intermédiaire, dans l'ordre où
+ * chaque solde se ferme — reproduit le Tableau de Solde Intermédiaire de
+ * Gestion officiel du cabinet (3 colonnes Produits/Charges/Soldes, le solde
+ * apparaissant au niveau du groupe qui le calcule), voir SigTable.tsx. */
+export const SIG_BLOCS: SigBloc[] = [
+  {
+    soldeId: "margeCommerciale",
+    soldeLabel: "Marge commerciale",
+    produits: [{ label: "Ventes de marchandises", keys: ["cpc.ventes_marchandises"] }],
+    charges: [
+      {
+        label: "Coût d'achat des marchandises vendues",
+        keys: ["cpc.achats_consommes", "cpc.achats_marchandises"],
+      },
+    ],
+  },
+  {
+    soldeId: "valeurAjoutee",
+    soldeLabel: "Valeur ajoutée",
+    produits: [
+      { label: "Autres produits d'exploitation", keys: ["cpc.autres_produits_exploitation"] },
+      { label: "Production stockée", keys: ["cpc.production_stockee"] },
+      { label: "Production immobilisée", keys: ["cpc.production_immobilisee"] },
+    ],
+    charges: [
+      { label: "Achats d'approvisionnements consommés", keys: ["cpc.achats_approvisionnements"] },
+      { label: "Autres charges externes", keys: ["cpc.charges_externes"] },
+    ],
+  },
+  {
+    soldeId: "ebe",
+    soldeLabel: "Excédent (ou insuffisance) brut d'exploitation",
+    produits: [],
+    charges: [
+      { label: "Impôts et taxes", keys: ["cpc.impots_taxes"] },
+      { label: "Charges de personnel", keys: ["cpc.charges_personnel"] },
+    ],
+  },
+  {
+    soldeId: "resultatOrdinaire",
+    soldeLabel: "Résultat des activités ordinaires",
+    produits: [
+      { label: "Autres produits ordinaires", keys: ["cpc.autres_produits_ordinaires"] },
+      { label: "Produits financiers", keys: ["cpc.produits_financiers"] },
+      { label: "Transferts de charges", keys: ["cpc.transferts_charges"] },
+      { label: "Reprises sur provisions antérieures", keys: ["cpc.reprises_provisions"] },
+    ],
+    charges: [
+      { label: "Autres charges ordinaires", keys: ["cpc.autres_charges_ordinaires"] },
+      { label: "Charges financières nettes", keys: ["cpc.charges_financieres"] },
+      {
+        label: "Dotations aux amortissements et aux provisions",
+        keys: [
+          "cpc.dotations_amort_provisions",
+          "cpc.dotations_amortissements",
+          "cpc.dotations_provisions",
+        ],
+      },
+      { label: "Autres charges d'exploitation", keys: ["cpc.autres_charges_exploitation"] },
+      { label: "Impôt sur les sociétés", keys: ["cpc.impot_societes"] },
+    ],
+  },
+  {
+    soldeId: "resultatNet",
+    soldeLabel: "RÉSULTAT NET DE L'EXERCICE",
+    produits: [
+      { label: "Gains extraordinaires", keys: ["cpc.gains_extraordinaires"] },
+      { label: "Effet des modifications comptables", keys: ["cpc.effet_modifications_comptables"] },
+    ],
+    charges: [{ label: "Pertes extraordinaires", keys: ["cpc.pertes_extraordinaires"] }],
+  },
+];
+
+/** Montant d'une ligne SIG (produit ou charge), affiché positif dans les
+ * deux colonnes comme sur le document officiel — même convention de signe
+ * que ROWS_SIG_PRODUITS (sign:-1) / ROWS_SIG_CHARGES (sign:1). */
+export function sigLigneValeur(postes: Postes, ligne: SigLigne, nature: "produit" | "charge") {
+  const sum = ligne.keys.reduce((s, k) => s + (postes[k] ?? 0), 0);
+  return nature === "produit" ? -sum : sum;
+}
+
 /** Les 5 soldes intermédiaires de gestion — enchaînés, chacun repart du
  * précédent (comme sur votre capture SIG). */
 export function computeSig(postes: Postes): SigResult {
@@ -298,6 +397,20 @@ export function computeSig(postes: Postes): SigResult {
 
 export const fmt = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Signe d'affichage d'un poste quelconque (Bilan Actif/Passif ou CPC) —
+ * même convention que partout ailleurs dans le module (voir l'en-tête de ce
+ * fichier) : actif/charge débiteurs par nature, affichés tels quels ;
+ * passif/capitaux propres/produit créditeurs par nature, affichés inversés.
+ * Utilisé pour tout affichage par compte (détail des notes annexes, export
+ * Excel) qui ne passe pas par computeRows()/ROWS_*. */
+export function signForPoste(poste: string): 1 | -1 {
+  const row = [...ROWS_BILAN_ACTIF, ...ROWS_BILAN_PASSIF].find((r) => r.posteKeys?.includes(poste));
+  if (row) return row.sign ?? 1;
+  const cpcLigne = Object.values(CPC_LIGNES).find((l) => (l.keys as readonly string[]).includes(poste));
+  if (cpcLigne) return cpcLigne.nature === "produit" ? -1 : 1;
+  return 1;
+}
 
 /** Liste des postes assignables à un code AFFECTAT, pour le menu déroulant
  * de la grille de reclassement (admin). */

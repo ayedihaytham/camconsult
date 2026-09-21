@@ -78,7 +78,12 @@ export function CollecteEditorPage() {
   const [journalLoading, setJournalLoading] = useState(false);
 
   useEffect(() => {
-    fetchOne(id);
+    // fetchOne() re-lève l'erreur après le toast (voir fail() dans le
+    // store) — utile quand l'appelant attend la promesse, mais ici l'échec
+    // est déjà géré par l'état "Collecte introuvable" ci-dessous ; sans ce
+    // .catch, une collecte manquante remonte comme rejet de promesse non
+    // intercepté dans la console.
+    fetchOne(id).catch(() => {});
     return () => clearCurrent();
   }, [id, fetchOne, clearCurrent]);
 

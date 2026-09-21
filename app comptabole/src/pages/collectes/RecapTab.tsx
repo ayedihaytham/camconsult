@@ -43,9 +43,27 @@ export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
       })),
     [collecte, live],
   );
-  const totalCount = live.length;
+  // Le client ne voit que les tableaux que le cabinet lui a effectivement
+  // envoyés — jamais la liste complète des tableaux de la collecte, qui
+  // laisserait croire qu'on lui demande des choses non encore transmises.
+  // L'admin voit tout (pour choisir quoi envoyer ensuite).
+  const visibleRows = isClient ? rows.filter((r) => r.statut !== "none") : rows;
+  const totalCount = visibleRows.reduce((s, r) => s + r.count, 0);
   const anyPending = rows.some((r) => r.statut === "envoye");
   const anyRepondu = rows.some((r) => r.statut === "repondu");
+
+  // Client sans aucun tableau encore envoyé : rien à montrer dans le
+  // tableau (voir visibleRows) — un message suffit, jamais une pastille
+  // trompeuse "tout est rempli" ni un tableau vide.
+  if (isClient && visibleRows.length === 0) {
+    return (
+      <div className="space-y-6">
+        <p className="text-sm text-muted-foreground">
+          Aucune demande du cabinet pour le moment.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -53,7 +71,7 @@ export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
         <span className="text-sm font-medium text-foreground">
           {totalCount === 0
             ? "Toutes les cases importantes sont remplies ✓"
-            : `${totalCount} case(s) importante(s) à compléter, réparties sur ${rows.filter((r) => r.count > 0).length} tableau(x)`}
+            : `${totalCount} case(s) importante(s) à compléter, réparties sur ${visibleRows.filter((r) => r.count > 0).length} tableau(x)`}
         </span>
       </div>
 
@@ -67,11 +85,6 @@ export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
       {isClient && !anyPending && anyRepondu && (
         <p className="text-sm text-muted-foreground">
           Récap renvoyé au cabinet. En attente de traitement.
-        </p>
-      )}
-      {isClient && !anyPending && !anyRepondu && (
-        <p className="text-sm text-muted-foreground">
-          Aucune demande du cabinet pour le moment.
         </p>
       )}
 
@@ -88,7 +101,7 @@ export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {rows.map((r) => (
+            {visibleRows.map((r) => (
               <tr key={r.onglet} className="hover:bg-muted/20">
                 <td className="px-3 py-2 text-foreground">{label(r.onglet)}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-foreground">

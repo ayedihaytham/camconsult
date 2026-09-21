@@ -96,12 +96,6 @@ function canEdit(session, societeId) {
   return (session.societeIds || []).includes(societeId);
 }
 
-/** Statut de récap d'UN onglet précis — le récap s'envoie tableau par
- * tableau, indépendamment des autres (voir /sections/:onglet/recap/send). */
-function sectionRecapStatut(sections, onglet) {
-  return sections.find((s) => s.onglet === onglet)?.recap_statut ?? "none";
-}
-
 /** Collecte verrouillée en écriture pour cette session, tous onglets
  * confondus — utilisé pour les actions non liées à un onglet précis (pièces
  * jointes générales). `sections` : lignes collecte_sections déjà chargées. */
@@ -121,15 +115,27 @@ function isLocked(session, collecte, sections) {
 
 /** Un onglet précis est-il modifiable par cette session ? Indépendant des
  * autres onglets de la même collecte — envoyer le récap d'un tableau ne
- * déverrouille QUE ce tableau côté client. */
-function isOngletLocked(session, collecte, onglet, sections) {
+ * déverrouille QUE ce tableau côté client. Ne requête collecte_sections que
+ * si c'est réellement nécessaire (jamais pour un admin/collaborateur, ni
+ * hors du cas "transmis") — ce contrôle tourne à chaque sauvegarde de
+ * tableau (le bouton « Enregistrer »), donc sur le chemin le plus chaud de
+ * tout le module ; l'admin (le cas le plus fréquent) sortait toujours au
+ * premier test sans jamais utiliser `sections`, mais l'appelant la
+ * chargeait quand même avant d'appeler cette fonction. */
+async function isOngletLocked(session, collecte, onglet) {
   const statut = collecte.statut;
   if (statut === "archive") return true;
   if (session.role === "admin") return false;
   if (statut === "valide") return session.poste === "societe_employe" ? true : false;
   if (session.poste !== "societe_employe") return false;
-  if (statut === "transmis") return sectionRecapStatut(sections, onglet) !== "envoye";
-  return false;
+  if (statut !== "transmis") return false;
+  const row = (
+    await query(
+      "select recap_statut from collecte_sections where collecte_id=$1 and onglet=$2",
+      [collecte.id, onglet],
+    )
+  ).rows[0];
+  return (row?.recap_statut ?? "none") !== "envoye";
 }
 
 // ── Liste ─────────────────────────────────────────
@@ -354,33 +360,39 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
     return res.status(400).json({ error: "Onglet non demandé dans cette collecte" });
   if (!canEdit(req.session, c.societe_id))
     return res.status(403).json({ error: "Modification non autorisée" });
-  const sections = (
-    await query("select onglet, recap_statut from collecte_sections where collecte_id=$1", [req.params.id])
-  ).rows;
-  if (isOngletLocked(req.session, c, onglet, sections))
+  if (await isOngletLocked(req.session, c, onglet))
     return res.status(400).json({ error: "Ce tableau est verrouillé" });
 
   const parsed = lignesSchema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
 
-  await withTransaction(async (client) => {
+  // Ne renvoie que les lignes de CET onglet, pas toute la collecte : un
+  // « Enregistrer » ne touche qu'un seul tableau, mais rechargeait jusque-là
+  // systématiquement tous les onglets, toutes les notes et toutes les
+  // pièces jointes de la collecte — coûteux et de plus en plus lent au fil
+  // des tableaux remplis, repéré en usage réel (client trouvant
+  // « Enregistrer » lent).
+  const savedLignes = await withTransaction(async (client) => {
     await client.query(
       "delete from collecte_lignes where collecte_id=$1 and onglet=$2",
       [req.params.id, onglet],
     );
+    const inserted = [];
     let i = 0;
     for (const l of parsed.data.lignes) {
-      await client.query(
+      const { rows } = await client.query(
         `insert into collecte_lignes (collecte_id, onglet, ordre, data)
-         values ($1,$2,$3,$4::jsonb)`,
+         values ($1,$2,$3,$4::jsonb) returning *`,
         [req.params.id, onglet, l.ordre ?? i, JSON.stringify(l.data ?? {})],
       );
+      inserted.push(rows[0]);
       i++;
     }
     await client.query("update collectes set maj_le=now() where id=$1", [
       req.params.id,
     ]);
+    return inserted;
   });
   logAction(
     req.session.nom,
@@ -389,7 +401,7 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
     `Tableau « ${onglet} » modifié (${parsed.data.lignes.length} ligne(s)) — ${periodeLabel(c.periode)}`,
     req.params.id,
   );
-  res.json(await loadCollecte(req.params.id));
+  res.json({ onglet, lignes: savedLignes.map(collecteLigneDto) });
 });
 
 // ── Commentaire de checklist d'un onglet ──────────
@@ -399,34 +411,24 @@ collectesRouter.patch("/:id/sections/:onglet", async (req, res) => {
   if (!c) return res.status(404).json({ error: "Collecte introuvable" });
   if (!canEdit(req.session, c.societe_id))
     return res.status(403).json({ error: "Modification non autorisée" });
-  const sections = (
-    await query("select onglet, recap_statut from collecte_sections where collecte_id=$1", [req.params.id])
-  ).rows;
-  if (isOngletLocked(req.session, c, req.params.onglet, sections))
+  if (await isOngletLocked(req.session, c, req.params.onglet))
     return res.status(400).json({ error: "Ce tableau est verrouillé" });
   const commentaire = String(req.body?.commentaire ?? "").slice(0, 1000);
-  const previous = (
-    await query(
-      "select commentaire from collecte_sections where collecte_id=$1 and onglet=$2",
-      [req.params.id, req.params.onglet],
-    )
-  ).rows[0]?.commentaire;
-  await query(
+  const { rows } = await query(
     `insert into collecte_sections (collecte_id, onglet, commentaire)
      values ($1,$2,$3)
-     on conflict (collecte_id, onglet) do update set commentaire = excluded.commentaire`,
+     on conflict (collecte_id, onglet) do update set commentaire = excluded.commentaire
+     returning *`,
     [req.params.id, req.params.onglet, commentaire],
   );
-  if (previous !== commentaire) {
-    logAction(
-      req.session.nom,
-      "modification",
-      "collecte",
-      `Commentaire « ${req.params.onglet} » modifié — ${periodeLabel(c.periode)}`,
-      req.params.id,
-    );
-  }
-  res.json(await loadCollecte(req.params.id));
+  logAction(
+    req.session.nom,
+    "modification",
+    "collecte",
+    `Commentaire « ${req.params.onglet} » modifié — ${periodeLabel(c.periode)}`,
+    req.params.id,
+  );
+  res.json({ section: collecteSectionDto(rows[0]) });
 });
 
 // ── Récap d'anomalies ─────────────────────────────

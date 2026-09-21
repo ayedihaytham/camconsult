@@ -5,6 +5,8 @@ import type {
   Collecte,
   CollecteFull,
   CollecteJournalEntry,
+  CollecteLigne,
+  CollecteSection,
   CollecteStatut,
 } from "@/types";
 
@@ -136,11 +138,19 @@ export const useCollectes = create<CollectesState>((set, get) => ({
 
   saveLignes: async (id, onglet, lignes) => {
     try {
-      const c = await api.put<CollecteFull>(
+      // Le serveur ne renvoie que les lignes de CET onglet (pas toute la
+      // collecte, jusque-là rechargée intégralement à chaque sauvegarde —
+      // lent dès que la collecte a plusieurs tableaux bien remplis) : on
+      // fusionne localement plutôt que de remplacer `current` en bloc.
+      const { lignes: saved } = await api.put<{ onglet: string; lignes: CollecteLigne[] }>(
         `/collectes/${id}/lignes/${onglet}`,
         { lignes },
       );
-      set((st) => ({ current: st.current?.id === id ? c : st.current }));
+      set((st) => {
+        if (st.current?.id !== id) return {};
+        const autres = st.current.lignes.filter((l) => l.onglet !== onglet);
+        return { current: { ...st.current, lignes: [...autres, ...saved] } };
+      });
     } catch (e) {
       fail(e);
     }
@@ -148,11 +158,15 @@ export const useCollectes = create<CollectesState>((set, get) => ({
 
   saveComment: async (id, onglet, commentaire) => {
     try {
-      const c = await api.patch<CollecteFull>(
+      const { section } = await api.patch<{ section: CollecteSection }>(
         `/collectes/${id}/sections/${onglet}`,
         { commentaire },
       );
-      set((st) => ({ current: st.current?.id === id ? c : st.current }));
+      set((st) => {
+        if (st.current?.id !== id) return {};
+        const autres = st.current.sections.filter((s) => s.onglet !== onglet);
+        return { current: { ...st.current, sections: [...autres, section] } };
+      });
     } catch (e) {
       fail(e);
     }

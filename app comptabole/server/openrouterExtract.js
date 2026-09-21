@@ -89,11 +89,14 @@ export async function openrouterExtractPage({ imageDataUrl, texte, raisonSociale
     body: JSON.stringify({
       model: MODEL,
       temperature: 0,
-      // Une réponse JSON de ce schéma tient largement dans cette limite
-      // (marge généreuse pour une longue désignation/nom de société) — sans
-      // rapport avec le solde du compte OpenRouter, qui doit être crédité
-      // séparément (voir openrouter.ai/settings/credits).
-      max_tokens: 1500,
+      // Volontairement bas (idéalement 1500, marge confortable pour une
+      // longue désignation) : le compte OpenRouter n'a quasiment plus de
+      // crédits (~809 tokens affordables au 21/09), donc toute valeur plus
+      // haute échoue systématiquement en 402 avant même de tenter l'appel.
+      // À remonter à 1500 dès que le compte est rechargé (voir
+      // openrouter.ai/settings/credits) — 750 reste correct pour un document
+      // simple mais peut tronquer un champ texte inhabituellement long.
+      max_tokens: 750,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },

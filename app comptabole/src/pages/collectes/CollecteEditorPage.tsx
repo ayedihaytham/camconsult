@@ -146,13 +146,28 @@ export function CollecteEditorPage() {
       flaggedByTab.set(m.onglet, s);
     }
   }
-  const showFlags = !archivee && (isAdmin || currentRecap !== "none");
+  // Par tableau, pas globalement : sinon dès qu'UN tableau est envoyé, les
+  // badges "cases manquantes" s'allument pour TOUS les tableaux côté
+  // client, y compris ceux jamais demandés — même bug que celui corrigé
+  // dans RecapTab (visibleRows), ici pour le sidenav et le surlignage en
+  // lecture seule dans chaque onglet.
+  const showFlagsFor = (key: string) =>
+    !archivee && (isAdmin || sectionRecapStatut(collecte, key) !== "none");
 
   const rows = checklistRows(collecte);
   const recus = rows.filter((r) => r.recu).length;
 
   async function applyStatut(s: CollecteStatut) {
     await setStatut(id, s);
+    // Une transmission peut coïncider avec un récap par tableau déjà en
+    // attente (le cabinet en a envoyé un avant que le client n'ait jamais
+    // transmis) — sans ce second appel, le bouton ne faisait QUE l'un des
+    // deux selon `clientRecap`, obligeant à cliquer deux fois : une
+    // première fois qui ne transmettait rien (juste le récap, avec un
+    // message trompeur), puis une seconde pour la vraie transmission.
+    if (s === "transmis" && clientRecap) {
+      await submitRecap(id);
+    }
     setConfirm(null);
     toast.success(
       s === "transmis"
@@ -223,11 +238,17 @@ export function CollecteEditorPage() {
                 variant="ledger"
                 size="sm"
                 onClick={async () => {
-                  if (clientRecap) {
-                    await submitRecap(id);
-                    toast.success("Collecte transmise au cabinet");
-                  } else {
+                  // Transmettre la collecte elle-même (première fois, ou
+                  // renvoi après correction) prime toujours sur un simple
+                  // récap en attente — les deux se font alors ensemble en un
+                  // clic (voir applyStatut). Le récap seul (sans confirmation)
+                  // n'a lieu que sur une collecte déjà transmise, en pur
+                  // suivi tableau par tableau.
+                  if (collecte.statut === "brouillon" || collecte.statut === "a_corriger") {
                     setConfirm("transmis");
+                  } else if (clientRecap) {
+                    await submitRecap(id);
+                    toast.success("Récap transmis au cabinet");
                   }
                 }}
               >
@@ -387,7 +408,7 @@ export function CollecteEditorPage() {
                   <div className="my-1.5 border-t border-border" />
                 )}
                 {collecte.onglets.map((key) => {
-                  const n = showFlags ? (manqueCount.get(key) ?? 0) : 0;
+                  const n = showFlagsFor(key) ? (manqueCount.get(key) ?? 0) : 0;
                   return (
                     <NavItem
                       key={key}
@@ -610,7 +631,7 @@ export function CollecteEditorPage() {
                     recapClient={inRecap}
                     highlight={hl}
                     wholeEditable={inRecap && whole}
-                    flagged={!inRecap && showFlags ? hl : undefined}
+                    flagged={!inRecap && showFlagsFor(key) ? hl : undefined}
                     devise={collecte.devise}
                     onSave={async (lignes) => {
                       await saveLignes(id, key, lignes);

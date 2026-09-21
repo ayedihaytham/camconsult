@@ -455,6 +455,22 @@ collectesRouter.post("/:id/notes", async (req, res) => {
     `Note ajoutée${onglet ? ` (« ${onglet} »)` : ""} — ${periodeLabel(c.periode)} : ${texte.slice(0, 80)}`,
     req.params.id,
   );
+
+  // Une note n'avait aucun effet côté destinataire — ni notification, ni
+  // pastille — sauf à retomber par hasard sur cette collecte plus tard.
+  const soc = (
+    await query("select raison_sociale from societes where id = $1", [c.societe_id])
+  ).rows[0];
+  const titre = `Note${onglet ? ` (« ${onglet} »)` : ""} : ${soc?.raison_sociale ?? ""} — ${periodeLabel(c.periode)}`;
+  if (noteAuteur(req.session) === "admin") {
+    const targets = (
+      await concernedBySociete(c.societe_id, { includeAdmin: false })
+    ).filter((k) => k !== notifKey(req.session));
+    notifyMany(targets, "collecte", titre, texte.slice(0, 120), `/collectes/${req.params.id}`);
+  } else {
+    notify("admin", "collecte", titre, texte.slice(0, 120), `/collectes/${req.params.id}`);
+  }
+
   res.status(201).json(await loadCollecte(req.params.id));
 });
 

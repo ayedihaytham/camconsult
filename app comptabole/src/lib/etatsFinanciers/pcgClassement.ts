@@ -93,7 +93,7 @@ const RULES_2: Record<string, string | null> = {
   "62": "CH05", // Autres services extérieurs
   "63": "CH05", // Charges diverses ordinaires
   "64": "CH03", // Charges de personnel
-  "65": "CH06", // Charges financières
+  "65": "CH07", // Charges financières
   "66": "CH12", // Impôts, taxes et versements assimilés sur rémunérations
   "67": null, // Pertes extraordinaires — pas de code dédié (rare)
   "68": "CH44", // Dotations aux amortissements et provisions (hors 681, amortissements)
@@ -103,7 +103,7 @@ const RULES_2: Record<string, string | null> = {
   "72": null, // Production immobilisée — pas de code dédié
   "73": "PR02", // Produits divers ordinaires
   "74": "PR02", // Subventions d'exploitation
-  "75": "CH06", // Produits financiers — nettés dans « Charges financières nettes »
+  "75": "CH07", // Produits financiers — nettés dans « Charges financières nettes »
   "77": null, // Gains extraordinaires — pas de code dédié (rare)
   "78": null, // Reprises sur amortissements et provisions — pas de code dédié
   "79": null, // Transferts de charges — pas de code dédié

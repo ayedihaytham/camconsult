@@ -101,7 +101,7 @@ const RULES_2: Record<string, string | null> = {
   "70": "PR02", // Ventes (hors 707, marchandises)
   "71": null, // Production stockée — pas de code dédié
   "72": null, // Production immobilisée — pas de code dédié
-  "73": "PR02", // Produits divers ordinaires
+  "73": "CH08", // Produits divers ordinaires (pas "d'exploitation" — voir cpc.autres_produits_ordinaires)
   "74": "PR02", // Subventions d'exploitation
   "75": "CH07", // Produits financiers — nettés dans « Charges financières nettes »
   "77": null, // Gains extraordinaires — pas de code dédié (rare)

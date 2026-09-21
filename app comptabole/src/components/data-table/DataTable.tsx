@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { DataTableSkeleton } from "./DataTableSkeleton";
 
 interface DataTableProps<TData> extends ComponentProps<"div"> {
+  /** Opt-in desktop density for ledger views with compact multi-line rows. */
+  desktopDensity?: "default" | "compact";
   emptyMessage: string;
   footer?: ReactNode;
   getRowClassName?: (row: Row<TData>) => string | undefined;
@@ -29,6 +31,7 @@ interface DataTableProps<TData> extends ComponentProps<"div"> {
 }
 
 export function DataTable<TData>({
+  desktopDensity = "default",
   table,
   emptyMessage,
   footer,
@@ -42,6 +45,7 @@ export function DataTable<TData>({
   className,
   ...props
 }: DataTableProps<TData>) {
+  const isCompactDesktop = desktopDensity === "compact";
   if (isLoading) {
     return (
       <DataTableSkeleton
@@ -58,7 +62,9 @@ export function DataTable<TData>({
     <div className={cn("min-w-0", className)} {...props}>
       <div className="hidden overflow-hidden rounded-lg border border-border bg-card lg:block">
         <Table className="table-fixed">
-          <TableHeader className="bg-muted/35 [&_th]:!h-9 [&_th]:!px-3 [&_th]:!text-xs [&_th]:!font-semibold [&_th]:!normal-case [&_th]:!tracking-normal">
+          <TableHeader
+            className="bg-muted/35 [&_th]:!h-9 [&_th]:!px-3 [&_th]:!text-xs [&_th]:!font-semibold [&_th]:!normal-case [&_th]:!tracking-normal"
+          >
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
@@ -88,7 +94,10 @@ export function DataTable<TData>({
                   <TableRow
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                     className={cn(
-                      "h-12 bg-card hover:bg-muted/30",
+                      "group bg-card hover:bg-muted/30",
+                      isCompactDesktop
+                        ? "h-[52px] [&>td]:align-middle"
+                        : "h-12",
                       onRowClick && "cursor-pointer",
                       getRowClassName?.(row),
                     )}
@@ -97,7 +106,8 @@ export function DataTable<TData>({
                       <TableCell
                         key={cell.id}
                         className={cn(
-                          "min-w-0 px-3 py-1.5",
+                          "min-w-0 px-3",
+                          isCompactDesktop ? "py-1" : "py-1.5",
                           cell.column.columnDef.meta?.cellClassName,
                         )}
                       >
@@ -133,7 +143,14 @@ export function DataTable<TData>({
           </TableBody>
         </Table>
         {footer && (
-          <div className="border-t border-border/70 px-3 py-2">{footer}</div>
+          <div
+            className={cn(
+              "border-t border-border/70 px-3",
+              isCompactDesktop ? "py-1" : "py-2",
+            )}
+          >
+            {footer}
+          </div>
         )}
       </div>
 

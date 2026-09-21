@@ -34,7 +34,9 @@ export function SocieteViewSheet({
                 {societe.raisonSociale}
               </h3>
               <div className="mt-2 flex items-center gap-3 text-sm">
-                <span className="text-muted-foreground">{societe.theme}</span>
+                <span className="text-muted-foreground">
+                  Type de structure : {societe.theme}
+                </span>
                 <StatutDot statut={societe.statut} />
               </div>
             </div>
@@ -43,8 +45,16 @@ export function SocieteViewSheet({
               <Row label="Code interne" value={societe.code} />
               <Row label="RNE" value={societe.rne} />
               <Row label="N° TVA" value={societe.tva} />
-              <Row label="Téléphone" value={societe.telephone || "—"} />
-              <Row label="Email" value={societe.email || "—"} />
+              <Row
+                label="Téléphone"
+                value={societe.telephone || "—"}
+                href={societe.telephone ? `tel:${societe.telephone}` : undefined}
+              />
+              <Row
+                label="Email"
+                value={societe.email || "—"}
+                href={societe.email ? `mailto:${societe.email}` : undefined}
+              />
               <Row label="Adresse" value={societe.adresse || "—"} />
               <Row label="Créée le" value={formatDate(societe.creeLe)} />
             </dl>
@@ -57,11 +67,27 @@ export function SocieteViewSheet({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+}) {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-2.5">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-right text-sm font-medium text-foreground">{value}</dd>
+    <div className="flex min-w-0 flex-col gap-1 px-4 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <dt className="shrink-0 text-sm text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 break-words text-sm font-medium text-foreground sm:text-right">
+        {href ? (
+          <a className="underline-offset-4 hover:underline" href={href}>
+            {value}
+          </a>
+        ) : (
+          value
+        )}
+      </dd>
     </div>
   );
 }

@@ -43,8 +43,6 @@ export function DataTablePagination<TData>({
     );
   }
 
-  if (range.pageCount <= 1) return null;
-
   if (variant === "count") {
     return (
       <div
@@ -54,6 +52,25 @@ export function DataTablePagination<TData>({
         {range.firstItem}–{range.lastItem} sur {totalItems} {itemLabel}
       </div>
     );
+  }
+
+  if (range.pageCount <= 1) {
+    if (variant === "mobile") {
+      return (
+        <div
+          className={cn(
+            "flex min-w-0 items-center border-t border-border/70 px-1 pb-1 pt-2 text-xs text-muted-foreground",
+            className,
+          )}
+          {...props}
+        >
+          <span className="truncate">
+            {range.firstItem}–{range.lastItem} sur {totalItems} {itemLabel}
+          </span>
+        </div>
+      );
+    }
+    return null;
   }
 
   const controls = (
@@ -160,8 +177,8 @@ export function DataTablePagination<TData>({
         )}
         {...props}
       >
-        <span className="whitespace-nowrap">
-          {totalItems} {itemLabel}
+        <span className="min-w-0 truncate">
+          {range.firstItem}–{range.lastItem} sur {totalItems} {itemLabel}
         </span>
         {controls}
       </div>

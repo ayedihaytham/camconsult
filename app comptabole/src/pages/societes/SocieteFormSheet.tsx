@@ -67,7 +67,7 @@ interface Props {
   /** undefined = création */
   societe?: Societe | null;
   nextCode: string;
-  onSubmit: (values: SocieteFormValues) => void;
+  onSubmit: (values: SocieteFormValues) => Promise<void>;
 }
 
 export function SocieteFormSheet({
@@ -85,7 +85,9 @@ export function SocieteFormSheet({
     reset,
     setValue,
     watch,
-    formState: { errors },
+    clearErrors,
+    setError,
+    formState: { errors, isSubmitting },
   } = useForm<SocieteFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -125,7 +127,12 @@ export function SocieteFormSheet({
   const email = watch("email");
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!isSubmitting) onOpenChange(nextOpen);
+      }}
+    >
       <SheetContent side="right" className="sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>
@@ -141,32 +148,65 @@ export function SocieteFormSheet({
         <form
           id="societe-form"
           className="flex min-h-0 flex-1 flex-col"
-          onSubmit={handleSubmit((v) => {
-            onSubmit(v);
-            onOpenChange(false);
+          onSubmit={handleSubmit(async (values) => {
+            clearErrors("root");
+            try {
+              await onSubmit(values);
+              onOpenChange(false);
+            } catch (error) {
+              setError("root", {
+                message:
+                  error instanceof Error
+                    ? `${error.message} Vérifiez les informations puis réessayez.`
+                    : "Enregistrement impossible. Vérifiez les informations puis réessayez.",
+              });
+            }
           })}
         >
           <SheetBody className="space-y-5">
-            <Field label="Raison sociale" error={errors.raisonSociale?.message}>
-              <Input {...register("raisonSociale")} placeholder="Ex. CAMCONSULT" />
+            <Field id="societe-raison-sociale" label="Raison sociale" error={errors.raisonSociale?.message}>
+              <Input
+                id="societe-raison-sociale"
+                {...register("raisonSociale")}
+                placeholder="Ex. CAMCONSULT"
+                aria-invalid={Boolean(errors.raisonSociale)}
+                aria-describedby={errors.raisonSociale ? "societe-raison-sociale-error" : undefined}
+              />
             </Field>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="RNE" error={errors.rne?.message}>
-                <Input {...register("rne")} placeholder="1234567A" />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field id="societe-rne" label="RNE" error={errors.rne?.message}>
+                <Input
+                  id="societe-rne"
+                  {...register("rne")}
+                  placeholder="1234567A"
+                  aria-invalid={Boolean(errors.rne)}
+                  aria-describedby={errors.rne ? "societe-rne-error" : undefined}
+                />
               </Field>
-              <Field label="N° TVA" error={errors.tva?.message}>
-                <Input {...register("tva")} placeholder="1234567A/A/M/000" />
+              <Field id="societe-tva" label="N° TVA" error={errors.tva?.message}>
+                <Input
+                  id="societe-tva"
+                  {...register("tva")}
+                  placeholder="1234567A/A/M/000"
+                  aria-invalid={Boolean(errors.tva)}
+                  aria-describedby={errors.tva ? "societe-tva-error" : undefined}
+                />
               </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Thème" error={errors.theme?.message}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field id="societe-theme" label="Type de structure" error={errors.theme?.message}>
                 <Select
                   value={theme}
                   onValueChange={(v) => setValue("theme", v as SocieteTheme)}
+                  disabled={isSubmitting}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger
+                    id="societe-theme"
+                    aria-invalid={Boolean(errors.theme)}
+                    aria-describedby={errors.theme ? "societe-theme-error" : undefined}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -178,12 +218,17 @@ export function SocieteFormSheet({
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Statut" error={errors.statut?.message}>
+              <Field id="societe-statut" label="Statut" error={errors.statut?.message}>
                 <Select
                   value={statut}
                   onValueChange={(v) => setValue("statut", v as Statut)}
+                  disabled={isSubmitting}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger
+                    id="societe-statut"
+                    aria-invalid={Boolean(errors.statut)}
+                    aria-describedby={errors.statut ? "societe-statut-error" : undefined}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -196,37 +241,50 @@ export function SocieteFormSheet({
             </div>
 
             <Field
+              id="societe-code"
               label="Code interne"
               error={errors.code?.message}
               hint={isEdit ? undefined : "Généré automatiquement, modifiable"}
             >
-              <Input {...register("code")} />
+              <Input
+                id="societe-code"
+                {...register("code")}
+                aria-invalid={Boolean(errors.code)}
+                aria-describedby={errors.code ? "societe-code-error" : !isEdit ? "societe-code-hint" : undefined}
+              />
             </Field>
 
             <div className="space-y-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Contact
               </p>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Téléphone" error={errors.telephone?.message}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field id="societe-telephone" label="Téléphone" error={errors.telephone?.message}>
                   <Input
+                    id="societe-telephone"
                     {...register("telephone")}
                     type="tel"
                     placeholder="+216 00 00 00 00"
+                    aria-invalid={Boolean(errors.telephone)}
+                    aria-describedby={errors.telephone ? "societe-telephone-error" : undefined}
                   />
                 </Field>
-                <Field label="Email" error={errors.email?.message}>
+                <Field id="societe-email" label="Email" error={errors.email?.message}>
                   <div className="relative">
                     <Input
+                      id="societe-email"
                       {...register("email")}
                       type="email"
                       placeholder="contact@societe.tn"
                       className={email && !errors.email ? "pr-9" : undefined}
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={errors.email ? "societe-email-error" : undefined}
                     />
                     {email && !errors.email && (
                       <a
                         href={`mailto:${email}`}
                         title="Envoyer un email à cette adresse"
+                        aria-label={`Envoyer un email à ${email}`}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-accent"
                       >
                         <Mail className="h-4 w-4" />
@@ -235,22 +293,41 @@ export function SocieteFormSheet({
                   </div>
                 </Field>
               </div>
-              <Field label="Adresse" error={errors.adresse?.message}>
-                <Input {...register("adresse")} placeholder="N°, rue, code postal, ville" />
+              <Field id="societe-adresse" label="Adresse" error={errors.adresse?.message}>
+                <Input
+                  id="societe-adresse"
+                  {...register("adresse")}
+                  placeholder="N°, rue, code postal, ville"
+                  aria-invalid={Boolean(errors.adresse)}
+                  aria-describedby={errors.adresse ? "societe-adresse-error" : undefined}
+                />
               </Field>
             </div>
+
+            {errors.root?.message && (
+              <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {errors.root.message}
+              </p>
+            )}
           </SheetBody>
 
           <SheetFooter>
             <Button
               type="button"
               variant="outline"
+              disabled={isSubmitting}
               onClick={() => onOpenChange(false)}
             >
               Annuler
             </Button>
-            <Button type="submit" variant="ledger">
-              {isEdit ? "Enregistrer" : "Créer la société"}
+            <Button type="submit" variant="ledger" disabled={isSubmitting}>
+              {isSubmitting
+                ? isEdit
+                  ? "Enregistrement…"
+                  : "Création…"
+                : isEdit
+                  ? "Enregistrer"
+                  : "Créer la société"}
             </Button>
           </SheetFooter>
         </form>
@@ -260,11 +337,13 @@ export function SocieteFormSheet({
 }
 
 function Field({
+  id,
   label,
   error,
   hint,
   children,
 }: {
+  id: string;
   label: string;
   error?: string;
   hint?: string;
@@ -272,12 +351,12 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       {children}
       {hint && !error && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">{hint}</p>
       )}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p id={`${id}-error`} className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

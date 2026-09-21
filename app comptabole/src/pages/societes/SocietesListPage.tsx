@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -6,24 +6,24 @@ import {
   ChevronRight,
   Copy,
   Download,
+  Filter,
   FolderOpen,
+  MoreHorizontal,
   Pencil,
   Plus,
   Printer,
   Search,
   Trash2,
   Eye,
-  X,
 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { FilterChip } from "@/components/ledger/FilterChip";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
-import { DataTableToolbar } from "@/components/data-table/DataTableToolbar";
+import { DataTableViewOptions } from "@/components/data-table/DataTableViewOptions";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { STATUT_LABELS } from "@/components/common/badges";
@@ -34,6 +34,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -42,7 +43,7 @@ import {
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
 import { avatarColor, cn, formatRelative, sinceLabel } from "@/lib/utils";
-import { THEME_ACCENT, THEME_BAR, THEME_ICON, THEME_OPTIONS } from "@/lib/societeTheme";
+import { THEME_OPTIONS } from "@/lib/societeTheme";
 import {
   useData,
   useSocietes,
@@ -54,10 +55,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { logJournal } from "@/store/journal";
 import { employeNomComplet } from "@/data/employes";
 import type { Societe, SocieteTheme, Statut } from "@/types";
-import {
-  SocieteFormSheet,
-  type SocieteFormValues,
-} from "./SocieteFormSheet";
+import { SocieteFormSheet, type SocieteFormValues } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
 
 /** Panneau de l'accordéon inline (voir LedgerTable `renderExpanded`) —
@@ -89,7 +87,9 @@ function SocieteExpandedPanel({
           Contacts clés
         </p>
         {contacts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun contact enregistré.</p>
+          <p className="text-sm text-muted-foreground">
+            Aucun contact enregistré.
+          </p>
         ) : (
           <ul className="space-y-1">
             {contacts.slice(0, 3).map((c) => (
@@ -105,12 +105,14 @@ function SocieteExpandedPanel({
           Tâches en cours
         </p>
         {tachesOuvertes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucune tâche en attente.</p>
+          <p className="text-sm text-muted-foreground">
+            Aucune tâche en attente.
+          </p>
         ) : (
           <>
             <p className="text-sm text-foreground">
-              {tachesOuvertes.length} tâche{tachesOuvertes.length > 1 ? "s" : ""} en
-              attente
+              {tachesOuvertes.length} tâche
+              {tachesOuvertes.length > 1 ? "s" : ""} en attente
             </p>
             <p className="truncate text-xs text-muted-foreground">
               La plus ancienne : « {tachesOuvertes[0].titre} » —{" "}
@@ -120,12 +122,162 @@ function SocieteExpandedPanel({
         )}
       </div>
       <div className="flex items-start">
-        <Button variant="outline" size="sm" className="rounded-full" onClick={onOpenFull}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-full"
+          onClick={onOpenFull}
+        >
           <Eye className="h-3.5 w-3.5" />
           Fiche complète
         </Button>
       </div>
     </div>
+  );
+}
+
+function BulkActionsMenu({
+  inverse = false,
+  onExport,
+  onSetTheme,
+  onSetInactive,
+}: {
+  inverse?: boolean;
+  onExport?: () => void;
+  onSetTheme: (theme: SocieteTheme) => void;
+  onSetInactive: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant={inverse ? "ghost" : "outline"}
+          size="sm"
+          className={cn(
+            "shadow-none",
+            inverse &&
+              "text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+          )}
+        >
+          Actions
+          <ChevronDown className="size-3.5 opacity-70" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {onExport && (
+          <DropdownMenuItem onClick={onExport}>
+            Exporter la sélection
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            Modifier le type de structure
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {THEME_OPTIONS.map((theme) => (
+              <DropdownMenuItem key={theme} onClick={() => onSetTheme(theme)}>
+                {theme}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem onClick={onSetInactive}>
+          Marquer inactif
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function SocietesFilterMenu({
+  onSetStatut,
+  onSetTheme,
+}: {
+  onSetStatut: (statut: Statut) => void;
+  onSetTheme: (theme: SocieteTheme) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shadow-none"
+        >
+          <Filter className="size-3.5" />
+          Filtrer
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Type de structure</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {THEME_OPTIONS.map((theme) => (
+              <DropdownMenuItem key={theme} onClick={() => onSetTheme(theme)}>
+                {theme}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Statut</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
+              <DropdownMenuItem
+                key={statut}
+                onClick={() => onSetStatut(statut)}
+              >
+                {STATUT_LABELS[statut]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function SocietesUtilityMenu({
+  onExport,
+  onPrint,
+}: {
+  onExport: (format: ExportFormat) => void;
+  onPrint: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className="shadow-none">
+          <span className="hidden sm:inline">Actions</span>
+          <MoreHorizontal className="size-4 sm:hidden" />
+          <ChevronDown className="hidden size-3.5 opacity-70 sm:block" />
+          <span className="sr-only sm:hidden">Actions de la liste</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Download className="size-4" />
+            Exporter
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem onClick={() => onExport("csv")}>
+              CSV (.csv)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onExport("xlsx")}>
+              Excel (.xlsx)
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onPrint}>
+          <Printer className="size-4" />
+          Imprimer
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -145,6 +297,7 @@ export function SocietesListPage() {
   const duplicateSociete = useData((s) => s.duplicateSociete);
   const deleteSocietes = useData((s) => s.deleteSocietes);
   const employes = useData((s) => s.employes);
+  const isDataLoading = useData((s) => !s.hydrated);
   const employeCount = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of employes) {
@@ -157,6 +310,7 @@ export function SocietesListPage() {
   const [themeFilter, setThemeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [mobileSelectionMode, setMobileSelectionMode] = useState(false);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -184,17 +338,29 @@ export function SocietesListPage() {
 
   const nextCode = useMemo(() => nextSocieteCode(allRows), [allRows]);
 
-  function handleSubmit(values: SocieteFormValues) {
+  useEffect(() => {
+    const accessibleIds = new Set(rows.map((societe) => societe.id));
+    setSelectedIds((current) => {
+      const next = current.filter((id) => accessibleIds.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [rows]);
+
+  function clearSelection() {
+    setSelectedIds([]);
+    setMobileSelectionMode(false);
+  }
+
+  async function handleSubmit(values: SocieteFormValues) {
     if (editing) {
-      updateSociete(editing.id, values);
+      await updateSociete(editing.id, values);
       logJournal("modification", "societe", values.raisonSociale);
       toast.success("Société modifiée", { description: values.raisonSociale });
     } else {
-      addSociete(values);
+      await addSociete(values);
       logJournal("creation", "societe", values.raisonSociale);
       toast.success("Société créée", { description: values.raisonSociale });
     }
-    setEditing(null);
   }
 
   function duplicate(s: Societe) {
@@ -203,51 +369,58 @@ export function SocietesListPage() {
     toast.success("Société dupliquée", { description: s.raisonSociale });
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!toDelete) return;
-    deleteSocietes([toDelete.id]);
+    await deleteSocietes([toDelete.id]);
     logJournal("suppression", "societe", toDelete.raisonSociale);
     setSelectedIds((ids) => ids.filter((id) => id !== toDelete.id));
     toast.success("Société supprimée", { description: toDelete.raisonSociale });
     setToDelete(null);
   }
 
-  function confirmBulkDelete() {
+  async function confirmBulkDelete() {
+    const count = selectedIds.length;
     const noms = rows
       .filter((s) => selectedIds.includes(s.id))
       .map((s) => s.raisonSociale);
-    deleteSocietes(selectedIds);
+    await deleteSocietes(selectedIds);
     logJournal(
       "suppression",
       "societe",
       `${selectedIds.length} sociétés : ${noms.join(", ")}`,
     );
-    toast.success(`${selectedIds.length} sociétés supprimées`);
-    setSelectedIds([]);
+    toast.success(`${count} sociétés supprimées`);
+    clearSelection();
   }
 
-  function bulkSetTheme(theme: SocieteTheme) {
+  async function bulkSetTheme(theme: SocieteTheme) {
     const ids = selectedIds;
-    ids.forEach((id) => updateSociete(id, { theme }));
+    await Promise.all(ids.map((id) => updateSociete(id, { theme })));
     logJournal(
       "modification",
       "societe",
-      `${ids.length} sociétés — thème « ${theme} »`,
+      `${ids.length} sociétés — type de structure « ${theme} »`,
     );
     toast.success(
-      `Thème « ${theme} » appliqué à ${ids.length} société${ids.length > 1 ? "s" : ""}`,
+      `Type de structure « ${theme} » appliqué à ${ids.length} société${ids.length > 1 ? "s" : ""}`,
     );
-    setSelectedIds([]);
+    clearSelection();
   }
 
-  function bulkSetInactive() {
+  async function bulkSetInactive() {
     const ids = selectedIds;
-    ids.forEach((id) => updateSociete(id, { statut: "inactif" }));
-    logJournal("modification", "societe", `${ids.length} sociétés marquées inactives`);
+    await Promise.all(
+      ids.map((id) => updateSociete(id, { statut: "inactif" })),
+    );
+    logJournal(
+      "modification",
+      "societe",
+      `${ids.length} sociétés marquées inactives`,
+    );
     toast.success(
       `${ids.length} société${ids.length > 1 ? "s" : ""} marquée${ids.length > 1 ? "s" : ""} inactive${ids.length > 1 ? "s" : ""}`,
     );
-    setSelectedIds([]);
+    clearSelection();
   }
 
   function handleExport(format: ExportFormat) {
@@ -262,7 +435,7 @@ export function SocietesListPage() {
         { header: "Raison sociale", value: (s) => s.raisonSociale },
         { header: "RNE", value: (s) => s.rne },
         { header: "TVA", value: (s) => s.tva },
-        { header: "Thème", value: (s) => s.theme },
+        { header: "Type de structure", value: (s) => s.theme },
         { header: "Code", value: (s) => s.code },
         { header: "Statut", value: (s) => s.statut },
         { header: "Téléphone", value: (s) => s.telephone },
@@ -283,7 +456,7 @@ export function SocietesListPage() {
       title: "Liste des sociétés",
       subtitle:
         [
-          themeFilter !== "all" && `Thème : ${themeFilter}`,
+          themeFilter !== "all" && `Type de structure : ${themeFilter}`,
           statutFilter !== "all" && `Statut : ${statutFilter}`,
           search && `Recherche : « ${search} »`,
         ]
@@ -293,7 +466,7 @@ export function SocietesListPage() {
         { header: "Raison sociale", value: (s) => s.raisonSociale },
         { header: "RNE", value: (s) => s.rne },
         { header: "TVA", value: (s) => s.tva },
-        { header: "Thème", value: (s) => s.theme },
+        { header: "Type de structure", value: (s) => s.theme },
         { header: "Code", value: (s) => s.code },
         { header: "Statut", value: (s) => s.statut },
         { header: "Téléphone", value: (s) => s.telephone },
@@ -353,7 +526,9 @@ export function SocietesListPage() {
         const someSelected = pageIds.some((id) => selectedIds.includes(id));
         return (
           <Checkbox
-            checked={allSelected ? true : someSelected ? "indeterminate" : false}
+            checked={
+              allSelected ? true : someSelected ? "indeterminate" : false
+            }
             onCheckedChange={() =>
               setSelectedIds(
                 allSelected
@@ -397,7 +572,9 @@ export function SocietesListPage() {
             variant="ghost"
             size="icon-sm"
             className="size-7 shadow-none"
-            aria-label={expanded ? "Masquer les détails" : "Afficher les détails"}
+            aria-label={
+              expanded ? "Masquer les détails" : "Afficher les détails"
+            }
             aria-expanded={expanded}
             onClick={(event) => {
               event.stopPropagation();
@@ -409,7 +586,10 @@ export function SocietesListPage() {
             }}
           >
             <ChevronRight
-              className={cn("size-4 transition-transform", expanded && "rotate-90")}
+              className={cn(
+                "size-4 transition-transform",
+                expanded && "rotate-90",
+              )}
             />
           </Button>
         );
@@ -429,14 +609,10 @@ export function SocietesListPage() {
         const s = row.original;
         const n = employeCount.get(s.id) ?? 0;
         return (
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span
-              className={cn("h-9 w-1 shrink-0 rounded-full", THEME_BAR[s.theme])}
-              aria-hidden
-            />
+          <div className="flex min-w-0 items-center gap-2">
             <span
               className={cn(
-                "flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
+                "flex size-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold",
                 avatarColor(s.id),
               )}
               aria-hidden
@@ -444,14 +620,14 @@ export function SocietesListPage() {
               {s.raisonSociale.slice(0, 2).toUpperCase()}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">
+              <p className="truncate text-[13px] font-semibold leading-[15px] text-foreground">
                 {s.raisonSociale}
               </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {n === 0 ? "Aucun employé" : `${n} employé${n > 1 ? "s" : ""}`} ·{" "}
-                {sinceLabel(s.creeLe, "Client depuis")}
+              <p className="truncate text-[11px] leading-[13px] text-muted-foreground">
+                {n === 0 ? "Aucun employé" : `${n} employé${n > 1 ? "s" : ""}`}{" "}
+                · {sinceLabel(s.creeLe, "Client depuis")}
               </p>
-              <p className="truncate text-xs text-muted-foreground/75">
+              <p className="truncate text-[11px] leading-[13px] text-muted-foreground/75">
                 {s.rne || "—"} · {s.tva || "—"} · {s.theme}
               </p>
             </div>
@@ -494,40 +670,40 @@ export function SocietesListPage() {
       cell: ({ row }) => {
         const s = row.original;
         return (
-        <div
-          className="flex items-center justify-end gap-0.5"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Actions rapides : masquées par défaut, révélées au survol de la
+          <div
+            className="flex items-center justify-end gap-0.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Actions rapides : masquées par défaut, révélées au survol de la
               ligne ET au focus clavier (group-focus-within) — jamais
               seulement au survol, pour rester utilisables sans souris. */}
-          <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-            <button
-              type="button"
-              onClick={() => openView(s)}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-              aria-label={`Voir ${s.raisonSociale}`}
-              title="Voir"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </button>
-            {canEdit && (
+            <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
               <button
                 type="button"
-                onClick={() => {
-                  setEditing(s);
-                  setFormOpen(true);
-                }}
+                onClick={() => openView(s)}
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                aria-label={`Modifier ${s.raisonSociale}`}
-                title="Modifier"
+                aria-label={`Voir ${s.raisonSociale}`}
+                title="Voir"
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Eye className="h-3.5 w-3.5" />
               </button>
-            )}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(s);
+                    setFormOpen(true);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                  aria-label={`Modifier ${s.raisonSociale}`}
+                  title="Modifier"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <LedgerRowMenu actions={societeMenuActions(s)} />
           </div>
-          <LedgerRowMenu actions={societeMenuActions(s)} />
-        </div>
         );
       },
       meta: {
@@ -552,134 +728,206 @@ export function SocietesListPage() {
         : "Aucune société accessible."
       : "Aucune société ne correspond à votre recherche ou à vos filtres.";
 
-  return (
-    <div className={cn("flex flex-1 flex-col", selectedIds.length > 0 && "md:pb-16")}>
-      <LedgerPageHeader
-        className="mb-3"
-        title="Liste des sociétés"
-        description={
-          isAdmin
-            ? "Gérez les sociétés clientes du cabinet."
-            : "Sociétés auxquelles vous avez accès."
-        }
-      />
+  const hasActiveFilters = themeFilter !== "all" || statutFilter !== "all";
+  const isMobileSelectionActive = mobileSelectionMode || selectedIds.length > 0;
 
-      <DataTableToolbar
-        table={table}
-        ariaLabel="Outils des sociétés"
-        showViewOptions
-        className="mb-3 sm:[&>div:last-child]:ml-auto"
-        leading={
-          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap">
-            <div className="relative min-w-0 w-full sm:w-64 sm:flex-none lg:w-72">
+  const filterChips = hasActiveFilters ? (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {themeFilter !== "all" && (
+        <FilterChip
+          label={`Type de structure : ${themeFilter}`}
+          onRemove={() => setThemeFilter("all")}
+        />
+      )}
+      {statutFilter !== "all" && (
+        <FilterChip
+          label={`Statut : ${STATUT_LABELS[statutFilter as Statut]}`}
+          onRemove={() => setStatutFilter("all")}
+        />
+      )}
+    </div>
+  ) : null;
+
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 flex-1 flex-col",
+        canEdit && !isMobileSelectionActive && "pb-20 lg:pb-0",
+      )}
+    >
+      <header className="mb-2 flex min-w-0 items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold leading-6 tracking-tight text-primary">
+            Sociétés
+          </h1>
+          <p className="mt-0.5 text-sm leading-4 text-muted-foreground">
+            {isAdmin
+              ? "Gestion des clients du cabinet"
+              : "Sociétés auxquelles vous avez accès"}
+          </p>
+        </div>
+        {canEdit && (
+          <Button
+            type="button"
+            className="hidden shrink-0 lg:inline-flex"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="size-4" />
+            Ajouter une société
+          </Button>
+        )}
+      </header>
+
+      {selectedIds.length > 0 ? (
+        <div className="mb-3 hidden items-center justify-between gap-4 border-y border-primary/20 bg-primary px-3 py-2 text-primary-foreground lg:flex">
+          <span className="text-sm font-semibold">
+            {selectedIds.length} société{selectedIds.length > 1 ? "s" : ""}{" "}
+            sélectionnée{selectedIds.length > 1 ? "s" : ""}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              onClick={() => handleExport("xlsx")}
+            >
+              Exporter
+            </Button>
+            {canEdit && (
+              <BulkActionsMenu
+                inverse
+                onExport={() => handleExport("xlsx")}
+                onSetTheme={(theme) => void bulkSetTheme(theme)}
+                onSetInactive={() => void bulkSetInactive()}
+              />
+            )}
+            {canDelete && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+                onClick={() => setBulkDeleteOpen(true)}
+              >
+                Supprimer
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              onClick={clearSelection}
+            >
+              Annuler
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-2 hidden min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-y border-border/80 py-1 lg:flex">
+          <div className="flex min-w-0 flex-1 basis-full items-center gap-2 xl:basis-auto">
+            <div className="relative min-w-0 flex-1 max-w-xl">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Rechercher société, RNE ou code…"
+                placeholder="Rechercher une société, RNE ou code"
                 aria-label="Rechercher une société"
                 className="h-9 bg-card pl-9 shadow-none"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {themeFilter !== "all" && (
-                <FilterChip
-                  label={`Thème : ${themeFilter}`}
-                  onRemove={() => setThemeFilter("all")}
-                />
-              )}
-              {statutFilter !== "all" && (
-                <FilterChip
-                  label={`Statut : ${STATUT_LABELS[statutFilter as Statut]}`}
-                  onRemove={() => setStatutFilter("all")}
-                />
-              )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-9 border-dashed shadow-none">
-                    <Plus className="size-3.5" />
-                    Filtre
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Thème</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {THEME_OPTIONS.map((theme) => (
-                        <DropdownMenuItem key={theme} onClick={() => setThemeFilter(theme)}>
-                          {theme}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Statut</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
-                        <DropdownMenuItem key={statut} onClick={() => setStatutFilter(statut)}>
-                          {STATUT_LABELS[statut]}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:ml-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-9 shadow-none">
-                    <Download className="size-4" />
-                    Exporter
-                    <ChevronDown className="size-3.5 opacity-60" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleExport("csv")}>
-                    Format CSV (.csv)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport("xlsx")}>
-                    Format Excel (.xlsx)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <SocietesFilterMenu
+              onSetTheme={setThemeFilter}
+              onSetStatut={setStatutFilter}
+            />
+          </div>
+          <div className="ml-auto flex w-full min-w-0 items-center justify-end gap-1 xl:w-auto">
+            <DataTablePagination
+              table={table}
+              itemLabel="sociétés"
+              variant="count"
+              className="mr-1 whitespace-nowrap"
+            />
+            <DataTablePagination
+              table={table}
+              itemLabel="sociétés"
+              variant="controls"
+            />
+            <SocietesUtilityMenu
+              onExport={handleExport}
+              onPrint={handlePrint}
+            />
+            <DataTableViewOptions table={table} />
+          </div>
+        </div>
+      )}
+
+      {filterChips && <div className="mb-3 hidden lg:block">{filterChips}</div>}
+
+      {!isMobileSelectionActive && (
+        <div className="mb-3 min-w-0 space-y-2 lg:hidden">
+          <div className="relative min-w-0">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher une société"
+              aria-label="Rechercher une société"
+              className="h-10 w-full bg-card pl-9 shadow-none"
+            />
+          </div>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <SocietesFilterMenu
+              onSetTheme={setThemeFilter}
+              onSetStatut={setStatutFilter}
+            />
+            <div className="flex shrink-0 items-center gap-1">
               <Button
-                variant="outline"
-                className="h-9 shadow-none"
-                onClick={handlePrint}
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="shadow-none"
+                onClick={() => setMobileSelectionMode(true)}
               >
-                <Printer className="size-4" />
-                Imprimer
+                Sélectionner
               </Button>
+              <SocietesUtilityMenu
+                onExport={handleExport}
+                onPrint={handlePrint}
+              />
             </div>
           </div>
-        }
-        trailing={
-          <>
-            <DataTablePagination table={table} itemLabel="sociétés" variant="metadata" />
-            <DataTablePagination table={table} itemLabel="sociétés" variant="controls" />
-          </>
-        }
-        primaryAction={
-          canEdit ? (
-            <Button
-              variant="ledger"
-              className="h-9 whitespace-nowrap normal-case"
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Ajouter une société
-            </Button>
-          ) : undefined
-        }
-      />
+          {filterChips}
+        </div>
+      )}
+
+      {isMobileSelectionActive && (
+        <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:hidden">
+          <span className="truncate text-xs font-semibold text-foreground">
+            {selectedIds.length} sélectionnée{selectedIds.length > 1 ? "s" : ""}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0 shadow-none"
+            onClick={clearSelection}
+          >
+            Annuler
+          </Button>
+        </div>
+      )}
 
       <DataTable
+        className="[&>div:last-child]:space-y-0"
+        desktopDensity="compact"
         table={table}
         emptyMessage={emptyMessage}
+        isLoading={isDataLoading}
         onRowClick={(row) => openView(row.original)}
         isRowExpanded={(row) => expandedIds.includes(row.original.id)}
         renderSubComponent={(row) => (
@@ -690,105 +938,114 @@ export function SocietesListPage() {
         )}
         mobileRow={(row) => {
           const s = row.original;
-          const ThemeIcon = THEME_ICON[s.theme];
           const n = employeCount.get(s.id) ?? 0;
+          const selected = selectedIds.includes(s.id);
           return (
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => openView(s)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openView(s);
-                }
-              }}
-              className="group relative rounded-xl border border-border bg-card p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            <article
+              data-state={selected ? "selected" : undefined}
+              className="min-w-0 border-b border-border/80 px-1 py-3 data-[state=selected]:bg-primary/[0.03]"
             >
-              <div className="flex items-start gap-3">
-                <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", THEME_ACCENT[s.theme])}>
-                  <ThemeIcon className="size-4" />
-                </span>
+              <div className="flex min-w-0 items-start gap-2">
+                {isMobileSelectionActive && (
+                  <Checkbox
+                    checked={selected}
+                    onCheckedChange={() =>
+                      setSelectedIds((ids) =>
+                        selected
+                          ? ids.filter((id) => id !== s.id)
+                          : [...ids, s.id],
+                      )
+                    }
+                    aria-label={`Sélectionner ${s.raisonSociale}`}
+                    className="mt-1 shrink-0"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{s.raisonSociale}</p>
-                  <p className="truncate text-xs text-muted-foreground">{s.code} · {s.theme}</p>
+                  {isMobileSelectionActive ? (
+                    <p className="break-words text-sm font-semibold text-foreground">
+                      {s.raisonSociale}
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openView(s)}
+                      className="block max-w-full break-words text-left text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {s.raisonSociale}
+                    </button>
+                  )}
+                  <p className="mt-0.5 break-words text-xs text-muted-foreground">
+                    {s.code} · {s.theme}
+                  </p>
                 </div>
-                <div onClick={(event) => event.stopPropagation()}>
-                  <LedgerRowMenu actions={societeMenuActions(s)} />
-                </div>
+                {!isMobileSelectionActive && (
+                  <div className="shrink-0">
+                    <LedgerRowMenu actions={societeMenuActions(s)} />
+                  </div>
+                )}
               </div>
-              <div className="mt-2 flex items-center justify-between gap-2 border-t border-border/70 pt-2 text-xs text-muted-foreground">
-                <span>{n === 0 ? "Aucun employé" : `${n} employé${n > 1 ? "s" : ""}`}</span>
-                <StatutDot statut={s.statut} pill pulse={s.statut === "actif"} />
+              <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-xs text-muted-foreground">
+                <span className="truncate">
+                  {n === 0
+                    ? "Aucun employé"
+                    : `${n} employé${n > 1 ? "s" : ""}`}
+                </span>
+                <StatutDot
+                  statut={s.statut}
+                  pill
+                  pulse={s.statut === "actif"}
+                />
               </div>
-            </div>
+            </article>
           );
         }}
         mobileFooter={
-          <DataTablePagination table={table} itemLabel="sociétés" variant="mobile" />
+          <DataTablePagination
+            table={table}
+            itemLabel="sociétés"
+            variant="mobile"
+          />
         }
       />
 
-      {selectedIds.length > 0 && (
-        <div className="fixed inset-x-0 bottom-5 z-40 hidden justify-center px-4 md:flex">
-          <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-primary bg-primary px-3 py-2 text-sm text-primary-foreground shadow-pop animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <span className="px-2 font-semibold">
-              {selectedIds.length} société{selectedIds.length > 1 ? "s" : ""}{" "}
-              sélectionnée{selectedIds.length > 1 ? "s" : ""}
-            </span>
-            <span className="mx-1 h-4 w-px bg-primary-foreground/20" aria-hidden />
-            <button
-              type="button"
-              onClick={() => handleExport("xlsx")}
-              className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-primary-foreground/10"
-            >
-              Exporter
-            </button>
+      {canEdit && !isMobileSelectionActive && (
+        <Button
+          type="button"
+          aria-label="Ajouter une société"
+          className="fixed bottom-4 right-4 z-30 h-10 rounded-lg px-4 shadow-pop lg:hidden"
+          onClick={() => {
+            setEditing(null);
+            setFormOpen(true);
+          }}
+        >
+          <Plus className="size-4" />
+        </Button>
+      )}
+
+      {isMobileSelectionActive && selectedIds.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-2 border-t border-primary/20 bg-card px-3 py-2 shadow-pop lg:hidden">
+          <span className="min-w-0 truncate text-xs font-semibold text-foreground">
+            {selectedIds.length} sélectionnée{selectedIds.length > 1 ? "s" : ""}
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
             {canEdit && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-primary-foreground/10"
-                  >
-                    Assigner un thème
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="rounded-2xl">
-                  {THEME_OPTIONS.map((t) => (
-                    <DropdownMenuItem key={t} onClick={() => bulkSetTheme(t)}>
-                      {t}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={bulkSetInactive}
-                className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-primary-foreground/10"
-              >
-                Marquer inactif
-              </button>
+              <BulkActionsMenu
+                onExport={() => handleExport("xlsx")}
+                onSetTheme={(theme) => void bulkSetTheme(theme)}
+                onSetInactive={() => void bulkSetInactive()}
+              />
             )}
             {canDelete && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => setBulkDeleteOpen(true)}
-                className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-destructive/25"
               >
                 Supprimer
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
-              onClick={() => setSelectedIds([])}
-              aria-label="Annuler la sélection"
-              className="ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-primary-foreground/10"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
         </div>
       )}
@@ -834,7 +1091,8 @@ export function SocietesListPage() {
         onOpenChange={setBulkDeleteOpen}
         title={`Supprimer ${selectedIds.length} sociétés ?`}
         description="Toutes les sociétés sélectionnées et leurs accès seront définitivement supprimés."
-        confirmLabel="Tout supprimer"
+        confirmPhrase={`SUPPRIMER ${selectedIds.length}`}
+        confirmLabel="Supprimer définitivement"
         onConfirm={confirmBulkDelete}
       />
     </div>

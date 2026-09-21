@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-21T01:56:43.6274757Z",
+  "title": "Design System: CamConsult",
+  "extensions": {
+    "colorMeta": {
+      "navy": { "role": "primary", "displayName": "Cabinet Navy", "canonical": "#0B2545", "tonalRamp": ["#08182E", "#0B2545", "#183C63", "#31587C", "#5E829E", "#95B1C4", "#C7D8E0", "#F1F6F8"] },
+      "gold": { "role": "primary", "displayName": "CamConsult Gold", "canonical": "#C9A96A", "tonalRamp": ["#3D2F13", "#6D531F", "#9B7736", "#C9A96A", "#D9C08F", "#E8D7B4", "#F4EAD3", "#FCF8EC"] },
+      "background": { "role": "neutral", "displayName": "Warm Paper", "canonical": "#F8F7F4", "tonalRamp": ["#2B2A28", "#5A5853", "#89867D", "#B7B3AA", "#D7D3CB", "#EAE7E1", "#F8F7F4", "#FFFFFF"] },
+      "foreground": { "role": "neutral", "displayName": "Charcoal Ink", "canonical": "#1A1A1A", "tonalRamp": ["#101010", "#1A1A1A", "#444444", "#707070", "#9B9B9B", "#C5C5C5", "#E4E4E4", "#FAFAFA"] },
+      "success": { "role": "tertiary", "displayName": "Semantic Success", "canonical": "hsl(160 84% 33%)", "tonalRamp": ["#073B2F", "#08634D", "#0B895F", "#1DA678", "#59C89E", "#91DFC0", "#C5EFDC", "#F0FBF6"] },
+      "warning": { "role": "tertiary", "displayName": "Semantic Warning", "canonical": "hsl(33 92% 45%)", "tonalRamp": ["#4A2403", "#7B3B04", "#B95B05", "#DC7C09", "#F0A23C", "#F6C477", "#FBE2B6", "#FFF7E8"] },
+      "destructive": { "role": "tertiary", "displayName": "Semantic Destructive", "canonical": "hsl(0 72% 45%)", "tonalRamp": ["#4B1010", "#791818", "#A52222", "#C72020", "#DF6262", "#EE9B9B", "#F7CBCB", "#FFF3F3"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Playfair Display", "purpose": "Rare hero, brand and major page headings." },
+      "headline": { "displayName": "Playfair Headline", "purpose": "Public section headings; only selective product headings." },
+      "body": { "displayName": "Inter Working Text", "purpose": "Reading copy and every dense operational interface." },
+      "label": { "displayName": "Inter Eyebrow", "purpose": "Uppercase public labels and rare small brand markers." }
+    },
+    "shadows": [
+      { "name": "public-scrolled-header", "value": "0 12px 32px rgba(11,37,69,0.12)", "purpose": "Scrolled public header only." },
+      { "name": "public-portal", "value": "inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 14px rgba(0,0,0,0.08)", "purpose": "Client-portal link resting depth." },
+      { "name": "public-portal-hover", "value": "0 8px 22px rgba(201,169,106,0.22)", "purpose": "Client-portal hover emphasis." },
+      { "name": "product-card", "value": "0 1px 2px 0 rgb(15 44 76 / 0.04), 0 1px 3px 0 rgb(15 44 76 / 0.06)", "purpose": "Authenticated card resting depth." },
+      { "name": "product-card-hover", "value": "0 4px 12px -2px rgb(15 44 76 / 0.10), 0 2px 6px -2px rgb(15 44 76 / 0.06)", "purpose": "Authenticated interactive-card hover only." },
+      { "name": "product-pop", "value": "0 8px 30px -6px rgb(15 44 76 / 0.16)", "purpose": "Authenticated popover/menu layer." }
+    ],
+    "motion": [
+      { "name": "public-control", "value": "200ms ease", "purpose": "Public links, footer links and small navigation color changes." },
+      { "name": "public-surface", "value": "300ms", "purpose": "Public headers, cards and CTAs." },
+      { "name": "public-media", "value": "500ms", "purpose": "Public editorial image and CTA sweep treatments only." }
+    ],
+    "breakpoints": [
+      { "name": "public-sm", "value": "640px" },
+      { "name": "public-lg", "value": "1024px" },
+      { "name": "public-2xl-navigation", "value": "1536px" },
+      { "name": "product-mobile-sidebar", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Compact gold action with navy label for public-brand emphasis.",
+      "html": "<button class=\"ds-btn-primary\">CONTINUER</button>",
+      "css": ".ds-btn-primary { height: 2rem; padding: 0 0.625rem; border: 1px solid transparent; border-radius: 0.5rem; background: #C9A96A; color: #0B2545; font: 500 0.875rem Inter, Arial, sans-serif; transition: background-color 200ms, transform 200ms; } .ds-btn-primary:hover { background: rgb(201 169 106 / 85%); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(201 169 106 / 50%); } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Quiet secondary action with a fine rule and warm-paper surface.",
+      "html": "<button class=\"ds-btn-outline\">ANNULER</button>",
+      "css": ".ds-btn-outline { height: 2rem; padding: 0 0.625rem; border: 1px solid #E3E0D9; border-radius: 0.5rem; background: #F8F7F4; color: #1A1A1A; font: 500 0.875rem Inter, Arial, sans-serif; transition: background-color 200ms; } .ds-btn-outline:hover { background: #F0EFEC; } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(201 169 106 / 50%); }"
+    },
+    {
+      "name": "Field Input",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Warm-paper field with a gold focus ring.",
+      "html": "<input class=\"ds-field\" placeholder=\"Rechercher\" />",
+      "css": ".ds-field { width: 100%; padding: 0.7rem 0.8rem; border: 1px solid #D8D5CE; border-radius: 0.25rem; background: #F8F7F4; color: #1A1A1A; font: 400 0.85rem Inter, Arial, sans-serif; outline: none; transition: border-color 200ms, box-shadow 200ms, background-color 200ms, color 200ms; } .ds-field:focus { border-color: #C9A96A; box-shadow: 0 0 0 3px rgb(201 169 106 / 18%); }"
+    },
+    {
+      "name": "Navigation Link",
+      "kind": "nav",
+      "description": "Small uppercase Inter navigation with a controlled gold active rule.",
+      "html": "<a class=\"ds-nav-link ds-nav-link-active\" href=\"#\">TABLEAU DE BORD</a>",
+      "css": ".ds-nav-link { position: relative; display: inline-block; padding: 0.5rem; color: rgb(11 37 69 / 55%); font: 600 0.6875rem Inter, Arial, sans-serif; letter-spacing: 0.025em; text-decoration: none; text-transform: uppercase; transition: color 200ms; } .ds-nav-link:hover { color: rgb(11 37 69 / 85%); } .ds-nav-link::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: #C9A96A; transform: scaleX(0); transition: transform 300ms; } .ds-nav-link-active { color: #0B2545; font-weight: 700; } .ds-nav-link-active::after { transform: scaleX(1); }"
+    },
+    {
+      "name": "Working Card",
+      "kind": "card",
+      "description": "Fine-rule white surface for compact operational information.",
+      "html": "<article class=\"ds-card\"><strong>Échéance</strong><p>Une information claire et scannable.</p></article>",
+      "css": ".ds-card { padding: 1.5rem; border: 1px solid #E3E0D9; border-radius: 0.25rem; background: #FFFFFF; color: #1A1A1A; font: 400 0.875rem/1.5 Inter, Arial, sans-serif; transition: border-color 300ms, transform 300ms; } .ds-card strong { color: #0B2545; font-weight: 600; } .ds-card p { margin: 0.75rem 0 0; color: #667080; } .ds-card:hover { border-color: #C9A96A; transform: translateY(-1px); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Trusted Ledger",
+    "overview": "CamConsult pairs the calm authority of a professional ledger with the restraint of a premium advisory firm. Its public site establishes the identity; the authenticated product transfers its navy ink, measured gold, serif/sans relationship and fine-rule surfaces without reproducing editorial marketing layouts. The product UI is operational first: compact, disciplined and easy to scan.",
+    "keyCharacteristics": ["Navy-led clarity with gold as a controlled mark of importance.", "Editorial display type for rare major headings; Inter for all working UI.", "Warm paper-like backgrounds, white working surfaces and fine neutral rules.", "Responsive marketing layouts may breathe; authenticated interfaces stay dense."],
+    "rules": [
+      { "name": "The Gold Is Not Warning Rule", "body": "Gold is a CamConsult brand accent. Pending, warning, success, destructive/overdue and informational states use their own semantic tokens and always retain a text or icon cue.", "section": "colors" },
+      { "name": "The Ink Before Ornament Rule", "body": "Use navy or neutral typography to carry meaning; gold signals emphasis rather than becoming paragraph text or a high-frequency background.", "section": "colors" },
+      { "name": "The Working Sans Rule", "body": "Any content scanned repeatedly or compared in rows—navigation, data, fields, actions, metrics and charts—uses Inter, not Playfair.", "section": "typography" },
+      { "name": "The Flat Working Surface Rule", "body": "In authenticated workspaces, borders and surface contrast establish hierarchy first. Elevation is an interaction or overlay signal, not default decoration.", "section": "elevation" }
+    ],
+    "dos": ["Do use the frontmatter tokens as the canonical brand reference.", "Do reserve Playfair for major headings and use Inter for operational UI.", "Do use gold as a small, confident brand accent paired with navy.", "Do keep product cards, forms, tables and navigation compact, bordered and easy to scan.", "Do preserve distinct semantic success, warning, destructive/overdue and informational treatments in the authenticated app."],
+    "donts": ["Don't copy public hero spacing, editorial card scale or promotional motion into the accounting workspace.", "Don't use gold to mean warning, overdue or generic status.", "Don't use Playfair in tables, forms, buttons, navigation, badges, KPIs or charts.", "Don't replace fine rules with heavy shadows or arbitrary colorful surfaces.", "Don't communicate a product state with color alone."]
+  }
+}

@@ -79,10 +79,11 @@ async function trouverOuCreerRacineSociete(
 }
 
 /**
- * Classe un document (facture d'achat ou de vente déjà importée dans un
- * mouvement de stock) dans le module Structuration de la société, sous
- * <racine société>/<achat|vente>/<année de la pièce> — créés à la volée si
- * besoin, jamais de dossier dupliqué à chaque classement (voir
+ * Classe un document (facture d'achat, de vente ou pièce douanière déjà
+ * importée dans un mouvement de stock) dans le module Structuration de la
+ * société, sous <racine société>/<achat|vente|douane>/<année de la pièce> —
+ * créés à la volée si besoin, jamais de dossier dupliqué à chaque classement
+ * (voir
  * `trouverOuCreerDossier`/`trouverOuCreerRacineSociete`).
  * L'année vient directement de la chaîne ISO de la date (pas de Date() +
  * getFullYear(), qui peut décaler d'un jour selon le fuseau — voir la même
@@ -100,7 +101,7 @@ export async function classerDansStructuration({
   noeuds: Noeud[];
   addNoeud: AddNoeud;
   societeId: string;
-  categorie: "achat" | "vente";
+  categorie: "achat" | "vente" | "douane";
   date: string | null;
   nomBase: string;
   dataUrl: string;

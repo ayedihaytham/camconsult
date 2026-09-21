@@ -86,13 +86,16 @@ export function StockSocietePage() {
     setEditing(null);
   }
 
-  /** Classe la facture d'achat ou de vente d'un mouvement dans Structuration
-   * (achat|vente/année de la pièce, créés à la volée si besoin) — voir
-   * classement.ts. Le mouvement de stock garde son propre exemplaire du
-   * document (achatDocDataUrl/venteDocDataUrl) ; celui-ci n'en est qu'une
-   * copie archivée pour le classement du cabinet. */
-  async function handleClasser(m: StockMouvement, categorie: "achat" | "vente") {
-    const dataUrl = categorie === "achat" ? m.achatDocDataUrl : m.venteDocDataUrl;
+  /** Classe la facture d'achat, de vente ou le document douanier d'un
+   * mouvement dans Structuration (achat|vente|douane/année de la pièce,
+   * créés à la volée si besoin) — voir classement.ts. Le mouvement de stock
+   * garde son propre exemplaire du document (achatDocDataUrl/…) ; celui-ci
+   * n'en est qu'une copie archivée pour le classement du cabinet. */
+  async function handleClasser(m: StockMouvement, categorie: "achat" | "vente" | "douane") {
+    const dataUrl =
+      categorie === "achat" ? m.achatDocDataUrl
+      : categorie === "vente" ? m.venteDocDataUrl
+      : m.douaneDocDataUrl;
     if (!dataUrl) return;
     const key = `${m.id}-${categorie}`;
     setClassing(key);
@@ -102,9 +105,14 @@ export function StockSocietePage() {
         addNoeud,
         societeId,
         categorie,
-        date: (categorie === "achat" ? m.achatDate : m.venteDate) ?? null,
+        date:
+          (categorie === "achat" ? m.achatDate
+          : categorie === "vente" ? m.venteDate
+          : m.douaneDate) ?? null,
         nomBase:
-          (categorie === "achat" ? m.achatNumFacture : m.venteNumFacture) ||
+          (categorie === "achat" ? m.achatNumFacture
+          : categorie === "vente" ? m.venteNumFacture
+          : m.douaneNumDeclaration) ||
           m.natureMarchandise ||
           "Document",
         dataUrl,
@@ -220,147 +228,106 @@ export function StockSocietePage() {
           />
         </LedgerSheet>
       ) : (
-        <LedgerSheet>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th rowSpan={2} className="border-b-2 border-foreground px-2 py-2 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Nature</th>
-                  <th colSpan={5} className="border-b-2 border-l-2 border-foreground px-2 py-1 text-center text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Achat</th>
-                  <th colSpan={5} className="border-b-2 border-l-2 border-foreground px-2 py-1 text-center text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Vente</th>
-                  <th rowSpan={2} className="border-b-2 border-l-2 border-foreground px-2 py-2 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Écart</th>
-                  <th rowSpan={2} className="w-[1%] border-b-2 border-foreground px-2 py-2" />
-                </tr>
-                <tr>
-                  <th className="border-b-2 border-l-2 border-foreground px-2 py-1.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Date</th>
-                  <th className="border-b-2 border-foreground px-2 py-1.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Fournisseur</th>
-                  <th className="border-b-2 border-foreground px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Qté</th>
-                  <th className="border-b-2 border-foreground px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Mt TND</th>
-                  <th className="border-b-2 border-foreground px-2 py-1.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">N° Fact.</th>
-                  <th className="border-b-2 border-l-2 border-foreground px-2 py-1.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Date</th>
-                  <th className="border-b-2 border-foreground px-2 py-1.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Client</th>
-                  <th className="border-b-2 border-foreground px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Qté</th>
-                  <th className="border-b-2 border-foreground px-2 py-1.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Mt TND</th>
-                  <th className="border-b-2 border-foreground px-2 py-1.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">N° Fact.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((m, i) => {
-                  const rowBorder =
-                    (i + 1) % 5 === 0
-                      ? "border-b-[1.5px] border-rule-strong"
-                      : "border-b border-border";
-                  return (
-                    <tr key={m.id} className={cn(rowBorder, "hover:bg-primary/[0.03]")}>
-                      <td className="px-2 py-2 text-foreground">{m.natureMarchandise || "—"}</td>
-                      <td className="border-l-2 border-border px-2 py-2 text-muted-foreground">
-                        {m.achatDate ? formatDate(m.achatDate) : "—"}
-                      </td>
-                      <td className="px-2 py-2 text-muted-foreground">{m.fournisseur || "—"}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{fmtQ(m.achatQuantite)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{fmt(m.achatMontantTnd)}</td>
-                      <td className="px-2 py-2 font-mono text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          {m.achatNumFacture || "—"}
-                          {m.achatDocDataUrl && (
-                            <button
-                              onClick={() => setPreview({ title: "Facture d'achat", dataUrl: m.achatDocDataUrl })}
-                              className="text-muted-foreground hover:text-accent"
-                              title="Voir la facture d'achat"
-                            >
-                              <Paperclip className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          {m.achatDocDataUrl && (
-                            <button
-                              onClick={() => handleClasser(m, "achat")}
-                              disabled={classing === `${m.id}-achat`}
-                              className="text-muted-foreground hover:text-accent disabled:opacity-50"
-                              title="Classer dans Structuration"
-                            >
-                              <FolderInput
-                                className={cn(
-                                  "h-3.5 w-3.5",
-                                  classing === `${m.id}-achat` && "animate-pulse",
-                                )}
-                              />
-                            </button>
-                          )}
-                        </span>
-                      </td>
-                      <td className="border-l-2 border-border px-2 py-2 text-muted-foreground">
-                        {m.venteDate ? formatDate(m.venteDate) : "—"}
-                      </td>
-                      <td className="px-2 py-2 text-muted-foreground">{m.client || "—"}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{fmtQ(m.venteQuantite)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{fmt(m.venteMontantTnd)}</td>
-                      <td className="px-2 py-2 font-mono text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          {m.venteNumFacture || "—"}
-                          {m.venteDocDataUrl && (
-                            <button
-                              onClick={() => setPreview({ title: "Document de vente", dataUrl: m.venteDocDataUrl })}
-                              className="text-muted-foreground hover:text-accent"
-                              title="Voir le document de vente"
-                            >
-                              <Paperclip className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          {m.venteDocDataUrl && (
-                            <button
-                              onClick={() => handleClasser(m, "vente")}
-                              disabled={classing === `${m.id}-vente`}
-                              className="text-muted-foreground hover:text-accent disabled:opacity-50"
-                              title="Classer dans Structuration"
-                            >
-                              <FolderInput
-                                className={cn(
-                                  "h-3.5 w-3.5",
-                                  classing === `${m.id}-vente` && "animate-pulse",
-                                )}
-                              />
-                            </button>
-                          )}
-                        </span>
-                      </td>
-                      {/* --destructive (≈5,8:1) est autorisé en texte — voir
-                          DESIGN-SYSTEM.md §2 ; un écart à 0 reste en encre
-                          neutre, pas de vert (--success échoue le contraste
-                          en texte). */}
-                      <td
+        <div className="flex flex-col gap-3">
+          {shown.map((m) => {
+            const hasDouane = Boolean(
+              m.douaneNumDeclaration || m.douaneDate || m.douaneRegime ||
+              m.douaneReference || m.douaneDocDataUrl,
+            );
+            return (
+              <div
+                key={m.id}
+                className="overflow-hidden rounded-2xl border border-border bg-card shadow-card"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+                  <span className="font-bold text-foreground">
+                    {m.natureMarchandise || "Mouvement sans nature"}
+                  </span>
+                  <div className="flex items-center gap-4">
+                    {/* --destructive (≈5,8:1) est autorisé en texte — voir
+                        DESIGN-SYSTEM.md §2 ; un écart à 0 reste en encre
+                        neutre, pas de vert (--success échoue le contraste en
+                        texte). */}
+                    <span className="text-sm">
+                      <span className="text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+                        Écart{" "}
+                      </span>
+                      <span
                         className={cn(
-                          "border-l-2 border-border px-2 py-2 text-right font-bold tabular-nums",
-                          m.ecart !== 0 && "text-destructive",
+                          "font-bold tabular-nums",
+                          m.ecart !== 0 ? "text-destructive" : "text-foreground",
                         )}
                       >
                         {fmtQ(m.ecart)}
-                      </td>
-                      <td className="px-2 py-2">
-                        <div className="flex gap-0.5">
-                          <button
-                            onClick={() => {
-                              setEditing(m);
-                              setFormOpen(true);
-                            }}
-                            className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setToDelete(m)}
-                            className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </LedgerSheet>
+                      </span>
+                    </span>
+                    <div className="flex gap-0.5">
+                      <button
+                        onClick={() => {
+                          setEditing(m);
+                          setFormOpen(true);
+                        }}
+                        className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setToDelete(m)}
+                        className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <MouvementSection
+                  label="Achat"
+                  fields={[
+                    { label: "Date", value: m.achatDate ? formatDate(m.achatDate) : "—" },
+                    { label: "Fournisseur", value: m.fournisseur || "—" },
+                    { label: "Qté", value: fmtQ(m.achatQuantite) },
+                    { label: "Mt TND", value: fmt(m.achatMontantTnd) },
+                    { label: "N° Fact.", value: m.achatNumFacture || "—" },
+                  ]}
+                  docDataUrl={m.achatDocDataUrl}
+                  onPreview={() => setPreview({ title: "Facture d'achat", dataUrl: m.achatDocDataUrl })}
+                  onClasser={() => handleClasser(m, "achat")}
+                  classing={classing === `${m.id}-achat`}
+                />
+                <MouvementSection
+                  label="Vente"
+                  fields={[
+                    { label: "Date", value: m.venteDate ? formatDate(m.venteDate) : "—" },
+                    { label: "Client", value: m.client || "—" },
+                    { label: "Qté", value: fmtQ(m.venteQuantite) },
+                    { label: "Mt TND", value: fmt(m.venteMontantTnd) },
+                    { label: "N° Fact.", value: m.venteNumFacture || "—" },
+                  ]}
+                  docDataUrl={m.venteDocDataUrl}
+                  onPreview={() => setPreview({ title: "Document de vente", dataUrl: m.venteDocDataUrl })}
+                  onClasser={() => handleClasser(m, "vente")}
+                  classing={classing === `${m.id}-vente`}
+                />
+                {hasDouane && (
+                  <MouvementSection
+                    label="Douane"
+                    fields={[
+                      { label: "N° Décl.", value: m.douaneNumDeclaration || "—" },
+                      { label: "Date", value: m.douaneDate ? formatDate(m.douaneDate) : "—" },
+                      { label: "Régime", value: m.douaneRegime || "—" },
+                      { label: "Référence", value: m.douaneReference || "—" },
+                    ]}
+                    docDataUrl={m.douaneDocDataUrl}
+                    onPreview={() => setPreview({ title: "Document douanier", dataUrl: m.douaneDocDataUrl })}
+                    onClasser={() => handleClasser(m, "douane")}
+                    classing={classing === `${m.id}-douane`}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <StockMouvementFormSheet
@@ -392,6 +359,61 @@ export function StockSocietePage() {
         title={preview?.title ?? ""}
         dataUrl={preview?.dataUrl ?? null}
       />
+    </div>
+  );
+}
+
+/** Un bloc (Achat/Vente/Douane) plein-largeur dans la carte d'un mouvement —
+ * jamais de colonnes côte à côte qui s'écrasent quand le client/fournisseur
+ * a un nom long (voir la demande de réorganisation : chaque dossier doit
+ * rester lisible même avec beaucoup de mouvements). */
+function MouvementSection({
+  label,
+  fields,
+  docDataUrl,
+  onPreview,
+  onClasser,
+  classing,
+}: {
+  label: string;
+  fields: { label: string; value: string }[];
+  docDataUrl: string | null;
+  onPreview: () => void;
+  onClasser: () => void;
+  classing: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-border px-4 py-2.5 text-sm">
+      <span className="w-16 shrink-0 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-1">
+        {fields.map((f) => (
+          <span key={f.label} className="text-muted-foreground">
+            <span className="text-[0.66rem] uppercase tracking-wide">{f.label} </span>
+            <span className="font-medium text-foreground">{f.value}</span>
+          </span>
+        ))}
+      </div>
+      {docDataUrl && (
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            onClick={onPreview}
+            className="text-muted-foreground hover:text-accent"
+            title="Voir le document"
+          >
+            <Paperclip className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={onClasser}
+            disabled={classing}
+            className="text-muted-foreground hover:text-accent disabled:opacity-50"
+            title="Classer dans Structuration"
+          >
+            <FolderInput className={cn("h-3.5 w-3.5", classing && "animate-pulse")} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,14 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AppNotification } from "@/types";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -37,9 +45,10 @@ export function SidebarNavigation({
   unreadNotifications,
 }: SidebarNavigationProps) {
   const { pathname } = useLocation();
-  const { setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, state } = useSidebar();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const previousPathname = useRef(pathname);
+  const isCollapsedDesktop = state === "collapsed" && !isMobile;
 
   useEffect(() => {
     setOpenGroups((previous) => {
@@ -98,34 +107,87 @@ export function SidebarNavigation({
 
                   return (
                     <SidebarMenuItem key={item.label}>
-                      <SidebarMenuButton
-                        isActive={active}
-                        tooltip={item.label}
-                        aria-expanded={open}
-                        onClick={() =>
-                          setOpenGroups((previous) => {
-                            const next = new Set(previous);
-                            if (next.has(item.label)) next.delete(item.label);
-                            else next.add(item.label);
-                            return next;
-                          })
-                        }
-                        aria-label={pending ? `${item.label}, notification en attente` : item.label}
-                        className={NAV_ITEM_CLASS}
-                      >
-                        <Icon />
-                        <span>{item.label}</span>
-                        <ChevronDown
-                          className={cn(
-                            "ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden",
-                            pending && "mr-5",
-                            open && "rotate-180",
-                          )}
-                        />
-                      </SidebarMenuButton>
+                      {isCollapsedDesktop ? (
+                        <DropdownMenu>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={active}
+                            tooltip={item.label}
+                            aria-label={pending ? `${item.label}, notification en attente` : item.label}
+                            className={NAV_ITEM_CLASS}
+                          >
+                            <DropdownMenuTrigger>
+                              <Icon />
+                              <span>{item.label}</span>
+                            </DropdownMenuTrigger>
+                          </SidebarMenuButton>
+                          <DropdownMenuContent
+                            side="right"
+                            align="start"
+                            sideOffset={8}
+                            className="w-52 rounded-xl border-border bg-popover p-1.5 shadow-pop"
+                          >
+                            <DropdownMenuLabel>{item.label}</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {item.children.map((child) => {
+                              const childActive = isRouteActive(
+                                pathname,
+                                child.to,
+                              );
+                              const childPending = hasPendingNotification(
+                                unreadNotifications,
+                                child.to,
+                              );
+
+                              return (
+                                <DropdownMenuItem
+                                  key={child.to}
+                                  asChild
+                                  className={cn(
+                                    "min-h-8 text-foreground focus:bg-secondary focus:text-foreground",
+                                    childActive &&
+                                      "before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-accent before:content-[''] font-semibold text-primary",
+                                  )}
+                                >
+                                  <NavLink to={child.to}>
+                                    {childPending && <PendingDot />}
+                                    <span>{child.label}</span>
+                                  </NavLink>
+                                </DropdownMenuItem>
+                              );
+                            })}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <SidebarMenuButton
+                          isActive={active}
+                          tooltip={item.label}
+                          aria-expanded={open}
+                          onClick={() =>
+                            setOpenGroups((previous) => {
+                              const next = new Set(previous);
+                              if (next.has(item.label)) next.delete(item.label);
+                              else next.add(item.label);
+                              return next;
+                            })
+                          }
+                          aria-label={pending ? `${item.label}, notification en attente` : item.label}
+                          className={NAV_ITEM_CLASS}
+                        >
+                          <Icon />
+                          <span>{item.label}</span>
+                          <ChevronDown
+                            className={cn(
+                              "ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden",
+                              pending && "mr-5",
+                              open && "rotate-180",
+                            )}
+                          />
+                        </SidebarMenuButton>
+                      )}
                       {pending && <PendingBadge />}
                       {pending && <CollapsedPendingIndicator />}
-                      {open && (
+                      {!isCollapsedDesktop && open && (
                         <SidebarMenuSub>
                           {item.children.map((child) => {
                             const childActive = isRouteActive(

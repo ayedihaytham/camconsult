@@ -45,6 +45,7 @@ export function StockSocietePage() {
 
   const noeuds = useNoeuds();
   const addNoeud = useData((s) => s.addNoeud);
+  const updateNoeud = useData((s) => s.updateNoeud);
   const [classing, setClassing] = useState<string | null>(null);
 
   const [onlyAnomalies, setOnlyAnomalies] = useState(false);
@@ -103,7 +104,9 @@ export function StockSocietePage() {
       const { dejaClasse } = await classerDansStructuration({
         noeuds,
         addNoeud,
+        updateNoeud,
         societeId,
+        societeLibelle: societe?.raisonSociale ?? "Société",
         categorie,
         date:
           (categorie === "achat" ? m.achatDate

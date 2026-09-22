@@ -170,22 +170,27 @@ export function StructurationPage() {
     toast.success("Arborescence dupliquée");
   }
 
-  /** Racine + dossiers standard (achat/vente/banque/caisse/CNSS/Divers/
-   * DMI/juridique) pour chaque société qui n'a pas encore la sienne —
-   * idempotent, donc rejouable plus tard pour une nouvelle société sans
-   * risque de doublon. */
+  /** Racine partagée "Comptabilité générale [année]" + un dossier par
+   * société dessous + ses dossiers standard (achat/vente/banque/caisse/
+   * CNSS/Divers/DMI/juridique) — idempotent, donc rejouable plus tard pour
+   * une nouvelle société sans risque de doublon. */
   async function handleProvisionAll() {
     setProvisioning(true);
     let societesTraitees = 0;
     let dossiersCrees = 0;
     try {
-      // Chaque société est traitée indépendamment (dossiers filtrés par
-      // societeId) : pas besoin de recharger le pool entre deux sociétés.
+      // Toutes les sociétés partagent la même racine "Comptabilité générale
+      // [année]" : on relit l'état le plus frais à chaque tour (pas le
+      // instantané `allNodes` du dernier rendu) pour que la 2e société
+      // trouve bien la racine que la 1re vient de créer, au lieu d'en
+      // recréer une en double.
       for (const societe of societes) {
         const crees = await provisionnerArborescenceSociete({
-          noeuds: allNodes,
+          noeuds: useData.getState().noeuds,
           addNoeud,
+          updateNoeud,
           societeId: societe.id,
+          societeLibelle: societe.raisonSociale,
         });
         if (crees > 0) {
           societesTraitees++;

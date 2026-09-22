@@ -43,8 +43,17 @@ function emailShell({ title, bodyHtml }) {
         <td align="center">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(15,44,76,0.08);">
             <tr>
-              <td style="background:${BRAND.primary};padding:24px 32px;">
-                <span style="color:${BRAND.accent};font-size:20px;font-weight:bold;letter-spacing:0.5px;">CAMCONSULT</span>
+              <td style="background:${BRAND.primary};padding:20px 32px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding-right:10px;vertical-align:middle;">
+                      <img src="https://camconsult.com.tn/brand/logo-mark-dark.png" width="28" height="28" alt="CAMCONSULT" style="display:block;border-radius:6px;" />
+                    </td>
+                    <td style="vertical-align:middle;">
+                      <span style="color:${BRAND.accent};font-size:20px;font-weight:bold;letter-spacing:0.5px;">CAMCONSULT</span>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>

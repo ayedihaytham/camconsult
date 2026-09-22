@@ -190,8 +190,13 @@ export function MessageriePage() {
   );
 
   useEffect(() => {
+    // Redéclenché aussi quand de nouveaux messages arrivent dans la
+    // conversation déjà ouverte (signal temps réel) — sinon un message reçu
+    // pendant que la conversation est déjà active n'était jamais marqué lu
+    // (l'effet ne se relançait qu'au changement de conversation), même si
+    // l'utilisateur le voyait et y répondait aussitôt.
     if (activeId) markConversationRead(activeId, viewerAuthor);
-  }, [activeId, markConversationRead, viewerAuthor]);
+  }, [activeId, threadMessages.length, markConversationRead, viewerAuthor]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });

@@ -6,7 +6,9 @@ import {
   Check,
   CheckCheck,
   FileText,
+  FolderInput,
   FolderOpen,
+  MoreVertical,
   Paperclip,
   Pencil,
   Plus,
@@ -96,6 +98,10 @@ interface MessengerProps {
   draft: string;
   attachment: MessengerAttachment | null;
   attachmentItems: MessengerAttachmentItem[];
+  /** Admin uniquement — propose "Classer dans la Structuration" sur les
+   * messages reçus avec une pièce jointe. */
+  canClassifyAttachments: boolean;
+  onClassifyAttachment: (messageId: string) => void;
   canCreateGroup: boolean;
   emptyConversationDescription: string;
   messagesContainerRef: RefObject<HTMLDivElement>;
@@ -166,6 +172,8 @@ export function Messenger({
   draft,
   attachment,
   attachmentItems,
+  canClassifyAttachments,
+  onClassifyAttachment,
   canCreateGroup,
   emptyConversationDescription,
   messagesContainerRef,
@@ -455,32 +463,64 @@ export function Messenger({
                               </p>
                             )}
                             {message.attachment && (
-                              <button
-                                type="button"
-                                disabled={!message.attachment.dataUrl}
-                                onClick={() => {
-                                  const a = message.attachment;
-                                  if (a?.dataUrl) downloadDataUrl(a.dataUrl, a.libelle);
-                                }}
+                              <div
                                 className={cn(
-                                  "mt-1.5 flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors",
-                                  message.attachment.dataUrl && "cursor-pointer hover:brightness-95",
-                                  !message.attachment.dataUrl && "cursor-not-allowed opacity-70",
+                                  "mt-1.5 flex min-w-0 items-stretch gap-0.5 rounded-lg border",
                                   message.isMine
                                     ? "border-white/20 bg-white/10"
                                     : "border-border bg-muted/60",
                                 )}
-                                title={
-                                  message.attachment.dataUrl
-                                    ? "Télécharger la pièce jointe"
-                                    : "Pièce jointe non disponible (fichier trop volumineux ou ancien message)"
-                                }
                               >
-                                <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                <span className="min-w-0 break-all text-xs font-medium underline-offset-2">
-                                  {message.attachment.libelle}
-                                </span>
-                              </button>
+                                <button
+                                  type="button"
+                                  disabled={!message.attachment.dataUrl}
+                                  onClick={() => {
+                                    const a = message.attachment;
+                                    if (a?.dataUrl) downloadDataUrl(a.dataUrl, a.libelle);
+                                  }}
+                                  className={cn(
+                                    "flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left transition-colors",
+                                    message.attachment.dataUrl && "cursor-pointer hover:brightness-95",
+                                    !message.attachment.dataUrl && "cursor-not-allowed opacity-70",
+                                  )}
+                                  title={
+                                    message.attachment.dataUrl
+                                      ? "Télécharger la pièce jointe"
+                                      : "Pièce jointe non disponible (fichier trop volumineux ou ancien message)"
+                                  }
+                                >
+                                  <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                  <span className="min-w-0 break-all text-xs font-medium underline-offset-2">
+                                    {message.attachment.libelle}
+                                  </span>
+                                </button>
+                                {canClassifyAttachments && message.attachment.dataUrl && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className={cn(
+                                          "flex shrink-0 items-center justify-center px-1.5 transition-colors",
+                                          message.isMine
+                                            ? "text-primary-foreground/70 hover:text-primary-foreground"
+                                            : "text-muted-foreground hover:text-foreground",
+                                        )}
+                                        aria-label="Plus d'actions sur cette pièce jointe"
+                                      >
+                                        <MoreVertical className="h-3.5 w-3.5" aria-hidden="true" />
+                                      </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        onClick={() => onClassifyAttachment(message.id)}
+                                      >
+                                        <FolderInput className="h-4 w-4" aria-hidden="true" />
+                                        Classer dans la Structuration
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                              </div>
                             )}
                             <div
                               className={cn(

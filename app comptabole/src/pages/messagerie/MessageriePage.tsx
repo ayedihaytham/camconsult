@@ -14,7 +14,7 @@ import {
 } from "@/components/uitripled/messenger-shadcnui";
 import { employeNomComplet } from "@/data/employes";
 import { usePermissions } from "@/hooks/usePermissions";
-import { formatFileSize, readFileAsDataUrl } from "@/lib/file";
+import { fileExtension, formatFileSize, readFileAsDataUrl } from "@/lib/file";
 import {
   avatarColor,
   formatDayLabel,
@@ -32,6 +32,7 @@ import {
   useSocietes,
 } from "@/store/data";
 import type { Conversation, Message, Noeud } from "@/types";
+import { ClasserPieceJointeDialog } from "./ClasserPieceJointeDialog";
 import { GroupeFormDialog } from "./GroupeFormDialog";
 
 /** Les messages envoyés avant l'introduction des pièces jointes directes
@@ -67,6 +68,7 @@ export function MessageriePage() {
   );
   const messages = useData((state) => state.messages);
   const addMessage = useData((state) => state.addMessage);
+  const addNoeud = useData((state) => state.addNoeud);
   const markConversationRead = useData(
     (state) => state.markConversationRead,
   );
@@ -98,6 +100,9 @@ export function MessageriePage() {
   const [groupeFormOpen, setGroupeFormOpen] = useState(false);
   const [groupeEditing, setGroupeEditing] = useState<Conversation | null>(null);
   const [groupeToDelete, setGroupeToDelete] = useState<Conversation | null>(
+    null,
+  );
+  const [classifying, setClassifying] = useState<Message["pieceJointe"] | null>(
     null,
   );
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -237,6 +242,40 @@ export function MessageriePage() {
       toast.warning(
         "Ce document dépasse 2 Mo dans la Structuration : joint en référence seule, non téléchargeable depuis la messagerie.",
       );
+    }
+  }
+
+  function handleClassifyAttachment(messageId: string) {
+    const message = messages.find((m) => m.id === messageId);
+    const resolved = resolveAttachment(message?.pieceJointe, allNoeuds);
+    if (!resolved?.dataUrl) return;
+    setClassifying({ ...resolved, dataUrl: resolved.dataUrl });
+  }
+
+  async function handleConfirmClasser(targetParentId: string | null) {
+    if (!classifying?.dataUrl) return;
+    const parentNoeud = targetParentId
+      ? allNoeuds.find((n) => n.id === targetParentId)
+      : null;
+    try {
+      await addNoeud({
+        libelle: classifying.libelle,
+        description: "",
+        type: "fichier",
+        societeId: parentNoeud?.societeId ?? null,
+        parentId: targetParentId,
+        format: fileExtension(classifying.libelle),
+        taille: classifying.tailleOctets
+          ? formatFileSize(classifying.tailleOctets)
+          : undefined,
+        dataUrl: classifying.dataUrl,
+      });
+      toast.success("Classé dans la Structuration", {
+        description: classifying.libelle,
+      });
+      setClassifying(null);
+    } catch {
+      toast.error("Impossible de classer ce fichier.");
     }
   }
 
@@ -406,6 +445,8 @@ export function MessageriePage() {
           id: file.id,
           label: file.libelle,
         }))}
+        canClassifyAttachments={isAdmin}
+        onClassifyAttachment={handleClassifyAttachment}
         canCreateGroup={isAdmin}
         emptyConversationDescription={
           isAdmin
@@ -436,6 +477,14 @@ export function MessageriePage() {
         onSelectAttachment={handleSelectAttachment}
         onRemoveAttachment={() => setAttachment(null)}
         onSend={send}
+      />
+
+      <ClasserPieceJointeDialog
+        open={Boolean(classifying)}
+        onOpenChange={(open) => !open && setClassifying(null)}
+        attachmentLabel={classifying?.libelle ?? null}
+        nodes={allNoeuds}
+        onConfirm={handleConfirmClasser}
       />
 
       <GroupeFormDialog

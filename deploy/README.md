@@ -76,6 +76,54 @@ nginx -t && systemctl reload nginx
 certbot --nginx -d camconsult.com.tn -d www.camconsult.com.tn -d cabinet.camconsult.com.tn
 ```
 
+## 8. Monitoring (Dozzle)
+
+Dozzle affiche les logs en direct et les métriques (CPU/RAM/réseau) de
+chaque conteneur, avec possibilité de start/stop/restart, protégé par un
+mot de passe. Empreinte négligeable (~20 Mo RAM).
+
+**8.1. Créer le DNS (à faire vous-même)** — chez votre registrar/DNS, un
+enregistrement A `monitor.camconsult.com.tn` → l'IP du VPS
+(`102.204.205.214`), identique aux entrées existantes pour `cabinet.` et
+`www.`. Attendez la propagation avant l'étape certbot.
+
+**8.2. Générer `users.yml`** — sur le VPS, dans `/opt/camconsult` :
+
+```bash
+docker run -it --rm amir20/dozzle generate admin \
+  --name "Admin" > users.yml
+# (tape le mot de passe désiré quand demandé — n'apparaît pas dans
+# l'historique du shell contrairement à --password)
+```
+
+Ce fichier contient le hash du mot de passe (jamais en clair) ; il n'est
+**jamais committé** dans le dépôt (déjà couvert par le `.gitignore`
+existant, au même titre que `.env`).
+
+**8.3. Lancer** :
+
+```bash
+docker compose up -d
+docker compose ps       # "dozzle" doit être "Up"
+```
+
+**8.4. Nginx** (comme à l'étape 6, le nouveau bloc `monitor.camconsult.com.tn`
+est déjà dans `nginx-camconsult.conf`) :
+
+```bash
+cp nginx-camconsult.conf /etc/nginx/sites-available/camconsult.com.tn
+nginx -t && systemctl reload nginx
+```
+
+**8.5. HTTPS** (une fois le DNS propagé) :
+
+```bash
+certbot --nginx -d monitor.camconsult.com.tn
+```
+
+Accès ensuite sur `https://monitor.camconsult.com.tn`, identifiant/mot de
+passe définis à l'étape 8.2.
+
 ## Mettre à jour
 
 Rien à faire manuellement : `git push` sur `main` → GitHub Actions build +

@@ -84,5 +84,26 @@ services:
     # ci-dessus (jamais "db"), supprime les anciennes images après mise à jour.
     command: --interval 60 --label-enable --cleanup
 
+  dozzle:
+    # Monitoring léger (~20 Mo RAM) : logs en direct + métriques CPU/RAM/réseau
+    # par conteneur, avec actions start/stop/restart. Accès protégé par mot de
+    # passe (voir README §8) derrière monitor.camconsult.com.tn.
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    environment:
+      DOZZLE_AUTH_PROVIDER: simple
+      DOZZLE_ENABLE_ACTIONS: "true"
+    volumes:
+      # Lecture-écriture requis par DOZZLE_ENABLE_ACTIONS (start/stop/restart).
+      - /var/run/docker.sock:/var/run/docker.sock
+      # users.yml généré une fois sur le VPS (voir README §8) — jamais commité.
+      - ./users.yml:/data/users.yml:ro
+    ports:
+      # Nginx (sur l'hôte) fait le reverse-proxy depuis monitor.camconsult.com.tn
+      - "127.0.0.1:8082:8080"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
 volumes:
   camconsult_pgdata:

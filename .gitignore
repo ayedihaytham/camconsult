@@ -11,6 +11,9 @@ out/
 .env.*
 !.env.example
 
+# Dozzle — credentials générés sur le VPS, jamais commités
+deploy/users.yml
+
 # archives de déploiement locales
 deploy-archives/
 *.tar.gz

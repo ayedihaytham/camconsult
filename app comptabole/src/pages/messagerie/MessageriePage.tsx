@@ -8,6 +8,7 @@ import {
   Messenger,
   type MessengerActiveConversation,
   type MessengerAttachment,
+  type MessengerAttachmentItem,
   type MessengerConversationItem,
   type MessengerMessageItem,
 } from "@/components/uitripled/messenger-shadcnui";
@@ -48,7 +49,7 @@ function resolveAttachment(
 }
 
 export function MessageriePage() {
-  const { isAdmin, can, employeId } = usePermissions();
+  const { isAdmin, can, canSeeSociete, employeId } = usePermissions();
   const adminName = toTitleCase(
     useAuth((state) => state.session?.cabinetNom ?? "Cabinet"),
   );
@@ -61,6 +62,9 @@ export function MessageriePage() {
   const employes = useEmployes();
   const societes = useSocietes();
   const allNoeuds = useNoeuds();
+  const fichiers = allNoeuds.filter(
+    (noeud) => noeud.type === "fichier" && canSeeSociete(noeud.societeId),
+  );
   const messages = useData((state) => state.messages);
   const addMessage = useData((state) => state.addMessage);
   const markConversationRead = useData(
@@ -212,6 +216,22 @@ export function MessageriePage() {
       });
     } catch {
       toast.error("Impossible de lire ce fichier.");
+    }
+  }
+
+  function handleSelectAttachment(item: MessengerAttachmentItem) {
+    const noeud = fichiers.find((f) => f.id === item.id);
+    setAttachment({
+      libelle: item.label,
+      noeudId: item.id,
+      dataUrl: noeud?.dataUrl,
+      mime: undefined,
+      tailleOctets: undefined,
+    });
+    if (!noeud?.dataUrl) {
+      toast.warning(
+        "Ce document dépasse 2 Mo dans la Structuration : joint en référence seule, non téléchargeable depuis la messagerie.",
+      );
     }
   }
 
@@ -377,6 +397,10 @@ export function MessageriePage() {
         search={search}
         draft={draft}
         attachment={attachment}
+        attachmentItems={fichiers.map((file) => ({
+          id: file.id,
+          label: file.libelle,
+        }))}
         canCreateGroup={isAdmin}
         emptyConversationDescription={
           isAdmin
@@ -404,6 +428,7 @@ export function MessageriePage() {
         }}
         onDraftChange={setDraft}
         onFileSelected={handleFileSelected}
+        onSelectAttachment={handleSelectAttachment}
         onRemoveAttachment={() => setAttachment(null)}
         onSend={send}
       />

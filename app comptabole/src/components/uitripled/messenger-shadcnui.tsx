@@ -6,20 +6,34 @@ import {
   Check,
   CheckCheck,
   FileText,
+  FolderOpen,
   Paperclip,
   Pencil,
   Plus,
   Search,
   Send,
   Trash2,
+  Upload,
   Users2,
   X,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { downloadDataUrl } from "@/lib/file";
 import { cn } from "@/lib/utils";
 
 export interface MessengerAttachment {
@@ -28,6 +42,11 @@ export interface MessengerAttachment {
   mime?: string;
   tailleOctets?: number;
   noeudId?: string;
+}
+
+export interface MessengerAttachmentItem {
+  id: string;
+  label: string;
 }
 
 export interface MessengerConversationItem {
@@ -76,6 +95,7 @@ interface MessengerProps {
   search: string;
   draft: string;
   attachment: MessengerAttachment | null;
+  attachmentItems: MessengerAttachmentItem[];
   canCreateGroup: boolean;
   emptyConversationDescription: string;
   messagesContainerRef: RefObject<HTMLDivElement>;
@@ -87,6 +107,7 @@ interface MessengerProps {
   onDeleteGroup: () => void;
   onDraftChange: (value: string) => void;
   onFileSelected: (file: File) => void;
+  onSelectAttachment: (item: MessengerAttachmentItem) => void;
   onRemoveAttachment: () => void;
   onSend: () => void;
 }
@@ -144,6 +165,7 @@ export function Messenger({
   search,
   draft,
   attachment,
+  attachmentItems,
   canCreateGroup,
   emptyConversationDescription,
   messagesContainerRef,
@@ -155,6 +177,7 @@ export function Messenger({
   onDeleteGroup,
   onDraftChange,
   onFileSelected,
+  onSelectAttachment,
   onRemoveAttachment,
   onSend,
 }: MessengerProps) {
@@ -432,17 +455,15 @@ export function Messenger({
                               </p>
                             )}
                             {message.attachment && (
-                              <a
-                                href={message.attachment.dataUrl ?? "#"}
-                                download={message.attachment.libelle}
-                                target="_blank"
-                                rel="noreferrer"
-                                aria-disabled={!message.attachment.dataUrl}
-                                onClick={(e) => {
-                                  if (!message.attachment?.dataUrl) e.preventDefault();
+                              <button
+                                type="button"
+                                disabled={!message.attachment.dataUrl}
+                                onClick={() => {
+                                  const a = message.attachment;
+                                  if (a?.dataUrl) downloadDataUrl(a.dataUrl, a.libelle);
                                 }}
                                 className={cn(
-                                  "mt-1.5 flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors",
+                                  "mt-1.5 flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors",
                                   message.attachment.dataUrl && "cursor-pointer hover:brightness-95",
                                   !message.attachment.dataUrl && "cursor-not-allowed opacity-70",
                                   message.isMine
@@ -451,7 +472,7 @@ export function Messenger({
                                 )}
                                 title={
                                   message.attachment.dataUrl
-                                    ? "Ouvrir la pièce jointe"
+                                    ? "Télécharger la pièce jointe"
                                     : "Pièce jointe non disponible (fichier trop volumineux ou ancien message)"
                                 }
                               >
@@ -459,7 +480,7 @@ export function Messenger({
                                 <span className="min-w-0 break-all text-xs font-medium underline-offset-2">
                                   {message.attachment.libelle}
                                 </span>
-                              </a>
+                              </button>
                             )}
                             <div
                               className={cn(
@@ -521,17 +542,52 @@ export function Messenger({
                     event.target.value = "";
                   }}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 rounded-lg text-muted-foreground"
-                  aria-label="Joindre un fichier"
-                  title="Joindre un fichier (PC, photo ou fichier du téléphone)"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip className="h-4 w-4" aria-hidden="true" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 rounded-lg text-muted-foreground"
+                      aria-label="Joindre un fichier"
+                      title="Joindre un fichier"
+                    >
+                      <Paperclip className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    side="top"
+                    className="max-h-72 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto"
+                  >
+                    <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      Depuis mon appareil (PC, photo, téléphone)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger disabled={attachmentItems.length === 0}>
+                        <FolderOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        Depuis la Structuration
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="max-h-72 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto">
+                        <DropdownMenuLabel>
+                          Joindre un document de la structuration
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {attachmentItems.map((item) => (
+                          <DropdownMenuItem
+                            key={item.id}
+                            onClick={() => onSelectAttachment(item)}
+                          >
+                            <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+                            <span className="truncate">{item.label}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 <label htmlFor="messenger-editor" className="sr-only">
                   Écrivez un message

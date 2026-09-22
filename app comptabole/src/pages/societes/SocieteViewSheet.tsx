@@ -73,31 +73,47 @@ export function SocieteViewSheet({
               />
             </div>
 
-            <LedgerSheet className="divide-y divide-border">
-              <InfoRow icon={Hash} label="RNE" value={societe.rne} />
-              <InfoRow icon={Receipt} label="N° TVA" value={societe.tva} />
-              <InfoRow
-                icon={Phone}
-                label="Téléphone"
-                value={societe.telephone || "—"}
-                href={societe.telephone ? `tel:${societe.telephone}` : undefined}
-              />
-              <InfoRow
-                icon={Mail}
-                label="Email"
-                value={societe.email || "—"}
-                href={societe.email ? `mailto:${societe.email}` : undefined}
-              />
-              <InfoRow
-                icon={MapPin}
-                label="Adresse"
-                value={societe.adresse || "—"}
-              />
-              <InfoRow
-                icon={Calendar}
-                label="Créée le"
-                value={formatDate(societe.creeLe)}
-              />
+            <LedgerSheet>
+              <div className="grid grid-cols-2">
+                <InfoTile
+                  icon={Hash}
+                  label="RNE"
+                  value={societe.rne}
+                  className="border-b border-r border-border"
+                />
+                <InfoTile
+                  icon={Receipt}
+                  label="N° TVA"
+                  value={societe.tva}
+                  className="border-b border-border"
+                />
+                <InfoTile
+                  icon={Phone}
+                  label="Téléphone"
+                  value={societe.telephone || "—"}
+                  href={societe.telephone ? `tel:${societe.telephone}` : undefined}
+                  className="border-b border-r border-border"
+                />
+                <InfoTile
+                  icon={Calendar}
+                  label="Créée le"
+                  value={formatDate(societe.creeLe)}
+                  className="border-b border-border"
+                />
+                <InfoTile
+                  icon={Mail}
+                  label="Email"
+                  value={societe.email || "—"}
+                  href={societe.email ? `mailto:${societe.email}` : undefined}
+                  className="col-span-2 border-b border-border"
+                />
+                <InfoTile
+                  icon={MapPin}
+                  label="Adresse"
+                  value={societe.adresse || "—"}
+                  className="col-span-2"
+                />
+              </div>
             </LedgerSheet>
 
             {isAdmin && (
@@ -112,22 +128,26 @@ export function SocieteViewSheet({
   );
 }
 
-function InfoRow({
+function InfoTile({
   icon: Icon,
   label,
   value,
   href,
+  className,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
   href?: string;
+  className?: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 px-4 py-2.5">
-      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-      <dt className="w-24 shrink-0 text-sm text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+    <div className={cn("min-w-0 px-4 py-3", className)}>
+      <dt className="flex items-center gap-1.5 text-[0.67rem] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+        <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        {label}
+      </dt>
+      <dd className="mt-1 truncate text-sm font-semibold text-foreground">
         {href ? (
           <a className="underline-offset-4 hover:underline" href={href}>
             {value}

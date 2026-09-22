@@ -39,16 +39,19 @@ export function readFileAsDataUrl(file: File): Promise<string> {
 export function downloadDataUrl(dataUrl: string, filename: string): void {
   const link = document.createElement("a");
   let url = dataUrl;
-  let revoke: (() => void) | null = null;
   try {
     const [header, base64] = dataUrl.split(",");
     const mime = header.match(/data:(.*?);base64/)?.[1] || "application/octet-stream";
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const blobUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
-    url = blobUrl;
-    revoke = () => URL.revokeObjectURL(blobUrl);
+    url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+    // Volontairement jamais révoqué ici : sur mobile, le flux "Enregistrer
+    // dans Fichiers"/partage lit le blob de façon différée (parfois bien
+    // après le clic) — le révoquer trop tôt produisait un fichier vide sur
+    // téléphone alors que ça marchait sur PC. Le navigateur libère de toute
+    // façon les blob URLs à la fermeture/rechargement de la page ; le coût
+    // mémoire d'un fichier de pièce jointe, occasionnel, est négligeable.
   } catch {
     // repli : data URL directe si le décodage base64 échoue pour une raison
     // quelconque (mieux vaut tenter l'ancien comportement que rien).
@@ -58,5 +61,4 @@ export function downloadDataUrl(dataUrl: string, filename: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  if (revoke) setTimeout(revoke, 2000);
 }

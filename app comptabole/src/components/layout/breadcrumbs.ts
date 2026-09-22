@@ -22,6 +22,7 @@ const STATIC_ROUTES: Record<string, string> = {
   "/etats-financiers": "États financiers",
   "/grille-affectat": "Paramétrage",
   "/bordereaux": "Bordereaux bancaires",
+  "/honoraires": "État client",
   "/structuration": "Structuration",
   "/messagerie": "Messagerie",
   "/journal": "Journal",
@@ -89,6 +90,14 @@ export function getAppBreadcrumbs(
     return [
       { label: "Gestion de stock", to: "/stock" },
       { label: societeName(stockParams.societeId) },
+    ];
+  }
+
+  const honorairesParams = paramsFor("/honoraires/:societeId", pathname);
+  if (honorairesParams) {
+    return [
+      { label: "État client", to: "/honoraires" },
+      { label: societeName(honorairesParams.societeId) },
     ];
   }
 

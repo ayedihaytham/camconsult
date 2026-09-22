@@ -5,6 +5,8 @@ import type {
   Collecte,
   CollecteFull,
   CollecteJournalEntry,
+  CollecteLigne,
+  CollecteSection,
   CollecteStatut,
 } from "@/types";
 
@@ -59,9 +61,10 @@ interface CollectesState {
   saveComment: (id: string, onglet: string, commentaire: string) => Promise<void>;
 
   addNote: (id: string, onglet: string, texte: string) => Promise<void>;
-  sendRecap: (id: string, count: number) => Promise<void>;
+  /** Envoie le récap d'UN tableau précis — indépendant des autres. */
+  sendRecapSection: (id: string, onglet: string, count: number) => Promise<void>;
+  closeRecapSection: (id: string, onglet: string) => Promise<void>;
   submitRecap: (id: string) => Promise<void>;
-  closeRecap: (id: string) => Promise<void>;
 }
 
 export const useCollectes = create<CollectesState>((set, get) => ({
@@ -135,11 +138,19 @@ export const useCollectes = create<CollectesState>((set, get) => ({
 
   saveLignes: async (id, onglet, lignes) => {
     try {
-      const c = await api.put<CollecteFull>(
+      // Le serveur ne renvoie que les lignes de CET onglet (pas toute la
+      // collecte, jusque-là rechargée intégralement à chaque sauvegarde —
+      // lent dès que la collecte a plusieurs tableaux bien remplis) : on
+      // fusionne localement plutôt que de remplacer `current` en bloc.
+      const { lignes: saved } = await api.put<{ onglet: string; lignes: CollecteLigne[] }>(
         `/collectes/${id}/lignes/${onglet}`,
         { lignes },
       );
-      set((st) => ({ current: st.current?.id === id ? c : st.current }));
+      set((st) => {
+        if (st.current?.id !== id) return {};
+        const autres = st.current.lignes.filter((l) => l.onglet !== onglet);
+        return { current: { ...st.current, lignes: [...autres, ...saved] } };
+      });
     } catch (e) {
       fail(e);
     }
@@ -147,11 +158,15 @@ export const useCollectes = create<CollectesState>((set, get) => ({
 
   saveComment: async (id, onglet, commentaire) => {
     try {
-      const c = await api.patch<CollecteFull>(
+      const { section } = await api.patch<{ section: CollecteSection }>(
         `/collectes/${id}/sections/${onglet}`,
         { commentaire },
       );
-      set((st) => ({ current: st.current?.id === id ? c : st.current }));
+      set((st) => {
+        if (st.current?.id !== id) return {};
+        const autres = st.current.sections.filter((s) => s.onglet !== onglet);
+        return { current: { ...st.current, sections: [...autres, section] } };
+      });
     } catch (e) {
       fail(e);
     }
@@ -168,11 +183,25 @@ export const useCollectes = create<CollectesState>((set, get) => ({
       fail(e);
     }
   },
-  sendRecap: async (id, count) => {
+  sendRecapSection: async (id, onglet, count) => {
     try {
-      const c = await api.post<CollecteFull>(`/collectes/${id}/recap/send`, {
-        count,
-      });
+      const c = await api.post<CollecteFull>(
+        `/collectes/${id}/sections/${onglet}/recap/send`,
+        { count },
+      );
+      set((st) => ({
+        current: st.current?.id === id ? c : st.current,
+        list: st.list.map((x) => (x.id === id ? c : x)),
+      }));
+    } catch (e) {
+      fail(e);
+    }
+  },
+  closeRecapSection: async (id, onglet) => {
+    try {
+      const c = await api.post<CollecteFull>(
+        `/collectes/${id}/sections/${onglet}/recap/close`,
+      );
       set((st) => ({
         current: st.current?.id === id ? c : st.current,
         list: st.list.map((x) => (x.id === id ? c : x)),
@@ -184,17 +213,6 @@ export const useCollectes = create<CollectesState>((set, get) => ({
   submitRecap: async (id) => {
     try {
       const c = await api.post<CollecteFull>(`/collectes/${id}/recap/submit`);
-      set((st) => ({
-        current: st.current?.id === id ? c : st.current,
-        list: st.list.map((x) => (x.id === id ? c : x)),
-      }));
-    } catch (e) {
-      fail(e);
-    }
-  },
-  closeRecap: async (id) => {
-    try {
-      const c = await api.post<CollecteFull>(`/collectes/${id}/recap/close`);
       set((st) => ({
         current: st.current?.id === id ? c : st.current,
         list: st.list.map((x) => (x.id === id ? c : x)),

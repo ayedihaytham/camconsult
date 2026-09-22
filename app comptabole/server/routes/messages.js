@@ -57,7 +57,14 @@ async function ownConversation(req, conversationId) {
       return true;
   }
 
-  // groupe : vérifier l'appartenance
+  // groupe : vérifier l'appartenance — conversations.id est une vraie
+  // colonne uuid, jamais préfixée "conv-" ; sans cette garde, un
+  // conversationId direct qui n'est ni le sien ni dans son périmètre (ex.
+  // "conv-<uuid-d'un-autre-employé>") fait planter cette requête avec une
+  // erreur de cast uuid plutôt que de renvoyer "aucune ligne" — repéré en
+  // usage réel sur GET /messages (voir plus bas), qui appelait cette même
+  // logique par message et provoquait des 504 en boucle.
+  if (!UUID_RE.test(conversationId)) return false;
   const g = (
     await query(
       "select membre_ids from conversations where id = $1 and type = 'groupe'",
@@ -68,12 +75,50 @@ async function ownConversation(req, conversationId) {
   return (Array.isArray(g.membre_ids) ? g.membre_ids : []).includes(s.employeId);
 }
 
-messagesRouter.get("/", requireMessagerie, async (req, res) => {
-  const { rows } = await query("select * from messages order by envoye_le");
-  const checks = await Promise.all(
-    rows.map((r) => ownConversation(req, r.conversation_id)),
+/**
+ * IDs de conversation visibles par cette session, en quelques requêtes —
+ * jamais une par message. L'ancienne version chargeait TOUS les messages du
+ * système puis rappelait `ownConversation` (donc une requête réseau de plus,
+ * parfois deux) pour CHAQUE message un par un, y compris plusieurs fois pour
+ * le même groupe : sondé toutes les 5 s par chaque session connectée (voir
+ * Topbar.tsx), ça grossit avec le nombre de messages jusqu'à saturer le pool
+ * de connexions et provoquer des 504 en usage réel — repéré via les logs
+ * navigateur d'un client.
+ */
+async function visibleConversationIds(req) {
+  const s = req.session;
+  const ids = new Set([`conv-${s.employeId}`]);
+
+  // Collaborateur <-> employés de société de son périmètre.
+  if (s.poste !== "societe_employe" && (s.societeIds || []).length > 0) {
+    const { rows } = await query(
+      "select id from employes where role = 'societe_employe' and societe_id = any($1::uuid[])",
+      [s.societeIds],
+    );
+    for (const r of rows) ids.add(`conv-${r.id}`);
+  }
+
+  // Groupes dont il est membre.
+  const { rows: groupes } = await query(
+    "select id from conversations where type = 'groupe' and membre_ids @> $1::jsonb",
+    [JSON.stringify([s.employeId])],
   );
-  res.json(rows.filter((_, i) => checks[i]).map(messageDto));
+  for (const g of groupes) ids.add(g.id);
+
+  return [...ids];
+}
+
+messagesRouter.get("/", requireMessagerie, async (req, res) => {
+  if (req.session.role === "admin") {
+    const { rows } = await query("select * from messages order by envoye_le");
+    return res.json(rows.map(messageDto));
+  }
+  const convIds = await visibleConversationIds(req);
+  const { rows } = await query(
+    "select * from messages where conversation_id = any($1::text[]) order by envoye_le",
+    [convIds],
+  );
+  res.json(rows.map(messageDto));
 });
 
 messagesRouter.post("/", requireMessagerie, async (req, res) => {

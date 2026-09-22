@@ -1,5 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod";
+// zodOutputFormat (ci-dessous) construit son JSON schema via l'API zod/v4 en
+// interne (zod 3.25+ l'expose en sous-chemin de compat) ; lui passer un
+// schéma construit avec le zod v3 par défaut ("zod") plante avec "Cannot
+// read properties of undefined (reading 'def')" — repéré en usage réel : dès
+// que l'extraction retombait sur Claude (OpenRouter en échec ou absent),
+// l'appel Claude cassait silencieusement et l'OCR local, bien plus faible,
+// prenait le relais sans que rien ne le signale.
+import { z } from "zod/v4";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 /**

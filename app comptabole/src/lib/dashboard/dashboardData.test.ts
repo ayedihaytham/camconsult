@@ -41,7 +41,6 @@ function collection(id: string, statut: Collecte["statut"], echeance: string | n
     societeId: "soc-1",
     periode: "Septembre 2026",
     statut,
-    recapStatut: "none",
     onglets: [],
     devise: "TND",
     echeance,

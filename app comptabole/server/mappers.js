@@ -105,9 +105,8 @@ export const collecteDto = (r) => ({
   societeId: r.societe_id,
   periode: r.periode,
   statut: r.statut,
-  recapStatut: r.recap_statut ?? "none",
   onglets: Array.isArray(r.onglets) ? r.onglets : [],
-  devise: r.devise ?? "EUR",
+  devise: r.devise ?? "TND",
   echeance: r.echeance ? dateStr(r.echeance) : null,
   derniereRelanceLe: isoOrNull(r.derniere_relance_le),
   relanceCadenceJours: r.relance_cadence_jours ?? 3,
@@ -146,6 +145,7 @@ export const collecteSectionDto = (r) => ({
   id: r.id,
   onglet: r.onglet,
   commentaire: r.commentaire ?? "",
+  recapStatut: r.recap_statut ?? "none",
 });
 
 export const collecteLigneDto = (r) => ({
@@ -452,3 +452,37 @@ export const journalDto = (r) => ({
   entity: r.entity,
   label: r.label,
 });
+
+const honoraireLigneDto = (r) => ({
+  id: r.id,
+  societeId: r.societe_id,
+  ordre: r.ordre ?? 0,
+  type: r.type ?? "mensuelle",
+  nature: r.nature ?? "",
+  periode: r.periode ?? "",
+  libelle: r.libelle ?? "",
+  cnss: r.cnss ?? "",
+  numQuittance: r.num_quittance ?? "",
+  montantDeclaration: num(r.montant_declaration),
+  honoraire: num(r.honoraire),
+  reglement: num(r.reglement),
+  note: r.note ?? "",
+  creeLe: isoOrNull(r.cree_le),
+  majLe: isoOrNull(r.maj_le),
+});
+
+/** Ajoute le total de ligne et le solde cumulé (état client) — jamais
+ * stocké, recalculé à chaque lecture dans l'ordre `ordre` : un solde figé
+ * en base se désynchroniserait au moindre ajout/édition/suppression d'une
+ * ligne antérieure (même logique que l'écart du module Stock). */
+export function honoraireLignesDto(rows) {
+  let solde = 0;
+  return rows
+    .map(honoraireLigneDto)
+    .sort((a, b) => a.ordre - b.ordre)
+    .map((l) => {
+      const total = Math.round((l.montantDeclaration + l.honoraire) * 1000) / 1000;
+      solde = Math.round((solde + l.montantDeclaration + l.honoraire - l.reglement) * 1000) / 1000;
+      return { ...l, total, solde };
+    });
+}

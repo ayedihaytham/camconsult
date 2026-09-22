@@ -149,3 +149,58 @@ export async function classerDansStructuration({
   });
   return { noeud: fichier, dejaClasse: false };
 }
+
+/** Dossiers standard du modèle du cabinet — voir la capture de référence
+ * (Comptabilité générale [année] > société > ces dossiers). Fixe et non
+ * dérivé du "Modèle générique" existant : au-delà de ce socle, tout le
+ * reste de l'arborescence reste manuel. */
+const DOSSIERS_STANDARD = [
+  "achat",
+  "vente",
+  "banque",
+  "caisse",
+  "CNSS",
+  "Divers",
+  "DMI",
+  "juridique",
+];
+
+/**
+ * Provisionne, pour une société, sa racine documentaire + les dossiers
+ * standard du cabinet — idempotent (voir trouverOuCreerRacineSociete /
+ * trouverOuCreerDossier), donc rejouable sans jamais dupliquer ce qui existe
+ * déjà. Utilisé pour l'action globale "Instancier pour toutes les sociétés"
+ * de Structuration.
+ */
+export async function provisionnerArborescenceSociete({
+  noeuds,
+  addNoeud,
+  societeId,
+}: {
+  noeuds: Noeud[];
+  addNoeud: AddNoeud;
+  societeId: string;
+}): Promise<number> {
+  let pool = noeuds;
+  let crees = 0;
+
+  const racine = await trouverOuCreerRacineSociete(pool, addNoeud, societeId);
+  if (!pool.some((n) => n.id === racine.id)) {
+    pool = [...pool, racine];
+    crees++;
+  }
+
+  for (const libelle of DOSSIERS_STANDARD) {
+    const dossier = await trouverOuCreerDossier(pool, addNoeud, {
+      societeId,
+      parentId: racine.id,
+      libelle,
+    });
+    if (!pool.some((n) => n.id === dossier.id)) {
+      pool = [...pool, dossier];
+      crees++;
+    }
+  }
+
+  return crees;
+}

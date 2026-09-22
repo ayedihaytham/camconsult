@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   Copy,
   FolderTree,
+  Layers,
   Network,
   Pencil,
   Plus,
@@ -37,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { exportRows, type ExportFormat } from "@/lib/export";
+import { provisionnerArborescenceSociete } from "@/lib/classement";
 import { printTable } from "@/lib/print";
 import { formatDate } from "@/lib/utils";
 import { useData, useNoeuds, useSocietes } from "@/store/data";
@@ -89,6 +91,8 @@ export function StructurationPage() {
   const [editing, setEditing] = useState<Noeud | null>(null);
   const [toDelete, setToDelete] = useState<Noeud | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [provisionConfirmOpen, setProvisionConfirmOpen] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
 
   // Vue arborescence
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
@@ -164,6 +168,46 @@ export function StructurationPage() {
     duplicateArborescence(n.id);
     logJournal("duplication", "dossier", n.libelle);
     toast.success("Arborescence dupliquée");
+  }
+
+  /** Racine + dossiers standard (achat/vente/banque/caisse/CNSS/Divers/
+   * DMI/juridique) pour chaque société qui n'a pas encore la sienne —
+   * idempotent, donc rejouable plus tard pour une nouvelle société sans
+   * risque de doublon. */
+  async function handleProvisionAll() {
+    setProvisioning(true);
+    let societesTraitees = 0;
+    let dossiersCrees = 0;
+    try {
+      // Chaque société est traitée indépendamment (dossiers filtrés par
+      // societeId) : pas besoin de recharger le pool entre deux sociétés.
+      for (const societe of societes) {
+        const crees = await provisionnerArborescenceSociete({
+          noeuds: allNodes,
+          addNoeud,
+          societeId: societe.id,
+        });
+        if (crees > 0) {
+          societesTraitees++;
+          dossiersCrees += crees;
+        }
+      }
+      logJournal(
+        "creation",
+        "dossier",
+        `Arborescence standard instanciée pour ${societesTraitees} société(s)`,
+      );
+      toast.success(
+        societesTraitees > 0
+          ? `${societesTraitees} société(s) mise(s) à jour — ${dossiersCrees} dossier(s) créé(s)`
+          : "Rien à faire — toutes les sociétés ont déjà leur arborescence",
+      );
+    } catch {
+      toast.error("Impossible de terminer l'instanciation pour toutes les sociétés.");
+    } finally {
+      setProvisioning(false);
+      setProvisionConfirmOpen(false);
+    }
   }
 
   function confirmDelete() {
@@ -447,19 +491,43 @@ export function StructurationPage() {
               : "Dossiers des sociétés auxquelles vous avez accès."
         }
         actions={
-          canStructEdit ? (
-            <Button
-              variant="ledger"
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Ajouter une arborescence
-            </Button>
+          canStructEdit || isAdmin ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  disabled={provisioning}
+                  onClick={() => setProvisionConfirmOpen(true)}
+                >
+                  <Layers className="h-4 w-4" />
+                  {provisioning ? "Instanciation…" : "Instancier pour toutes les sociétés"}
+                </Button>
+              )}
+              {canStructEdit && (
+                <Button
+                  variant="ledger"
+                  onClick={() => {
+                    setEditing(null);
+                    setFormOpen(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Ajouter une arborescence
+                </Button>
+              )}
+            </div>
           ) : undefined
         }
+      />
+
+      <ConfirmDialog
+        open={provisionConfirmOpen}
+        onOpenChange={setProvisionConfirmOpen}
+        destructive={false}
+        title="Instancier l'arborescence standard pour toutes les sociétés ?"
+        description="Crée, pour chaque société qui n'en a pas encore, une racine avec les dossiers standard (achat, vente, banque, caisse, CNSS, Divers, DMI, juridique). Les sociétés déjà provisionnées ne sont pas touchées — sans risque à relancer plus tard pour une nouvelle société."
+        confirmLabel="Instancier"
+        onConfirm={handleProvisionAll}
       />
 
       <LedgerSegmented

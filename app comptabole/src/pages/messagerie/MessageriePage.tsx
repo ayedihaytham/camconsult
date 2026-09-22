@@ -105,6 +105,9 @@ export function MessageriePage() {
   const [classifying, setClassifying] = useState<Message["pieceJointe"] | null>(
     null,
   );
+  const [classifyingSocieteId, setClassifyingSocieteId] = useState<
+    string | null
+  >(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const empById = (id: string) =>
@@ -250,6 +253,9 @@ export function MessageriePage() {
     const resolved = resolveAttachment(message?.pieceJointe, allNoeuds);
     if (!resolved?.dataUrl) return;
     setClassifying({ ...resolved, dataUrl: resolved.dataUrl });
+    // Le document appartient forcément à la société de la conversation
+    // ouverte (client) — on restreint le choix de dossier à son espace.
+    setClassifyingSocieteId(activeConversation?.societeId ?? null);
   }
 
   async function handleConfirmClasser(targetParentId: string | null) {
@@ -262,7 +268,7 @@ export function MessageriePage() {
         libelle: classifying.libelle,
         description: "",
         type: "fichier",
-        societeId: parentNoeud?.societeId ?? null,
+        societeId: parentNoeud?.societeId ?? classifyingSocieteId ?? null,
         parentId: targetParentId,
         format: fileExtension(classifying.libelle),
         taille: classifying.tailleOctets
@@ -274,6 +280,7 @@ export function MessageriePage() {
         description: classifying.libelle,
       });
       setClassifying(null);
+      setClassifyingSocieteId(null);
     } catch {
       toast.error("Impossible de classer ce fichier.");
     }
@@ -481,9 +488,16 @@ export function MessageriePage() {
 
       <ClasserPieceJointeDialog
         open={Boolean(classifying)}
-        onOpenChange={(open) => !open && setClassifying(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setClassifying(null);
+            setClassifyingSocieteId(null);
+          }
+        }}
         attachmentLabel={classifying?.libelle ?? null}
         nodes={allNoeuds}
+        restrictToSocieteId={classifyingSocieteId}
+        restrictToSocieteLabel={socById(classifyingSocieteId)?.raisonSociale}
         onConfirm={handleConfirmClasser}
       />
 

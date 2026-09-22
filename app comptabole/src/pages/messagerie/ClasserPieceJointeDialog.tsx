@@ -19,6 +19,11 @@ interface Props {
   attachmentLabel: string | null;
   /** Tous les dossiers existants (mêmes règles de visibilité que Structuration). */
   nodes: Noeud[];
+  /** Société connue de la conversation (client) — restreint la liste à son
+   * espace de Structuration uniquement, plutôt que de mélanger toutes les
+   * sociétés : le document appartient forcément à ce client. */
+  restrictToSocieteId?: string | null;
+  restrictToSocieteLabel?: string | null;
   onConfirm: (targetParentId: string | null) => void;
 }
 
@@ -30,6 +35,8 @@ export function ClasserPieceJointeDialog({
   onOpenChange,
   attachmentLabel,
   nodes,
+  restrictToSocieteId,
+  restrictToSocieteLabel,
   onConfirm,
 }: Props) {
   const [target, setTarget] = useState<string | null>(null);
@@ -38,7 +45,10 @@ export function ClasserPieceJointeDialog({
     if (open) setTarget(null);
   }, [open]);
 
-  const folders = nodes.filter((n) => n.type === "dossier");
+  const scopedNodes = restrictToSocieteId
+    ? nodes.filter((n) => n.societeId === restrictToSocieteId)
+    : nodes;
+  const folders = scopedNodes.filter((n) => n.type === "dossier");
 
   const pathOf = (id: string): string => {
     const chain: string[] = [];
@@ -56,7 +66,9 @@ export function ClasserPieceJointeDialog({
         <DialogHeader>
           <DialogTitle>Classer « {attachmentLabel} »</DialogTitle>
           <DialogDescription>
-            Choisissez le dossier de destination dans la Structuration.
+            {restrictToSocieteId
+              ? `Choisissez le dossier de destination dans l'espace Structuration de ${restrictToSocieteLabel ?? "cette société"}.`
+              : "Choisissez le dossier de destination dans la Structuration."}
           </DialogDescription>
         </DialogHeader>
 
@@ -69,7 +81,9 @@ export function ClasserPieceJointeDialog({
             )}
           >
             <Home className="h-4 w-4 text-muted-foreground" />
-            Racine
+            {restrictToSocieteId
+              ? `Racine de ${restrictToSocieteLabel ?? "la société"}`
+              : "Racine"}
           </button>
           {folders.map((f) => (
             <button

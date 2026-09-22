@@ -1,16 +1,14 @@
 import { useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, MessageCircle, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { AppBreadcrumbs } from "./AppBreadcrumbs";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/store/auth";
-import { useConversations, useData, useNotifications } from "@/store/data";
-import { unreadMessageCount } from "./sidebar/navigation";
+import { useData, useNotifications } from "@/store/data";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +53,6 @@ export function Topbar() {
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
           <NotificationBell />
-          <MessengerShortcut />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -75,7 +72,10 @@ export function Topbar() {
                     {isAdmin ? "Administrateur" : role}
                   </span>
                 </span>
-                <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
+                <ChevronDown
+                  className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground sm:block"
+                  aria-hidden="true"
+                />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 rounded-lg">
@@ -99,59 +99,6 @@ export function Topbar() {
         </div>
       </div>
     </header>
-  );
-}
-
-function MessengerShortcut() {
-  const { isAdmin, can, employeId } = usePermissions();
-  const hasAccess = isAdmin || can("messagerie");
-  const conversations = useConversations(
-    isAdmin ? "me" : (employeId ?? "me"),
-  );
-  const refreshMessages = useData((state) => state.refreshMessages);
-  const unreadMessages = unreadMessageCount(
-    conversations,
-    isAdmin,
-    employeId,
-  );
-
-  useEffect(() => {
-    if (!hasAccess) return;
-    const id = setInterval(refreshMessages, 5_000);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refreshMessages();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [hasAccess, refreshMessages]);
-
-  if (!hasAccess) return null;
-
-  return (
-    <NavLink
-      to="/messagerie"
-      aria-label="Messagerie"
-      className={({ isActive }) =>
-        cn(
-          "relative flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:h-9 lg:w-9",
-          isActive && "bg-secondary text-foreground",
-        )
-      }
-    >
-      <MessageCircle className="h-[18px] w-[18px]" aria-hidden="true" />
-      {unreadMessages > 0 && (
-        <Badge
-          variant="destructive"
-          className="absolute -right-0.5 -top-0.5 h-4 min-w-4 justify-center border-0 px-1 py-0 text-[10px] font-bold"
-          aria-label={`${unreadMessages} message${unreadMessages > 1 ? "s" : ""} non lu${unreadMessages > 1 ? "s" : ""}`}
-        >
-          {unreadMessages > 9 ? "9+" : unreadMessages}
-        </Badge>
-      )}
-    </NavLink>
   );
 }
 

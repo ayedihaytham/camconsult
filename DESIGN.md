@@ -18,6 +18,10 @@ colors:
   warning: "hsl(33 92% 45%)"
   destructive: "hsl(0 72% 45%)"
 typography:
+  authenticated-heading:
+    fontFamily: "Inter, Arial, sans-serif"
+    fontWeight: 700
+    lineHeight: "1.2"
   display:
     fontFamily: "Playfair Display, Georgia, serif"
     fontSize: "3rem"
@@ -77,21 +81,21 @@ components:
 
 **Creative North Star: "The Trusted Ledger"**
 
-CamConsult pairs the calm authority of a professional ledger with the restraint
-of a premium advisory firm. Its public site establishes the identity; the
-authenticated product transfers its navy ink, measured gold, serif/sans
-relationship and fine-rule surfaces without reproducing editorial marketing
-layouts.
+CamConsult is a modern financial workspace: precise, trustworthy, confident,
+calm, sophisticated and highly scannable. The public site remains the source of
+brand identity; the authenticated product translates navy ink, measured gold,
+warm paper and fine rules into a dense accounting workstation rather than a
+marketing experience.
 
-The product UI is operational first: compact, disciplined and easy to scan.
-Brand expression belongs in emphasis, hierarchy and carefully rationed accents,
+The product is operational first. Workflow value wins over visual novelty;
+brand expression belongs in hierarchy, alignment and carefully rationed accents,
 not oversized type, decorative gradients or broad empty space.
 
 **Key Characteristics:**
 
-- Navy-led clarity with gold as a controlled mark of importance.
-- Editorial display type for rare major headings; Inter for all working UI.
-- Warm paper-like backgrounds, white working surfaces and fine neutral rules.
+- Navy-led architectural clarity with gold as a controlled structural mark.
+- Modern sans/grotesk character for authenticated headings and working UI.
+- Warm paper-like backgrounds, selective light work surfaces and fine rules.
 - Responsive marketing layouts may breathe; authenticated interfaces stay dense.
 
 ## Colors
@@ -103,19 +107,19 @@ accent roles.
 
 ### Primary
 
-- **Cabinet Navy:** the identity ink for strong text, dark surfaces, structural
-  emphasis and product primary actions where frequent action needs a stable,
-  high-contrast treatment.
-- **CamConsult Gold:** the public-site primary/accent for CTAs, key icons,
-  eyebrows, active indicators and restrained highlights. Gold pairs with navy
-  text or navy surroundings.
+- **Cabinet Navy:** architectural surface, primary product hierarchy, important
+  ink, command/page identity and selected navigation architecture.
+- **CamConsult Gold:** fine structural rule, selected-state accent, focus and
+  restrained brand detail. Gold pairs with navy text or navy surroundings.
 
 ### Secondary
 
-- **Warm Paper and White Surface:** quiet application/page canvas and working
-  surface layers.
-- **Soft Gold and Warm Highlight:** low-emphasis informational panels or
-  decorative support, never a substitute for a warning state.
+- **Warm Paper:** the quiet authenticated workspace canvas.
+- **Pale Navy / Slate:** secondary working surfaces and utility contrast.
+- **White / Light Surface:** selective elevation, forms and focused work areas,
+  not the default wrapper for every page section.
+- **Soft Gold and Warm Highlight:** low-emphasis informational support, never a
+  substitute for a warning state.
 
 ### Neutral
 
@@ -126,9 +130,11 @@ accent roles.
 
 ### Named Rules
 
-**The Gold Is Not Warning Rule.** Gold is a CamConsult brand accent. Pending,
-warning, success, destructive/overdue and informational states use their own
-semantic tokens and always retain a text or icon cue.
+**The Gold Is Not Warning Rule.** Gold is a CamConsult brand accent, never a
+generic warning, status replacement or large decorative page fill. Green means
+active/success/completed; amber means pending/correction/warning; red means
+destructive/overdue/serious error; slate carries inactive and neutral states.
+Every state retains readable text or an icon cue.
 
 **The Ink Before Ornament Rule.** Use navy or neutral typography to carry
 meaning; gold signals emphasis rather than becoming paragraph text or a
@@ -140,19 +146,20 @@ high-frequency background.
 
 **Body Font:** Inter, with Arial sans-serif fallback.
 
-**Character:** Playfair gives major brand moments a considered advisory tone;
-Inter keeps navigation, tables, forms, buttons, badges, KPIs and charts fast to
-read.
+**Character:** the authenticated application has a modern sans/grotesk visual
+language. Inter, or the existing neutral UI sans, carries page identity,
+navigation, tables, forms, buttons, metrics and dense metadata. Playfair gives
+rare, explicitly editorial brand moments a considered advisory tone; it is not
+the default product heading font.
 
 ### Hierarchy
 
 - **Display:** the public hero ranges from 3rem on mobile to 4.5rem at `sm` and
-  6rem at `lg`, with 0.98 line-height. In the product, reserve display type for
-  major page or brand headings only.
-- **Headline:** the public section headline is 2.25rem, rising to 3rem at `sm`;
-  use this relationship sparingly in the product.
-- **Title:** Playfair titles commonly use 1.25rem to 1.5rem with tight leading;
-  operational card/table titles should normally remain Inter.
+  6rem at `lg`, with 0.98 line-height. In the product, reserve this display
+  voice for rare brand moments only.
+- **Headline:** product page identity and major authenticated headings should
+  normally remain modern sans with tight, confident leading.
+- **Title:** operational card, table and section titles remain Inter/sans.
 - **Body:** public reading copy is Inter at 0.875rem to 1rem, usually with 1.5
   to 1.75 line-height. Dense product content favors the smaller end.
 - **Label:** Inter labels use 700 weight; public eyebrows are 0.7rem, uppercase
@@ -161,8 +168,10 @@ read.
 
 ### Named Rules
 
-**The Working Sans Rule.** Any content scanned repeatedly or compared in rows—
-navigation, data, fields, actions, metrics and charts—uses Inter, not Playfair.
+**The Working Sans Rule.** Anything scanned repeatedly or compared in rows—
+page identity, navigation, data, fields, actions, metrics and charts—uses the
+working sans, not Playfair. Codes, identifiers and aligned numeric values may
+use a tabular or technical treatment where useful.
 
 ## Layout
 
@@ -177,6 +186,50 @@ spaciousness. Use compact page padding, `w-full`, `min-w-0`, dense grids and
 12–16px outer spacing. Desktop tables remain dense; mobile uses a domain-specific
 compact renderer rather than page-level horizontal overflow. The product Sidebar
 switches to mobile below 1024px.
+
+## Page archetypes
+
+One CamConsult design language supports several compositions. Do not copy one
+page literally into another.
+
+### Command Ledger — Dashboard
+
+The Dashboard is the strongest command page: a navy operational surface with
+role-aware real metrics, urgency hierarchy, ledger navigation, asymmetry and
+selective warm/gold work summaries. It answers what needs attention now.
+
+### CamConsult Client Ledger — operational registries
+
+Sociétés establishes the quieter operational-register pattern: a compact navy
+identity banner, contextual inline metrics, dominant search, secondary filters
+and tools, identifiable entities, fine ledger separators, pagination near the
+register controls, quiet overflow actions and semantic statuses. It is a
+registry, not a dashboard or a generic admin table.
+
+### Workflow and process pages
+
+Collectes and Tâches should preserve product identity while prioritizing state,
+next actions and direct workflow information. Prefer a ledger/process
+composition to a card grid, and do not hide repeatedly needed facts behind
+unnecessary disclosure.
+
+### Financial and data-heavy pages
+
+Financial work favors precision over decoration: excellent numeric alignment,
+dense readable tables, clear hierarchy, controlled brand surfaces and restrained
+semantic color. Dashboard treatment is used only when it improves the task.
+
+## Ledger rhythm and entity identity
+
+Prefer an entity row followed by a fine rule over stacks of cards. Use
+name-first hierarchy, small controlled monograms where recognition benefits,
+useful metadata, category, identifier and state. Monograms are tonal CamConsult
+markers, never random rainbow avatars or consumer-profile cards.
+
+Operational tables may retain DataTable behavior internally while presenting
+quiet chrome externally. Keep the first/entity column strong, promote frequently
+needed operational facts into direct columns, and reserve expansion for genuinely
+secondary information.
 
 ## Elevation & Depth
 
@@ -226,6 +279,10 @@ Public cards use white or warm-paper surfaces, one-pixel fine rules and usually
 gold rule. Product cards should retain the surface/rule language while using
 compact padding and minimal elevation.
 
+Cards are for self-contained content, meaningful comparison or focused work;
+they are not the default wrapper for every metric, row, empty state or page
+section. Prefer ledger composition, typography and rules first.
+
 ### Inputs / Fields
 
 Public fields are warm-paper filled with a fine input rule, 0.25rem corners and
@@ -248,15 +305,48 @@ turn gold on hover. Gold badges pair gold fill with navy text. Product charts us
 the same restrained family but must retain labels/legends and semantic state
 colors; no chart or badge may depend on color alone.
 
+## Controls, selection and disclosure
+
+Each page has one clear primary action. Search is the dominant registry utility;
+filters are secondary; export, print and column controls belong in Actions or
+Outils; pagination is compact and visible when it supports the workflow. Avoid
+long rows of equally weighted buttons and permanent bulk controls when nothing
+is selected.
+
+Selection uses a pale warm-gold treatment, a fine gold structural cue, an
+explicit count and grouped non-destructive actions. Destructive actions remain
+red and separate. Statuses use a small semantic marker plus readable text;
+oversized pills are unnecessary when a quieter status is sufficient.
+
+Use expansion only for genuinely secondary information. If a fact is frequently
+needed, operationally important or repeatedly accessed, expose it directly in
+the register when layout allows. Primary interactions stay discoverable;
+secondary row actions can live in overflow menus.
+
+## Responsive composition
+
+Mobile is an intentional composition, not compressed desktop. Recompose
+registry rows, retain useful hierarchy and reachable actions, keep search/filter
+usable, avoid page-level horizontal scrolling, and use an explicit selection
+mode when needed. A mobile-only FAB is appropriate only for one obvious create
+action and disappears during selection mode.
+
+## Interaction and accessibility
+
+Preserve visible focus, named icon controls, keyboard-accessible menus and tabs,
+adequate touch targets, linked form labels and selected states that are not
+color-only.
+
 ## Do's and Don'ts
 
 ### Do:
 
 - **Do** use the frontmatter tokens as the canonical brand reference.
-- **Do** reserve Playfair for major headings and use Inter for operational UI.
-- **Do** use gold as a small, confident brand accent paired with navy.
-- **Do** keep product cards, forms, tables and navigation compact, bordered and
-  easy to scan.
+- **Do** reserve Playfair for rare brand/display moments and use the working
+  sans for authenticated headings and operational UI.
+- **Do** use gold as a small structural brand accent paired with navy.
+- **Do** keep product forms, tables and navigation compact, ruled and easy to
+  scan; use cards only when they improve hierarchy.
 - **Do** preserve distinct semantic success, warning, destructive/overdue and
   informational treatments in the authenticated app.
 
@@ -269,3 +359,10 @@ colors; no chart or badge may depend on color alone.
   charts.
 - **Don't** replace fine rules with heavy shadows or arbitrary colorful surfaces.
 - **Don't** communicate a product state with color alone.
+- **Don't** turn every module into a Dashboard command surface or every entity
+  into a card.
+- **Don't** hide important workflow information behind a chevron just to make a
+  register look simpler.
+- **Don't** use generic shadcn-looking layouts, default admin-table composition,
+  pill-heavy interfaces, giant rounded wrappers, gradients, glassmorphism,
+  decorative animation, rainbow entity avatars or page-level horizontal scroll.

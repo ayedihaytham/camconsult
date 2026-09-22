@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ChevronDown,
-  ChevronRight,
   Copy,
   Download,
   Filter,
@@ -13,17 +12,17 @@ import {
   Plus,
   Printer,
   Search,
+  Settings2,
   Trash2,
   Eye,
 } from "lucide-react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, Table as TanstackTable } from "@tanstack/react-table";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { FilterChip } from "@/components/ledger/FilterChip";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
-import { DataTableViewOptions } from "@/components/data-table/DataTableViewOptions";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { STATUT_LABELS } from "@/components/common/badges";
@@ -32,6 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -42,98 +42,40 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
-import { avatarColor, cn, formatRelative, sinceLabel } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { THEME_OPTIONS } from "@/lib/societeTheme";
 import {
   useData,
   useSocietes,
-  useSocieteEmployes,
   useTaches,
   nextSocieteCode,
 } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
 import { logJournal } from "@/store/journal";
-import { employeNomComplet } from "@/data/employes";
 import type { Societe, SocieteTheme, Statut } from "@/types";
 import { SocieteFormSheet, type SocieteFormValues } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
 
-/** Panneau de l'accordéon inline (voir LedgerTable `renderExpanded`) —
- * composant à part entière (et non une fonction inline appelée pour chaque
- * ligne dépliée) car il a besoin de ses propres hooks de données ; les
- * appeler directement dans le rendu de LedgerTable violerait les règles des
- * hooks (nombre d'appels variable selon les lignes ouvertes). */
-function SocieteExpandedPanel({
-  societe,
-  onOpenFull,
-}: {
-  societe: Societe;
-  onOpenFull: () => void;
-}) {
-  const contacts = useSocieteEmployes(societe.id);
-  const allTaches = useTaches();
-  const tachesOuvertes = useMemo(
-    () =>
-      allTaches
-        .filter((t) => t.societeId === societe.id && t.statut !== "termine")
-        .sort((a, b) => a.creeLe.localeCompare(b.creeLe)),
-    [allTaches, societe.id],
-  );
+const MONOGRAM_TONES = [
+  "border-primary/15 bg-primary/[0.07] text-primary",
+  "border-border bg-secondary text-primary/80",
+  "border-accent/35 bg-accent/10 text-primary",
+] as const;
 
-  return (
-    <div className="grid gap-3 border-t border-border/70 px-4 py-3 sm:grid-cols-[1fr_1fr_auto]">
-      <div className="min-w-0">
-        <p className="mb-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-muted-foreground">
-          Contacts clés
-        </p>
-        {contacts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucun contact enregistré.
-          </p>
-        ) : (
-          <ul className="space-y-1">
-            {contacts.slice(0, 3).map((c) => (
-              <li key={c.id} className="truncate text-sm text-foreground">
-                {employeNomComplet(c)}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <div className="min-w-0">
-        <p className="mb-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-muted-foreground">
-          Tâches en cours
-        </p>
-        {tachesOuvertes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucune tâche en attente.
-          </p>
-        ) : (
-          <>
-            <p className="text-sm text-foreground">
-              {tachesOuvertes.length} tâche
-              {tachesOuvertes.length > 1 ? "s" : ""} en attente
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              La plus ancienne : « {tachesOuvertes[0].titre} » —{" "}
-              {formatRelative(tachesOuvertes[0].creeLe)}
-            </p>
-          </>
-        )}
-      </div>
-      <div className="flex items-start">
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-full"
-          onClick={onOpenFull}
-        >
-          <Eye className="h-3.5 w-3.5" />
-          Fiche complète
-        </Button>
-      </div>
-    </div>
+function societeInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length > 1) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function monogramTone(seed: string) {
+  const index = Array.from(seed).reduce(
+    (total, character) => total + character.charCodeAt(0),
+    0,
   );
+  return MONOGRAM_TONES[index % MONOGRAM_TONES.length];
 }
 
 function BulkActionsMenu({
@@ -240,20 +182,27 @@ function SocietesFilterMenu({
 }
 
 function SocietesUtilityMenu({
+  table,
   onExport,
   onPrint,
 }: {
+  table: TanstackTable<Societe>;
   onExport: (format: ExportFormat) => void;
   onPrint: () => void;
 }) {
+  const hideableColumns = table
+    .getAllColumns()
+    .filter((column) => column.getCanHide() && column.accessorFn);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="sm" className="shadow-none">
-          <span className="hidden sm:inline">Actions</span>
+          <Settings2 className="hidden size-3.5 sm:block" />
+          <span className="hidden sm:inline">Outils</span>
           <MoreHorizontal className="size-4 sm:hidden" />
           <ChevronDown className="hidden size-3.5 opacity-70 sm:block" />
-          <span className="sr-only sm:hidden">Actions de la liste</span>
+          <span className="sr-only sm:hidden">Outils de la liste</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -276,6 +225,24 @@ function SocietesUtilityMenu({
           <Printer className="size-4" />
           Imprimer
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Settings2 className="size-4" />
+            Colonnes
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {hideableColumns.map((column) => (
+              <DropdownMenuCheckboxItem
+                key={column.id}
+                checked={column.getIsVisible()}
+                onCheckedChange={(visible) => column.toggleVisibility(visible)}
+              >
+                {column.columnDef.meta?.label ?? column.id}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -284,10 +251,20 @@ function SocietesUtilityMenu({
 export function SocietesListPage() {
   const navigate = useNavigate();
   const allRows = useSocietes();
-  const { isAdmin, can, canSeeSociete } = usePermissions();
+  const { isAdmin, isCollaborateur, can, canSeeSociete } = usePermissions();
   const rows = useMemo(
     () => allRows.filter((s) => canSeeSociete(s.id)),
     [allRows, canSeeSociete],
+  );
+  const registerSummary = useMemo(
+    () => ({
+      total: rows.length,
+      actif: rows.filter((societe) => societe.statut === "actif").length,
+      enAttente: rows.filter((societe) => societe.statut === "en_attente")
+        .length,
+      inactif: rows.filter((societe) => societe.statut === "inactif").length,
+    }),
+    [rows],
   );
   const canEdit = isAdmin || can("modifierSocietes");
   const canDelete = isAdmin || can("supprimer");
@@ -297,8 +274,9 @@ export function SocietesListPage() {
   const duplicateSociete = useData((s) => s.duplicateSociete);
   const deleteSocietes = useData((s) => s.deleteSocietes);
   const employes = useData((s) => s.employes);
+  const taches = useTaches();
   const isDataLoading = useData((s) => !s.hydrated);
-  const employeCount = useMemo(() => {
+  const contactCount = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of employes) {
       if (e.role === "societe_employe" && e.societeId)
@@ -306,13 +284,21 @@ export function SocietesListPage() {
     }
     return m;
   }, [employes]);
+  const openTaskCount = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (!isCollaborateur) return counts;
+    for (const task of taches) {
+      if (task.statut !== "termine") {
+        counts.set(task.societeId, (counts.get(task.societeId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [isCollaborateur, taches]);
   const [search, setSearch] = useState("");
   const [themeFilter, setThemeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [mobileSelectionMode, setMobileSelectionMode] = useState(false);
-  const [expandedIds, setExpandedIds] = useState<string[]>([]);
-
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Societe | null>(null);
   const [viewing, setViewing] = useState<Societe | null>(null);
@@ -484,6 +470,11 @@ export function SocietesListPage() {
   function societeMenuActions(s: Societe) {
     return [
       {
+        icon: Eye,
+        label: "Voir la fiche",
+        onClick: () => openView(s),
+      },
+      {
         icon: FolderOpen,
         label: "Mes dossiers",
         onClick: () => navigate(`/structuration?societe=${s.id}`),
@@ -560,46 +551,6 @@ export function SocietesListPage() {
       },
     },
     {
-      id: "details",
-      enableHiding: false,
-      enableSorting: false,
-      header: () => null,
-      cell: ({ row }) => {
-        const expanded = expandedIds.includes(row.original.id);
-        return (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="size-7 shadow-none"
-            aria-label={
-              expanded ? "Masquer les détails" : "Afficher les détails"
-            }
-            aria-expanded={expanded}
-            onClick={(event) => {
-              event.stopPropagation();
-              setExpandedIds((ids) =>
-                expanded
-                  ? ids.filter((id) => id !== row.original.id)
-                  : [...ids, row.original.id],
-              );
-            }}
-          >
-            <ChevronRight
-              className={cn(
-                "size-4 transition-transform",
-                expanded && "rotate-90",
-              )}
-            />
-          </Button>
-        );
-      },
-      meta: {
-        headerClassName: "w-9 px-1",
-        cellClassName: "w-9 px-1",
-      },
-    },
-    {
       id: "raisonSociale",
       accessorFn: (societe) => societe.raisonSociale.toLowerCase(),
       header: ({ column }) => (
@@ -607,34 +558,73 @@ export function SocietesListPage() {
       ),
       cell: ({ row }) => {
         const s = row.original;
-        const n = employeCount.get(s.id) ?? 0;
         return (
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-3">
             <span
               className={cn(
-                "flex size-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold",
-                avatarColor(s.id),
+                "societes-ledger-monogram flex size-8 shrink-0 items-center justify-center rounded-lg border text-[10px] font-bold tracking-wide",
+                monogramTone(s.id),
               )}
               aria-hidden
             >
-              {s.raisonSociale.slice(0, 2).toUpperCase()}
+              {societeInitials(s.raisonSociale)}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold leading-[15px] text-foreground">
+              <p className="truncate text-[13px] font-semibold leading-4 text-foreground">
                 {s.raisonSociale}
               </p>
-              <p className="truncate text-[11px] leading-[13px] text-muted-foreground">
-                {n === 0 ? "Aucun employé" : `${n} employé${n > 1 ? "s" : ""}`}{" "}
-                · {sinceLabel(s.creeLe, "Client depuis")}
-              </p>
-              <p className="truncate text-[11px] leading-[13px] text-muted-foreground/75">
-                {s.rne || "—"} · {s.tva || "—"} · {s.theme}
+              <p className="societes-ledger-meta truncate text-[11px] leading-4 text-muted-foreground">
+                {s.theme} · {s.rne || "RNE non renseigné"}
               </p>
             </div>
           </div>
         );
       },
-      meta: { label: "Société", headerClassName: "w-[55%]" },
+      meta: { label: "Société", headerClassName: "w-[38%]" },
+    },
+    {
+      id: "contactCle",
+      accessorFn: (societe) => contactCount.get(societe.id) ?? 0,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Contact clé" />
+      ),
+      cell: ({ row }) => {
+        const count = contactCount.get(row.original.id) ?? 0;
+        if (count === 0) {
+          return <span className="text-xs text-muted-foreground/70">—</span>;
+        }
+
+        return (
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium text-foreground">
+              Contact clé non désigné
+            </p>
+            <p className="societes-ledger-meta truncate text-[11px] text-muted-foreground">
+              {count} contact{count > 1 ? "s" : ""} enregistré{count > 1 ? "s" : ""}
+            </p>
+          </div>
+        );
+      },
+      meta: { label: "Contact clé", headerClassName: "w-[22%]" },
+    },
+    {
+      id: "tachesOuvertes",
+      accessorFn: (societe) => openTaskCount.get(societe.id) ?? 0,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Tâches en cours" />
+      ),
+      cell: ({ row }) => {
+        if (!isCollaborateur) {
+          return <span className="text-xs text-muted-foreground">—</span>;
+        }
+        const count = openTaskCount.get(row.original.id) ?? 0;
+        return (
+          <span className="text-xs font-semibold tabular-nums text-foreground">
+            {count}
+          </span>
+        );
+      },
+      meta: { label: "Tâches en cours", headerClassName: "w-32" },
     },
     {
       accessorKey: "code",
@@ -642,25 +632,19 @@ export function SocietesListPage() {
         <DataTableColumnHeader column={column} title="Code" />
       ),
       cell: ({ row }) => (
-        <span className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-xs text-foreground">
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
           {row.original.code}
         </span>
       ),
-      meta: { label: "Code", headerClassName: "w-28" },
+      meta: { label: "Code", headerClassName: "w-24" },
     },
     {
       accessorKey: "statut",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Statut" />
       ),
-      cell: ({ row }) => (
-        <StatutDot
-          statut={row.original.statut}
-          pill
-          pulse={row.original.statut === "actif"}
-        />
-      ),
-      meta: { label: "Statut", headerClassName: "w-32" },
+      cell: ({ row }) => <StatutDot statut={row.original.statut} />,
+      meta: { label: "Statut", headerClassName: "w-28" },
     },
     {
       id: "actions",
@@ -671,44 +655,16 @@ export function SocietesListPage() {
         const s = row.original;
         return (
           <div
-            className="flex items-center justify-end gap-0.5"
+            className="flex items-center justify-end"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Actions rapides : masquées par défaut, révélées au survol de la
-              ligne ET au focus clavier (group-focus-within) — jamais
-              seulement au survol, pour rester utilisables sans souris. */}
-            <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-              <button
-                type="button"
-                onClick={() => openView(s)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                aria-label={`Voir ${s.raisonSociale}`}
-                title="Voir"
-              >
-                <Eye className="h-3.5 w-3.5" />
-              </button>
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditing(s);
-                    setFormOpen(true);
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                  aria-label={`Modifier ${s.raisonSociale}`}
-                  title="Modifier"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
             <LedgerRowMenu actions={societeMenuActions(s)} />
           </div>
         );
       },
       meta: {
-        headerClassName: "w-24",
-        cellClassName: "w-24",
+        headerClassName: "w-10",
+        cellClassName: "w-10",
       },
     },
   ];
@@ -720,6 +676,13 @@ export function SocietesListPage() {
     initialSorting: [{ id: "raisonSociale", desc: false }],
     resetKey: `${search}\u0000${themeFilter}\u0000${statutFilter}`,
   });
+  const currentPageIds = table.getRowModel().rows.map((row) => row.original.id);
+  const isCurrentPageSelected =
+    currentPageIds.length > 0 &&
+    currentPageIds.every((id) => selectedIds.includes(id));
+  const isCurrentPagePartlySelected = currentPageIds.some((id) =>
+    selectedIds.includes(id),
+  );
 
   const emptyMessage =
     rows.length === 0
@@ -751,122 +714,96 @@ export function SocietesListPage() {
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-1 flex-col",
+        "societes-ledger-page flex min-w-0 flex-1 flex-col",
         canEdit && !isMobileSelectionActive && "pb-20 lg:pb-0",
       )}
     >
-      <header className="mb-2 flex min-w-0 items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold leading-6 tracking-tight text-primary">
-            Sociétés
-          </h1>
-          <p className="mt-0.5 text-sm leading-4 text-muted-foreground">
-            {isAdmin
-              ? "Gestion des clients du cabinet"
-              : "Sociétés auxquelles vous avez accès"}
-          </p>
+      <header className="societes-ledger-banner mb-2 overflow-hidden rounded-lg bg-primary text-primary-foreground">
+        <div className="societes-ledger-banner-top flex min-w-0 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold leading-7 tracking-tight">
+              Sociétés
+            </h1>
+            <p className="mt-0.5 text-sm text-primary-foreground/72">
+              {isAdmin
+                ? "Registre des clients du cabinet"
+                : "Registre des sociétés auxquelles vous avez accès"}
+            </p>
+          </div>
+          {canEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              className="hidden shrink-0 border-accent/60 bg-transparent text-accent shadow-none hover:bg-primary-foreground/10 hover:text-accent lg:inline-flex"
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="size-4" />
+              Ajouter une société
+            </Button>
+          )}
         </div>
-        {canEdit && (
-          <Button
-            type="button"
-            className="hidden shrink-0 lg:inline-flex"
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="size-4" />
-            Ajouter une société
-          </Button>
-        )}
+        <div className="societes-ledger-banner-rule mx-4 border-t border-accent/60 sm:mx-5" />
+        <dl className="societes-ledger-metrics grid grid-cols-2 px-4 py-2 sm:px-5 md:flex md:divide-x md:divide-primary-foreground/15">
+          {[
+            ["Sociétés", registerSummary.total],
+            ["Actives", registerSummary.actif],
+            ["En attente", registerSummary.enAttente],
+            ["Inactive", registerSummary.inactif],
+          ].map(([label, value], index) => (
+            <div
+              key={label}
+              className={cn(
+                "min-w-0 py-1 pr-3 md:flex-1 md:px-4 md:py-0 md:first:pl-0",
+                index % 2 === 0 &&
+                  "border-r border-primary-foreground/15 md:border-r-0",
+                index % 2 === 1 && "pl-3 md:pl-4",
+                index > 1 &&
+                  "border-t border-primary-foreground/15 md:border-t-0",
+              )}
+            >
+              <dt className="truncate text-[0.67rem] font-medium uppercase tracking-[0.08em] text-primary-foreground/58">
+                {label}
+              </dt>
+              <dd className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </header>
 
-      {selectedIds.length > 0 ? (
-        <div className="mb-3 hidden items-center justify-between gap-4 border-y border-primary/20 bg-primary px-3 py-2 text-primary-foreground lg:flex">
-          <span className="text-sm font-semibold">
-            {selectedIds.length} société{selectedIds.length > 1 ? "s" : ""}{" "}
-            sélectionnée{selectedIds.length > 1 ? "s" : ""}
-          </span>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-              onClick={() => handleExport("xlsx")}
-            >
-              Exporter
-            </Button>
-            {canEdit && (
-              <BulkActionsMenu
-                inverse
-                onExport={() => handleExport("xlsx")}
-                onSetTheme={(theme) => void bulkSetTheme(theme)}
-                onSetInactive={() => void bulkSetInactive()}
-              />
-            )}
-            {canDelete && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
-                onClick={() => setBulkDeleteOpen(true)}
-              >
-                Supprimer
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-              onClick={clearSelection}
-            >
-              Annuler
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="mb-2 hidden min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-y border-border/80 py-1 lg:flex">
-          <div className="flex min-w-0 flex-1 basis-full items-center gap-2 xl:basis-auto">
-            <div className="relative min-w-0 flex-1 max-w-xl">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Rechercher une société, RNE ou code"
-                aria-label="Rechercher une société"
-                className="h-9 bg-card pl-9 shadow-none"
-              />
-            </div>
-            <SocietesFilterMenu
-              onSetTheme={setThemeFilter}
-              onSetStatut={setStatutFilter}
+      {selectedIds.length === 0 && (
+        <div className="societes-ledger-toolbar mb-1 hidden min-w-0 items-center gap-2 border-y border-border/80 bg-secondary/45 px-2 py-1 lg:flex">
+          <div className="relative min-w-0 max-w-2xl flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher une société, RNE ou code"
+              aria-label="Rechercher une société"
+              className="h-8 bg-background pl-9 shadow-none"
             />
           </div>
-          <div className="ml-auto flex w-full min-w-0 items-center justify-end gap-1 xl:w-auto">
-            <DataTablePagination
-              table={table}
-              itemLabel="sociétés"
-              variant="count"
-              className="mr-1 whitespace-nowrap"
-            />
-            <DataTablePagination
-              table={table}
-              itemLabel="sociétés"
-              variant="controls"
-            />
+          <SocietesFilterMenu
+            onSetTheme={setThemeFilter}
+            onSetStatut={setStatutFilter}
+          />
+          <div className="ml-auto">
             <SocietesUtilityMenu
+              table={table}
               onExport={handleExport}
               onPrint={handlePrint}
             />
-            <DataTableViewOptions table={table} />
           </div>
         </div>
       )}
 
-      {filterChips && <div className="mb-3 hidden lg:block">{filterChips}</div>}
+      {filterChips && selectedIds.length === 0 && (
+        <div className="mb-2 hidden lg:block">{filterChips}</div>
+      )}
 
       {!isMobileSelectionActive && (
         <div className="mb-3 min-w-0 space-y-2 lg:hidden">
@@ -896,6 +833,7 @@ export function SocietesListPage() {
                 Sélectionner
               </Button>
               <SocietesUtilityMenu
+                table={table}
                 onExport={handleExport}
                 onPrint={handlePrint}
               />
@@ -922,30 +860,127 @@ export function SocietesListPage() {
         </div>
       )}
 
+      <div className="societes-ledger-register-heading flex min-w-0 items-center justify-between gap-3 border-b border-border/80 py-1">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Checkbox
+            checked={
+              isCurrentPageSelected
+                ? true
+                : isCurrentPagePartlySelected
+                  ? "indeterminate"
+                  : false
+            }
+            onCheckedChange={() =>
+              setSelectedIds(
+                isCurrentPageSelected
+                  ? selectedIds.filter((id) => !currentPageIds.includes(id))
+                  : [...new Set([...selectedIds, ...currentPageIds])],
+              )
+            }
+            aria-label="Sélectionner la page"
+            className="hidden lg:flex"
+          />
+          <div className="min-w-0">
+            <h2>
+              <DataTableColumnHeader
+                column={table.getColumn("raisonSociale")!}
+                title="Registre client"
+                className="h-7 text-[11px] font-bold uppercase tracking-[0.12em] text-primary"
+              />
+            </h2>
+          </div>
+        </div>
+        <div className="hidden items-center gap-2 lg:flex">
+          <DataTablePagination
+            table={table}
+            itemLabel="sociétés"
+            variant="count"
+          />
+          <DataTablePagination
+            table={table}
+            itemLabel="sociétés"
+            variant="controls"
+          />
+        </div>
+        <DataTablePagination
+          table={table}
+          itemLabel="sociétés"
+          variant="mobile"
+          className="min-w-0 flex-1 justify-end border-0 p-0 lg:hidden"
+        />
+      </div>
+
+      {selectedIds.length > 0 && (
+        <div className="hidden items-center justify-between gap-4 bg-primary px-3 py-2 text-primary-foreground lg:flex">
+          <span className="text-sm font-semibold">
+            {selectedIds.length} société{selectedIds.length > 1 ? "s" : ""}{" "}
+            sélectionnée{selectedIds.length > 1 ? "s" : ""}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              onClick={() => handleExport("xlsx")}
+            >
+              Exporter
+            </Button>
+            {canEdit && (
+              <BulkActionsMenu
+                inverse
+                onSetTheme={(theme) => void bulkSetTheme(theme)}
+                onSetInactive={() => void bulkSetInactive()}
+              />
+            )}
+            {canDelete && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+                onClick={() => setBulkDeleteOpen(true)}
+              >
+                Supprimer
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              onClick={clearSelection}
+            >
+              Annuler
+            </Button>
+          </div>
+        </div>
+      )}
+
       <DataTable
-        className="[&>div:last-child]:space-y-0"
+        className="societes-ledger-table [&>div:last-child]:space-y-0"
         desktopDensity="compact"
+        desktopVariant="register"
         table={table}
         emptyMessage={emptyMessage}
         isLoading={isDataLoading}
+        getRowClassName={(row) =>
+          selectedIds.includes(row.original.id)
+            ? "bg-accent/[0.09] hover:bg-accent/[0.12] [&>td:first-child]:border-l [&>td:first-child]:border-accent"
+            : undefined
+        }
         onRowClick={(row) => openView(row.original)}
-        isRowExpanded={(row) => expandedIds.includes(row.original.id)}
-        renderSubComponent={(row) => (
-          <SocieteExpandedPanel
-            societe={row.original}
-            onOpenFull={() => openView(row.original)}
-          />
-        )}
         mobileRow={(row) => {
           const s = row.original;
-          const n = employeCount.get(s.id) ?? 0;
+          const contacts = contactCount.get(s.id) ?? 0;
+          const tasks = openTaskCount.get(s.id) ?? 0;
           const selected = selectedIds.includes(s.id);
           return (
             <article
               data-state={selected ? "selected" : undefined}
-              className="min-w-0 border-b border-border/80 px-1 py-3 data-[state=selected]:bg-primary/[0.03]"
+              className="relative min-w-0 border-b border-border/80 px-1 py-3 data-[state=selected]:bg-accent/[0.09] data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-2 data-[state=selected]:before:left-0 data-[state=selected]:before:w-px data-[state=selected]:before:bg-accent"
             >
-              <div className="flex min-w-0 items-start gap-2">
+              <div className="flex min-w-0 items-center gap-2.5">
                 {isMobileSelectionActive && (
                   <Checkbox
                     checked={selected}
@@ -957,9 +992,18 @@ export function SocietesListPage() {
                       )
                     }
                     aria-label={`Sélectionner ${s.raisonSociale}`}
-                    className="mt-1 shrink-0"
+                    className="shrink-0"
                   />
                 )}
+                <span
+                  className={cn(
+                    "flex size-8 shrink-0 items-center justify-center rounded-lg border text-[10px] font-bold tracking-wide",
+                    monogramTone(s.id),
+                  )}
+                  aria-hidden
+                >
+                  {societeInitials(s.raisonSociale)}
+                </span>
                 <div className="min-w-0 flex-1">
                   {isMobileSelectionActive ? (
                     <p className="break-words text-sm font-semibold text-foreground">
@@ -974,8 +1018,8 @@ export function SocietesListPage() {
                       {s.raisonSociale}
                     </button>
                   )}
-                  <p className="mt-0.5 break-words text-xs text-muted-foreground">
-                    {s.code} · {s.theme}
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {s.theme} · {s.code} · {s.rne || "RNE non renseigné"}
                   </p>
                 </div>
                 {!isMobileSelectionActive && (
@@ -985,27 +1029,26 @@ export function SocietesListPage() {
                 )}
               </div>
               <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-xs text-muted-foreground">
-                <span className="truncate">
-                  {n === 0
-                    ? "Aucun employé"
-                    : `${n} employé${n > 1 ? "s" : ""}`}
-                </span>
-                <StatutDot
-                  statut={s.statut}
-                  pill
-                  pulse={s.statut === "actif"}
-                />
+                <div
+                  className={cn(
+                    "flex min-w-0 items-center gap-2",
+                    isMobileSelectionActive ? "pl-[66px]" : "pl-[42px]",
+                  )}
+                >
+                  <span className="truncate">
+                    {contacts === 0 ? "Aucun contact" : "Contact clé non désigné"}
+                  </span>
+                  {isCollaborateur && (
+                    <span className="shrink-0 tabular-nums">
+                      {tasks} tâche{tasks === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </div>
+                <StatutDot statut={s.statut} />
               </div>
             </article>
           );
         }}
-        mobileFooter={
-          <DataTablePagination
-            table={table}
-            itemLabel="sociétés"
-            variant="mobile"
-          />
-        }
       />
 
       {canEdit && !isMobileSelectionActive && (

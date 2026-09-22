@@ -23,7 +23,14 @@ const schema = z.object({
   envoyeLe: z.string().optional(),
   statut: z.enum(["envoye", "lu"]).default("envoye"),
   pieceJointe: z
-    .object({ noeudId: z.string(), libelle: z.string() })
+    .object({
+      libelle: z.string(),
+      dataUrl: z.string().max(12_000_000).optional(),
+      mime: z.string().optional(),
+      tailleOctets: z.number().optional(),
+      // Ancien format — référence à un document de la Structuration.
+      noeudId: z.string().optional(),
+    })
     .nullish(),
 });
 

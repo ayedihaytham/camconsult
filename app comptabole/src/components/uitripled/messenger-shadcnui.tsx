@@ -18,17 +18,17 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+
+export interface MessengerAttachment {
+  libelle: string;
+  dataUrl?: string;
+  mime?: string;
+  tailleOctets?: number;
+  noeudId?: string;
+}
 
 export interface MessengerConversationItem {
   id: string;
@@ -64,12 +64,7 @@ export interface MessengerMessageItem {
   showAuthor: boolean;
   isMine: boolean;
   isRead: boolean;
-  attachment?: { noeudId: string; libelle: string };
-}
-
-export interface MessengerAttachmentItem {
-  id: string;
-  label: string;
+  attachment?: MessengerAttachment;
 }
 
 interface MessengerProps {
@@ -80,8 +75,7 @@ interface MessengerProps {
   mobileView: "list" | "chat";
   search: string;
   draft: string;
-  attachment: { noeudId: string; libelle: string } | null;
-  attachmentItems: MessengerAttachmentItem[];
+  attachment: MessengerAttachment | null;
   canCreateGroup: boolean;
   emptyConversationDescription: string;
   messagesContainerRef: RefObject<HTMLDivElement>;
@@ -92,10 +86,7 @@ interface MessengerProps {
   onEditGroup: () => void;
   onDeleteGroup: () => void;
   onDraftChange: (value: string) => void;
-  onSelectAttachment: (attachment: {
-    noeudId: string;
-    libelle: string;
-  }) => void;
+  onFileSelected: (file: File) => void;
   onRemoveAttachment: () => void;
   onSend: () => void;
 }
@@ -153,7 +144,6 @@ export function Messenger({
   search,
   draft,
   attachment,
-  attachmentItems,
   canCreateGroup,
   emptyConversationDescription,
   messagesContainerRef,
@@ -164,12 +154,13 @@ export function Messenger({
   onEditGroup,
   onDeleteGroup,
   onDraftChange,
-  onSelectAttachment,
+  onFileSelected,
   onRemoveAttachment,
   onSend,
 }: MessengerProps) {
   const shouldReduceMotion = useReducedMotion();
   const liveRegionRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
@@ -441,19 +432,34 @@ export function Messenger({
                               </p>
                             )}
                             {message.attachment && (
-                              <div
+                              <a
+                                href={message.attachment.dataUrl ?? "#"}
+                                download={message.attachment.libelle}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-disabled={!message.attachment.dataUrl}
+                                onClick={(e) => {
+                                  if (!message.attachment?.dataUrl) e.preventDefault();
+                                }}
                                 className={cn(
-                                  "mt-1.5 flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2",
+                                  "mt-1.5 flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors",
+                                  message.attachment.dataUrl && "cursor-pointer hover:brightness-95",
+                                  !message.attachment.dataUrl && "cursor-not-allowed opacity-70",
                                   message.isMine
                                     ? "border-white/20 bg-white/10"
                                     : "border-border bg-muted/60",
                                 )}
+                                title={
+                                  message.attachment.dataUrl
+                                    ? "Ouvrir la pièce jointe"
+                                    : "Pièce jointe non disponible (fichier trop volumineux ou ancien message)"
+                                }
                               >
                                 <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                <span className="min-w-0 break-all text-xs font-medium">
+                                <span className="min-w-0 break-all text-xs font-medium underline-offset-2">
                                   {message.attachment.libelle}
                                 </span>
-                              </div>
+                              </a>
                             )}
                             <div
                               className={cn(
@@ -505,49 +511,27 @@ export function Messenger({
               )}
 
               <div className="flex min-w-0 items-end gap-1.5 rounded-xl border border-input bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 rounded-lg text-muted-foreground"
-                      aria-label="Joindre un document"
-                      title={
-                        attachmentItems.length === 0
-                          ? "Aucun document dans la structuration à joindre — déposez-en d'abord depuis Structuration"
-                          : "Joindre un document"
-                      }
-                      disabled={attachmentItems.length === 0}
-                    >
-                      <Paperclip className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    side="top"
-                    className="max-h-72 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto"
-                  >
-                    <DropdownMenuLabel>
-                      Joindre un document de la structuration
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {attachmentItems.map((item) => (
-                      <DropdownMenuItem
-                        key={item.id}
-                        onClick={() =>
-                          onSelectAttachment({
-                            noeudId: item.id,
-                            libelle: item.label,
-                          })
-                        }
-                      >
-                        <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        <span className="truncate">{item.label}</span>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) onFileSelected(file);
+                    event.target.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 rounded-lg text-muted-foreground"
+                  aria-label="Joindre un fichier"
+                  title="Joindre un fichier (PC, photo ou fichier du téléphone)"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip className="h-4 w-4" aria-hidden="true" />
+                </Button>
 
                 <label htmlFor="messenger-editor" className="sr-only">
                   Écrivez un message

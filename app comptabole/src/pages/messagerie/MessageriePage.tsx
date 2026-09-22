@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import {
   Messenger,
   type MessengerActiveConversation,
+  type MessengerAttachment,
   type MessengerConversationItem,
   type MessengerMessageItem,
 } from "@/components/uitripled/messenger-shadcnui";
 import { employeNomComplet } from "@/data/employes";
 import { usePermissions } from "@/hooks/usePermissions";
+import { formatFileSize, readFileAsDataUrl } from "@/lib/file";
 import {
   avatarColor,
   formatDayLabel,
@@ -27,11 +30,25 @@ import {
   useNoeuds,
   useSocietes,
 } from "@/store/data";
-import type { Conversation } from "@/types";
+import type { Conversation, Message, Noeud } from "@/types";
 import { GroupeFormDialog } from "./GroupeFormDialog";
 
+/** Les messages envoyés avant l'introduction des pièces jointes directes
+ * référençaient un document de la Structuration (`noeudId`) au lieu de
+ * porter leur propre contenu — on retrouve son `dataUrl` ici pour que ces
+ * anciens messages restent cliquables. */
+function resolveAttachment(
+  pieceJointe: Message["pieceJointe"],
+  noeuds: Noeud[],
+): MessengerAttachment | undefined {
+  if (!pieceJointe) return undefined;
+  if (pieceJointe.dataUrl || !pieceJointe.noeudId) return pieceJointe;
+  const noeud = noeuds.find((n) => n.id === pieceJointe.noeudId);
+  return { ...pieceJointe, dataUrl: noeud?.dataUrl };
+}
+
 export function MessageriePage() {
-  const { isAdmin, can, canSeeSociete, employeId } = usePermissions();
+  const { isAdmin, can, employeId } = usePermissions();
   const adminName = toTitleCase(
     useAuth((state) => state.session?.cabinetNom ?? "Cabinet"),
   );
@@ -44,7 +61,6 @@ export function MessageriePage() {
   const employes = useEmployes();
   const societes = useSocietes();
   const allNoeuds = useNoeuds();
-  const noeuds = allNoeuds.filter((noeud) => canSeeSociete(noeud.societeId));
   const messages = useData((state) => state.messages);
   const addMessage = useData((state) => state.addMessage);
   const markConversationRead = useData(
@@ -72,10 +88,9 @@ export function MessageriePage() {
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
-  const [attachment, setAttachment] = useState<{
-    noeudId: string;
-    libelle: string;
-  } | null>(null);
+  const [attachment, setAttachment] = useState<MessengerAttachment | null>(
+    null,
+  );
   const [groupeFormOpen, setGroupeFormOpen] = useState(false);
   const [groupeEditing, setGroupeEditing] = useState<Conversation | null>(null);
   const [groupeToDelete, setGroupeToDelete] = useState<Conversation | null>(
@@ -178,6 +193,28 @@ export function MessageriePage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [threadMessages.length, activeId]);
 
+  const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+
+  async function handleFileSelected(file: File) {
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error(
+        `Fichier trop volumineux (${formatFileSize(file.size)}) — 8 Mo maximum.`,
+      );
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setAttachment({
+        libelle: file.name,
+        dataUrl,
+        mime: file.type,
+        tailleOctets: file.size,
+      });
+    } catch {
+      toast.error("Impossible de lire ce fichier.");
+    }
+  }
+
   function send() {
     if ((!draft.trim() && !attachment) || !activeId) return;
     addMessage({
@@ -200,8 +237,6 @@ export function MessageriePage() {
     }
     setGroupeEditing(null);
   }
-
-  const fichiers = noeuds.filter((noeud) => noeud.type === "fichier");
 
   if (!hasAccess) {
     return (
@@ -316,7 +351,7 @@ export function MessageriePage() {
         showAuthor,
         isMine,
         isRead: message.statut === "lu",
-        attachment: message.pieceJointe,
+        attachment: resolveAttachment(message.pieceJointe, allNoeuds),
       };
     },
   );
@@ -342,10 +377,6 @@ export function MessageriePage() {
         search={search}
         draft={draft}
         attachment={attachment}
-        attachmentItems={fichiers.map((file) => ({
-          id: file.id,
-          label: file.libelle,
-        }))}
         canCreateGroup={isAdmin}
         emptyConversationDescription={
           isAdmin
@@ -372,7 +403,7 @@ export function MessageriePage() {
           if (activeConversation) setGroupeToDelete(activeConversation);
         }}
         onDraftChange={setDraft}
-        onSelectAttachment={setAttachment}
+        onFileSelected={handleFileSelected}
         onRemoveAttachment={() => setAttachment(null)}
         onSend={send}
       />

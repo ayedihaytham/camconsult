@@ -604,7 +604,15 @@ export interface Message {
   contenu: string;
   envoyeLe: string;
   statut: MessageStatut;
-  pieceJointe?: { noeudId: string; libelle: string };
+  pieceJointe?: {
+    libelle: string;
+    /** Nouveau format — fichier joint directement au message (PC ou téléphone). */
+    dataUrl?: string;
+    mime?: string;
+    tailleOctets?: number;
+    /** Ancien format — référence à un document déjà présent dans la Structuration. */
+    noeudId?: string;
+  };
 }
 
 export type ConversationType = "direct" | "groupe";

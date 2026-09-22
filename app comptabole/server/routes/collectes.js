@@ -79,16 +79,31 @@ async function loadCollecte(id) {
   };
 }
 
-/** Qui peut écrire une note : admin ou client de société (pas le collaborateur). */
-function canPostNote(session, societeId) {
+/** Cabinet (admin ou collaborateur du périmètre de cette société) — jamais
+ * le client. L'équipe qui a accès à une collecte doit pouvoir y agir comme
+ * le cabinet : ajouter des notes, envoyer/clore un récap par tableau — pas
+ * seulement consulter. */
+function isCabinet(session, societeId) {
   if (session.role === "admin") return true;
+  return (
+    session.poste === "collaborateur" &&
+    (session.societeIds || []).includes(societeId)
+  );
+}
+
+/** Qui peut écrire une note : le cabinet (admin/collaborateur) ou le client
+ * de la société. */
+function canPostNote(session, societeId) {
+  if (isCabinet(session, societeId)) return true;
   return (
     session.poste === "societe_employe" &&
     (session.societeIds || []).includes(societeId)
   );
 }
+// Un collaborateur reste "cabinet" pour l'affichage (regroupé avec admin,
+// jamais confondu avec le client) — voir OngletNotes.tsx (auteur === "admin" -> "Cabinet").
 const noteAuteur = (session) =>
-  session.role === "admin" ? "admin" : "client";
+  session.role === "admin" || session.poste === "collaborateur" ? "admin" : "client";
 
 /** Admin, collaborateur en charge, ou employé de la société : sur les sociétés du périmètre. */
 function canEdit(session, societeId) {
@@ -480,10 +495,12 @@ collectesRouter.post("/:id/notes", async (req, res) => {
  * côté client, pas figées ici) — indépendant des autres tableaux, jamais
  * un envoi global pour toute la collecte.
  */
-collectesRouter.post("/:id/sections/:onglet/recap/send", requireAdmin, async (req, res) => {
+collectesRouter.post("/:id/sections/:onglet/recap/send", async (req, res) => {
   const c = (await query("select * from collectes where id = $1", [req.params.id]))
     .rows[0];
   if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!isCabinet(req.session, c.societe_id))
+    return res.status(403).json({ error: "Réservé au cabinet" });
   const onglet = req.params.onglet;
   if (!(Array.isArray(c.onglets) ? c.onglets : []).includes(onglet))
     return res.status(400).json({ error: "Onglet non demandé dans cette collecte" });
@@ -500,8 +517,11 @@ collectesRouter.post("/:id/sections/:onglet/recap/send", requireAdmin, async (re
   );
 
   logAction(req.session.nom, "modification", "collecte", `Récap « ${onglet} » envoyé — ${soc?.raison_sociale ?? ""} ${periodeLabel(c.periode)}`, req.params.id);
+  // L'admin est toujours tenu au courant de ce que fait l'équipe sur une
+  // collecte — includeAdmin seulement quand ce n'est pas lui l'auteur, pour
+  // ne jamais se notifier soi-même.
   const targets = (
-    await concernedBySociete(c.societe_id, { includeAdmin: false })
+    await concernedBySociete(c.societe_id, { includeAdmin: req.session.role !== "admin" })
   ).filter((k) => k !== notifKey(req.session));
   notifyMany(
     targets,
@@ -542,12 +562,38 @@ collectesRouter.post("/:id/recap/submit", async (req, res) => {
   res.json(await loadCollecte(req.params.id));
 });
 
-/** L'admin clôt le récap d'UN tableau précis (retour à l'état normal). */
-collectesRouter.post("/:id/sections/:onglet/recap/close", requireAdmin, async (req, res) => {
+/** Le cabinet (admin ou collaborateur) clôt le récap d'UN tableau précis
+ * (retour à l'état normal). */
+collectesRouter.post("/:id/sections/:onglet/recap/close", async (req, res) => {
+  const c = (await query("select * from collectes where id = $1", [req.params.id]))
+    .rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!isCabinet(req.session, c.societe_id))
+    return res.status(403).json({ error: "Réservé au cabinet" });
   await query(
     "update collecte_sections set recap_statut = 'none' where collecte_id = $1 and onglet = $2",
     [req.params.id, req.params.onglet],
   );
+  logAction(
+    req.session.nom,
+    "modification",
+    "collecte",
+    `Récap « ${req.params.onglet} » clôturé — ${periodeLabel(c.periode)}`,
+    req.params.id,
+  );
+  // Admin informé quand c'est l'équipe (pas lui) qui a agi.
+  if (req.session.role !== "admin") {
+    const soc = (
+      await query("select raison_sociale from societes where id = $1", [c.societe_id])
+    ).rows[0];
+    notify(
+      "admin",
+      "collecte",
+      `Récap « ${req.params.onglet} » clôturé — ${soc?.raison_sociale ?? ""} ${periodeLabel(c.periode)}`,
+      `Par ${req.session.nom}`,
+      `/collectes/${req.params.id}`,
+    );
+  }
   res.json(await loadCollecte(req.params.id));
 });
 

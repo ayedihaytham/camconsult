@@ -124,6 +124,9 @@ export function CollecteEditorPage() {
       poste === "collaborateur" ||
       (poste === "societe_employe" &&
         (collecte.statut === "brouillon" || collecte.statut === "a_corriger")));
+  // Cabinet = admin ou collaborateur : peut envoyer/clore un récap par
+  // tableau et écrire des notes — pas réservé à l'admin.
+  const canManageRecap = isAdmin || poste === "collaborateur";
 
   // Mode « complétion récap » côté client : au moins un tableau a été
   // envoyé par le cabinet (chaque tableau se déverrouille indépendamment
@@ -443,7 +446,7 @@ export function CollecteEditorPage() {
         <TabsContent value="recap">
           <RecapTab
             collecte={collecte}
-            isAdmin={isAdmin}
+            canManageRecap={canManageRecap}
             isClient={poste === "societe_employe"}
             onNavigate={setTab}
           />
@@ -649,7 +652,7 @@ export function CollecteEditorPage() {
                 collecteId={id}
                 onglet={key}
                 notes={collecte.notes}
-                canWrite={isAdmin || poste === "societe_employe"}
+                canWrite={canManageRecap || poste === "societe_employe"}
               />
             </TabsContent>
           );

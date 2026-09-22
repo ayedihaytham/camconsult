@@ -13,12 +13,14 @@ import type { CollecteFull } from "@/types";
 
 interface Props {
   collecte: CollecteFull;
-  isAdmin: boolean;
+  /** Cabinet (admin ou collaborateur du périmètre) — peut envoyer/clore un
+   * récap par tableau, pas seulement l'admin. */
+  canManageRecap: boolean;
   isClient: boolean;
   onNavigate: (onglet: string) => void;
 }
 
-export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
+export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Props) {
   const sendRecapSection = useCollectes((s) => s.sendRecapSection);
   const closeRecapSection = useCollectes((s) => s.closeRecapSection);
   const addNote = useCollectes((s) => s.addNote);
@@ -128,7 +130,7 @@ export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
                   />
                 </td>
                 <td className="px-3 py-2 text-right">
-                  {isAdmin && r.statut === "none" && r.count > 0 && (
+                  {canManageRecap && r.statut === "none" && r.count > 0 && (
                     <Button
                       size="sm"
                       variant="ledger"
@@ -149,7 +151,7 @@ export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
                       Envoyer
                     </Button>
                   )}
-                  {isAdmin && r.statut !== "none" && (
+                  {canManageRecap && r.statut !== "none" && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -167,7 +169,7 @@ export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
                       Clore
                     </Button>
                   )}
-                  {!isAdmin && r.statut === "envoye" && (
+                  {isClient && r.statut === "envoye" && (
                     <button
                       onClick={() => onNavigate(r.onglet)}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-foreground hover:text-accent"
@@ -201,7 +203,7 @@ export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
               </p>
             </div>
           ))}
-          {(isAdmin || isClient) && (
+          {(canManageRecap || isClient) && (
             <div className="flex gap-2">
               <Input
                 value={newNote}
@@ -225,7 +227,7 @@ export function RecapTab({ collecte, isAdmin, isClient, onNavigate }: Props) {
         </div>
       </div>
 
-      {isAdmin && anyRepondu && (
+      {canManageRecap && anyRepondu && (
         <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
           <CheckCircle2 className="h-4 w-4 text-success" />
           Le client a renvoyé. Complétez ce qui reste puis validez la collecte.

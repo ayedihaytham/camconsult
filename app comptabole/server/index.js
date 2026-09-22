@@ -24,6 +24,7 @@ import { grilleAffectatRouter } from "./routes/grilleAffectat.js";
 import { notesRouter } from "./routes/notes.js";
 import { immobilisationsRouter } from "./routes/immobilisations.js";
 import { dataRouter } from "./routes/data.js";
+import { eventsRouter } from "./routes/events.js";
 import { startRelancesScheduler } from "./relances.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -70,6 +71,7 @@ app.use("/api/grille-affectat", grilleAffectatRouter);
 app.use("/api/notes", notesRouter);
 app.use("/api/immobilisations", immobilisationsRouter);
 app.use("/api/data", dataRouter);
+app.use("/api/events", eventsRouter);
 
 // En production : sert le build Vite.
 // index.html ne doit jamais être mis en cache (sinon, après un redéploiement,

@@ -11,6 +11,7 @@ import { RequireEquipe } from "@/components/auth/RequireEquipe";
 import { useAuth } from "@/store/auth";
 import { useData } from "@/store/data";
 import { registerQuotaHandler } from "@/lib/safeStorage";
+import { startLiveEvents } from "@/lib/liveEvents";
 
 const LoginPage = lazy(() =>
   import("@/pages/LoginPage").then((m) => ({ default: m.LoginPage })),
@@ -141,14 +142,30 @@ function DataBoundary({ children }: { children: React.ReactNode }) {
   const hydrated = useData((s) => s.hydrated);
   const hydrate = useData((s) => s.hydrate);
   const clearLocal = useData((s) => s.clearLocal);
+  const refreshMessages = useData((s) => s.refreshMessages);
+  const refreshNotifications = useData((s) => s.refreshNotifications);
 
   useEffect(() => {
     clearLocal();
     hydrate().catch(() => {
       toast.error("Impossible de charger les données du cabinet.");
     });
+    // Signal temps réel (messages/notifications) — voir src/lib/liveEvents.ts.
+    // Le sondage 20s existant (Topbar) reste en filet de sécurité.
+    const stopLiveEvents = startLiveEvents({
+      onMessage: () => void refreshMessages(),
+      onNotification: () => void refreshNotifications(),
+    });
     // recharge quand on change de compte
-  }, [session?.employeId, session?.role, hydrate, clearLocal]);
+    return stopLiveEvents;
+  }, [
+    session?.employeId,
+    session?.role,
+    hydrate,
+    clearLocal,
+    refreshMessages,
+    refreshNotifications,
+  ]);
 
   if (!hydrated) return <FullScreenLoader label="Chargement des données…" />;
   return <>{children}</>;

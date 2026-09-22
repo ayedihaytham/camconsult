@@ -435,9 +435,9 @@ export const useData = create<DataState>((set, get) => ({
       fail(e);
     }
   },
-  // Pas de websocket : on repasse périodiquement derrière (voir
-  // refreshNotifications) pour faire apparaître les messages envoyés par
-  // l'autre partie sans recharger la page.
+  // Appelée au fil de l'eau par le signal temps réel (voir
+  // src/lib/liveEvents.ts) — pas de payload dans le push, juste un signal
+  // qui déclenche ce refetch REST classique.
   refreshMessages: async () => {
     try {
       const list = await api.get<Message[]>("/messages");

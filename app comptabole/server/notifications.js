@@ -1,4 +1,5 @@
 import { query } from "./db.js";
+import { pushToUser } from "./sse.js";
 
 /** Clé destinataire d'après la session. */
 export function notifKey(session) {
@@ -7,6 +8,9 @@ export function notifKey(session) {
 
 /**
  * Crée une notification (best effort — n'interrompt jamais la requête).
+ * Pousse aussi un signal temps réel une fois la ligne insérée (jamais avant
+ * — sinon le client pourrait refaire son fetch avant que la notif soit
+ * visible en base) au(x) client(s) de ce destinataire déjà connectés.
  * @param {string} userKey  'admin' | uuid employé
  */
 export function notify(userKey, type, titre, corps = "", lien = "/") {
@@ -21,7 +25,15 @@ export function notify(userKey, type, titre, corps = "", lien = "/") {
       String(corps ?? "").slice(0, 500),
       lien,
     ],
-  ).catch((err) => console.error("[notif] insert failed", err.message));
+  )
+    .then(() => {
+      pushToUser(userKey, "notification");
+      // Une notification de type "message" a aussi son propre signal, pour
+      // que la conversation ouverte se mette à jour sans passer par le
+      // panneau de notifications.
+      if (type === "message") pushToUser(userKey, "message");
+    })
+    .catch((err) => console.error("[notif] insert failed", err.message));
 }
 
 /** Notifie plusieurs destinataires (doublons / valeurs vides ignorés). */

@@ -128,14 +128,14 @@ export function MessageriePage() {
   };
 
   useEffect(() => {
-    if (!activeId && conversations.length > 0) {
-      setActiveId(conversations[0].id);
-    }
+    // Pas de sélection automatique au chargement : on affiche la liste et on
+    // laisse l'utilisateur choisir. On ne referme que si la conversation
+    // active a disparu (groupe supprimé…).
     if (
       activeId &&
       !conversations.some((conversation) => conversation.id === activeId)
     ) {
-      setActiveId(conversations[0]?.id ?? null);
+      setActiveId(null);
     }
   }, [conversations, activeId]);
 

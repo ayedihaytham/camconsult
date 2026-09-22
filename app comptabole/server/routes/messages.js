@@ -5,6 +5,7 @@ import { requireAuth } from "../auth.js";
 import { can } from "../permissions.js";
 import { logAction } from "../journal.js";
 import { notify, notifyMany } from "../notifications.js";
+import { pushToUser } from "../sse.js";
 import { messageDto } from "../mappers.js";
 
 export const messagesRouter = Router();
@@ -198,9 +199,15 @@ messagesRouter.post("/mark-read", requireMessagerie, async (req, res) => {
   if (!conversationId) return res.status(400).json({ error: "conversationId requis" });
   if (!(await ownConversation(req, conversationId)))
     return res.status(403).json({ error: "Conversation hors périmètre" });
-  await query(
-    "update messages set statut = 'lu' where conversation_id = $1 and auteur_id <> $2",
+  const { rows } = await query(
+    `update messages set statut = 'lu'
+      where conversation_id = $1 and auteur_id <> $2 and statut <> 'lu'
+      returning auteur_id`,
     [conversationId, viewerAuthorId || "me"],
   );
+  // Signal temps réel à l'expéditeur : ses coches passent à "lu" sans qu'il
+  // ait besoin de recharger la page.
+  const authors = new Set(rows.map((r) => (r.auteur_id === "me" ? "admin" : r.auteur_id)));
+  for (const key of authors) pushToUser(key, "message");
   res.json({ ok: true });
 });

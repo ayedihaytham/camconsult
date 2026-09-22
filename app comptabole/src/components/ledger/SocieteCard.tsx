@@ -67,8 +67,8 @@ export function SocieteCard({
           <>
             <span>
               {employeCount === 0
-                ? "Aucun employé"
-                : `${employeCount} employé${employeCount > 1 ? "s" : ""}`}
+                ? "Aucun responsable"
+                : `${employeCount} responsable${employeCount > 1 ? "s" : ""}`}
             </span>
             <span aria-hidden>·</span>
           </>

@@ -1,12 +1,23 @@
 import {
+  Calendar,
+  Hash,
+  Mail,
+  MapPin,
+  Phone,
+  Receipt,
+  type LucideIcon,
+} from "lucide-react";
+import {
   Sheet,
   SheetBody,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { StatutDot } from "@/components/ledger/StatusDot";
-import { formatDate } from "@/lib/utils";
+import { THEME_ACCENT, THEME_ICON } from "@/lib/societeTheme";
+import { cn, formatDate } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import type { Societe } from "@/types";
 import { SocieteEmployesSection } from "./SocieteEmployesSection";
@@ -21,6 +32,8 @@ export function SocieteViewSheet({
   societe: Societe | null;
 }) {
   const { isAdmin } = usePermissions();
+  const ThemeIcon = societe ? THEME_ICON[societe.theme] : null;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-lg">
@@ -28,38 +41,70 @@ export function SocieteViewSheet({
           <SheetTitle>Fiche société</SheetTitle>
         </SheetHeader>
         {societe && (
-          <SheetBody className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">
-                {societe.raisonSociale}
-              </h3>
-              <div className="mt-2 flex items-center gap-3 text-sm">
-                <span className="text-muted-foreground">
-                  Type de structure : {societe.theme}
+          <SheetBody className="space-y-5">
+            <div className="flex items-start gap-3">
+              {ThemeIcon && (
+                <span
+                  className={cn(
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+                    THEME_ACCENT[societe.theme],
+                  )}
+                  aria-hidden
+                >
+                  <ThemeIcon className="h-6 w-6" />
                 </span>
-                <StatutDot statut={societe.statut} />
+              )}
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h3 className="truncate text-lg font-semibold leading-tight text-foreground">
+                  {societe.raisonSociale}
+                </h3>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                  <span>{societe.theme}</span>
+                  <span aria-hidden>·</span>
+                  <span className="font-mono text-xs tabular-nums">
+                    {societe.code}
+                  </span>
+                </div>
               </div>
+              <StatutDot
+                statut={societe.statut}
+                pill
+                pulse={societe.statut === "actif"}
+              />
             </div>
 
-            <dl className="divide-y divide-border rounded-sm border border-border">
-              <Row label="Code interne" value={societe.code} />
-              <Row label="RNE" value={societe.rne} />
-              <Row label="N° TVA" value={societe.tva} />
-              <Row
+            <LedgerSheet className="divide-y divide-border">
+              <InfoRow icon={Hash} label="RNE" value={societe.rne} />
+              <InfoRow icon={Receipt} label="N° TVA" value={societe.tva} />
+              <InfoRow
+                icon={Phone}
                 label="Téléphone"
                 value={societe.telephone || "—"}
                 href={societe.telephone ? `tel:${societe.telephone}` : undefined}
               />
-              <Row
+              <InfoRow
+                icon={Mail}
                 label="Email"
                 value={societe.email || "—"}
                 href={societe.email ? `mailto:${societe.email}` : undefined}
               />
-              <Row label="Adresse" value={societe.adresse || "—"} />
-              <Row label="Créée le" value={formatDate(societe.creeLe)} />
-            </dl>
+              <InfoRow
+                icon={MapPin}
+                label="Adresse"
+                value={societe.adresse || "—"}
+              />
+              <InfoRow
+                icon={Calendar}
+                label="Créée le"
+                value={formatDate(societe.creeLe)}
+              />
+            </LedgerSheet>
 
-            {isAdmin && <SocieteEmployesSection societeId={societe.id} />}
+            {isAdmin && (
+              <LedgerSheet className="p-4">
+                <SocieteEmployesSection societeId={societe.id} />
+              </LedgerSheet>
+            )}
           </SheetBody>
         )}
       </SheetContent>
@@ -67,19 +112,22 @@ export function SocieteViewSheet({
   );
 }
 
-function Row({
+function InfoRow({
+  icon: Icon,
   label,
   value,
   href,
 }: {
+  icon: LucideIcon;
   label: string;
   value: string;
   href?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1 px-4 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <dt className="shrink-0 text-sm text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 break-words text-sm font-medium text-foreground sm:text-right">
+    <div className="flex min-w-0 items-center gap-3 px-4 py-2.5">
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <dt className="w-24 shrink-0 text-sm text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
         {href ? (
           <a className="underline-offset-4 hover:underline" href={href}>
             {value}

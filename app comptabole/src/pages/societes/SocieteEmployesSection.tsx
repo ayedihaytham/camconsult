@@ -72,21 +72,21 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
         societesAssignees: [],
         permissions: SOC_EMP_PERMS,
       });
-      toast.success("Employé ajouté", {
+      toast.success("Responsable ajouté", {
         description: `${draft.prenom} ${draft.nom}`,
       });
       setDraft(emptyDraft());
       setAdding(false);
     } catch {
-      setError("Impossible d'ajouter cet employé (identifiant déjà pris ?).");
+      setError("Impossible d'ajouter ce responsable (identifiant déjà pris ?).");
     }
   }
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Employés de la société
+        <p className="text-xs font-bold uppercase tracking-wide text-primary">
+          Responsables de société
         </p>
         {!adding && (
           <Button
@@ -105,9 +105,9 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
       </div>
 
       {employes.length === 0 && !adding && (
-        <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
-          Aucun employé. Ajoutez les personnes de cette société qui doivent
-          accéder aux documents partagés.
+        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+          Aucun responsable. Ajoutez les personnes de cette société qui
+          doivent accéder aux documents partagés.
         </p>
       )}
 
@@ -115,7 +115,7 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
         {employes.map((e) => (
           <li
             key={e.id}
-            className="flex items-start justify-between gap-3 rounded-md border border-border p-3"
+            className="flex items-start justify-between gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-secondary/40"
           >
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2">
@@ -157,9 +157,9 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
       </ul>
 
       {adding && (
-        <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+        <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Nouvel employé</p>
+            <p className="text-sm font-medium text-foreground">Nouveau responsable</p>
             <button
               className="rounded p-1 text-muted-foreground hover:text-foreground"
               onClick={() => setAdding(false)}
@@ -221,7 +221,7 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
               Annuler
             </Button>
             <Button size="sm" variant="ledger" onClick={submit}>
-              Ajouter l'employé
+              Ajouter le responsable
             </Button>
           </div>
         </div>
@@ -230,7 +230,7 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
       <ConfirmDialog
         open={Boolean(toDelete)}
         onOpenChange={(o) => !o && setToDelete(null)}
-        title="Supprimer cet employé ?"
+        title="Supprimer ce responsable ?"
         description={
           <>
             Le compte de{" "}

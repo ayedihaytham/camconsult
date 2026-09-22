@@ -739,3 +739,28 @@ insert into immo_categories (id, nom, taux, masse) values
   -- II. Brevets, marques de fabrique et frais de développement capitalisés
   ('00000000-0000-0000-0000-000000000009', 'Brevets, marques et frais de développement', 20, 'incorporelle')
 on conflict (id) do nothing;
+
+-- État client (honoraires) : compte courant du cabinet par société —
+-- déclarations traitées (CNSS, acomptes provisionnels, IS, mensuelles...)
+-- avec leurs honoraires, en face des règlements reçus du client. Le solde
+-- (cumul des honoraires + montants de déclaration, moins les règlements) se
+-- calcule côté application à partir de ces lignes, jamais stocké — voir
+-- server/mappers.js (comme pour l'écart du module Stock).
+create table if not exists honoraires_lignes (
+  id                   uuid primary key default gen_random_uuid(),
+  societe_id           uuid not null references societes(id) on delete cascade,
+  ordre                int not null default 0,
+  type                 text not null default 'mensuelle', -- mensuelle | trimestrielle | annuelle | acompte1 | acompte2 | acompte3 | autre
+  nature               text not null default '', -- ex. "CNSS", "IS", "TVA"
+  periode              text not null default '', -- ex. "Avril 2026", "T1 2026", "2025"
+  libelle              text not null default '', -- affiché dans le tableau — auto-suggéré côté front, toujours éditable
+  cnss                 text not null default '',
+  num_quittance        text not null default '',
+  montant_declaration  numeric not null default 0,
+  honoraire            numeric not null default 0,
+  reglement            numeric not null default 0,
+  note                 text not null default '',
+  cree_le              timestamptz not null default now(),
+  maj_le               timestamptz not null default now()
+);
+create index if not exists honoraires_lignes_societe_idx on honoraires_lignes(societe_id, ordre);

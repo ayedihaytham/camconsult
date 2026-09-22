@@ -214,6 +214,48 @@ export const BORDEREAU_VOLET_LABELS: Record<BordereauVolet, string> = {
   fournisseur: "Fournisseurs (401)",
 };
 
+// ── État client (honoraires, par société) ─────────
+export type HonoraireType =
+  | "mensuelle"
+  | "trimestrielle"
+  | "annuelle"
+  | "acompte1"
+  | "acompte2"
+  | "acompte3"
+  | "autre";
+
+export const HONORAIRE_TYPE_LABELS: Record<HonoraireType, string> = {
+  mensuelle: "Mensuelle",
+  trimestrielle: "Trimestrielle",
+  annuelle: "Annuelle",
+  acompte1: "Acompte 1",
+  acompte2: "Acompte 2",
+  acompte3: "Acompte 3",
+  autre: "Autre",
+};
+
+export interface HonoraireLigne {
+  id: string;
+  societeId: string;
+  ordre: number;
+  type: HonoraireType;
+  nature: string;
+  periode: string;
+  libelle: string;
+  cnss: string;
+  numQuittance: string;
+  montantDeclaration: number;
+  honoraire: number;
+  reglement: number;
+  note: string;
+  /** montantDeclaration + honoraire, calculé côté serveur */
+  total: number;
+  /** cumul (montantDeclaration + honoraire − reglement) depuis la 1ère ligne de la société, calculé côté serveur */
+  solde: number;
+  creeLe: string;
+  majLe: string;
+}
+
 // ── Gestion de stock (par société) ────────────────
 /** Une ligne de produit d'un mouvement (achat ou vente) — une facture peut
  * en lister plusieurs, avec des quantités différentes, pas une seule. */

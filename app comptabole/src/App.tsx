@@ -56,6 +56,16 @@ const StockSocietePage = lazy(() =>
     default: m.StockSocietePage,
   })),
 );
+const HonorairesListPage = lazy(() =>
+  import("@/pages/honoraires/HonorairesListPage").then((m) => ({
+    default: m.HonorairesListPage,
+  })),
+);
+const HonorairesSocietePage = lazy(() =>
+  import("@/pages/honoraires/HonorairesSocietePage").then((m) => ({
+    default: m.HonorairesSocietePage,
+  })),
+);
 const EtatsFinanciersPage = lazy(() =>
   import("@/pages/etatsFinanciers/EtatsFinanciersPage").then((m) => ({
     default: m.EtatsFinanciersPage,
@@ -281,6 +291,22 @@ export default function App() {
                 }
               />
               <Route element={<RequireAdmin />}>
+                <Route
+                  path="/honoraires"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <HonorairesListPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/honoraires/:societeId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <HonorairesSocietePage />
+                    </Suspense>
+                  }
+                />
                 <Route
                   path="/bordereaux"
                   element={

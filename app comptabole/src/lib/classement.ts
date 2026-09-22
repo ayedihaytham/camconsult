@@ -53,9 +53,16 @@ async function trouverOuCreerDossier(
  * générique" du cabinet — jamais un dossier "achat"/"vente" comme racine
  * directement, sinon chaque catégorie apparaît comme son propre arbre
  * déconnecté dans l'Organigramme (voir OrganigrammeView : chaque racine est
- * rendue comme une carte "hero" séparée). Reprend le libellé du modèle
- * générique du cabinet pour rester cohérent visuellement.
+ * rendue comme une carte "hero" séparée, avec la couleur/l'icône du thème
+ * de sa société — les imbriquer sous un même parent leur ferait perdre ce
+ * traitement). Nommée "Comptabilité générale [année]" pour rester cohérente
+ * avec le modèle de référence du cabinet, sans dépendre d'une recherche du
+ * "Modèle générique" existant (ambigu s'il y en a plusieurs en base).
  */
+function nomRacineSociete(): string {
+  return `Comptabilité générale ${new Date().getFullYear()}`;
+}
+
 async function trouverOuCreerRacineSociete(
   noeuds: Noeud[],
   addNoeud: AddNoeud,
@@ -66,11 +73,8 @@ async function trouverOuCreerRacineSociete(
   );
   if (existante) return existante;
 
-  const modeleGenerique = noeuds.find(
-    (n) => n.societeId === null && n.parentId === null && n.type === "dossier",
-  );
   return addNoeud({
-    libelle: modeleGenerique?.libelle ?? "Documents",
+    libelle: nomRacineSociete(),
     description: "",
     type: "dossier",
     societeId,

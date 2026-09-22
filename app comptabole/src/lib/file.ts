@@ -30,12 +30,33 @@ export function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-/** Déclenche le téléchargement d'un fichier depuis une data URL. */
+/**
+ * Déclenche le téléchargement d'un fichier depuis une data URL, via un Blob
+ * (plus fiable qu'un `<a href="data:...">` direct — certains navigateurs,
+ * surtout mobiles, tronquent ou n'honorent pas l'attribut `download` sur de
+ * longues data URLs, ce qui produisait des fichiers vides/corrompus).
+ */
 export function downloadDataUrl(dataUrl: string, filename: string): void {
   const link = document.createElement("a");
-  link.href = dataUrl;
+  let url = dataUrl;
+  let revoke: (() => void) | null = null;
+  try {
+    const [header, base64] = dataUrl.split(",");
+    const mime = header.match(/data:(.*?);base64/)?.[1] || "application/octet-stream";
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blobUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+    url = blobUrl;
+    revoke = () => URL.revokeObjectURL(blobUrl);
+  } catch {
+    // repli : data URL directe si le décodage base64 échoue pour une raison
+    // quelconque (mieux vaut tenter l'ancien comportement que rien).
+  }
+  link.href = url;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  if (revoke) setTimeout(revoke, 2000);
 }

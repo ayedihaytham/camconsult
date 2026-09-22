@@ -22,9 +22,13 @@ export function startLiveEvents(handlers: LiveEventHandlers): () => void {
   let controller: AbortController | null = null;
   let retryDelay = 1000;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  // Incrémenté à chaque reconnexion forcée, pour que la boucle de lecture
+  // d'une connexion abandonnée (ex. mobile qui revient au premier plan)
+  // sache qu'elle est périmée et ne reprogramme pas sa propre relance.
+  let generation = 0;
 
-  async function connect() {
-    if (stopped) return;
+  async function connect(myGeneration: number) {
+    if (stopped || myGeneration !== generation) return;
     const token = getToken();
     if (!token) return;
     controller = new AbortController();
@@ -38,7 +42,7 @@ export function startLiveEvents(handlers: LiveEventHandlers): () => void {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      while (!stopped) {
+      while (!stopped && myGeneration === generation) {
         const { value, done } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
@@ -52,18 +56,47 @@ export function startLiveEvents(handlers: LiveEventHandlers): () => void {
     } catch {
       // connexion coupée/refusée — on retente ci-dessous
     }
-    if (!stopped) {
-      retryTimer = setTimeout(connect, retryDelay);
+    if (!stopped && myGeneration === generation) {
+      retryTimer = setTimeout(() => connect(generation), retryDelay);
       retryDelay = Math.min(retryDelay * 2, 30_000);
     }
   }
 
-  connect();
+  function reconnectNow() {
+    generation++;
+    if (retryTimer) clearTimeout(retryTimer);
+    controller?.abort();
+    retryDelay = 1000;
+    connect(generation);
+  }
+
+  connect(generation);
+
+  // Les mobiles suspendent souvent les connexions longues (verrouillage
+  // d'écran, onglet en arrière-plan) sans prévenir la boucle de lecture —
+  // au retour au premier plan, on force une reconnexion et un rattrapage
+  // immédiat plutôt que d'attendre un signal qui ne viendra jamais.
+  const onVisible = () => {
+    if (document.visibilityState !== "visible") return;
+    reconnectNow();
+    handlers.onMessage?.();
+    handlers.onNotification?.();
+  };
+  document.addEventListener("visibilitychange", onVisible);
+
+  // Filet de sécurité pour les messages (les notifications ont déjà leur
+  // propre sondage 20s dans Topbar.tsx) — au cas où la connexion SSE serait
+  // silencieusement morte sans que le navigateur ne le signale.
+  const fallbackInterval = setInterval(() => {
+    if (document.visibilityState === "visible") handlers.onMessage?.();
+  }, 20_000);
 
   return () => {
     stopped = true;
     if (retryTimer) clearTimeout(retryTimer);
     controller?.abort();
+    document.removeEventListener("visibilitychange", onVisible);
+    clearInterval(fallbackInterval);
   };
 }
 

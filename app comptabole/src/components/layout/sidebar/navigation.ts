@@ -23,6 +23,9 @@ export interface NavChild {
   label: string;
   to: string;
   adminOnly?: boolean;
+  /** Aussi visible pour le responsable des collaborateurs, pas seulement
+   * l'admin (voir usePermissions().canManageCollaborateurs). */
+  equipeManagerOk?: boolean;
 }
 
 export interface NavItem {
@@ -54,7 +57,12 @@ export const NAV_GROUPS: NavGroup[] = [
         hideForSocieteEmploye: true,
         children: [
           { label: "Liste des sociétés", to: "/societes" },
-          { label: "Collaborateurs", to: "/employes", adminOnly: true },
+          {
+            label: "Collaborateurs",
+            to: "/employes",
+            adminOnly: true,
+            equipeManagerOk: true,
+          },
         ],
       },
       {
@@ -133,10 +141,12 @@ export function visibleNavigation({
   isAdmin,
   lectureSeule,
   can,
+  canManageCollaborateurs = false,
 }: {
   isAdmin: boolean;
   lectureSeule: boolean;
   can: (permission: PermissionKey) => boolean;
+  canManageCollaborateurs?: boolean;
 }): NavGroup[] {
   return NAV_GROUPS.map((group) => ({
     ...group,
@@ -152,7 +162,10 @@ export function visibleNavigation({
           ? {
               ...item,
               children: item.children.filter(
-                (child) => !child.adminOnly || isAdmin,
+                (child) =>
+                  !child.adminOnly ||
+                  isAdmin ||
+                  (child.equipeManagerOk && canManageCollaborateurs),
               ),
             }
           : item,

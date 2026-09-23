@@ -4,6 +4,7 @@ import { query } from "./db.js";
 import {
   defaultPermissions,
   societeEmployePermissions,
+  fullPermissions,
 } from "./permissions.js";
 
 const SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -52,8 +53,14 @@ export async function sessionFromToken(payload) {
     await query("select admin_nom, last_login from app_meta where id = 1")
   ).rows[0];
   const nom = `${e.prenom} ${e.nom}`;
-  const poste = e.role === "societe_employe" ? "societe_employe" : "collaborateur";
+  const poste =
+    e.role === "societe_employe"
+      ? "societe_employe"
+      : e.role === "responsable_collaborateurs"
+        ? "responsable_collaborateurs"
+        : "collaborateur";
   const isSocieteEmp = poste === "societe_employe";
+  const isResponsableEquipe = poste === "responsable_collaborateurs";
 
   // Un collaborateur voit ses sociétés assignées + celles des tâches qu'on lui confie
   // (il doit pouvoir consulter le dossier client pour faire le travail demandé).
@@ -77,7 +84,11 @@ export async function sessionFromToken(payload) {
     lectureSeule: isSocieteEmp,
     employeId: e.id,
     nom,
-    fonction: isSocieteEmp ? "Responsable de société" : e.type,
+    fonction: isSocieteEmp
+      ? "Responsable de société"
+      : isResponsableEquipe
+        ? "Responsable des collaborateurs"
+        : e.type,
     initiales: initials(nom),
     cabinetNom: meta?.admin_nom ?? "Cabinet",
     cabinetDerniereConnexion: meta?.last_login
@@ -85,7 +96,9 @@ export async function sessionFromToken(payload) {
       : null,
     permissions: isSocieteEmp
       ? societeEmployePermissions()
-      : { ...defaultPermissions(e.type), ...(e.permissions || {}) },
+      : isResponsableEquipe
+        ? fullPermissions()
+        : { ...defaultPermissions(e.type), ...(e.permissions || {}) },
     societeIds: isSocieteEmp
       ? e.societe_id
         ? [e.societe_id]
@@ -121,9 +134,20 @@ export function requireAdmin(req, res, next) {
   next();
 }
 
+/** Admin OU responsable des collaborateurs — pour les routes de gestion
+ * d'équipe (voir routes/employes.js), jamais pour Journal/Paramètres/État
+ * client/Bordereaux, qui restent strictement requireAdmin. */
+export function requireEquipeManager(req, res, next) {
+  const s = req.session;
+  if (s?.role === "admin" || s?.poste === "responsable_collaborateurs")
+    return next();
+  return res.status(403).json({ error: "Accès réservé" });
+}
+
 /** true si la session peut voir/agir sur une société donnée (null = modèle générique). */
 export function canSeeSociete(session, societeId) {
   if (session.role === "admin") return true;
+  if (session.poste === "responsable_collaborateurs") return true;
   if (societeId == null) return true;
   return (session.societeIds || []).includes(societeId);
 }

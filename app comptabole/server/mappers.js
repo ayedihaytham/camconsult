@@ -41,7 +41,10 @@ export const employeDto = (r) => ({
   identifiant: r.identifiant,
   motDePasse: r.mot_de_passe,
   type: r.type,
-  role: r.role === "societe_employe" ? "societe_employe" : "collaborateur",
+  role:
+    r.role === "societe_employe" || r.role === "responsable_collaborateurs"
+      ? r.role
+      : "collaborateur",
   societeId: r.societe_id ?? null,
   email: r.email,
   statut: r.statut,

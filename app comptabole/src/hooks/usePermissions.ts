@@ -5,16 +5,22 @@ import type { EmployeRole, PermissionKey } from "@/types";
 export interface PermissionContext {
   isAdmin: boolean;
   can: (key: PermissionKey) => boolean;
-  /** null = accès à toutes les sociétés (admin) ; sinon liste d'ids autorisés. */
+  /** null = accès à toutes les sociétés (admin, ou responsable des
+   * collaborateurs) ; sinon liste d'ids autorisés. */
   societeIds: string[] | null;
   canSeeSociete: (id: string | null) => boolean;
   employeId: string | null;
-  /** type de compte employé : "collaborateur" | "societe_employe" | null (admin) */
+  /** type de compte employé : "collaborateur" | "societe_employe" |
+   * "responsable_collaborateurs" | null (admin) */
   poste: EmployeRole | null;
   /** true pour un employé de société cliente : consultation seule des dossiers */
   lectureSeule: boolean;
-  /** raccourci : équipe interne (admin ou collaborateur) */
+  /** raccourci : équipe interne (admin, collaborateur ou responsable des
+   * collaborateurs) */
   isCollaborateur: boolean;
+  /** admin OU responsable des collaborateurs — gère les comptes
+   * collaborateurs (pas la suppression, réservée à l'admin). */
+  canManageCollaborateurs: boolean;
 }
 
 export function usePermissions(): PermissionContext {
@@ -30,21 +36,27 @@ export function usePermissions(): PermissionContext {
       poste: null,
       lectureSeule: false,
       isCollaborateur: true,
+      canManageCollaborateurs: true,
     };
   }
 
   const perms = session.permissions ?? defaultPermissions("Stagiaire");
-  const societeIds = session.societeIds ?? [];
   const poste: EmployeRole = session.poste ?? "collaborateur";
+  // Voit toutes les sociétés, comme l'admin — supervise l'équipe à travers
+  // tout le cabinet, pas juste son propre périmètre assigné.
+  const seesAllSocietes = poste === "responsable_collaborateurs";
+  const societeIds = seesAllSocietes ? null : (session.societeIds ?? []);
 
   return {
     isAdmin: false,
     can: (key) => Boolean(perms[key]),
     societeIds,
-    canSeeSociete: (id) => id === null || societeIds.includes(id),
+    canSeeSociete: (id) =>
+      id === null || seesAllSocietes || (societeIds ?? []).includes(id),
     employeId: session.employeId,
     poste,
     lectureSeule: Boolean(session.lectureSeule) || poste === "societe_employe",
-    isCollaborateur: poste === "collaborateur",
+    isCollaborateur: poste === "collaborateur" || seesAllSocietes,
+    canManageCollaborateurs: seesAllSocietes,
   };
 }

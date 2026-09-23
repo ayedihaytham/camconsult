@@ -42,10 +42,34 @@ describe("sidebar navigation policy", () => {
       "/etats-financiers",
       "/grille-affectat",
       "/bordereaux",
+      "/honoraires",
       "/structuration",
       "/messagerie",
       "/journal",
       "/parametres",
+    ]);
+  });
+
+  it("gives the collaborateurs destination (and nothing else admin-only) to a responsable des collaborateurs", () => {
+    const routes = destinations(
+      visibleNavigation({
+        isAdmin: false,
+        lectureSeule: false,
+        can: allowAll,
+        canManageCollaborateurs: true,
+      }),
+    );
+
+    expect(routes).toEqual([
+      "/",
+      "/societes",
+      "/employes",
+      "/taches",
+      "/collectes",
+      "/stock",
+      "/etats-financiers",
+      "/structuration",
+      "/messagerie",
     ]);
   });
 

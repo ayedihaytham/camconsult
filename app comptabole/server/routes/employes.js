@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query } from "../db.js";
-import { requireAuth, requireAdmin } from "../auth.js";
+import { requireAuth, requireAdmin, requireEquipeManager } from "../auth.js";
 import { logAction } from "../journal.js";
 import { notify } from "../notifications.js";
 import { employeDto } from "../mappers.js";
@@ -9,10 +9,14 @@ import { sendCollaborateurWelcomeEmail } from "../mailer.js";
 import {
   defaultPermissions,
   societeEmployePermissions,
+  fullPermissions,
 } from "../permissions.js";
 
 export const employesRouter = Router();
-employesRouter.use(requireAuth, requireAdmin);
+// Gestion d'équipe ouverte à l'admin ET au responsable des collaborateurs
+// (voir requireEquipeManager) — la suppression reste strictement admin
+// (voir POST /bulk-delete ci-dessous, seule route avec son propre requireAdmin).
+employesRouter.use(requireAuth, requireEquipeManager);
 
 const schema = z.object({
   nom: z.string().min(2),
@@ -26,7 +30,9 @@ const schema = z.object({
   type: z
     .enum(["Comptable", "Assistant", "Stagiaire", "Gestionnaire de paie"])
     .default("Assistant"),
-  role: z.enum(["collaborateur", "societe_employe"]).default("collaborateur"),
+  role: z
+    .enum(["collaborateur", "societe_employe", "responsable_collaborateurs"])
+    .default("collaborateur"),
   societeId: z.string().uuid().nullish(),
   email: z
     .string()
@@ -39,6 +45,14 @@ const schema = z.object({
   permissions: z.record(z.boolean()).optional(),
 });
 
+/** Un responsable des collaborateurs (pas admin) ne peut créer/modifier que
+ * de simples comptes collaborateurs — jamais un autre responsable des
+ * collaborateurs, ni un employé de société — pour ne jamais pouvoir
+ * s'accorder plus de droits que ce qu'on lui a explicitement donné. */
+function forbiddenRoleEscalation(req, role) {
+  return req.session.role !== "admin" && role !== "collaborateur";
+}
+
 /** Normalise droits / périmètre selon le rôle. */
 function scopeForRole(v) {
   if (v.role === "societe_employe") {
@@ -46,6 +60,13 @@ function scopeForRole(v) {
       societeId: v.societeId ?? null,
       societesAssignees: [],
       permissions: societeEmployePermissions(),
+    };
+  }
+  if (v.role === "responsable_collaborateurs") {
+    return {
+      societeId: null,
+      societesAssignees: [],
+      permissions: fullPermissions(),
     };
   }
   return {
@@ -71,6 +92,8 @@ employesRouter.post("/", async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
+  if (forbiddenRoleEscalation(req, v.role))
+    return res.status(403).json({ error: "Seul l'administrateur peut attribuer ce rôle" });
   if (v.role === "societe_employe" && !v.societeId)
     return res.status(400).json({ error: "Société requise pour un employé de société" });
   const sc = scopeForRole(v);
@@ -110,6 +133,16 @@ employesRouter.patch("/:id", async (req, res) => {
   if (!merged.success)
     return res.status(400).json({ error: merged.error.issues[0].message });
   const v = { ...employeDto(existing), ...merged.data };
+  // Bloque une élévation explicite (role dans le payload) ET, séparément,
+  // toute modification d'un compte déjà élevé — sinon un responsable des
+  // collaborateurs pourrait rétrograder un pair en soumettant simplement
+  // "collaborateur" comme role, ce que la première vérification seule
+  // laisserait passer (elle ne regarde que la valeur cible, pas l'existant).
+  if (
+    forbiddenRoleEscalation(req, v.role) ||
+    forbiddenRoleEscalation(req, existing.role ?? "collaborateur")
+  )
+    return res.status(403).json({ error: "Seul l'administrateur peut modifier ce compte" });
   const sc = scopeForRole(v);
   const { rows } = await query(
     `update employes set nom=$1, prenom=$2, identifiant=$3, mot_de_passe=$4, type=$5,
@@ -163,6 +196,8 @@ employesRouter.patch("/:id/acces", async (req, res) => {
 employesRouter.post("/:id/duplicate", async (req, res) => {
   const src = (await query("select * from employes where id = $1", [req.params.id])).rows[0];
   if (!src) return res.status(404).json({ error: "Collaborateur introuvable" });
+  if (forbiddenRoleEscalation(req, src.role ?? "collaborateur"))
+    return res.status(403).json({ error: "Seul l'administrateur peut dupliquer ce compte" });
   let identifiant = `${src.identifiant}.copie`;
   let n = 1;
   while (
@@ -184,7 +219,7 @@ employesRouter.post("/:id/duplicate", async (req, res) => {
   res.status(201).json(employeDto(rows[0]));
 });
 
-employesRouter.post("/bulk-delete", async (req, res) => {
+employesRouter.post("/bulk-delete", requireAdmin, async (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
   if (ids.length === 0) return res.json({ deleted: 0 });
   const { rows } = await query(

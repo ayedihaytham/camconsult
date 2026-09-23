@@ -92,6 +92,9 @@ export function StructurationPage() {
   const [toDelete, setToDelete] = useState<Noeud | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [provisionConfirmOpen, setProvisionConfirmOpen] = useState(false);
+  const [provisionAnnee, setProvisionAnnee] = useState(
+    String(new Date().getFullYear()),
+  );
   const [provisioning, setProvisioning] = useState(false);
 
   // Vue arborescence
@@ -170,22 +173,30 @@ export function StructurationPage() {
     toast.success("Arborescence dupliquée");
   }
 
-  /** Racine + dossiers standard (achat/vente/banque/caisse/CNSS/Divers/
-   * DMI/juridique) pour chaque société qui n'a pas encore la sienne —
-   * idempotent, donc rejouable plus tard pour une nouvelle société sans
-   * risque de doublon. */
-  async function handleProvisionAll() {
+  /** Racine partagée "Comptabilité générale [année]" + un dossier par
+   * société dessous + ses dossiers standard (achat/vente/banque/caisse/
+   * CNSS/Divers/DMI/juridique) — idempotent, donc rejouable plus tard pour
+   * une nouvelle société (ou une année différente) sans risque de doublon ;
+   * retrouve aussi un dossier "Comptabilité générale [année]" déjà créé à la
+   * main pour cette année plutôt que d'en recréer un en double. */
+  async function handleProvisionAll(annee: number) {
     setProvisioning(true);
     let societesTraitees = 0;
     let dossiersCrees = 0;
     try {
-      // Chaque société est traitée indépendamment (dossiers filtrés par
-      // societeId) : pas besoin de recharger le pool entre deux sociétés.
+      // Toutes les sociétés partagent la même racine "Comptabilité générale
+      // [année]" : on relit l'état le plus frais à chaque tour (pas le
+      // instantané `allNodes` du dernier rendu) pour que la 2e société
+      // trouve bien la racine que la 1re vient de créer, au lieu d'en
+      // recréer une en double.
       for (const societe of societes) {
         const crees = await provisionnerArborescenceSociete({
-          noeuds: allNodes,
+          noeuds: useData.getState().noeuds,
           addNoeud,
+          updateNoeud,
           societeId: societe.id,
+          societeLibelle: societe.raisonSociale,
+          annee,
         });
         if (crees > 0) {
           societesTraitees++;
@@ -195,7 +206,7 @@ export function StructurationPage() {
       logJournal(
         "creation",
         "dossier",
-        `Arborescence standard instanciée pour ${societesTraitees} société(s)`,
+        `Arborescence standard ${annee} instanciée pour ${societesTraitees} société(s)`,
       );
       toast.success(
         societesTraitees > 0
@@ -520,15 +531,53 @@ export function StructurationPage() {
         }
       />
 
-      <ConfirmDialog
+      <Dialog
         open={provisionConfirmOpen}
-        onOpenChange={setProvisionConfirmOpen}
-        destructive={false}
-        title="Instancier l'arborescence standard pour toutes les sociétés ?"
-        description="Crée, pour chaque société qui n'en a pas encore, une racine avec les dossiers standard (achat, vente, banque, caisse, CNSS, Divers, DMI, juridique). Les sociétés déjà provisionnées ne sont pas touchées — sans risque à relancer plus tard pour une nouvelle société."
-        confirmLabel="Instancier"
-        onConfirm={handleProvisionAll}
-      />
+        onOpenChange={(o) => {
+          setProvisionConfirmOpen(o);
+          if (o) setProvisionAnnee(String(new Date().getFullYear()));
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Instancier l'arborescence standard</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Crée, pour chaque société qui n'a pas encore de dossier pour cette
+            année, une racine « Comptabilité générale {provisionAnnee || "…"} »
+            avec les dossiers standard (achat, vente, banque, caisse, CNSS,
+            Divers, DMI, juridique) — retrouve un dossier déjà créé à la main
+            pour cette année plutôt que d'en recréer un en double. Rien n'est
+            touché pour les sociétés déjà provisionnées cette année-là.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="provision-annee">Année</Label>
+            <Input
+              id="provision-annee"
+              type="number"
+              autoFocus
+              value={provisionAnnee}
+              onChange={(e) => setProvisionAnnee(e.target.value)}
+              placeholder={String(new Date().getFullYear())}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setProvisionConfirmOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="ledger"
+              disabled={!provisionAnnee.trim() || provisioning}
+              onClick={() => handleProvisionAll(Number(provisionAnnee))}
+            >
+              {provisioning ? "Instanciation…" : "Instancier"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <LedgerSegmented
         value={tab}

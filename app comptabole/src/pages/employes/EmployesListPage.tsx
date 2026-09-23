@@ -41,6 +41,7 @@ import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
 import { cn, initials } from "@/lib/utils";
 import { employeNomComplet } from "@/data/employes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { logJournal } from "@/store/journal";
 import {
   useData,
@@ -211,6 +212,7 @@ function MobileCollaboratorRow({
 }
 
 export function EmployesListPage() {
+  const { isAdmin } = usePermissions();
   const rows = useCollaborateurs();
   const societes = useSocietes();
   const taches = useTaches();
@@ -296,7 +298,7 @@ export function EmployesListPage() {
     } else {
       addEmploye({
         ...values,
-        role: "collaborateur",
+        role: isAdmin ? values.role : "collaborateur",
         permissions: defaultPermissions(values.type),
       });
       logJournal("creation", "employe", nom);
@@ -443,12 +445,18 @@ export function EmployesListPage() {
           setFormOpen(true);
         },
       },
-      {
-        icon: Trash2,
-        label: "Supprimer",
-        destructive: true,
-        onClick: () => setToDelete(e),
-      },
+      // Suppression réservée à l'admin — irréversible (voir server/routes/
+      // employes.js, seule route du routeur qui garde son propre requireAdmin).
+      ...(isAdmin
+        ? [
+            {
+              icon: Trash2,
+              label: "Supprimer",
+              destructive: true,
+              onClick: () => setToDelete(e),
+            },
+          ]
+        : []),
     ];
   }
 
@@ -630,9 +638,22 @@ export function EmployesListPage() {
         title="Collaborateurs"
         description="Équipe du cabinet · comptes et périmètres d'accès"
         metrics={[
-          { label: "Collaborateurs", value: rows.length, loading: isDataLoading },
-          { label: "Actifs", value: activeCount, tone: "success", loading: isDataLoading },
-          { label: "Attributions sociétés", value: attributionCount, loading: isDataLoading },
+          {
+            label: "Collaborateurs",
+            value: rows.length,
+            loading: isDataLoading,
+          },
+          {
+            label: "Actifs",
+            value: activeCount,
+            tone: "success",
+            loading: isDataLoading,
+          },
+          {
+            label: "Attributions sociétés",
+            value: attributionCount,
+            loading: isDataLoading,
+          },
         ]}
         action={{ label: "Ajouter un collaborateur", onClick: startCreate }}
       />
@@ -967,7 +988,10 @@ export function EmployesListPage() {
       )}
 
       {!mobileSelecting && (
-        <OperationalFab label="Ajouter un collaborateur" onClick={startCreate} />
+        <OperationalFab
+          label="Ajouter un collaborateur"
+          onClick={startCreate}
+        />
       )}
       {mobileSelecting && (
         <div className="mobile-selection-bar fixed inset-x-0 bottom-0 z-40 flex min-w-0 items-center justify-between gap-1 bg-primary px-3 py-2 text-primary-foreground shadow-lg lg:hidden">
@@ -1012,6 +1036,7 @@ export function EmployesListPage() {
           if (!open) setEditing(null);
         }}
         employe={editing}
+        canAssignRole={isAdmin}
         onSubmit={handleSubmit}
       />
       <EmployeAccesSheet

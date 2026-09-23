@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
+import { RequireEquipeManager } from "@/components/auth/RequireEquipeManager";
 import { RequireEquipe } from "@/components/auth/RequireEquipe";
 import { useAuth } from "@/store/auth";
 import { useData } from "@/store/data";
@@ -333,14 +334,6 @@ export default function App() {
                   }
                 />
                 <Route
-                  path="/employes"
-                  element={
-                    <Suspense fallback={<PageFallback />}>
-                      <EmployesListPage />
-                    </Suspense>
-                  }
-                />
-                <Route
                   path="/parametres"
                   element={
                     <Suspense fallback={<PageFallback />}>
@@ -361,6 +354,16 @@ export default function App() {
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <GrilleAffectatPage />
+                    </Suspense>
+                  }
+                />
+              </Route>
+              <Route element={<RequireEquipeManager />}>
+                <Route
+                  path="/employes"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <EmployesListPage />
                     </Suspense>
                   }
                 />

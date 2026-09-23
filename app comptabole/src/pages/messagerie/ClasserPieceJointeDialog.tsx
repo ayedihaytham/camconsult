@@ -41,14 +41,22 @@ export function ClasserPieceJointeDialog({
 }: Props) {
   const [target, setTarget] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open) setTarget(null);
-  }, [open]);
-
   const scopedNodes = restrictToSocieteId
     ? nodes.filter((n) => n.societeId === restrictToSocieteId)
     : nodes;
   const folders = scopedNodes.filter((n) => n.type === "dossier");
+  // Dossier de tête de cette société dans l'arborescence (son parent n'est
+  // pas lui-même dans le périmètre restreint) — sert de cible pour "Racine
+  // de la société" : jamais la vraie racine globale (parentId=null), qui
+  // appartient à "Comptabilité générale [année]", partagée par toutes.
+  const societeRoot = restrictToSocieteId
+    ? scopedNodes.find((n) => !scopedNodes.some((p) => p.id === n.parentId))
+    : null;
+
+  useEffect(() => {
+    if (open) setTarget(societeRoot?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const pathOf = (id: string): string => {
     const chain: string[] = [];
@@ -73,19 +81,42 @@ export function ClasserPieceJointeDialog({
         </DialogHeader>
 
         <div className="max-h-72 space-y-1 overflow-y-auto rounded-md border border-border p-1.5">
-          <button
-            onClick={() => setTarget(null)}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
-              target === null ? "bg-secondary font-medium" : "hover:bg-secondary/60",
-            )}
-          >
-            <Home className="h-4 w-4 text-muted-foreground" />
-            {restrictToSocieteId
-              ? `Racine de ${restrictToSocieteLabel ?? "la société"}`
-              : "Racine"}
-          </button>
-          {folders.map((f) => (
+          {restrictToSocieteId ? (
+            societeRoot ? (
+              <button
+                onClick={() => setTarget(societeRoot.id)}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
+                  target === societeRoot.id
+                    ? "bg-secondary font-medium"
+                    : "hover:bg-secondary/60",
+                )}
+              >
+                <Home className="h-4 w-4 text-muted-foreground" />
+                {`Racine de ${restrictToSocieteLabel ?? "la société"}`}
+              </button>
+            ) : (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                Aucun dossier pour {restrictToSocieteLabel ?? "cette société"} —
+                utilisez d'abord « Instancier pour toutes les sociétés » dans
+                Structuration.
+              </p>
+            )
+          ) : (
+            <button
+              onClick={() => setTarget(null)}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
+                target === null ? "bg-secondary font-medium" : "hover:bg-secondary/60",
+              )}
+            >
+              <Home className="h-4 w-4 text-muted-foreground" />
+              Racine
+            </button>
+          )}
+          {folders
+            .filter((f) => f.id !== societeRoot?.id)
+            .map((f) => (
             <button
               key={f.id}
               onClick={() => setTarget(f.id)}
@@ -114,7 +145,11 @@ export function ClasserPieceJointeDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button variant="ledger" onClick={() => onConfirm(target)}>
+          <Button
+            variant="ledger"
+            disabled={Boolean(restrictToSocieteId) && target === null}
+            onClick={() => onConfirm(target)}
+          >
             Classer ici
           </Button>
         </DialogFooter>

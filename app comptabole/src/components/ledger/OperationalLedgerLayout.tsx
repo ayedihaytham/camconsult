@@ -25,6 +25,20 @@ export function OperationalLedgerPage({
   );
 }
 
+interface LedgerWorkSurfaceProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/** Shared architectural boundary for operational work, with domain content owned by each page. */
+export function LedgerWorkSurface({ children, className }: LedgerWorkSurfaceProps) {
+  return (
+    <section className={cn("ledger-work-surface mt-2 min-w-0 lg:mt-0", className)}>
+      {children}
+    </section>
+  );
+}
+
 interface OperationalLedgerToolbarProps {
   search: ReactNode;
   resultCount?: string;
@@ -43,7 +57,7 @@ export function OperationalLedgerToolbar({
     <div
       role="toolbar"
       aria-label={label}
-      className="operational-ledger-toolbar hidden min-w-0 items-center gap-2 border-y border-border/80 bg-secondary/45 px-2 py-1 lg:flex"
+      className="operational-ledger-toolbar hidden min-w-0 items-center gap-3 border-b border-border/80 bg-transparent px-3 py-2 lg:flex"
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <div className="min-w-0 flex-1">{search}</div>
@@ -73,7 +87,7 @@ export function OperationalContentHeader({
   return (
     <div
       className={cn(
-        "operational-ledger-content-header flex min-w-0 items-center justify-between gap-3 border-b border-border/80 bg-card px-3 py-1 sm:px-4 lg:min-h-10 lg:px-3",
+        "operational-ledger-content-header relative flex min-w-0 items-center justify-between gap-3 border-b border-border/80 bg-transparent pl-4 pr-3 py-1 sm:pr-4 lg:min-h-10 lg:pr-3",
         className,
       )}
     >
@@ -99,7 +113,7 @@ export function OperationalMobileUtility({
       role="toolbar"
       aria-label={label}
       className={cn(
-        "operational-mobile-utility mt-2 min-w-0 bg-card px-3 py-2 lg:hidden",
+        "operational-mobile-utility min-w-0 border-b border-border/80 bg-transparent px-3 py-2 lg:hidden",
         className,
       )}
     >
@@ -121,11 +135,33 @@ export function OperationalMobileHeader({
   return (
     <div
       className={cn(
-        "operational-mobile-header mt-1 flex min-h-10 min-w-0 items-center justify-between gap-3 border-b border-border/80 bg-card px-3 py-1 lg:hidden",
+        "operational-mobile-header relative flex min-h-10 min-w-0 items-center justify-between gap-3 border-b border-border/80 bg-transparent pl-4 pr-3 py-1 lg:hidden",
         className,
       )}
     >
       {children}
+    </div>
+  );
+}
+
+interface OperationalLedgerFooterProps<TData> {
+  table: Table<TData>;
+  itemLabel: string;
+  className?: string;
+}
+
+/** Compact common desktop footer; domain pages keep ownership of the table and its state. */
+export function OperationalLedgerFooter<TData>({
+  table,
+  itemLabel,
+  className,
+}: OperationalLedgerFooterProps<TData>) {
+  return (
+    <div className={cn("operational-ledger-footer", className)}>
+      <DataTablePagination table={table} itemLabel={itemLabel} variant="count" />
+      {table.getPageCount() > 1 && (
+        <DataTablePagination table={table} itemLabel={itemLabel} variant="controls" />
+      )}
     </div>
   );
 }
@@ -145,7 +181,7 @@ export function OperationalMobilePagination<TData>({
   return (
     <div
       className={cn(
-        "operational-mobile-pagination min-w-0 bg-card px-3 lg:hidden",
+        "operational-mobile-pagination min-w-0 bg-transparent px-3 lg:hidden",
         className,
       )}
     >

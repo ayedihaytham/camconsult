@@ -517,3 +517,181 @@
     break-before: avoid;
   }
 }
+
+/* Ledger Work Surface: one ruled working plane shared by operational registers. */
+.ledger-work-surface {
+  min-width: 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.25rem;
+  background: hsl(var(--card));
+}
+
+.ledger-work-surface .operational-ledger-toolbar {
+  min-height: 3.25rem;
+  border-bottom-color: hsl(var(--border) / 0.8);
+}
+
+.ledger-work-surface .operational-mobile-utility {
+  padding-inline: 0.75rem;
+}
+
+.ledger-work-surface .operational-ledger-content-header::before,
+.ledger-work-surface .operational-mobile-header::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 2px;
+  height: 1rem;
+  background: hsl(var(--primary));
+  content: "";
+  transform: translateY(-50%);
+}
+
+.ledger-work-surface .operational-ledger-content-header::after,
+.ledger-work-surface .operational-mobile-header::after {
+  position: absolute;
+  bottom: -1px;
+  left: 3px;
+  width: 1.75rem;
+  height: 1px;
+  background: hsl(var(--accent));
+  content: "";
+}
+
+.operational-ledger-footer {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-top: 1px solid hsl(var(--border) / 0.8);
+  padding: 0.25rem 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-selection-strip {
+  border-bottom: 1px solid hsl(var(--accent) / 0.45);
+  background: hsl(var(--accent) / 0.14);
+  color: hsl(var(--primary));
+}
+
+.operational-ledger-page .mobile-selection-bar {
+  border-top-color: hsl(var(--accent) / 0.55);
+  background: hsl(var(--accent) / 0.16);
+  color: hsl(var(--primary));
+}
+
+.ledger-work-surface .ledger-work-table > div:first-child {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ledger-work-surface .ledger-work-table thead tr {
+  background: hsl(var(--secondary) / 0.55) !important;
+}
+
+.ledger-work-surface .ledger-work-table thead th {
+  height: 2rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.ledger-work-surface .ledger-work-table > div:first-child > div:last-child {
+  border-top: 0;
+  padding: 0;
+}
+
+.ledger-work-surface .ledger-work-table tbody tr {
+  background: transparent;
+}
+
+.ledger-work-surface .ledger-work-table tbody tr:hover {
+  background: hsl(var(--secondary) / 0.45);
+}
+
+.ledger-work-surface .ledger-work-table tbody tr[class*="bg-accent"] {
+  background: hsl(var(--accent) / 0.1);
+}
+
+.ledger-work-surface .ledger-work-table tbody tr[class*="bg-accent"]:hover {
+  background: hsl(var(--accent) / 0.14);
+}
+
+.ledger-work-surface .operational-mobile-pagination {
+  border-top: 1px solid hsl(var(--border) / 0.8);
+}
+
+.ledger-work-surface .operational-mobile-pagination > div {
+  border-top: 0;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
+.ledger-work-surface .task-work-register {
+  border: 0;
+  background: transparent;
+}
+
+.ledger-work-surface .task-work-table > div:first-child {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ledger-work-surface .task-work-table > div:first-child > div:last-child {
+  border-top-color: hsl(var(--border) / 0.8);
+  border-radius: 0;
+  background: transparent;
+}
+
+.ledger-work-surface .task-work-table .operational-ledger-footer {
+  display: flex;
+}
+
+.ledger-work-surface .task-work-register > .operational-ledger-content-header {
+  padding-left: 1rem;
+}
+
+@media (min-width: 1024px) and (max-height: 900px) {
+  .societes-ledger-page .signature-ledger {
+    margin-bottom: 0;
+  }
+
+  .societes-ledger-page .ledger-work-surface .operational-ledger-toolbar {
+    min-height: 2.75rem;
+    padding-block: 0.25rem;
+  }
+
+  .societes-ledger-page .ledger-work-surface .operational-ledger-content-header {
+    min-height: 2.25rem;
+    padding-block: 0.125rem;
+  }
+
+  .societes-ledger-page .ledger-work-table table thead th {
+    height: 1.75rem;
+    padding-block: 0.125rem;
+  }
+
+  .societes-ledger-page .ledger-work-table table tbody tr {
+    height: 2.875rem;
+  }
+
+  .societes-ledger-page .ledger-work-table table tbody td {
+    padding-block: 0.125rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .ledger-work-surface {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .operational-ledger-footer {
+    padding-inline: 0.75rem;
+  }
+}

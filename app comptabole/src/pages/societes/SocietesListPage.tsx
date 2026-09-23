@@ -20,8 +20,10 @@ import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
+  LedgerWorkSurface,
   OperationalContentHeader,
   OperationalLedgerPage,
+  OperationalLedgerFooter,
   OperationalLedgerToolbar,
   OperationalMobileHeader,
   OperationalMobilePagination,
@@ -29,7 +31,6 @@ import {
 } from "@/components/ledger/OperationalLedgerLayout";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
-import { DataTablePagination } from "@/components/data-table/DataTablePagination";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { STATUT_LABELS } from "@/components/common/badges";
@@ -92,12 +93,10 @@ function monogramTone(seed: string) {
 }
 
 function BulkActionsMenu({
-  inverse = false,
   onExport,
   onSetTheme,
   onSetInactive,
 }: {
-  inverse?: boolean;
   onExport?: () => void;
   onSetTheme: (theme: SocieteTheme) => void;
   onSetInactive: () => void;
@@ -107,13 +106,9 @@ function BulkActionsMenu({
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
-          variant={inverse ? "ghost" : "outline"}
+          variant="outline"
           size="sm"
-          className={cn(
-            "shadow-none",
-            inverse &&
-              "text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
-          )}
+          className="shadow-none"
         >
           Actions
           <ChevronDown className="size-3.5 opacity-70" />
@@ -594,7 +589,7 @@ export function SocietesListPage() {
           </div>
         );
       },
-      meta: { label: "Société", headerClassName: "w-[38%]" },
+      meta: { label: "Société", headerClassName: "w-[42%]" },
     },
     {
       id: "contactCle",
@@ -605,7 +600,7 @@ export function SocietesListPage() {
       cell: ({ row }) => {
         const count = contactCount.get(row.original.id) ?? 0;
         if (count === 0) {
-          return <span className="text-xs text-muted-foreground/70">—</span>;
+          return <span className="text-xs text-muted-foreground">Aucun contact</span>;
         }
 
         return (
@@ -619,7 +614,7 @@ export function SocietesListPage() {
           </div>
         );
       },
-      meta: { label: "Contact clé", headerClassName: "w-[22%]" },
+      meta: { label: "Contact clé", headerClassName: "w-[19%]" },
     },
     {
       id: "tachesOuvertes",
@@ -756,6 +751,7 @@ export function SocietesListPage() {
         action={canEdit ? { label: "Ajouter une société", onClick: startCreate } : undefined}
       />
 
+      <LedgerWorkSurface className="societes-ledger-surface">
       {selectedIds.length === 0 && (
         <OperationalLedgerToolbar
           label="Outils du registre des sociétés"
@@ -778,7 +774,7 @@ export function SocietesListPage() {
       )}
 
       <div className="societes-ledger-register">
-      <OperationalContentHeader className="societes-ledger-register-heading hidden lg:flex sm:bg-transparent sm:px-0">
+      <OperationalContentHeader className="societes-ledger-register-heading hidden lg:flex">
         <div className="hidden min-w-0 items-center gap-2.5 lg:flex">
           <Checkbox
             checked={
@@ -808,18 +804,7 @@ export function SocietesListPage() {
             </h2>
           </div>
         </div>
-        <div className="hidden items-center gap-2 lg:flex">
-          <DataTablePagination
-            table={table}
-            itemLabel="sociétés"
-            variant="count"
-          />
-          <DataTablePagination
-            table={table}
-            itemLabel="sociétés"
-            variant="controls"
-          />
-        </div>
+        <span className="text-xs text-muted-foreground">Sociétés accessibles</span>
       </OperationalContentHeader>
 
       <OperationalMobileHeader>
@@ -870,7 +855,7 @@ export function SocietesListPage() {
       </OperationalMobileHeader>
 
       {selectedIds.length > 0 && (
-        <div className="hidden items-center justify-between gap-4 bg-primary px-3 py-2 text-primary-foreground lg:flex">
+        <div className="ledger-selection-strip hidden items-center justify-between gap-4 px-3 py-1.5 lg:flex">
           <span className="text-sm font-semibold">
             {selectedIds.length} société{selectedIds.length > 1 ? "s" : ""}{" "}
             sélectionnée{selectedIds.length > 1 ? "s" : ""}
@@ -880,14 +865,13 @@ export function SocietesListPage() {
               type="button"
               variant="ghost"
               size="sm"
-              className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              className="text-primary hover:bg-primary/5 hover:text-primary"
               onClick={() => handleExport("xlsx")}
             >
               Exporter
             </Button>
             {canEdit && (
               <BulkActionsMenu
-                inverse
                 onSetTheme={(theme) => void bulkSetTheme(theme)}
                 onSetInactive={() => void bulkSetInactive()}
               />
@@ -897,7 +881,7 @@ export function SocietesListPage() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => setBulkDeleteOpen(true)}
               >
                 Supprimer
@@ -907,7 +891,7 @@ export function SocietesListPage() {
               type="button"
               variant="ghost"
               size="sm"
-              className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              className="text-primary hover:bg-primary/5 hover:text-primary"
               onClick={clearSelection}
             >
               Annuler
@@ -917,15 +901,16 @@ export function SocietesListPage() {
       )}
 
       <DataTable
-        className="societes-ledger-table bg-card sm:bg-transparent [&>div:last-child]:space-y-0"
+        className="ledger-work-table societes-ledger-table bg-transparent [&>div:last-child]:space-y-0"
         desktopDensity="compact"
         desktopVariant="register"
         table={table}
         emptyMessage={emptyMessage}
         isLoading={isDataLoading}
+        footer={<OperationalLedgerFooter table={table} itemLabel="sociétés" />}
         getRowClassName={(row) =>
           selectedIds.includes(row.original.id)
-            ? "bg-accent/[0.09] hover:bg-accent/[0.12] [&>td:first-child]:border-l [&>td:first-child]:border-accent"
+            ? "bg-accent/[0.10] hover:bg-accent/[0.14] [&>td:first-child]:border-l-2 [&>td:first-child]:border-accent"
             : undefined
         }
         onRowClick={(row) => openView(row.original)}
@@ -1013,6 +998,7 @@ export function SocietesListPage() {
         <OperationalMobilePagination table={table} itemLabel="sociétés" />
       )}
       </div>
+      </LedgerWorkSurface>
 
       {canEdit && !isMobileSelectionActive && (
         <OperationalFab label="Ajouter une société" onClick={startCreate} />

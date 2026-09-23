@@ -37,6 +37,7 @@ import { useDataTable } from "@/components/data-table/useDataTable";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
+  LedgerWorkSurface,
   OperationalContentHeader,
   OperationalLedgerPage,
   OperationalLedgerToolbar,
@@ -363,6 +364,7 @@ export function TasksKanban({
         action={canManage ? { label: "Nouvelle tâche", onClick: onCreate } : undefined}
       />
 
+      <LedgerWorkSurface className="taches-work-surface flex min-h-0 flex-col">
       <OperationalLedgerToolbar
         label="Outils des tâches"
         search={renderSearchFilter("max-w-none")}
@@ -406,7 +408,7 @@ export function TasksKanban({
           <OperationalContentHeader>
             <h2 className="text-sm font-semibold text-foreground">Flux Kanban</h2>
           </OperationalContentHeader>
-          <div className="flex min-w-0 flex-1 gap-3 overflow-x-auto border-y border-border/80 bg-card p-2.5">
+          <div className="flex min-w-0 flex-1 gap-3 overflow-x-auto bg-transparent p-2.5">
             {COLUMNS.map((column) => (
               <BoardColumn
                 key={column.id}
@@ -456,6 +458,7 @@ export function TasksKanban({
           {...taskActions}
         />
       )}
+      </LedgerWorkSurface>
 
     </OperationalLedgerPage>
   );
@@ -463,7 +466,7 @@ export function TasksKanban({
 
 function TasksEmptyState({ message }: { message: string }) {
   return (
-    <div className="border-y border-border/80 bg-card px-4 py-8 text-center">
+    <div className="px-4 py-6 text-center">
       <p className="text-sm font-medium text-foreground">{message}</p>
     </div>
   );

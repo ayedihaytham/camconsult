@@ -1,8 +1,8 @@
 import type { Table } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
-import { DataTablePagination } from "@/components/data-table/DataTablePagination";
 import {
   OperationalContentHeader,
+  OperationalLedgerFooter,
   OperationalMobileHeader,
   OperationalMobilePagination,
 } from "@/components/ledger/OperationalLedgerLayout";
@@ -39,13 +39,8 @@ export function TaskTableView({
         emptyMessage={emptyMessage}
         desktopDensity="compact"
         hideMobile
-        className="task-work-table [&>div:first-child]:rounded-none [&>div:first-child]:border-x-0"
-        footer={
-          <div className="flex items-center justify-between gap-3">
-            <DataTablePagination table={table} itemLabel="tâches" variant="count" />
-            <DataTablePagination table={table} itemLabel="tâches" variant="controls" />
-          </div>
-        }
+        className="ledger-work-table task-work-table"
+        footer={<OperationalLedgerFooter table={table} itemLabel="tâches" />}
         getRowClassName={(row) =>
           actions.pendingTaskIds.has(row.original.task.id) ? "opacity-70" : undefined
         }

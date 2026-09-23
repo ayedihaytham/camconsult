@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
-import { DataTablePagination } from "@/components/data-table/DataTablePagination";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
@@ -21,8 +20,10 @@ import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
+  LedgerWorkSurface,
   OperationalContentHeader,
   OperationalLedgerPage,
+  OperationalLedgerFooter,
   OperationalLedgerToolbar,
   OperationalMobileHeader,
   OperationalMobilePagination,
@@ -109,10 +110,10 @@ function BulkActions({
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="sm"
           disabled={disabled}
-          className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+          className="text-primary shadow-none hover:bg-primary/5 hover:text-primary"
         >
           Actions <span aria-hidden>⌄</span>
         </Button>
@@ -777,7 +778,8 @@ export function EmployesListPage() {
         action={{ label: "Ajouter un collaborateur", onClick: startCreate }}
       />
 
-      {!mobileSelecting && (
+      <LedgerWorkSurface className="employes-ledger-surface">
+      {selectedIds.length === 0 && !mobileSelecting && (
         <OperationalLedgerToolbar
           label="Outils du registre des collaborateurs"
           search={renderSearchFilter()}
@@ -819,16 +821,7 @@ export function EmployesListPage() {
             />
           </h2>
         </div>
-        <div className="hidden items-center gap-2 lg:flex">
-          <DataTablePagination
-            table={table}
-            itemLabel="collaborateurs"
-            variant="count"
-          />
-          {!isDataLoading && filtered.length > 0 && table.getPageCount() > 1 && (
-            <DataTablePagination table={table} variant="controls" />
-          )}
-        </div>
+        <span className="text-xs text-muted-foreground">Registre équipe</span>
       </OperationalContentHeader>
       <OperationalMobileHeader>
         <div className="min-w-0 flex-1">
@@ -911,7 +904,7 @@ export function EmployesListPage() {
       </OperationalMobileHeader>
 
       {selectedIds.length > 0 && (
-        <div className="hidden items-center justify-between gap-3 bg-primary px-3 py-2 text-primary-foreground lg:flex">
+        <div className="ledger-selection-strip hidden items-center justify-between gap-3 px-3 py-1.5 lg:flex">
           <span className="text-xs font-semibold">
             {selectedIds.length} collaborateur
             {selectedIds.length > 1 ? "s" : ""} sélectionné
@@ -928,7 +921,7 @@ export function EmployesListPage() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => setBulkDeleteOpen(true)}
               >
                 Supprimer
@@ -938,7 +931,7 @@ export function EmployesListPage() {
               type="button"
               variant="ghost"
               size="sm"
-              className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+              className="text-primary hover:bg-primary/5 hover:text-primary"
               onClick={clearSelection}
             >
               Annuler
@@ -947,16 +940,17 @@ export function EmployesListPage() {
         </div>
       )}
       <DataTable
-        className="bg-card sm:bg-transparent [&>div:last-child]:space-y-0"
+        className="ledger-work-table bg-transparent [&>div:last-child]:space-y-0"
         desktopDensity="compact"
         desktopVariant="register"
         table={table}
         emptyMessage={emptyMessage}
         isLoading={isDataLoading}
+        footer={<OperationalLedgerFooter table={table} itemLabel="collaborateurs" />}
         onRowClick={(row) => openView(row.original)}
         getRowClassName={(row) =>
           selectedIds.includes(row.original.id)
-            ? "bg-[#C9A96A]/10 hover:bg-[#C9A96A]/15 [&>td:first-child]:border-l-2 [&>td:first-child]:border-[#C9A96A]"
+            ? "bg-accent/[0.10] hover:bg-accent/[0.14] [&>td:first-child]:border-l-2 [&>td:first-child]:border-accent"
             : undefined
         }
         mobileRow={(row) => {
@@ -979,6 +973,7 @@ export function EmployesListPage() {
         <OperationalMobilePagination table={table} itemLabel="collaborateurs" />
       )}
       </div>
+      </LedgerWorkSurface>
 
       {!mobileSelecting && (
         <OperationalFab
@@ -1005,7 +1000,7 @@ export function EmployesListPage() {
                 size="sm"
                 disabled={selectedIds.length === 0}
                 onClick={() => setBulkDeleteOpen(true)}
-                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 Supprimer
               </Button>
@@ -1016,7 +1011,7 @@ export function EmployesListPage() {
               size="icon-sm"
               onClick={clearSelection}
               aria-label="Annuler la sélection"
-              className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+              className="text-primary hover:bg-primary/5 hover:text-primary"
             >
               <X className="size-4" />
             </Button>

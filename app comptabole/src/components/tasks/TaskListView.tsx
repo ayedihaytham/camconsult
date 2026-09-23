@@ -1,6 +1,8 @@
 import type { Table } from "@tanstack/react-table";
-import { DataTablePagination } from "@/components/data-table/DataTablePagination";
-import { OperationalContentHeader } from "@/components/ledger/OperationalLedgerLayout";
+import {
+  OperationalContentHeader,
+  OperationalLedgerFooter,
+} from "@/components/ledger/OperationalLedgerLayout";
 import { cn } from "@/lib/utils";
 import type { TacheStatut } from "@/types";
 import { TaskActionsMenu } from "./TaskActionsMenu";
@@ -52,7 +54,7 @@ export function TaskListView({
   const groups = groupTaskListPage(visibleTasks, allFilteredTasks);
 
   return (
-    <div className="task-work-register min-w-0 border-y border-border/80 bg-card">
+    <div className="task-work-register min-w-0">
       <OperationalContentHeader className="min-h-10 border-x-0 border-t-0">
         <h2 className="text-sm font-semibold text-foreground">File de travail</h2>
         <p className="hidden text-xs text-muted-foreground sm:block">
@@ -122,7 +124,7 @@ export function TaskListView({
           </div>
         </section>
       ))}
-      <DataTablePagination table={table} itemLabel="tâches" className="rounded-none border-x-0 border-b-0 bg-transparent" />
+      <OperationalLedgerFooter table={table} itemLabel="tâches" />
     </div>
   );
 }

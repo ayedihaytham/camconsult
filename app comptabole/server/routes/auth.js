@@ -56,6 +56,28 @@ authRouter.get("/me", requireAuth, (req, res) => {
   res.json({ session: req.session });
 });
 
+/** Changement de mot de passe par l'employé lui-même — utilisé pour le
+ * changement forcé à la 1ère connexion (ou après une réinitialisation par
+ * l'admin/le responsable des collaborateurs, voir routes/employes.js).
+ * L'admin change le sien via PATCH /credentials, pas cette route. */
+authRouter.post("/change-password", requireAuth, async (req, res) => {
+  if (req.session.role !== "employe")
+    return res.status(403).json({ error: "Réservé aux comptes employé" });
+  const { motDePasse } = req.body ?? {};
+  if (!motDePasse || String(motDePasse).length < 8)
+    return res.status(400).json({ error: "Mot de passe : 8 caractères minimum." });
+  await query(
+    "update employes set mot_de_passe = $1, doit_changer_mdp = false where id = $2",
+    [String(motDePasse), req.session.employeId],
+  );
+  logAction(req.session.nom, "modification", "compte", "Mot de passe changé");
+  const session = await sessionFromToken({
+    role: "employe",
+    employeId: req.session.employeId,
+  });
+  res.json({ session });
+});
+
 authRouter.post("/logout", requireAuth, (req, res) => {
   logAction(req.session.nom, "deconnexion", "compte", req.session.nom);
   res.json({ ok: true });

@@ -40,6 +40,9 @@ export async function sessionFromToken(payload) {
         messagerie: true,
       },
       societeIds: null, // null = toutes
+      // L'admin change son mot de passe via Paramètres (PATCH /credentials),
+      // jamais concerné par le changement forcé à la connexion.
+      doitChangerMotDePasse: false,
     };
   }
 
@@ -104,6 +107,7 @@ export async function sessionFromToken(payload) {
         ? [e.societe_id]
         : []
       : collabSocieteIds,
+    doitChangerMotDePasse: Boolean(e.doit_changer_mdp),
   };
 }
 

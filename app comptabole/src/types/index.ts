@@ -59,6 +59,9 @@ export interface Employe {
   statut: Statut;
   societesAssignees: string[]; // ids de sociétés (role = "collaborateur")
   permissions: EmployePermissions;
+  /** true = doit changer son mot de passe à la prochaine connexion (1ère
+   * connexion, ou après une réinitialisation par l'admin/le responsable). */
+  doitChangerMotDePasse?: boolean;
   derniereConnexion?: string | null; // ISO
   creeLe: string;
 }

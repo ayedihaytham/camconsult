@@ -19,6 +19,9 @@ export interface Session {
   permissions: EmployePermissions;
   /** null = accès à toutes les sociétés (admin) */
   societeIds: string[] | null;
+  /** true = doit changer son mot de passe avant d'accéder au reste de
+   * l'app (1ère connexion, ou après une réinitialisation). */
+  doitChangerMotDePasse?: boolean;
 }
 
 type Status = "loading" | "authed" | "anon";
@@ -40,6 +43,11 @@ interface AuthState {
     nom?: string;
     role?: string;
   }) => Promise<{ ok: boolean; error?: string }>;
+  /** Changement de mot de passe forcé (1ère connexion / après réinitialisation) —
+   * l'employé choisit lui-même son mot de passe définitif. */
+  changePassword: (
+    motDePasse: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export const useAuth = create<AuthState>((set) => ({
@@ -114,6 +122,22 @@ export const useAuth = create<AuthState>((set) => ({
       return {
         ok: false,
         error: err instanceof ApiError ? err.message : "Mise à jour impossible.",
+      };
+    }
+  },
+
+  changePassword: async (motDePasse) => {
+    try {
+      const { session } = await api.post<{ session: Session }>(
+        "/auth/change-password",
+        { motDePasse },
+      );
+      set({ session });
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof ApiError ? err.message : "Changement impossible.",
       };
     }
   },

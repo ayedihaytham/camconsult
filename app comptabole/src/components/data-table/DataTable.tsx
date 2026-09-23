@@ -26,6 +26,7 @@ interface DataTableProps<TData> extends ComponentProps<"div"> {
   isLoading?: boolean;
   isRowExpanded?: (row: Row<TData>) => boolean;
   mobileRow?: (row: Row<TData>) => ReactNode;
+  hideMobile?: boolean;
   mobileFooter?: ReactNode;
   onRowClick?: (row: Row<TData>) => void;
   renderSubComponent?: (row: Row<TData>) => ReactNode;
@@ -42,6 +43,7 @@ export function DataTable<TData>({
   isLoading = false,
   isRowExpanded,
   mobileRow,
+  hideMobile = false,
   mobileFooter,
   onRowClick,
   renderSubComponent,
@@ -185,7 +187,7 @@ export function DataTable<TData>({
         )}
       </div>
 
-      <div className="space-y-2 lg:hidden">
+      {!hideMobile && <div className="space-y-2 lg:hidden">
         {rows.length > 0 ? (
           rows.map((row) =>
             mobileRow ? (
@@ -216,7 +218,7 @@ export function DataTable<TData>({
           </div>
         )}
         {mobileFooter && <div className="pt-1">{mobileFooter}</div>}
-      </div>
+      </div>}
     </div>
   );
 }

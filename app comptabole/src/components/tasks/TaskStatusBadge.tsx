@@ -13,8 +13,8 @@ const STATUS_BADGE: Record<
     className: "border-border/70",
   },
   en_cours: {
-    variant: "warning",
-    className: "border-warning/25",
+    variant: "outline",
+    className: "border-primary/15 bg-primary/5 text-primary",
   },
   termine: {
     variant: "success",

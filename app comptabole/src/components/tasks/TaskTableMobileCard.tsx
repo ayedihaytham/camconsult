@@ -1,9 +1,9 @@
 import type { Row } from "@tanstack/react-table";
-import { Clock } from "lucide-react";
-import { cn, formatRelative } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { TaskActionsMenu } from "./TaskActionsMenu";
+import { TaskActivity } from "./TaskActivity";
 import { TaskAssignee } from "./TaskAssignee";
-import { TaskCompanyBadge } from "./TaskCompanyBadge";
+import { TaskNextAction } from "./TaskNextAction";
 import { TaskStatusBadge } from "./TaskStatusBadge";
 import type { PresentedTask, TaskPresentationActions } from "./taskTypes";
 
@@ -14,62 +14,46 @@ export function TaskTableMobileCard({
   row: Row<PresentedTask>;
   actions: TaskPresentationActions;
 }) {
-  const task = row.original;
-  const displayDate = task.task.termineLe ?? task.task.majLe;
+  const presented = row.original;
+  const task = presented.task;
+  const isPending = actions.pendingTaskIds.has(task.id);
 
   return (
-    <article
-      className={cn(
-        "overflow-hidden rounded-xl border border-border bg-card",
-        actions.pendingTaskIds.has(task.task.id) && "opacity-70",
-      )}
-    >
-      <div className="p-2.5 pb-2">
-        <div className="flex min-w-0 items-start gap-2">
-          <p
-            className="min-w-0 flex-1 truncate text-sm font-semibold leading-5 text-foreground"
-            title={task.task.titre}
-          >
-            {task.task.titre}
-          </p>
-          <TaskStatusBadge status={task.task.statut} />
-          <TaskActionsMenu
-            task={task.task}
-            canManage={actions.canManage}
-            canChangeStatus={actions.canChangeStatus}
-            onStatusChange={actions.onStatusChange}
-            onEdit={actions.onEdit}
-            onDelete={actions.onDelete}
-          />
-        </div>
-
-        <div className="mt-1.5 flex min-w-0 items-center gap-2">
-          <TaskCompanyBadge
-            name={task.societeName}
-            className="max-w-[45%] shrink-0"
-          />
-          {task.task.description && (
-            <p
-              className="min-w-0 flex-1 truncate text-xs leading-4 text-muted-foreground"
-              title={task.task.description}
-            >
-              {task.task.description}
-            </p>
-          )}
-        </div>
+    <article className={cn("min-w-0 border-b border-border/80 bg-card px-3 py-3 sm:px-4", isPending && "opacity-70")}>
+      <div className="flex min-w-0 items-start gap-2">
+        <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold leading-5 text-foreground" title={task.titre}>
+          {task.titre}
+        </h3>
+        <TaskStatusBadge status={task.statut} className="shrink-0 text-[11px]" />
+        <TaskActionsMenu
+          task={task}
+          canManage={actions.canManage}
+          canChangeStatus={actions.canChangeStatus}
+          onStatusChange={actions.onStatusChange}
+          onEdit={actions.onEdit}
+          onDelete={actions.onDelete}
+          isPending={isPending}
+        />
       </div>
-
-      <div className="flex min-w-0 items-center justify-between gap-2 border-t border-border/60 bg-muted/15 px-2.5 py-1.5">
-        <div className="min-w-0 flex-1">
-          <TaskAssignee task={task} />
-        </div>
-        <span
-          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground"
-          aria-label={`Mise à jour ${formatRelative(displayDate)}`}
-        >
-          <Clock className="h-3 w-3" />
-          {formatRelative(displayDate)}
-        </span>
+      <p className="mt-1 truncate text-xs font-medium text-foreground/75" title={presented.societeName}>
+        {presented.societeName}
+      </p>
+      {task.description && (
+        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground" title={task.description}>
+          {task.description}
+        </p>
+      )}
+      <div className="mt-2 flex min-w-0 items-center gap-3 border-t border-border/60 pt-2">
+        <div className="min-w-0 flex-1"><TaskAssignee task={presented} /></div>
+        <TaskActivity task={task} className="shrink-0 text-[11px]" />
+      </div>
+      <div className="flex justify-end">
+        <TaskNextAction
+          task={task}
+          canChangeStatus={actions.canChangeStatus}
+          onStatusChange={actions.onStatusChange}
+          isPending={isPending}
+        />
       </div>
     </article>
   );

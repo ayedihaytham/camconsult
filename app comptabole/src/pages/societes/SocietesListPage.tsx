@@ -5,12 +5,10 @@ import {
   ChevronDown,
   Copy,
   Download,
-  Filter,
   FolderOpen,
   MoreHorizontal,
   Pencil,
   Printer,
-  Search,
   Settings2,
   Trash2,
   Eye,
@@ -20,7 +18,7 @@ import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
-import { FilterChip } from "@/components/ledger/FilterChip";
+import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
@@ -29,7 +27,6 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { STATUT_LABELS } from "@/components/common/badges";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -41,6 +38,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
 import { cn } from "@/lib/utils";
@@ -133,52 +137,48 @@ function BulkActionsMenu({
   );
 }
 
-function SocietesFilterMenu({
+function SocietesFilterControls({
+  themeFilter,
+  statutFilter,
   onSetStatut,
   onSetTheme,
 }: {
+  themeFilter: string;
+  statutFilter: string;
   onSetStatut: (statut: Statut) => void;
   onSetTheme: (theme: SocieteTheme) => void;
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shadow-none"
-        >
-          <Filter className="size-3.5" />
-          Filtrer
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Type de structure</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
+    <div className="grid gap-2">
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-muted-foreground">Type de structure</p>
+        <Select value={themeFilter} onValueChange={(value) => onSetTheme(value as SocieteTheme)}>
+          <SelectTrigger aria-label="Filtrer par type de structure">
+            <SelectValue placeholder="Type de structure" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les types</SelectItem>
             {THEME_OPTIONS.map((theme) => (
-              <DropdownMenuItem key={theme} onClick={() => onSetTheme(theme)}>
-                {theme}
-              </DropdownMenuItem>
+              <SelectItem key={theme} value={theme}>{theme}</SelectItem>
             ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Statut</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-muted-foreground">Statut</p>
+        <Select value={statutFilter} onValueChange={onSetStatut}>
+          <SelectTrigger aria-label="Filtrer par statut">
+            <SelectValue placeholder="Statut" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les statuts</SelectItem>
             {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
-              <DropdownMenuItem
-                key={statut}
-                onClick={() => onSetStatut(statut)}
-              >
-                {STATUT_LABELS[statut]}
-              </DropdownMenuItem>
+              <SelectItem key={statut} value={statut}>{STATUT_LABELS[statut]}</SelectItem>
             ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
   );
 }
 
@@ -697,35 +697,20 @@ export function SocietesListPage() {
         : "Aucune société accessible."
       : "Aucune société ne correspond à votre recherche ou à vos filtres.";
 
-  const hasActiveFilters = themeFilter !== "all" || statutFilter !== "all";
+  const activeFilterCount =
+    (themeFilter !== "all" ? 1 : 0) + (statutFilter !== "all" ? 1 : 0);
   const isMobileSelectionActive = mobileSelectionMode || selectedIds.length > 0;
-
-  const filterChips = hasActiveFilters ? (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {themeFilter !== "all" && (
-        <FilterChip
-          label={`Type de structure : ${themeFilter}`}
-          onRemove={() => setThemeFilter("all")}
-        />
-      )}
-      {statutFilter !== "all" && (
-        <FilterChip
-          label={`Statut : ${STATUT_LABELS[statutFilter as Statut]}`}
-          onRemove={() => setStatutFilter("all")}
-        />
-      )}
-    </div>
-  ) : null;
 
   return (
     <div
       className={cn(
         "societes-ledger-page flex min-w-0 flex-1 flex-col",
-        canEdit && !isMobileSelectionActive && "pb-20 lg:pb-0",
+        canEdit && !isMobileSelectionActive && "ledger-fab-clearance lg:pb-0",
+        selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
       <SignatureLedgerBanner
-        className="mb-0 sm:mb-2"
+        className="operational-signature-banner mb-0 sm:mb-2"
         eyebrow="Clients & travail · Client Ledger"
         title="Sociétés"
         description={isAdmin
@@ -742,20 +727,26 @@ export function SocietesListPage() {
 
       {selectedIds.length === 0 && (
         <div className="societes-ledger-toolbar mb-1 hidden min-w-0 items-center gap-2 border-y border-border/80 bg-secondary/45 px-2 py-1 lg:flex">
-          <div className="relative min-w-0 max-w-2xl flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Rechercher une société, RNE ou code"
-              aria-label="Rechercher une société"
-              className="h-8 bg-background pl-9 shadow-none"
+          <LedgerSearchFilter
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Rechercher une société, RNE ou code"
+            searchLabel="Rechercher une société"
+            filterLabel="Filtrer les sociétés"
+            activeFilterCount={activeFilterCount}
+            onReset={() => {
+              setThemeFilter("all");
+              setStatutFilter("all");
+            }}
+            className="max-w-2xl flex-1"
+          >
+            <SocietesFilterControls
+              themeFilter={themeFilter}
+              statutFilter={statutFilter}
+              onSetTheme={setThemeFilter}
+              onSetStatut={setStatutFilter}
             />
-          </div>
-          <SocietesFilterMenu
-            onSetTheme={setThemeFilter}
-            onSetStatut={setStatutFilter}
-          />
+          </LedgerSearchFilter>
           <div className="ml-auto">
             <SocietesUtilityMenu
               table={table}
@@ -766,45 +757,43 @@ export function SocietesListPage() {
         </div>
       )}
 
-      {filterChips && selectedIds.length === 0 && (
-        <div className="mb-2 hidden lg:block">{filterChips}</div>
-      )}
-
       {!isMobileSelectionActive && (
         <div className="mb-0 min-w-0 space-y-2 bg-card px-3 py-2 sm:mb-3 sm:bg-transparent sm:px-0 sm:py-0 lg:hidden">
-          <div className="relative min-w-0">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Rechercher une société"
-              aria-label="Rechercher une société"
-              className="h-10 w-full bg-card pl-9 shadow-none"
-            />
-          </div>
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <SocietesFilterMenu
+          <LedgerSearchFilter
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Rechercher une société, RNE ou code"
+            searchLabel="Rechercher une société"
+            filterLabel="Filtrer les sociétés"
+            activeFilterCount={activeFilterCount}
+            onReset={() => {
+              setThemeFilter("all");
+              setStatutFilter("all");
+            }}
+          >
+            <SocietesFilterControls
+              themeFilter={themeFilter}
+              statutFilter={statutFilter}
               onSetTheme={setThemeFilter}
               onSetStatut={setStatutFilter}
             />
-            <div className="flex shrink-0 items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="shadow-none"
-                onClick={() => setMobileSelectionMode(true)}
-              >
-                Sélectionner
-              </Button>
-              <SocietesUtilityMenu
-                table={table}
-                onExport={handleExport}
-                onPrint={handlePrint}
-              />
-            </div>
+          </LedgerSearchFilter>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shadow-none"
+              onClick={() => setMobileSelectionMode(true)}
+            >
+              Sélectionner
+            </Button>
+            <SocietesUtilityMenu
+              table={table}
+              onExport={handleExport}
+              onPrint={handlePrint}
+            />
           </div>
-          {filterChips}
         </div>
       )}
 

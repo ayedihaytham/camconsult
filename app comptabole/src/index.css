@@ -377,6 +377,14 @@
 
 @media (max-width: 1023px) {
   .signature-ledger__action { display: none; }
+
+  .ledger-fab-clearance {
+    padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ledger-selection-clearance {
+    padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 @media (max-width: 639px) {
@@ -416,6 +424,21 @@
   .signature-ledger__metric dd { font-size: 1.0625rem; }
   .signature-ledger__metric dt { margin-top: 0.2rem; font-size: 0.5625rem; letter-spacing: 0.025em; line-height: 1.2; }
   .signature-ledger--process .signature-ledger__metric:first-child { margin-right: 0.45rem; }
+
+  .operational-signature-banner .signature-ledger__identity { padding-top: 1rem; padding-bottom: 0.875rem; }
+  .operational-signature-banner .signature-ledger__title { margin-top: 0.4rem; }
+  .operational-signature-banner .signature-ledger__description { margin-top: 0.25rem; }
+  .operational-signature-banner .signature-ledger__metrics { padding-block: 0.875rem 1rem; }
+}
+
+@media (min-width: 1024px) and (max-height: 900px) {
+  .taches-work-ledger { gap: 0.5rem; }
+  .taches-work-ledger .signature-ledger {
+    min-height: 7.5rem;
+    grid-template-rows: minmax(0, 1fr) 2.4rem;
+  }
+  .taches-work-ledger .signature-ledger__identity { padding-top: 0.625rem; }
+  .taches-work-ledger .task-ledger-row { padding-top: 0.25rem; padding-bottom: 0.25rem; }
 }
 
 /* Le registre Sociétés garde son rythme normal sur les écrans hauts. Sur un

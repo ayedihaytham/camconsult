@@ -19,6 +19,7 @@ export function TaskActionsMenu({
   onStatusChange,
   onEdit,
   onDelete,
+  isPending = false,
 }: {
   task: Tache;
   canManage: boolean;
@@ -26,6 +27,7 @@ export function TaskActionsMenu({
   onStatusChange: (task: Tache, status: TacheStatut) => Promise<void>;
   onEdit: (task: Tache) => void;
   onDelete: (task: Tache) => void;
+  isPending?: boolean;
 }) {
   const availableStatuses = STATUSES.filter(
     (status) => status !== task.statut && canChangeStatus(task, status),
@@ -42,6 +44,7 @@ export function TaskActionsMenu({
           size="icon-sm"
           className="text-muted-foreground opacity-60 shadow-none transition-opacity hover:opacity-100 focus-visible:opacity-100"
           aria-label={`Actions pour ${task.titre}`}
+          disabled={isPending}
           onPointerDown={(event) => event.stopPropagation()}
         >
           <MoreHorizontal className="h-3 w-3" />
@@ -74,4 +77,3 @@ export function TaskActionsMenu({
     </DropdownMenu>
   );
 }
-

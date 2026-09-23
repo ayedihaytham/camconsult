@@ -4,11 +4,9 @@ import { toast } from "sonner";
 import {
   Copy,
   Eye,
-  Filter,
   MoreHorizontal,
   Pencil,
   Printer,
-  Search,
   ShieldCheck,
   Trash2,
   X,
@@ -21,13 +19,19 @@ import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
-import { FilterChip } from "@/components/ledger/FilterChip";
+import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import { STATUT_LABELS } from "@/components/common/badges";
 import type { RowAction } from "@/components/common/RowActions";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -623,6 +627,8 @@ export function EmployesListPage() {
     currentPageIds.every((id) => selectedIds.includes(id));
   const partlySelected = currentPageIds.some((id) => selectedIds.includes(id));
   const mobileSelecting = mobileSelectionMode || selectedIds.length > 0;
+  const activeFilterCount =
+    (typeFilter !== "all" ? 1 : 0) + (statutFilter !== "all" ? 1 : 0);
   const emptyMessage =
     rows.length === 0
       ? "Aucun collaborateur enregistré. Ajoutez le premier compte collaborateur du cabinet."
@@ -630,9 +636,14 @@ export function EmployesListPage() {
 
   return (
     <div
-      className={cn("min-w-0 flex-1 pb-20 lg:pb-4", mobileSelecting && "pb-24")}
+      className={cn(
+        "min-w-0 flex-1 lg:pb-4",
+        !mobileSelecting && "ledger-fab-clearance",
+        selectedIds.length > 0 && "ledger-selection-clearance lg:pb-24",
+      )}
     >
       <SignatureLedgerBanner
+        className="operational-signature-banner"
         titleId="team-ledger-title"
         eyebrow="Organisation · Team Ledger"
         title="Collaborateurs"
@@ -660,76 +671,51 @@ export function EmployesListPage() {
 
       {!mobileSelecting && (
         <div className="mt-0 flex min-w-0 items-center gap-2 bg-card px-3 py-2 sm:mt-3 sm:bg-transparent sm:px-0 sm:py-0 lg:mt-4">
-          <div className="relative min-w-0 flex-1 lg:max-w-xl">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Rechercher un collaborateur, un identifiant…"
-              aria-label="Rechercher un collaborateur"
-              className="pl-9 pr-8"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                aria-label="Effacer la recherche"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-              >
-                <Filter className="size-4" />
-                <span className="hidden sm:inline">Filtrer</span>
-                <span className="sr-only sm:hidden">Filtrer</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => {
-                  setTypeFilter("all");
-                  setStatutFilter("all");
-                }}
-              >
-                Tous les collaborateurs
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Type</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {TYPES.map((type) => (
-                    <DropdownMenuItem
-                      key={type}
-                      onClick={() => setTypeFilter(type)}
-                    >
-                      {type}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Statut</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
-                    <DropdownMenuItem
-                      key={statut}
-                      onClick={() => setStatutFilter(statut)}
-                    >
-                      {STATUT_LABELS[statut]}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <LedgerSearchFilter
+            value={search}
+            onValueChange={setSearch}
+            onClearSearch={() => setSearch("")}
+            placeholder="Rechercher un collaborateur, un identifiant…"
+            searchLabel="Rechercher un collaborateur"
+            filterLabel="Filtrer les collaborateurs"
+            activeFilterCount={activeFilterCount}
+            onReset={() => {
+              setTypeFilter("all");
+              setStatutFilter("all");
+            }}
+            className="lg:max-w-xl lg:flex-1"
+          >
+            <div className="grid gap-2">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Type</p>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger aria-label="Filtrer par type de collaborateur">
+                    <SelectValue placeholder="Type de collaborateur" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les types</SelectItem>
+                    {TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Statut</p>
+                <Select value={statutFilter} onValueChange={setStatutFilter}>
+                  <SelectTrigger aria-label="Filtrer par statut">
+                    <SelectValue placeholder="Statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
+                      <SelectItem key={statut} value={statut}>{STATUT_LABELS[statut]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </LedgerSearchFilter>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -776,23 +762,6 @@ export function EmployesListPage() {
           </DropdownMenu>
         </div>
       )}
-      {!mobileSelecting && (typeFilter !== "all" || statutFilter !== "all") && (
-        <div className="mt-0 flex flex-wrap gap-1.5 bg-card px-3 pb-2 sm:mt-2 sm:bg-transparent sm:px-0 sm:pb-0">
-          {typeFilter !== "all" && (
-            <FilterChip
-              label={`Type : ${typeFilter}`}
-              onRemove={() => setTypeFilter("all")}
-            />
-          )}
-          {statutFilter !== "all" && (
-            <FilterChip
-              label={`Statut : ${STATUT_LABELS[statutFilter as Statut]}`}
-              onRemove={() => setStatutFilter("all")}
-            />
-          )}
-        </div>
-      )}
-
       <div className="mt-0 flex min-w-0 items-center justify-between gap-2 border-b border-border/80 bg-card px-3 py-1 sm:mt-4 sm:bg-transparent sm:px-0 sm:pt-0">
         <div className="flex min-w-0 items-center gap-2">
           <Checkbox

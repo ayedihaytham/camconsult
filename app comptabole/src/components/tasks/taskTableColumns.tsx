@@ -1,12 +1,11 @@
-import { Clock } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
-import { formatRelative } from "@/lib/utils";
 import { TaskActionsMenu } from "./TaskActionsMenu";
+import { TaskActivity } from "./TaskActivity";
 import { TaskAssignee } from "./TaskAssignee";
-import { TaskCompanyBadge } from "./TaskCompanyBadge";
 import { compareTaskStatuses } from "./taskSorting";
 import { TaskStatusBadge } from "./TaskStatusBadge";
+import { getTaskActivityDate } from "./taskTypes";
 import type { PresentedTask, TaskPresentationActions } from "./taskTypes";
 
 export function createTaskTableColumns(
@@ -55,9 +54,7 @@ export function createTaskTableColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Société" />
       ),
-      cell: ({ row }) => (
-        <TaskCompanyBadge name={row.original.societeName} />
-      ),
+      cell: ({ row }) => <span className="block truncate text-xs text-foreground/75" title={row.original.societeName}>{row.original.societeName}</span>,
       sortingFn: (left, right) =>
         left.original.societeName.localeCompare(
           right.original.societeName,
@@ -105,29 +102,18 @@ export function createTaskTableColumns(
     },
     {
       id: "updatedAt",
-      accessorFn: (row) => row.task.termineLe ?? row.task.majLe,
+      accessorFn: (row) => getTaskActivityDate(row.task),
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Mise à jour" />
+        <DataTableColumnHeader column={column} title="Activité" />
       ),
-      cell: ({ row }) => (
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          {formatRelative(
-            row.original.task.termineLe ?? row.original.task.majLe,
-          )}
-        </span>
-      ),
+      cell: ({ row }) => <TaskActivity task={row.original.task} />,
       sortingFn: (left, right) =>
-        new Date(
-          left.original.task.termineLe ?? left.original.task.majLe,
-        ).getTime() -
-        new Date(
-          right.original.task.termineLe ?? right.original.task.majLe,
-        ).getTime(),
+        new Date(getTaskActivityDate(left.original.task)).getTime() -
+        new Date(getTaskActivityDate(right.original.task)).getTime(),
       meta: {
         cellClassName: "hidden w-[14%] lg:table-cell",
         headerClassName: "hidden w-[14%] lg:table-cell",
-        label: "Mise à jour",
+        label: "Activité",
       },
     },
     {
@@ -141,6 +127,7 @@ export function createTaskTableColumns(
           onStatusChange={actions.onStatusChange}
           onEdit={actions.onEdit}
           onDelete={actions.onDelete}
+          isPending={actions.pendingTaskIds.has(row.original.task.id)}
         />
       ),
       enableHiding: false,

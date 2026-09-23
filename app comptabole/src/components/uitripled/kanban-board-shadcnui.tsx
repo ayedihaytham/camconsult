@@ -28,20 +28,17 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Clock,
   Columns3,
-  Filter,
   List,
-  Plus,
-  Search,
   Table2,
 } from "lucide-react";
-import { DataTableToolbar } from "@/components/data-table/DataTableToolbar";
-import { DataTablePagination } from "@/components/data-table/DataTablePagination";
+import { DataTableViewOptions } from "@/components/data-table/DataTableViewOptions";
 import { useDataTable } from "@/components/data-table/useDataTable";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
+import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import { TaskActionsMenu } from "@/components/tasks/TaskActionsMenu";
 import { TaskAssignee } from "@/components/tasks/TaskAssignee";
-import { TaskCompanyBadge } from "@/components/tasks/TaskCompanyBadge";
+import { TaskActivity } from "@/components/tasks/TaskActivity";
 import { TaskListView } from "@/components/tasks/TaskListView";
 import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
 import { TaskTableView } from "@/components/tasks/TaskTableView";
@@ -50,9 +47,8 @@ import { presentTasks } from "@/components/tasks/taskTypes";
 import type { PresentedTask } from "@/components/tasks/taskTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cn, formatRelative } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { Employe, Societe, Tache, TacheStatut } from "@/types";
 
 type Column = {
@@ -65,7 +61,7 @@ type TasksView = "board" | "list" | "table";
 const COLUMNS: Column[] = [
   { id: "a_faire", title: "À faire" },
   { id: "en_cours", title: "En cours" },
-  { id: "termine", title: "Terminé" },
+  { id: "termine", title: "Terminées" },
 ];
 
 interface TasksKanbanProps {
@@ -76,6 +72,7 @@ interface TasksKanbanProps {
   collaborateurs: Employe[];
   collaboratorPresence: ReadonlyMap<string, boolean>;
   description: string;
+  summary: { open: number; todo: number; doing: number; done: number };
   canManage: boolean;
   canChangeStatus: (task: Tache, status: TacheStatut) => boolean;
   onStatusChange: (task: Tache, status: TacheStatut) => Promise<void>;
@@ -84,6 +81,7 @@ interface TasksKanbanProps {
   onDelete: (task: Tache) => void;
   filterControls: ReactNode;
   filterKey: string;
+  onResetFilters: () => void;
 }
 
 export function TasksKanban({
@@ -94,6 +92,7 @@ export function TasksKanban({
   collaborateurs,
   collaboratorPresence,
   description,
+  summary,
   canManage,
   canChangeStatus,
   onStatusChange,
@@ -102,13 +101,13 @@ export function TasksKanban({
   onDelete,
   filterControls,
   filterKey,
+  onResetFilters,
 }: TasksKanbanProps) {
   const isMobile = useIsMobile();
   const [activeTask, setActiveTask] = useState<PresentedTask | null>(null);
-  const [view, setView] = useState<TasksView>("board");
+  const [view, setView] = useState<TasksView>("list");
   const activeView: TasksView = isMobile ? "table" : view;
   const [searchQuery, setSearchQuery] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [statusOverrides, setStatusOverrides] = useState<
     Record<string, TacheStatut>
   >({});
@@ -225,7 +224,7 @@ export function TasksKanban({
   }
 
   async function changeTaskStatus(task: Tache, status: TacheStatut) {
-    if (status === task.statut || !canChangeStatus(task, status)) {
+    if (pendingTaskIds.has(task.id) || status === task.statut || !canChangeStatus(task, status)) {
       clearStatusOverride(task.id);
       return;
     }
@@ -296,153 +295,62 @@ export function TasksKanban({
     getRowId: (task) => task.task.id,
     resetKey: `${filterKey}\u0000${searchQuery}`,
   });
-  const createTaskButton = canManage && !isMobile ? (
-    <Button
-      type="button"
-      className={cn(
-        "hidden h-9 shadow-none lg:inline-flex",
-        activeView === "table"
-          ? "w-9 shrink-0 px-0 sm:w-auto sm:px-4"
-          : "w-full sm:w-auto",
-      )}
-      onClick={onCreate}
-      aria-label="Nouvelle tâche"
-    >
-      <Plus className="h-4 w-4" />
-      <span className={cn(activeView === "table" && "hidden sm:inline")}>
-        Nouvelle tâche
-      </span>
-    </Button>
-  ) : null;
-
   return (
-    <div
-      className={cn(
-        "flex min-h-full min-w-0 flex-col overflow-hidden font-sans",
-        activeView === "table"
-          ? "tasks-table-workspace gap-2"
-          : "w-full gap-4",
-      )}
-    >
-      <div
-        className={cn(
-          activeView === "table" && "flex items-start justify-between gap-3",
-        )}
-      >
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Tâches
-          </h1>
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-            {description}
-          </p>
-        </div>
-        {activeView === "table" && createTaskButton}
-      </div>
+    <div className="taches-work-ledger flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden font-sans lg:min-h-full max-sm:gap-0">
+      <SignatureLedgerBanner
+        className="operational-signature-banner"
+        eyebrow="Clients & travail · Work Ledger"
+        title="Tâches"
+        description={description}
+        metrics={[
+          { label: "Ouvertes", value: summary.open },
+          { label: "À faire", value: summary.todo },
+          { label: "En cours", value: summary.doing },
+          { label: "Terminées", value: summary.done },
+        ]}
+        action={canManage ? { label: "Nouvelle tâche", onClick: onCreate } : undefined}
+      />
 
-      <DataTableToolbar
-        compact={activeView === "table"}
-        table={taskTable}
-        showViewOptions={activeView === "table"}
-        primaryAction={activeView === "table" ? null : createTaskButton}
-        trailing={
-          activeView === "table" ? (
-            <>
-              <DataTablePagination
-                table={taskTable}
-                itemLabel="tâches"
-                variant="metadata"
-                className="hidden lg:block"
-              />
-              <DataTablePagination
-                table={taskTable}
-                itemLabel="tâches"
-                variant="controls"
-              />
-            </>
-          ) : null
-        }
-        leading={
-          isMobile ? null : (
-            <div
-              className="hidden w-fit items-center rounded-lg border border-border bg-muted p-0.5 lg:inline-flex"
-              role="group"
-              aria-label="Mode d'affichage des tâches"
-            >
-              {(
-                [
-                  { value: "board", label: "Board", icon: Columns3 },
-                  { value: "list", label: "Liste", icon: List },
-                  { value: "table", label: "Table", icon: Table2 },
-                ] as const
-              ).map(({ value, label, icon: Icon }) => (
-                <Button
-                  key={value}
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-8 rounded-md px-2.5 shadow-none",
-                    view === value
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                      : "text-muted-foreground hover:bg-card hover:text-foreground",
-                  )}
-                  aria-pressed={view === value}
-                  onClick={() => setView(value)}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
-                </Button>
-              ))}
-            </div>
-          )
-        }
-      >
-          <div
-            className={cn(
-              "relative min-w-0 flex-1 sm:flex-none",
-              activeView === "table" && "w-full",
-              activeView === "table" ? "sm:w-56 lg:w-64" : "sm:w-[240px]",
-            )}
-          >
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher une tâche..."
-              aria-label="Rechercher une tâche"
-              className="h-9 w-full bg-card pl-9 shadow-none"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-            />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className={cn(
-              "h-9 w-full shadow-none sm:w-auto",
-              filtersOpen && "bg-muted",
-            )}
-            aria-label={`Afficher les filtres${activeFilterCount > 0 ? ` (${activeFilterCount} actifs)` : ""}`}
-            aria-expanded={filtersOpen}
-            onClick={() => setFiltersOpen((open) => !open)}
-          >
-            <Filter className="h-4 w-4" />
-            Filtres
-            {activeFilterCount > 0 && (
-              <Badge
-                variant="secondary"
-                className="h-5 min-w-5 justify-center px-1.5 text-[11px] tabular-nums"
-              >
-                {activeFilterCount}
-              </Badge>
-            )}
-          </Button>
-      </DataTableToolbar>
-
-      {filtersOpen && (
-        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
+      <div role="toolbar" aria-label="Outils des tâches" className="flex min-w-0 flex-wrap items-center gap-2 px-3 py-2 sm:px-0 sm:py-0">
+        <LedgerSearchFilter
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Rechercher une tâche..."
+          searchLabel="Rechercher une tâche"
+          filterLabel="Filtrer les tâches"
+          activeFilterCount={activeFilterCount}
+          onReset={onResetFilters}
+          className="lg:max-w-[430px] lg:flex-1"
+        >
           {filterControls}
+        </LedgerSearchFilter>
+        <span className="hidden text-xs text-muted-foreground lg:inline">{filteredTasks.length} tâches</span>
+        <div className="hidden flex-1 lg:block" />
+        {activeView === "table" && <div className="hidden lg:block"><DataTableViewOptions table={taskTable} /></div>}
+        <div className="hidden items-center rounded-md border border-border bg-muted/50 p-0.5 lg:inline-flex" role="group" aria-label="Mode d'affichage des tâches">
+          {([
+            { value: "list", label: "Liste", icon: List },
+            { value: "table", label: "Table", icon: Table2 },
+            { value: "board", label: "Kanban", icon: Columns3 },
+          ] as const).map(({ value, label, icon: Icon }) => (
+            <Button
+              key={value}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-7 gap-1.5 rounded px-2.5 text-xs shadow-none",
+                view === value ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "text-muted-foreground hover:bg-card hover:text-foreground",
+              )}
+              aria-pressed={view === value}
+              onClick={() => setView(value)}
+            >
+              <Icon className="size-3.5" aria-hidden="true" />
+              {label}
+            </Button>
+          ))}
         </div>
-      )}
+      </div>
 
       {filteredTasks.length === 0 ? (
         <TasksEmptyState message={emptyMessage} />
@@ -455,7 +363,7 @@ export function TasksKanban({
           onDragEnd={onDragEnd}
           onDragCancel={onDragCancel}
         >
-          <div className="flex min-w-0 flex-1 gap-4 overflow-x-auto pb-3">
+          <div className="flex min-w-0 flex-1 gap-3 overflow-x-auto border-y border-border/80 bg-card p-2.5">
             {COLUMNS.map((column) => (
               <BoardColumn
                 key={column.id}
@@ -511,7 +419,7 @@ export function TasksKanban({
 
 function TasksEmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-border bg-card px-4 py-12 text-center">
+    <div className="border-y border-border/80 bg-card px-4 py-8 text-center">
       <p className="text-sm font-medium text-foreground">{message}</p>
     </div>
   );
@@ -542,13 +450,13 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "flex h-full w-[320px] min-w-[320px] flex-col overflow-hidden rounded-xl border border-border/70 bg-background lg:min-w-[300px] lg:flex-1",
+        "flex h-full w-[285px] min-w-[285px] flex-col overflow-hidden rounded-md border border-border/80 bg-card lg:flex-1",
         isOver && "border-primary/35 ring-1 ring-primary/10",
       )}
     >
-      <div className="flex items-center justify-between border-b border-border/60 px-3.5 py-3">
+      <div className="flex items-center justify-between border-b border-border/70 px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-foreground">
+          <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-foreground">
             {column.title}
           </h2>
           <Badge
@@ -560,7 +468,7 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2.5 p-2.5">
+      <div className="flex flex-1 flex-col gap-2 p-2">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <TaskCard
@@ -576,7 +484,7 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
           ))}
         </SortableContext>
         {tasks.length === 0 && (
-          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+          <div className="border-t border-border px-3 py-5 text-center text-xs text-muted-foreground">
             Aucune tâche
           </div>
         )}
@@ -632,8 +540,6 @@ function TaskCard({
     transition,
     transform: CSS.Translate.toString(transform),
   };
-  const displayDate = task.task.termineLe ?? task.task.majLe;
-
   return (
     <div
       ref={setNodeRef}
@@ -641,16 +547,15 @@ function TaskCard({
       {...attributes}
       {...listeners}
       className={cn(
-        "group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/70 bg-card p-4 shadow-sm transition-colors hover:border-border hover:shadow-sm",
+        "group relative flex flex-col gap-2 overflow-hidden rounded border border-border/80 bg-card p-2.5 transition-colors hover:bg-muted/15",
         canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-default",
         isDragging && "opacity-30",
         isPending && "pointer-events-none opacity-70",
-        isOverlay &&
-          "z-50 rotate-2 scale-[1.02] cursor-grabbing bg-card opacity-100 shadow-xl",
+        isOverlay && "z-50 cursor-grabbing bg-card opacity-100 shadow-pop",
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <TaskCompanyBadge name={task.societeName} className="max-w-[250px]" />
+        <span className="min-w-0 truncate text-[11px] text-muted-foreground" title={task.societeName}>{task.societeName}</span>
         {!isOverlay && (
           <TaskActionsMenu
             task={task.task}
@@ -659,16 +564,17 @@ function TaskCard({
             onStatusChange={onStatusChange}
             onEdit={onEdit}
             onDelete={onDelete}
+            isPending={isPending}
           />
         )}
       </div>
 
-      <div className="space-y-1.5">
-        <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+      <div className="space-y-1">
+        <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground">
           {task.task.titre}
         </p>
         {task.task.description && (
-          <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="line-clamp-1 text-xs text-muted-foreground">
             {task.task.description}
           </p>
         )}
@@ -676,14 +582,9 @@ function TaskCard({
 
       <TaskAssignee task={task} />
 
-      <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+      <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
         <TaskStatusBadge status={task.task.statut} />
-        <div className="flex min-w-0 items-center gap-2">
-          <Clock className="h-3 w-3" />
-          <span className="whitespace-nowrap text-xs text-muted-foreground">
-            {formatRelative(displayDate)}
-          </span>
-        </div>
+        <TaskActivity task={task.task} className="truncate text-[11px]" />
       </div>
     </div>
   );

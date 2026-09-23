@@ -1,9 +1,17 @@
 import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { MobileFab } from "@/components/layout/MobileFab";
+import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { TasksKanban } from "@/components/uitripled/kanban-board-shadcnui";
+import { summarizeTasks } from "@/components/tasks/taskTypes";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -12,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePermissions } from "@/hooks/usePermissions";
+import { cn } from "@/lib/utils";
 import {
   useCollaborateurs,
   useConversations,
@@ -43,6 +52,9 @@ export function TachesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Tache | null>(null);
   const [toDelete, setToDelete] = useState<Tache | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
+
+  const summary = useMemo(() => summarizeTasks(taches), [taches]);
 
   const collaboratorPresence = useMemo(
     () =>
@@ -85,20 +97,33 @@ export function TachesPage() {
     await setTacheStatut(task.id, status);
   }
 
-  function handleSubmit(values: {
+  async function handleSubmit(values: {
     titre: string;
     description: string;
     societeId: string;
     assigneId: string | null;
   }) {
     if (editing) {
-      updateTache(editing.id, values);
+      await updateTache(editing.id, values);
       toast.success("Tâche modifiée", { description: values.titre });
     } else {
-      addTache(values);
+      await addTache(values);
       toast.success("Tâche créée", { description: values.titre });
     }
-    setEditing(null);
+  }
+
+  async function handleDelete() {
+    if (!toDelete || deletePending) return;
+    setDeletePending(true);
+    try {
+      await deleteTache(toDelete.id);
+      toast.success("Tâche supprimée", { description: toDelete.titre });
+      setToDelete(null);
+    } catch {
+      // The store shows the API error; keep the confirmation and task visible.
+    } finally {
+      setDeletePending(false);
+    }
   }
 
   function openCreate() {
@@ -112,7 +137,7 @@ export function TachesPage() {
   }
 
   return (
-    <div className="min-w-0 pb-20 lg:pb-0">
+    <div className={cn("min-w-0", isAdmin && !formOpen && "ledger-fab-clearance lg:pb-0")}>
       <TasksKanban
         tasks={filteredTasks}
         hasAnyTasks={taches.length > 0}
@@ -129,6 +154,7 @@ export function TachesPage() {
             ? "Travail confié aux collaborateurs, par société. Suivez l'avancement."
             : "Votre travail à faire. Faites avancer chaque tâche jusqu'à « Terminé »."
         }
+        summary={summary}
         canManage={isAdmin}
         canChangeStatus={canChangeStatus}
         onStatusChange={handleStatusChange}
@@ -136,52 +162,66 @@ export function TachesPage() {
         onEdit={openEdit}
         onDelete={setToDelete}
         filterKey={`${societeFilter}:${assigneFilter}:${statutFilter}`}
+        onResetFilters={() => {
+          setSocieteFilter(ALL);
+          setAssigneFilter(ALL);
+          setStatutFilter(ALL);
+        }}
         filterControls={
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Select value={societeFilter} onValueChange={setSocieteFilter}>
-              <SelectTrigger aria-label="Filtrer par société">
-                <SelectValue placeholder="Société" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Toutes les sociétés</SelectItem>
-                {societes.map((societe) => (
-                  <SelectItem key={societe.id} value={societe.id}>
-                    {societe.raisonSociale}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {isAdmin && (
-              <Select value={assigneFilter} onValueChange={setAssigneFilter}>
-                <SelectTrigger aria-label="Filtrer par collaborateur">
-                  <SelectValue placeholder="Collaborateur" />
+          <div className="grid gap-2">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Société</p>
+              <Select value={societeFilter} onValueChange={setSocieteFilter}>
+                <SelectTrigger aria-label="Filtrer par société">
+                  <SelectValue placeholder="Société" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL}>Tous les collaborateurs</SelectItem>
-                  <SelectItem value="none">Non assignées</SelectItem>
-                  {collaborateurs.map((collaborateur) => (
-                    <SelectItem key={collaborateur.id} value={collaborateur.id}>
-                      {collaborateur.prenom} {collaborateur.nom}
+                  <SelectItem value={ALL}>Toutes les sociétés</SelectItem>
+                  {societes.map((societe) => (
+                    <SelectItem key={societe.id} value={societe.id}>
+                      {societe.raisonSociale}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            )}
+            </div>
 
-            <Select value={statutFilter} onValueChange={setStatutFilter}>
-              <SelectTrigger aria-label="Filtrer par statut">
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Tous les statuts</SelectItem>
-                {STATUS_ORDER.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {TACHE_STATUT_LABELS[status]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {isAdmin && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Collaborateur</p>
+                  <Select value={assigneFilter} onValueChange={setAssigneFilter}>
+                    <SelectTrigger aria-label="Filtrer par collaborateur">
+                      <SelectValue placeholder="Collaborateur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>Tous les collaborateurs</SelectItem>
+                      <SelectItem value="none">Non assignées</SelectItem>
+                      {collaborateurs.map((collaborateur) => (
+                        <SelectItem key={collaborateur.id} value={collaborateur.id}>
+                          {collaborateur.prenom} {collaborateur.nom}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Statut</p>
+              <Select value={statutFilter} onValueChange={setStatutFilter}>
+                <SelectTrigger aria-label="Filtrer par statut">
+                  <SelectValue placeholder="Statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Tous les statuts</SelectItem>
+                  {STATUS_ORDER.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {TACHE_STATUT_LABELS[status]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         }
       />
@@ -200,32 +240,30 @@ export function TachesPage() {
       )}
 
       {isAdmin && !formOpen && (
-        <MobileFab
-          icon={Plus}
-          label="Nouvelle tâche"
-          onClick={openCreate}
-        />
+        <OperationalFab label="Créer une tâche" onClick={openCreate} />
       )}
 
-      <ConfirmDialog
+      <Dialog
         open={Boolean(toDelete)}
-        onOpenChange={(open) => !open && setToDelete(null)}
-        title="Supprimer cette tâche ?"
-        description={
-          <>
-            La tâche{" "}
-            <span className="font-medium text-foreground">
-              {toDelete?.titre}
-            </span>{" "}
-            sera définitivement supprimée.
-          </>
-        }
-        confirmLabel="Supprimer"
-        onConfirm={() => {
-          if (toDelete) deleteTache(toDelete.id);
-          setToDelete(null);
+        onOpenChange={(open) => {
+          if (!open && !deletePending) setToDelete(null);
         }}
-      />
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Supprimer cette tâche ?</DialogTitle>
+            <DialogDescription>
+              La tâche <span className="font-medium text-foreground">{toDelete?.titre}</span> sera définitivement supprimée.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={deletePending} onClick={() => setToDelete(null)}>Annuler</Button>
+            <Button type="button" variant="destructive" disabled={deletePending} onClick={() => void handleDelete()}>
+              {deletePending ? "Suppression…" : "Supprimer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

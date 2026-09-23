@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -27,14 +27,14 @@ import type { Tache } from "@/types";
 
 const NONE = "__none__";
 
-const schema = z.object({
-  titre: z.string().min(2, "Titre requis"),
+export const tacheFormSchema = z.object({
+  titre: z.string().trim().min(2, "Titre requis"),
   description: z.string(),
   societeId: z.string().uuid("Société requise"),
   assigneId: z.string(),
 });
 
-export type TacheFormValues = z.infer<typeof schema>;
+export type TacheFormValues = z.infer<typeof tacheFormSchema>;
 
 interface Props {
   open: boolean;
@@ -46,7 +46,7 @@ interface Props {
     description: string;
     societeId: string;
     assigneId: string | null;
-  }) => void;
+  }) => Promise<void>;
 }
 
 export function TacheFormSheet({
@@ -57,6 +57,7 @@ export function TacheFormSheet({
   onSubmit,
 }: Props) {
   const isEdit = Boolean(tache);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const societes = useSocietes();
   const collaborateurs = useCollaborateurs();
 
@@ -66,14 +67,15 @@ export function TacheFormSheet({
     reset,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<TacheFormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(tacheFormSchema),
     defaultValues: { titre: "", description: "", societeId: "", assigneId: NONE },
   });
 
   useEffect(() => {
     if (!open) return;
+    setSubmitError(null);
     reset(
       tache
         ? {
@@ -95,7 +97,10 @@ export function TacheFormSheet({
   const assigneId = watch("assigneId");
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={(next) => {
+      if (!next && isSubmitting) return;
+      onOpenChange(next);
+    }}>
       <SheetContent side="right" className="sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>{isEdit ? "Modifier la tâche" : "Nouvelle tâche"}</SheetTitle>
@@ -108,43 +113,58 @@ export function TacheFormSheet({
 
         <form
           className="flex min-h-0 flex-1 flex-col"
-          onSubmit={handleSubmit((v) => {
-            onSubmit({
-              titre: v.titre.trim(),
-              description: v.description.trim(),
-              societeId: v.societeId,
-              assigneId: v.assigneId === NONE ? null : v.assigneId,
-            });
-            onOpenChange(false);
+          onSubmit={handleSubmit(async (v) => {
+            setSubmitError(null);
+            try {
+              await onSubmit({
+                titre: v.titre,
+                description: v.description.trim(),
+                societeId: v.societeId,
+                assigneId: v.assigneId === NONE ? null : v.assigneId,
+              });
+              onOpenChange(false);
+            } catch (error) {
+              setSubmitError(error instanceof Error ? error.message : "Enregistrement impossible. Réessayez.");
+            }
           })}
         >
           <SheetBody className="space-y-5">
             <div className="space-y-1.5">
-              <Label>Titre</Label>
-              <Input {...register("titre")} placeholder="Déclaration TVA mensuelle" />
+              <Label htmlFor="tache-titre">Titre</Label>
+              <Input
+                id="tache-titre"
+                {...register("titre")}
+                disabled={isSubmitting}
+                aria-invalid={Boolean(errors.titre)}
+                aria-describedby={errors.titre ? "tache-titre-error" : undefined}
+                placeholder="Déclaration TVA mensuelle"
+              />
               {errors.titre?.message && (
-                <p className="text-xs text-destructive">{errors.titre.message}</p>
+                <p id="tache-titre-error" role="alert" className="text-xs text-destructive">{errors.titre.message}</p>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <Label>Description</Label>
+              <Label htmlFor="tache-description">Description</Label>
               <Textarea
+                id="tache-description"
                 {...register("description")}
+                disabled={isSubmitting}
                 rows={4}
-                placeholder="Précisions, échéance, pièces à récupérer…"
+                placeholder="Décrivez le travail à réaliser…"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Société cliente</Label>
+              <Label htmlFor="tache-societe">Société cliente</Label>
               <Select
                 value={societeId}
+                disabled={isSubmitting}
                 onValueChange={(v) =>
                   setValue("societeId", v, { shouldValidate: true })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="tache-societe" aria-invalid={Boolean(errors.societeId)} aria-describedby={errors.societeId ? "tache-societe-error" : undefined}>
                   <SelectValue placeholder="Choisir une société" />
                 </SelectTrigger>
                 <SelectContent>
@@ -156,7 +176,7 @@ export function TacheFormSheet({
                 </SelectContent>
               </Select>
               {errors.societeId?.message && (
-                <p className="text-xs text-destructive">
+                <p id="tache-societe-error" role="alert" className="text-xs text-destructive">
                   {errors.societeId.message}
                 </p>
               )}
@@ -168,12 +188,13 @@ export function TacheFormSheet({
             </div>
 
             <div className="space-y-1.5">
-              <Label>Assigné à</Label>
+              <Label htmlFor="tache-assigne">Assigné à</Label>
               <Select
                 value={assigneId}
+                disabled={isSubmitting}
                 onValueChange={(v) => setValue("assigneId", v)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="tache-assigne">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -189,15 +210,17 @@ export function TacheFormSheet({
           </SheetBody>
 
           <SheetFooter>
+            {submitError && <p role="alert" className="w-full text-xs text-destructive">{submitError}</p>}
             <Button
               type="button"
               variant="outline"
+              disabled={isSubmitting}
               onClick={() => onOpenChange(false)}
             >
               Annuler
             </Button>
-            <Button type="submit" variant="ledger">
-              {isEdit ? "Enregistrer" : "Créer la tâche"}
+            <Button type="submit" variant="ledger" disabled={isSubmitting}>
+              {isSubmitting ? "Enregistrement…" : isEdit ? "Enregistrer" : "Créer la tâche"}
             </Button>
           </SheetFooter>
         </form>

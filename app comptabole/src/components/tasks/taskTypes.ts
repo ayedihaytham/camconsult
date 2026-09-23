@@ -1,4 +1,5 @@
 import type { Employe, Tache, TacheStatut } from "@/types";
+import { formatRelative } from "@/lib/utils";
 
 export interface PresentedTask {
   task: Tache;
@@ -16,6 +17,43 @@ export interface TaskPresentationActions {
   onEdit: (task: Tache) => void;
   onDelete: (task: Tache) => void;
   pendingTaskIds: Set<string>;
+}
+
+export function summarizeTasks(tasks: Tache[]) {
+  const counts = { open: 0, todo: 0, doing: 0, done: 0 };
+  for (const task of tasks) {
+    if (task.statut === "a_faire") {
+      counts.todo += 1;
+      counts.open += 1;
+    } else if (task.statut === "en_cours") {
+      counts.doing += 1;
+      counts.open += 1;
+    } else {
+      counts.done += 1;
+    }
+  }
+  return counts;
+}
+
+export function getNextTaskStatus(
+  task: Tache,
+  canChangeStatus: (task: Tache, status: TacheStatut) => boolean,
+): TacheStatut | null {
+  const next = task.statut === "a_faire" ? "en_cours" : task.statut === "en_cours" ? "termine" : null;
+  return next && canChangeStatus(task, next) ? next : null;
+}
+
+export function getTaskActivityDate(task: Tache) {
+  return task.statut === "termine" && task.termineLe ? task.termineLe : task.majLe;
+}
+
+export function getTaskActivity(task: Tache) {
+  const completed = task.statut === "termine" && Boolean(task.termineLe);
+  const date = getTaskActivityDate(task);
+  return {
+    date,
+    label: `${completed ? "Terminée" : "Mise à jour"} ${formatRelative(date)}`,
+  };
 }
 
 export function presentTasks({
@@ -66,4 +104,3 @@ export function presentTasks({
     };
   });
 }
-

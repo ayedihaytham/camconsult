@@ -27,8 +27,14 @@ export interface Societe {
 
 export type EmployeType = "Comptable" | "Assistant" | "Stagiaire" | "Gestionnaire de paie";
 
-/** collaborateur = équipe interne du cabinet ; societe_employe = employé d'une société cliente. */
-export type EmployeRole = "collaborateur" | "societe_employe";
+/** collaborateur = équipe interne du cabinet ; societe_employe = employé
+ * d'une société cliente ; responsable_collaborateurs = chef d'équipe —
+ * gère les collaborateurs et voit toutes les sociétés comme l'admin, mais
+ * sans Journal/Paramètres/État client/Bordereaux (voir usePermissions). */
+export type EmployeRole =
+  | "collaborateur"
+  | "societe_employe"
+  | "responsable_collaborateurs";
 
 export type PermissionKey =
   | "consulterDossiers"

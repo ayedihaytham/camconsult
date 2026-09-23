@@ -49,6 +49,7 @@ const schema = z.object({
     ),
   motDePasse: z.string().min(8, "8 caractères minimum"),
   type: z.enum(["Comptable", "Assistant", "Stagiaire", "Gestionnaire de paie"]),
+  role: z.enum(["collaborateur", "responsable_collaborateurs"]),
   email: z.string().email("Email invalide"),
   statut: z.enum(["actif", "inactif", "en_attente"]),
   societesAssignees: z.array(z.string()),
@@ -79,6 +80,9 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   employe?: Employe | null;
+  /** Seul l'admin peut promouvoir un compte responsable des collaborateurs
+   * — masqué sinon (le rôle reste "collaborateur"). */
+  canAssignRole?: boolean;
   onSubmit: (values: EmployeFormValues) => void;
 }
 
@@ -88,6 +92,7 @@ const emptyValues: EmployeFormValues = {
   identifiant: "",
   motDePasse: generatePassword(),
   type: "Comptable",
+  role: "collaborateur",
   email: "",
   statut: "actif",
   societesAssignees: [],
@@ -97,6 +102,7 @@ export function EmployeFormSheet({
   open,
   onOpenChange,
   employe,
+  canAssignRole = false,
   onSubmit,
 }: Props) {
   const isEdit = Boolean(employe);
@@ -118,10 +124,21 @@ export function EmployeFormSheet({
   useEffect(() => {
     if (!open) return;
     setIdentifiantTouched(false);
-    reset(employe ? { ...employe } : { ...emptyValues, motDePasse: generatePassword() });
-  }, [open, employe, reset]);
+    reset(
+      employe
+        ? {
+            ...employe,
+            role:
+              canAssignRole && employe.role === "responsable_collaborateurs"
+                ? "responsable_collaborateurs"
+                : "collaborateur",
+          }
+        : { ...emptyValues, motDePasse: generatePassword() },
+    );
+  }, [open, employe, canAssignRole, reset]);
 
   const type = watch("type");
+  const role = watch("role");
   const statut = watch("statut");
   const motDePasse = watch("motDePasse");
   const assigned = watch("societesAssignees");
@@ -181,8 +198,32 @@ export function EmployeFormSheet({
               />
             </Field>
 
+            {canAssignRole && (
+              <Field
+                label="Rôle"
+                hint="Responsable des collaborateurs : gère l'équipe et voit toutes les sociétés, sans Journal/Paramètres/État client/Bordereaux."
+              >
+                <Select
+                  value={role}
+                  onValueChange={(v) =>
+                    setValue("role", v as EmployeFormValues["role"])
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="collaborateur">Collaborateur</SelectItem>
+                    <SelectItem value="responsable_collaborateurs">
+                      Responsable des collaborateurs
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Type / rôle" error={errors.type?.message}>
+              <Field label="Type" error={errors.type?.message}>
                 <Select
                   value={type}
                   onValueChange={(v) => setValue("type", v as EmployeType)}

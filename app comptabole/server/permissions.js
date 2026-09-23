@@ -41,6 +41,19 @@ export function societeEmployePermissions() {
   };
 }
 
+/** Droits fixes d'un responsable des collaborateurs — toujours au maximum,
+ * peu importe le "type" choisi (Comptable/Assistant/…), qui ne sert ici
+ * qu'à l'affichage. */
+export function fullPermissions() {
+  return {
+    consulterDossiers: true,
+    deposerFichiers: true,
+    modifierSocietes: true,
+    supprimer: true,
+    messagerie: true,
+  };
+}
+
 export function can(session, key) {
   return Boolean(session?.permissions?.[key]);
 }

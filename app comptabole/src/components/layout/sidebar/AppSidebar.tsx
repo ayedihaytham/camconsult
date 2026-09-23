@@ -18,7 +18,8 @@ import {
 } from "./navigation";
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
-  const { isAdmin, can, employeId, lectureSeule } = usePermissions();
+  const { isAdmin, can, employeId, lectureSeule, canManageCollaborateurs } =
+    usePermissions();
   const { pathname } = useLocation();
   const markNotificationsRead = useData((s) => s.markNotificationsRead);
   const conversations = useConversations(
@@ -27,7 +28,12 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const unreadNotifications = useNotifications().filter(
     (notification) => !notification.lu,
   );
-  const groups = visibleNavigation({ isAdmin, lectureSeule, can });
+  const groups = visibleNavigation({
+    isAdmin,
+    lectureSeule,
+    can,
+    canManageCollaborateurs,
+  });
   const unreadMessages = unreadMessageCount(
     conversations,
     isAdmin,

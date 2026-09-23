@@ -42,6 +42,7 @@ import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
 import { avatarColor, cn, initials, sinceLabel } from "@/lib/utils";
 import { employeNomComplet } from "@/data/employes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { logJournal } from "@/store/journal";
 import {
   useData,
@@ -145,6 +146,7 @@ function EmployeExpandedPanel({
 }
 
 export function EmployesListPage() {
+  const { isAdmin } = usePermissions();
   const rows = useCollaborateurs();
   const societes = useSocietes();
   const addEmploye = useData((s) => s.addEmploye);
@@ -191,7 +193,7 @@ export function EmployesListPage() {
     } else {
       addEmploye({
         ...values,
-        role: "collaborateur",
+        role: isAdmin ? values.role : "collaborateur",
         permissions: defaultPermissions(values.type),
       });
       logJournal("creation", "employe", nom);
@@ -351,12 +353,18 @@ export function EmployesListPage() {
           setFormOpen(true);
         },
       },
-      {
-        icon: Trash2,
-        label: "Supprimer",
-        destructive: true,
-        onClick: () => setToDelete(e),
-      },
+      // Suppression réservée à l'admin — irréversible (voir server/routes/
+      // employes.js, seule route du routeur qui garde son propre requireAdmin).
+      ...(isAdmin
+        ? [
+            {
+              icon: Trash2,
+              label: "Supprimer",
+              destructive: true,
+              onClick: () => setToDelete(e),
+            },
+          ]
+        : []),
     ];
   }
 
@@ -384,14 +392,21 @@ export function EmployesListPage() {
             {initials(employeNomComplet(e))}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[0.95rem] font-bold text-foreground">
+            <p className="flex items-center gap-1.5 truncate text-[0.95rem] font-bold text-foreground">
               {employeNomComplet(e)}
+              {e.role === "responsable_collaborateurs" && (
+                <span className="shrink-0 rounded-full bg-accent/15 px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-accent-foreground">
+                  Chef d'équipe
+                </span>
+              )}
             </p>
             <p className="truncate text-xs text-muted-foreground">
               {e.type} ·{" "}
-              {e.societesAssignees.length === 0
-                ? "Aucune société"
-                : `${e.societesAssignees.length} société${e.societesAssignees.length > 1 ? "s" : ""}`}
+              {e.role === "responsable_collaborateurs"
+                ? "Toutes les sociétés"
+                : e.societesAssignees.length === 0
+                  ? "Aucune société"
+                  : `${e.societesAssignees.length} société${e.societesAssignees.length > 1 ? "s" : ""}`}
             </p>
             <p className="truncate text-xs text-muted-foreground/75">{e.email}</p>
           </div>
@@ -718,13 +733,15 @@ export function EmployesListPage() {
             >
               Marquer inactif
             </button>
-            <button
-              type="button"
-              onClick={() => setBulkDeleteOpen(true)}
-              className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-destructive/25"
-            >
-              Supprimer
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(true)}
+                className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-destructive/25"
+              >
+                Supprimer
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setSelectedIds([])}
@@ -744,6 +761,7 @@ export function EmployesListPage() {
           if (!o) setEditing(null);
         }}
         employe={editing}
+        canAssignRole={isAdmin}
         onSubmit={handleSubmit}
       />
 

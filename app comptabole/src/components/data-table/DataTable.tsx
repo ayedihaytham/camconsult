@@ -204,7 +204,14 @@ export function DataTable<TData>({
             ),
           )
         ) : (
-          <div className="rounded-xl border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+          <div
+            className={cn(
+              "bg-card py-10 text-center text-sm text-muted-foreground",
+              isRegisterDesktop
+                ? "border-b border-border/80 px-3"
+                : "rounded-xl border border-dashed border-border px-4",
+            )}
+          >
             {emptyMessage}
           </div>
         )}

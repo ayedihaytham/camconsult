@@ -1,12 +1,17 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Topbar } from "./Topbar";
 import { AppSidebar } from "./sidebar/AppSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useUi } from "@/store/ui";
+import { cn } from "@/lib/utils";
+
+const EDGE_TO_EDGE_REGISTERS = new Set(["/societes", "/employes", "/collectes"]);
 
 export function AppLayout() {
+  const { pathname } = useLocation();
   const collapsed = useUi((state) => state.collapsed);
   const setCollapsed = useUi((state) => state.setCollapsed);
+  const edgeToEdgeMobile = EDGE_TO_EDGE_REGISTERS.has(pathname);
 
   return (
     <SidebarProvider
@@ -23,7 +28,12 @@ export function AppLayout() {
               un pourcentage — plus fiable pour qu'une page courte remplisse
               vraiment la hauteur restante (constaté en usage réel : min-h-full
               ne se répercutait pas de façon fiable ici). */}
-          <div className="authenticated-page-shell flex w-full min-w-0 flex-1 flex-col p-3 sm:p-4">
+          <div
+            className={cn(
+              "authenticated-page-shell flex w-full min-w-0 flex-1 flex-col",
+              edgeToEdgeMobile ? "px-0 py-3 sm:p-4" : "p-3 sm:p-4",
+            )}
+          >
             <Outlet />
           </div>
         </div>

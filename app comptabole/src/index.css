@@ -171,27 +171,259 @@
   }
 }
 
+/* Signature Ledger : architecture commune aux registres et au suivi des collectes. */
+.signature-ledger {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) 2.75rem;
+  min-height: 8.5rem;
+  overflow: hidden;
+  padding-inline: 1.25rem;
+  border-radius: 0.5rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.signature-ledger::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0 0 0 auto;
+  width: 42%;
+  background-image:
+    linear-gradient(90deg, white 1px, transparent 1px),
+    linear-gradient(0deg, white 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.03;
+  mask-image: linear-gradient(90deg, transparent, black 36%);
+  pointer-events: none;
+}
+
+.signature-ledger::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0 0 0 auto;
+  width: 40%;
+  background: hsl(var(--primary-foreground) / 0.025);
+  mask-image: linear-gradient(90deg, transparent, black 70%);
+  pointer-events: none;
+}
+
+.signature-ledger__identity,
+.signature-ledger__signature,
+.signature-ledger__metrics {
+  position: relative;
+  z-index: 1;
+}
+
+.signature-ledger__identity {
+  min-width: 0;
+  padding: 0.875rem 1rem 0.5rem 0;
+}
+
+.signature-ledger__eyebrow {
+  overflow: hidden;
+  color: hsl(var(--accent));
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.signature-ledger__title {
+  margin-top: 0.375rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.signature-ledger__description {
+  margin-top: 0.125rem;
+  max-width: 35rem;
+  color: hsl(var(--primary-foreground) / 0.78);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.signature-ledger__signature {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.875rem;
+  padding-top: 1rem;
+}
+
+.signature-ledger__registration {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(2, 5px);
+  gap: 2px;
+  margin-top: 0.65rem;
+  opacity: 0.6;
+}
+
+.signature-ledger__registration i {
+  width: 5px;
+  height: 5px;
+  background: hsl(var(--accent));
+}
+
+.signature-ledger__registration i:nth-child(2) { opacity: 0.42; }
+.signature-ledger__registration i:nth-child(3) { opacity: 0.6; }
+
+.signature-ledger__action {
+  flex: none;
+  border-color: hsl(var(--accent) / 0.7);
+  background: hsl(var(--primary-foreground) / 0.04);
+  color: hsl(var(--primary-foreground));
+  box-shadow: none;
+}
+
+.signature-ledger__action:hover {
+  background: hsl(var(--primary-foreground) / 0.12);
+  color: hsl(var(--primary-foreground));
+}
+
+.signature-ledger__metrics {
+  display: flex;
+  grid-column: 1 / -1;
+  min-width: 0;
+  align-items: center;
+  border-top: 1px solid hsl(var(--primary-foreground) / 0.16);
+}
+
+.signature-ledger__metrics::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: min(53%, 32rem);
+  height: 1px;
+  background: hsl(var(--accent));
+}
+
+.signature-ledger__metric {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-right: 1.4rem;
+  padding-right: 1.4rem;
+  border-right: 1px solid hsl(var(--primary-foreground) / 0.16);
+  white-space: nowrap;
+}
+
+.signature-ledger__metric:last-child {
+  margin-right: 0;
+  padding-right: 0;
+  border-right: 0;
+}
+
+.signature-ledger__metric dt {
+  order: 2;
+  color: hsl(var(--primary-foreground) / 0.78);
+  font-size: 0.625rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.signature-ledger__metric dd {
+  order: 1;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.signature-ledger__metric--success dd { color: #a1dac4; }
+.signature-ledger__metric--warning dd { color: #f1c78d; }
+.signature-ledger__metric--destructive dd { color: #ffb9b9; }
+
+.signature-ledger--process .signature-ledger__metric:first-child {
+  margin-right: 2rem;
+}
+
+.operational-fab {
+  position: fixed;
+  z-index: 30;
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  width: 3.25rem;
+  height: 3.25rem;
+  padding: 0;
+  border-radius: 9999px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 6px 17px hsl(var(--primary) / 0.18);
+}
+
+.operational-fab:hover { background: hsl(var(--primary) / 0.92); }
+.operational-fab svg { width: 1.25rem; height: 1.25rem; }
+
+.mobile-selection-bar {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 1023px) {
+  .signature-ledger__action { display: none; }
+}
+
+@media (max-width: 639px) {
+  .signature-ledger {
+    display: block;
+    min-height: 0;
+    padding-inline: 0.9375rem;
+    border-radius: 0 0 0.375rem 0.375rem;
+  }
+
+  .signature-ledger::before {
+    width: 38%;
+    background-size: 32px 32px;
+    opacity: 0.02;
+  }
+
+  .signature-ledger__identity { padding: 0.875rem 1.5rem 0.625rem 0; }
+  .signature-ledger__eyebrow { font-size: 0.5625rem; letter-spacing: 0.09em; }
+  .signature-ledger__title { margin-top: 0.3rem; font-size: 1.375rem; }
+  .signature-ledger__description { font-size: 0.75rem; }
+  .signature-ledger__signature {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.9375rem;
+    padding: 0;
+  }
+  .signature-ledger__registration { opacity: 0.42; }
+  .signature-ledger__metrics { padding-block: 0.625rem 0.75rem; }
+  .signature-ledger__metrics::before { width: 47%; }
+  .signature-ledger__metric {
+    display: block;
+    flex: 1;
+    margin-right: 0.45rem;
+    padding-right: 0.45rem;
+    white-space: normal;
+  }
+  .signature-ledger__metric dd { font-size: 1.0625rem; }
+  .signature-ledger__metric dt { margin-top: 0.2rem; font-size: 0.5625rem; letter-spacing: 0.025em; line-height: 1.2; }
+  .signature-ledger--process .signature-ledger__metric:first-child { margin-right: 0.45rem; }
+}
+
 /* Le registre Sociétés garde son rythme normal sur les écrans hauts. Sur un
    bureau de travail plus court, la densité se resserre par l'espacement et non
    par des tailles de texte ou une zone de tableau défilante. */
 @media (max-height: 900px) and (min-width: 1024px) {
-  .societes-ledger-page .societes-ledger-banner {
+  .societes-ledger-page .signature-ledger {
     margin-bottom: 0.25rem;
-  }
-
-  .societes-ledger-page .societes-ledger-banner-top {
-    padding-top: 0.625rem;
-    padding-bottom: 0.625rem;
-    gap: 0.5rem;
-  }
-
-  .societes-ledger-page .societes-ledger-banner-rule {
-    margin-inline: 1rem;
-  }
-
-  .societes-ledger-page .societes-ledger-metrics {
-    padding-top: 0.375rem;
-    padding-bottom: 0.375rem;
   }
 
   .societes-ledger-page .societes-ledger-toolbar {
@@ -226,6 +458,17 @@
   .societes-ledger-page .societes-ledger-meta {
     line-height: 0.875rem;
   }
+}
+
+@media (max-height: 900px) and (min-width: 1024px) {
+  .signature-ledger {
+    min-height: 7.75rem;
+    grid-template-rows: minmax(0, 1fr) 2.375rem;
+  }
+  .signature-ledger__identity { padding-top: 0.625rem; padding-bottom: 0.25rem; }
+  .signature-ledger__title { margin-top: 0.25rem; }
+  .signature-ledger__signature { padding-top: 0.75rem; }
+  .signature-ledger__metric dd { font-size: 1.1875rem; }
 }
 
 @media print {

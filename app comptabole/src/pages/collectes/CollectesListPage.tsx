@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
+import { Trash2 } from "lucide-react";
+import { OperationalFab } from "@/components/ledger/OperationalFab";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { CollecteStatusDot } from "@/components/ledger/StatusDot";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -13,10 +14,11 @@ import { DataTableToolbar } from "@/components/data-table/DataTableToolbar";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { formatRelative } from "@/lib/utils";
+import { cn, formatRelative } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocietes } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
+import { isOverdueCollection } from "@/lib/dashboard/dashboardData";
 import type { Collecte } from "@/types";
 import { CollecteCreateDialog } from "./CollecteCreateDialog";
 
@@ -43,6 +45,16 @@ export function CollectesListPage() {
   const periodeLabel = (p: string) => p.trim() || "—";
 
   const nbArchivees = list.filter((c) => c.statut === "archive").length;
+  const collectionSummary = useMemo(() => {
+    const now = new Date();
+    return {
+      enCours: list.filter((c) =>
+        c.statut === "brouillon" || c.statut === "transmis" || c.statut === "a_corriger"
+      ).length,
+      enRetard: list.filter((c) => isOverdueCollection(c, now)).length,
+      aCorriger: list.filter((c) => c.statut === "a_corriger").length,
+    };
+  }, [list]);
   const shown = list.filter((c) =>
     vue === "toutes"
       ? true
@@ -159,25 +171,27 @@ export function CollectesListPage() {
         : "Aucune collecte active.";
 
   return (
-    <div className="flex flex-1 flex-col">
-      <LedgerPageHeader
+    <div className={cn("flex min-w-0 flex-1 flex-col", isAdmin && "pb-20 lg:pb-0")}>
+      <SignatureLedgerBanner
+        className="mb-0 sm:mb-2"
+        variant="process"
+        eyebrow="Clients & travail · Process Ledger"
         title="Collecte de pièces"
         description={
           isAdmin
             ? "Classeurs confiés aux clients pour saisie et retour au cabinet."
             : "Classeurs à remplir et transmettre à votre cabinet."
         }
-        actions={
-          isAdmin ? (
-            <Button variant="ledger" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Nouvelle collecte
-            </Button>
-          ) : undefined
-        }
+        metrics={[
+          { label: "En cours", value: collectionSummary.enCours, loading },
+          { label: "En retard", value: collectionSummary.enRetard, tone: "destructive", loading },
+          { label: "À corriger", value: collectionSummary.aCorriger, tone: "warning", loading },
+        ]}
+        action={isAdmin ? { label: "Nouvelle collecte", onClick: () => setCreateOpen(true) } : undefined}
       />
 
       <DataTableToolbar
+        className="min-w-0 bg-card px-3 py-2 sm:bg-transparent sm:px-0 sm:py-0"
         table={table}
         ariaLabel="Outils des collectes"
         showViewOptions
@@ -212,6 +226,9 @@ export function CollectesListPage() {
       />
 
       <DataTable
+        className="bg-card sm:bg-transparent [&>div:last-child]:space-y-0"
+        desktopDensity="compact"
+        desktopVariant="register"
         table={table}
         isLoading={loading}
         emptyMessage={emptyMessage}
@@ -232,7 +249,7 @@ export function CollectesListPage() {
                   navigate(`/collectes/${collecte.id}`);
                 }
               }}
-              className="rounded-xl border border-border bg-card p-3"
+              className="min-w-0 border-b border-border/80 bg-card px-3 py-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -256,9 +273,14 @@ export function CollectesListPage() {
             table={table}
             itemLabel="collectes"
             variant="mobile"
+            className="px-3 sm:px-1"
           />
         }
       />
+
+      {isAdmin && (
+        <OperationalFab label="Nouvelle collecte" onClick={() => setCreateOpen(true)} />
+      )}
 
       {isAdmin && (
         <CollecteCreateDialog

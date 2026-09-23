@@ -9,7 +9,6 @@ import {
   FolderOpen,
   MoreHorizontal,
   Pencil,
-  Plus,
   Printer,
   Search,
   Settings2,
@@ -18,6 +17,8 @@ import {
 } from "lucide-react";
 import type { ColumnDef, Table as TanstackTable } from "@tanstack/react-table";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
+import { OperationalFab } from "@/components/ledger/OperationalFab";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { FilterChip } from "@/components/ledger/FilterChip";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -306,6 +307,11 @@ export function SocietesListPage() {
 
   const [toDelete, setToDelete] = useState<Societe | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
+  function startCreate() {
+    setEditing(null);
+    setFormOpen(true);
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -718,62 +724,21 @@ export function SocietesListPage() {
         canEdit && !isMobileSelectionActive && "pb-20 lg:pb-0",
       )}
     >
-      <header className="societes-ledger-banner mb-2 overflow-hidden rounded-lg bg-primary text-primary-foreground">
-        <div className="societes-ledger-banner-top flex min-w-0 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:px-5">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold leading-7 tracking-tight">
-              Sociétés
-            </h1>
-            <p className="mt-0.5 text-sm text-primary-foreground/72">
-              {isAdmin
-                ? "Registre des clients du cabinet"
-                : "Registre des sociétés auxquelles vous avez accès"}
-            </p>
-          </div>
-          {canEdit && (
-            <Button
-              type="button"
-              variant="outline"
-              className="hidden shrink-0 border-accent/60 bg-transparent text-accent shadow-none hover:bg-primary-foreground/10 hover:text-accent lg:inline-flex"
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus className="size-4" />
-              Ajouter une société
-            </Button>
-          )}
-        </div>
-        <div className="societes-ledger-banner-rule mx-4 border-t border-accent/60 sm:mx-5" />
-        <dl className="societes-ledger-metrics grid grid-cols-2 px-4 py-2 sm:px-5 md:flex md:divide-x md:divide-primary-foreground/15">
-          {[
-            ["Sociétés", registerSummary.total],
-            ["Actives", registerSummary.actif],
-            ["En attente", registerSummary.enAttente],
-            ["Inactive", registerSummary.inactif],
-          ].map(([label, value], index) => (
-            <div
-              key={label}
-              className={cn(
-                "min-w-0 py-1 pr-3 md:flex-1 md:px-4 md:py-0 md:first:pl-0",
-                index % 2 === 0 &&
-                  "border-r border-primary-foreground/15 md:border-r-0",
-                index % 2 === 1 && "pl-3 md:pl-4",
-                index > 1 &&
-                  "border-t border-primary-foreground/15 md:border-t-0",
-              )}
-            >
-              <dt className="truncate text-[0.67rem] font-medium uppercase tracking-[0.08em] text-primary-foreground/58">
-                {label}
-              </dt>
-              <dd className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight">
-                {value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </header>
+      <SignatureLedgerBanner
+        className="mb-0 sm:mb-2"
+        eyebrow="Clients & travail · Client Ledger"
+        title="Sociétés"
+        description={isAdmin
+          ? "Registre des clients du cabinet"
+          : "Registre des sociétés auxquelles vous avez accès"}
+        metrics={[
+          { label: "Sociétés", value: registerSummary.total },
+          { label: "Actives", value: registerSummary.actif, tone: "success" },
+          { label: "En attente", value: registerSummary.enAttente },
+          { label: "Inactive", value: registerSummary.inactif },
+        ]}
+        action={canEdit ? { label: "Ajouter une société", onClick: startCreate } : undefined}
+      />
 
       {selectedIds.length === 0 && (
         <div className="societes-ledger-toolbar mb-1 hidden min-w-0 items-center gap-2 border-y border-border/80 bg-secondary/45 px-2 py-1 lg:flex">
@@ -806,7 +771,7 @@ export function SocietesListPage() {
       )}
 
       {!isMobileSelectionActive && (
-        <div className="mb-3 min-w-0 space-y-2 lg:hidden">
+        <div className="mb-0 min-w-0 space-y-2 bg-card px-3 py-2 sm:mb-3 sm:bg-transparent sm:px-0 sm:py-0 lg:hidden">
           <div className="relative min-w-0">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -844,7 +809,7 @@ export function SocietesListPage() {
       )}
 
       {isMobileSelectionActive && (
-        <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:hidden">
+        <div className="mb-0 flex min-w-0 items-center justify-between gap-3 bg-card px-3 py-2 sm:mb-2 sm:bg-transparent sm:px-0 sm:py-0 lg:hidden">
           <span className="truncate text-xs font-semibold text-foreground">
             {selectedIds.length} sélectionnée{selectedIds.length > 1 ? "s" : ""}
           </span>
@@ -860,7 +825,7 @@ export function SocietesListPage() {
         </div>
       )}
 
-      <div className="societes-ledger-register-heading flex min-w-0 items-center justify-between gap-3 border-b border-border/80 py-1">
+      <div className="societes-ledger-register-heading flex min-w-0 items-center justify-between gap-3 border-b border-border/80 bg-card px-3 py-1 sm:bg-transparent sm:px-0">
         <div className="flex min-w-0 items-center gap-2.5">
           <Checkbox
             checked={
@@ -958,7 +923,7 @@ export function SocietesListPage() {
       )}
 
       <DataTable
-        className="societes-ledger-table [&>div:last-child]:space-y-0"
+        className="societes-ledger-table bg-card sm:bg-transparent [&>div:last-child]:space-y-0"
         desktopDensity="compact"
         desktopVariant="register"
         table={table}
@@ -978,7 +943,7 @@ export function SocietesListPage() {
           return (
             <article
               data-state={selected ? "selected" : undefined}
-              className="relative min-w-0 border-b border-border/80 px-1 py-3 data-[state=selected]:bg-accent/[0.09] data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-2 data-[state=selected]:before:left-0 data-[state=selected]:before:w-px data-[state=selected]:before:bg-accent"
+              className="relative min-w-0 border-b border-border/80 px-3 py-3 sm:px-1 data-[state=selected]:bg-accent/[0.09] data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-2 data-[state=selected]:before:left-0 data-[state=selected]:before:w-px data-[state=selected]:before:bg-accent"
             >
               <div className="flex min-w-0 items-center gap-2.5">
                 {isMobileSelectionActive && (
@@ -1052,21 +1017,11 @@ export function SocietesListPage() {
       />
 
       {canEdit && !isMobileSelectionActive && (
-        <Button
-          type="button"
-          aria-label="Ajouter une société"
-          className="fixed bottom-4 right-4 z-30 h-10 rounded-lg px-4 shadow-pop lg:hidden"
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="size-4" />
-        </Button>
+        <OperationalFab label="Ajouter une société" onClick={startCreate} />
       )}
 
       {isMobileSelectionActive && selectedIds.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-2 border-t border-primary/20 bg-card px-3 py-2 shadow-pop lg:hidden">
+        <div className="mobile-selection-bar fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-2 border-t border-primary/20 bg-card px-3 py-2 shadow-pop lg:hidden">
           <span className="min-w-0 truncate text-xs font-semibold text-foreground">
             {selectedIds.length} sélectionnée{selectedIds.length > 1 ? "s" : ""}
           </span>

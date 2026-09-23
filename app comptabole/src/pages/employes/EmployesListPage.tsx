@@ -7,7 +7,6 @@ import {
   Filter,
   MoreHorizontal,
   Pencil,
-  Plus,
   Printer,
   Search,
   ShieldCheck,
@@ -19,6 +18,8 @@ import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHe
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
+import { OperationalFab } from "@/components/ledger/OperationalFab";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { FilterChip } from "@/components/ledger/FilterChip";
 import { STATUT_LABELS } from "@/components/common/badges";
@@ -27,7 +28,6 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -149,7 +149,7 @@ function MobileCollaboratorRow({
   return (
     <article
       data-state={selected ? "selected" : undefined}
-      className="relative min-w-0 border-b border-border/80 px-1 py-3 data-[state=selected]:bg-[#C9A96A]/10 data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-1 data-[state=selected]:before:left-0 data-[state=selected]:before:w-0.5 data-[state=selected]:before:bg-[#C9A96A]"
+      className="relative min-w-0 border-b border-border/80 px-3 py-3 sm:px-1 data-[state=selected]:bg-[#C9A96A]/10 data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-1 data-[state=selected]:before:left-0 data-[state=selected]:before:w-0.5 data-[state=selected]:before:bg-[#C9A96A]"
     >
       <div className="flex min-w-0 items-start gap-2.5">
         {selecting && (
@@ -624,61 +624,21 @@ export function EmployesListPage() {
     <div
       className={cn("min-w-0 flex-1 pb-20 lg:pb-4", mobileSelecting && "pb-24")}
     >
-      <header
-        className="overflow-hidden rounded-lg bg-primary text-primary-foreground"
-        aria-labelledby="team-ledger-title"
-      >
-        <div className="flex min-w-0 items-start justify-between gap-4 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
-          <div className="min-w-0">
-            <h1
-              id="team-ledger-title"
-              className="text-xl font-semibold tracking-tight sm:text-2xl"
-            >
-              Collaborateurs
-            </h1>
-            <p className="mt-1 text-xs text-primary-foreground/70 sm:text-sm">
-              Équipe du cabinet · comptes et périmètres d'accès
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="hidden shrink-0 border-accent/60 bg-transparent text-accent shadow-none hover:bg-primary-foreground/10 hover:text-accent lg:inline-flex"
-            onClick={startCreate}
-          >
-            <Plus className="size-4" />
-            Ajouter un collaborateur
-          </Button>
-        </div>
-        <div className="mx-4 border-t border-accent/60 sm:mx-5" aria-hidden />
-        <div className="grid grid-cols-3 gap-2 px-4 py-3 sm:gap-6 sm:px-5">
-          {[
-            ["Collaborateurs", rows.length],
-            ["Actifs", activeCount],
-            ["Attributions sociétés", attributionCount],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              className="min-w-0 border-r border-primary-foreground/15 last:border-0"
-            >
-              <p className="text-[10px] leading-tight text-primary-foreground/65 sm:text-xs">
-                {label}
-              </p>
-              {isDataLoading ? (
-                <Skeleton className="mt-1 h-5 w-8 bg-primary-foreground/15" />
-              ) : (
-                <p className="mt-0.5 text-lg font-semibold tabular-nums sm:text-xl">
-                  {value}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      </header>
+      <SignatureLedgerBanner
+        titleId="team-ledger-title"
+        eyebrow="Organisation · Team Ledger"
+        title="Collaborateurs"
+        description="Équipe du cabinet · comptes et périmètres d'accès"
+        metrics={[
+          { label: "Collaborateurs", value: rows.length, loading: isDataLoading },
+          { label: "Actifs", value: activeCount, tone: "success", loading: isDataLoading },
+          { label: "Attributions sociétés", value: attributionCount, loading: isDataLoading },
+        ]}
+        action={{ label: "Ajouter un collaborateur", onClick: startCreate }}
+      />
 
       {!mobileSelecting && (
-        <div className="mt-3 flex min-w-0 items-center gap-2 lg:mt-4">
+        <div className="mt-0 flex min-w-0 items-center gap-2 bg-card px-3 py-2 sm:mt-3 sm:bg-transparent sm:px-0 sm:py-0 lg:mt-4">
           <div className="relative min-w-0 flex-1 lg:max-w-xl">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -796,7 +756,7 @@ export function EmployesListPage() {
         </div>
       )}
       {!mobileSelecting && (typeFilter !== "all" || statutFilter !== "all") && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-0 flex flex-wrap gap-1.5 bg-card px-3 pb-2 sm:mt-2 sm:bg-transparent sm:px-0 sm:pb-0">
           {typeFilter !== "all" && (
             <FilterChip
               label={`Type : ${typeFilter}`}
@@ -812,7 +772,7 @@ export function EmployesListPage() {
         </div>
       )}
 
-      <div className="mt-4 flex min-w-0 items-center justify-between gap-2 border-b border-border/80 pb-1">
+      <div className="mt-0 flex min-w-0 items-center justify-between gap-2 border-b border-border/80 bg-card px-3 py-1 sm:mt-4 sm:bg-transparent sm:px-0 sm:pt-0">
         <div className="flex min-w-0 items-center gap-2">
           <Checkbox
             checked={
@@ -947,7 +907,7 @@ export function EmployesListPage() {
         </div>
       )}
       {mobileSelecting && (
-        <div className="flex items-center justify-between gap-2 border-b border-border/70 py-1 lg:hidden">
+        <div className="flex items-center justify-between gap-2 border-b border-border/70 bg-card px-3 py-1 sm:bg-transparent sm:px-0 lg:hidden">
           <span className="text-xs font-semibold text-primary">
             {selectedIds.length} sélectionné{selectedIds.length > 1 ? "s" : ""}
           </span>
@@ -963,7 +923,7 @@ export function EmployesListPage() {
       )}
 
       <DataTable
-        className="[&>div:last-child]:space-y-0"
+        className="bg-card sm:bg-transparent [&>div:last-child]:space-y-0"
         desktopDensity="compact"
         desktopVariant="register"
         table={table}
@@ -992,7 +952,7 @@ export function EmployesListPage() {
         }}
       />
       {!isDataLoading && filtered.length > 0 && (
-        <div className="mt-2 lg:hidden">
+        <div className="mt-0 bg-card px-3 pt-2 sm:mt-2 sm:bg-transparent sm:px-0 sm:pt-0 lg:hidden">
           <DataTablePagination
             table={table}
             itemLabel="collaborateurs"
@@ -1007,18 +967,10 @@ export function EmployesListPage() {
       )}
 
       {!mobileSelecting && (
-        <Button
-          type="button"
-          variant="default"
-          onClick={startCreate}
-          aria-label="Ajouter un collaborateur"
-          className="fixed bottom-4 right-4 z-30 h-10 rounded-lg px-4 shadow-pop lg:hidden"
-        >
-          <Plus className="size-4" />
-        </Button>
+        <OperationalFab label="Ajouter un collaborateur" onClick={startCreate} />
       )}
       {mobileSelecting && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex min-w-0 items-center justify-between gap-1 bg-primary px-3 py-2 text-primary-foreground shadow-lg lg:hidden">
+        <div className="mobile-selection-bar fixed inset-x-0 bottom-0 z-40 flex min-w-0 items-center justify-between gap-1 bg-primary px-3 py-2 text-primary-foreground shadow-lg lg:hidden">
           <span className="shrink-0 text-xs font-semibold">
             {selectedIds.length} sélectionné{selectedIds.length > 1 ? "s" : ""}
           </span>

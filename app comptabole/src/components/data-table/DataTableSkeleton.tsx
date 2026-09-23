@@ -81,7 +81,7 @@ export function DataTableSkeleton({
             key={index}
             className={cn(
               variant === "register"
-                ? "border-b border-border/80 px-1 py-3"
+                ? "border-b border-border/80 px-3 py-3 sm:px-1"
                 : "rounded-xl border border-border bg-card p-4",
             )}
           >

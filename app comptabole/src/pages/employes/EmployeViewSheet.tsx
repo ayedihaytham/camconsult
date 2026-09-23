@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/sheet";
 import { Check, X } from "lucide-react";
 import { StatutDot } from "@/components/ledger/StatusDot";
-import { PasswordCell } from "@/components/common/PasswordCell";
 import { formatDate } from "@/lib/utils";
 import { useSocietes, PERMISSION_LABELS } from "@/store/data";
 import { employeNomComplet } from "@/data/employes";
@@ -49,12 +48,6 @@ export function EmployeViewSheet({
 
             <dl className="divide-y divide-border rounded-sm border border-border">
               <Row label="Identifiant" value={employe.identifiant} />
-              <div className="flex items-center justify-between px-4 py-2.5">
-                <dt className="text-sm text-muted-foreground">Mot de passe</dt>
-                <dd>
-                  <PasswordCell value={employe.motDePasse} />
-                </dd>
-              </div>
               <Row label="Email" value={employe.email} />
               <Row label="Créé le" value={formatDate(employe.creeLe)} />
             </dl>

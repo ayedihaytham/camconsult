@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PasswordField } from "@/components/common/PasswordField";
 import { generatePassword } from "@/lib/password";
 import { useSocietes } from "@/store/data";
 import type { Employe, EmployeType, Statut } from "@/types";
@@ -123,7 +122,6 @@ export function EmployeFormSheet({
 
   const type = watch("type");
   const statut = watch("statut");
-  const motDePasse = watch("motDePasse");
   const assigned = watch("societesAssignees");
   const prenom = watch("prenom");
   const nom = watch("nom");
@@ -239,11 +237,11 @@ export function EmployeFormSheet({
                 </Field>
                 <div className="space-y-1.5">
                   <Label>Mot de passe</Label>
-                  <PasswordField
-                    value={motDePasse}
-                    onValueChange={(v) =>
-                      setValue("motDePasse", v, { shouldValidate: true })
-                    }
+                  <Input
+                    {...register("motDePasse")}
+                    type="password"
+                    autoComplete="new-password"
+                    aria-label="Mot de passe"
                   />
                   {errors.motDePasse?.message && (
                     <p className="text-xs text-destructive">

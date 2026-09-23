@@ -1,34 +1,33 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import {
-  Calculator,
   Copy,
   Eye,
-  GraduationCap,
-  GripVertical,
+  Filter,
+  MoreHorizontal,
   Pencil,
   Plus,
+  Printer,
+  Search,
   ShieldCheck,
   Trash2,
-  UserRound,
-  Users,
-  Wallet,
   X,
-  type LucideIcon,
 } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerToolbar } from "@/components/ledger/LedgerToolbar";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { LedgerTable } from "@/components/ledger/LedgerTable";
-import type { DataTableColumn } from "@/components/common/DataTable";
+import { DataTable } from "@/components/data-table/DataTable";
+import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
+import { DataTablePagination } from "@/components/data-table/DataTablePagination";
+import { useDataTable } from "@/components/data-table/useDataTable";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { FilterChip } from "@/components/ledger/FilterChip";
 import { STATUT_LABELS } from "@/components/common/badges";
-import { PasswordCell } from "@/components/common/PasswordCell";
+import type { RowAction } from "@/components/common/RowActions";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { EmptyState } from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,13 +39,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
-import { avatarColor, cn, initials, sinceLabel } from "@/lib/utils";
+import { cn, initials } from "@/lib/utils";
 import { employeNomComplet } from "@/data/employes";
 import { logJournal } from "@/store/journal";
 import {
   useData,
   useCollaborateurs,
   useSocietes,
+  useTaches,
   defaultPermissions,
   PERMISSION_LABELS,
 } from "@/store/data";
@@ -54,6 +54,12 @@ import type { Employe, EmployeType, PermissionKey, Statut } from "@/types";
 import { EmployeFormSheet, type EmployeFormValues } from "./EmployeFormSheet";
 import { EmployeAccesSheet } from "./EmployeAccesSheet";
 import { EmployeViewSheet } from "./EmployeViewSheet";
+import {
+  allowedPermissionCount,
+  assignmentPreview,
+  openTasksByCollaborator,
+  societyNameMap,
+} from "./teamLedger";
 
 const TYPES: EmployeType[] = [
   "Comptable",
@@ -61,92 +67,154 @@ const TYPES: EmployeType[] = [
   "Stagiaire",
   "Gestionnaire de paie",
 ];
+const PERMISSION_TOTAL = Object.keys(PERMISSION_LABELS).length;
 
-// Même logique de wayfinding par couleur que Sociétés (barre pleine hauteur
-// + fond teinté) — chart-1..5 = catégorie, jamais un statut (voir
-// DESIGN-SYSTEM.md §1bis/§5). Le texte du type reste toujours non coloré.
-const TYPE_ACCENT: Record<EmployeType, string> = {
-  Comptable: "bg-chart-1/10 text-chart-1",
-  Assistant: "bg-chart-4/10 text-chart-4",
-  Stagiaire: "bg-warning/12 text-warning",
-  "Gestionnaire de paie": "bg-chart-2/10 text-chart-2",
-};
-const TYPE_BAR: Record<EmployeType, string> = {
-  Comptable: "bg-chart-1",
-  Assistant: "bg-chart-4",
-  Stagiaire: "bg-warning",
-  "Gestionnaire de paie": "bg-chart-2",
-};
-const TYPE_ICON: Record<EmployeType, LucideIcon> = {
-  Comptable: Calculator,
-  Assistant: UserRound,
-  Stagiaire: GraduationCap,
-  "Gestionnaire de paie": Wallet,
-};
+function TeamMonogram({ employe }: { employe: Employe }) {
+  return (
+    <span
+      className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/12 bg-primary/[0.06] text-[11px] font-bold tracking-wide text-primary"
+      aria-hidden
+    >
+      {initials(employeNomComplet(employe))}
+    </span>
+  );
+}
 
-/** Panneau de l'accordéon inline (voir LedgerTable `renderExpanded`) —
- * composant à part entière car les droits/sociétés assignées ont besoin
- * d'accéder à `societes` (via prop plutôt qu'un hook, ici pas de store
- * dédié nécessaire). */
-function EmployeExpandedPanel({
+function BulkActions({
+  disabled = false,
+  onExport,
+  onType,
+  onInactive,
+}: {
+  disabled?: boolean;
+  onExport: () => void;
+  onType: (type: EmployeType) => void;
+  onInactive: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+        >
+          Actions <span aria-hidden>⌄</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onExport}>
+          Exporter la sélection
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Assigner un type</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {TYPES.map((type) => (
+              <DropdownMenuItem key={type} onClick={() => onType(type)}>
+                {type}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem onClick={onInactive}>
+          Marquer inactif
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function MobileCollaboratorRow({
   employe,
-  societes,
-  onOpenFull,
+  assignedPreview,
+  openTasks,
+  selecting,
+  selected,
+  onSelect,
+  onOpen,
+  menuActions,
 }: {
   employe: Employe;
-  societes: ReturnType<typeof useSocietes>;
-  onOpenFull: () => void;
+  assignedPreview: string;
+  openTasks: number;
+  selecting: boolean;
+  selected: boolean;
+  onSelect: () => void;
+  onOpen: () => void;
+  menuActions: RowAction[];
 }) {
-  const societesNoms = employe.societesAssignees
-    .map((id) => societes.find((s) => s.id === id)?.raisonSociale)
-    .filter((n): n is string => Boolean(n));
-  const droitsActifs = (Object.keys(PERMISSION_LABELS) as PermissionKey[]).filter(
-    (k) => employe.permissions?.[k],
-  );
-
+  const assigned = employe.societesAssignees.length;
   return (
-    <div className="grid gap-3 border-t border-border/70 px-4 py-3 sm:grid-cols-[1fr_1fr_auto]">
-      <div className="min-w-0">
-        <p className="mb-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-muted-foreground">
-          Sociétés assignées
-        </p>
-        {societesNoms.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucune société assignée.</p>
-        ) : (
-          <ul className="space-y-1">
-            {societesNoms.slice(0, 3).map((nom) => (
-              <li key={nom} className="truncate text-sm text-foreground">
-                {nom}
-              </li>
-            ))}
-          </ul>
+    <article
+      data-state={selected ? "selected" : undefined}
+      className="relative min-w-0 border-b border-border/80 px-1 py-3 data-[state=selected]:bg-[#C9A96A]/10 data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-1 data-[state=selected]:before:left-0 data-[state=selected]:before:w-0.5 data-[state=selected]:before:bg-[#C9A96A]"
+    >
+      <div className="flex min-w-0 items-start gap-2.5">
+        {selecting && (
+          <Checkbox
+            checked={selected}
+            onCheckedChange={onSelect}
+            aria-label={`Sélectionner ${employeNomComplet(employe)}`}
+            className="mt-2 shrink-0"
+          />
         )}
-      </div>
-      <div className="min-w-0">
-        <p className="mb-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-muted-foreground">
-          Droits actifs
-        </p>
-        {droitsActifs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun droit accordé.</p>
-        ) : (
-          <p className="text-sm text-foreground">
-            {droitsActifs.map((k) => PERMISSION_LABELS[k]).join(" · ")}
+        <TeamMonogram employe={employe} />
+        <div className="min-w-0 flex-1">
+          {selecting ? (
+            <p className="break-words text-sm font-semibold text-foreground">
+              {employeNomComplet(employe)}
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpen}
+              className="block max-w-full break-words text-left text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {employeNomComplet(employe)}
+            </button>
+          )}
+          <p className="text-xs text-muted-foreground">{employe.type}</p>
+          <p
+            className="truncate text-[11px] text-muted-foreground"
+            title={employe.email}
+          >
+            {employe.email}
           </p>
+        </div>
+        {!selecting && (
+          <div className="shrink-0">
+            <LedgerRowMenu actions={menuActions} />
+          </div>
         )}
       </div>
-      <div className="flex items-start">
-        <Button variant="outline" size="sm" className="rounded-full" onClick={onOpenFull}>
-          <Eye className="h-3.5 w-3.5" />
-          Fiche complète
-        </Button>
+      <div
+        className={cn(
+          "mt-2 min-w-0 text-xs text-muted-foreground",
+          selecting ? "pl-[66px]" : "pl-[46px]",
+        )}
+      >
+        <p className="truncate" title={assignedPreview}>
+          {assigned} société{assigned === 1 ? "" : "s"} · {openTasks} tâche
+          {openTasks === 1 ? "" : "s"} ouverte{openTasks === 1 ? "" : "s"}
+        </p>
+        <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2">
+          <span className="truncate text-[11px]">
+            {allowedPermissionCount(employe)}/{PERMISSION_TOTAL} droits actifs
+          </span>
+          <StatutDot statut={employe.statut} />
+        </div>
       </div>
-    </div>
+    </article>
   );
 }
 
 export function EmployesListPage() {
   const rows = useCollaborateurs();
   const societes = useSocietes();
+  const taches = useTaches();
+  const isDataLoading = useData((s) => !s.hydrated);
   const addEmploye = useData((s) => s.addEmploye);
   const updateEmploye = useData((s) => s.updateEmploye);
   const duplicateEmploye = useData((s) => s.duplicateEmploye);
@@ -156,8 +224,7 @@ export function EmployesListPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [expandedIds, setExpandedIds] = useState<string[]>([]);
-
+  const [mobileSelectionMode, setMobileSelectionMode] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
   const [accesOpen, setAccesOpen] = useState(false);
@@ -167,21 +234,59 @@ export function EmployesListPage() {
   const [toDelete, setToDelete] = useState<Employe | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
+  const societyNames = useMemo(() => societyNameMap(societes), [societes]);
+  const openTaskCounts = useMemo(
+    () => openTasksByCollaborator(taches),
+    [taches],
+  );
+  const activeCount = useMemo(
+    () => rows.filter((e) => e.statut === "actif").length,
+    [rows],
+  );
+  const attributionCount = useMemo(
+    () => rows.reduce((count, e) => count + e.societesAssignees.length, 0),
+    [rows],
+  );
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rows.filter((e) => {
-      const matchQ =
-        !q ||
-        [e.prenom, e.nom, e.identifiant, e.email, e.type]
-          .join(" ")
-          .toLowerCase()
-          .includes(q);
-      const matchType = typeFilter === "all" || e.type === typeFilter;
-      const matchStatut = statutFilter === "all" || e.statut === statutFilter;
-      return matchQ && matchType && matchStatut;
-    });
+    const query = search.trim().toLocaleLowerCase();
+    return rows.filter(
+      (e) =>
+        (!query ||
+          [e.prenom, e.nom, e.identifiant, e.email, e.type]
+            .join(" ")
+            .toLocaleLowerCase()
+            .includes(query)) &&
+        (typeFilter === "all" || e.type === typeFilter) &&
+        (statutFilter === "all" || e.statut === statutFilter),
+    );
   }, [rows, search, typeFilter, statutFilter]);
 
+  useEffect(() => {
+    const valid = new Set(rows.map((e) => e.id));
+    setSelectedIds((ids) =>
+      ids.every((id) => valid.has(id))
+        ? ids
+        : ids.filter((id) => valid.has(id)),
+    );
+  }, [rows]);
+
+  function clearSelection() {
+    setSelectedIds([]);
+    setMobileSelectionMode(false);
+  }
+  function toggleSelected(id: string) {
+    setSelectedIds((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+    );
+  }
+  function startCreate() {
+    setEditing(null);
+    setFormOpen(true);
+  }
+  function openView(e: Employe) {
+    setViewing(e);
+    setViewOpen(true);
+  }
   function handleSubmit(values: EmployeFormValues) {
     const nom = `${values.prenom} ${values.nom}`;
     if (editing) {
@@ -199,13 +304,11 @@ export function EmployesListPage() {
     }
     setEditing(null);
   }
-
   function duplicate(e: Employe) {
     duplicateEmploye(e.id);
     logJournal("duplication", "employe", employeNomComplet(e));
     toast.success("Collaborateur dupliqué");
   }
-
   function confirmDelete() {
     if (!toDelete) return;
     deleteEmployes([toDelete.id]);
@@ -216,7 +319,6 @@ export function EmployesListPage() {
     });
     setToDelete(null);
   }
-
   function confirmBulkDelete() {
     deleteEmployes(selectedIds);
     logJournal(
@@ -225,37 +327,43 @@ export function EmployesListPage() {
       `${selectedIds.length} collaborateurs`,
     );
     toast.success(`${selectedIds.length} collaborateurs supprimés`);
-    setSelectedIds([]);
+    clearSelection();
   }
-
   function bulkSetType(type: EmployeType) {
     const ids = selectedIds;
     ids.forEach((id) => updateEmploye(id, { type }));
-    logJournal("modification", "employe", `${ids.length} collaborateurs — type « ${type} »`);
+    logJournal(
+      "modification",
+      "employe",
+      `${ids.length} collaborateurs — type « ${type} »`,
+    );
     toast.success(
       `Type « ${type} » appliqué à ${ids.length} collaborateur${ids.length > 1 ? "s" : ""}`,
     );
-    setSelectedIds([]);
+    clearSelection();
   }
-
   function bulkSetInactive() {
     const ids = selectedIds;
     ids.forEach((id) => updateEmploye(id, { statut: "inactif" }));
-    logJournal("modification", "employe", `${ids.length} collaborateurs marqués inactifs`);
+    logJournal(
+      "modification",
+      "employe",
+      `${ids.length} collaborateurs marqués inactifs`,
+    );
     toast.success(
       `${ids.length} collaborateur${ids.length > 1 ? "s" : ""} marqué${ids.length > 1 ? "s" : ""} inactif${ids.length > 1 ? "s" : ""}`,
     );
-    setSelectedIds([]);
+    clearSelection();
   }
-
+  function exportSource() {
+    return selectedIds.length
+      ? filtered.filter((e) => selectedIds.includes(e.id))
+      : filtered;
+  }
   function handleExport(format: ExportFormat) {
-    const source =
-      selectedIds.length > 0
-        ? filtered.filter((e) => selectedIds.includes(e.id))
-        : filtered;
     exportRows(
       "employes",
-      source,
+      exportSource(),
       [
         { header: "Prénom", value: (e) => e.prenom },
         { header: "Nom", value: (e) => e.nom },
@@ -267,18 +375,15 @@ export function EmployesListPage() {
           header: "Sociétés assignées",
           value: (e) =>
             e.societesAssignees
-              .map(
-                (id) =>
-                  societes.find((s) => s.id === id)?.raisonSociale ?? id,
-              )
+              .map((id) => societyNames.get(id) ?? id)
               .join(" | "),
         },
         {
           header: "Permissions",
           value: (e) =>
             (Object.keys(PERMISSION_LABELS) as PermissionKey[])
-              .filter((k) => e.permissions?.[k])
-              .map((k) => PERMISSION_LABELS[k])
+              .filter((key) => e.permissions?.[key])
+              .map((key) => PERMISSION_LABELS[key])
               .join(" | "),
         },
       ],
@@ -286,12 +391,7 @@ export function EmployesListPage() {
     );
     toast.success(`Export ${format.toUpperCase()} généré`);
   }
-
   function handlePrint() {
-    const source =
-      selectedIds.length > 0
-        ? filtered.filter((e) => selectedIds.includes(e.id))
-        : filtered;
     printTable({
       title: "Collaborateurs du cabinet",
       subtitle:
@@ -316,24 +416,16 @@ export function EmployesListPage() {
         },
         {
           header: "Droits",
-          value: (e) =>
-            e.permissions
-              ? Object.values(e.permissions).filter(Boolean).length + "/5"
-              : "0/5",
+          value: (e) => `${allowedPermissionCount(e)}/${PERMISSION_TOTAL}`,
           align: "right",
         },
       ],
-      rows: source,
+      rows: exportSource(),
     });
   }
-
-  function openView(e: Employe) {
-    setViewing(e);
-    setViewOpen(true);
-  }
-
   function employeMenuActions(e: Employe) {
     return [
+      { icon: Eye, label: "Voir la fiche", onClick: () => openView(e) },
       {
         icon: ShieldCheck,
         label: "Accès",
@@ -360,400 +452,623 @@ export function EmployesListPage() {
     ];
   }
 
-  const columns: DataTableColumn<Employe>[] = [
+  const columns: ColumnDef<Employe>[] = [
+    {
+      id: "selection",
+      enableHiding: false,
+      enableSorting: false,
+      header: ({ table }) => {
+        const pageIds = table.getRowModel().rows.map((row) => row.original.id);
+        const all =
+          pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+        const some = pageIds.some((id) => selectedIds.includes(id));
+        return (
+          <Checkbox
+            checked={all ? true : some ? "indeterminate" : false}
+            onCheckedChange={() =>
+              setSelectedIds(
+                all
+                  ? selectedIds.filter((id) => !pageIds.includes(id))
+                  : [...new Set([...selectedIds, ...pageIds])],
+              )
+            }
+            aria-label="Sélectionner la page"
+          />
+        );
+      },
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedIds.includes(row.original.id)}
+          onCheckedChange={() => toggleSelected(row.original.id)}
+          onClick={(event) => event.stopPropagation()}
+          aria-label={`Sélectionner ${employeNomComplet(row.original)}`}
+        />
+      ),
+      meta: { headerClassName: "w-10", cellClassName: "w-10" },
+    },
     {
       id: "nom",
-      header: "Collaborateur",
-      sortable: true,
-      sortAccessor: (e) => e.nom.toLowerCase(),
-      // Cellule "riche" pleine hauteur (même traitement que Sociétés) :
-      // avatar XL + barre de couleur par type + 2 lignes de repères, plutôt
-      // que d'étaler Type / Sociétés assignées / Droits sur des colonnes
-      // fines séparées (droits déplacés dans l'accordéon inline).
-      className: "relative p-0",
-      cell: (e) => (
-        <div className="flex min-w-[240px] items-center gap-3 py-3 pl-4 pr-2">
-          <span className={cn("absolute inset-y-0 left-0 w-1", TYPE_BAR[e.type])} aria-hidden />
-          <span
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
-              avatarColor(e.id),
-            )}
-            aria-hidden
-          >
-            {initials(employeNomComplet(e))}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[0.95rem] font-bold text-foreground">
-              {employeNomComplet(e)}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {e.type} ·{" "}
-              {e.societesAssignees.length === 0
-                ? "Aucune société"
-                : `${e.societesAssignees.length} société${e.societesAssignees.length > 1 ? "s" : ""}`}
-            </p>
-            <p className="truncate text-xs text-muted-foreground/75">{e.email}</p>
-          </div>
-        </div>
+      accessorFn: (e) => `${e.nom} ${e.prenom}`.toLocaleLowerCase(),
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Collaborateur" />
       ),
+      cell: ({ row }) => {
+        const e = row.original;
+        return (
+          <div className="flex min-w-0 items-center gap-2.5 py-1">
+            <TeamMonogram employe={e} />
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openView(e);
+                }}
+                className="block max-w-full truncate text-left text-[13px] font-semibold leading-4 text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {employeNomComplet(e)}
+              </button>
+              <p className="truncate text-[11px] leading-4 text-muted-foreground">
+                {e.type}
+              </p>
+              <p className="truncate text-[11px] leading-4 text-muted-foreground">
+                {e.email}
+              </p>
+            </div>
+          </div>
+        );
+      },
+      meta: { label: "Collaborateur", headerClassName: "w-[31%]" },
+    },
+    {
+      id: "perimetre",
+      accessorFn: (e) => e.societesAssignees.length,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Périmètre" />
+      ),
+      cell: ({ row }) => {
+        const e = row.original;
+        const count = e.societesAssignees.length;
+        return (
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-foreground">
+              {count} société{count === 1 ? "" : "s"}
+            </p>
+            <div
+              className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground"
+              title={assignmentPreview(e, societyNames)}
+            >
+              <span className="min-w-0 truncate">
+                {e.societesAssignees
+                  .slice(0, 2)
+                  .map((id) => societyNames.get(id) ?? id)
+                  .join(" · ") || "Aucune société assignée"}
+              </span>
+              {count > 2 && <span className="shrink-0">+{count - 2}</span>}
+            </div>
+          </div>
+        );
+      },
+      meta: { label: "Périmètre", headerClassName: "w-[25%]" },
+    },
+    {
+      id: "taches",
+      accessorFn: (e) => openTaskCounts.get(e.id) ?? 0,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Tâches ouvertes" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm font-semibold tabular-nums text-foreground">
+          {openTaskCounts.get(row.original.id) ?? 0}
+        </span>
+      ),
+      meta: { label: "Tâches ouvertes", headerClassName: "w-[13%]" },
     },
     {
       id: "acces",
-      header: "Identifiant / Mot de passe",
-      sortable: true,
-      sortAccessor: (e) => e.identifiant,
-      cell: (e) => (
-        <div className="space-y-0.5" onClick={(ev) => ev.stopPropagation()}>
-          <div className="text-sm font-medium text-foreground">
-            {e.identifiant}
-          </div>
-          <PasswordCell value={e.motDePasse} />
-        </div>
+      accessorFn: allowedPermissionCount,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Accès" />
       ),
+      cell: ({ row }) => (
+        <span className="text-xs tabular-nums text-foreground">
+          {allowedPermissionCount(row.original)}/{PERMISSION_TOTAL} droits
+        </span>
+      ),
+      meta: { label: "Accès", headerClassName: "w-[13%]" },
     },
     {
-      id: "statut",
-      header: "Statut",
-      sortable: true,
-      sortAccessor: (e) => e.statut,
-      cell: (e) => <StatutDot statut={e.statut} pill pulse={e.statut === "actif"} />,
+      accessorKey: "statut",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Statut" />
+      ),
+      cell: ({ row }) => <StatutDot statut={row.original.statut} />,
+      meta: { label: "Statut", headerClassName: "w-[11%]" },
     },
     {
       id: "actions",
-      header: "",
-      align: "right",
-      headerClassName: "w-[1%]",
-      fixed: true,
-      cell: (e) => (
+      enableHiding: false,
+      enableSorting: false,
+      header: () => null,
+      cell: ({ row }) => (
         <div
-          className="flex items-center justify-end gap-0.5"
-          onClick={(ev) => ev.stopPropagation()}
+          className="flex justify-end"
+          onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-            <button
-              type="button"
-              onClick={() => openView(e)}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-              aria-label={`Voir ${employeNomComplet(e)}`}
-              title="Voir"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(e);
-                setFormOpen(true);
-              }}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-              aria-label={`Modifier ${employeNomComplet(e)}`}
-              title="Modifier"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <LedgerRowMenu actions={employeMenuActions(e)} />
+          <LedgerRowMenu actions={employeMenuActions(row.original)} />
         </div>
       ),
+      meta: { headerClassName: "w-10", cellClassName: "w-10" },
     },
   ];
+  const table = useDataTable({
+    columns,
+    data: filtered,
+    getRowId: (e) => e.id,
+    initialSorting: [{ id: "nom", desc: false }],
+    pageSize: 8,
+    resetKey: `${search}\u0000${typeFilter}\u0000${statutFilter}`,
+  });
+  const currentPageIds = table.getRowModel().rows.map((row) => row.original.id);
+  const currentPageSelected =
+    currentPageIds.length > 0 &&
+    currentPageIds.every((id) => selectedIds.includes(id));
+  const partlySelected = currentPageIds.some((id) => selectedIds.includes(id));
+  const mobileSelecting = mobileSelectionMode || selectedIds.length > 0;
+  const emptyMessage =
+    rows.length === 0
+      ? "Aucun collaborateur enregistré. Ajoutez le premier compte collaborateur du cabinet."
+      : "Aucun collaborateur ne correspond à votre recherche ou à vos filtres.";
 
   return (
-    <div className={cn("flex flex-1 flex-col", selectedIds.length > 0 && "md:pb-16")}>
-      <LedgerPageHeader
-        title="Collaborateurs"
-        description="Équipe interne du cabinet : comptes, rôles et périmètre d'accès."
-      />
-
-      <LedgerToolbar
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Rechercher un collaborateur, un identifiant…"
-        onExport={handleExport}
-        onPrint={handlePrint}
-        primaryAction={
+    <div
+      className={cn("min-w-0 flex-1 pb-20 lg:pb-4", mobileSelecting && "pb-24")}
+    >
+      <header
+        className="overflow-hidden rounded-lg bg-primary text-primary-foreground"
+        aria-labelledby="team-ledger-title"
+      >
+        <div className="flex min-w-0 items-start justify-between gap-4 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+          <div className="min-w-0">
+            <h1
+              id="team-ledger-title"
+              className="text-xl font-semibold tracking-tight sm:text-2xl"
+            >
+              Collaborateurs
+            </h1>
+            <p className="mt-1 text-xs text-primary-foreground/70 sm:text-sm">
+              Équipe du cabinet · comptes et périmètres d'accès
+            </p>
+          </div>
           <Button
-            variant="ledger"
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
+            type="button"
+            variant="outline"
+            size="sm"
+            className="hidden shrink-0 border-accent/60 bg-transparent text-accent shadow-none hover:bg-primary-foreground/10 hover:text-accent lg:inline-flex"
+            onClick={startCreate}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="size-4" />
             Ajouter un collaborateur
           </Button>
-        }
-        filters={
-          <div className="flex flex-wrap items-center gap-1.5">
-            {typeFilter !== "all" && (
-              <FilterChip label={`Type : ${typeFilter}`} onRemove={() => setTypeFilter("all")} />
-            )}
-            {statutFilter !== "all" && (
-              <FilterChip
-                label={`Statut : ${STATUT_LABELS[statutFilter as Statut]}`}
-                onRemove={() => setStatutFilter("all")}
-              />
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-accent hover:text-primary"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Filtre
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="rounded-2xl">
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Type</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="rounded-2xl">
-                    {TYPES.map((t) => (
-                      <DropdownMenuItem key={t} onClick={() => setTypeFilter(t)}>
-                        {t}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Statut</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="rounded-2xl">
-                    {(Object.keys(STATUT_LABELS) as Statut[]).map((s) => (
-                      <DropdownMenuItem key={s} onClick={() => setStatutFilter(s)}>
-                        {STATUT_LABELS[s]}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        }
-      />
-
-      {/* Tableau sur PC/tablette, Cartes sur mobile — purement responsive,
-          jamais un choix laissé à l'utilisateur (voir SocietesListPage,
-          même traitement). */}
-      <div className="hidden md:flex md:flex-1 md:flex-col">
-        <LedgerSheet className="flex-1">
-          <LedgerTable
-            columns={columns}
-            data={filtered}
-            getRowId={(e) => e.id}
-            enableSelection
-            selectedIds={selectedIds}
-            onSelectedIdsChange={setSelectedIds}
-            onRowClick={openView}
-            initialSort={{ columnId: "nom", direction: "asc" }}
-            enableColumnReorder
-            enableColumnResize
-            expandedIds={expandedIds}
-            onExpandedIdsChange={setExpandedIds}
-            renderExpanded={(e) => (
-              <EmployeExpandedPanel
-                employe={e}
-                societes={societes}
-                onOpenFull={() => openView(e)}
-              />
-            )}
-            emptyState={
-              rows.length === 0 ? (
-                <EmptyState
-                  icon={Users}
-                  title="Aucun collaborateur"
-                  description="Créez le premier compte collaborateur du cabinet."
-                  action={
-                    <Button
-                      variant="ledger"
-                      size="sm"
-                      onClick={() => {
-                        setEditing(null);
-                        setFormOpen(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Ajouter un collaborateur
-                    </Button>
-                  }
-                />
+        </div>
+        <div className="mx-4 border-t border-accent/60 sm:mx-5" aria-hidden />
+        <div className="grid grid-cols-3 gap-2 px-4 py-3 sm:gap-6 sm:px-5">
+          {[
+            ["Collaborateurs", rows.length],
+            ["Actifs", activeCount],
+            ["Attributions sociétés", attributionCount],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="min-w-0 border-r border-primary-foreground/15 last:border-0"
+            >
+              <p className="text-[10px] leading-tight text-primary-foreground/65 sm:text-xs">
+                {label}
+              </p>
+              {isDataLoading ? (
+                <Skeleton className="mt-1 h-5 w-8 bg-primary-foreground/15" />
               ) : (
-                <EmptyState
-                  title="Aucun résultat"
-                  description="Aucun collaborateur ne correspond à votre recherche ou à vos filtres."
-                />
+                <p className="mt-0.5 text-lg font-semibold tabular-nums sm:text-xl">
+                  {value}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </header>
+
+      {!mobileSelecting && (
+        <div className="mt-3 flex min-w-0 items-center gap-2 lg:mt-4">
+          <div className="relative min-w-0 flex-1 lg:max-w-xl">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher un collaborateur, un identifiant…"
+              aria-label="Rechercher un collaborateur"
+              className="pl-9 pr-8"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Effacer la recherche"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+              >
+                <Filter className="size-4" />
+                <span className="hidden sm:inline">Filtrer</span>
+                <span className="sr-only sm:hidden">Filtrer</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setTypeFilter("all");
+                  setStatutFilter("all");
+                }}
+              >
+                Tous les collaborateurs
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Type</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {TYPES.map((type) => (
+                    <DropdownMenuItem
+                      key={type}
+                      onClick={() => setTypeFilter(type)}
+                    >
+                      {type}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Statut</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
+                    <DropdownMenuItem
+                      key={statut}
+                      onClick={() => setStatutFilter(statut)}
+                    >
+                      {STATUT_LABELS[statut]}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="hidden shrink-0 lg:inline-flex"
+              >
+                <MoreHorizontal className="size-4" />
+                Outils
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Trier par</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {[
+                    ["nom", "Collaborateur"],
+                    ["perimetre", "Périmètre"],
+                    ["taches", "Tâches ouvertes"],
+                    ["acces", "Accès"],
+                    ["statut", "Statut"],
+                  ].map(([id, label]) => (
+                    <DropdownMenuItem
+                      key={id}
+                      onClick={() => table.setSorting([{ id, desc: false }])}
+                    >
+                      {label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem onClick={() => handleExport("csv")}>
+                Exporter CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("xlsx")}>
+                Exporter Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handlePrint}>
+                <Printer className="size-4" />
+                Imprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+      {!mobileSelecting && (typeFilter !== "all" || statutFilter !== "all") && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {typeFilter !== "all" && (
+            <FilterChip
+              label={`Type : ${typeFilter}`}
+              onRemove={() => setTypeFilter("all")}
+            />
+          )}
+          {statutFilter !== "all" && (
+            <FilterChip
+              label={`Statut : ${STATUT_LABELS[statutFilter as Statut]}`}
+              onRemove={() => setStatutFilter("all")}
+            />
+          )}
+        </div>
+      )}
+
+      <div className="mt-4 flex min-w-0 items-center justify-between gap-2 border-b border-border/80 pb-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <Checkbox
+            checked={
+              currentPageSelected
+                ? true
+                : partlySelected
+                  ? "indeterminate"
+                  : false
+            }
+            onCheckedChange={() =>
+              setSelectedIds(
+                currentPageSelected
+                  ? selectedIds.filter((id) => !currentPageIds.includes(id))
+                  : [...new Set([...selectedIds, ...currentPageIds])],
               )
             }
+            aria-label="Sélectionner la page"
+            className="hidden lg:flex"
           />
-        </LedgerSheet>
-      </div>
-
-      <div className="md:hidden">
-        {filtered.length === 0 ? (
-          <LedgerSheet>
-            {rows.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title="Aucun collaborateur"
-                description="Créez le premier compte collaborateur du cabinet."
-              />
+          <h2>
+            <DataTableColumnHeader
+              column={table.getColumn("nom")!}
+              title="Registre équipe"
+              className="h-7 text-[11px] font-bold uppercase tracking-[0.12em] text-primary"
+            />
+          </h2>
+        </div>
+        <div className="hidden items-center gap-2 lg:flex">
+          <DataTablePagination
+            table={table}
+            itemLabel="collaborateurs"
+            variant="count"
+          />
+          {!isDataLoading &&
+            filtered.length > 0 &&
+            (table.getPageCount() <= 1 ? (
+              <span className="text-xs tabular-nums text-muted-foreground">
+                1 / 1
+              </span>
             ) : (
-              <EmptyState
-                title="Aucun résultat"
-                description="Aucun collaborateur ne correspond à votre recherche ou à vos filtres."
-              />
-            )}
-          </LedgerSheet>
-        ) : (
-          <LedgerSheet className="p-3 sm:p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {filtered.map((e) => {
-                const TypeIcon = TYPE_ICON[e.type];
-                return (
-                  <div
-                    key={e.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openView(e)}
-                    onKeyDown={(ev) => {
-                      if (ev.key === "Enter" || ev.key === " ") {
-                        ev.preventDefault();
-                        openView(e);
-                      }
-                    }}
-                    className="group relative flex cursor-pointer flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span
-                        className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                          TYPE_ACCENT[e.type],
-                        )}
-                        aria-hidden
-                      >
-                        <TypeIcon className="h-5 w-5" />
-                      </span>
-                      <StatutDot statut={e.statut} pill pulse={e.statut === "actif"} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-foreground">
-                        {employeNomComplet(e)}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {e.identifiant} · {e.type}
-                      </p>
-                    </div>
-                    <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2.5 text-xs text-muted-foreground">
-                      <span>
-                        {e.societesAssignees.length === 0
-                          ? "Aucune société"
-                          : `${e.societesAssignees.length} société${e.societesAssignees.length > 1 ? "s" : ""}`}
-                      </span>
-                      <span aria-hidden>·</span>
-                      <span>{sinceLabel(e.creeLe, "Depuis")}</span>
-                    </div>
-                    <div
-                      className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                      onClick={(ev) => ev.stopPropagation()}
+              <DataTablePagination table={table} variant="controls" />
+            ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-1 lg:hidden">
+          {!mobileSelecting && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setMobileSelectionMode(true)}
+            >
+              Sélectionner
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Outils"
+              >
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Trier par</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {[
+                    ["nom", "Collaborateur"],
+                    ["perimetre", "Périmètre"],
+                    ["taches", "Tâches ouvertes"],
+                    ["acces", "Accès"],
+                    ["statut", "Statut"],
+                  ].map(([id, label]) => (
+                    <DropdownMenuItem
+                      key={id}
+                      onClick={() => table.setSorting([{ id, desc: false }])}
                     >
-                      <LedgerRowMenu actions={employeMenuActions(e)} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </LedgerSheet>
-        )}
+                      {label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem onClick={() => handleExport("csv")}>
+                Exporter CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("xlsx")}>
+                Exporter Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handlePrint}>
+                Imprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-
-      <p className="mt-2.5 hidden text-xs text-muted-foreground md:block">
-        Clic sur une ligne pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-        la fiche collaborateur, ou sur le chevron pour un aperçu rapide
-        sans quitter la page. Le menu « ⋯ » regroupe les autres actions —
-        glissez l'icône <GripVertical className="mb-0.5 inline h-3 w-3" />{" "}
-        d'un en-tête pour réordonner les colonnes, ou son bord droit pour
-        la redimensionner.
-      </p>
-      <p className="mt-2.5 text-xs text-muted-foreground md:hidden">
-        Touchez une carte pour <Eye className="mb-0.5 inline h-3 w-3" /> voir
-        la fiche collaborateur. Le menu « ⋯ » regroupe les autres actions.
-      </p>
 
       {selectedIds.length > 0 && (
-        <div className="fixed inset-x-0 bottom-5 z-40 hidden justify-center px-4 md:flex">
-          <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-primary bg-primary px-3 py-2 text-sm text-primary-foreground shadow-pop animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <span className="px-2 font-semibold">
-              {selectedIds.length} collaborateur{selectedIds.length > 1 ? "s" : ""}{" "}
-              sélectionné{selectedIds.length > 1 ? "s" : ""}
-            </span>
-            <span className="mx-1 h-4 w-px bg-primary-foreground/20" aria-hidden />
-            <button
+        <div className="hidden items-center justify-between gap-3 bg-primary px-3 py-2 text-primary-foreground lg:flex">
+          <span className="text-xs font-semibold">
+            {selectedIds.length} collaborateur
+            {selectedIds.length > 1 ? "s" : ""} sélectionné
+            {selectedIds.length > 1 ? "s" : ""}
+          </span>
+          <div className="flex items-center gap-1">
+            <BulkActions
+              onExport={() => handleExport("xlsx")}
+              onType={bulkSetType}
+              onInactive={bulkSetInactive}
+            />
+            <Button
               type="button"
-              onClick={() => handleExport("xlsx")}
-              className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-primary-foreground/10"
-            >
-              Exporter
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-primary-foreground/10"
-                >
-                  Assigner un type
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="rounded-2xl">
-                {TYPES.map((t) => (
-                  <DropdownMenuItem key={t} onClick={() => bulkSetType(t)}>
-                    {t}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <button
-              type="button"
-              onClick={bulkSetInactive}
-              className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-primary-foreground/10"
-            >
-              Marquer inactif
-            </button>
-            <button
-              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
               onClick={() => setBulkDeleteOpen(true)}
-              className="rounded-full px-3 py-1.5 font-medium transition-colors hover:bg-destructive/25"
             >
               Supprimer
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={() => setSelectedIds([])}
-              aria-label="Annuler la sélection"
-              className="ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-primary-foreground/10"
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+              onClick={clearSelection}
             >
-              <X className="h-4 w-4" />
-            </button>
+              Annuler
+            </Button>
+          </div>
+        </div>
+      )}
+      {mobileSelecting && (
+        <div className="flex items-center justify-between gap-2 border-b border-border/70 py-1 lg:hidden">
+          <span className="text-xs font-semibold text-primary">
+            {selectedIds.length} sélectionné{selectedIds.length > 1 ? "s" : ""}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={clearSelection}
+          >
+            Annuler
+          </Button>
+        </div>
+      )}
+
+      <DataTable
+        className="[&>div:last-child]:space-y-0"
+        desktopDensity="compact"
+        desktopVariant="register"
+        table={table}
+        emptyMessage={emptyMessage}
+        isLoading={isDataLoading}
+        onRowClick={(row) => openView(row.original)}
+        getRowClassName={(row) =>
+          selectedIds.includes(row.original.id)
+            ? "bg-[#C9A96A]/10 hover:bg-[#C9A96A]/15 [&>td:first-child]:border-l-2 [&>td:first-child]:border-[#C9A96A]"
+            : undefined
+        }
+        mobileRow={(row) => {
+          const e = row.original;
+          return (
+            <MobileCollaboratorRow
+              employe={e}
+              assignedPreview={assignmentPreview(e, societyNames)}
+              openTasks={openTaskCounts.get(e.id) ?? 0}
+              selecting={mobileSelecting}
+              selected={selectedIds.includes(e.id)}
+              onSelect={() => toggleSelected(e.id)}
+              onOpen={() => openView(e)}
+              menuActions={employeMenuActions(e)}
+            />
+          );
+        }}
+      />
+      {!isDataLoading && filtered.length > 0 && (
+        <div className="mt-2 lg:hidden">
+          <DataTablePagination
+            table={table}
+            itemLabel="collaborateurs"
+            variant="mobile"
+          />
+          {table.getPageCount() <= 1 && (
+            <p className="text-center text-[11px] tabular-nums text-muted-foreground">
+              1 / 1
+            </p>
+          )}
+        </div>
+      )}
+
+      {!mobileSelecting && (
+        <Button
+          type="button"
+          variant="default"
+          onClick={startCreate}
+          aria-label="Ajouter un collaborateur"
+          className="fixed bottom-4 right-4 z-30 h-10 rounded-lg px-4 shadow-pop lg:hidden"
+        >
+          <Plus className="size-4" />
+        </Button>
+      )}
+      {mobileSelecting && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex min-w-0 items-center justify-between gap-1 bg-primary px-3 py-2 text-primary-foreground shadow-lg lg:hidden">
+          <span className="shrink-0 text-xs font-semibold">
+            {selectedIds.length} sélectionné{selectedIds.length > 1 ? "s" : ""}
+          </span>
+          <div className="flex items-center gap-0.5">
+            <BulkActions
+              disabled={selectedIds.length === 0}
+              onExport={() => handleExport("xlsx")}
+              onType={bulkSetType}
+              onInactive={bulkSetInactive}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={selectedIds.length === 0}
+              onClick={() => setBulkDeleteOpen(true)}
+              className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+            >
+              Supprimer
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={clearSelection}
+              aria-label="Annuler la sélection"
+              className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+            >
+              <X className="size-4" />
+            </Button>
           </div>
         </div>
       )}
 
       <EmployeFormSheet
         open={formOpen}
-        onOpenChange={(o) => {
-          setFormOpen(o);
-          if (!o) setEditing(null);
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) setEditing(null);
         }}
         employe={editing}
         onSubmit={handleSubmit}
       />
-
       <EmployeAccesSheet
         open={accesOpen}
         onOpenChange={setAccesOpen}
         employe={accesTarget}
         onSave={(id, societesAssignees, permissions) => {
           setEmployeAcces(id, societesAssignees, permissions);
-          const e = rows.find((x) => x.id === id);
+          const e = rows.find((entry) => entry.id === id);
           if (e)
             logJournal(
               "acces",
@@ -762,16 +1077,14 @@ export function EmployesListPage() {
             );
         }}
       />
-
       <EmployeViewSheet
         open={viewOpen}
         onOpenChange={setViewOpen}
         employe={viewing}
       />
-
       <ConfirmDialog
         open={Boolean(toDelete)}
-        onOpenChange={(o) => !o && setToDelete(null)}
+        onOpenChange={(open) => !open && setToDelete(null)}
         title="Supprimer ce collaborateur ?"
         description={
           <>
@@ -785,7 +1098,6 @@ export function EmployesListPage() {
         confirmLabel="Supprimer définitivement"
         onConfirm={confirmDelete}
       />
-
       <ConfirmDialog
         open={bulkDeleteOpen}
         onOpenChange={setBulkDeleteOpen}

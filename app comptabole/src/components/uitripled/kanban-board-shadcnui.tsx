@@ -40,6 +40,8 @@ import {
   OperationalContentHeader,
   OperationalLedgerPage,
   OperationalLedgerToolbar,
+  OperationalMobileHeader,
+  OperationalMobileUtility,
 } from "@/components/ledger/OperationalLedgerLayout";
 import { TaskActionsMenu } from "@/components/tasks/TaskActionsMenu";
 import { TaskAssignee } from "@/components/tasks/TaskAssignee";
@@ -346,7 +348,7 @@ export function TasksKanban({
   );
 
   return (
-    <OperationalLedgerPage className="taches-work-ledger min-h-0 gap-3 overflow-hidden font-sans lg:min-h-full max-sm:gap-0">
+    <OperationalLedgerPage className="taches-work-ledger min-h-0 overflow-hidden font-sans lg:min-h-full">
       <SignatureLedgerBanner
         className="operational-signature-banner"
         eyebrow="Clients & travail · Work Ledger"
@@ -367,9 +369,9 @@ export function TasksKanban({
         resultCount={`${filteredTasks.length} tâches`}
         tools={viewTools}
       />
-      <div role="toolbar" aria-label="Outils des tâches" className="flex min-w-0 flex-wrap items-center gap-2 px-3 py-2 sm:px-0 sm:py-0 lg:hidden">
+      <OperationalMobileUtility label="Recherche et filtres des tâches">
         {renderSearchFilter()}
-      </div>
+      </OperationalMobileUtility>
 
       {filteredTasks.length === 0 ? (
         <>
@@ -382,6 +384,14 @@ export function TasksKanban({
                   : "File de travail"}
             </h2>
           </OperationalContentHeader>
+          <OperationalMobileHeader>
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+            File de travail
+            </h2>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              0 tâches
+            </span>
+          </OperationalMobileHeader>
           <TasksEmptyState message={emptyMessage} />
         </>
       ) : activeView === "board" ? (
@@ -446,6 +456,7 @@ export function TasksKanban({
           {...taskActions}
         />
       )}
+
     </OperationalLedgerPage>
   );
 }

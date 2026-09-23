@@ -23,6 +23,9 @@ import {
   OperationalContentHeader,
   OperationalLedgerPage,
   OperationalLedgerToolbar,
+  OperationalMobileHeader,
+  OperationalMobilePagination,
+  OperationalMobileUtility,
 } from "@/components/ledger/OperationalLedgerLayout";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
@@ -738,7 +741,7 @@ export function SocietesListPage() {
       )}
     >
       <SignatureLedgerBanner
-        className="operational-signature-banner mb-0 sm:mb-2 lg:mb-0"
+        className="operational-signature-banner mb-0"
         eyebrow="Clients & travail · Client Ledger"
         title="Sociétés"
         description={isAdmin
@@ -769,47 +772,14 @@ export function SocietesListPage() {
       )}
 
       {!isMobileSelectionActive && (
-        <div className="mb-0 min-w-0 space-y-2 bg-card px-3 py-2 sm:mb-3 sm:bg-transparent sm:px-0 sm:py-0 lg:hidden">
+        <OperationalMobileUtility label="Recherche et filtres du registre des sociétés">
           {renderSearchFilter()}
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="shadow-none"
-              onClick={() => setMobileSelectionMode(true)}
-            >
-              Sélectionner
-            </Button>
-            <SocietesUtilityMenu
-              table={table}
-              onExport={handleExport}
-              onPrint={handlePrint}
-            />
-          </div>
-        </div>
-      )}
-
-      {isMobileSelectionActive && (
-        <div className="mb-0 flex min-w-0 items-center justify-between gap-3 bg-card px-3 py-2 sm:mb-2 sm:bg-transparent sm:px-0 sm:py-0 lg:hidden">
-          <span className="truncate text-xs font-semibold text-foreground">
-            {selectedIds.length} sélectionnée{selectedIds.length > 1 ? "s" : ""}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="shrink-0 shadow-none"
-            onClick={clearSelection}
-          >
-            Annuler
-          </Button>
-        </div>
+        </OperationalMobileUtility>
       )}
 
       <div className="societes-ledger-register">
-      <OperationalContentHeader className="societes-ledger-register-heading sm:bg-transparent sm:px-0">
-        <div className="flex min-w-0 items-center gap-2.5">
+      <OperationalContentHeader className="societes-ledger-register-heading hidden lg:flex sm:bg-transparent sm:px-0">
+        <div className="hidden min-w-0 items-center gap-2.5 lg:flex">
           <Checkbox
             checked={
               isCurrentPageSelected
@@ -850,13 +820,54 @@ export function SocietesListPage() {
             variant="controls"
           />
         </div>
-        <DataTablePagination
-          table={table}
-          itemLabel="sociétés"
-          variant="mobile"
-          className="min-w-0 flex-1 justify-end border-0 p-0 lg:hidden"
-        />
       </OperationalContentHeader>
+
+      <OperationalMobileHeader>
+        <div className="min-w-0 flex-1">
+          <h2>
+            <DataTableColumnHeader
+              column={table.getColumn("raisonSociale")!}
+              title="Registre client"
+              className="h-7 text-[11px] font-bold uppercase tracking-[0.12em] text-primary"
+            />
+          </h2>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {isMobileSelectionActive ? (
+            <>
+              <span className="max-w-24 truncate text-xs font-semibold text-foreground">
+                {selectedIds.length} sélectionnée{selectedIds.length === 1 ? "" : "s"}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="shadow-none"
+                onClick={clearSelection}
+              >
+                Annuler
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="shadow-none"
+                onClick={() => setMobileSelectionMode(true)}
+              >
+                Sélectionner
+              </Button>
+              <SocietesUtilityMenu
+                table={table}
+                onExport={handleExport}
+                onPrint={handlePrint}
+              />
+            </>
+          )}
+        </div>
+      </OperationalMobileHeader>
 
       {selectedIds.length > 0 && (
         <div className="hidden items-center justify-between gap-4 bg-primary px-3 py-2 text-primary-foreground lg:flex">
@@ -998,6 +1009,9 @@ export function SocietesListPage() {
           );
         }}
       />
+      {!isDataLoading && filtered.length > 0 && (
+        <OperationalMobilePagination table={table} itemLabel="sociétés" />
+      )}
       </div>
 
       {canEdit && !isMobileSelectionActive && (

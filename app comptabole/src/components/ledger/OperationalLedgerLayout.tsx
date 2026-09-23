@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
+import type { Table } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
+import { DataTablePagination } from "@/components/data-table/DataTablePagination";
 
 interface OperationalLedgerPageProps {
   children: ReactNode;
   className?: string;
 }
 
-/** Shared desktop page rhythm; mobile spacing remains owned by each module. */
+/** Shared page frame; mobile rhythm is defined by the primitives below. */
 export function OperationalLedgerPage({
   children,
   className,
@@ -76,6 +78,83 @@ export function OperationalContentHeader({
       )}
     >
       {children}
+    </div>
+  );
+}
+
+interface OperationalMobileUtilityProps {
+  children: ReactNode;
+  label: string;
+  className?: string;
+}
+
+/** Shared edge-to-edge mobile search/filter region. */
+export function OperationalMobileUtility({
+  children,
+  label,
+  className,
+}: OperationalMobileUtilityProps) {
+  return (
+    <div
+      role="toolbar"
+      aria-label={label}
+      className={cn(
+        "operational-mobile-utility mt-2 min-w-0 bg-card px-3 py-2 lg:hidden",
+        className,
+      )}
+    >
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+interface OperationalMobileHeaderProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/** One compact header geometry for mobile registers and work queues. */
+export function OperationalMobileHeader({
+  children,
+  className,
+}: OperationalMobileHeaderProps) {
+  return (
+    <div
+      className={cn(
+        "operational-mobile-header mt-1 flex min-h-10 min-w-0 items-center justify-between gap-3 border-b border-border/80 bg-card px-3 py-1 lg:hidden",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+interface OperationalMobilePaginationProps<TData> {
+  table: Table<TData>;
+  itemLabel: string;
+  className?: string;
+}
+
+/** Shared post-register mobile pagination and quiet result count. */
+export function OperationalMobilePagination<TData>({
+  table,
+  itemLabel,
+  className,
+}: OperationalMobilePaginationProps<TData>) {
+  return (
+    <div
+      className={cn(
+        "operational-mobile-pagination min-w-0 bg-card px-3 lg:hidden",
+        className,
+      )}
+    >
+      <DataTablePagination
+        table={table}
+        itemLabel={itemLabel}
+        variant="mobile"
+        className="px-0"
+      />
     </div>
   );
 }

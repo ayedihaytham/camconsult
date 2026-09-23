@@ -1,7 +1,11 @@
 import type { Table } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
-import { OperationalContentHeader } from "@/components/ledger/OperationalLedgerLayout";
+import {
+  OperationalContentHeader,
+  OperationalMobileHeader,
+  OperationalMobilePagination,
+} from "@/components/ledger/OperationalLedgerLayout";
 import { cn } from "@/lib/utils";
 import type { TacheStatut } from "@/types";
 import { TaskTableMobileCard } from "./TaskTableMobileCard";
@@ -47,10 +51,14 @@ export function TaskTableView({
         }
       />
       <div className="lg:hidden">
-        <div className="flex items-center justify-between px-3 pb-2 pt-1 sm:px-4">
-          <h2 className="text-sm font-semibold text-foreground">File de travail</h2>
-          <span className="text-xs text-muted-foreground">{allRows.length} tâches</span>
-        </div>
+        <OperationalMobileHeader>
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+            File de travail
+          </h2>
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+            {allRows.length} tâche{allRows.length === 1 ? "" : "s"}
+          </span>
+        </OperationalMobileHeader>
         <div className="border-y border-border/80 bg-card">
           {MOBILE_GROUPS.map(({ status, label, rule }) => {
             const rows = visibleRows.filter((row) => row.original.task.statut === status);
@@ -70,7 +78,7 @@ export function TaskTableView({
             );
           })}
         </div>
-        <DataTablePagination table={table} itemLabel="tâches" variant="mobile" className="mx-3 sm:mx-4" />
+        <OperationalMobilePagination table={table} itemLabel="tâches" />
       </div>
     </section>
   );

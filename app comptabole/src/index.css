@@ -376,6 +376,8 @@
 }
 
 @media (max-width: 1023px) {
+  .operational-signature-banner .signature-ledger__action { display: none; }
+
   .signature-ledger__action { display: none; }
 
   .ledger-fab-clearance {

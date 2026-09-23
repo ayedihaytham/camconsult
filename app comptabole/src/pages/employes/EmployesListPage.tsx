@@ -24,6 +24,9 @@ import {
   OperationalContentHeader,
   OperationalLedgerPage,
   OperationalLedgerToolbar,
+  OperationalMobileHeader,
+  OperationalMobilePagination,
+  OperationalMobileUtility,
 } from "@/components/ledger/OperationalLedgerLayout";
 import { STATUT_LABELS } from "@/components/common/badges";
 import type { RowAction } from "@/components/common/RowActions";
@@ -744,11 +747,11 @@ export function EmployesListPage() {
       className={cn(
         "employes-ledger-page min-w-0 flex-1",
         !mobileSelecting && "ledger-fab-clearance",
-        selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
+        mobileSelecting && "ledger-selection-clearance lg:pb-0",
       )}
     >
       <SignatureLedgerBanner
-        className="operational-signature-banner mb-0 sm:mb-2 lg:mb-0"
+        className="operational-signature-banner mb-0"
         titleId="team-ledger-title"
         eyebrow="Organisation · Team Ledger"
         title="Collaborateurs"
@@ -783,12 +786,12 @@ export function EmployesListPage() {
         />
       )}
       {!mobileSelecting && (
-        <div className="mt-0 min-w-0 bg-card px-3 py-2 sm:mt-3 sm:bg-transparent sm:px-0 sm:py-0 lg:hidden">
+        <OperationalMobileUtility label="Recherche et filtres du registre des collaborateurs">
           {renderSearchFilter()}
-        </div>
+        </OperationalMobileUtility>
       )}
       <div className="employes-ledger-register">
-      <OperationalContentHeader className="sm:mt-4 sm:bg-transparent sm:px-0 lg:mt-0">
+      <OperationalContentHeader className="hidden lg:flex">
         <div className="flex min-w-0 items-center gap-2">
           <Checkbox
             checked={
@@ -826,8 +829,33 @@ export function EmployesListPage() {
             <DataTablePagination table={table} variant="controls" />
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-1 lg:hidden">
-          {!mobileSelecting && (
+      </OperationalContentHeader>
+      <OperationalMobileHeader>
+        <div className="min-w-0 flex-1">
+          <h2>
+            <DataTableColumnHeader
+              column={table.getColumn("nom")!}
+              title="Registre équipe"
+              className="h-7 text-[11px] font-bold uppercase tracking-[0.12em] text-primary"
+            />
+          </h2>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {mobileSelecting ? (
+            <>
+              <span className="max-w-20 truncate text-xs font-semibold text-foreground">
+                {selectedIds.length} sélectionné{selectedIds.length === 1 ? "" : "s"}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearSelection}
+              >
+                Annuler
+              </Button>
+            </>
+          ) : (
             <Button
               type="button"
               variant="ghost"
@@ -880,7 +908,7 @@ export function EmployesListPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </OperationalContentHeader>
+      </OperationalMobileHeader>
 
       {selectedIds.length > 0 && (
         <div className="hidden items-center justify-between gap-3 bg-primary px-3 py-2 text-primary-foreground lg:flex">
@@ -918,22 +946,6 @@ export function EmployesListPage() {
           </div>
         </div>
       )}
-      {mobileSelecting && (
-        <div className="flex items-center justify-between gap-2 border-b border-border/70 bg-card px-3 py-1 sm:bg-transparent sm:px-0 lg:hidden">
-          <span className="text-xs font-semibold text-primary">
-            {selectedIds.length} sélectionné{selectedIds.length > 1 ? "s" : ""}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={clearSelection}
-          >
-            Annuler
-          </Button>
-        </div>
-      )}
-
       <DataTable
         className="bg-card sm:bg-transparent [&>div:last-child]:space-y-0"
         desktopDensity="compact"
@@ -964,18 +976,7 @@ export function EmployesListPage() {
         }}
       />
       {!isDataLoading && filtered.length > 0 && (
-        <div className="mt-0 bg-card px-3 pt-2 sm:mt-2 sm:bg-transparent sm:px-0 sm:pt-0 lg:hidden">
-          <DataTablePagination
-            table={table}
-            itemLabel="collaborateurs"
-            variant="mobile"
-          />
-          {table.getPageCount() <= 1 && (
-            <p className="text-center text-[11px] tabular-nums text-muted-foreground">
-              1 / 1
-            </p>
-          )}
-        </div>
+        <OperationalMobilePagination table={table} itemLabel="collaborateurs" />
       )}
       </div>
 

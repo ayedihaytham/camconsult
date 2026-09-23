@@ -32,6 +32,18 @@ describe("data-table pagination", () => {
     });
   });
 
+  it("calcule les pages et borne l'index avec la taille compacte", () => {
+    expect(getPageCount(16, 6)).toBe(3);
+    expect(clampPageIndex(2, 16, 6)).toBe(2);
+    expect(clampPageIndex(2, 12, 6)).toBe(1);
+    expect(getPaginationRange(6, 0, 6)).toMatchObject({
+      firstItem: 1,
+      lastItem: 6,
+      pageCount: 1,
+      pageIndex: 0,
+    });
+  });
+
   it("ramène une page invalide sur la dernière page disponible", () => {
     expect(clampPageIndex(4, 11)).toBe(1);
   });
@@ -41,4 +53,3 @@ describe("data-table pagination", () => {
     expect(clampPageIndex(2, 20)).toBe(1);
   });
 });
-

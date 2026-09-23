@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { DataTableViewOptions } from "@/components/data-table/DataTableViewOptions";
 import { useDataTable } from "@/components/data-table/useDataTable";
+import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
@@ -297,10 +298,12 @@ export function TasksKanban({
     onEdit,
     onDelete,
   };
+  const taskPageSize = useOperationalPageSize(10);
   const taskTable = useDataTable({
     columns: createTaskTableColumns(taskActions),
     data: filteredTasks,
     getRowId: (task) => task.task.id,
+    pageSize: taskPageSize,
     resetKey: `${filterKey}\u0000${searchQuery}`,
   });
 

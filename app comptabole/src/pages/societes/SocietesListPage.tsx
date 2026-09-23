@@ -32,6 +32,7 @@ import {
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
 import { useDataTable } from "@/components/data-table/useDataTable";
+import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { STATUT_LABELS } from "@/components/common/badges";
 import { Button } from "@/components/ui/button";
@@ -678,11 +679,13 @@ export function SocietesListPage() {
     },
   ];
 
+  const pageSize = useOperationalPageSize(10);
   const table = useDataTable({
     columns,
     data: filtered,
     getRowId: (societe) => societe.id,
     initialSorting: [{ id: "raisonSociale", desc: false }],
+    pageSize,
     resetKey: `${search}\u0000${themeFilter}\u0000${statutFilter}`,
   });
   const currentPageIds = table.getRowModel().rows.map((row) => row.original.id);

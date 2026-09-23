@@ -14,6 +14,7 @@ import {
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
 import { useDataTable } from "@/components/data-table/useDataTable";
+import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
@@ -632,12 +633,13 @@ export function EmployesListPage() {
       meta: { headerClassName: "w-10", cellClassName: "w-10" },
     },
   ];
+  const pageSize = useOperationalPageSize(8);
   const table = useDataTable({
     columns,
     data: filtered,
     getRowId: (e) => e.id,
     initialSorting: [{ id: "nom", desc: false }],
-    pageSize: 8,
+    pageSize,
     resetKey: `${search}\u0000${typeFilter}\u0000${statutFilter}`,
   });
   const currentPageIds = table.getRowModel().rows.map((row) => row.original.id);

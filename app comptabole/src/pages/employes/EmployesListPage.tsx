@@ -906,15 +906,17 @@ export function EmployesListPage() {
               onType={bulkSetType}
               onInactive={bulkSetInactive}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
-              onClick={() => setBulkDeleteOpen(true)}
-            >
-              Supprimer
-            </Button>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+                onClick={() => setBulkDeleteOpen(true)}
+              >
+                Supprimer
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -1005,16 +1007,18 @@ export function EmployesListPage() {
               onType={bulkSetType}
               onInactive={bulkSetInactive}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={selectedIds.length === 0}
-              onClick={() => setBulkDeleteOpen(true)}
-              className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
-            >
-              Supprimer
-            </Button>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={selectedIds.length === 0}
+                onClick={() => setBulkDeleteOpen(true)}
+                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+              >
+                Supprimer
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"

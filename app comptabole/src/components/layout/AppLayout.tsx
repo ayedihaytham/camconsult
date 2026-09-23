@@ -31,7 +31,7 @@ export function AppLayout() {
           <div
             className={cn(
               "authenticated-page-shell flex w-full min-w-0 flex-1 flex-col",
-              edgeToEdgeMobile ? "px-0 py-3 sm:p-4" : "p-3 sm:p-4",
+              edgeToEdgeMobile ? "px-0 pt-0 pb-2 sm:p-4" : "p-3 sm:p-4",
             )}
           >
             <Outlet />

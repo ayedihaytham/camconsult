@@ -182,10 +182,12 @@ The header uses its own compact responsive rail and only shows the full desktop
 navigation at `2xl`.
 
 The authenticated app inherits the alignment discipline but not the marketing
-spaciousness. Use compact page padding, `w-full`, `min-w-0`, dense grids and
-12–16px outer spacing. Desktop tables remain dense; mobile uses a domain-specific
-compact renderer rather than page-level horizontal overflow. The product Sidebar
-switches to mobile below 1024px.
+spaciousness. Desktop remains a workstation: use intentional outer gutters and
+align the page banner, utilities and register. Mobile favors an edge-to-edge
+workspace for major operational surfaces, with 12–16px of internal content
+padding rather than extra outer gutters. Keep the Dashboard's distinct Command
+Ledger composition. The mobile Sidebar breakpoint remains 1024px; phone-width
+edge-to-edge register composition is a separate layout decision.
 
 ## Page archetypes
 
@@ -198,20 +200,45 @@ The Dashboard is the strongest command page: a navy operational surface with
 role-aware real metrics, urgency hierarchy, ledger navigation, asymmetry and
 selective warm/gold work summaries. It answers what needs attention now.
 
-### CamConsult Client Ledger — operational registries
+### Signature Ledger — operational modules
 
-Sociétés establishes the quieter operational-register pattern: a compact navy
-identity banner, contextual inline metrics, dominant search, secondary filters
-and tools, identifiable entities, fine ledger separators, pagination near the
-register controls, quiet overflow actions and semantic statuses. It is a
-registry, not a dashboard or a generic admin table.
+The Signature Ledger is the shared banner language for operational modules. Its
+canonical navy surface, modern sans identity, small tracked gold eyebrow,
+partial gold rule and compact inline context make the page immediately
+identifiable without turning it into a marketing hero. Keep a clean information
+zone on the left and a low-contrast ledger/grid motif with a tiny four-square
+registration detail on the right; the motif is a quiet signature, not a split
+panel or illustration. A single permission-appropriate primary action may sit
+in this signature zone. Metrics are contextual, inline and derived by the page;
+do not force a fixed count or place KPI cards inside the banner. Keep the
+information zone clean across about 55–65% of the banner and the signature zone
+within the remaining 35–45%; motif presence stays around 2–5%. The four-square
+registration detail is tiny and secondary, not a logo replacement or repeated
+row icon.
 
-### Workflow and process pages
+The Dashboard remains the larger, more expressive Command Ledger. Operational
+Signature Ledgers are shorter, quieter and specific to their workflow. Shared
+visual language does not mean identical page composition.
 
-Collectes and Tâches should preserve product identity while prioritizing state,
-next actions and direct workflow information. Prefer a ledger/process
-composition to a card grid, and do not hide repeatedly needed facts behind
-unnecessary disclosure.
+#### Client Ledger — Sociétés
+
+Emphasize the client/entity registry, direct status/context and high scanability.
+Use a compact navy identity banner, contextual metrics, dominant search,
+secondary filters and tools, fine ledger separators, quiet overflow actions and
+semantic statuses.
+
+#### Team Ledger — Collaborateurs
+
+Emphasize people, access scope, assigned sociétés, work context and account
+status. Keep permission and metric derivation in the module, not the shared
+banner presentation.
+
+#### Process Ledger — Collecte de pièces
+
+Emphasize workflow queue, correction, real overdue/deadline state,
+transmission/validation and the next operational action. Tâches should also
+prioritize state, next action and direct workflow information, without
+misrepresenting task timestamps as deadlines.
 
 ### Financial and data-heavy pages
 
@@ -325,11 +352,19 @@ secondary row actions can live in overflow menus.
 
 ## Responsive composition
 
-Mobile is an intentional composition, not compressed desktop. Recompose
-registry rows, retain useful hierarchy and reachable actions, keep search/filter
-usable, avoid page-level horizontal scrolling, and use an explicit selection
-mode when needed. A mobile-only FAB is appropriate only for one obvious create
-action and disappears during selection mode.
+Mobile is an intentional composition, not compressed desktop. On phone-width
+operational register pages, the Topbar and banner sit almost directly together
+(about 0–4px separation); keep banner content internally padded, use full-width
+utility/register/selection surfaces, and leave a small distinct gap after the
+banner. Rows remain internally padded and separated by fine rules. Do not use a
+floating card per row or introduce page-level horizontal scrolling. Desktop
+retains workstation gutters. A mobile-only create action is a true circular,
+approximately 52px, icon-only navy `+` FAB with an accessible action name, the
+same permission visibility as its desktop equivalent, safe-area-aware placement,
+and no visibility during selection mode. Selection becomes a full-width action
+surface with explicit count and grouped actions. Short desktop workspaces may
+use CSS to tighten vertical rhythm, never tiny type or a fixed-height register
+scroller.
 
 ## Interaction and accessibility
 
@@ -361,6 +396,12 @@ color-only.
 - **Don't** communicate a product state with color alone.
 - **Don't** turn every module into a Dashboard command surface or every entity
   into a card.
+- **Don't** flatten a Signature Ledger into an anonymous navy block: preserve
+  its eyebrow, gold structural rule, inline context and quiet signature zone.
+- **Don't** carry excess outer mobile gutters into edge-to-edge operational
+  surfaces or stack redundant page/section/control padding.
+- **Don't** use an extended text FAB or show the create FAB alongside the
+  selection action bar.
 - **Don't** hide important workflow information behind a chevron just to make a
   register look simpler.
 - **Don't** use generic shadcn-looking layouts, default admin-table composition,

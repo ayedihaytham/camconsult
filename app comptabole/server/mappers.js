@@ -52,6 +52,7 @@ export const employeDto = (r) => ({
     ? r.societes_assignees
     : [],
   permissions: r.permissions || {},
+  doitChangerMotDePasse: Boolean(r.doit_changer_mdp),
   derniereConnexion: isoOrNull(r.last_login),
   creeLe: dateStr(r.cree_le),
 });

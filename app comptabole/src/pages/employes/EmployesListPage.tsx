@@ -423,7 +423,14 @@ export function EmployesListPage() {
           <div className="text-sm font-medium text-foreground">
             {e.identifiant}
           </div>
-          <PasswordCell value={e.motDePasse} />
+          <div className="flex items-center gap-1.5">
+            <PasswordCell value={e.motDePasse} />
+            {e.doitChangerMotDePasse && (
+              <span className="rounded-full bg-warning/12 px-1.5 py-0.5 text-[0.6rem] font-semibold text-warning">
+                Doit changer son mot de passe
+              </span>
+            )}
+          </div>
         </div>
       ),
     },

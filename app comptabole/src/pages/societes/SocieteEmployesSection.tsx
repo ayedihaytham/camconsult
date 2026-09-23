@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, UserRound, X } from "lucide-react";
+import { KeyRound, Plus, Trash2, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,21 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
   const [draft, setDraft] = useState(emptyDraft);
   const [error, setError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Employe | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [resetValue, setResetValue] = useState("");
+
+  async function confirmReset(id: string) {
+    if (resetValue.length < 8) {
+      toast.error("Mot de passe : 8 caractères minimum.");
+      return;
+    }
+    await updateEmploye(id, { motDePasse: resetValue });
+    toast.success("Mot de passe réinitialisé", {
+      description: "Il devra en choisir un nouveau à sa prochaine connexion.",
+    });
+    setResettingId(null);
+    setResetValue("");
+  }
 
   async function submit() {
     setError(null);
@@ -115,43 +130,87 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
         {employes.map((e) => (
           <li
             key={e.id}
-            className="flex items-start justify-between gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-secondary/40"
+            className="rounded-xl border border-border p-3 transition-colors hover:bg-secondary/40"
           >
-            <div className="min-w-0 space-y-1">
-              <div className="flex items-center gap-2">
-                <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="truncate text-sm font-medium text-foreground">
-                  {e.prenom} {e.nom}
-                </span>
-                <StatutDot statut={e.statut} />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-2">
+                  <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate text-sm font-medium text-foreground">
+                    {e.prenom} {e.nom}
+                  </span>
+                  <StatutDot statut={e.statut} />
+                </div>
+                <div className="pl-6 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {e.identifiant}
+                  </span>
+                  <span className="mx-1.5">·</span>
+                  <PasswordCell value={e.motDePasse} />
+                  {e.doitChangerMotDePasse && (
+                    <span className="ml-1.5 rounded-full bg-warning/12 px-1.5 py-0.5 text-[0.65rem] font-semibold text-warning">
+                      Doit changer son mot de passe
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="pl-6 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  {e.identifiant}
-                </span>
-                <span className="mx-1.5">·</span>
-                <PasswordCell value={e.motDePasse} />
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  onClick={() =>
+                    updateEmploye(e.id, {
+                      statut: e.statut === "actif" ? "inactif" : "actif",
+                    })
+                  }
+                >
+                  {e.statut === "actif" ? "Désactiver" : "Activer"}
+                </button>
+                <button
+                  className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  onClick={() => {
+                    setResettingId(resettingId === e.id ? null : e.id);
+                    setResetValue(generatePassword());
+                  }}
+                  title="Réinitialiser le mot de passe"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setToDelete(e)}
+                  title="Supprimer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
-                onClick={() =>
-                  updateEmploye(e.id, {
-                    statut: e.statut === "actif" ? "inactif" : "actif",
-                  })
-                }
-              >
-                {e.statut === "actif" ? "Désactiver" : "Activer"}
-              </button>
-              <button
-                className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => setToDelete(e)}
-                title="Supprimer"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
+
+            {resettingId === e.id && (
+              <div className="mt-2.5 space-y-2 border-t border-border pt-2.5 pl-6">
+                <Label className="text-xs">Nouveau mot de passe</Label>
+                <PasswordField value={resetValue} onValueChange={setResetValue} />
+                <p className="text-xs text-muted-foreground">
+                  Communiquez-le à {e.prenom} — il devra en choisir un nouveau,
+                  connu de lui seul, à sa prochaine connexion.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setResettingId(null)}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ledger"
+                    onClick={() => confirmReset(e.id)}
+                  >
+                    Réinitialiser
+                  </Button>
+                </div>
+              </div>
+            )}
           </li>
         ))}
       </ul>

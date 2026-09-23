@@ -373,6 +373,11 @@ alter table employes add column if not exists last_login timestamptz;
 -- Rôle du compte : collaborateur (équipe interne) ou societe_employe (employé d'une société cliente)
 alter table employes add column if not exists role text not null default 'collaborateur';
 alter table employes add column if not exists societe_id uuid references societes(id) on delete cascade;
+-- Force un changement de mot de passe à la prochaine connexion — mis à
+-- true à la création d'un compte et à chaque réinitialisation par l'admin/
+-- le responsable des collaborateurs ; false par défaut pour les comptes
+-- déjà actifs avant cette colonne (jamais interrompus rétroactivement).
+alter table employes add column if not exists doit_changer_mdp boolean not null default false;
 alter table collectes add column if not exists recap_statut text not null default 'none';
 alter table collectes add column if not exists echeance date;
 alter table collectes add column if not exists derniere_relance_le timestamptz;

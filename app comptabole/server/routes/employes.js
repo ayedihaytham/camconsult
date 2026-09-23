@@ -99,8 +99,8 @@ employesRouter.post("/", async (req, res) => {
   const sc = scopeForRole(v);
   try {
     const { rows } = await query(
-      `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb) returning *`,
+      `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, doit_changer_mdp)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,true) returning *`,
       [
         v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
         v.email, v.statut, JSON.stringify(sc.societesAssignees),
@@ -144,14 +144,22 @@ employesRouter.patch("/:id", async (req, res) => {
   )
     return res.status(403).json({ error: "Seul l'administrateur peut modifier ce compte" });
   const sc = scopeForRole(v);
+  // Un mot de passe changé ici (admin/responsable qui réinitialise un
+  // compte oublié) force à nouveau le changement à la prochaine connexion —
+  // seul l'employé lui-même choisit son mot de passe définitif (voir
+  // POST /auth/change-password). Ne touche pas au drapeau si le mot de
+  // passe n'a pas bougé (simple modification de nom/email/statut…).
+  const passwordChanged = v.motDePasse !== existing.mot_de_passe;
+  const doitChangerMdp = passwordChanged ? true : Boolean(existing.doit_changer_mdp);
   const { rows } = await query(
     `update employes set nom=$1, prenom=$2, identifiant=$3, mot_de_passe=$4, type=$5,
-       role=$6, societe_id=$7, email=$8, statut=$9, societes_assignees=$10::jsonb, permissions=$11::jsonb
-     where id=$12 returning *`,
+       role=$6, societe_id=$7, email=$8, statut=$9, societes_assignees=$10::jsonb, permissions=$11::jsonb,
+       doit_changer_mdp=$12
+     where id=$13 returning *`,
     [
       v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
       v.email, v.statut, JSON.stringify(sc.societesAssignees),
-      JSON.stringify(sc.permissions), req.params.id,
+      JSON.stringify(sc.permissions), doitChangerMdp, req.params.id,
     ],
   );
   logAction(req.session.nom, "modification", "employe", `${v.prenom} ${v.nom}`);
@@ -206,8 +214,8 @@ employesRouter.post("/:id/duplicate", async (req, res) => {
     identifiant = `${src.identifiant}.copie${++n}`;
   }
   const { rows } = await query(
-    `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb) returning *`,
+    `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, doit_changer_mdp)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,true) returning *`,
     [
       `${src.nom} (copie)`, src.prenom, identifiant, src.mot_de_passe, src.type,
       src.role ?? "collaborateur", src.societe_id ?? null,

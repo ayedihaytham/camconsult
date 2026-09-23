@@ -20,6 +20,11 @@ import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
+import {
+  OperationalContentHeader,
+  OperationalLedgerPage,
+  OperationalLedgerToolbar,
+} from "@/components/ledger/OperationalLedgerLayout";
 import { STATUT_LABELS } from "@/components/common/badges";
 import type { RowAction } from "@/components/common/RowActions";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -644,16 +649,106 @@ export function EmployesListPage() {
       ? "Aucun collaborateur enregistré. Ajoutez le premier compte collaborateur du cabinet."
       : "Aucun collaborateur ne correspond à votre recherche ou à vos filtres.";
 
+  const renderSearchFilter = () => (
+    <LedgerSearchFilter
+      value={search}
+      onValueChange={setSearch}
+      onClearSearch={() => setSearch("")}
+      placeholder="Rechercher un collaborateur, un identifiant…"
+      searchLabel="Rechercher un collaborateur"
+      filterLabel="Filtrer les collaborateurs"
+      activeFilterCount={activeFilterCount}
+      onReset={() => {
+        setTypeFilter("all");
+        setStatutFilter("all");
+      }}
+      className="max-w-none flex-1"
+    >
+      <div className="grid gap-2">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Type</p>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger aria-label="Filtrer par type de collaborateur">
+              <SelectValue placeholder="Type de collaborateur" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les types</SelectItem>
+              {TYPES.map((type) => (
+                <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Statut</p>
+          <Select value={statutFilter} onValueChange={setStatutFilter}>
+            <SelectTrigger aria-label="Filtrer par statut">
+              <SelectValue placeholder="Statut" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les statuts</SelectItem>
+              {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
+                <SelectItem key={statut} value={statut}>{STATUT_LABELS[statut]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </LedgerSearchFilter>
+  );
+
+  const desktopUtilityMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className="shrink-0">
+          <MoreHorizontal className="size-4" />
+          Outils
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Trier par</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {[
+              ["nom", "Collaborateur"],
+              ["perimetre", "Périmètre"],
+              ["taches", "Tâches ouvertes"],
+              ["acces", "Accès"],
+              ["statut", "Statut"],
+            ].map(([id, label]) => (
+              <DropdownMenuItem
+                key={id}
+                onClick={() => table.setSorting([{ id, desc: false }])}
+              >
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem onClick={() => handleExport("csv")}>
+          Exporter CSV
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleExport("xlsx")}>
+          Exporter Excel
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handlePrint}>
+          <Printer className="size-4" />
+          Imprimer
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
-    <div
+    <OperationalLedgerPage
       className={cn(
-        "min-w-0 flex-1 lg:pb-4",
+        "employes-ledger-page min-w-0 flex-1",
         !mobileSelecting && "ledger-fab-clearance",
-        selectedIds.length > 0 && "ledger-selection-clearance lg:pb-24",
+        selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
       <SignatureLedgerBanner
-        className="operational-signature-banner"
+        className="operational-signature-banner mb-0 sm:mb-2 lg:mb-0"
         titleId="team-ledger-title"
         eyebrow="Organisation · Team Ledger"
         title="Collaborateurs"
@@ -680,99 +775,20 @@ export function EmployesListPage() {
       />
 
       {!mobileSelecting && (
-        <div className="mt-0 flex min-w-0 items-center gap-2 bg-card px-3 py-2 sm:mt-3 sm:bg-transparent sm:px-0 sm:py-0 lg:mt-4">
-          <LedgerSearchFilter
-            value={search}
-            onValueChange={setSearch}
-            onClearSearch={() => setSearch("")}
-            placeholder="Rechercher un collaborateur, un identifiant…"
-            searchLabel="Rechercher un collaborateur"
-            filterLabel="Filtrer les collaborateurs"
-            activeFilterCount={activeFilterCount}
-            onReset={() => {
-              setTypeFilter("all");
-              setStatutFilter("all");
-            }}
-            className="lg:max-w-xl lg:flex-1"
-          >
-            <div className="grid gap-2">
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Type</p>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger aria-label="Filtrer par type de collaborateur">
-                    <SelectValue placeholder="Type de collaborateur" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les types</SelectItem>
-                    {TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Statut</p>
-                <Select value={statutFilter} onValueChange={setStatutFilter}>
-                  <SelectTrigger aria-label="Filtrer par statut">
-                    <SelectValue placeholder="Statut" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les statuts</SelectItem>
-                    {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
-                      <SelectItem key={statut} value={statut}>{STATUT_LABELS[statut]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </LedgerSearchFilter>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="hidden shrink-0 lg:inline-flex"
-              >
-                <MoreHorizontal className="size-4" />
-                Outils
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Trier par</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {[
-                    ["nom", "Collaborateur"],
-                    ["perimetre", "Périmètre"],
-                    ["taches", "Tâches ouvertes"],
-                    ["acces", "Accès"],
-                    ["statut", "Statut"],
-                  ].map(([id, label]) => (
-                    <DropdownMenuItem
-                      key={id}
-                      onClick={() => table.setSorting([{ id, desc: false }])}
-                    >
-                      {label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuItem onClick={() => handleExport("csv")}>
-                Exporter CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("xlsx")}>
-                Exporter Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handlePrint}>
-                <Printer className="size-4" />
-                Imprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <OperationalLedgerToolbar
+          label="Outils du registre des collaborateurs"
+          search={renderSearchFilter()}
+          resultCount={!isDataLoading ? `${filtered.length} collaborateurs` : undefined}
+          tools={desktopUtilityMenu}
+        />
+      )}
+      {!mobileSelecting && (
+        <div className="mt-0 min-w-0 bg-card px-3 py-2 sm:mt-3 sm:bg-transparent sm:px-0 sm:py-0 lg:hidden">
+          {renderSearchFilter()}
         </div>
       )}
-      <div className="mt-0 flex min-w-0 items-center justify-between gap-2 border-b border-border/80 bg-card px-3 py-1 sm:mt-4 sm:bg-transparent sm:px-0 sm:pt-0">
+      <div className="employes-ledger-register">
+      <OperationalContentHeader className="sm:mt-4 sm:bg-transparent sm:px-0 lg:mt-0">
         <div className="flex min-w-0 items-center gap-2">
           <Checkbox
             checked={
@@ -806,15 +822,9 @@ export function EmployesListPage() {
             itemLabel="collaborateurs"
             variant="count"
           />
-          {!isDataLoading &&
-            filtered.length > 0 &&
-            (table.getPageCount() <= 1 ? (
-              <span className="text-xs tabular-nums text-muted-foreground">
-                1 / 1
-              </span>
-            ) : (
-              <DataTablePagination table={table} variant="controls" />
-            ))}
+          {!isDataLoading && filtered.length > 0 && table.getPageCount() > 1 && (
+            <DataTablePagination table={table} variant="controls" />
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1 lg:hidden">
           {!mobileSelecting && (
@@ -870,7 +880,7 @@ export function EmployesListPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
+      </OperationalContentHeader>
 
       {selectedIds.length > 0 && (
         <div className="hidden items-center justify-between gap-3 bg-primary px-3 py-2 text-primary-foreground lg:flex">
@@ -967,6 +977,7 @@ export function EmployesListPage() {
           )}
         </div>
       )}
+      </div>
 
       {!mobileSelecting && (
         <OperationalFab
@@ -1066,6 +1077,6 @@ export function EmployesListPage() {
         confirmLabel="Tout supprimer"
         onConfirm={confirmBulkDelete}
       />
-    </div>
+    </OperationalLedgerPage>
   );
 }

@@ -36,6 +36,11 @@ import { DataTableViewOptions } from "@/components/data-table/DataTableViewOptio
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
+import {
+  OperationalContentHeader,
+  OperationalLedgerPage,
+  OperationalLedgerToolbar,
+} from "@/components/ledger/OperationalLedgerLayout";
 import { TaskActionsMenu } from "@/components/tasks/TaskActionsMenu";
 import { TaskAssignee } from "@/components/tasks/TaskAssignee";
 import { TaskActivity } from "@/components/tasks/TaskActivity";
@@ -295,8 +300,53 @@ export function TasksKanban({
     getRowId: (task) => task.task.id,
     resetKey: `${filterKey}\u0000${searchQuery}`,
   });
+
+  const renderSearchFilter = (className?: string) => (
+    <LedgerSearchFilter
+      value={searchQuery}
+      onValueChange={setSearchQuery}
+      placeholder="Rechercher une tâche..."
+      searchLabel="Rechercher une tâche"
+      filterLabel="Filtrer les tâches"
+      activeFilterCount={activeFilterCount}
+      onReset={onResetFilters}
+      className={className}
+    >
+      {filterControls}
+    </LedgerSearchFilter>
+  );
+
+  const viewTools = (
+    <>
+      {activeView === "table" && <DataTableViewOptions table={taskTable} />}
+      <div className="inline-flex items-center rounded-md border border-border bg-muted/50 p-0.5" role="group" aria-label="Mode d'affichage des tâches">
+        {([
+          { value: "list", label: "Liste", icon: List },
+          { value: "table", label: "Table", icon: Table2 },
+          { value: "board", label: "Kanban", icon: Columns3 },
+        ] as const).map(({ value, label, icon: Icon }) => (
+          <Button
+            key={value}
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "h-7 gap-1.5 rounded px-2.5 text-xs shadow-none",
+              view === value ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "text-muted-foreground hover:bg-card hover:text-foreground",
+            )}
+            aria-pressed={view === value}
+            onClick={() => setView(value)}
+          >
+            <Icon className="size-3.5" aria-hidden="true" />
+            {label}
+          </Button>
+        ))}
+      </div>
+    </>
+  );
+
   return (
-    <div className="taches-work-ledger flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden font-sans lg:min-h-full max-sm:gap-0">
+    <OperationalLedgerPage className="taches-work-ledger min-h-0 gap-3 overflow-hidden font-sans lg:min-h-full max-sm:gap-0">
       <SignatureLedgerBanner
         className="operational-signature-banner"
         eyebrow="Clients & travail · Work Ledger"
@@ -311,49 +361,29 @@ export function TasksKanban({
         action={canManage ? { label: "Nouvelle tâche", onClick: onCreate } : undefined}
       />
 
-      <div role="toolbar" aria-label="Outils des tâches" className="flex min-w-0 flex-wrap items-center gap-2 px-3 py-2 sm:px-0 sm:py-0">
-        <LedgerSearchFilter
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-          placeholder="Rechercher une tâche..."
-          searchLabel="Rechercher une tâche"
-          filterLabel="Filtrer les tâches"
-          activeFilterCount={activeFilterCount}
-          onReset={onResetFilters}
-          className="lg:max-w-[430px] lg:flex-1"
-        >
-          {filterControls}
-        </LedgerSearchFilter>
-        <span className="hidden text-xs text-muted-foreground lg:inline">{filteredTasks.length} tâches</span>
-        <div className="hidden flex-1 lg:block" />
-        {activeView === "table" && <div className="hidden lg:block"><DataTableViewOptions table={taskTable} /></div>}
-        <div className="hidden items-center rounded-md border border-border bg-muted/50 p-0.5 lg:inline-flex" role="group" aria-label="Mode d'affichage des tâches">
-          {([
-            { value: "list", label: "Liste", icon: List },
-            { value: "table", label: "Table", icon: Table2 },
-            { value: "board", label: "Kanban", icon: Columns3 },
-          ] as const).map(({ value, label, icon: Icon }) => (
-            <Button
-              key={value}
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-7 gap-1.5 rounded px-2.5 text-xs shadow-none",
-                view === value ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "text-muted-foreground hover:bg-card hover:text-foreground",
-              )}
-              aria-pressed={view === value}
-              onClick={() => setView(value)}
-            >
-              <Icon className="size-3.5" aria-hidden="true" />
-              {label}
-            </Button>
-          ))}
-        </div>
+      <OperationalLedgerToolbar
+        label="Outils des tâches"
+        search={renderSearchFilter("max-w-none")}
+        resultCount={`${filteredTasks.length} tâches`}
+        tools={viewTools}
+      />
+      <div role="toolbar" aria-label="Outils des tâches" className="flex min-w-0 flex-wrap items-center gap-2 px-3 py-2 sm:px-0 sm:py-0 lg:hidden">
+        {renderSearchFilter()}
       </div>
 
       {filteredTasks.length === 0 ? (
-        <TasksEmptyState message={emptyMessage} />
+        <>
+          <OperationalContentHeader className="hidden lg:flex">
+            <h2 className="text-sm font-semibold text-foreground">
+              {activeView === "board"
+                ? "Flux Kanban"
+                : activeView === "table"
+                  ? "Vue comparaison"
+                  : "File de travail"}
+            </h2>
+          </OperationalContentHeader>
+          <TasksEmptyState message={emptyMessage} />
+        </>
       ) : activeView === "board" ? (
         <DndContext
           sensors={sensors}
@@ -363,6 +393,9 @@ export function TasksKanban({
           onDragEnd={onDragEnd}
           onDragCancel={onDragCancel}
         >
+          <OperationalContentHeader>
+            <h2 className="text-sm font-semibold text-foreground">Flux Kanban</h2>
+          </OperationalContentHeader>
           <div className="flex min-w-0 flex-1 gap-3 overflow-x-auto border-y border-border/80 bg-card p-2.5">
             {COLUMNS.map((column) => (
               <BoardColumn
@@ -413,7 +446,7 @@ export function TasksKanban({
           {...taskActions}
         />
       )}
-    </div>
+    </OperationalLedgerPage>
   );
 }
 

@@ -19,6 +19,11 @@ import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
+import {
+  OperationalContentHeader,
+  OperationalLedgerPage,
+  OperationalLedgerToolbar,
+} from "@/components/ledger/OperationalLedgerLayout";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
@@ -701,16 +706,39 @@ export function SocietesListPage() {
     (themeFilter !== "all" ? 1 : 0) + (statutFilter !== "all" ? 1 : 0);
   const isMobileSelectionActive = mobileSelectionMode || selectedIds.length > 0;
 
+  const renderSearchFilter = (className?: string) => (
+    <LedgerSearchFilter
+      value={search}
+      onValueChange={setSearch}
+      placeholder="Rechercher une société, RNE ou code"
+      searchLabel="Rechercher une société"
+      filterLabel="Filtrer les sociétés"
+      activeFilterCount={activeFilterCount}
+      onReset={() => {
+        setThemeFilter("all");
+        setStatutFilter("all");
+      }}
+      className={className}
+    >
+      <SocietesFilterControls
+        themeFilter={themeFilter}
+        statutFilter={statutFilter}
+        onSetTheme={setThemeFilter}
+        onSetStatut={setStatutFilter}
+      />
+    </LedgerSearchFilter>
+  );
+
   return (
-    <div
+    <OperationalLedgerPage
       className={cn(
-        "societes-ledger-page flex min-w-0 flex-1 flex-col",
+        "societes-ledger-page flex-1",
         canEdit && !isMobileSelectionActive && "ledger-fab-clearance lg:pb-0",
         selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
       <SignatureLedgerBanner
-        className="operational-signature-banner mb-0 sm:mb-2"
+        className="operational-signature-banner mb-0 sm:mb-2 lg:mb-0"
         eyebrow="Clients & travail · Client Ledger"
         title="Sociétés"
         description={isAdmin
@@ -726,58 +754,23 @@ export function SocietesListPage() {
       />
 
       {selectedIds.length === 0 && (
-        <div className="societes-ledger-toolbar mb-1 hidden min-w-0 items-center gap-2 border-y border-border/80 bg-secondary/45 px-2 py-1 lg:flex">
-          <LedgerSearchFilter
-            value={search}
-            onValueChange={setSearch}
-            placeholder="Rechercher une société, RNE ou code"
-            searchLabel="Rechercher une société"
-            filterLabel="Filtrer les sociétés"
-            activeFilterCount={activeFilterCount}
-            onReset={() => {
-              setThemeFilter("all");
-              setStatutFilter("all");
-            }}
-            className="max-w-2xl flex-1"
-          >
-            <SocietesFilterControls
-              themeFilter={themeFilter}
-              statutFilter={statutFilter}
-              onSetTheme={setThemeFilter}
-              onSetStatut={setStatutFilter}
-            />
-          </LedgerSearchFilter>
-          <div className="ml-auto">
+        <OperationalLedgerToolbar
+          label="Outils du registre des sociétés"
+          search={renderSearchFilter("max-w-none")}
+          resultCount={!isDataLoading ? `${filtered.length} sociétés` : undefined}
+          tools={
             <SocietesUtilityMenu
               table={table}
               onExport={handleExport}
               onPrint={handlePrint}
             />
-          </div>
-        </div>
+          }
+        />
       )}
 
       {!isMobileSelectionActive && (
         <div className="mb-0 min-w-0 space-y-2 bg-card px-3 py-2 sm:mb-3 sm:bg-transparent sm:px-0 sm:py-0 lg:hidden">
-          <LedgerSearchFilter
-            value={search}
-            onValueChange={setSearch}
-            placeholder="Rechercher une société, RNE ou code"
-            searchLabel="Rechercher une société"
-            filterLabel="Filtrer les sociétés"
-            activeFilterCount={activeFilterCount}
-            onReset={() => {
-              setThemeFilter("all");
-              setStatutFilter("all");
-            }}
-          >
-            <SocietesFilterControls
-              themeFilter={themeFilter}
-              statutFilter={statutFilter}
-              onSetTheme={setThemeFilter}
-              onSetStatut={setStatutFilter}
-            />
-          </LedgerSearchFilter>
+          {renderSearchFilter()}
           <div className="flex shrink-0 items-center gap-1">
             <Button
               type="button"
@@ -814,7 +807,8 @@ export function SocietesListPage() {
         </div>
       )}
 
-      <div className="societes-ledger-register-heading flex min-w-0 items-center justify-between gap-3 border-b border-border/80 bg-card px-3 py-1 sm:bg-transparent sm:px-0">
+      <div className="societes-ledger-register">
+      <OperationalContentHeader className="societes-ledger-register-heading sm:bg-transparent sm:px-0">
         <div className="flex min-w-0 items-center gap-2.5">
           <Checkbox
             checked={
@@ -862,7 +856,7 @@ export function SocietesListPage() {
           variant="mobile"
           className="min-w-0 flex-1 justify-end border-0 p-0 lg:hidden"
         />
-      </div>
+      </OperationalContentHeader>
 
       {selectedIds.length > 0 && (
         <div className="hidden items-center justify-between gap-4 bg-primary px-3 py-2 text-primary-foreground lg:flex">
@@ -1004,6 +998,7 @@ export function SocietesListPage() {
           );
         }}
       />
+      </div>
 
       {canEdit && !isMobileSelectionActive && (
         <OperationalFab label="Ajouter une société" onClick={startCreate} />
@@ -1082,6 +1077,6 @@ export function SocietesListPage() {
         confirmLabel="Supprimer définitivement"
         onConfirm={confirmBulkDelete}
       />
-    </div>
+    </OperationalLedgerPage>
   );
 }

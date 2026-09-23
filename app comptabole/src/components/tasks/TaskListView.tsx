@@ -1,5 +1,6 @@
 import type { Table } from "@tanstack/react-table";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
+import { OperationalContentHeader } from "@/components/ledger/OperationalLedgerLayout";
 import { cn } from "@/lib/utils";
 import type { TacheStatut } from "@/types";
 import { TaskActionsMenu } from "./TaskActionsMenu";
@@ -52,12 +53,12 @@ export function TaskListView({
 
   return (
     <div className="task-work-register min-w-0 border-y border-border/80 bg-card">
-      <div className="flex min-h-10 items-center justify-between gap-3 border-b border-border/80 px-3 sm:px-4">
+      <OperationalContentHeader className="min-h-10 border-x-0 border-t-0">
         <h2 className="text-sm font-semibold text-foreground">File de travail</h2>
         <p className="hidden text-xs text-muted-foreground sm:block">
           Lecture par statut · prochaines actions à portée de main
         </p>
-      </div>
+      </OperationalContentHeader>
       {groups.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>
       ) : groups.map((group, index) => (

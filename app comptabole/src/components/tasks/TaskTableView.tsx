@@ -1,6 +1,7 @@
 import type { Table } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
+import { OperationalContentHeader } from "@/components/ledger/OperationalLedgerLayout";
 import { cn } from "@/lib/utils";
 import type { TacheStatut } from "@/types";
 import { TaskTableMobileCard } from "./TaskTableMobileCard";
@@ -25,10 +26,10 @@ export function TaskTableView({
 
   return (
     <section className="min-w-0">
-      <div className="hidden min-h-10 items-center justify-between border-b border-border/80 bg-card px-3 lg:flex">
+      <OperationalContentHeader className="hidden lg:flex">
         <h2 className="text-sm font-semibold text-foreground">Vue comparaison</h2>
         <p className="text-xs text-muted-foreground">Champs réels · tri et pagination</p>
-      </div>
+      </OperationalContentHeader>
       <DataTable
         table={table}
         emptyMessage={emptyMessage}

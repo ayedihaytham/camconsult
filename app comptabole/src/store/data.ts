@@ -579,7 +579,12 @@ export function useConversations(viewerAuthorId = "me"): Conversation[] {
       id: convId,
       type: "direct",
       employeId: e.id,
-      societeId: e.societesAssignees[0] ?? null,
+      // Un responsable de société (role societe_employe) porte sa société
+      // dans son propre champ societeId — societesAssignees n'existe que
+      // pour les collaborateurs (affectés à plusieurs sociétés), donc ne
+      // devait servir qu'en repli, jamais en premier : sinon la conversation
+      // d'un vrai responsable de société n'avait jamais de société associée.
+      societeId: e.societeId ?? e.societesAssignees[0] ?? null,
       dernierMessage: last?.contenu || "Aucun message",
       dernierMessageLe: last?.envoyeLe || e.creeLe,
       nonLus: unreadIn(thread),

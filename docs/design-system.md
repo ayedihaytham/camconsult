@@ -120,9 +120,46 @@ inside a shared presentation component.
   and reserve expansion for genuinely secondary information. Use fine ledger
   separators, quiet overflow actions and controlled tonal monograms—not rainbow
   consumer-style avatars.
-- Search is the dominant registry utility. Filters are secondary; low-frequency
-  export, print and column controls belong in Actions/Outils. Keep one obvious
-  primary create action rather than a row of equally weighted controls.
+- Use this utility order: Search, Filter, module-specific secondary tools,
+  relevant view switcher, then low-frequency Outils/row actions. Search is
+  dominant; do not give every toolbar action equal weight.
+- Compose Search + Filter as one outer control with a shared height, subtle
+  divider, existing operational radius, search icon/input on the left and a
+  compact funnel button on the right. They remain separate semantic controls:
+  use a wrapper containing an input and button, never a button containing an
+  input. Do not use separate floating boxes or a permanent text Filter button.
+  Search gets the available width, especially on mobile. The filter trigger is
+  keyboard-accessible, visibly focused, touch-friendly (about 44px target) and
+  explicitly named for its module (for example, “Filtrer les sociétés”).
+- Show no count when no filters are active. Otherwise show a restrained count
+  of active filter dimensions only—not search text, results, pagination,
+  sorting or view mode. Keep the count neutral/navy, not warning amber, red or
+  gold; do not show zero. Active-filter chips are optional, not a permanent row.
+- Reuse `app comptabole/src/components/ledger/LedgerSearchFilter.tsx` for shared
+  presentation, accessibility and responsive overlay behavior. The shared
+  primitive owns composition, trigger/count, overlay shell and sizing; each
+  page owns filter fields, values/state, reset behavior, permissions and domain
+  meaning. Keep module-specific content at the call site; do not create a
+  cross-domain filter schema or force a particular prop API.
+- Desktop/workstation: open filter content in an anchored Popover using the
+  existing `app comptabole/src/components/ui/popover.tsx` primitive. A compact
+  300–380px panel is a useful guide where content permits. Use a white/warm
+  neutral surface, subtle border/shadow, standard radius, labelled fields and
+  compact spacing. Overlay the work surface without moving the register,
+  pagination or workflow rows. Preserve immediate filtering if that is the
+  module's current behavior; do not add draft state or an Apply button by
+  default. Offer Reset only when meaningful.
+- Mobile (<1024px, following the app's existing breakpoint): open filters in
+  the existing `app comptabole/src/components/ui/sheet.tsx` bottom Sheet/Drawer.
+  Keep it full-width, safe-area-aware and content-height driven; cap it around
+  70–80dvh only when needed, with internal scrolling for taller content. Keep
+  the register fixed behind it rather than expanding filters inline. Dismiss,
+  reset and focus behavior should follow the existing Sheet conventions.
+- If fields include Selects or menus, verify portal/layer ordering so options
+  are not clipped, the parent overlay does not dismiss unexpectedly and Sheet
+  focus management remains intact.
+- Keep one obvious primary create action rather than a row of equally weighted
+  controls.
 - Place pagination close to its register controls when it supports the flow.
 - Selection uses a pale warm-gold row treatment, fine gold cue, explicit count
   and grouped safe actions. Keep destructive actions red and distinct.
@@ -140,6 +177,13 @@ inside a shared presentation component.
   very restrained top corners and only a modest lower radius; leave roughly
   6–8px before the utility/search working zone. Do not apply this phone spacing
   to desktop, which keeps its workstation gutters and breathing room.
+- Operational Signature Ledger banners share a spacing rhythm, not a fixed
+  height: keep about 12–16px internal horizontal padding and consistent natural
+  spacing around eyebrow, title/context, partial gold rule, metrics and bottom
+  breathing room. Around 165–180px is a presence guide only when content
+  supports it; banners with fewer metrics or shorter copy may be naturally
+  shorter. The Dashboard Command Ledger may remain stronger/larger. Never add
+  blank space just to match a target height.
 - Prefer a shared authenticated shell/page-section mechanism for edge-to-edge
   surfaces instead of page-by-page negative margins. Current opt-in shell paths
   are `/societes`, `/employes` and `/collectes`; `AppLayout` applies
@@ -150,6 +194,9 @@ inside a shared presentation component.
   tables or floating cards per row. Use fine separators and internally padded
   rows. Keep utility controls usable, preserve equivalent actions and avoid
   page-level horizontal scrolling.
+- Search + Filter follows the composed control above. The funnel opens a
+  bottom Sheet/Drawer on mobile; filters do not appear as inline page rows or
+  push the register downward. Keep Search and Filter semantically separate.
 - Mobile is an intentional recomposition, not squeezed desktop. Use a
   domain-specific compact row/list renderer with equivalent data and actions
   when the table cannot fit naturally.
@@ -167,6 +214,16 @@ inside a shared presentation component.
   desktop primary action's visibility rule; the shared FAB must not calculate
   permissions. Hide it during selection mode, when the full-width bottom
   selection action surface takes precedence. Never display both together.
+- Reserve FAB-aware page-end clearance only when that permitted FAB is visible
+  and only enough for its diameter, bottom offset, one safe-area inset and a
+  small breathing space. If there is no FAB—or selection mode hides it—use
+  normal compact page-bottom spacing. Let the final row, workflow control or
+  pagination scroll clear the FAB, then end the document; avoid arbitrary large
+  padding, spacer elements and duplicate inset handling.
+- The authenticated shell may fill the viewport, but do not force the ledger or
+  page content to a minimum height that creates blank scroll after its real
+  content. Give fixed mobile controls one clear owner for safe-area handling;
+  do not add the inset again in page, footer and spacer layers.
 - On short desktop workspaces, tighten vertical padding and gaps with CSS, not
   tiny type, fixed-height table scrollers or JavaScript viewport measurement.
 
@@ -178,6 +235,10 @@ inside a shared presentation component.
   icon-only controls and retain linked form labels.
 - Maintain adequate touch targets and do not make active, selected or disabled
   states color-only.
+- Give the filter trigger an accessible module-specific name, preserve distinct
+  input/button semantics, visible focus and keyboard open/close behavior, and
+  use labelled fields. Popovers and Sheets should support focus management and
+  Escape dismissal according to their existing primitives.
 
 ## Charts
 
@@ -194,6 +255,14 @@ color and geometry are not the sole carriers of meaning.
 - decorative animation, unnecessary nested cards or hidden high-frequency facts
 - fixed-width hacks, clipped controls or desktop tables that create page-level
   horizontal overflow on mobile
+- standalone Filter buttons that permanently consume mobile width; inline
+  filter expansion; mobile filters rendered as page rows; giant filter panels
+  or excessive Card chrome; permanent empty chip rows
+- excessive blank page-end scroll, unconditional FAB clearance, duplicated
+  safe-area insets or forcing every operational mobile banner to one exact
+  height
+- domain-specific filter logic or permissions inside shared presentation
+  primitives
 - marketing-page hero scale inside operational authenticated pages
 
 For repository scope and implementation rules, see [conventions.md](./conventions.md).

@@ -335,10 +335,20 @@ colors; no chart or badge may depend on color alone.
 ## Controls, selection and disclosure
 
 Each page has one clear primary action. Search is the dominant registry utility;
-filters are secondary; export, print and column controls belong in Actions or
-Outils; pagination is compact and visible when it supports the workflow. Avoid
-long rows of equally weighted buttons and permanent bulk controls when nothing
-is selected.
+filters are secondary; module-specific tools follow; view switching appears
+only where relevant; low-frequency export, print and column controls belong in
+Actions or Outils. Pagination is compact and visible when it supports the
+workflow. Avoid long rows of equally weighted buttons and permanent bulk
+controls when nothing is selected.
+
+Compose Search and Filter as one utility surface: search remains the dominant
+input and the filter action sits at its right edge, separated visually but
+semantically distinct. Filtering overlays the work surface—an anchored Popover
+on desktop and a bottom Sheet/Drawer on mobile—rather than expanding inline and
+reflowing the register. The shared visual grammar stays consistent while each
+module owns its filter meaning and state. Active-filter emphasis is neutral or
+navy, never warning gold; detailed implementation belongs in
+[`docs/design-system.md`](docs/design-system.md).
 
 Selection uses a pale warm-gold treatment, a fine gold structural cue, an
 explicit count and grouped non-destructive actions. Destructive actions remain
@@ -358,13 +368,23 @@ operational register pages, the Topbar and banner sit almost directly together
 utility/register/selection surfaces, and leave a small distinct gap after the
 banner. Rows remain internally padded and separated by fine rules. Do not use a
 floating card per row or introduce page-level horizontal scrolling. Desktop
-retains workstation gutters. A mobile-only create action is a true circular,
+retains workstation gutters. Operational Signature Ledgers share a natural
+mobile spacing rhythm—typically 12–16px internal horizontal padding across the
+eyebrow, title/context, gold rule, metrics and lower breathing room. A banner
+may approach 165–180px when its content supports that presence, but its height
+is never fixed or padded with empty space; operational banners remain quieter
+than the Dashboard Command Ledger. Page content ends after its real final row,
+workflow control or pagination, with only compact breathing room. A mobile-only
+create action is a true circular,
 approximately 52px, icon-only navy `+` FAB with an accessible action name, the
 same permission visibility as its desktop equivalent, safe-area-aware placement,
 and no visibility during selection mode. Selection becomes a full-width action
-surface with explicit count and grouped actions. Short desktop workspaces may
-use CSS to tighten vertical rhythm, never tiny type or a fixed-height register
-scroller.
+surface with explicit count and grouped actions. Reserve bottom clearance only
+while the FAB is actually visible, and assign safe-area handling once. Do not
+create a blank document tail with unconditional FAB padding, duplicated
+insets, spacer elements or artificial content min-heights. Short desktop
+workspaces may use CSS to tighten vertical rhythm, never tiny type or a
+fixed-height register scroller.
 
 ## Interaction and accessibility
 
@@ -402,6 +422,10 @@ color-only.
   surfaces or stack redundant page/section/control padding.
 - **Don't** use an extended text FAB or show the create FAB alongside the
   selection action bar.
+- **Don't** give every toolbar action equal weight, expand filters inline, or
+  leave FAB-sized bottom whitespace when no FAB is present.
+- **Don't** force operational mobile banners to an identical fixed height or
+  duplicate safe-area/page-end spacing.
 - **Don't** hide important workflow information behind a chevron just to make a
   register look simpler.
 - **Don't** use generic shadcn-looking layouts, default admin-table composition,

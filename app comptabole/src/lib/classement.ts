@@ -48,21 +48,25 @@ async function trouverOuCreerDossier(
   });
 }
 
-function nomRacineCabinet(): string {
-  return `Comptabilité générale ${new Date().getFullYear()}`;
+function nomRacineCabinet(annee?: number): string {
+  return `Comptabilité générale ${annee ?? new Date().getFullYear()}`;
 }
 
 /**
  * Dossier racine UNIQUE du cabinet (societeId=null, parentId=null), partagé
  * par toutes les sociétés — "Comptabilité générale [année]" au sens propre,
  * pas une racine par société : chaque société a son propre sous-dossier
- * dessous (voir trouverOuCreerDossierSociete).
+ * dessous (voir trouverOuCreerDossierSociete). `annee` permet de cibler une
+ * année passée (rattrapage) ou future (préparation en avance) plutôt que
+ * l'année en cours par défaut — retrouve un dossier déjà créé à la main
+ * avec ce nom exact au lieu d'en recréer un en double.
  */
 async function trouverOuCreerRacineCabinet(
   noeuds: Noeud[],
   addNoeud: AddNoeud,
+  annee?: number,
 ): Promise<Noeud> {
-  const nom = nomRacineCabinet();
+  const nom = nomRacineCabinet(annee);
   const existante = noeuds.find(
     (n) =>
       n.societeId === null &&
@@ -234,8 +238,11 @@ const DOSSIERS_STANDARD = [
  * idempotent (voir trouverOuCreerRacineCabinet / trouverOuCreerDossierSociete
  * / trouverOuCreerDossier), donc rejouable sans jamais dupliquer ce qui
  * existe déjà, et migre au passage une éventuelle ancienne racine de société
- * au premier niveau vers le nouvel emplacement imbriqué. Utilisé pour
- * l'action globale "Instancier pour toutes les sociétés" de Structuration.
+ * au premier niveau vers le nouvel emplacement imbriqué. `annee` cible une
+ * année différente de l'année en cours (rattrapage d'une année passée,
+ * dossier déjà créé à la main ou non — retrouvé par son nom exact plutôt
+ * que dupliqué). Utilisé pour l'action globale "Instancier pour toutes les
+ * sociétés" de Structuration.
  */
 export async function provisionnerArborescenceSociete({
   noeuds,
@@ -243,17 +250,19 @@ export async function provisionnerArborescenceSociete({
   updateNoeud,
   societeId,
   societeLibelle,
+  annee,
 }: {
   noeuds: Noeud[];
   addNoeud: AddNoeud;
   updateNoeud: UpdateNoeud;
   societeId: string;
   societeLibelle: string;
+  annee?: number;
 }): Promise<number> {
   let pool = noeuds;
   let crees = 0;
 
-  const racineCabinet = await trouverOuCreerRacineCabinet(pool, addNoeud);
+  const racineCabinet = await trouverOuCreerRacineCabinet(pool, addNoeud, annee);
   if (!pool.some((n) => n.id === racineCabinet.id)) {
     pool = [...pool, racineCabinet];
     crees++;

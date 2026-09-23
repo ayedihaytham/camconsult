@@ -183,6 +183,11 @@ function MobileCollaboratorRow({
           >
             {employe.email}
           </p>
+          {employe.doitChangerMotDePasse && (
+            <span className="mt-0.5 inline-block rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+              Doit changer son mot de passe
+            </span>
+          )}
         </div>
         {!selecting && (
           <div className="shrink-0">
@@ -522,6 +527,11 @@ export function EmployesListPage() {
               <p className="truncate text-[11px] leading-4 text-muted-foreground">
                 {e.email}
               </p>
+              {e.doitChangerMotDePasse && (
+                <span className="mt-0.5 inline-block rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                  Doit changer son mot de passe
+                </span>
+              )}
             </div>
           </div>
         );

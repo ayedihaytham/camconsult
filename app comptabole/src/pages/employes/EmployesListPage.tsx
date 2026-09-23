@@ -187,6 +187,11 @@ function MobileCollaboratorRow({
           >
             {employe.email}
           </p>
+          {employe.doitChangerMotDePasse && (
+            <span className="mt-0.5 inline-block rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+              Doit changer son mot de passe
+            </span>
+          )}
         </div>
         {!selecting && (
           <div className="shrink-0">
@@ -526,6 +531,11 @@ export function EmployesListPage() {
               <p className="truncate text-[11px] leading-4 text-muted-foreground">
                 {e.email}
               </p>
+              {e.doitChangerMotDePasse && (
+                <span className="mt-0.5 inline-block rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                  Doit changer son mot de passe
+                </span>
+              )}
             </div>
           </div>
         );
@@ -875,15 +885,17 @@ export function EmployesListPage() {
               onType={bulkSetType}
               onInactive={bulkSetInactive}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
-              onClick={() => setBulkDeleteOpen(true)}
-            >
-              Supprimer
-            </Button>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+                onClick={() => setBulkDeleteOpen(true)}
+              >
+                Supprimer
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -974,16 +986,18 @@ export function EmployesListPage() {
               onType={bulkSetType}
               onInactive={bulkSetInactive}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={selectedIds.length === 0}
-              onClick={() => setBulkDeleteOpen(true)}
-              className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
-            >
-              Supprimer
-            </Button>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={selectedIds.length === 0}
+                onClick={() => setBulkDeleteOpen(true)}
+                className="text-primary-foreground hover:bg-destructive/25 hover:text-primary-foreground"
+              >
+                Supprimer
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"

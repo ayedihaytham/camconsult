@@ -5,7 +5,7 @@ import { requireAuth, requireAdmin, requireEquipeManager } from "../auth.js";
 import { logAction } from "../journal.js";
 import { notify } from "../notifications.js";
 import { employeDto } from "../mappers.js";
-import { sendCollaborateurWelcomeEmail } from "../mailer.js";
+import { sendCollaborateurWelcomeEmail, sendPasswordResetEmail } from "../mailer.js";
 import {
   defaultPermissions,
   societeEmployePermissions,
@@ -170,7 +170,14 @@ employesRouter.patch("/:id", async (req, res) => {
     `Par ${req.session.nom}`,
     v.role === "societe_employe" ? "/structuration" : "/",
   );
-  res.json(employeDto(rows[0]));
+  const dto = employeDto(rows[0]);
+  if (passwordChanged) {
+    // Jamais bloquant : la réinitialisation réussit même si l'email échoue.
+    sendPasswordResetEmail(dto).catch((err) =>
+      console.error("[mailer] envoi réinitialisation échoué", err.message),
+    );
+  }
+  res.json(dto);
 });
 
 employesRouter.patch("/:id/acces", async (req, res) => {

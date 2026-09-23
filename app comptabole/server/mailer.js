@@ -220,6 +220,50 @@ export async function sendCollaborateurWelcomeEmail(employe) {
   console.log(`[mailer] identifiants collaborateur envoyés à ${employe.email}`);
 }
 
+/** Email envoyé quand l'admin (ou le responsable des collaborateurs)
+ * réinitialise le mot de passe d'un compte — voir server/routes/employes.js
+ * (déclenché dès que motDePasse change dans un PATCH). Même choix assumé
+ * qu'à la création (mot de passe en clair, voir sendCollaborateurWelcomeEmail) ;
+ * ce mot de passe n'est qu'un sas de passage, le compte doit en choisir un
+ * autre à la prochaine connexion (voir doitChangerMotDePasse). */
+export async function sendPasswordResetEmail(employe) {
+  if (!mailerAvailable()) {
+    console.log("[mailer] envoi sauté (SMTP non configuré)");
+    return;
+  }
+  if (!employe.email) {
+    console.log(`[mailer] envoi sauté : « ${employe.prenom} ${employe.nom} » sans email`);
+    return;
+  }
+
+  const bodyHtml = `
+    ${paragraph(`Bonjour ${escapeHtml(employe.prenom)},`)}
+    ${paragraph("Votre mot de passe vient d'être réinitialisé par le cabinet CAMCONSULT. Voici votre nouveau mot de passe :")}
+    ${infoCard(
+      [
+        ["Identifiant", escapeHtml(employe.identifiant)],
+        ["Nouveau mot de passe", `<span style="font-family:'Courier New',monospace;">${escapeHtml(employe.motDePasse)}</span>`],
+      ],
+      BRAND.warning,
+    )}
+    ${ctaButton("Accéder à mon espace", "https://cabinet.camconsult.com.tn")}
+    ${paragraph(`<span style="font-size:13px;color:${BRAND.muted};">Il vous sera demandé d'en choisir un autre, connu de vous seul, dès votre prochaine connexion.</span>`)}
+  `;
+
+  await getTransport().sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: employe.email,
+    subject: "CAMCONSULT — votre mot de passe a été réinitialisé",
+    html: emailShell({
+      eyebrow: "Mot de passe réinitialisé",
+      title: `Bonjour ${escapeHtml(employe.prenom)}`,
+      bodyHtml,
+      accent: BRAND.warning,
+    }),
+  });
+  console.log(`[mailer] réinitialisation de mot de passe envoyée à ${employe.email}`);
+}
+
 /** Relance envoyée à la société cliente pour une collecte en attente
  * (échéance dépassée, pas encore transmise) — voir server/relances.js. */
 export async function sendCollecteRelanceEmail({ email, raisonSociale, periode, echeance }) {

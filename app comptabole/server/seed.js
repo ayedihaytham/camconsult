@@ -17,6 +17,7 @@ const SEED_CONVERSATION_IDS = Array.from({ length: 5 }, (_, index) => seedUuid("
 const SEED_MESSAGE_IDS = Array.from({ length: 32 }, (_, index) => seedUuid("60000000", index + 1));
 const SEED_TASK_IDS = Array.from({ length: 24 }, (_, index) => seedUuid("70000000", index + 1));
 const SEED_NOTIFICATION_IDS = Array.from({ length: 8 }, (_, index) => seedUuid("80000000", index + 1));
+const SEED_COLLECTE_IDS = Array.from({ length: 22 }, (_, index) => seedUuid("90000000", index + 1));
 
 function dayOffset(daysAgo) {
   const date = new Date();
@@ -89,6 +90,67 @@ const taskTitles = [
   "Préparer la clôture mensuelle", "Vérifier les notes de frais", "Analyser les comptes d'attente",
   "Archiver les pièces validées", "Préparer le reporting de direction", "Finaliser le dossier de révision",
 ];
+
+const collecteOnglets = [
+  "souche_cheques",
+  "bordereaux_remise_cheques",
+  "virements_recus",
+  "virements_emis",
+  "virements_salaire",
+  "chiffre_affaires",
+  "detail_achats",
+  "etat_caisse",
+  "etat_clients",
+  "etat_fournisseurs",
+];
+
+// [société index, période, statut, échéance offset in days from today, tableau count, created days ago, updated hours ago]
+const collecteSpecs = [
+  [0, "Janvier 2026", "brouillon", 8, 4, 34, 18],
+  [1, "Février 2026", "transmis", 2, 6, 29, 10],
+  [2, "Mars 2026", "a_corriger", -5, 5, 25, 6],
+  [3, "Avril 2026", "valide", -42, 8, 61, 168],
+  [4, "Mai 2026", "archive", -108, 3, 145, 960],
+  [5, "Juin 2026", "brouillon", -2, 7, 20, 12],
+  [6, "Juillet 2026", "transmis", 0, 9, 18, 4],
+  [7, "Août 2026", "a_corriger", 5, 4, 16, 2],
+  [8, "Septembre 2026", "valide", null, 10, 14, 96],
+  [9, "Avril 2026", "archive", -86, 5, 132, 840],
+  [10, "Mai 2026", "brouillon", 14, 6, 12, 8],
+  [11, "Juin 2026", "transmis", -1, 3, 10, 3],
+  [12, "Juillet 2026", "a_corriger", -9, 8, 7, 2],
+  [13, "Août 2026", "valide", -24, 4, 31, 240],
+  [14, "Janvier 2026", "archive", -151, 7, 179, 1200],
+  [0, "Février 2026", "brouillon", 21, 5, 5, 5],
+  [1, "Mars 2026", "transmis", 4, 10, 4, 3],
+  [2, "Avril 2026", "a_corriger", -3, 6, 3, 1],
+  [3, "Mai 2026", "valide", -71, 9, 91, 480],
+  [4, "Février 2026", "archive", -126, 4, 160, 1100],
+  [5, "", "valide", null, 3, 48, 240],
+  [6, "Septembre 2026", "valide", 11, 6, 2, 1],
+];
+
+function getCollecteOnglets(startIndex, count) {
+  return Array.from({ length: count }, (_, index) => collecteOnglets[(startIndex + index) % collecteOnglets.length]);
+}
+
+function collectes() {
+  return collecteSpecs.map(([societeIndex, periode, statut, echeanceOffset, ongletCount, createdDaysAgo, updatedHoursAgo], index) => {
+    const transmet = ["transmis", "a_corriger", "valide"].includes(statut);
+    return {
+      id: SEED_COLLECTE_IDS[index],
+      societeId: SEED_COMPANY_IDS[societeIndex],
+      periode,
+      statut,
+      onglets: getCollecteOnglets(index % collecteOnglets.length, ongletCount),
+      echeance: echeanceOffset === null ? null : dayOffset(-echeanceOffset),
+      creeLe: dayOffset(createdDaysAgo),
+      majLe: timeOffset(updatedHoursAgo),
+      transmisLe: transmet ? timeOffset(updatedHoursAgo + 6) : null,
+      valideLe: statut === "valide" ? timeOffset(updatedHoursAgo + 3) : null,
+    };
+  });
+}
 
 function companies() {
   return companySpecs.map(([raisonSociale, theme, statut, daysAgo], index) => ({
@@ -239,6 +301,7 @@ async function cleanup(client) {
   await client.query("delete from messages where id = any($1::uuid[])", [SEED_MESSAGE_IDS]);
   await client.query("delete from conversations where id = any($1::uuid[])", [SEED_CONVERSATION_IDS]);
   await client.query("delete from taches where id = any($1::uuid[])", [SEED_TASK_IDS]);
+  await client.query("delete from collectes where id = any($1::uuid[])", [SEED_COLLECTE_IDS]);
   await client.query("delete from noeuds where id = any($1::uuid[])", [SEED_FILE_IDS]);
   await client.query("delete from noeuds where id = any($1::uuid[])", [SEED_FOLDER_IDS]);
   await client.query("delete from employes where id = any($1::uuid[])", [SEED_EMPLOYEE_IDS]);
@@ -253,6 +316,7 @@ async function insertSeed(client) {
   const seededConversations = groupConversations();
   const seededMessages = messages();
   const seededTasks = tasks();
+  const seededCollectes = collectes();
   const seededNotifications = notifications();
 
   for (const company of seededCompanies) {
@@ -305,6 +369,20 @@ async function insertSeed(client) {
       [task.id, task.titre, task.description, task.societeId, task.assigneId, task.statut, task.creeLe, task.majLe, task.termineLe],
     );
   }
+  for (const collecte of seededCollectes) {
+    await client.query(
+      `insert into collectes
+       (id, societe_id, periode, statut, onglets, devise, echeance, cree_le, maj_le, transmis_le, valide_le)
+       values ($1,$2,$3,$4,$5::jsonb,'TND',$6,$7,$8,$9,$10)`,
+      [collecte.id, collecte.societeId, collecte.periode, collecte.statut, JSON.stringify(collecte.onglets), collecte.echeance, collecte.creeLe, collecte.majLe, collecte.transmisLe, collecte.valideLe],
+    );
+    for (const onglet of collecte.onglets) {
+      await client.query(
+        "insert into collecte_sections (collecte_id, onglet) values ($1,$2)",
+        [collecte.id, onglet],
+      );
+    }
+  }
   for (const notification of seededNotifications) {
     await client.query(
       `insert into notifications (id, user_key, type, titre, corps, lien, lu, cree_le)
@@ -321,6 +399,7 @@ async function seedCounts() {
     employees: await count("employes", SEED_EMPLOYEE_IDS),
     nodes: await count("noeuds", [...SEED_FOLDER_IDS, ...SEED_FILE_IDS]),
     tasks: await count("taches", SEED_TASK_IDS),
+    collectes: await count("collectes", SEED_COLLECTE_IDS),
     conversations: await count("conversations", SEED_CONVERSATION_IDS),
     messages: await count("messages", SEED_MESSAGE_IDS),
     notifications: await count("notifications", SEED_NOTIFICATION_IDS),
@@ -332,8 +411,14 @@ async function verifyIntegrity() {
     "select count(*)::int as count from noeuds n left join noeuds p on p.id = n.parent_id where n.id = any($1::uuid[]) and n.parent_id is not null and p.id is null",
     "select count(*)::int as count from taches t left join societes s on s.id = t.societe_id where t.id = any($1::uuid[]) and s.id is null",
     "select count(*)::int as count from taches t left join employes e on e.id = t.assigne_id where t.id = any($1::uuid[]) and t.assigne_id is not null and e.id is null",
+    "select count(*)::int as count from collectes c left join societes s on s.id = c.societe_id where c.id = any($1::uuid[]) and s.id is null",
+    `select count(*)::int as count from collectes c
+      where c.id = any($1::uuid[])
+        and jsonb_array_length(c.onglets) <> (
+          select count(*)::int from collecte_sections cs where cs.collecte_id = c.id
+        )`,
   ];
-  const ids = [[...SEED_FOLDER_IDS, ...SEED_FILE_IDS], SEED_TASK_IDS, SEED_TASK_IDS];
+  const ids = [[...SEED_FOLDER_IDS, ...SEED_FILE_IDS], SEED_TASK_IDS, SEED_TASK_IDS, SEED_COLLECTE_IDS, SEED_COLLECTE_IDS];
   for (let index = 0; index < checks.length; index += 1) {
     const result = await query(checks[index], [ids[index]]);
     if (Number(result.rows[0].count) !== 0) throw new Error("[seed] Vérification d'intégrité relationnelle échouée.");
@@ -356,6 +441,7 @@ async function main() {
   console.log(`Employees: ${counts.employees}`);
   console.log(`Nodes: ${counts.nodes}`);
   console.log(`Tasks: ${counts.tasks}`);
+  console.log(`Collectes: ${counts.collectes}`);
   console.log(`Conversations: ${counts.conversations}`);
   console.log(`Messages: ${counts.messages}`);
   console.log(`Notifications: ${counts.notifications}`);

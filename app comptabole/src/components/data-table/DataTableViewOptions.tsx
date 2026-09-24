@@ -7,19 +7,50 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 export function DataTableViewOptions<TData>({
   table,
+  placement = "standalone",
 }: {
   table: Table<TData>;
+  placement?: "standalone" | "submenu";
 }) {
   const columns = table
     .getAllColumns()
     .filter((column) => column.getCanHide() && column.accessorFn);
 
   if (columns.length === 0) return null;
+
+  const options = columns.map((column) => (
+    <DropdownMenuCheckboxItem
+      key={column.id}
+      checked={column.getIsVisible()}
+      onCheckedChange={(visible) => column.toggleVisibility(visible)}
+    >
+      {column.columnDef.meta?.label ?? column.id}
+    </DropdownMenuCheckboxItem>
+  ));
+
+  if (placement === "submenu") {
+    return (
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <Settings2 className="h-4 w-4" />
+          Colonnes
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="w-48">
+          <DropdownMenuLabel>Colonnes visibles</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {options}
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+    );
+  }
 
   return (
     <DropdownMenu>
@@ -37,15 +68,7 @@ export function DataTableViewOptions<TData>({
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>Colonnes visibles</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {columns.map((column) => (
-          <DropdownMenuCheckboxItem
-            key={column.id}
-            checked={column.getIsVisible()}
-            onCheckedChange={(visible) => column.toggleVisibility(visible)}
-          >
-            {column.columnDef.meta?.label ?? column.id}
-          </DropdownMenuCheckboxItem>
-        ))}
+        {options}
       </DropdownMenuContent>
     </DropdownMenu>
   );

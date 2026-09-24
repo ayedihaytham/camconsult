@@ -7,22 +7,23 @@ export function LedgerSegmented<T extends string>({
   value,
   onChange,
   options,
+  ariaLabel = "Choisir une vue",
 }: {
   value: T;
   onChange: (v: T) => void;
   options: { value: T; label: string }[];
+  ariaLabel?: string;
 }) {
   return (
-    <div className="flex gap-5 border-b border-border" role="tablist">
+    <div className="flex min-w-0 gap-5 overflow-x-auto border-b border-border" role="group" aria-label={ariaLabel}>
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
-          role="tab"
-          aria-selected={value === o.value}
+          aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "-mb-px border-b-2 pb-2.5 pt-1 text-sm font-semibold transition-colors",
+            "-mb-px shrink-0 border-b-2 pb-2.5 pt-1 text-sm font-semibold transition-colors",
             value === o.value
               ? "border-foreground text-foreground"
               : "border-transparent text-muted-foreground hover:text-foreground",

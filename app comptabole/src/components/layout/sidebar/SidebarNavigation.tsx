@@ -84,9 +84,13 @@ export function SidebarNavigation({
       {groups.map((group, groupIndex) => (
         <SidebarGroup
           key={group.label ?? `group-${groupIndex}`}
-          className={groupIndex === 0 ? "pb-1 pt-1.5" : "py-1.5"}
+          className={
+            groupIndex === 0
+              ? "pb-1 pt-1.5"
+              : "signature-sidebar__group--boundary py-1.5"
+          }
         >
-          <SidebarGroupLabel className="h-6 px-2 text-[0.68rem] font-semibold text-sidebar-foreground/60">
+          <SidebarGroupLabel className="signature-sidebar__group-label h-6 gap-2 px-2 text-[0.68rem] font-semibold text-sidebar-foreground/60">
             {group.label ?? "Overview"}
           </SidebarGroupLabel>
           <SidebarGroupContent>

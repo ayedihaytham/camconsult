@@ -77,48 +77,13 @@ function tabSheet(collecte: CollecteFull, key: string, withTotal: boolean): Shee
   };
 }
 
-function toWorksheet(XLSX: typeof import("xlsx"), sheet: Sheet, titleRow?: string) {
-  const aoa: Cell[][] = titleRow ? [[titleRow], [], sheet.header, ...sheet.body] : [sheet.header, ...sheet.body];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = sheet.header.map((h, i) => ({
-    wch: Math.min(
-      48,
-      Math.max(12, h.length + 2, ...sheet.body.map((r) => String(r[i] ?? "").length + 2)),
-    ),
-  }));
-  return ws;
-}
+// Excel mis en forme comme le classeur du cabinet : voir exportStyled.ts
+// (chargé à la demande, ExcelJS est lourd).
 
-const safeName = (s: string) => s.replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_+|_+$/g, "").slice(0, 80);
-const docTitle = (collecte: CollecteFull, societeNom: string) =>
-  [societeNom, collecte.periode.trim()].filter(Boolean).join(" — ");
-
-/** Exporte une collecte remplie en .xlsx : 1 feuille Checklist + 1 par onglet. */
+/** Classeur complet : Checklist + un onglet par tableau demandé. */
 export async function exportCollecteXlsx(collecte: CollecteFull, societeNom: string): Promise<void> {
-  const XLSX = await import("xlsx");
-  const wb = XLSX.utils.book_new();
-  const check = checklistSheet(collecte);
-  const rows = checklistRows(collecte);
-  const wsCheck = toWorksheet(XLSX, {
-    ...check,
-    body: [
-      ...check.body,
-      [],
-      ["Nb de pièces reçues", rows.filter((r) => r.recu).length],
-      ["Nb de pièces en attente", rows.filter((r) => !r.recu).length],
-    ],
-  }, `CHECKLIST — ${docTitle(collecte, societeNom)}`);
-  XLSX.utils.book_append_sheet(wb, wsCheck, "Checklist");
-  for (const key of collecte.onglets) {
-    const sheet = tabSheet(collecte, key, false);
-    if (sheet) XLSX.utils.book_append_sheet(wb, toWorksheet(XLSX, sheet), sheet.title.slice(0, 31));
-  }
-  XLSX.writeFile(wb, `Collecte_${safeName(`${societeNom}-${collecte.periode}`)}.xlsx`);
-}
-
-/** Une seule section de la collecte : « checklist » ou la clé d'un onglet de saisie. */
-function sectionSheet(collecte: CollecteFull, section: string): Sheet | null {
-  return section === "checklist" ? checklistSheet(collecte) : tabSheet(collecte, section, true);
+  const { exportCollecteStyled } = await import("./exportStyled");
+  return exportCollecteStyled(collecte, societeNom);
 }
 
 /** Excel d'une seule section, indépendamment des autres. */
@@ -127,16 +92,13 @@ export async function exportCollecteSectionXlsx(
   section: string,
   societeNom: string,
 ): Promise<void> {
-  const sheet = sectionSheet(collecte, section);
-  if (!sheet) return;
-  const XLSX = await import("xlsx");
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(
-    wb,
-    toWorksheet(XLSX, sheet, `${sheet.title.toUpperCase()} — ${docTitle(collecte, societeNom)}`),
-    sheet.title.slice(0, 31),
-  );
-  XLSX.writeFile(wb, `${safeName(sheet.title)}_${safeName(`${societeNom}-${collecte.periode}`)}.xlsx`);
+  const { exportSectionStyled } = await import("./exportStyled");
+  return exportSectionStyled(collecte, section, societeNom);
+}
+
+/** Une seule section de la collecte : « checklist » ou la clé d'un onglet de saisie. */
+function sectionSheet(collecte: CollecteFull, section: string): Sheet | null {
+  return section === "checklist" ? checklistSheet(collecte) : tabSheet(collecte, section, true);
 }
 
 const fmtNumber = (v: Cell) =>

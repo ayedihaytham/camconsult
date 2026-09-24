@@ -23,7 +23,19 @@ export interface TabColumn {
   /** Export Excel : formule de la cellule à la ligne `r` (col(k) = lettre de
    * la colonne k), pour qu'une colonne calculée le reste dans Excel. */
   excelFormula?: (r: number, col: (key: string) => string) => string;
+  /** Export Excel : format numérique (défaut « #,##0.00 » pour un montant). */
+  excelNumFmt?: string;
 }
+
+/** Solde final dû = solde initial + facturé − réglé. */
+const soldeFinalFormula: TabColumn["excelFormula"] = (r, col) => {
+  const [si, f, rg] = [col("solde_initial"), col("facture"), col("regle")].map((l) => `${l}${r}`);
+  return `IF(AND(${si}="",${f}="",${rg}=""),"",ROUND(N(${si})+N(${f})-N(${rg}),2))`;
+};
+
+/** Ancienneté = jours écoulés depuis le dernier règlement. */
+const ancienneteFormula: TabColumn["excelFormula"] = (r, col) =>
+  `IF(${col("date_dernier_reglement")}${r}="","",TODAY()-${col("date_dernier_reglement")}${r})`;
 
 /** TTC = HT × (1 + TVA %), vide tant que le HT n'est pas saisi. */
 const ttcFormula: TabColumn["excelFormula"] = (r, col) =>
@@ -74,6 +86,10 @@ export interface TabDef {
   totalKey?: string;
   /** colonnes totalisées sur la ligne TOTAL de l'export Excel (défaut : [totalKey]) */
   excelTotalKeys?: string[];
+  /** Export Excel : libellé de la ligne de total (défaut : totalLabel, en majuscules) */
+  excelTotalLabel?: string;
+  /** Export Excel : titre de la feuille, si différent de pieceLabel */
+  excelTitle?: string;
   /** calcule les colonnes dérivées (ex. TTC, solde courant) — appliqué à l'affichage et avant enregistrement */
   derive?: (rows: TabRow[]) => TabRow[];
   /** valeur affichée dans « Total (€) » de la Checklist si différente de la somme de `totalKey` */
@@ -341,9 +357,12 @@ export const COLLECTE_TABS: TabDef[] = [
     key: "etat_clients",
     label: "État clients",
     pieceLabel: "État clients (balance âgée)",
+    excelTitle: "ÉTAT DES CLIENTS (BALANCE ÂGÉE)",
     derive: deriveSoldeFinal,
     checklistTotal: sumKey("solde_final"),
     totalLabel: "Total dû",
+    excelTotalLabel: "TOTAUX",
+    excelTotalKeys: ["solde_initial", "facture", "regle", "solde_final"],
     columns: [
       { key: "client", label: "Client", type: "text", width: 200 },
       {
@@ -370,6 +389,7 @@ export const COLLECTE_TABS: TabDef[] = [
         type: "number",
         width: 130,
         computed: true,
+        excelFormula: soldeFinalFormula,
       },
       {
         key: "date_dernier_reglement",
@@ -382,6 +402,8 @@ export const COLLECTE_TABS: TabDef[] = [
         label: "Ancienneté (jours)",
         type: "number",
         width: 120,
+        excelFormula: ancienneteFormula,
+        excelNumFmt: "0",
       },
       { key: "observations", label: "Observations", type: "text", width: 220 },
     ],
@@ -390,9 +412,12 @@ export const COLLECTE_TABS: TabDef[] = [
     key: "etat_fournisseurs",
     label: "État fournisseurs",
     pieceLabel: "État fournisseurs (balance âgée)",
+    excelTitle: "ÉTAT DES FOURNISSEURS (BALANCE ÂGÉE)",
     derive: deriveSoldeFinal,
     checklistTotal: sumKey("solde_final"),
     totalLabel: "Total dû",
+    excelTotalLabel: "TOTAUX",
+    excelTotalKeys: ["solde_initial", "facture", "regle", "solde_final"],
     columns: [
       { key: "fournisseur", label: "Fournisseur", type: "text", width: 200 },
       {
@@ -419,6 +444,7 @@ export const COLLECTE_TABS: TabDef[] = [
         type: "number",
         width: 130,
         computed: true,
+        excelFormula: soldeFinalFormula,
       },
       {
         key: "date_dernier_reglement",
@@ -431,6 +457,8 @@ export const COLLECTE_TABS: TabDef[] = [
         label: "Ancienneté (jours)",
         type: "number",
         width: 120,
+        excelFormula: ancienneteFormula,
+        excelNumFmt: "0",
       },
       { key: "observations", label: "Observations", type: "text", width: 220 },
     ],

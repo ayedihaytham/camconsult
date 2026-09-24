@@ -14,6 +14,7 @@ const GRIS_BORD = "FFBFBFBF";
 const MONTANT = "#,##0.00";
 /** Lignes de saisie proposées même si le client en a rempli moins (comme le modèle). */
 const LIGNES_MIN = 25;
+const SOUS_TITRE = "Cellules jaunes = à saisir par le client · le reste se calcule automatiquement";
 
 const fill = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
 const border = {
@@ -73,8 +74,9 @@ function titre(ws: Worksheet, texte: string, sousTitre: string) {
 function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
   const def = TAB_BY_KEY[key];
   if (!def) return;
+  if (key === "etat_caisse") return feuilleCaisse(wb, collecte);
   const ws = wb.addWorksheet(def.label.slice(0, 31), { views: [{ state: "frozen", ySplit: 4 }] });
-  titre(ws, titreModele(def.pieceLabel), "Cellules jaunes = à saisir par le client · le reste se calcule automatiquement");
+  titre(ws, def.excelTitle ?? titreModele(def.pieceLabel), SOUS_TITRE);
   const devise = deviseLabel(collecte);
   // Montants : « Montant HT (€) » ; jamais pour un pourcentage (« TVA % »).
   const isPct = (c: { label: string }) => c.label.includes("%");
@@ -113,10 +115,11 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
       } else if (v != null && v !== "") {
         c.value = col.type === "number" ? cellNumber(v) : col.type === "date" ? toDate(v) : String(v);
       }
-      if (col.type === "number" && !isPct(col)) c.numFmt = MONTANT;
+      if (col.excelNumFmt) c.numFmt = col.excelNumFmt;
+      else if (col.type === "number" && !isPct(col)) c.numFmt = MONTANT;
       if (col.type === "date") c.numFmt = "dd/mm/yyyy";
-      // jaune = saisie client ; blanc = colonne calculée
-      if (!col.computed) c.fill = fill(JAUNE);
+      // jaune = saisie client ; blanc = calculé (dans l'app ou dans Excel)
+      if (!col.computed && !col.excelFormula) c.fill = fill(JAUNE);
       c.border = border;
       if (col.type === "select" && col.options?.length) {
         const liste = col.options.join(",");
@@ -134,7 +137,7 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
   if (totaux.length > 0) {
     const r = ws.getRow(last + 2);
     const lab = r.getCell(Math.max(1, Math.min(...totaux.map((t) => t.idx))));
-    lab.value = (def.totalLabel ?? "Total").toUpperCase();
+    lab.value = def.excelTotalLabel ?? (def.totalLabel ?? "Total").toUpperCase();
     lab.font = { bold: true };
     for (const { key, idx } of totaux) {
       const lettre = colLetter(idx + 1);
@@ -146,6 +149,94 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
       tot.numFmt = MONTANT;
       tot.font = { bold: true };
     }
+  }
+}
+
+/**
+ * État de caisse — mise en page propre (voir le modèle) : ligne 5 « Solde
+ * initial » (solde en jaune), 25 lignes d'opérations, Solde en solde courant
+ * calculé par Excel, ligne « TOTAUX / SOLDE FINAL ».
+ */
+function feuilleCaisse(wb: Workbook, collecte: CollecteFull) {
+  const def = TAB_BY_KEY.etat_caisse;
+  const ws = wb.addWorksheet(def.label.slice(0, 31), { views: [{ state: "frozen", ySplit: 5 }] });
+  titre(ws, def.excelTitle ?? titreModele(def.pieceLabel), SOUS_TITRE);
+  const devise = deviseLabel(collecte);
+  enTetes(
+    ws,
+    4,
+    def.columns.map((c) => (c.type === "number" ? `${c.label} (${devise})` : c.label)),
+  );
+  ws.columns = def.columns.map((c) => ({ width: Math.max(12, Math.round((c.width ?? 140) / 7)) }));
+
+  const data = collecte.lignes
+    .filter((l) => l.onglet === "etat_caisse")
+    .sort((a, b) => a.ordre - b.ordre)
+    .map((l) => l.data);
+  const derived = def.derive ? def.derive(data) : data;
+  // Même règle que l'app : la 1re ligne sans entrée ni sortie = solde initial.
+  const aInitial =
+    derived.length > 0 && cellNumber(derived[0].entree) === 0 && cellNumber(derived[0].sortie) === 0;
+  const soldeInitial = aInitial ? cellNumber(derived[0].solde) : null;
+  const ops = aInitial ? derived.slice(1) : derived;
+
+  // Ligne 5 : solde initial
+  const r5 = ws.getRow(5);
+  for (let j = 1; j <= 6; j++) r5.getCell(j).border = border;
+  r5.getCell(2).value = "Solde initial";
+  r5.getCell(2).font = { bold: true };
+  const si = r5.getCell(5);
+  if (soldeInitial !== null) si.value = soldeInitial;
+  si.numFmt = MONTANT;
+  si.fill = fill(JAUNE);
+
+  const first = 6;
+  const nb = Math.max(LIGNES_MIN, ops.length);
+  const last = first + nb - 1;
+  for (let i = 0; i < nb; i++) {
+    const rowNum = first + i;
+    const r = ws.getRow(rowNum);
+    const src = ops[i];
+    const saisie: [number, unknown, "date" | "text" | "number"][] = [
+      [1, src?.date, "date"],
+      [2, src?.libelle, "text"],
+      [3, src?.entree, "number"],
+      [4, src?.sortie, "number"],
+      [6, src?.observations, "text"],
+    ];
+    for (const [j, v, type] of saisie) {
+      const c = r.getCell(j);
+      if (v != null && v !== "")
+        c.value = type === "number" ? cellNumber(v) : type === "date" ? toDate(v) : String(v);
+      if (type === "number") c.numFmt = MONTANT;
+      if (type === "date") c.numFmt = "dd/mm/yyyy";
+      c.fill = fill(JAUNE);
+      c.border = border;
+    }
+    const solde = r.getCell(5);
+    solde.value = {
+      formula: `IF(AND(C${rowNum}="",D${rowNum}=""),"",ROUND(N($E$5)+SUM($C$${first}:C${rowNum})-SUM($D$${first}:D${rowNum}),2))`,
+      result: src ? cellNumber(src.solde) : "",
+    };
+    solde.numFmt = MONTANT;
+    solde.border = border;
+  }
+
+  const rt = ws.getRow(last + 2);
+  rt.getCell(2).value = "TOTAUX / SOLDE FINAL";
+  rt.getCell(2).font = { bold: true };
+  const sum = (key: "entree" | "sortie") =>
+    Math.round(ops.reduce((s, x) => s + cellNumber(x[key]), 0) * 100) / 100;
+  const cells: [number, string, number][] = [
+    [3, `SUM(C${first}:C${last})`, sum("entree")],
+    [4, `SUM(D${first}:D${last})`, sum("sortie")],
+    [5, `ROUND(N(E5)+C${last + 2}-D${last + 2},2)`, (soldeInitial ?? 0) + sum("entree") - sum("sortie")],
+  ];
+  for (const [j, formula, result] of cells) {
+    const c = rt.getCell(j);
+    c.value = { formula, result: Math.round(result * 100) / 100 };
+    c.numFmt = MONTANT;
+    c.font = { bold: true };
   }
 }
 
@@ -231,6 +322,8 @@ async function nouveauClasseur() {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = "CAMCONSULT";
+  // Excel recalcule toutes les formules à l'ouverture (ancienneté du jour, soldes…).
+  wb.calcProperties.fullCalcOnLoad = true;
   return wb;
 }
 

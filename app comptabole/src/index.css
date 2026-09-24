@@ -716,6 +716,14 @@
     background: hsl(var(--sidebar-muted) / 0.55);
   }
 
+  .signature-sidebar__group-label::before {
+    width: 12px;
+    height: 1px;
+    flex: none;
+    background: hsl(var(--sidebar-foreground) / 0.125);
+    content: "";
+  }
+
   .signature-sidebar__content [data-sidebar="menu-sub"].signature-sidebar__nested {
     border-left-color: hsl(var(--sidebar-foreground) / 0.14);
   }
@@ -735,6 +743,18 @@
   }
 
   @media (min-width: 1024px) {
+    .group[data-collapsible="icon"] .signature-sidebar__group--boundary::before {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 20px;
+      height: 1px;
+      transform: translateX(-50%);
+      background: hsl(var(--sidebar-foreground) / 0.15);
+      content: "";
+      pointer-events: none;
+    }
+
     .signature-sidebar:not([data-collapsible="icon"])
       .signature-sidebar__content
       [data-sidebar="menu"] {

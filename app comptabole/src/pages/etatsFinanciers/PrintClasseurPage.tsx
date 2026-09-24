@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,17 +15,24 @@ import {
   ROWS_ETAT_RESULTAT,
 } from "@/lib/etatsFinanciers/postes";
 import { computeImmoVariation, MASSE_AMORT_LABELS, MASSE_LABELS } from "@/lib/etatsFinanciers/immobilisations";
-import { mergeImmoMouvements } from "@/lib/etatsFinanciers/immobilisationsRegistre";
+import {
+  computeBiensPourExercice,
+  mergeImmoMouvements,
+  type BienCalcul,
+} from "@/lib/etatsFinanciers/immobilisationsRegistre";
 import { computeFlux, type FluxResult } from "@/lib/etatsFinanciers/flux";
 import { computeTdrf } from "@/lib/etatsFinanciers/tdrf";
 import { substituteTokens } from "./PrincipesComptablesSection";
 import { FinancialTable } from "./FinancialTable";
 import { SigTable } from "./SigTable";
+import { AffectatSyntheseTable } from "./AffectatSyntheseTable";
+import { ControleTable } from "./ControleTable";
 import type { PostesExercice } from "@/store/balances";
 import type {
   DetailCompteLigne,
   FicheSociete,
   FinancementMouvement,
+  GrilleAffectatCode,
   ImmoBien,
   ImmoCategorie,
   ImmoMouvement,
@@ -48,7 +55,37 @@ interface ClasseurData {
   fiche: FicheSociete;
   detailComptes: DetailCompteLigne[];
   notesParExercice: NotesExercice[];
+  grilleCodes: GrilleAffectatCode[];
+  immoBiens: ImmoBien[];
+  immoCategories: ImmoCategorie[];
 }
+
+type SectionKey =
+  | "actif"
+  | "passif"
+  | "resultat"
+  | "sig"
+  | "synthese"
+  | "immo"
+  | "registre"
+  | "flux"
+  | "tdrf"
+  | "controle"
+  | "notes";
+
+const SECTION_LABELS: Record<SectionKey, string> = {
+  actif: "Bilan Actif",
+  passif: "Bilan Passif",
+  resultat: "Etat de résultat",
+  sig: "Soldes intermédiaires de gestion",
+  synthese: "Synthèse AFFECTAT",
+  immo: "Tableau des variations des immobilisations",
+  registre: "Registre des immobilisations",
+  flux: "Etat de flux de trésorerie",
+  tdrf: "Tableau de détermination du résultat fiscal",
+  controle: "Contrôle des états financiers",
+  notes: "Notes aux états financiers",
+};
 
 /**
  * Vue imprimable du classeur complet — page de garde + sommaire + tous les
@@ -63,9 +100,11 @@ interface ClasseurData {
  * dans cette boîte de dialogue.
  */
 export function PrintClasseurPage() {
-  const { societeId = "" } = useParams();
+  const { societeId = "", section } = useParams();
   const navigate = useNavigate();
   const societe = useSocieteById(societeId);
+  const sectionKey: SectionKey | null =
+    section && section in SECTION_LABELS ? (section as SectionKey) : null;
 
   const [data, setData] = useState<ClasseurData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +124,7 @@ export function PrintClasseurPage() {
           detailComptes,
           immoBiens,
           immoCategories,
+          grille,
         ] = await Promise.all([
           api.get<PostesExercice[]>(`/balances/postes?societeId=${societeId}`),
           api.get<ImmoMouvement[]>(`/balances/immo-mouvements?societeId=${societeId}`),
@@ -96,6 +136,7 @@ export function PrintClasseurPage() {
           api.get<DetailCompteLigne[]>(`/notes/detail-comptes?societeId=${societeId}`),
           api.get<ImmoBien[]>(`/immobilisations/biens?societeId=${societeId}`),
           api.get<ImmoCategorie[]>("/immobilisations/categories"),
+          api.get<{ codes: GrilleAffectatCode[] }>("/grille-affectat"),
         ]);
         const notesParExercice = await Promise.all(
           postesParExercice.map((e) =>
@@ -122,6 +163,9 @@ export function PrintClasseurPage() {
             fiche,
             detailComptes,
             notesParExercice,
+            grilleCodes: grille.codes,
+            immoBiens,
+            immoCategories,
           });
         }
       } catch {
@@ -167,6 +211,17 @@ export function PrintClasseurPage() {
   const chrono = [...data.postesParExercice].sort((a, b) => b.exercice.localeCompare(a.exercice));
   const societeName = societe?.raisonSociale ?? "Société";
 
+  if (sectionKey) {
+    return (
+      <div className="mx-auto max-w-[900px] bg-card text-foreground">
+        <BackBar societeId={societeId} navigate={navigate} />
+        <PrintSection titre={SECTION_LABELS[sectionKey]}>
+          {renderSectionContent(sectionKey, data, societeName, chrono)}
+        </PrintSection>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-[900px] bg-card text-foreground">
       <BackBar societeId={societeId} navigate={navigate} />
@@ -175,11 +230,26 @@ export function PrintClasseurPage() {
 
       <Sommaire />
 
-      <PrintSection titre="Bilan Actif">
-        <FinancialTable rows={ROWS_BILAN_ACTIF} exercices={data.postesParExercice} titre="Actif" />
-      </PrintSection>
+      {(Object.keys(SECTION_LABELS) as SectionKey[]).map((key) => (
+        <PrintSection key={key} titre={SECTION_LABELS[key]}>
+          {renderSectionContent(key, data, societeName, chrono)}
+        </PrintSection>
+      ))}
+    </div>
+  );
+}
 
-      <PrintSection titre="Bilan Passif">
+function renderSectionContent(
+  key: SectionKey,
+  data: ClasseurData,
+  societeName: string,
+  chrono: PostesExercice[],
+): ReactNode {
+  switch (key) {
+    case "actif":
+      return <FinancialTable rows={ROWS_BILAN_ACTIF} exercices={data.postesParExercice} titre="Actif" />;
+    case "passif":
+      return (
         <FinancialTable
           rows={ROWS_BILAN_PASSIF}
           exercices={data.postesParExercice}
@@ -189,37 +259,47 @@ export function PrintClasseurPage() {
           }}
           titre="Capitaux propres et passifs"
         />
-      </PrintSection>
-
-      <PrintSection titre="Etat de résultat">
-        <FinancialTable rows={ROWS_ETAT_RESULTAT} exercices={data.postesParExercice} titre="Etat de résultat" />
-      </PrintSection>
-
-      <PrintSection titre="Soldes intermédiaires de gestion">
-        <SigTable exercices={data.postesParExercice} />
-      </PrintSection>
-
-      <PrintSection titre="Tableau des variations des immobilisations">
-        <ImmoPrint exercices={data.postesParExercice} immoMouvements={data.immoMouvements} />
-      </PrintSection>
-
-      <PrintSection titre="Etat de flux de trésorerie">
+      );
+    case "resultat":
+      return <FinancialTable rows={ROWS_ETAT_RESULTAT} exercices={data.postesParExercice} titre="Etat de résultat" />;
+    case "sig":
+      return <SigTable exercices={data.postesParExercice} />;
+    case "synthese":
+      return <AffectatSyntheseTable exercices={data.postesParExercice} grilleCodes={data.grilleCodes} />;
+    case "immo":
+      return <ImmoPrint exercices={data.postesParExercice} immoMouvements={data.immoMouvements} />;
+    case "registre":
+      return (
+        <RegistrePrint
+          exercices={data.postesParExercice}
+          biens={data.immoBiens}
+          categories={data.immoCategories}
+        />
+      );
+    case "flux":
+      return (
         <FluxPrint
           exercices={data.postesParExercice}
           immoMouvements={data.immoMouvements}
           financementMouvements={data.financementMouvements}
         />
-      </PrintSection>
-
-      <PrintSection titre="Tableau de détermination du résultat fiscal">
-        <TdrfPrint
+      );
+    case "tdrf":
+      return (
+        <TdrfPrint exercices={data.postesParExercice} lignes={data.tdrfLignes} parametres={data.tdrfParametres} />
+      );
+    case "controle":
+      return (
+        <ControleTable
           exercices={data.postesParExercice}
-          lignes={data.tdrfLignes}
-          parametres={data.tdrfParametres}
+          immoMouvements={data.immoMouvements}
+          financementMouvements={data.financementMouvements}
+          tdrfLignes={data.tdrfLignes}
+          tdrfParametres={data.tdrfParametres}
         />
-      </PrintSection>
-
-      <PrintSection titre="Notes aux états financiers">
+      );
+    case "notes":
+      return (
         <NotesPrint
           societeName={societeName}
           fiche={data.fiche}
@@ -228,9 +308,8 @@ export function PrintClasseurPage() {
           detailComptes={data.detailComptes}
           exercices={chrono}
         />
-      </PrintSection>
-    </div>
-  );
+      );
+  }
 }
 
 function BackBar({
@@ -321,6 +400,116 @@ function Sommaire() {
         ))}
       </ol>
     </section>
+  );
+}
+
+// ── Registre des immobilisations (lecture seule) ──
+function RegistrePrint({
+  exercices,
+  biens,
+  categories,
+}: {
+  exercices: PostesExercice[];
+  biens: ImmoBien[];
+  categories: ImmoCategorie[];
+}) {
+  const chrono = [...exercices].sort((a, b) => b.exercice.localeCompare(a.exercice));
+  return (
+    <div className="space-y-8">
+      {chrono.map((e) => {
+        const calculs = computeBiensPourExercice(biens, categories, e.exercice);
+        const parCategorie = new Map<string, BienCalcul[]>();
+        for (const c of calculs) {
+          const list = parCategorie.get(c.categorie.id) ?? [];
+          list.push(c);
+          parCategorie.set(c.categorie.id, list);
+        }
+        const categoriesUtilisees = categories.filter((c) => parCategorie.has(c.id));
+        if (categoriesUtilisees.length === 0) return null;
+        return (
+          <div key={e.exercice}>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Exercice {e.exercice}
+            </p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="border-b border-foreground py-1 text-left text-xs font-bold">Bien</th>
+                  <th className="border-b border-foreground py-1 text-right text-xs font-bold">Brut ouv.</th>
+                  <th className="border-b border-foreground py-1 text-right text-xs font-bold">Acquis.</th>
+                  <th className="border-b border-foreground py-1 text-right text-xs font-bold">Cessions</th>
+                  <th className="border-b border-foreground py-1 text-right text-xs font-bold">Brut clôt.</th>
+                  <th className="border-b border-foreground py-1 text-right text-xs font-bold">Amort. ouv.</th>
+                  <th className="border-b border-foreground py-1 text-right text-xs font-bold">Dotations</th>
+                  <th className="border-b border-foreground py-1 text-right text-xs font-bold">Amort. clôt.</th>
+                  <th className="border-b border-foreground py-1 text-right text-xs font-bold">VNC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categoriesUtilisees.map((cat) => {
+                  const items = parCategorie.get(cat.id) ?? [];
+                  const sub = items.reduce(
+                    (a, c) => ({
+                      brutOuverture: a.brutOuverture + c.brutOuverture,
+                      acquisitions: a.acquisitions + c.acquisitions,
+                      cessionsBrut: a.cessionsBrut + c.cessionsBrut,
+                      brutCloture: a.brutCloture + c.brutCloture,
+                      amortOuverture: a.amortOuverture + c.amortOuverture,
+                      dotations: a.dotations + c.dotations,
+                      amortCloture: a.amortCloture + c.amortCloture,
+                      vcn: a.vcn + c.vcn,
+                    }),
+                    {
+                      brutOuverture: 0,
+                      acquisitions: 0,
+                      cessionsBrut: 0,
+                      brutCloture: 0,
+                      amortOuverture: 0,
+                      dotations: 0,
+                      amortCloture: 0,
+                      vcn: 0,
+                    },
+                  );
+                  return (
+                    <Fragment key={cat.id}>
+                      <tr>
+                        <td colSpan={9} className="bg-muted px-1 py-1 text-xs font-bold uppercase tracking-wide">
+                          {cat.nom} ({cat.taux}%)
+                        </td>
+                      </tr>
+                      {items.map((c) => (
+                        <tr key={c.bien.id}>
+                          <td className="py-1 text-muted-foreground">{c.bien.libelle}</td>
+                          <td className="py-1 text-right tabular-nums">{fmt(c.brutOuverture)}</td>
+                          <td className="py-1 text-right tabular-nums">{fmt(c.acquisitions)}</td>
+                          <td className="py-1 text-right tabular-nums">{fmt(c.cessionsBrut)}</td>
+                          <td className="py-1 text-right tabular-nums">{fmt(c.brutCloture)}</td>
+                          <td className="py-1 text-right tabular-nums">{fmt(c.amortOuverture)}</td>
+                          <td className="py-1 text-right tabular-nums">{fmt(c.dotations)}</td>
+                          <td className="py-1 text-right tabular-nums">{fmt(c.amortCloture)}</td>
+                          <td className="py-1 text-right font-semibold tabular-nums">{fmt(c.vcn)}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t border-border font-semibold">
+                        <td className="py-1">Sous-total</td>
+                        <td className="py-1 text-right tabular-nums">{fmt(sub.brutOuverture)}</td>
+                        <td className="py-1 text-right tabular-nums">{fmt(sub.acquisitions)}</td>
+                        <td className="py-1 text-right tabular-nums">{fmt(sub.cessionsBrut)}</td>
+                        <td className="py-1 text-right tabular-nums">{fmt(sub.brutCloture)}</td>
+                        <td className="py-1 text-right tabular-nums">{fmt(sub.amortOuverture)}</td>
+                        <td className="py-1 text-right tabular-nums">{fmt(sub.dotations)}</td>
+                        <td className="py-1 text-right tabular-nums">{fmt(sub.amortCloture)}</td>
+                        <td className="py-1 text-right tabular-nums">{fmt(sub.vcn)}</td>
+                      </tr>
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

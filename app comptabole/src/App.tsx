@@ -268,6 +268,14 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="/etats-financiers/:societeId/imprimer/:section"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <PrintClasseurPage />
+                    </Suspense>
+                  }
+                />
+                <Route
                   path="/etats-financiers/:societeId/:balanceId"
                   element={
                     <Suspense fallback={<PageFallback />}>

@@ -32,7 +32,19 @@ import { TdrfTable } from "./TdrfTable";
 import { ControleTable } from "./ControleTable";
 import { NotesView } from "./NotesView";
 import { ImmobilisationsRegistrePage } from "./ImmobilisationsRegistrePage";
-import { exportClasseurExcel } from "@/lib/etatsFinanciers/exportClasseur";
+import {
+  controleSheet,
+  downloadSingleSheetXlsx,
+  exportClasseurExcel,
+  exportNotesSectionExcel,
+  financialSheet,
+  fluxSheet,
+  immoSheet,
+  registreSheet,
+  sigSheet,
+  syntheseSheet,
+  tdrfSheet,
+} from "@/lib/etatsFinanciers/exportClasseur";
 import type { Balance } from "@/types";
 
 type Vue =
@@ -48,6 +60,20 @@ type Vue =
   | "tdrf"
   | "controle"
   | "notes";
+
+const SECTION_SHEET_NAMES: Record<Exclude<Vue, "exercices">, string> = {
+  actif: "Bilan Actif",
+  passif: "Bilan Passif",
+  resultat: "Etat de résultat",
+  sig: "SIG",
+  synthese: "Synthèse AFFECTAT",
+  immo: "TAB VAR Immob",
+  registre: "Registre immobilisations",
+  flux: "Flux",
+  tdrf: "TDRF",
+  controle: "Contrôle",
+  notes: "Notes",
+};
 
 const VUE_OPTIONS: { value: Vue; label: string }[] = [
   { value: "exercices", label: "Exercices" },
@@ -198,6 +224,74 @@ export function BalancesListPage() {
     }
   }
 
+  /** Export Excel indépendant de la seule section actuellement affichée
+   * (onglet actif) — réutilise les données déjà chargées dans ce composant,
+   * sauf pour « Notes » qui refait son propre fetch (voir
+   * exportNotesSectionExcel). */
+  async function handleExportSection() {
+    if (vue === "exercices") return;
+    const societeName = societe?.raisonSociale ?? "Société";
+    const sheetName = SECTION_SHEET_NAMES[vue];
+    setExporting(true);
+    try {
+      switch (vue) {
+        case "actif":
+          await downloadSingleSheetXlsx(financialSheet(ROWS_BILAN_ACTIF, postesParExercice, "Actif"), sheetName, societeName);
+          break;
+        case "passif":
+          await downloadSingleSheetXlsx(
+            financialSheet(ROWS_BILAN_PASSIF, postesParExercice, "Capitaux propres et passifs", (ex) => {
+              const p = postesParExercice.find((e) => e.exercice === ex);
+              return { resultat_exercice: p ? resultatNet(p.postes) : 0 };
+            }),
+            sheetName,
+            societeName,
+          );
+          break;
+        case "resultat":
+          await downloadSingleSheetXlsx(financialSheet(ROWS_ETAT_RESULTAT, postesParExercice, "Etat de résultat"), sheetName, societeName);
+          break;
+        case "sig":
+          await downloadSingleSheetXlsx(sigSheet(postesParExercice), sheetName, societeName);
+          break;
+        case "synthese":
+          await downloadSingleSheetXlsx(syntheseSheet(postesParExercice, grilleCodes), sheetName, societeName);
+          break;
+        case "immo":
+          await downloadSingleSheetXlsx(immoSheet(postesParExercice, effectiveImmoMouvements), sheetName, societeName);
+          break;
+        case "registre":
+          await downloadSingleSheetXlsx(registreSheet(postesParExercice, immoBiens, immoCategories), sheetName, societeName);
+          break;
+        case "flux":
+          await downloadSingleSheetXlsx(
+            fluxSheet(postesParExercice, effectiveImmoMouvements, financementMouvements),
+            sheetName,
+            societeName,
+          );
+          break;
+        case "tdrf":
+          await downloadSingleSheetXlsx(tdrfSheet(postesParExercice, tdrfLignes, tdrfParametres), sheetName, societeName);
+          break;
+        case "controle":
+          await downloadSingleSheetXlsx(
+            controleSheet(postesParExercice, effectiveImmoMouvements, financementMouvements, tdrfLignes, tdrfParametres),
+            sheetName,
+            societeName,
+          );
+          break;
+        case "notes":
+          await exportNotesSectionExcel(societeId, societeName, postesParExercice);
+          break;
+      }
+      toast.success(`${sheetName} exporté`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Export impossible");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="flex flex-1 flex-col">
       <LedgerPageHeader
@@ -216,15 +310,25 @@ export function BalancesListPage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => navigate(`/etats-financiers/${societeId}/imprimer`)}
-              disabled={list.length === 0}
+              onClick={() =>
+                navigate(
+                  vue === "exercices"
+                    ? `/etats-financiers/${societeId}/imprimer`
+                    : `/etats-financiers/${societeId}/imprimer/${vue}`,
+                )
+              }
+              disabled={list.length === 0 || (vue !== "exercices" && postesParExercice.length === 0)}
             >
               <FileText className="h-4 w-4" />
-              Exporter PDF
+              {vue === "exercices" ? "Exporter PDF" : "Exporter PDF (section)"}
             </Button>
-            <Button variant="outline" onClick={handleExport} disabled={exporting || list.length === 0}>
+            <Button
+              variant="outline"
+              onClick={vue === "exercices" ? handleExport : handleExportSection}
+              disabled={exporting || list.length === 0 || (vue !== "exercices" && postesParExercice.length === 0)}
+            >
               <Download className="h-4 w-4" />
-              {exporting ? "Export…" : "Exporter Excel"}
+              {exporting ? "Export…" : vue === "exercices" ? "Exporter Excel" : "Exporter Excel (section)"}
             </Button>
             <Button variant="ledger" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" />

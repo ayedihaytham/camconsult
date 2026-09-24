@@ -32,6 +32,8 @@ function task(id: string, statut: Tache["statut"]): Tache {
     creeLe: "2026-09-10T08:00:00Z",
     majLe: "2026-09-10T08:00:00Z",
     termineLe: statut === "termine" ? "2026-09-11T08:00:00Z" : null,
+    origine: "cabinet",
+    module: null,
   };
 }
 

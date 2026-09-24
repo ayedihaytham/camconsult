@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Calculator, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Calculator, Download, FileText, Plus, Trash2, Upload } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerTable } from "@/components/ledger/LedgerTable";
@@ -15,6 +15,8 @@ import { useBalances, type BalanceLigneInput } from "@/store/balances";
 import type { BalanceLigne } from "@/types";
 import { BalanceLigneFormSheet } from "./BalanceLigneFormSheet";
 import { ImportBalanceDialog } from "./ImportBalanceDialog";
+import { exportToXlsx, type ExportColumn } from "@/lib/export";
+import { printTable, type PrintColumn } from "@/lib/print";
 
 const fmt = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -61,6 +63,40 @@ export function BalanceEditorPage() {
       toast.success("Ligne ajoutée");
     }
     setEditing(null);
+  }
+
+  const exportColumns: ExportColumn<BalanceLigne>[] = [
+    { header: "Compte", value: (l) => l.compte },
+    { header: "Libellé", value: (l) => l.libelle },
+    { header: "Débit", value: (l) => l.debit || "" },
+    { header: "Crédit", value: (l) => l.credit || "" },
+    { header: "Solde", value: (l) => fmt(l.solde) },
+    { header: "Affectat", value: (l) => l.affectat || "" },
+  ];
+
+  const printColumns: PrintColumn<BalanceLigne>[] = [
+    { header: "Compte", value: (l) => l.compte },
+    { header: "Libellé", value: (l) => l.libelle },
+    { header: "Débit", value: (l) => (l.debit ? fmt(l.debit) : ""), align: "right" },
+    { header: "Crédit", value: (l) => (l.credit ? fmt(l.credit) : ""), align: "right" },
+    { header: "Solde", value: (l) => fmt(l.solde), align: "right" },
+    { header: "Affectat", value: (l) => l.affectat || "" },
+  ];
+
+  const balanceLabel = `Balance ${current?.exercice ?? ""} — ${societe?.raisonSociale ?? "Société"}`;
+  const balanceFilename = balanceLabel.replace(/[\\/:*?"<>|]/g, "").trim();
+
+  function handleExportExcel() {
+    void exportToXlsx(balanceFilename, lignes, exportColumns, "Balance");
+  }
+
+  function handleExportPdf() {
+    printTable({
+      title: balanceLabel,
+      subtitle: `Écart : ${fmt(ecartTotal)}`,
+      columns: printColumns,
+      rows: lignes,
+    });
   }
 
   const columns: DataTableColumn<BalanceLigne>[] = [
@@ -145,6 +181,14 @@ export function BalanceEditorPage() {
         description="Une ligne par compte ; le code AFFECTAT reclasse chaque compte pour la synthèse ci-dessous."
         actions={
           <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExportPdf} disabled={lignes.length === 0}>
+              <FileText className="h-4 w-4" />
+              Exporter PDF
+            </Button>
+            <Button variant="outline" onClick={handleExportExcel} disabled={lignes.length === 0}>
+              <Download className="h-4 w-4" />
+              Exporter Excel
+            </Button>
             <Button variant="ledger-text" onClick={() => setImportOpen(true)}>
               <Upload className="h-3.5 w-3.5" />
               Importer une balance

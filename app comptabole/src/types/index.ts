@@ -62,6 +62,9 @@ export interface Employe {
   /** true = doit changer son mot de passe à la prochaine connexion (1ère
    * connexion, ou après une réinitialisation par l'admin/le responsable). */
   doitChangerMotDePasse?: boolean;
+  /** role = "societe_employe" uniquement : délégué de société (placé sous le
+   * responsable, reçoit ses tâches) plutôt que responsable. */
+  delegue?: boolean;
   derniereConnexion?: string | null; // ISO
   creeLe: string;
 }
@@ -73,13 +76,26 @@ export interface Tache {
   titre: string;
   description: string;
   societeId: string;
-  assigneId: string | null; // id d'un collaborateur
+  assigneId: string | null; // id d'un collaborateur (ou d'un délégué, origine "societe")
   statut: TacheStatut;
+  /** "cabinet" : admin → collaborateur ; "societe" : responsable de société
+   * → délégué (visible par le cabinet, en lecture seule). */
+  origine: TacheOrigine;
+  module: TacheModule | null;
   creePar: string;
   creeLe: string; // ISO
   majLe: string; // ISO
   termineLe: string | null; // ISO
 }
+
+export type TacheOrigine = "cabinet" | "societe";
+export type TacheModule = "collectes" | "structuration" | "messagerie";
+
+export const TACHE_MODULE_LABELS: Record<TacheModule, string> = {
+  collectes: "Collecte de pièces",
+  structuration: "Structuration",
+  messagerie: "Messagerie",
+};
 
 export const TACHE_STATUT_LABELS: Record<TacheStatut, string> = {
   a_faire: "À faire",

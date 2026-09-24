@@ -13,15 +13,17 @@ import {
   type Row,
 } from "./postes";
 import { computeImmoVariation, MASSE_AMORT_LABELS, MASSE_LABELS } from "./immobilisations";
-import { mergeImmoMouvements } from "./immobilisationsRegistre";
+import { computeBiensPourExercice, mergeImmoMouvements } from "./immobilisationsRegistre";
 import { computeFlux } from "./flux";
 import { computeTdrf } from "./tdrf";
+import { computeControle, computeControleMarge } from "./controle";
 import { substituteTokens } from "@/pages/etatsFinanciers/PrincipesComptablesSection";
 import type { PostesExercice } from "@/store/balances";
 import type {
   DetailCompteLigne,
   FicheSociete,
   FinancementMouvement,
+  GrilleAffectatCode,
   ImmoBien,
   ImmoCategorie,
   ImmoMouvement,
@@ -35,7 +37,23 @@ type Aoa = (string | number)[][];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-function financialSheet(
+/**
+ * Télécharge une seule feuille comme classeur Excel autonome — utilisé pour
+ * l'export « indépendant » d'une section (voir BalancesListPage), par
+ * opposition à `exportClasseurExcel` qui assemble toutes les feuilles dans
+ * un seul classeur.
+ */
+export async function downloadSingleSheetXlsx(aoa: Aoa, sheetName: string, societeName: string) {
+  const XLSX = await import("xlsx");
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = autoWidth(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+  const safeName = societeName.replace(/[\\/:*?"<>|]/g, "").trim() || "Societe";
+  XLSX.writeFile(wb, `${sheetName} - ${safeName}.xlsx`);
+}
+
+export function financialSheet(
   rows: Row[],
   exercices: PostesExercice[],
   titre: string,
@@ -54,7 +72,7 @@ function financialSheet(
   return aoa;
 }
 
-function sigSheet(exercices: PostesExercice[]): Aoa {
+export function sigSheet(exercices: PostesExercice[]): Aoa {
   const aoa: Aoa = [];
   for (const e of exercices) {
     const produits = computeRows(ROWS_SIG_PRODUITS, e.postes);
@@ -85,7 +103,7 @@ function sigSheet(exercices: PostesExercice[]): Aoa {
   return aoa;
 }
 
-function immoSheet(exercices: PostesExercice[], immoMouvements: ImmoMouvement[]): Aoa {
+export function immoSheet(exercices: PostesExercice[], immoMouvements: ImmoMouvement[]): Aoa {
   const chrono = [...exercices].sort((a, b) => b.exercice.localeCompare(a.exercice));
   const aoa: Aoa = [];
   for (const e of chrono) {
@@ -111,7 +129,7 @@ function immoSheet(exercices: PostesExercice[], immoMouvements: ImmoMouvement[])
   return aoa;
 }
 
-function fluxSheet(
+export function fluxSheet(
   exercices: PostesExercice[],
   immoMouvements: ImmoMouvement[],
   financementMouvements: FinancementMouvement[],
@@ -175,7 +193,7 @@ const REINTEGRATIONS_STANDARD: { key: keyof TdrfParametres; label: string }[] = 
   { key: "provisionsCreancesDouteusesReintegrees", label: "3.2 Provisions pour créances douteuses (hors établissements de crédit)" },
 ];
 
-function tdrfSheet(
+export function tdrfSheet(
   exercices: PostesExercice[],
   lignes: TdrfLigne[],
   parametres: TdrfParametres[],
@@ -248,7 +266,7 @@ const DETAIL_TITRES: { poste: string; titre: string }[] = [
   { poste: "cpc.charges_externes", titre: "7.1 Autres charges d'exploitation" },
 ];
 
-function notesSheet(
+export function notesSheet(
   societeName: string,
   fiche: FicheSociete,
   modele: NotesModele,
@@ -316,6 +334,112 @@ function notesSheet(
     aoa.push([]);
   }
 
+  return aoa;
+}
+
+export function syntheseSheet(exercices: PostesExercice[], grilleCodes: GrilleAffectatCode[]): Aoa {
+  const libelleByCode = new Map(grilleCodes.map((c) => [c.code, c.libelle]));
+  const codes = new Set<string>();
+  for (const e of exercices) for (const c of Object.keys(e.codes)) codes.add(c);
+  const sorted = [...codes].sort((a, b) => (a || "(sans code)").localeCompare(b || "(sans code)"));
+
+  const aoa: Aoa = [["Code", "Libellé", ...exercices.map((e) => e.exercice)]];
+  for (const code of sorted) {
+    aoa.push([
+      code || "(sans code)",
+      code ? libelleByCode.get(code) || "—" : "Lignes non reclassées",
+      ...exercices.map((e) => round2(e.codes[code] ?? 0)),
+    ]);
+  }
+  const totalByExercice = exercices.map((e) =>
+    round2(Object.values(e.codes).reduce((s, v) => s + v, 0)),
+  );
+  aoa.push(["Total général", "", ...totalByExercice]);
+  return aoa;
+}
+
+export function controleSheet(
+  exercices: PostesExercice[],
+  immoMouvements: ImmoMouvement[],
+  financementMouvements: FinancementMouvement[],
+  tdrfLignes: TdrfLigne[],
+  tdrfParametres: TdrfParametres[],
+): Aoa {
+  const controle = computeControle(exercices, immoMouvements, financementMouvements, tdrfLignes, tdrfParametres);
+  const marges = computeControleMarge(exercices);
+  const aoa: Aoa = [];
+  for (const c of controle) {
+    aoa.push([`EXERCICE ${c.exercice}`]);
+    aoa.push(["Libellé", "Source 1", "Valeur 1", "Source 2", "Valeur 2", "Écart"]);
+    for (const l of c.lignes) {
+      aoa.push([l.libelle, l.sourceLabel1, round2(l.valeur1), l.sourceLabel2, round2(l.valeur2), round2(l.valeur1 - l.valeur2)]);
+    }
+    aoa.push([]);
+  }
+  if (marges.length > 0) {
+    aoa.push(["CONTRÔLE DE MARGE"]);
+    aoa.push([
+      "Libellé",
+      ...marges.flatMap((m) => [m.exercice, m.exercicePrecedent]),
+    ]);
+    aoa.push([
+      "Production de l'exercice / Ventes",
+      ...marges.flatMap((m) => [round2(m.productionVentes1), round2(m.productionVentes2)]),
+    ]);
+    aoa.push([
+      "Achats consommés",
+      ...marges.flatMap((m) => [round2(m.achatsConsommes1), round2(m.achatsConsommes2)]),
+    ]);
+    aoa.push([
+      "Marge en valeur",
+      ...marges.flatMap((m) => [round2(m.margeValeur1), round2(m.margeValeur2)]),
+    ]);
+    aoa.push([
+      "Marge en %",
+      ...marges.flatMap((m) => [
+        m.margePct1 === null ? "" : round2(m.margePct1 * 100),
+        m.margePct2 === null ? "" : round2(m.margePct2 * 100),
+      ]),
+    ]);
+  }
+  return aoa;
+}
+
+export function registreSheet(exercices: PostesExercice[], biens: ImmoBien[], categories: ImmoCategorie[]): Aoa {
+  const chrono = [...exercices].sort((a, b) => b.exercice.localeCompare(a.exercice));
+  const aoa: Aoa = [];
+  for (const e of chrono) {
+    const calculs = computeBiensPourExercice(biens, categories, e.exercice);
+    if (calculs.length === 0) continue;
+    aoa.push([`EXERCICE ${e.exercice}`]);
+    aoa.push([
+      "Catégorie",
+      "Bien",
+      "Brut ouverture",
+      "Acquisitions",
+      "Cessions",
+      "Brut clôture",
+      "Amort. ouverture",
+      "Dotations",
+      "Amort. clôture",
+      "VNC",
+    ]);
+    for (const c of calculs) {
+      aoa.push([
+        c.categorie.nom,
+        c.bien.libelle,
+        round2(c.brutOuverture),
+        round2(c.acquisitions),
+        round2(c.cessionsBrut),
+        round2(c.brutCloture),
+        round2(c.amortOuverture),
+        round2(c.dotations),
+        round2(c.amortCloture),
+        round2(c.vcn),
+      ]);
+    }
+    aoa.push([]);
+  }
   return aoa;
 }
 
@@ -408,4 +532,35 @@ export async function exportClasseurExcel(societeId: string, societeName: string
 
   const safeName = societeName.replace(/[\\/:*?"<>|]/g, "").trim() || "Societe";
   XLSX.writeFile(wb, `Etats financiers - ${safeName}.xlsx`);
+}
+
+/**
+ * Export Excel indépendant de la seule section « Notes » — la seule section
+ * dont les données (fiche société, modèle, détail comptes) ne sont pas déjà
+ * chargées dans BalancesListPage, donc la seule à refaire son propre fetch
+ * (comme exportClasseurExcel, mais une seule feuille).
+ */
+export async function exportNotesSectionExcel(
+  societeId: string,
+  societeName: string,
+  postesParExercice: PostesExercice[],
+) {
+  if (postesParExercice.length === 0) {
+    throw new Error("Aucun exercice avec une balance pour cette société.");
+  }
+  const [modele, fiche, detailComptes] = await Promise.all([
+    api.get<NotesModele>("/notes/modele"),
+    api.get<FicheSociete>(`/notes/fiche-societe/${societeId}`),
+    api.get<DetailCompteLigne[]>(`/notes/detail-comptes?societeId=${societeId}`),
+  ]);
+  const notesParExercice = await Promise.all(
+    postesParExercice.map((e) =>
+      api.get<NotesExercice>(`/notes/exercice?societeId=${societeId}&exercice=${encodeURIComponent(e.exercice)}`),
+    ),
+  );
+  await downloadSingleSheetXlsx(
+    notesSheet(societeName, fiche, modele, notesParExercice, detailComptes, postesParExercice),
+    "Notes",
+    societeName,
+  );
 }

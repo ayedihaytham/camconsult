@@ -1,4 +1,3 @@
-import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import { notFound } from 'next/navigation'
@@ -35,7 +34,6 @@ export default async function RootLayout({
       <body className={`${inter.variable} ${playfair.variable} antialiased`}>
         {children}
         <BackToTop label={dict.nav.backToTop} />
-        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

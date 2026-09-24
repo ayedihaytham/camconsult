@@ -1,3 +1,4 @@
+import { TACHE_MODULE_LABELS } from "@/types";
 import type { Employe, Tache, TacheStatut } from "@/types";
 import { formatRelative } from "@/lib/utils";
 
@@ -94,7 +95,9 @@ export function presentTasks({
     return {
       task,
       columnId: statusOverrides[task.id] ?? task.statut,
-      societeName: societesById.get(task.societeId) ?? "Société supprimée",
+      societeName:
+        (societesById.get(task.societeId) ?? "Société supprimée") +
+        (task.module ? ` · ${TACHE_MODULE_LABELS[task.module]}` : ""),
       assigneeName,
       assigneeInitials,
       assigneeOnline:

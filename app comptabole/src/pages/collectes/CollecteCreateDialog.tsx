@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSocietes } from "@/store/data";
+import { usePermissions } from "@/hooks/usePermissions";
 import { COLLECTE_TABS } from "@/lib/collecte/tabs";
 
 interface CollecteFormData {
@@ -44,7 +45,8 @@ export function CollecteCreateDialog({
   onCreate,
   initial,
 }: Props) {
-  const societes = useSocietes();
+  const { canSeeSociete } = usePermissions();
+  const societes = useSocietes().filter((s) => canSeeSociete(s.id));
   const isEdit = Boolean(initial);
   const [societeId, setSocieteId] = useState("");
   const [periode, setPeriode] = useState("");

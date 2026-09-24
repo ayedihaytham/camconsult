@@ -5,6 +5,7 @@ import { logAction } from "../journal.js";
 import {
   societeDto,
   employeDto,
+  employeDtoFor,
   noeudDto,
   messageDto,
   conversationDto,
@@ -12,6 +13,7 @@ import {
   notificationDto,
 } from "../mappers.js";
 import { notifKey } from "../notifications.js";
+import { tachesVisibles } from "./taches.js";
 
 export const dataRouter = Router();
 dataRouter.use(requireAuth);
@@ -60,7 +62,31 @@ dataRouter.get("/bootstrap", async (req, res) => {
             )
           ).rows;
     const own = (await query("select * from employes where id = $1", [s.employeId])).rows;
-    employes = [...own, ...perimetre].map(employeDto);
+    // Employé de société : aussi les autres comptes de SA société (le
+    // responsable doit pouvoir choisir un délégué, le délégué voir qui lui
+    // confie une tâche).
+    const collegues =
+      s.poste === "societe_employe"
+        ? (
+            await query(
+              "select * from employes where role = 'societe_employe' and statut = 'actif' and societe_id = any($1::uuid[]) and id <> $2",
+              [s.societeIds ?? [], s.employeId],
+            )
+          ).rows
+        : [];
+    // Responsable des collaborateurs : toute l'équipe du cabinet (actifs ou
+    // non), sinon sa page Collaborateurs n'a personne à gérer.
+    const equipe =
+      s.poste === "responsable_collaborateurs"
+        ? (
+            await query(
+              "select * from employes where role <> 'societe_employe' and id <> $1 order by nom, prenom",
+              [s.employeId],
+            )
+          ).rows
+        : [];
+    // Jamais de mot de passe hors admin (voir employeDtoFor).
+    employes = [...own, ...equipe, ...perimetre, ...collegues].map(employeDtoFor(s));
     const convIds = [
       `conv-${s.employeId}`,
       ...perimetre.map((e) => `conv-${e.id}`),
@@ -72,15 +98,7 @@ dataRouter.get("/bootstrap", async (req, res) => {
         [convIds],
       )
     ).rows.map(messageDto);
-    taches =
-      s.poste === "societe_employe"
-        ? []
-        : (
-            await query(
-              "select * from taches where assigne_id = $1 order by cree_le desc",
-              [s.employeId],
-            )
-          ).rows.map(tacheDto);
+    taches = (await tachesVisibles(s)).map(tacheDto);
   }
 
   const notifications = (
@@ -178,15 +196,19 @@ dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
     }
     for (const e of employes) {
       await client.query(
-        `insert into employes (id, nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, cree_le)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb, coalesce($13::date, current_date))`,
+        `insert into employes (id, nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, cree_le, delegue, doit_changer_mdp)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb, coalesce($13::date, current_date), $14, $15)`,
         [
           uuidOrNull(e.id), e.nom, e.prenom, e.identifiant, e.motDePasse, e.type ?? "Assistant",
-          e.role === "societe_employe" ? "societe_employe" : "collaborateur",
+          ["societe_employe", "responsable_collaborateurs"].includes(e.role)
+            ? e.role
+            : "collaborateur",
           uuidOrNull(e.societeId),
           e.email ?? "", e.statut ?? "actif",
           JSON.stringify(e.societesAssignees ?? []), JSON.stringify(e.permissions ?? {}),
           e.creeLe ?? null,
+          e.role === "societe_employe" && Boolean(e.delegue),
+          Boolean(e.doitChangerMotDePasse),
         ],
       );
     }
@@ -222,13 +244,15 @@ dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
     }
     for (const t of taches) {
       await client.query(
-        `insert into taches (id, titre, description, societe_id, assigne_id, statut, cree_par, cree_le, maj_le, termine_le)
-         values ($1,$2,$3,$4,$5,$6,$7, coalesce($8::timestamptz, now()), coalesce($9::timestamptz, now()), $10::timestamptz)`,
+        `insert into taches (id, titre, description, societe_id, assigne_id, statut, cree_par, cree_le, maj_le, termine_le, origine, module)
+         values ($1,$2,$3,$4,$5,$6,$7, coalesce($8::timestamptz, now()), coalesce($9::timestamptz, now()), $10::timestamptz, $11, $12)`,
         [
           uuidOrNull(t.id), t.titre, t.description ?? "", uuidOrNull(t.societeId),
           uuidOrNull(t.assigneId),
           ["a_faire", "en_cours", "termine"].includes(t.statut) ? t.statut : "a_faire",
           t.creePar ?? "", t.creeLe ?? null, t.majLe ?? null, t.termineLe ?? null,
+          t.origine === "societe" ? "societe" : "cabinet",
+          ["collectes", "structuration", "messagerie"].includes(t.module) ? t.module : null,
         ],
       );
     }

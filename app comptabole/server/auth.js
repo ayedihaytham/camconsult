@@ -88,7 +88,9 @@ export async function sessionFromToken(payload) {
     employeId: e.id,
     nom,
     fonction: isSocieteEmp
-      ? "Responsable de société"
+      ? e.delegue
+        ? "Délégué de société"
+        : "Responsable de société"
       : isResponsableEquipe
         ? "Responsable des collaborateurs"
         : e.type,
@@ -108,6 +110,7 @@ export async function sessionFromToken(payload) {
         : []
       : collabSocieteIds,
     doitChangerMotDePasse: Boolean(e.doit_changer_mdp),
+    delegue: isSocieteEmp && Boolean(e.delegue),
   };
 }
 

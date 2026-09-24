@@ -24,7 +24,7 @@ import { CollecteCreateDialog } from "./CollecteCreateDialog";
 
 export function CollectesListPage() {
   const navigate = useNavigate();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, isCollaborateur: canCreate } = usePermissions();
   const societes = useSocietes();
   const list = useCollectes((s) => s.list);
   const loading = useCollectes((s) => s.loadingList);
@@ -171,14 +171,14 @@ export function CollectesListPage() {
         : "Aucune collecte active.";
 
   return (
-    <div className={cn("flex min-w-0 flex-1 flex-col", isAdmin && "pb-20 lg:pb-0")}>
+    <div className={cn("flex min-w-0 flex-1 flex-col", canCreate && "pb-20 lg:pb-0")}>
       <SignatureLedgerBanner
         className="mb-0 sm:mb-2"
         variant="process"
         eyebrow="Clients & travail · Process Ledger"
         title="Collecte de pièces"
         description={
-          isAdmin
+          canCreate
             ? "Classeurs confiés aux clients pour saisie et retour au cabinet."
             : "Classeurs à remplir et transmettre à votre cabinet."
         }
@@ -187,7 +187,7 @@ export function CollectesListPage() {
           { label: "En retard", value: collectionSummary.enRetard, tone: "destructive", loading },
           { label: "À corriger", value: collectionSummary.aCorriger, tone: "warning", loading },
         ]}
-        action={isAdmin ? { label: "Nouvelle collecte", onClick: () => setCreateOpen(true) } : undefined}
+        action={canCreate ? { label: "Nouvelle collecte", onClick: () => setCreateOpen(true) } : undefined}
       />
 
       <DataTableToolbar
@@ -278,11 +278,11 @@ export function CollectesListPage() {
         }
       />
 
-      {isAdmin && (
+      {canCreate && (
         <OperationalFab label="Nouvelle collecte" onClick={() => setCreateOpen(true)} />
       )}
 
-      {isAdmin && (
+      {canCreate && (
         <CollecteCreateDialog
           open={createOpen}
           onOpenChange={setCreateOpen}

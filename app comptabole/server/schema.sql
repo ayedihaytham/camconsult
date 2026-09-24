@@ -378,6 +378,13 @@ alter table employes add column if not exists societe_id uuid references societe
 -- le responsable des collaborateurs ; false par défaut pour les comptes
 -- déjà actifs avant cette colonne (jamais interrompus rétroactivement).
 alter table employes add column if not exists doit_changer_mdp boolean not null default false;
+-- Délégué de société : employé de société (role = 'societe_employe') placé
+-- sous le responsable de sa société — mêmes modules, reçoit ses tâches.
+alter table employes add column if not exists delegue boolean not null default false;
+-- Tâches données par un responsable de société à ses délégués ('societe'),
+-- en plus de celles du cabinet ; module = module concerné (facultatif).
+alter table taches add column if not exists origine text not null default 'cabinet';
+alter table taches add column if not exists module text;
 alter table collectes add column if not exists recap_statut text not null default 'none';
 alter table collectes add column if not exists echeance date;
 alter table collectes add column if not exists derniere_relance_le timestamptz;

@@ -4,7 +4,7 @@ import { query } from "../db.js";
 import { requireAuth, requireAdmin, requireEquipeManager } from "../auth.js";
 import { logAction } from "../journal.js";
 import { notify } from "../notifications.js";
-import { employeDto } from "../mappers.js";
+import { employeDto, employeDtoFor } from "../mappers.js";
 import { sendCollaborateurWelcomeEmail, sendPasswordResetEmail } from "../mailer.js";
 import {
   defaultPermissions,
@@ -43,6 +43,7 @@ const schema = z.object({
   statut: z.enum(["actif", "inactif", "en_attente"]).default("actif"),
   societesAssignees: z.array(z.string()).default([]),
   permissions: z.record(z.boolean()).optional(),
+  delegue: z.boolean().default(false),
 });
 
 /** Un responsable des collaborateurs (pas admin) ne peut créer/modifier que
@@ -84,7 +85,7 @@ employesRouter.get("/", async (req, res) => {
         [role],
       )
     : await query("select * from employes order by nom, prenom");
-  res.json(rows.map(employeDto));
+  res.json(rows.map(employeDtoFor(req.session)));
 });
 
 employesRouter.post("/", async (req, res) => {
@@ -99,12 +100,12 @@ employesRouter.post("/", async (req, res) => {
   const sc = scopeForRole(v);
   try {
     const { rows } = await query(
-      `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, doit_changer_mdp)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,true) returning *`,
+      `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, doit_changer_mdp, delegue)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,true,$12) returning *`,
       [
         v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
         v.email, v.statut, JSON.stringify(sc.societesAssignees),
-        JSON.stringify(sc.permissions),
+        JSON.stringify(sc.permissions), v.role === "societe_employe" && v.delegue,
       ],
     );
     logAction(
@@ -118,7 +119,7 @@ employesRouter.post("/", async (req, res) => {
     sendCollaborateurWelcomeEmail(dto).catch((err) =>
       console.error("[mailer] envoi identifiants échoué", err.message),
     );
-    res.status(201).json(dto);
+    res.status(201).json(employeDtoFor(req.session)(rows[0]));
   } catch (err) {
     if (err.code === "23505")
       return res.status(409).json({ error: "Cet identifiant existe déjà" });
@@ -154,12 +155,14 @@ employesRouter.patch("/:id", async (req, res) => {
   const { rows } = await query(
     `update employes set nom=$1, prenom=$2, identifiant=$3, mot_de_passe=$4, type=$5,
        role=$6, societe_id=$7, email=$8, statut=$9, societes_assignees=$10::jsonb, permissions=$11::jsonb,
-       doit_changer_mdp=$12
+       doit_changer_mdp=$12, delegue=$14
      where id=$13 returning *`,
     [
       v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
       v.email, v.statut, JSON.stringify(sc.societesAssignees),
       JSON.stringify(sc.permissions), doitChangerMdp, req.params.id,
+      v.role === "societe_employe" &&
+        (merged.data.delegue ?? Boolean(existing.delegue)),
     ],
   );
   logAction(req.session.nom, "modification", "employe", `${v.prenom} ${v.nom}`);
@@ -177,7 +180,7 @@ employesRouter.patch("/:id", async (req, res) => {
       console.error("[mailer] envoi réinitialisation échoué", err.message),
     );
   }
-  res.json(dto);
+  res.json(employeDtoFor(req.session)(rows[0]));
 });
 
 employesRouter.patch("/:id/acces", async (req, res) => {
@@ -205,7 +208,7 @@ employesRouter.patch("/:id/acces", async (req, res) => {
     `Par ${req.session.nom}`,
     "/",
   );
-  res.json(employeDto(rows[0]));
+  res.json(employeDtoFor(req.session)(rows[0]));
 });
 
 employesRouter.post("/:id/duplicate", async (req, res) => {
@@ -231,7 +234,7 @@ employesRouter.post("/:id/duplicate", async (req, res) => {
     ],
   );
   logAction(req.session.nom, "duplication", "employe", `${src.prenom} ${src.nom}`);
-  res.status(201).json(employeDto(rows[0]));
+  res.status(201).json(employeDtoFor(req.session)(rows[0]));
 });
 
 employesRouter.post("/bulk-delete", requireAdmin, async (req, res) => {

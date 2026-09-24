@@ -18,6 +18,8 @@ function task(id: number, status: TacheStatut): PresentedTask {
       creeLe: timestamp,
       majLe: timestamp,
       termineLe: status === "termine" ? timestamp : null,
+      origine: "cabinet",
+      module: null,
     },
     columnId: status,
     societeName: "Atlas Conseil SARL",

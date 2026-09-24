@@ -53,9 +53,19 @@ export const employeDto = (r) => ({
     : [],
   permissions: r.permissions || {},
   doitChangerMotDePasse: Boolean(r.doit_changer_mdp),
+  delegue: r.role === "societe_employe" && Boolean(r.delegue),
   derniereConnexion: isoOrNull(r.last_login),
   creeLe: dateStr(r.cree_le),
 });
+
+/** employeDto pour une session donnée : seul l'admin reçoit les mots de
+ * passe. Les autres (collaborateurs, responsable des collaborateurs,
+ * employés de société) ne les voient jamais, même ceux qu'ils gèrent — ils
+ * peuvent réinitialiser un mot de passe, pas le lire. */
+export const employeDtoFor = (session) => (r) => {
+  const d = employeDto(r);
+  return session?.role === "admin" ? d : { ...d, motDePasse: "" };
+};
 
 export const tacheDto = (r) => ({
   id: r.id,
@@ -64,6 +74,8 @@ export const tacheDto = (r) => ({
   societeId: r.societe_id,
   assigneId: r.assigne_id ?? null,
   statut: r.statut,
+  origine: r.origine === "societe" ? "societe" : "cabinet",
+  module: r.module ?? null,
   creePar: r.cree_par ?? "",
   creeLe: isoOrNull(r.cree_le),
   majLe: isoOrNull(r.maj_le),

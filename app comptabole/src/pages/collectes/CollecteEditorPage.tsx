@@ -47,7 +47,7 @@ import { DocPreviewDialog } from "../stock/DocPreviewDialog";
 export function CollecteEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { isAdmin, poste } = usePermissions();
+  const { isAdmin, poste, isCollaborateur: isStaff } = usePermissions();
   const societes = useSocietes();
 
   const collecte = useCollectes((s) => s.current);
@@ -121,12 +121,12 @@ export function CollecteEditorPage() {
   const editable =
     !archivee &&
     (isAdmin ||
-      poste === "collaborateur" ||
+      isStaff ||
       (poste === "societe_employe" &&
         (collecte.statut === "brouillon" || collecte.statut === "a_corriger")));
   // Cabinet = admin ou collaborateur : peut envoyer/clore un récap par
   // tableau et écrire des notes — pas réservé à l'admin.
-  const canManageRecap = isAdmin || poste === "collaborateur";
+  const canManageRecap = isAdmin || isStaff;
 
   // Mode « complétion récap » côté client : au moins un tableau a été
   // envoyé par le cabinet (chaque tableau se déverrouille indépendamment
@@ -356,7 +356,7 @@ export function CollecteEditorPage() {
           <CheckCircle2 className="h-4 w-4" />
           <span>
             <strong>Collecte validée</strong> —{" "}
-            {isAdmin || poste === "collaborateur"
+            {isAdmin || isStaff
               ? "le client ne peut plus la modifier. Vous pouvez encore ajuster, puis l'archiver."
               : "en lecture seule."}
           </span>
@@ -428,7 +428,7 @@ export function CollecteEditorPage() {
                     />
                   );
                 })}
-                {(isAdmin || poste === "collaborateur") && (
+                {(isAdmin || isStaff) && (
                   <>
                     <div className="my-1.5 border-t border-border" />
                     <NavItem
@@ -658,7 +658,7 @@ export function CollecteEditorPage() {
           );
         })}
 
-        {(isAdmin || poste === "collaborateur") && (
+        {(isAdmin || isStaff) && (
           <TabsContent value="historique">
             {journalLoading ? (
               <p className="px-1 py-4 text-sm text-muted-foreground">Chargement…</p>

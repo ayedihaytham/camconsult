@@ -218,15 +218,15 @@ export default function App() {
                   </Suspense>
                 }
               />
+              <Route
+                path="/taches"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <TachesPage />
+                  </Suspense>
+                }
+              />
               <Route element={<RequireEquipe />}>
-                <Route
-                  path="/taches"
-                  element={
-                    <Suspense fallback={<PageFallback />}>
-                      <TachesPage />
-                    </Suspense>
-                  }
-                />
                 <Route
                   path="/stock"
                   element={
@@ -261,6 +261,14 @@ export default function App() {
                 />
                 <Route
                   path="/etats-financiers/:societeId/imprimer"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <PrintClasseurPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/etats-financiers/:societeId/imprimer/:section"
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <PrintClasseurPage />

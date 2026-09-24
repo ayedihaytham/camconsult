@@ -22,6 +22,8 @@ export interface Session {
   /** true = doit changer son mot de passe avant d'accéder au reste de
    * l'app (1ère connexion, ou après une réinitialisation). */
   doitChangerMotDePasse?: boolean;
+  /** Employé de société délégué (sous le responsable de sa société). */
+  delegue?: boolean;
 }
 
 type Status = "loading" | "authed" | "anon";

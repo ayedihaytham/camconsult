@@ -53,6 +53,7 @@ export const employeDto = (r) => ({
     : [],
   permissions: r.permissions || {},
   doitChangerMotDePasse: Boolean(r.doit_changer_mdp),
+  delegue: r.role === "societe_employe" && Boolean(r.delegue),
   derniereConnexion: isoOrNull(r.last_login),
   creeLe: dateStr(r.cree_le),
 });
@@ -64,6 +65,8 @@ export const tacheDto = (r) => ({
   societeId: r.societe_id,
   assigneId: r.assigne_id ?? null,
   statut: r.statut,
+  origine: r.origine === "societe" ? "societe" : "cabinet",
+  module: r.module ?? null,
   creePar: r.cree_par ?? "",
   creeLe: isoOrNull(r.cree_le),
   majLe: isoOrNull(r.maj_le),

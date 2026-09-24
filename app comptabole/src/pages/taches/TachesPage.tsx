@@ -25,21 +25,38 @@ import {
   useCollaborateurs,
   useConversations,
   useData,
+  useEmployes,
   useSocietes,
   useTaches,
 } from "@/store/data";
 import { TACHE_STATUT_LABELS } from "@/types";
-import type { Tache, TacheStatut } from "@/types";
+import type { Tache, TacheModule, TacheStatut } from "@/types";
 import { TacheFormSheet } from "./TacheFormSheet";
 
 const ALL = "all";
 const STATUS_ORDER: TacheStatut[] = ["a_faire", "en_cours", "termine"];
 
 export function TachesPage() {
-  const { isAdmin, employeId } = usePermissions();
+  const { isAdmin, employeId, isResponsableSociete, isDelegue, societeIds } =
+    usePermissions();
   const taches = useTaches();
   const societes = useSocietes();
   const collaborateurs = useCollaborateurs();
+  const employes = useEmployes();
+  // Admin : tâches du cabinet. Responsable de société : tâches de ses délégués.
+  const isManager = isAdmin || isResponsableSociete;
+  const ownSocieteId = isResponsableSociete ? (societeIds?.[0] ?? null) : null;
+  const delegues = useMemo(
+    () =>
+      employes.filter(
+        (e) =>
+          e.role === "societe_employe" &&
+          e.delegue &&
+          e.statut === "actif" &&
+          e.societeId === ownSocieteId,
+      ),
+    [employes, ownSocieteId],
+  );
   const conversations = useConversations(isAdmin ? "me" : (employeId ?? "me"));
   const addTache = useData((state) => state.addTache);
   const updateTache = useData((state) => state.updateTache);
@@ -85,7 +102,11 @@ export function TachesPage() {
 
   function canChangeStatus(task: Tache, status: TacheStatut) {
     if (status === task.statut) return true;
-    if (isAdmin) return true;
+    // Chaque circuit est piloté par son côté : le cabinet suit les tâches
+    // internes d'une société sans pouvoir les modifier.
+    const tacheSociete = task.origine === "societe";
+    if (tacheSociete ? isResponsableSociete : isAdmin) return true;
+    if (tacheSociete && !isResponsableSociete && !isDelegue) return false;
     return (
       task.assigneId === employeId &&
       STATUS_ORDER.indexOf(status) > STATUS_ORDER.indexOf(task.statut)
@@ -102,6 +123,7 @@ export function TachesPage() {
     description: string;
     societeId: string;
     assigneId: string | null;
+    module: TacheModule | null;
   }) {
     if (editing) {
       await updateTache(editing.id, values);
@@ -137,7 +159,7 @@ export function TachesPage() {
   }
 
   return (
-    <div className={cn("min-w-0", isAdmin && !formOpen && "ledger-fab-clearance lg:pb-0")}>
+    <div className={cn("min-w-0", isManager && !formOpen && "ledger-fab-clearance lg:pb-0")}>
       <TasksKanban
         tasks={filteredTasks}
         hasAnyTasks={taches.length > 0}
@@ -147,15 +169,17 @@ export function TachesPage() {
           (statutFilter !== ALL ? 1 : 0)
         }
         societes={societes}
-        collaborateurs={collaborateurs}
+        collaborateurs={employes}
         collaboratorPresence={collaboratorPresence}
         description={
           isAdmin
-            ? "Travail confié aux collaborateurs, par société. Suivez l'avancement."
-            : "Votre travail à faire. Faites avancer chaque tâche jusqu'à « Terminé »."
+            ? "Travail confié aux collaborateurs, par société. Les tâches internes des sociétés sont en lecture seule."
+            : isResponsableSociete
+              ? "Travail confié à vos délégués. Suivez l'avancement."
+              : "Votre travail à faire. Faites avancer chaque tâche jusqu'à « Terminé »."
         }
         summary={summary}
-        canManage={isAdmin}
+        canManage={isManager}
         canChangeStatus={canChangeStatus}
         onStatusChange={handleStatusChange}
         onCreate={openCreate}
@@ -226,7 +250,7 @@ export function TachesPage() {
         }
       />
 
-      {isAdmin && (
+      {isManager && (
         <TacheFormSheet
           open={formOpen}
           onOpenChange={(open) => {
@@ -235,11 +259,13 @@ export function TachesPage() {
           }}
           tache={editing}
           defaultSocieteId={societeFilter !== ALL ? societeFilter : null}
+          assignees={isResponsableSociete ? delegues : undefined}
+          lockedSocieteId={ownSocieteId}
           onSubmit={handleSubmit}
         />
       )}
 
-      {isAdmin && !formOpen && (
+      {isManager && !formOpen && (
         <OperationalFab label="Créer une tâche" onClick={openCreate} />
       )}
 

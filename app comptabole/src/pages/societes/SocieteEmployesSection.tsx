@@ -26,6 +26,7 @@ const emptyDraft = () => ({
   identifiant: "",
   email: "",
   motDePasse: generatePassword(),
+  delegue: false,
 });
 
 export function SocieteEmployesSection({ societeId }: { societeId: string }) {
@@ -86,14 +87,15 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
         statut: "actif",
         societesAssignees: [],
         permissions: SOC_EMP_PERMS,
+        delegue: draft.delegue,
       });
-      toast.success("Responsable ajouté", {
+      toast.success(draft.delegue ? "Délégué ajouté" : "Responsable ajouté", {
         description: `${draft.prenom} ${draft.nom}`,
       });
       setDraft(emptyDraft());
       setAdding(false);
     } catch {
-      setError("Impossible d'ajouter ce responsable (identifiant déjà pris ?).");
+      setError("Impossible d'ajouter ce compte (identifiant déjà pris ?).");
     }
   }
 
@@ -101,7 +103,7 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold uppercase tracking-wide text-primary">
-          Responsables de société
+          Responsables et délégués
         </p>
         {!adding && (
           <Button
@@ -121,8 +123,8 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
 
       {employes.length === 0 && !adding && (
         <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
-          Aucun responsable. Ajoutez les personnes de cette société qui
-          doivent accéder aux documents partagés.
+          Aucun compte. Ajoutez le responsable de cette société, puis ses
+          délégués, qui recevront les tâches qu'il leur confie.
         </p>
       )}
 
@@ -140,6 +142,15 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
                     {e.prenom} {e.nom}
                   </span>
                   <StatutDot statut={e.statut} />
+                  <span
+                    className={
+                      e.delegue
+                        ? "shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[0.65rem] font-semibold text-muted-foreground"
+                        : "shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-primary"
+                    }
+                  >
+                    {e.delegue ? "Délégué" : "Responsable"}
+                  </span>
                 </div>
                 <div className="pl-6 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">
@@ -218,13 +229,40 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
       {adding && (
         <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Nouveau responsable</p>
+            <p className="text-sm font-medium text-foreground">
+              {draft.delegue ? "Nouveau délégué" : "Nouveau responsable"}
+            </p>
             <button
               className="rounded p-1 text-muted-foreground hover:text-foreground"
               onClick={() => setAdding(false)}
             >
               <X className="h-4 w-4" />
             </button>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Rôle</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: false, label: "Responsable", hint: "Donne les tâches" },
+                { value: true, label: "Délégué", hint: "Reçoit les tâches" },
+              ].map((o) => (
+                <button
+                  key={o.label}
+                  type="button"
+                  aria-pressed={draft.delegue === o.value}
+                  onClick={() => setDraft((d) => ({ ...d, delegue: o.value }))}
+                  className={
+                    "rounded-lg border px-3 py-2 text-left transition-colors " +
+                    (draft.delegue === o.value
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-secondary")
+                  }
+                >
+                  <span className="block text-sm font-medium text-foreground">{o.label}</span>
+                  <span className="block text-xs text-muted-foreground">{o.hint}</span>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -280,7 +318,7 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
               Annuler
             </Button>
             <Button size="sm" variant="ledger" onClick={submit}>
-              Ajouter le responsable
+              {draft.delegue ? "Ajouter le délégué" : "Ajouter le responsable"}
             </Button>
           </div>
         </div>
@@ -289,7 +327,7 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
       <ConfirmDialog
         open={Boolean(toDelete)}
         onOpenChange={(o) => !o && setToDelete(null)}
-        title="Supprimer ce responsable ?"
+        title={toDelete?.delegue ? "Supprimer ce délégué ?" : "Supprimer ce responsable ?"}
         description={
           <>
             Le compte de{" "}

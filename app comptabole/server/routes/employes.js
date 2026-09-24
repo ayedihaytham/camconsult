@@ -43,6 +43,7 @@ const schema = z.object({
   statut: z.enum(["actif", "inactif", "en_attente"]).default("actif"),
   societesAssignees: z.array(z.string()).default([]),
   permissions: z.record(z.boolean()).optional(),
+  delegue: z.boolean().default(false),
 });
 
 /** Un responsable des collaborateurs (pas admin) ne peut créer/modifier que
@@ -99,12 +100,12 @@ employesRouter.post("/", async (req, res) => {
   const sc = scopeForRole(v);
   try {
     const { rows } = await query(
-      `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, doit_changer_mdp)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,true) returning *`,
+      `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, doit_changer_mdp, delegue)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,true,$12) returning *`,
       [
         v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
         v.email, v.statut, JSON.stringify(sc.societesAssignees),
-        JSON.stringify(sc.permissions),
+        JSON.stringify(sc.permissions), v.role === "societe_employe" && v.delegue,
       ],
     );
     logAction(
@@ -154,12 +155,14 @@ employesRouter.patch("/:id", async (req, res) => {
   const { rows } = await query(
     `update employes set nom=$1, prenom=$2, identifiant=$3, mot_de_passe=$4, type=$5,
        role=$6, societe_id=$7, email=$8, statut=$9, societes_assignees=$10::jsonb, permissions=$11::jsonb,
-       doit_changer_mdp=$12
+       doit_changer_mdp=$12, delegue=$14
      where id=$13 returning *`,
     [
       v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
       v.email, v.statut, JSON.stringify(sc.societesAssignees),
       JSON.stringify(sc.permissions), doitChangerMdp, req.params.id,
+      v.role === "societe_employe" &&
+        (merged.data.delegue ?? Boolean(existing.delegue)),
     ],
   );
   logAction(req.session.nom, "modification", "employe", `${v.prenom} ${v.nom}`);

@@ -21,6 +21,10 @@ export interface PermissionContext {
   /** admin OU responsable des collaborateurs — gère les comptes
    * collaborateurs (pas la suppression, réservée à l'admin). */
   canManageCollaborateurs: boolean;
+  /** Employé de société : responsable (donne des tâches à ses délégués) ou
+   * délégué (reçoit ces tâches). Tous deux faux côté cabinet. */
+  isResponsableSociete: boolean;
+  isDelegue: boolean;
 }
 
 export function usePermissions(): PermissionContext {
@@ -37,6 +41,8 @@ export function usePermissions(): PermissionContext {
       lectureSeule: false,
       isCollaborateur: true,
       canManageCollaborateurs: true,
+      isResponsableSociete: false,
+      isDelegue: false,
     };
   }
 
@@ -58,5 +64,7 @@ export function usePermissions(): PermissionContext {
     lectureSeule: Boolean(session.lectureSeule) || poste === "societe_employe",
     isCollaborateur: poste === "collaborateur" || seesAllSocietes,
     canManageCollaborateurs: seesAllSocietes,
+    isResponsableSociete: poste === "societe_employe" && !session.delegue,
+    isDelegue: poste === "societe_employe" && Boolean(session.delegue),
   };
 }

@@ -23,7 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCollaborateurs, useSocietes } from "@/store/data";
-import type { Tache } from "@/types";
+import { TACHE_MODULE_LABELS } from "@/types";
+import type { Employe, Tache, TacheModule } from "@/types";
 
 const NONE = "__none__";
 
@@ -41,11 +42,16 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   tache?: Tache | null;
   defaultSocieteId?: string | null;
+  /** Personnes proposées dans « Assigné à » (défaut : équipe du cabinet). */
+  assignees?: Employe[];
+  /** Société imposée (responsable de société) : le sélecteur est masqué. */
+  lockedSocieteId?: string | null;
   onSubmit: (values: {
     titre: string;
     description: string;
     societeId: string;
     assigneId: string | null;
+    module: TacheModule | null;
   }) => Promise<void>;
 }
 
@@ -54,12 +60,16 @@ export function TacheFormSheet({
   onOpenChange,
   tache,
   defaultSocieteId,
+  assignees,
+  lockedSocieteId,
   onSubmit,
 }: Props) {
   const isEdit = Boolean(tache);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [module, setModule] = useState<string>(NONE);
   const societes = useSocietes();
-  const collaborateurs = useCollaborateurs();
+  const cabinetTeam = useCollaborateurs();
+  const collaborateurs = assignees ?? cabinetTeam;
 
   const {
     register,
@@ -76,6 +86,7 @@ export function TacheFormSheet({
   useEffect(() => {
     if (!open) return;
     setSubmitError(null);
+    setModule(tache?.module ?? NONE);
     reset(
       tache
         ? {
@@ -87,11 +98,11 @@ export function TacheFormSheet({
         : {
             titre: "",
             description: "",
-            societeId: defaultSocieteId ?? "",
+            societeId: lockedSocieteId ?? defaultSocieteId ?? "",
             assigneId: NONE,
           },
     );
-  }, [open, tache, defaultSocieteId, reset]);
+  }, [open, tache, defaultSocieteId, lockedSocieteId, reset]);
 
   const societeId = watch("societeId");
   const assigneId = watch("assigneId");
@@ -107,7 +118,9 @@ export function TacheFormSheet({
           <SheetDescription>
             {isEdit
               ? "Mettez à jour le contenu, la société ou l'assignation."
-              : "Décrivez le travail à faire et assignez-le à un collaborateur."}
+              : lockedSocieteId
+                ? "Décrivez le travail à faire et confiez-le à un délégué."
+                : "Décrivez le travail à faire et assignez-le à un collaborateur."}
           </SheetDescription>
         </SheetHeader>
 
@@ -121,6 +134,7 @@ export function TacheFormSheet({
                 description: v.description.trim(),
                 societeId: v.societeId,
                 assigneId: v.assigneId === NONE ? null : v.assigneId,
+                module: module === NONE ? null : (module as TacheModule),
               });
               onOpenChange(false);
             } catch (error) {
@@ -155,7 +169,7 @@ export function TacheFormSheet({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className={lockedSocieteId ? "hidden" : "space-y-1.5"}>
               <Label htmlFor="tache-societe">Société cliente</Label>
               <Select
                 value={societeId}
@@ -202,6 +216,29 @@ export function TacheFormSheet({
                   {collaborateurs.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.prenom} {c.nom}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {lockedSocieteId && collaborateurs.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Aucun délégué pour votre société — le cabinet peut en ajouter
+                  depuis la fiche société.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="tache-module">Module concerné (facultatif)</Label>
+              <Select value={module} disabled={isSubmitting} onValueChange={setModule}>
+                <SelectTrigger id="tache-module">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Aucun</SelectItem>
+                  {(Object.keys(TACHE_MODULE_LABELS) as TacheModule[]).map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {TACHE_MODULE_LABELS[m]}
                     </SelectItem>
                   ))}
                 </SelectContent>

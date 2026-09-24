@@ -69,7 +69,6 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Tâches",
         to: "/taches",
         icon: ListChecks,
-        hideForSocieteEmploye: true,
       },
       { label: "Collecte de pièces", to: "/collectes", icon: ClipboardList },
       {

@@ -12,6 +12,7 @@ import {
   notificationDto,
 } from "../mappers.js";
 import { notifKey } from "../notifications.js";
+import { tachesVisibles } from "./taches.js";
 
 export const dataRouter = Router();
 dataRouter.use(requireAuth);
@@ -60,7 +61,19 @@ dataRouter.get("/bootstrap", async (req, res) => {
             )
           ).rows;
     const own = (await query("select * from employes where id = $1", [s.employeId])).rows;
-    employes = [...own, ...perimetre].map(employeDto);
+    // Employé de société : aussi les autres comptes de SA société (le
+    // responsable doit pouvoir choisir un délégué, le délégué voir qui lui
+    // confie une tâche) — sans jamais leur mot de passe.
+    const collegues =
+      s.poste === "societe_employe"
+        ? (
+            await query(
+              "select * from employes where role = 'societe_employe' and statut = 'actif' and societe_id = any($1::uuid[]) and id <> $2",
+              [s.societeIds ?? [], s.employeId],
+            )
+          ).rows.map((r) => ({ ...employeDto(r), motDePasse: "" }))
+        : [];
+    employes = [...[...own, ...perimetre].map(employeDto), ...collegues];
     const convIds = [
       `conv-${s.employeId}`,
       ...perimetre.map((e) => `conv-${e.id}`),
@@ -72,15 +85,7 @@ dataRouter.get("/bootstrap", async (req, res) => {
         [convIds],
       )
     ).rows.map(messageDto);
-    taches =
-      s.poste === "societe_employe"
-        ? []
-        : (
-            await query(
-              "select * from taches where assigne_id = $1 order by cree_le desc",
-              [s.employeId],
-            )
-          ).rows.map(tacheDto);
+    taches = (await tachesVisibles(s)).map(tacheDto);
   }
 
   const notifications = (

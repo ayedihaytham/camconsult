@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePermissions } from "@/hooks/usePermissions";
 import { TACHE_STATUT_LABELS } from "@/types";
 import type { Tache, TacheStatut } from "@/types";
 
@@ -29,11 +30,16 @@ export function TaskActionsMenu({
   onDelete: (task: Tache) => void;
   isPending?: boolean;
 }) {
+  const { isResponsableSociete } = usePermissions();
+  // Chaque circuit n'est géré que par son côté : le cabinet ne modifie pas
+  // les tâches internes d'une société (lecture seule), et inversement.
+  const manageable =
+    canManage && (task.origine === "societe") === isResponsableSociete;
   const availableStatuses = STATUSES.filter(
     (status) => status !== task.statut && canChangeStatus(task, status),
   );
 
-  if (!canManage && availableStatuses.length === 0) return null;
+  if (!manageable && availableStatuses.length === 0) return null;
 
   return (
     <DropdownMenu>
@@ -59,8 +65,8 @@ export function TaskActionsMenu({
             Passer à « {TACHE_STATUT_LABELS[status]} »
           </DropdownMenuItem>
         ))}
-        {canManage && availableStatuses.length > 0 && <DropdownMenuSeparator />}
-        {canManage && (
+        {manageable && availableStatuses.length > 0 && <DropdownMenuSeparator />}
+        {manageable && (
           <>
             <DropdownMenuItem onSelect={() => onEdit(task)}>
               Modifier

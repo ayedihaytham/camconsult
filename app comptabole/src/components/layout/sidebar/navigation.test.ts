@@ -104,6 +104,7 @@ describe("sidebar navigation policy", () => {
 
     expect(routes).toEqual([
       "/",
+      "/taches",
       "/collectes",
       "/structuration",
       "/messagerie",

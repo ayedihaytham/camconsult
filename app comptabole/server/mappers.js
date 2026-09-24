@@ -96,6 +96,19 @@ export const noeudDto = (r) => ({
   majLe: dateStr(r.maj_le),
 });
 
+/** Nœud sans son contenu (base64, jusqu'à plusieurs Mo par fichier) : c'est
+ * ce qu'envoient le chargement initial et les listes. Le contenu se récupère
+ * à la demande (GET /noeuds/:id/contenu) quand on ouvre ou télécharge le
+ * fichier. noeudDto (complet) reste utilisé pour la sauvegarde. */
+export const noeudDtoLeger = (r) => {
+  const { dataUrl: _contenu, ...d } = noeudDto(r);
+  return { ...d, aContenu: r.a_contenu ?? Boolean(r.data_url) };
+};
+
+/** Colonnes d'un nœud SANS son contenu, + a_contenu — pour les listes. */
+export const NOEUD_COLONNES_LEGERES =
+  "id, libelle, description, type, societe_id, parent_id, format, taille, maj_le, cree_le, (data_url is not null) as a_contenu";
+
 export const conversationDto = (r) => ({
   id: r.id,
   type: r.type,
@@ -115,6 +128,20 @@ export const messageDto = (r) => ({
   statut: r.statut,
   pieceJointe: r.piece_jointe || undefined,
 });
+
+/** Message sans le contenu de sa pièce jointe (base64) — même principe que
+ * noeudDtoLeger ; contenu à la demande via GET /messages/:id/piece-jointe.
+ * Important car les messages sont re-demandés régulièrement (temps réel). */
+export const messageDtoLeger = (r) => {
+  const d = messageDto(r);
+  if (!d.pieceJointe) return d;
+  const { dataUrl, ...pj } = d.pieceJointe;
+  return { ...d, pieceJointe: { ...pj, aContenu: r.pj_a_contenu ?? Boolean(dataUrl) } };
+};
+
+/** Colonnes d'un message SANS le contenu de sa pièce jointe, + pj_a_contenu. */
+export const MESSAGE_COLONNES_LEGERES =
+  "id, conversation_id, auteur_id, contenu, envoye_le, statut, (piece_jointe - 'dataUrl') as piece_jointe, coalesce(piece_jointe ? 'dataUrl', false) as pj_a_contenu";
 
 export const collecteDto = (r) => ({
   id: r.id,

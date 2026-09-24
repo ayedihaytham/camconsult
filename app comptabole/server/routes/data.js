@@ -7,7 +7,11 @@ import {
   employeDto,
   employeDtoFor,
   noeudDto,
+  noeudDtoLeger,
+  NOEUD_COLONNES_LEGERES,
   messageDto,
+  messageDtoLeger,
+  MESSAGE_COLONNES_LEGERES,
   conversationDto,
   tacheDto,
   notificationDto,
@@ -26,9 +30,10 @@ dataRouter.get("/bootstrap", async (req, res) => {
     .filter((r) => canSeeSociete(s, r.id))
     .map(societeDto);
 
-  const noeuds = (await query("select * from noeuds order by maj_le desc")).rows
+  // Sans le contenu des fichiers : récupéré à la demande (GET /noeuds/:id/contenu).
+  const noeuds = (await query(`select ${NOEUD_COLONNES_LEGERES} from noeuds order by maj_le desc`)).rows
     .filter((r) => canSeeSociete(s, r.societe_id))
-    .map(noeudDto);
+    .map(noeudDtoLeger);
 
   const allGroups = (
     await query("select * from conversations where type = 'groupe' order by cree_le desc")
@@ -47,7 +52,7 @@ dataRouter.get("/bootstrap", async (req, res) => {
   let taches;
   if (s.role === "admin") {
     employes = (await query("select * from employes order by nom, prenom")).rows.map(employeDto);
-    messages = (await query("select * from messages order by envoye_le")).rows.map(messageDto);
+    messages = (await query(`select ${MESSAGE_COLONNES_LEGERES} from messages order by envoye_le`)).rows.map(messageDtoLeger);
     taches = (await query("select * from taches order by cree_le desc")).rows.map(tacheDto);
   } else {
     // Collaborateur : sa fiche + les employés des sociétés de son périmètre (pour la messagerie).
@@ -94,10 +99,10 @@ dataRouter.get("/bootstrap", async (req, res) => {
     ];
     messages = (
       await query(
-        "select * from messages where conversation_id = any($1) order by envoye_le",
+        `select ${MESSAGE_COLONNES_LEGERES} from messages where conversation_id = any($1) order by envoye_le`,
         [convIds],
       )
-    ).rows.map(messageDto);
+    ).rows.map(messageDtoLeger);
     taches = (await tachesVisibles(s)).map(tacheDto);
   }
 

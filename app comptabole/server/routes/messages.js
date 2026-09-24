@@ -6,7 +6,7 @@ import { can } from "../permissions.js";
 import { logAction } from "../journal.js";
 import { notify, notifyMany } from "../notifications.js";
 import { pushToUser } from "../sse.js";
-import { messageDto } from "../mappers.js";
+import { messageDtoLeger, MESSAGE_COLONNES_LEGERES } from "../mappers.js";
 
 export const messagesRouter = Router();
 messagesRouter.use(requireAuth);
@@ -116,17 +116,30 @@ async function visibleConversationIds(req) {
   return [...ids];
 }
 
+// Liste re-demandée régulièrement (temps réel) : jamais le contenu des
+// pièces jointes, récupéré à la demande (GET /:id/piece-jointe).
 messagesRouter.get("/", requireMessagerie, async (req, res) => {
   if (req.session.role === "admin") {
-    const { rows } = await query("select * from messages order by envoye_le");
-    return res.json(rows.map(messageDto));
+    const { rows } = await query(`select ${MESSAGE_COLONNES_LEGERES} from messages order by envoye_le`);
+    return res.json(rows.map(messageDtoLeger));
   }
   const convIds = await visibleConversationIds(req);
   const { rows } = await query(
-    "select * from messages where conversation_id = any($1::text[]) order by envoye_le",
+    `select ${MESSAGE_COLONNES_LEGERES} from messages where conversation_id = any($1::text[]) order by envoye_le`,
     [convIds],
   );
-  res.json(rows.map(messageDto));
+  res.json(rows.map(messageDtoLeger));
+});
+
+/** Contenu de la pièce jointe d'un message — mêmes droits que la conversation. */
+messagesRouter.get("/:id/piece-jointe", requireMessagerie, async (req, res) => {
+  const m = (
+    await query("select conversation_id, piece_jointe from messages where id = $1", [req.params.id])
+  ).rows[0];
+  if (!m?.piece_jointe?.dataUrl) return res.status(404).json({ error: "Pièce jointe introuvable" });
+  if (!(await ownConversation(req, m.conversation_id)))
+    return res.status(403).json({ error: "Conversation hors périmètre" });
+  res.json({ dataUrl: m.piece_jointe.dataUrl });
 });
 
 messagesRouter.post("/", requireMessagerie, async (req, res) => {
@@ -191,7 +204,7 @@ messagesRouter.post("/", requireMessagerie, async (req, res) => {
         notify("admin", "message", `${g.titre} · ${s.nom}`, apercu, "/messagerie");
     }
   }
-  res.status(201).json(messageDto(rows[0]));
+  res.status(201).json(messageDtoLeger(rows[0]));
 });
 
 messagesRouter.post("/mark-read", requireMessagerie, async (req, res) => {

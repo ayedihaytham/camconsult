@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { downloadDataUrl } from "@/lib/file";
+import { contenuNoeud, noeudADuContenu } from "@/lib/contenus";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -393,15 +394,19 @@ export function FileTree({
                           Aperçu
                         </DropdownMenuItem>
                       )}
-                      {!isFolder && n.dataUrl && (
+                      {!isFolder && noeudADuContenu(n) && (
                         <DropdownMenuItem
-                          onClick={() => downloadDataUrl(n.dataUrl!, n.libelle)}
+                          onClick={() =>
+                            contenuNoeud(n)
+                              .then((d) => d && downloadDataUrl(d, n.libelle))
+                              .catch(() => toast.error("Téléchargement impossible"))
+                          }
                         >
                           <Download className="h-4 w-4" />
                           Télécharger
                         </DropdownMenuItem>
                       )}
-                      {!isFolder && !n.dataUrl && (
+                      {!isFolder && !noeudADuContenu(n) && (
                         <DropdownMenuItem
                           onClick={() =>
                             toast.info(

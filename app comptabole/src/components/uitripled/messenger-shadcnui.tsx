@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { downloadDataUrl } from "@/lib/file";
 import { cn } from "@/lib/utils";
 
 export interface MessengerAttachment {
@@ -44,7 +43,11 @@ export interface MessengerAttachment {
   mime?: string;
   tailleOctets?: number;
   noeudId?: string;
+  /** Contenu téléchargeable côté serveur (chargé au clic, pas dans la liste). */
+  disponible?: boolean;
 }
+
+const pieceDisponible = (a: MessengerAttachment) => Boolean(a.dataUrl || a.disponible);
 
 export interface MessengerAttachmentItem {
   id: string;
@@ -102,6 +105,8 @@ interface MessengerProps {
    * messages reçus avec une pièce jointe. */
   canClassifyAttachments: boolean;
   onClassifyAttachment: (messageId: string) => void;
+  /** Télécharge la pièce jointe d'un message (contenu chargé à la demande). */
+  onDownloadAttachment: (messageId: string) => void;
   canCreateGroup: boolean;
   emptyConversationDescription: string;
   messagesContainerRef: RefObject<HTMLDivElement>;
@@ -174,6 +179,7 @@ export function Messenger({
   attachmentItems,
   canClassifyAttachments,
   onClassifyAttachment,
+  onDownloadAttachment,
   canCreateGroup,
   emptyConversationDescription,
   messagesContainerRef,
@@ -473,18 +479,15 @@ export function Messenger({
                               >
                                 <button
                                   type="button"
-                                  disabled={!message.attachment.dataUrl}
-                                  onClick={() => {
-                                    const a = message.attachment;
-                                    if (a?.dataUrl) downloadDataUrl(a.dataUrl, a.libelle);
-                                  }}
+                                  disabled={!pieceDisponible(message.attachment)}
+                                  onClick={() => onDownloadAttachment(message.id)}
                                   className={cn(
                                     "flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left transition-colors",
-                                    message.attachment.dataUrl && "cursor-pointer hover:brightness-95",
-                                    !message.attachment.dataUrl && "cursor-not-allowed opacity-70",
+                                    pieceDisponible(message.attachment) && "cursor-pointer hover:brightness-95",
+                                    !pieceDisponible(message.attachment) && "cursor-not-allowed opacity-70",
                                   )}
                                   title={
-                                    message.attachment.dataUrl
+                                    pieceDisponible(message.attachment)
                                       ? "Télécharger la pièce jointe"
                                       : "Pièce jointe non disponible (fichier trop volumineux ou ancien message)"
                                   }
@@ -494,7 +497,7 @@ export function Messenger({
                                     {message.attachment.libelle}
                                   </span>
                                 </button>
-                                {canClassifyAttachments && message.attachment.dataUrl && (
+                                {canClassifyAttachments && pieceDisponible(message.attachment) && (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <button

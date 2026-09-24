@@ -1,4 +1,6 @@
-import { Download, FileWarning } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, FileWarning, Loader2 } from "lucide-react";
+import { contenuNoeud, noeudADuContenu } from "@/lib/contenus";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +26,22 @@ export function FilePreviewDialog({
   node: Noeud | null;
 }) {
   const ext = (node?.format ?? "").toLowerCase();
-  const dataUrl = node?.dataUrl;
+  // Contenu chargé à l'ouverture (plus présent dans les listes).
+  const [dataUrl, setDataUrl] = useState<string | undefined>();
+  const [chargement, setChargement] = useState(false);
+  useEffect(() => {
+    setDataUrl(undefined);
+    if (!open || !node || !noeudADuContenu(node)) return;
+    let annule = false;
+    setChargement(true);
+    contenuNoeud(node)
+      .then((d) => !annule && setDataUrl(d))
+      .catch(() => !annule && setDataUrl(undefined))
+      .finally(() => !annule && setChargement(false));
+    return () => {
+      annule = true;
+    };
+  }, [open, node]);
   const isImage = IMAGE_EXT.includes(ext);
   const isPdf = ext === "pdf";
   const isText = TEXT_EXT.includes(ext);
@@ -50,7 +67,12 @@ export function FilePreviewDialog({
         </DialogHeader>
 
         <div className="max-h-[70vh] overflow-auto rounded-md border border-border bg-muted/30">
-          {!dataUrl ? (
+          {chargement ? (
+            <div className="flex flex-col items-center gap-2 px-4 py-16 text-center text-sm text-muted-foreground">
+              <Loader2 className="h-7 w-7 animate-spin" />
+              Chargement…
+            </div>
+          ) : !dataUrl ? (
             <div className="flex flex-col items-center gap-2 px-4 py-16 text-center text-sm text-muted-foreground">
               <FileWarning className="h-7 w-7" />
               Contenu non conservé (fichier &gt; 2 Mo). Aperçu indisponible.

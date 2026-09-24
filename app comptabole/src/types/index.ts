@@ -614,8 +614,11 @@ export interface Noeud {
   parentId: string | null;
   format?: string; // pdf, xlsx…
   taille?: string; // "1,2 Mo"
-  /** Contenu encodé (data URL) pour les petits fichiers importés — permet le téléchargement. */
+  /** Contenu encodé (data URL) — seulement quand on vient de l'envoyer ; sinon
+   * absent des listes et chargé à la demande (voir lib/contenus.ts). */
   dataUrl?: string;
+  /** true si le serveur conserve un contenu téléchargeable pour ce fichier. */
+  aContenu?: boolean;
   creeLe: string;
   majLe: string;
 }
@@ -631,8 +634,11 @@ export interface Message {
   statut: MessageStatut;
   pieceJointe?: {
     libelle: string;
-    /** Nouveau format — fichier joint directement au message (PC ou téléphone). */
+    /** Nouveau format — fichier joint directement au message (PC ou téléphone).
+     * Absent des listes : chargé à la demande (voir lib/contenus.ts). */
     dataUrl?: string;
+    /** true si le serveur conserve le contenu de cette pièce jointe. */
+    aContenu?: boolean;
     mime?: string;
     tailleOctets?: number;
     /** Ancien format — référence à un document déjà présent dans la Structuration. */

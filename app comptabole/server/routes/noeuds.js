@@ -9,7 +9,7 @@ import {
   notifKey,
   concernedBySociete,
 } from "../notifications.js";
-import { noeudDto } from "../mappers.js";
+import { noeudDto, noeudDtoLeger, NOEUD_COLONNES_LEGERES } from "../mappers.js";
 
 /** Prévient les personnes concernées par la société (sauf l'auteur). */
 async function notifyStructure(req, societeId, titre, corps) {
@@ -59,10 +59,22 @@ function requireDelete(req, res, next) {
   res.status(403).json({ error: "Droit « supprimer » requis" });
 }
 
+// Listes et réponses : sans le contenu des fichiers (noeudDtoLeger).
 noeudsRouter.get("/", async (req, res) => {
-  const { rows } = await query("select * from noeuds order by maj_le desc");
+  const { rows } = await query(`select ${NOEUD_COLONNES_LEGERES} from noeuds order by maj_le desc`);
   const visible = rows.filter((r) => canSeeSociete(req.session, r.societe_id));
-  res.json(visible.map(noeudDto));
+  res.json(visible.map(noeudDtoLeger));
+});
+
+/** Contenu d'un fichier (data URL), à la demande — aperçu / téléchargement. */
+noeudsRouter.get("/:id/contenu", async (req, res) => {
+  const n = (
+    await query("select societe_id, data_url from noeuds where id = $1", [req.params.id])
+  ).rows[0];
+  if (!n?.data_url) return res.status(404).json({ error: "Contenu introuvable" });
+  if (!canSeeSociete(req.session, n.societe_id))
+    return res.status(403).json({ error: "Élément hors périmètre" });
+  res.json({ dataUrl: n.data_url });
 });
 
 noeudsRouter.post("/", requireCreate, async (req, res) => {
@@ -91,7 +103,7 @@ noeudsRouter.post("/", requireCreate, async (req, res) => {
     rows[0].societe_id,
     `Nouveau ${v.type === "fichier" ? "fichier" : "dossier"} : ${v.libelle}`,
   );
-  res.status(201).json(noeudDto(rows[0]));
+  res.status(201).json(noeudDtoLeger(rows[0]));
 });
 
 noeudsRouter.patch("/:id", requireStructEdit, async (req, res) => {
@@ -103,7 +115,10 @@ noeudsRouter.patch("/:id", requireStructEdit, async (req, res) => {
   const wants = schema.partial().safeParse(req.body);
   if (!wants.success)
     return res.status(400).json({ error: wants.error.issues[0].message });
+  // Base = la ligne complète en base (contenu compris) : un simple
+  // renommage/déplacement, qui n'envoie pas de dataUrl, ne l'efface jamais.
   const v = { ...noeudDto(existing), ...wants.data };
+  if (v.dataUrl === undefined) v.dataUrl = existing.data_url ?? undefined;
   const { rows } = await query(
     `update noeuds set libelle=$1, description=$2, societe_id=$3, parent_id=$4,
        format=$5, taille=$6, data_url=$7, maj_le=current_date
@@ -125,7 +140,7 @@ noeudsRouter.patch("/:id", requireStructEdit, async (req, res) => {
     rows[0].societe_id,
     `${existing.type === "fichier" ? "Fichier" : "Dossier"} ${moved ? "déplacé" : "modifié"} : ${v.libelle}`,
   );
-  res.json(noeudDto(rows[0]));
+  res.json(noeudDtoLeger(rows[0]));
 });
 
 noeudsRouter.post("/:id/duplicate", requireStructEdit, async (req, res) => {
@@ -166,7 +181,7 @@ noeudsRouter.post("/:id/duplicate", requireStructEdit, async (req, res) => {
   });
 
   logAction(req.session.nom, "duplication", "dossier", root.libelle);
-  res.status(201).json(created.map(noeudDto));
+  res.status(201).json(created.map(noeudDtoLeger));
 });
 
 noeudsRouter.post("/bulk-delete", requireDelete, async (req, res) => {

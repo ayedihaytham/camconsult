@@ -14,7 +14,8 @@ import {
 } from "@/components/uitripled/messenger-shadcnui";
 import { employeNomComplet } from "@/data/employes";
 import { usePermissions } from "@/hooks/usePermissions";
-import { fileExtension, formatFileSize, readFileAsDataUrl } from "@/lib/file";
+import { downloadDataUrl, fileExtension, formatFileSize, readFileAsDataUrl } from "@/lib/file";
+import { contenuNoeud, contenuPieceJointe, noeudADuContenu } from "@/lib/contenus";
 import {
   avatarColor,
   formatDayLabel,
@@ -35,18 +36,28 @@ import type { Conversation, Message, Noeud } from "@/types";
 import { ClasserPieceJointeDialog } from "./ClasserPieceJointeDialog";
 import { GroupeFormDialog } from "./GroupeFormDialog";
 
-/** Les messages envoyés avant l'introduction des pièces jointes directes
- * référençaient un document de la Structuration (`noeudId`) au lieu de
- * porter leur propre contenu — on retrouve son `dataUrl` ici pour que ces
- * anciens messages restent cliquables. */
+/** Pièce jointe telle qu'affichée : le contenu n'est plus dans la liste des
+ * messages, seulement l'indication qu'il est disponible. Les anciens
+ * messages référençaient un document de la Structuration (`noeudId`) au lieu
+ * de porter leur propre contenu : c'est alors ce document qui fait foi. */
 function resolveAttachment(
   pieceJointe: Message["pieceJointe"],
   noeuds: Noeud[],
 ): MessengerAttachment | undefined {
   if (!pieceJointe) return undefined;
-  if (pieceJointe.dataUrl || !pieceJointe.noeudId) return pieceJointe;
+  const propre = Boolean(pieceJointe.dataUrl || pieceJointe.aContenu);
+  if (propre || !pieceJointe.noeudId) return { ...pieceJointe, disponible: propre };
   const noeud = noeuds.find((n) => n.id === pieceJointe.noeudId);
-  return { ...pieceJointe, dataUrl: noeud?.dataUrl };
+  return { ...pieceJointe, disponible: noeudADuContenu(noeud) };
+}
+
+/** Contenu (data URL) de la pièce jointe d'un message, chargé à la demande. */
+async function contenuDuMessage(message: Message | undefined, noeuds: Noeud[]) {
+  const pj = message?.pieceJointe;
+  if (!message || !pj) return undefined;
+  if (pj.dataUrl || pj.aContenu) return contenuPieceJointe(message.id, pj);
+  const noeud = pj.noeudId ? noeuds.find((n) => n.id === pj.noeudId) : undefined;
+  return noeud ? contenuNoeud(noeud) : undefined;
 }
 
 export function MessageriePage() {
@@ -232,27 +243,55 @@ export function MessageriePage() {
     }
   }
 
-  function handleSelectAttachment(item: MessengerAttachmentItem) {
+  async function handleSelectAttachment(item: MessengerAttachmentItem) {
     const noeud = fichiers.find((f) => f.id === item.id);
+    // Le message emporte sa propre copie du document : on charge son
+    // contenu maintenant (il n'est plus dans la liste de la Structuration).
+    let dataUrl: string | undefined;
+    try {
+      dataUrl = noeud ? await contenuNoeud(noeud) : undefined;
+    } catch {
+      dataUrl = undefined;
+    }
     setAttachment({
       libelle: item.label,
       noeudId: item.id,
-      dataUrl: noeud?.dataUrl,
+      dataUrl,
       mime: undefined,
       tailleOctets: undefined,
     });
-    if (!noeud?.dataUrl) {
+    if (!dataUrl) {
       toast.warning(
         "Ce document dépasse 2 Mo dans la Structuration : joint en référence seule, non téléchargeable depuis la messagerie.",
       );
     }
   }
 
-  function handleClassifyAttachment(messageId: string) {
+  async function handleDownloadAttachment(messageId: string) {
+    const message = messages.find((m) => m.id === messageId);
+    try {
+      const dataUrl = await contenuDuMessage(message, allNoeuds);
+      if (dataUrl && message?.pieceJointe) downloadDataUrl(dataUrl, message.pieceJointe.libelle);
+    } catch {
+      toast.error("Téléchargement impossible");
+    }
+  }
+
+  async function handleClassifyAttachment(messageId: string) {
     const message = messages.find((m) => m.id === messageId);
     const resolved = resolveAttachment(message?.pieceJointe, allNoeuds);
-    if (!resolved?.dataUrl) return;
-    setClassifying({ ...resolved, dataUrl: resolved.dataUrl });
+    if (!resolved) return;
+    let dataUrl: string | undefined;
+    try {
+      dataUrl = await contenuDuMessage(message, allNoeuds);
+    } catch {
+      dataUrl = undefined;
+    }
+    if (!dataUrl) {
+      toast.error("Contenu de la pièce jointe indisponible");
+      return;
+    }
+    setClassifying({ ...resolved, dataUrl });
     // Le document appartient forcément à la société de la conversation
     // ouverte (client) — on restreint le choix de dossier à son espace.
     setClassifyingSocieteId(activeConversation?.societeId ?? null);
@@ -453,7 +492,8 @@ export function MessageriePage() {
           label: file.libelle,
         }))}
         canClassifyAttachments={isAdmin}
-        onClassifyAttachment={handleClassifyAttachment}
+        onClassifyAttachment={(id) => void handleClassifyAttachment(id)}
+        onDownloadAttachment={(id) => void handleDownloadAttachment(id)}
         canCreateGroup={isAdmin}
         emptyConversationDescription={
           isAdmin
@@ -481,7 +521,7 @@ export function MessageriePage() {
         }}
         onDraftChange={setDraft}
         onFileSelected={handleFileSelected}
-        onSelectAttachment={handleSelectAttachment}
+        onSelectAttachment={(item) => void handleSelectAttachment(item)}
         onRemoveAttachment={() => setAttachment(null)}
         onSend={send}
       />

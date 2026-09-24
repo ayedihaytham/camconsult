@@ -135,10 +135,46 @@ docker compose logs -f watchtower
 ```
 
 **Exception : `nginx-camconsult.conf`** — nginx tourne sur l'hôte, pas dans
-un conteneur, donc il n'est jamais mis à jour par Watchtower. Après une
-modification de ce fichier, sur le VPS :
+un conteneur, donc il n'est jamais mis à jour par Watchtower.
+
+⚠️ **Ne jamais faire `cp nginx-camconsult.conf /etc/nginx/sites-available/camconsult.com.tn`
+sur un fichier déjà en place** (vécu deux fois) : ce fichier source ne contient
+que les blocs `listen 80` — certbot ajoute lui-même les blocs `listen 443
+ssl` + certificats directement dans le fichier live (jamais reportés ici),
+et un `cp` complet les efface. Pour une modification, éditer le fichier
+**live** à la main (`nano /etc/nginx/sites-available/camconsult.com.tn`) et
+reporter le même changement dans `nginx-camconsult.conf` pour que le dépôt
+reste à jour, plutôt que l'inverse. En cas d'effacement accidentel des blocs
+HTTPS : `certbot --nginx -d camconsult.com.tn -d www.camconsult.com.tn -d
+cabinet.camconsult.com.tn` (option "reinstall existing certificate") les
+recrée.
 
 ```bash
-cp nginx-camconsult.conf /etc/nginx/sites-available/camconsult.com.tn
+nano /etc/nginx/sites-available/camconsult.com.tn   # reporter le changement à la main
 nginx -t && systemctl reload nginx
 ```
+
+### Réglages hôte qui ne sont PAS dans ce dépôt
+
+Deux réglages vivent uniquement dans les fichiers système du VPS (jamais
+touchés par git/Watchtower/certbot) — à refaire après une réinstallation de
+l'hôte ou un nouveau VPS :
+
+- **HTTP/2** — sur chaque `listen 443 ssl;` (et `listen [::]:443 ssl;`) du
+  fichier live `/etc/nginx/sites-available/camconsult.com.tn`, ajouter
+  `http2` : `listen 443 ssl http2;` (nginx < 1.25.1 — au-delà, préférer la
+  directive séparée `http2 on;`).
+- **Compression gzip** — dans `/etc/nginx/nginx.conf`, bloc « Gzip Settings »
+  (décommenté) :
+  ```nginx
+  gzip on;
+  gzip_vary on;
+  gzip_proxied any;
+  gzip_comp_level 6;
+  gzip_buffers 16 8k;
+  gzip_http_version 1.1;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript application/wasm image/svg+xml font/woff2;
+  ```
+  Le `gzip_proxied any;` est indispensable ici : tout est servi via
+  `proxy_pass`, et nginx ne compresse jamais une réponse proxifiée sans lui.
+  Vérifier après coup : `curl -sI -H "Accept-Encoding: gzip" https://cabinet.camconsult.com.tn/assets/index-*.js | grep -i content-encoding` doit répondre `gzip`.

@@ -76,11 +76,16 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
   const ws = wb.addWorksheet(def.label.slice(0, 31), { views: [{ state: "frozen", ySplit: 4 }] });
   titre(ws, titreModele(def.pieceLabel), "Cellules jaunes = à saisir par le client · le reste se calcule automatiquement");
   const devise = deviseLabel(collecte);
+  // Montants : « Montant HT (€) » ; jamais pour un pourcentage (« TVA % »).
+  const isPct = (c: { label: string }) => c.label.includes("%");
   enTetes(
     ws,
     4,
-    def.columns.map((c) => (c.type === "number" && !/\(.+\)$/.test(c.label) ? `${c.label} (${devise})` : c.label)),
+    def.columns.map((c) =>
+      c.type === "number" && !isPct(c) && !/\(.+\)$/.test(c.label) ? `${c.label} (${devise})` : c.label,
+    ),
   );
+  const lettreDe = (key: string) => colLetter(def.columns.findIndex((c) => c.key === key) + 1);
   ws.columns = def.columns.map((c) => ({ width: Math.max(12, Math.round((c.width ?? 140) / 7)) }));
 
   const data = collecte.lignes
@@ -98,10 +103,17 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
     def.columns.forEach((col, j) => {
       const c = r.getCell(j + 1);
       const v = src?.[col.key];
-      if (v != null && v !== "") {
+      if (col.excelFormula) {
+        // Colonne calculée : vraie formule, sur TOUTES les lignes de saisie
+        // (y compris vides), pour qu'elle suive ce que le client tape dans Excel.
+        c.value = {
+          formula: col.excelFormula(first + i, lettreDe),
+          result: v != null && v !== "" && src ? cellNumber(v) : "",
+        };
+      } else if (v != null && v !== "") {
         c.value = col.type === "number" ? cellNumber(v) : col.type === "date" ? toDate(v) : String(v);
       }
-      if (col.type === "number") c.numFmt = MONTANT;
+      if (col.type === "number" && !isPct(col)) c.numFmt = MONTANT;
       if (col.type === "date") c.numFmt = "dd/mm/yyyy";
       // jaune = saisie client ; blanc = colonne calculée
       if (!col.computed) c.fill = fill(JAUNE);
@@ -114,21 +126,26 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
     });
   }
 
-  // Ligne TOTAL (formule : suit les modifications faites dans Excel)
-  const idx = def.totalKey ? def.columns.findIndex((c) => c.key === def.totalKey) : -1;
-  if (idx >= 0) {
+  // Ligne TOTAL (formules : suivent les modifications faites dans Excel).
+  // Libellé dans la colonne juste avant le premier total, comme le modèle.
+  const totaux = (def.excelTotalKeys ?? (def.totalKey ? [def.totalKey] : []))
+    .map((key) => ({ key, idx: def.columns.findIndex((c) => c.key === key) }))
+    .filter((t) => t.idx >= 0);
+  if (totaux.length > 0) {
     const r = ws.getRow(last + 2);
-    const lettre = colLetter(idx + 1);
-    const lab = r.getCell(Math.max(1, idx));
+    const lab = r.getCell(Math.max(1, Math.min(...totaux.map((t) => t.idx))));
     lab.value = (def.totalLabel ?? "Total").toUpperCase();
     lab.font = { bold: true };
-    const tot = r.getCell(idx + 1);
-    tot.value = {
-      formula: `SUM(${lettre}${first}:${lettre}${last})`,
-      result: Math.round(derived.reduce((s, x) => s + cellNumber(x[def.totalKey!]), 0) * 100) / 100,
-    };
-    tot.numFmt = MONTANT;
-    tot.font = { bold: true };
+    for (const { key, idx } of totaux) {
+      const lettre = colLetter(idx + 1);
+      const tot = r.getCell(idx + 1);
+      tot.value = {
+        formula: `SUM(${lettre}${first}:${lettre}${last})`,
+        result: Math.round(derived.reduce((s, x) => s + cellNumber(x[key]), 0) * 100) / 100,
+      };
+      tot.numFmt = MONTANT;
+      tot.font = { bold: true };
+    }
   }
 }
 

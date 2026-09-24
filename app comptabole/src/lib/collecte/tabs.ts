@@ -20,7 +20,14 @@ export interface TabColumn {
   width?: number;
   /** colonne en lecture seule dont la valeur est produite par `TabDef.derive` */
   computed?: boolean;
+  /** Export Excel : formule de la cellule à la ligne `r` (col(k) = lettre de
+   * la colonne k), pour qu'une colonne calculée le reste dans Excel. */
+  excelFormula?: (r: number, col: (key: string) => string) => string;
 }
+
+/** TTC = HT × (1 + TVA %), vide tant que le HT n'est pas saisi. */
+const ttcFormula: TabColumn["excelFormula"] = (r, col) =>
+  `IF(${col("montant_ht")}${r}="","",ROUND(${col("montant_ht")}${r}*(1+${col("tva_pct")}${r}/100),2))`;
 
 /** Lit une cellule comme nombre (« 1 200,50 » → 1200.5). */
 export function cellNumber(v: unknown): number {
@@ -65,6 +72,8 @@ export interface TabDef {
   columns: TabColumn[];
   /** colonne numérique agrégée dans la colonne « Total (€) » de la Checklist */
   totalKey?: string;
+  /** colonnes totalisées sur la ligne TOTAL de l'export Excel (défaut : [totalKey]) */
+  excelTotalKeys?: string[];
   /** calcule les colonnes dérivées (ex. TTC, solde courant) — appliqué à l'affichage et avant enregistrement */
   derive?: (rows: TabRow[]) => TabRow[];
   /** valeur affichée dans « Total (€) » de la Checklist si différente de la somme de `totalKey` */
@@ -204,6 +213,7 @@ export const COLLECTE_TABS: TabDef[] = [
     label: "Chiffre d'affaires",
     pieceLabel: "Détail du chiffre d'affaires",
     totalKey: "montant_ht",
+    excelTotalKeys: ["montant_ht", "montant_ttc"],
     derive: deriveTtc,
     columns: [
       { key: "date", label: "Date", type: "date", width: 130 },
@@ -228,6 +238,7 @@ export const COLLECTE_TABS: TabDef[] = [
         type: "number",
         width: 130,
         computed: true,
+        excelFormula: ttcFormula,
       },
       {
         key: "mode_reglement",
@@ -251,6 +262,7 @@ export const COLLECTE_TABS: TabDef[] = [
     label: "Détail des achats",
     pieceLabel: "Détail des achats",
     totalKey: "montant_ht",
+    excelTotalKeys: ["montant_ht", "montant_ttc"],
     derive: deriveTtc,
     columns: [
       { key: "date", label: "Date", type: "date", width: 130 },
@@ -270,6 +282,7 @@ export const COLLECTE_TABS: TabDef[] = [
         type: "number",
         width: 130,
         computed: true,
+        excelFormula: ttcFormula,
       },
       {
         key: "mode_paiement",

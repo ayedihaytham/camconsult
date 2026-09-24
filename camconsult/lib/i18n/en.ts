@@ -119,9 +119,9 @@ const en: Dictionary = {
     blogText: 'Practical insights to help you make calmer decisions.',
     blogSeeAll: 'Read the blog',
     posts: [
-      ['/images/blog-finance.png', 'Finance', 'Managing your cash flow with method', 'The key indicators to keep a clear view of your flows.', 'Jun 12, 2025 · 5 min'],
-      ['/images/blog-strategy.png', 'Strategy', 'The right indicators for decision-making', 'Which KPIs should you track as your business scales?', 'May 28, 2025 · 6 min'],
-      ['/images/blog-tax.png', 'Taxation', 'Anticipating your tax deadlines', 'A simple method to avoid last-minute rushes and secure your filings.', 'May 9, 2025 · 4 min'],
+      ['/images/blog-finance.webp', 'Finance', 'Managing your cash flow with method', 'The key indicators to keep a clear view of your flows.', 'Jun 12, 2025 · 5 min'],
+      ['/images/blog-strategy.webp', 'Strategy', 'The right indicators for decision-making', 'Which KPIs should you track as your business scales?', 'May 28, 2025 · 6 min'],
+      ['/images/blog-tax.webp', 'Taxation', 'Anticipating your tax deadlines', 'A simple method to avoid last-minute rushes and secure your filings.', 'May 9, 2025 · 4 min'],
     ],
     faqEyebrow: 'Frequently asked questions',
     faqTitle: 'First answers, right here.',
@@ -252,9 +252,9 @@ const en: Dictionary = {
     categories: ['All', 'Finance', 'Strategy', 'Taxation', 'Legal'],
     readArticle: 'Read the article',
     articles: [
-      { image: '/images/blog-finance.png', category: 'Finance', title: 'Managing your cash flow with method', excerpt: 'The essential indicators to keep a clear view of your flows and decisions.', date: 'Sep 12, 2026', read: '6 min' },
-      { image: '/images/blog-strategy.png', category: 'Strategy', title: 'Structuring your company’s growth', excerpt: 'A simple roadmap to turn an ambition into a lasting trajectory.', date: 'Aug 28, 2026', read: '8 min' },
-      { image: '/images/blog-tax.png', category: 'Taxation', title: 'Anticipating your tax deadlines', excerpt: 'The right habits to organize your obligations and avoid last-minute decisions.', date: 'Aug 6, 2026', read: '5 min' },
+      { image: '/images/blog-finance.webp', category: 'Finance', title: 'Managing your cash flow with method', excerpt: 'The essential indicators to keep a clear view of your flows and decisions.', date: 'Sep 12, 2026', read: '6 min' },
+      { image: '/images/blog-strategy.webp', category: 'Strategy', title: 'Structuring your company’s growth', excerpt: 'A simple roadmap to turn an ambition into a lasting trajectory.', date: 'Aug 28, 2026', read: '8 min' },
+      { image: '/images/blog-tax.webp', category: 'Taxation', title: 'Anticipating your tax deadlines', excerpt: 'The right habits to organize your obligations and avoid last-minute decisions.', date: 'Aug 6, 2026', read: '5 min' },
     ],
   },
 

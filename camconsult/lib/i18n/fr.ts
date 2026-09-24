@@ -117,9 +117,9 @@ const fr = {
     blogText: 'Des éclairages concrets pour prendre des décisions plus sereines.',
     blogSeeAll: 'Tout le blog',
     posts: [
-      ['/images/blog-finance.png', 'Finance', 'Piloter sa trésorerie avec méthode', 'Les repères essentiels pour garder une vision claire de vos flux.', '12 juin 2025 · 5 min'],
-      ['/images/blog-strategy.png', 'Stratégie', 'Les bons indicateurs pour décider', 'Quels KPI suivre quand votre entreprise change d’échelle ?', '28 mai 2025 · 6 min'],
-      ['/images/blog-tax.png', 'Fiscalité', 'Anticiper ses échéances fiscales', 'Une méthode simple pour éviter les urgences et sécuriser vos déclarations.', '09 mai 2025 · 4 min'],
+      ['/images/blog-finance.webp', 'Finance', 'Piloter sa trésorerie avec méthode', 'Les repères essentiels pour garder une vision claire de vos flux.', '12 juin 2025 · 5 min'],
+      ['/images/blog-strategy.webp', 'Stratégie', 'Les bons indicateurs pour décider', 'Quels KPI suivre quand votre entreprise change d’échelle ?', '28 mai 2025 · 6 min'],
+      ['/images/blog-tax.webp', 'Fiscalité', 'Anticiper ses échéances fiscales', 'Une méthode simple pour éviter les urgences et sécuriser vos déclarations.', '09 mai 2025 · 4 min'],
     ] as [string, string, string, string, string][],
     faqEyebrow: 'Questions fréquentes',
     faqTitle: 'Les premières réponses, ici.',
@@ -250,9 +250,9 @@ const fr = {
     categories: ['Tous', 'Finance', 'Stratégie', 'Fiscalité', 'Juridique'],
     readArticle: 'Lire l’article',
     articles: [
-      { image: '/images/blog-finance.png', category: 'Finance', title: 'Piloter sa trésorerie avec méthode', excerpt: 'Les indicateurs essentiels pour garder une vision claire de vos flux et de vos décisions.', date: '12 sept. 2026', read: '6 min' },
-      { image: '/images/blog-strategy.png', category: 'Stratégie', title: 'Structurer la croissance de son entreprise', excerpt: 'Une feuille de route simple pour transformer une ambition en trajectoire durable.', date: '28 août 2026', read: '8 min' },
-      { image: '/images/blog-tax.png', category: 'Fiscalité', title: 'Anticiper ses échéances fiscales', excerpt: 'Les bons réflexes pour organiser vos obligations et éviter les décisions dans l’urgence.', date: '06 août 2026', read: '5 min' },
+      { image: '/images/blog-finance.webp', category: 'Finance', title: 'Piloter sa trésorerie avec méthode', excerpt: 'Les indicateurs essentiels pour garder une vision claire de vos flux et de vos décisions.', date: '12 sept. 2026', read: '6 min' },
+      { image: '/images/blog-strategy.webp', category: 'Stratégie', title: 'Structurer la croissance de son entreprise', excerpt: 'Une feuille de route simple pour transformer une ambition en trajectoire durable.', date: '28 août 2026', read: '8 min' },
+      { image: '/images/blog-tax.webp', category: 'Fiscalité', title: 'Anticiper ses échéances fiscales', excerpt: 'Les bons réflexes pour organiser vos obligations et éviter les décisions dans l’urgence.', date: '06 août 2026', read: '5 min' },
     ],
   },
 

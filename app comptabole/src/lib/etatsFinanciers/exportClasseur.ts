@@ -33,7 +33,7 @@ import type {
   TdrfParametres,
 } from "@/types";
 
-type Aoa = (string | number)[][];
+export type Aoa = (string | number)[][];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -454,15 +454,21 @@ function autoWidth(aoa: Aoa) {
   return widths.map((wch) => ({ wch }));
 }
 
+export interface ClasseurSheet {
+  name: string;
+  aoa: Aoa;
+  /** 1re ligne = en-têtes (« Actif | 2025 | 2024 ») */
+  headerRow?: boolean;
+}
+
 /**
- * Exporte le classeur complet (Bilan Actif/Passif, Etat de résultat, SIG,
- * TAB VAR Immob, Flux, TDRF, Notes) en un fichier Excel multi-onglets — une
- * feuille par tableau, comme le classeur d'origine du cabinet. Récupère ses
- * propres données depuis l'API (indépendant de l'onglet actif dans l'app).
+ * Feuilles du classeur complet (Bilan Actif/Passif, Etat de résultat, SIG,
+ * TAB VAR Immob, Flux, TDRF, Notes) — une par tableau, comme le classeur
+ * d'origine du cabinet. Récupère ses propres données depuis l'API
+ * (indépendant de l'onglet actif dans l'app). Sert à l'Excel et au PDF.
  */
-export async function exportClasseurExcel(societeId: string, societeName: string) {
+export async function loadClasseurSheets(societeId: string, societeName: string): Promise<ClasseurSheet[]> {
   const [
-    XLSX,
     postesParExercice,
     immoMouvementsManuels,
     financementMouvements,
@@ -474,7 +480,6 @@ export async function exportClasseurExcel(societeId: string, societeName: string
     immoBiens,
     immoCategories,
   ] = await Promise.all([
-    import("xlsx"),
     api.get<PostesExercice[]>(`/balances/postes?societeId=${societeId}`),
     api.get<ImmoMouvement[]>(`/balances/immo-mouvements?societeId=${societeId}`),
     api.get<FinancementMouvement[]>(`/balances/financement-mouvements?societeId=${societeId}`),
@@ -505,46 +510,81 @@ export async function exportClasseurExcel(societeId: string, societeName: string
     ),
   );
 
+  return [
+    { name: "Bilan Actif", headerRow: true, aoa: financialSheet(ROWS_BILAN_ACTIF, postesParExercice, "Actif") },
+    {
+      name: "Bilan Passif",
+      headerRow: true,
+      aoa: financialSheet(ROWS_BILAN_PASSIF, postesParExercice, "Capitaux propres et passifs", (ex) => {
+        const p = postesParExercice.find((e) => e.exercice === ex);
+        return { resultat_exercice: p ? resultatNet(p.postes) : 0 };
+      }),
+    },
+    {
+      name: "Etat de résultat",
+      headerRow: true,
+      aoa: financialSheet(ROWS_ETAT_RESULTAT, postesParExercice, "Etat de résultat"),
+    },
+    { name: "SIG", aoa: sigSheet(postesParExercice) },
+    { name: "TAB VAR Immob", aoa: immoSheet(postesParExercice, immoMouvements) },
+    { name: "FLUX", aoa: fluxSheet(postesParExercice, immoMouvements, financementMouvements) },
+    { name: "TDRF", aoa: tdrfSheet(postesParExercice, tdrfLignes, tdrfParametres) },
+    {
+      name: "Notes",
+      aoa: notesSheet(societeName, fiche, modele, notesParExercice, detailComptes, postesParExercice),
+    },
+  ];
+}
+
+const safeSociete = (s: string) => s.replace(/[\\/:*?"<>|]/g, "").trim() || "Societe";
+
+/** Classeur complet en un fichier Excel multi-onglets. */
+export async function exportClasseurExcel(societeId: string, societeName: string) {
+  const [XLSX, sheets] = await Promise.all([import("xlsx"), loadClasseurSheets(societeId, societeName)]);
   const wb = XLSX.utils.book_new();
-  const addSheet = (name: string, aoa: Aoa) => {
+  for (const { name, aoa } of sheets) {
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws["!cols"] = autoWidth(aoa);
     XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
-  };
+  }
+  XLSX.writeFile(wb, `Etats financiers - ${safeSociete(societeName)}.xlsx`);
+}
 
-  addSheet("Bilan Actif", financialSheet(ROWS_BILAN_ACTIF, postesParExercice, "Actif"));
-  addSheet(
-    "Bilan Passif",
-    financialSheet(ROWS_BILAN_PASSIF, postesParExercice, "Capitaux propres et passifs", (ex) => {
-      const p = postesParExercice.find((e) => e.exercice === ex);
-      return { resultat_exercice: p ? resultatNet(p.postes) : 0 };
-    }),
-  );
-  addSheet("Etat de résultat", financialSheet(ROWS_ETAT_RESULTAT, postesParExercice, "Etat de résultat"));
-  addSheet("SIG", sigSheet(postesParExercice));
-  addSheet("TAB VAR Immob", immoSheet(postesParExercice, immoMouvements));
-  addSheet("FLUX", fluxSheet(postesParExercice, immoMouvements, financementMouvements));
-  addSheet("TDRF", tdrfSheet(postesParExercice, tdrfLignes, tdrfParametres));
-  addSheet(
-    "Notes",
-    notesSheet(societeName, fiche, modele, notesParExercice, detailComptes, postesParExercice),
-  );
+/** Classeur complet en un vrai fichier PDF (une partie par tableau). */
+export async function exportClasseurPdf(societeId: string, societeName: string) {
+  const [{ downloadTablesPdf }, sheets] = await Promise.all([
+    import("@/lib/pdfTables"),
+    loadClasseurSheets(societeId, societeName),
+  ]);
+  await downloadTablesPdf({
+    title: `ÉTATS FINANCIERS — ${societeName}`,
+    subtitle: "Chiffres exprimés en dinars tunisiens",
+    sheets: sheets.map((s) => ({ name: s.name, rows: s.aoa, headerRow: s.headerRow })),
+    fileName: `Etats financiers - ${safeSociete(societeName)}`,
+  });
+}
 
-  const safeName = societeName.replace(/[\\/:*?"<>|]/g, "").trim() || "Societe";
-  XLSX.writeFile(wb, `Etats financiers - ${safeName}.xlsx`);
+/** PDF d'une seule section (tableau déjà construit, comme pour l'Excel). */
+export async function downloadSectionPdf(aoa: Aoa, sheetName: string, societeName: string, headerRow: boolean) {
+  const { downloadTablesPdf } = await import("@/lib/pdfTables");
+  await downloadTablesPdf({
+    title: sheetName.toUpperCase(),
+    subtitle: `${societeName} · Chiffres exprimés en dinars tunisiens`,
+    sheets: [{ name: sheetName, rows: aoa, headerRow }],
+    fileName: `${sheetName} - ${safeSociete(societeName)}`,
+  });
 }
 
 /**
- * Export Excel indépendant de la seule section « Notes » — la seule section
- * dont les données (fiche société, modèle, détail comptes) ne sont pas déjà
- * chargées dans BalancesListPage, donc la seule à refaire son propre fetch
- * (comme exportClasseurExcel, mais une seule feuille).
+ * Feuille « Notes » seule — la seule section dont les données (fiche société,
+ * modèle, détail comptes) ne sont pas déjà chargées dans BalancesListPage,
+ * donc la seule à refaire son propre fetch.
  */
-export async function exportNotesSectionExcel(
+export async function loadNotesSheet(
   societeId: string,
   societeName: string,
   postesParExercice: PostesExercice[],
-) {
+): Promise<Aoa> {
   if (postesParExercice.length === 0) {
     throw new Error("Aucun exercice avec une balance pour cette société.");
   }
@@ -558,9 +598,5 @@ export async function exportNotesSectionExcel(
       api.get<NotesExercice>(`/notes/exercice?societeId=${societeId}&exercice=${encodeURIComponent(e.exercice)}`),
     ),
   );
-  await downloadSingleSheetXlsx(
-    notesSheet(societeName, fiche, modele, notesParExercice, detailComptes, postesParExercice),
-    "Notes",
-    societeName,
-  );
+  return notesSheet(societeName, fiche, modele, notesParExercice, detailComptes, postesParExercice);
 }

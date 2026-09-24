@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Calculator, Download, FileText, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Calculator, Download, FileText, Plus, Printer, Trash2, Upload } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerTable } from "@/components/ledger/LedgerTable";
@@ -70,7 +70,7 @@ export function BalanceEditorPage() {
     { header: "Libellé", value: (l) => l.libelle },
     { header: "Débit", value: (l) => l.debit || "" },
     { header: "Crédit", value: (l) => l.credit || "" },
-    { header: "Solde", value: (l) => fmt(l.solde) },
+    { header: "Solde", value: (l) => l.solde },
     { header: "Affectat", value: (l) => l.affectat || "" },
   ];
 
@@ -90,7 +90,34 @@ export function BalanceEditorPage() {
     void exportToXlsx(balanceFilename, lignes, exportColumns, "Balance");
   }
 
-  function handleExportPdf() {
+  async function handleSavePdf() {
+    const tri = [...lignes].sort((a, b) => a.compte.localeCompare(b.compte));
+    const somme = (k: "debit" | "credit" | "solde") =>
+      Math.round(tri.reduce((s, l) => s + (l[k] || 0), 0) * 1000) / 1000;
+    try {
+      const { downloadTablesPdf } = await import("@/lib/pdfTables");
+      await downloadTablesPdf({
+        title: `BALANCE ${current?.exercice ?? ""}`.trim(),
+        subtitle: `${societe?.raisonSociale ?? "Société"} · ${tri.length} comptes · Écart : ${fmt(ecartTotal)}`,
+        sheets: [
+          {
+            name: "Balance",
+            headerRow: true,
+            rows: [
+              ["Compte", "Libellé", "Débit", "Crédit", "Solde", "Affectat"],
+              ...tri.map((l) => [l.compte, l.libelle, l.debit || "", l.credit || "", l.solde, l.affectat || ""]),
+              ["TOTAL", "", somme("debit"), somme("credit"), somme("solde"), ""],
+            ],
+          },
+        ],
+        fileName: balanceFilename,
+      });
+    } catch {
+      toast.error("PDF impossible");
+    }
+  }
+
+  function handlePrint() {
     printTable({
       title: balanceLabel,
       subtitle: `Écart : ${fmt(ecartTotal)}`,
@@ -180,14 +207,18 @@ export function BalanceEditorPage() {
         title={`Balance ${current?.exercice ?? ""} — ${societe?.raisonSociale ?? "Société"}`}
         description="Une ligne par compte ; le code AFFECTAT reclasse chaque compte pour la synthèse ci-dessous."
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleExportPdf} disabled={lignes.length === 0}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void handleSavePdf()} disabled={lignes.length === 0}>
               <FileText className="h-4 w-4" />
-              Exporter PDF
+              Enregistrer PDF
+            </Button>
+            <Button variant="outline" onClick={handlePrint} disabled={lignes.length === 0}>
+              <Printer className="h-4 w-4" />
+              Imprimer
             </Button>
             <Button variant="outline" onClick={handleExportExcel} disabled={lignes.length === 0}>
               <Download className="h-4 w-4" />
-              Exporter Excel
+              Excel
             </Button>
             <Button variant="ledger-text" onClick={() => setImportOpen(true)}>
               <Upload className="h-3.5 w-3.5" />

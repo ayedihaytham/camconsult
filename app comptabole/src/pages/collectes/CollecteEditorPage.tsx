@@ -161,6 +161,12 @@ export function CollecteEditorPage() {
   // lecture seule dans chaque onglet.
   const showFlagsFor = (key: string) =>
     !archivee && (isAdmin || sectionRecapStatut(collecte, key) !== "none");
+  // Le client ne peut renvoyer un récap au cabinet qu'une fois TOUTES les
+  // cases « ? » des tableaux demandés remplies et enregistrées — le cabinet
+  // ne reçoit jamais de récap à moitié complété à clôturer.
+  const recapRestant = clientRecap
+    ? liveManques.filter((m) => sectionRecapStatut(collecte, m.onglet) === "envoye").length
+    : 0;
 
   const rows = checklistRows(collecte);
   const recus = rows.filter((r) => r.recu).length;
@@ -245,7 +251,14 @@ export function CollecteEditorPage() {
               <Button
                 variant="ledger"
                 size="sm"
+                disabled={recapRestant > 0}
+                title={
+                  recapRestant > 0
+                    ? `Encore ${recapRestant} case(s) à compléter avant de transmettre`
+                    : undefined
+                }
                 onClick={async () => {
+                  if (recapRestant > 0) return;
                   // Transmettre la collecte elle-même (première fois, ou
                   // renvoi après correction) prime toujours sur un simple
                   // récap en attente — les deux se font alors ensemble en un
@@ -349,6 +362,11 @@ export function CollecteEditorPage() {
           Le cabinet vous demande de <strong>compléter les cases marquées ?</strong>{" "}
           dans les onglets concernés, puis de cliquer{" "}
           <strong>« Transmettre au cabinet »</strong>. Le reste est verrouillé.
+          <p className="mt-1.5 font-medium">
+            {recapRestant > 0
+              ? `Encore ${recapRestant} case${recapRestant > 1 ? "s" : ""} à compléter — enregistrez chaque onglet ; la transmission sera possible une fois tout rempli.`
+              : "Toutes les cases sont complétées : vous pouvez transmettre au cabinet."}
+          </p>
         </div>
       )}
       {validee && (

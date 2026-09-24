@@ -62,22 +62,34 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   }, [pathname, markNotificationsRead]);
 
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
+    <Sidebar collapsible="icon" className="signature-sidebar border-r-0" {...props}>
+      <SidebarHeader className="signature-sidebar__brand-cap h-16 shrink-0 gap-0 p-0">
+        <SidebarMenu className="h-full gap-0 p-2">
+          <SidebarMenuItem className="h-full">
             <SidebarMenuButton
               size="lg"
               tooltip="CAMCONSULT"
-              className="hover:bg-transparent active:bg-transparent"
+              className="h-12 w-full gap-2.5 rounded-md px-2.5 hover:bg-transparent active:bg-transparent group-data-[collapsible=icon]:!p-0"
               aria-label="CAMCONSULT"
             >
-              <img
-                src="/brand/logo-mark-dark.png"
-                alt=""
-                className="size-8 shrink-0 object-contain"
-              />
-              <span className="font-bold tracking-[0.16em] text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+              <svg
+                viewBox="0 0 40 40"
+                aria-hidden="true"
+                className="size-8 shrink-0 group-data-[collapsible=icon]:!size-8"
+              >
+                <rect x="2" y="2" width="16" height="16" rx="3" fill="#fff8ee" />
+                <rect x="22" y="2" width="16" height="16" rx="3" fill="#fff8ee" />
+                <rect x="2" y="22" width="16" height="16" rx="3" fill="#fff8ee" />
+                <rect x="22" y="22" width="16" height="16" rx="3" fill="#fff8ee" />
+                <path
+                  d="m7 7 6 6m0-6-6 6M27 10h7m-3.5-3.5v7M7 30h7m-3.5-3.5h.01m0 7h.01M27 30h7"
+                  fill="none"
+                  stroke="#0b2545"
+                  strokeWidth="4.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="text-[0.72rem] font-bold leading-none tracking-[0.16em] text-sidebar-foreground group-data-[collapsible=icon]:hidden">
                 CAMCONSULT
               </span>
             </SidebarMenuButton>
@@ -85,7 +97,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="signature-sidebar__content">
         <SidebarNavigation
           groups={groups}
           unreadMessages={unreadMessages}

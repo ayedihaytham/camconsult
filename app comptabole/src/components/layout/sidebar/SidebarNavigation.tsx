@@ -31,7 +31,7 @@ import {
   type NavGroup,
 } from "./navigation";
 
-const NAV_ITEM_CLASS = "relative text-sidebar-muted data-[active=true]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']";
+const NAV_ITEM_CLASS = "relative text-sidebar-muted data-[active=true]:text-sidebar-accent-foreground data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']";
 
 interface SidebarNavigationProps {
   groups: NavGroup[];
@@ -86,7 +86,7 @@ export function SidebarNavigation({
           key={group.label ?? `group-${groupIndex}`}
           className={groupIndex === 0 ? "pb-1 pt-1.5" : "py-1.5"}
         >
-          <SidebarGroupLabel className="h-6 px-2 text-[0.68rem] font-semibold text-sidebar-foreground/60 group-data-[collapsible=icon]:-mt-6">
+          <SidebarGroupLabel className="h-6 px-2 text-[0.68rem] font-semibold text-sidebar-foreground/60">
             {group.label ?? "Overview"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -125,7 +125,7 @@ export function SidebarNavigation({
                             side="right"
                             align="start"
                             sideOffset={8}
-                            className="w-52 rounded-xl border-border bg-popover p-1.5 shadow-pop"
+                            className="w-56 rounded-md border-border bg-popover p-1.5 shadow-pop"
                           >
                             <DropdownMenuLabel>{item.label}</DropdownMenuLabel>
                             <DropdownMenuSeparator />
@@ -146,7 +146,7 @@ export function SidebarNavigation({
                                   className={cn(
                                     "min-h-8 text-foreground focus:bg-secondary focus:text-foreground",
                                     childActive &&
-                                      "before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-accent before:content-[''] font-semibold text-primary",
+                                    "relative before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-accent before:content-[''] font-semibold text-primary",
                                   )}
                                 >
                                   <NavLink to={child.to}>
@@ -188,7 +188,7 @@ export function SidebarNavigation({
                       {pending && <PendingBadge />}
                       {pending && <CollapsedPendingIndicator />}
                       {!isCollapsedDesktop && open && (
-                        <SidebarMenuSub>
+                        <SidebarMenuSub className="signature-sidebar__nested">
                           {item.children.map((child) => {
                             const childActive = isRouteActive(
                               pathname,
@@ -204,7 +204,7 @@ export function SidebarNavigation({
                                 <SidebarMenuSubButton
                                   asChild
                                   isActive={childActive}
-                                  className="text-sidebar-muted data-[active=true]:font-semibold data-[active=true]:text-sidebar-primary"
+                                  className="relative text-sidebar-muted data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-1 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']"
                                 >
                                   <NavLink to={child.to}>
                                     {childPending && <PendingDot />}
@@ -245,7 +245,7 @@ export function SidebarNavigation({
                     </SidebarMenuButton>
                     {badge ? (
                       <>
-                        <SidebarMenuBadge className="bg-sidebar-primary font-bold text-sidebar-primary-foreground">
+                        <SidebarMenuBadge className="bg-sidebar-foreground font-bold text-sidebar-deep">
                           {badge}
                         </SidebarMenuBadge>
                         <CollapsedUnreadBadge count={badge} />
@@ -287,7 +287,7 @@ function PendingDot() {
 function CollapsedUnreadBadge({ count }: { count: number }) {
   return (
     <span
-      className="pointer-events-none absolute -right-1 -top-1 hidden h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sidebar-primary px-0.5 text-[8px] font-bold leading-none text-sidebar-primary-foreground group-data-[collapsible=icon]:flex"
+      className="pointer-events-none absolute -right-1 -top-1 hidden h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sidebar-foreground px-0.5 text-[8px] font-bold leading-none text-sidebar-deep group-data-[collapsible=icon]:flex"
       aria-hidden="true"
     >
       {count > 9 ? "9+" : count}

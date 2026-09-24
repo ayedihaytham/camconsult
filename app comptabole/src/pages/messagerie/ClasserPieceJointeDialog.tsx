@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { RACINE_SOCIETE_DESCRIPTION } from "@/lib/classement";
 import type { Noeud } from "@/types";
 
 interface Props {
@@ -45,12 +46,14 @@ export function ClasserPieceJointeDialog({
     ? nodes.filter((n) => n.societeId === restrictToSocieteId)
     : nodes;
   const folders = scopedNodes.filter((n) => n.type === "dossier");
-  // Dossier de tête de cette société dans l'arborescence (son parent n'est
-  // pas lui-même dans le périmètre restreint) — sert de cible pour "Racine
-  // de la société" : jamais la vraie racine globale (parentId=null), qui
-  // appartient à "Comptabilité générale [année]", partagée par toutes.
+  // Dossier de tête de cette société (<société> › Comptabilité générale
+  // [année] › …) — cible par défaut « Racine de la société ». Celui qui porte
+  // le repère d'abord, sinon le premier dossier dont le parent n'est pas
+  // dans la société (un dossier créé à la main au premier niveau ne doit pas
+  // passer devant).
   const societeRoot = restrictToSocieteId
-    ? scopedNodes.find((n) => !scopedNodes.some((p) => p.id === n.parentId))
+    ? (folders.find((n) => n.parentId === null && n.description === RACINE_SOCIETE_DESCRIPTION) ??
+      scopedNodes.find((n) => !scopedNodes.some((p) => p.id === n.parentId)))
     : null;
 
   useEffect(() => {

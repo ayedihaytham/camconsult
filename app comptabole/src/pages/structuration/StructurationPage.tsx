@@ -173,22 +173,18 @@ export function StructurationPage() {
     toast.success("Arborescence dupliquée");
   }
 
-  /** Racine partagée "Comptabilité générale [année]" + un dossier par
-   * société dessous + ses dossiers standard (achat/vente/banque/caisse/
-   * CNSS/Divers/DMI/juridique) — idempotent, donc rejouable plus tard pour
-   * une nouvelle société (ou une année différente) sans risque de doublon ;
-   * retrouve aussi un dossier "Comptabilité générale [année]" déjà créé à la
-   * main pour cette année plutôt que d'en recréer un en double. */
+  /** Pour chaque société : <société> › Comptabilité générale [année] › ses
+   * dossiers standard (achat/vente/banque/caisse/CNSS/Divers/DMI/juridique)
+   * — idempotent, donc rejouable plus tard pour une nouvelle société (ou une
+   * année différente) sans risque de doublon. */
   async function handleProvisionAll(annee: number) {
     setProvisioning(true);
     let societesTraitees = 0;
     let dossiersCrees = 0;
     try {
-      // Toutes les sociétés partagent la même racine "Comptabilité générale
-      // [année]" : on relit l'état le plus frais à chaque tour (pas le
-      // instantané `allNodes` du dernier rendu) pour que la 2e société
-      // trouve bien la racine que la 1re vient de créer, au lieu d'en
-      // recréer une en double.
+      // On relit l'état le plus frais à chaque tour (pas l'instantané
+      // `allNodes` du dernier rendu), pour que chaque passage voie les
+      // dossiers déjà créés par les précédents.
       for (const societe of societes) {
         const crees = await provisionnerArborescenceSociete({
           noeuds: useData.getState().noeuds,
@@ -543,12 +539,13 @@ export function StructurationPage() {
             <DialogTitle>Instancier l'arborescence standard</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Crée, pour chaque société qui n'a pas encore de dossier pour cette
-            année, une racine « Comptabilité générale {provisionAnnee || "…"} »
-            avec les dossiers standard (achat, vente, banque, caisse, CNSS,
-            Divers, DMI, juridique) — retrouve un dossier déjà créé à la main
-            pour cette année plutôt que d'en recréer un en double. Rien n'est
-            touché pour les sociétés déjà provisionnées cette année-là.
+            Crée, dans le dossier de chaque société, un dossier « Comptabilité
+            générale {provisionAnnee || "…"} » avec les dossiers standard
+            (achat, vente, banque, caisse, CNSS, Divers, DMI, juridique) :
+            société › Comptabilité générale {provisionAnnee || "…"} › achat…
+            Retrouve un dossier déjà créé à la main plutôt que d'en recréer un
+            en double ; rien n'est touché pour les sociétés déjà provisionnées
+            cette année-là.
           </p>
           <div className="space-y-1.5">
             <Label htmlFor="provision-annee">Année</Label>

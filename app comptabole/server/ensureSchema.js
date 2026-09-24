@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import bcrypt from "bcryptjs";
 import { query } from "./db.js";
+import { inverserStructuration } from "./migrateStructuration.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -13,6 +14,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export async function ensureSchema() {
   const schema = readFileSync(join(__dirname, "schema.sql"), "utf8");
   await query(schema); // toutes les instructions sont `create ... if not exists`
+
+  // Structuration : <société> › Comptabilité générale [année] (et non plus
+  // l'inverse). Transaction : en cas d'erreur rien n'est modifié, et le
+  // serveur démarre quand même.
+  try {
+    const n = await inverserStructuration();
+    if (n > 0) console.log(`[db] structuration inversée : ${n} dossier(s) de société déplacé(s)`);
+  } catch (err) {
+    console.error("[db] inversion de la structuration annulée (rien n'a été modifié)", err.message);
+  }
 
   const { rows } = await query("select id from app_meta where id = 1");
   if (rows.length === 0) {

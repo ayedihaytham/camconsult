@@ -48,95 +48,83 @@ async function trouverOuCreerDossier(
   });
 }
 
-function nomRacineCabinet(annee?: number): string {
+/** Même valeur que RACINE_SOCIETE_DESCRIPTION côté serveur
+ * (server/migrateStructuration.js) : repère le dossier racine d'une société
+ * même si elle est renommée. */
+export const RACINE_SOCIETE_DESCRIPTION = "Dossier racine de la société";
+
+export function nomComptabiliteGenerale(annee?: number | string): string {
   return `Comptabilité générale ${annee ?? new Date().getFullYear()}`;
 }
 
 /**
- * Dossier racine UNIQUE du cabinet (societeId=null, parentId=null), partagé
- * par toutes les sociétés — "Comptabilité générale [année]" au sens propre,
- * pas une racine par société : chaque société a son propre sous-dossier
- * dessous (voir trouverOuCreerDossierSociete). `annee` permet de cibler une
- * année passée (rattrapage) ou future (préparation en avance) plutôt que
- * l'année en cours par défaut — retrouve un dossier déjà créé à la main
- * avec ce nom exact au lieu d'en recréer un en double.
+ * Dossier racine d'une société (societeId = la société, parentId = null) —
+ * le premier niveau de sa Structuration :
+ *   <société> › Comptabilité générale [année] › achat, vente, banque…
+ * Retrouvé par son repère (description), sinon par le nom de la société,
+ * avant d'en créer un : jamais de doublon, même pour un dossier créé à la
+ * main au nom de la société (il reçoit alors le repère).
  */
-async function trouverOuCreerRacineCabinet(
+async function trouverOuCreerRacineSociete(
   noeuds: Noeud[],
   addNoeud: AddNoeud,
-  annee?: number,
+  updateNoeud: UpdateNoeud,
+  params: { societeId: string; societeLibelle: string },
 ): Promise<Noeud> {
-  const nom = nomRacineCabinet(annee);
-  const existante = noeuds.find(
-    (n) =>
-      n.societeId === null &&
-      n.parentId === null &&
-      n.type === "dossier" &&
-      n.libelle.trim().toLowerCase() === nom.trim().toLowerCase(),
+  const candidates = noeuds.filter(
+    (n) => n.societeId === params.societeId && n.parentId === null && n.type === "dossier",
   );
-  if (existante) return existante;
+  const parRepere = candidates.find((n) => n.description === RACINE_SOCIETE_DESCRIPTION);
+  if (parRepere) return parRepere;
+  const parNom = candidates.find(
+    (n) => n.libelle.trim().toLowerCase() === params.societeLibelle.trim().toLowerCase(),
+  );
+  if (parNom) {
+    await updateNoeud(parNom.id, { description: RACINE_SOCIETE_DESCRIPTION });
+    return { ...parNom, description: RACINE_SOCIETE_DESCRIPTION };
+  }
   return addNoeud({
-    libelle: nom,
-    description: "",
+    libelle: params.societeLibelle,
+    description: RACINE_SOCIETE_DESCRIPTION,
     type: "dossier",
-    societeId: null,
+    societeId: params.societeId,
     parentId: null,
   });
 }
 
-/**
- * Dossier d'une société sous la racine partagée du cabinet — identifié par
- * societeId + parentId (pas par libellé, une société pouvant être renommée).
- * Migre aussi l'ancien format (racine de société encore au niveau
- * supérieur, parentId=null — utilisé avant que "Comptabilité générale
- * [année]" ne devienne une racine commune) en la déplaçant/renommant plutôt
- * que d'en recréer une : ses sous-dossiers (achat/vente/…) la suivent
- * automatiquement, ils ne référencent que son id, jamais son parentId.
- */
-async function trouverOuCreerDossierSociete(
+/** <société> › Comptabilité générale [année] — créés à la volée si besoin. */
+async function trouverOuCreerComptaAnnee(
   noeuds: Noeud[],
   addNoeud: AddNoeud,
   updateNoeud: UpdateNoeud,
-  params: { societeId: string; societeLibelle: string; racineCabinetId: string },
-): Promise<Noeud> {
-  const sousRacine = noeuds.find(
-    (n) =>
-      n.societeId === params.societeId &&
-      n.parentId === params.racineCabinetId &&
-      n.type === "dossier",
-  );
-  if (sousRacine) return sousRacine;
-
-  const ancienneRacine = noeuds.find(
-    (n) => n.societeId === params.societeId && n.parentId === null && n.type === "dossier",
-  );
-  if (ancienneRacine) {
-    await updateNoeud(ancienneRacine.id, {
-      libelle: params.societeLibelle,
-      parentId: params.racineCabinetId,
-    });
-    return {
-      ...ancienneRacine,
-      libelle: params.societeLibelle,
-      parentId: params.racineCabinetId,
-    };
+  params: { societeId: string; societeLibelle: string; annee?: number | string },
+): Promise<{ dossier: Noeud; pool: Noeud[]; crees: number }> {
+  let pool = noeuds;
+  let crees = 0;
+  const racine = await trouverOuCreerRacineSociete(pool, addNoeud, updateNoeud, params);
+  if (!pool.some((n) => n.id === racine.id)) {
+    pool = [...pool, racine];
+    crees++;
+  } else {
+    pool = pool.map((n) => (n.id === racine.id ? racine : n));
   }
-
-  return addNoeud({
-    libelle: params.societeLibelle,
-    description: "",
-    type: "dossier",
+  const dossier = await trouverOuCreerDossier(pool, addNoeud, {
     societeId: params.societeId,
-    parentId: params.racineCabinetId,
+    parentId: racine.id,
+    libelle: nomComptabiliteGenerale(params.annee),
   });
+  if (!pool.some((n) => n.id === dossier.id)) {
+    pool = [...pool, dossier];
+    crees++;
+  }
+  return { dossier, pool, crees };
 }
 
 /**
  * Classe un document (facture d'achat, de vente ou pièce douanière déjà
  * importée dans un mouvement de stock) dans le module Structuration, sous
- * <Comptabilité générale [année]>/<société>/<achat|vente|douane>/<année de
- * la pièce> — créés à la volée si besoin, jamais de dossier dupliqué à
- * chaque classement (voir trouverOuCreerDossier/trouverOuCreerDossierSociete).
+ * <société>/Comptabilité générale <année de la pièce>/<achat|vente|douane> —
+ * créés à la volée si besoin, jamais de dossier dupliqué à chaque classement.
  * L'année de la pièce vient directement de la chaîne ISO de la date (pas de
  * Date() + getFullYear(), qui peut décaler d'un jour selon le fuseau — voir
  * la même précaution ailleurs dans l'appli pour les dates de balance).
@@ -164,32 +152,15 @@ export async function classerDansStructuration({
 }): Promise<{ noeud: Noeud; dejaClasse: boolean }> {
   const annee = date && date.length >= 4 ? date.slice(0, 4) : String(new Date().getFullYear());
 
-  const racineCabinet = await trouverOuCreerRacineCabinet(noeuds, addNoeud);
-  const noeudsAvecCabinet = noeuds.some((n) => n.id === racineCabinet.id)
-    ? noeuds
-    : [...noeuds, racineCabinet];
-
-  const racine = await trouverOuCreerDossierSociete(noeudsAvecCabinet, addNoeud, updateNoeud, {
+  const { dossier: comptaAnnee, pool } = await trouverOuCreerComptaAnnee(noeuds, addNoeud, updateNoeud, {
     societeId,
     societeLibelle,
-    racineCabinetId: racineCabinet.id,
+    annee,
   });
-  const noeudsAvecRacine = noeudsAvecCabinet.some((n) => n.id === racine.id)
-    ? noeudsAvecCabinet
-    : [...noeudsAvecCabinet, racine];
-
-  const dossierCategorie = await trouverOuCreerDossier(noeudsAvecRacine, addNoeud, {
+  const dossierCategorie = await trouverOuCreerDossier(pool, addNoeud, {
     societeId,
-    parentId: racine.id,
+    parentId: comptaAnnee.id,
     libelle: categorie,
-  });
-  const noeudsAvecCategorie = noeudsAvecRacine.some((n) => n.id === dossierCategorie.id)
-    ? noeudsAvecRacine
-    : [...noeudsAvecRacine, dossierCategorie];
-  const dossierAnnee = await trouverOuCreerDossier(noeudsAvecCategorie, addNoeud, {
-    societeId,
-    parentId: dossierCategorie.id,
-    libelle: annee,
   });
 
   const { format, taille } = infosDataUrl(dataUrl);
@@ -198,7 +169,7 @@ export async function classerDansStructuration({
   const dejaExistant = noeuds.find(
     (n) =>
       n.societeId === societeId &&
-      n.parentId === dossierAnnee.id &&
+      n.parentId === dossierCategorie.id &&
       n.type === "fichier" &&
       n.libelle.trim().toLowerCase() === libelle.trim().toLowerCase(),
   );
@@ -209,7 +180,7 @@ export async function classerDansStructuration({
     description: "",
     type: "fichier",
     societeId,
-    parentId: dossierAnnee.id,
+    parentId: dossierCategorie.id,
     format,
     taille,
     dataUrl,
@@ -217,10 +188,9 @@ export async function classerDansStructuration({
   return { noeud: fichier, dejaClasse: false };
 }
 
-/** Dossiers standard du modèle du cabinet — voir la capture de référence
- * (Comptabilité générale [année] > société > ces dossiers). Fixe et non
- * dérivé du "Modèle générique" existant : au-delà de ce socle, tout le
- * reste de l'arborescence reste manuel. */
+/** Dossiers standard du modèle du cabinet (société > Comptabilité générale
+ * [année] > ces dossiers). Fixe et non dérivé du "Modèle générique" existant :
+ * au-delà de ce socle, tout le reste de l'arborescence reste manuel. */
 const DOSSIERS_STANDARD = [
   "achat",
   "vente",
@@ -233,16 +203,13 @@ const DOSSIERS_STANDARD = [
 ];
 
 /**
- * Provisionne, pour une société, son dossier sous la racine partagée
- * "Comptabilité générale [année]" + les dossiers standard du cabinet —
- * idempotent (voir trouverOuCreerRacineCabinet / trouverOuCreerDossierSociete
- * / trouverOuCreerDossier), donc rejouable sans jamais dupliquer ce qui
- * existe déjà, et migre au passage une éventuelle ancienne racine de société
- * au premier niveau vers le nouvel emplacement imbriqué. `annee` cible une
- * année différente de l'année en cours (rattrapage d'une année passée,
- * dossier déjà créé à la main ou non — retrouvé par son nom exact plutôt
- * que dupliqué). Utilisé pour l'action globale "Instancier pour toutes les
- * sociétés" de Structuration.
+ * Provisionne, pour une société : son dossier racine, son dossier
+ * « Comptabilité générale [année] » et les dossiers standard du cabinet
+ * dedans — idempotent, donc rejouable sans jamais dupliquer ce qui existe
+ * déjà. `annee` cible une année différente de l'année en cours (rattrapage
+ * d'une année passée ou préparation de la suivante : un dossier par année,
+ * côte à côte sous la société). Utilisé pour l'action globale « Instancier
+ * pour toutes les sociétés » de Structuration.
  */
 export async function provisionnerArborescenceSociete({
   noeuds,
@@ -259,29 +226,18 @@ export async function provisionnerArborescenceSociete({
   societeLibelle: string;
   annee?: number;
 }): Promise<number> {
-  let pool = noeuds;
-  let crees = 0;
-
-  const racineCabinet = await trouverOuCreerRacineCabinet(pool, addNoeud, annee);
-  if (!pool.some((n) => n.id === racineCabinet.id)) {
-    pool = [...pool, racineCabinet];
-    crees++;
-  }
-
-  const racine = await trouverOuCreerDossierSociete(pool, addNoeud, updateNoeud, {
+  const debut = await trouverOuCreerComptaAnnee(noeuds, addNoeud, updateNoeud, {
     societeId,
     societeLibelle,
-    racineCabinetId: racineCabinet.id,
+    annee,
   });
-  if (!pool.some((n) => n.id === racine.id)) {
-    pool = [...pool, racine];
-    crees++;
-  }
+  let pool = debut.pool;
+  let crees = debut.crees;
 
   for (const libelle of DOSSIERS_STANDARD) {
     const dossier = await trouverOuCreerDossier(pool, addNoeud, {
       societeId,
-      parentId: racine.id,
+      parentId: debut.dossier.id,
       libelle,
     });
     if (!pool.some((n) => n.id === dossier.id)) {

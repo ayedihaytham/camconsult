@@ -266,7 +266,24 @@ export async function sendPasswordResetEmail(employe) {
 
 /** Relance envoyée à la société cliente pour une collecte en attente
  * (échéance dépassée, pas encore transmise) — voir server/relances.js. */
-export async function sendCollecteRelanceEmail({ email, raisonSociale, periode, echeance }) {
+/** Date d'échéance (Date renvoyée par pg pour une colonne `date`, ou texte
+ * « AAAA-MM-JJ ») → « 24/09/2026 » ; null si absente. */
+export function frDateEcheance(d) {
+  if (!d) return null;
+  if (d instanceof Date)
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d);
+}
+
+const periodeTexte = (p) => (p && String(p).trim()) || "période non précisée";
+
+/**
+ * Relance d'une collecte en attente du client — le texte suit la situation
+ * réelle : échéance dépassée, échéance à venir, ou pas d'échéance du tout
+ * (relance manuelle « Relancer maintenant »).
+ */
+export async function sendCollecteRelanceEmail({ email, raisonSociale, periode, echeance, depassee }) {
   if (!mailerAvailable()) {
     console.log("[mailer] relance sautée (SMTP non configuré)");
     return;
@@ -276,15 +293,21 @@ export async function sendCollecteRelanceEmail({ email, raisonSociale, periode, 
     return;
   }
 
+  const date = frDateEcheance(echeance);
+  const accent = date && depassee ? BRAND.danger : BRAND.warning;
   const bodyHtml = `
     ${paragraph("Bonjour,")}
-    ${paragraph(`La collecte de pièces <strong>${escapeHtml(periode)}</strong> est toujours en attente de votre part.`)}
+    ${paragraph(`La collecte de pièces <strong>${escapeHtml(periodeTexte(periode))}</strong> est toujours en attente de votre part.`)}
     ${infoCard(
       [
-        ["Période", escapeHtml(periode)],
-        echeance ? ["Échéance dépassée depuis", `<span style="color:${BRAND.danger};">${escapeHtml(echeance)}</span>`] : null,
+        ["Période", escapeHtml(periodeTexte(periode))],
+        date
+          ? depassee
+            ? ["Échéance dépassée depuis le", `<span style="color:${BRAND.danger};">${escapeHtml(date)}</span>`]
+            : ["À transmettre avant le", escapeHtml(date)]
+          : null,
       ],
-      BRAND.danger,
+      accent,
     )}
     ${paragraph("Merci de vous connecter à votre espace pour la compléter et la transmettre au cabinet.")}
     ${ctaButton("Compléter ma collecte", "https://cabinet.camconsult.com.tn")}
@@ -293,12 +316,12 @@ export async function sendCollecteRelanceEmail({ email, raisonSociale, periode, 
   await getTransport().sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: email,
-    subject: `Rappel — collecte de pièces en attente (${periode})`,
+    subject: `Rappel — collecte de pièces en attente (${periodeTexte(periode)})`,
     html: emailShell({
-      eyebrow: "Action requise",
+      eyebrow: date && depassee ? "Action requise" : "Rappel",
       title: "Collecte de pièces en attente",
       bodyHtml,
-      accent: BRAND.danger,
+      accent,
     }),
   });
   console.log(`[mailer] relance collecte envoyée à ${email}`);
@@ -318,11 +341,11 @@ export async function sendCollecteRappelAvantEmail({ email, raisonSociale, perio
 
   const bodyHtml = `
     ${paragraph("Bonjour,")}
-    ${paragraph(`La collecte de pièces <strong>${escapeHtml(periode)}</strong> approche de son échéance.`)}
+    ${paragraph(`La collecte de pièces <strong>${escapeHtml(periodeTexte(periode))}</strong> approche de son échéance.`)}
     ${infoCard(
       [
-        ["Période", escapeHtml(periode)],
-        echeance ? ["À transmettre avant le", escapeHtml(echeance)] : null,
+        ["Période", escapeHtml(periodeTexte(periode))],
+        echeance ? ["À transmettre avant le", escapeHtml(frDateEcheance(echeance))] : null,
       ],
       BRAND.warning,
     )}
@@ -333,7 +356,7 @@ export async function sendCollecteRappelAvantEmail({ email, raisonSociale, perio
   await getTransport().sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: email,
-    subject: `Échéance proche — collecte de pièces (${periode})`,
+    subject: `Échéance proche — collecte de pièces (${periodeTexte(periode)})`,
     html: emailShell({
       eyebrow: "Rappel",
       title: "Échéance de collecte proche",

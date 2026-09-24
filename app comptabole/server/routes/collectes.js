@@ -85,6 +85,7 @@ async function loadCollecte(id) {
  * seulement consulter. */
 function isCabinet(session, societeId) {
   if (session.role === "admin") return true;
+  if (session.poste === "responsable_collaborateurs") return true;
   return (
     session.poste === "collaborateur" &&
     (session.societeIds || []).includes(societeId)
@@ -103,12 +104,12 @@ function canPostNote(session, societeId) {
 // Un collaborateur reste "cabinet" pour l'affichage (regroupé avec admin,
 // jamais confondu avec le client) — voir OngletNotes.tsx (auteur === "admin" -> "Cabinet").
 const noteAuteur = (session) =>
-  session.role === "admin" || session.poste === "collaborateur" ? "admin" : "client";
+  session.poste === "societe_employe" ? "client" : "admin";
 
-/** Admin, collaborateur en charge, ou employé de la société : sur les sociétés du périmètre. */
+/** Admin, responsable des collaborateurs, collaborateur en charge, ou employé
+ * de la société : sur les sociétés du périmètre. */
 function canEdit(session, societeId) {
-  if (session.role === "admin") return true;
-  return (session.societeIds || []).includes(societeId);
+  return canSeeSociete(session, societeId);
 }
 
 /** Collecte verrouillée en écriture pour cette session, tous onglets
@@ -177,12 +178,15 @@ collectesRouter.get("/:id", async (req, res) => {
   res.json(full);
 });
 
-// ── Création (admin) ──────────────────────────────
-collectesRouter.post("/", requireAdmin, async (req, res) => {
+// ── Création (cabinet : admin, responsable des collaborateurs, collaborateur
+// sur ses sociétés) — la création notifie le client, c'est l'envoi. ────────
+collectesRouter.post("/", async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
+  if (!isCabinet(req.session, v.societeId))
+    return res.status(403).json({ error: "Société hors de votre périmètre" });
   const soc = (
     await query("select raison_sociale from societes where id = $1", [v.societeId])
   ).rows[0];
@@ -214,12 +218,18 @@ collectesRouter.post("/", requireAdmin, async (req, res) => {
     `${soc.raison_sociale} — ${periodeLabel(v.periode)}`,
     created.id,
   );
-  const targets = await concernedBySociete(v.societeId, { includeAdmin: false });
+  const targets = (
+    await concernedBySociete(v.societeId, {
+      includeAdmin: req.session.role !== "admin",
+    })
+  ).filter((k) => k !== notifKey(req.session));
   notifyMany(
     targets,
     "collecte",
     `Nouvelle collecte à remplir : ${periodeLabel(v.periode)}`,
-    `Société ${soc.raison_sociale} — ${onglets.length} tableau(x) demandé(s)`,
+    `Société ${soc.raison_sociale} — ${onglets.length} tableau(x) demandé(s)${
+      req.session.role === "admin" ? "" : ` — par ${req.session.nom}`
+    }`,
     `/collectes/${created.id}`,
   );
   res.status(201).json(await loadCollecte(created.id));

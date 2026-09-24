@@ -4,7 +4,7 @@
 // demande (lourd), uniquement au moment de l'export.
 import type { Workbook, Worksheet } from "exceljs";
 import type { CollecteFull } from "@/types";
-import { TAB_BY_KEY, cellNumber } from "./tabs";
+import { TAB_BY_KEY, cellNumber, titreDocument } from "./tabs";
 import { checklistRows } from "./checklist";
 
 const BLEU = "FF1F4E79";
@@ -23,12 +23,6 @@ const border = {
   bottom: { style: "thin" as const, color: { argb: GRIS_BORD } },
   right: { style: "thin" as const, color: { argb: GRIS_BORD } },
 };
-
-/** « Détail de la souche (chèques émis) » → « DÉTAIL DE LA SOUCHE (chèques émis) ». */
-function titreModele(label: string) {
-  const i = label.indexOf("(");
-  return i === -1 ? label.toUpperCase() : label.slice(0, i).toUpperCase() + label.slice(i);
-}
 
 const deviseLabel = (c: CollecteFull) => (c.devise === "EUR" ? "€" : c.devise);
 
@@ -76,7 +70,7 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
   if (!def) return;
   if (key === "etat_caisse") return feuilleCaisse(wb, collecte);
   const ws = wb.addWorksheet(def.label.slice(0, 31), { views: [{ state: "frozen", ySplit: 4 }] });
-  titre(ws, def.excelTitle ?? titreModele(def.pieceLabel), SOUS_TITRE);
+  titre(ws, titreDocument(def), SOUS_TITRE);
   const devise = deviseLabel(collecte);
   // Montants : « Montant HT (€) » ; jamais pour un pourcentage (« TVA % »).
   const isPct = (c: { label: string }) => c.label.includes("%");
@@ -160,7 +154,7 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
 function feuilleCaisse(wb: Workbook, collecte: CollecteFull) {
   const def = TAB_BY_KEY.etat_caisse;
   const ws = wb.addWorksheet(def.label.slice(0, 31), { views: [{ state: "frozen", ySplit: 5 }] });
-  titre(ws, def.excelTitle ?? titreModele(def.pieceLabel), SOUS_TITRE);
+  titre(ws, titreDocument(def), SOUS_TITRE);
   const devise = deviseLabel(collecte);
   enTetes(
     ws,

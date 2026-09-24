@@ -11,6 +11,7 @@ import {
   FileText,
   History,
   Paperclip,
+  Printer,
   RotateCcw,
   Send,
   SlidersHorizontal,
@@ -35,6 +36,7 @@ import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
 import { aggregateRecapStatut, sectionRecapStatut } from "@/lib/collecte/recap";
 import {
+  downloadCollecteSectionPdf,
   exportCollecteSectionXlsx,
   exportCollecteXlsx,
   printCollecteSection,
@@ -903,10 +905,22 @@ function SectionExport({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => printCollecteSection(collecte, section, societeNom)}
+        onClick={() =>
+          downloadCollecteSectionPdf(collecte, section, societeNom).catch(() =>
+            toast.error("PDF impossible"),
+          )
+        }
       >
         <FileText className="h-4 w-4" />
-        PDF
+        Enregistrer PDF
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => printCollecteSection(collecte, section, societeNom)}
+      >
+        <Printer className="h-4 w-4" />
+        Imprimer
       </Button>
     </div>
   );

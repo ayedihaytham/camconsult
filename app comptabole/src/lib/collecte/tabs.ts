@@ -489,6 +489,15 @@ export const COLLECTE_TABS: TabDef[] = [
   },
 ];
 
+/** Titre des documents exportés (Excel, PDF) : « DÉTAIL DE LA SOUCHE (chèques émis) ». */
+export function titreDocument(def: TabDef): string {
+  if (def.excelTitle) return def.excelTitle;
+  const i = def.pieceLabel.indexOf("(");
+  return i === -1
+    ? def.pieceLabel.toUpperCase()
+    : def.pieceLabel.slice(0, i).toUpperCase() + def.pieceLabel.slice(i);
+}
+
 export const TAB_BY_KEY: Record<string, TabDef> = Object.fromEntries(
   COLLECTE_TABS.map((t) => [t.key, t]),
 );

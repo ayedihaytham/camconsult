@@ -1,18 +1,30 @@
-import { FileSpreadsheet, FileText, Folder, FolderTree, Image as ImageIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  FileSpreadsheet,
+  FileText,
+  Folder,
+  FolderTree,
+  Image as ImageIcon,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { THEME_ACCENT, THEME_BAR, THEME_ICON, THEME_LINE } from "@/lib/societeTheme";
 import type { Noeud, Societe } from "@/types";
 
 /**
- * Vue d'ensemble complète : toutes les arborescences (une par société,
- * parfois plusieurs) sont rendues côte à côte, chacune comme son propre
- * arbre — jamais reliées entre elles par un trait (elles n'ont aucun lien
- * réel), pour que l'admin voie tout le cabinet d'un coup d'œil sans avoir à
- * sélectionner une société à la fois. Chaque branche a sa propre couleur
- * (celle du thème de sa société, réutilisée depuis Sociétés/Stock) reportée
- * sur ses traits de connexion et une barre d'accent sur chacune de ses
- * cartes, pour distinguer visuellement où commence/finit chaque société
- * dans un schéma qui en contient plusieurs.
+ * Organigramme d'UNE société à la fois (sélecteur en haut), en format
+ * compact + zoom, pour que tout son arbre tienne à l'écran. Chaque société
+ * garde sa couleur (celle de son thème, réutilisée depuis Sociétés/Stock)
+ * sur ses traits de connexion et la barre d'accent de ses cartes.
  *
  * Rendu en pur CSS (avant/après + bordures), pas de librairie de graphe :
  * l'arbre reste raisonnablement petit (dossiers/fichiers d'un cabinet
@@ -34,6 +46,9 @@ interface Branch {
   line: string;
 }
 
+const COMMUN = "__commun__";
+const ZOOMS = [0.6, 0.7, 0.8, 0.9, 1, 1.15, 1.3];
+
 export function OrganigrammeView({
   nodes,
   roots,
@@ -45,15 +60,107 @@ export function OrganigrammeView({
   getSocieteById: (id: string | null) => Societe | null;
   onOpenNode: (n: Noeud) => void;
 }) {
+  // Un organigramme par société (choisie en haut) plutôt que toutes côte à
+  // côte : chaque schéma reste lisible. Les arborescences sans société
+  // (modèle générique…) forment leur propre entrée « Commun ».
+  const groupes = useMemo(() => {
+    const map = new Map<string, { cle: string; label: string; roots: Noeud[] }>();
+    for (const r of roots) {
+      const cle = r.societeId ?? COMMUN;
+      const label = r.societeId ? (getSocieteById(r.societeId)?.raisonSociale ?? r.libelle) : "Commun (sans société)";
+      const g = map.get(cle) ?? { cle, label, roots: [] };
+      g.roots.push(r);
+      map.set(cle, g);
+    }
+    return [...map.values()].sort((a, b) =>
+      a.cle === COMMUN ? 1 : b.cle === COMMUN ? -1 : a.label.localeCompare(b.label, "fr"),
+    );
+  }, [roots, getSocieteById]);
+  const [choix, setChoix] = useState<string | null>(null);
+  const groupe = groupes.find((g) => g.cle === choix) ?? groupes[0];
+  const [zoomIdx, setZoomIdx] = useState(ZOOMS.indexOf(1));
+  const zoom = ZOOMS[zoomIdx];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Société</span>
+          <Select value={groupe?.cle} onValueChange={setChoix}>
+            <SelectTrigger className="h-9 w-64" aria-label="Organigramme de la société">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {groupes.map((g) => (
+                <SelectItem key={g.cle} value={g.cle}>
+                  {g.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1" aria-label="Zoom">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Réduire"
+            disabled={zoomIdx === 0}
+            onClick={() => setZoomIdx((i) => Math.max(0, i - 1))}
+          >
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <button
+            type="button"
+            className="w-12 text-center text-xs tabular-nums text-muted-foreground hover:text-foreground"
+            title="Taille normale"
+            onClick={() => setZoomIdx(ZOOMS.indexOf(1))}
+          >
+            {Math.round(zoom * 100)} %
+          </button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Agrandir"
+            disabled={zoomIdx === ZOOMS.length - 1}
+            onClick={() => setZoomIdx((i) => Math.min(ZOOMS.length - 1, i + 1))}
+          >
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <OrganigrammeSociete
+        nodes={nodes}
+        roots={groupe?.roots ?? []}
+        getSocieteById={getSocieteById}
+        onOpenNode={onOpenNode}
+        zoom={zoom}
+      />
+    </div>
+  );
+}
+
+function OrganigrammeSociete({
+  nodes,
+  roots,
+  getSocieteById,
+  onOpenNode,
+  zoom,
+}: {
+  nodes: Noeud[];
+  roots: Noeud[];
+  getSocieteById: (id: string | null) => Societe | null;
+  onOpenNode: (n: Noeud) => void;
+  zoom: number;
+}) {
   return (
     <div
-      className="overflow-x-auto rounded-xl border border-border bg-secondary/20 px-10 py-10"
+      className="overflow-auto rounded-xl border border-border bg-secondary/20 px-4 py-6"
       style={{
         backgroundImage: "radial-gradient(hsl(var(--foreground) / 0.09) 1px, transparent 1px)",
         backgroundSize: "18px 18px",
       }}
     >
-      <div className="flex flex-wrap items-start gap-x-14 gap-y-10">
+      <div className="flex w-max min-w-full flex-wrap items-start justify-center gap-x-10 gap-y-8" style={{ zoom }}>
         {roots.map((root, i) => {
           const societe = getSocieteById(root.societeId);
           const branch: Branch = societe
@@ -78,7 +185,7 @@ export function OrganigrammeView({
                 {children.length > 0 && (
                   <ul
                     className={cn(
-                      "relative flex pt-6 before:absolute before:left-1/2 before:top-0 before:h-6 before:border-l before:content-['']",
+                      "relative flex pt-4 before:absolute before:left-1/2 before:top-0 before:h-4 before:border-l before:content-['']",
                       branch.line,
                     )}
                   >
@@ -139,21 +246,23 @@ function OrgChartHero({
   const accentClass = societe ? THEME_ACCENT[societe.theme] : "bg-accent/12 text-accent";
   return (
     <div className="relative">
-      <div className="relative flex min-w-[15rem] max-w-[17rem] flex-col gap-3 overflow-hidden rounded-xl border border-border bg-card py-4 pl-5 pr-4 shadow-card-hover">
-        <span className={cn("absolute inset-y-0 left-0 w-1.5", branch.bar)} aria-hidden />
-        <span
-          className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", accentClass)}
-          aria-hidden
-        >
-          <Icon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-base font-bold text-foreground">{node.libelle}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {societe ? societe.raisonSociale : "Modèle générique"}
-          </p>
+      <div className="relative flex min-w-[12rem] max-w-[14rem] flex-col gap-2 overflow-hidden rounded-lg border border-border bg-card py-2.5 pl-4 pr-3 shadow-card-hover">
+        <span className={cn("absolute inset-y-0 left-0 w-1", branch.bar)} aria-hidden />
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", accentClass)}
+            aria-hidden
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-foreground">{node.libelle}</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {societe ? societe.raisonSociale : "Modèle générique"}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-x-2.5 border-t border-border pt-2.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-x-2 border-t border-border pt-1.5 text-[11px] text-muted-foreground">
           <span>
             {dossiers} dossier{dossiers !== 1 ? "s" : ""}
           </span>
@@ -198,9 +307,9 @@ function OrgChartNode({
   return (
     <li
       className={cn(
-        "relative flex flex-col items-center px-3 pt-6",
-        "before:absolute before:right-1/2 before:top-0 before:h-6 before:w-1/2 before:border-t before:content-['']",
-        "after:absolute after:left-1/2 after:top-0 after:h-6 after:w-1/2 after:border-l after:border-t after:content-['']",
+        "relative flex flex-col items-center px-1.5 pt-4",
+        "before:absolute before:right-1/2 before:top-0 before:h-4 before:w-1/2 before:border-t before:content-['']",
+        "after:absolute after:left-1/2 after:top-0 after:h-4 after:w-1/2 after:border-l after:border-t after:content-['']",
         branch.line,
         "only:before:hidden only:after:hidden only:pt-0",
         "first:before:border-none",
@@ -220,7 +329,7 @@ function OrgChartNode({
       {children.length > 0 && (
         <ul
           className={cn(
-            "relative flex pt-6 before:absolute before:left-1/2 before:top-0 before:h-6 before:border-l before:content-['']",
+            "relative flex pt-4 before:absolute before:left-1/2 before:top-0 before:h-4 before:border-l before:content-['']",
             branch.line,
           )}
         >
@@ -273,10 +382,10 @@ function OrgChartBox({
         onClick={() => isFolder && onOpenNode(node)}
         disabled={!isFolder}
         className={cn(
-          "relative flex flex-col items-center gap-1.5 overflow-hidden rounded-xl border border-border bg-card text-center shadow-sm transition-all duration-200",
+          "relative flex flex-col items-center gap-1 overflow-hidden rounded-lg border border-border bg-card text-center shadow-sm transition-all duration-200",
           compact
-            ? "min-w-[8.5rem] max-w-[11.5rem] py-2.5 pl-4 pr-2.5"
-            : "min-w-[9.5rem] max-w-[13rem] py-3 pl-4 pr-3",
+            ? "min-w-[6rem] max-w-[8.5rem] py-1.5 pl-2.5 pr-1.5"
+            : "min-w-[6.5rem] max-w-[9.5rem] py-2 pl-3 pr-2",
           isFolder
             ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-card-hover"
             : "cursor-default",
@@ -285,24 +394,24 @@ function OrgChartBox({
         <span className={cn("absolute inset-y-0 left-0 w-1", branch.bar)} aria-hidden />
         <span
           className={cn(
-            "flex items-center justify-center rounded-lg",
-            compact ? "h-7 w-7" : "h-8 w-8",
+            "flex items-center justify-center rounded-md",
+            compact ? "h-5 w-5" : "h-6 w-6",
             isFolder ? "bg-accent/12 text-accent" : "bg-secondary text-muted-foreground",
           )}
           aria-hidden
         >
-          <Icon className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
+          <Icon className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
         </span>
-        <span className={cn("line-clamp-2 font-semibold text-foreground", compact ? "text-xs" : "text-sm")}>
+        <span className={cn("line-clamp-2 font-semibold text-foreground", compact ? "text-[11px]" : "text-xs")}>
           {node.libelle}
         </span>
         {isFolder ? (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-[10px] text-muted-foreground">
             {childCount} élément{childCount !== 1 ? "s" : ""}
           </span>
         ) : (
           node.format && (
-            <span className="text-[11px] uppercase text-muted-foreground">{node.format}</span>
+            <span className="text-[10px] uppercase text-muted-foreground">{node.format}</span>
           )
         )}
       </button>

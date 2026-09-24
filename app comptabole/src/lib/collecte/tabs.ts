@@ -72,6 +72,28 @@ const deriveSoldeFinal = (rows: TabRow[]): TabRow[] =>
     ),
   }));
 
+/** Jours écoulés depuis une date « AAAA-MM-JJ » (ou « JJ/MM/AAAA ») ; "" si pas de date. */
+export function joursDepuis(v: unknown, today = new Date()): number | "" {
+  const s = String(v ?? "");
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  const fr = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  const d = iso
+    ? Date.UTC(+iso[1], +iso[2] - 1, +iso[3])
+    : fr
+      ? Date.UTC(+fr[3], +fr[2] - 1, +fr[1])
+      : null;
+  if (d === null) return "";
+  const t = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(0, Math.round((t - d) / 86400000));
+}
+
+/** Balance âgée : solde final dû + ancienneté (depuis le dernier règlement), calculés. */
+const deriveBalanceAgee = (rows: TabRow[]): TabRow[] =>
+  deriveSoldeFinal(rows).map((r) => ({
+    ...r,
+    anciennete: joursDepuis(r.date_dernier_reglement),
+  }));
+
 const sumKey = (key: string) => (rows: TabRow[]) =>
   rows.reduce((s, r) => s + cellNumber(r[key]), 0);
 
@@ -358,7 +380,7 @@ export const COLLECTE_TABS: TabDef[] = [
     label: "État clients",
     pieceLabel: "État clients (balance âgée)",
     excelTitle: "ÉTAT DES CLIENTS (BALANCE ÂGÉE)",
-    derive: deriveSoldeFinal,
+    derive: deriveBalanceAgee,
     checklistTotal: sumKey("solde_final"),
     totalLabel: "Total dû",
     excelTotalLabel: "TOTAUX",
@@ -402,6 +424,7 @@ export const COLLECTE_TABS: TabDef[] = [
         label: "Ancienneté (jours)",
         type: "number",
         width: 120,
+        computed: true,
         excelFormula: ancienneteFormula,
         excelNumFmt: "0",
       },
@@ -413,7 +436,7 @@ export const COLLECTE_TABS: TabDef[] = [
     label: "État fournisseurs",
     pieceLabel: "État fournisseurs (balance âgée)",
     excelTitle: "ÉTAT DES FOURNISSEURS (BALANCE ÂGÉE)",
-    derive: deriveSoldeFinal,
+    derive: deriveBalanceAgee,
     checklistTotal: sumKey("solde_final"),
     totalLabel: "Total dû",
     excelTotalLabel: "TOTAUX",
@@ -457,6 +480,7 @@ export const COLLECTE_TABS: TabDef[] = [
         label: "Ancienneté (jours)",
         type: "number",
         width: 120,
+        computed: true,
         excelFormula: ancienneteFormula,
         excelNumFmt: "0",
       },

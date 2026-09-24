@@ -117,7 +117,9 @@ export function CollecteGrid({
                   style={{ minWidth: c.width ?? 140 }}
                 >
                   {c.label}
-                  {c.type === "number" ? ` (${symbol})` : ""}
+                  {c.type === "number" && !c.label.includes("%") && !/\(.+\)$/.test(c.label)
+                    ? ` (${symbol})`
+                    : ""}
                 </th>
               ))}
               {!readOnly && <th className="w-10 px-2 py-2" />}

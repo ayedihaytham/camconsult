@@ -83,9 +83,13 @@ tachesRouter.post("/", requireAdmin, async (req, res) => {
   if (!soc) return res.status(400).json({ error: "Société introuvable" });
 
   if (v.assigneId) {
+    // Assignable à toute l'équipe interne du cabinet (collaborateur ou
+    // responsable des collaborateurs) — jamais à un employé de société
+    // cliente. Même périmètre que useCollaborateurs() côté client, qui
+    // alimente le sélecteur "Assigné à" du formulaire.
     const emp = (
       await query(
-        "select id from employes where id = $1 and role = 'collaborateur'",
+        "select id from employes where id = $1 and role != 'societe_employe'",
         [v.assigneId],
       )
     ).rows[0];
@@ -153,7 +157,7 @@ tachesRouter.patch("/:id", noSocieteEmploye, async (req, res) => {
   if (isAdmin && v.assigneId) {
     const emp = (
       await query(
-        "select 1 from employes where id = $1 and role = 'collaborateur'",
+        "select 1 from employes where id = $1 and role != 'societe_employe'",
         [v.assigneId],
       )
     ).rows[0];

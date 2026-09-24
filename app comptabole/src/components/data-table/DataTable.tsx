@@ -16,8 +16,8 @@ import { cn } from "@/lib/utils";
 import { DataTableSkeleton } from "./DataTableSkeleton";
 
 interface DataTableProps<TData> extends ComponentProps<"div"> {
-  /** Opt-in desktop density for ledger views with compact multi-line rows. */
-  desktopDensity?: "default" | "compact";
+  /** Opt-in canonical desktop rhythm for ledger register rows and headers. */
+  desktopDensity?: "default" | "compact" | "ledger";
   /** Borderless ledger presentation with a compact structural table header. */
   desktopVariant?: "table" | "register";
   emptyMessage: string;
@@ -51,6 +51,7 @@ export function DataTable<TData>({
   ...props
 }: DataTableProps<TData>) {
   const isCompactDesktop = desktopDensity === "compact";
+  const isLedgerDensity = desktopDensity === "ledger";
   const isRegisterDesktop = desktopVariant === "register";
   if (isLoading) {
     return (
@@ -58,6 +59,7 @@ export function DataTable<TData>({
         columnCount={table.getVisibleLeafColumns().length}
         rowCount={table.getState().pagination.pageSize}
         variant={desktopVariant}
+        density={desktopDensity}
         className={className}
       />
     );
@@ -75,13 +77,17 @@ export function DataTable<TData>({
             : "overflow-hidden rounded-lg border border-border bg-card",
         )}
       >
-        <Table className="table-fixed">
+        <Table
+          className={cn("table-fixed", isLedgerDensity && "ledger-table-density")}
+        >
           <TableHeader
-            className={
+            className={cn(
               isRegisterDesktop
                 ? "[&_tr]:bg-transparent [&_tr]:hover:bg-transparent [&_th]:h-8 [&_th]:px-3 [&_th]:text-[0.65rem] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-muted-foreground"
-                : "bg-muted/35 [&_th]:!h-9 [&_th]:!px-3 [&_th]:!text-xs [&_th]:!font-semibold [&_th]:!normal-case [&_th]:!tracking-normal"
-            }
+                : isLedgerDensity
+                  ? "bg-muted/35"
+                  : "bg-muted/35 [&_th]:!h-9 [&_th]:!px-3 [&_th]:!text-xs [&_th]:!font-semibold [&_th]:!normal-case [&_th]:!tracking-normal",
+            )}
           >
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
@@ -122,11 +128,13 @@ export function DataTable<TData>({
                       isRegisterDesktop
                         ? "bg-transparent hover:bg-secondary/45"
                         : "bg-card hover:bg-muted/30",
-                      isCompactDesktop
-                        ? isRegisterDesktop
-                          ? "h-[50px] [&>td]:align-middle"
-                          : "h-[52px] [&>td]:align-middle"
-                        : "h-12",
+                      isLedgerDensity
+                        ? "[&>td]:align-middle"
+                        : isCompactDesktop
+                          ? isRegisterDesktop
+                            ? "h-[50px] [&>td]:align-middle"
+                            : "h-[52px] [&>td]:align-middle"
+                          : "h-12",
                       onRowClick && "cursor-pointer",
                       getRowClassName?.(row),
                     )}
@@ -135,12 +143,10 @@ export function DataTable<TData>({
                       <TableCell
                         key={cell.id}
                         className={cn(
-                          "min-w-0 px-3",
-                          isCompactDesktop
-                            ? isRegisterDesktop
-                              ? "py-1"
-                              : "py-1"
-                            : "py-1.5",
+                          "min-w-0",
+                          !isLedgerDensity && "px-3",
+                          !isLedgerDensity &&
+                            (isCompactDesktop ? "py-1" : "py-1.5"),
                           cell.column.columnDef.meta?.cellClassName,
                         )}
                       >

@@ -37,7 +37,7 @@ export function TaskTableView({
       <DataTable
         table={table}
         emptyMessage={emptyMessage}
-        desktopDensity="compact"
+        desktopDensity="ledger"
         hideMobile
         className="ledger-work-table task-work-table"
         footer={<OperationalLedgerFooter table={table} itemLabel="tâches" />}

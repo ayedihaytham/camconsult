@@ -84,10 +84,19 @@ const TYPES: EmployeType[] = [
 ];
 const PERMISSION_TOTAL = Object.keys(PERMISSION_LABELS).length;
 
-function TeamMonogram({ employe }: { employe: Employe }) {
+function TeamMonogram({
+  employe,
+  size = "mobile",
+}: {
+  employe: Employe;
+  size?: "mobile" | "ledger";
+}) {
   return (
     <span
-      className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/12 bg-primary/[0.06] text-[11px] font-bold tracking-wide text-primary"
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-lg border border-primary/12 bg-primary/[0.06] font-bold tracking-wide text-primary",
+        size === "ledger" ? "size-8 text-[10px]" : "size-9 text-[11px]",
+      )}
       aria-hidden
     >
       {initials(employeNomComplet(employe))}
@@ -522,8 +531,8 @@ export function EmployesListPage() {
       cell: ({ row }) => {
         const e = row.original;
         return (
-          <div className="flex min-w-0 items-center gap-2.5 py-1">
-            <TeamMonogram employe={e} />
+          <div className="flex min-w-0 items-center gap-2.5">
+            <TeamMonogram employe={e} size="ledger" />
             <div className="min-w-0">
               <button
                 type="button"
@@ -535,11 +544,11 @@ export function EmployesListPage() {
               >
                 {employeNomComplet(e)}
               </button>
-              <p className="truncate text-[11px] leading-4 text-muted-foreground">
-                {e.type}
-              </p>
-              <p className="truncate text-[11px] leading-4 text-muted-foreground">
-                {e.email}
+              <p
+                className="truncate text-[11px] leading-4 text-muted-foreground"
+                title={`${e.type} · ${e.email}`}
+              >
+                {e.type} <span aria-hidden="true">·</span> {e.email}
               </p>
               {e.doitChangerMotDePasse && (
                 <span className="mt-0.5 inline-block rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
@@ -563,11 +572,11 @@ export function EmployesListPage() {
         const count = e.societesAssignees.length;
         return (
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-foreground">
+            <p className="text-xs font-semibold leading-4 text-foreground">
               {count} société{count === 1 ? "" : "s"}
             </p>
             <div
-              className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground"
+              className="flex min-w-0 items-center gap-1 text-[11px] leading-4 text-muted-foreground"
               title={assignmentPreview(e, societyNames)}
             >
               <span className="min-w-0 truncate">
@@ -943,7 +952,7 @@ export function EmployesListPage() {
       )}
       <DataTable
         className="ledger-work-table bg-transparent [&>div:last-child]:space-y-0"
-        desktopDensity="compact"
+        desktopDensity="ledger"
         desktopVariant="register"
         table={table}
         emptyMessage={emptyMessage}

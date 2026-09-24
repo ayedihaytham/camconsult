@@ -2,13 +2,24 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { PresentedTask } from "./taskTypes";
 
-export function TaskAssignee({ task }: { task: PresentedTask }) {
+export function TaskAssignee({
+  task,
+  size = "compact",
+}: {
+  task: PresentedTask;
+  size?: "compact" | "ledger";
+}) {
   const presenceLabel = task.assigneeOnline ? "En ligne" : "Hors ligne";
 
   return (
     <div className="flex min-w-0 items-center gap-2">
       <span className="relative shrink-0">
-        <Avatar className="h-7 w-7 border border-border">
+        <Avatar
+          className={cn(
+            "border border-border",
+            size === "ledger" ? "h-8 w-8" : "h-7 w-7",
+          )}
+        >
           <AvatarFallback className="bg-primary/10 text-[9px] font-semibold text-primary">
             {task.assigneeInitials}
           </AvatarFallback>

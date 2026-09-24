@@ -905,7 +905,7 @@ export function SocietesListPage() {
 
       <DataTable
         className="ledger-work-table societes-ledger-table bg-transparent [&>div:last-child]:space-y-0"
-        desktopDensity="compact"
+        desktopDensity="ledger"
         desktopVariant="register"
         table={table}
         emptyMessage={emptyMessage}

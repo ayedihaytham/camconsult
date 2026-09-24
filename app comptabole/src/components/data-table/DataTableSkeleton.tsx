@@ -12,12 +12,14 @@ import { cn } from "@/lib/utils";
 
 interface DataTableSkeletonProps extends ComponentProps<"div"> {
   columnCount: number;
+  density?: "default" | "compact" | "ledger";
   rowCount?: number;
   variant?: "table" | "register";
 }
 
 export function DataTableSkeleton({
   columnCount,
+  density = "default",
   rowCount = 10,
   variant = "table",
   className,
@@ -35,10 +37,12 @@ export function DataTableSkeleton({
             : "overflow-hidden rounded-xl border border-border bg-card",
         )}
       >
-        <Table>
+        <Table
+          className={density === "ledger" ? "ledger-table-density" : undefined}
+        >
           <TableHeader
             className={
-              variant === "register"
+              variant === "register" && density !== "ledger"
                 ? "[&_tr]:h-0 [&_th]:h-0 [&_th]:overflow-hidden [&_th]:border-0 [&_th]:p-0"
                 : undefined
             }
@@ -46,7 +50,13 @@ export function DataTableSkeleton({
             <TableRow className="hover:bg-transparent">
               {Array.from({ length: columnCount }).map((_, index) => (
                 <TableHead key={index}>
-                  {variant === "table" && <Skeleton className="h-4 w-20" />}
+                  {(variant === "table" || density === "ledger") && (
+                    <Skeleton
+                      className={
+                        density === "ledger" ? "h-3 w-20" : "h-4 w-20"
+                      }
+                    />
+                  )}
                 </TableHead>
               ))}
             </TableRow>
@@ -57,12 +67,20 @@ export function DataTableSkeleton({
                 key={rowIndex}
                 className={cn(
                   "hover:bg-transparent",
-                  variant === "register" && "h-[50px]",
+                  density === "compact" &&
+                    variant === "register" &&
+                    "h-[50px]",
                 )}
               >
                 {Array.from({ length: columnCount }).map((_, cellIndex) => (
                   <TableCell key={cellIndex}>
-                    <Skeleton className="h-5 w-full max-w-40" />
+                    <Skeleton
+                      className={
+                        density === "ledger"
+                          ? "h-4 w-full max-w-40"
+                          : "h-5 w-full max-w-40"
+                      }
+                    />
                   </TableCell>
                 ))}
               </TableRow>

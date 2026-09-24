@@ -21,14 +21,14 @@ export function createTaskTableColumns(
       cell: ({ row }) => (
         <div className="min-w-0">
           <p
-            className="truncate font-semibold leading-snug text-foreground"
+            className="truncate text-[13px] font-semibold leading-4 text-foreground"
             title={row.original.task.titre}
           >
             {row.original.task.titre}
           </p>
           {row.original.task.description && (
             <p
-              className="mt-0.5 hidden truncate text-xs leading-snug text-muted-foreground lg:block"
+              className="mt-0.5 hidden truncate text-xs leading-4 text-muted-foreground lg:block"
               title={row.original.task.description}
             >
               {row.original.task.description}
@@ -72,7 +72,7 @@ export function createTaskTableColumns(
       header: "Assigné à",
       cell: ({ row }) => (
         <div className="min-w-0">
-          <TaskAssignee task={row.original} />
+          <TaskAssignee task={row.original} size="ledger" />
         </div>
       ),
       enableSorting: false,
@@ -134,8 +134,8 @@ export function createTaskTableColumns(
       enableSorting: false,
       size: 40,
       meta: {
-        cellClassName: "w-12 text-right",
-        headerClassName: "w-12",
+        cellClassName: "w-10 text-right",
+        headerClassName: "w-10",
         label: "Actions",
       },
     },

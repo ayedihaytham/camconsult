@@ -4,7 +4,7 @@ import { query } from "../db.js";
 import { requireAuth, requireAdmin, requireEquipeManager } from "../auth.js";
 import { logAction } from "../journal.js";
 import { notify } from "../notifications.js";
-import { employeDto } from "../mappers.js";
+import { employeDto, employeDtoFor } from "../mappers.js";
 import { sendCollaborateurWelcomeEmail, sendPasswordResetEmail } from "../mailer.js";
 import {
   defaultPermissions,
@@ -85,7 +85,7 @@ employesRouter.get("/", async (req, res) => {
         [role],
       )
     : await query("select * from employes order by nom, prenom");
-  res.json(rows.map(employeDto));
+  res.json(rows.map(employeDtoFor(req.session)));
 });
 
 employesRouter.post("/", async (req, res) => {
@@ -119,7 +119,7 @@ employesRouter.post("/", async (req, res) => {
     sendCollaborateurWelcomeEmail(dto).catch((err) =>
       console.error("[mailer] envoi identifiants échoué", err.message),
     );
-    res.status(201).json(dto);
+    res.status(201).json(employeDtoFor(req.session)(rows[0]));
   } catch (err) {
     if (err.code === "23505")
       return res.status(409).json({ error: "Cet identifiant existe déjà" });
@@ -180,7 +180,7 @@ employesRouter.patch("/:id", async (req, res) => {
       console.error("[mailer] envoi réinitialisation échoué", err.message),
     );
   }
-  res.json(dto);
+  res.json(employeDtoFor(req.session)(rows[0]));
 });
 
 employesRouter.patch("/:id/acces", async (req, res) => {
@@ -208,7 +208,7 @@ employesRouter.patch("/:id/acces", async (req, res) => {
     `Par ${req.session.nom}`,
     "/",
   );
-  res.json(employeDto(rows[0]));
+  res.json(employeDtoFor(req.session)(rows[0]));
 });
 
 employesRouter.post("/:id/duplicate", async (req, res) => {
@@ -234,7 +234,7 @@ employesRouter.post("/:id/duplicate", async (req, res) => {
     ],
   );
   logAction(req.session.nom, "duplication", "employe", `${src.prenom} ${src.nom}`);
-  res.status(201).json(employeDto(rows[0]));
+  res.status(201).json(employeDtoFor(req.session)(rows[0]));
 });
 
 employesRouter.post("/bulk-delete", requireAdmin, async (req, res) => {

@@ -320,7 +320,10 @@ export function EmployesListPage() {
   function handleSubmit(values: EmployeFormValues) {
     const nom = `${values.prenom} ${values.nom}`;
     if (editing) {
-      updateEmploye(editing.id, values);
+      // Mot de passe vide = inchangé (hors admin, le serveur ne l'envoie
+      // jamais : le champ arrive vide en modification).
+      const { motDePasse, ...rest } = values;
+      updateEmploye(editing.id, motDePasse ? values : rest);
       logJournal("modification", "employe", nom);
       toast.success("Collaborateur modifié", { description: nom });
     } else {

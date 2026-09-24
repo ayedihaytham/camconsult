@@ -58,6 +58,15 @@ export const employeDto = (r) => ({
   creeLe: dateStr(r.cree_le),
 });
 
+/** employeDto pour une session donnée : seul l'admin reçoit les mots de
+ * passe. Les autres (collaborateurs, responsable des collaborateurs,
+ * employés de société) ne les voient jamais, même ceux qu'ils gèrent — ils
+ * peuvent réinitialiser un mot de passe, pas le lire. */
+export const employeDtoFor = (session) => (r) => {
+  const d = employeDto(r);
+  return session?.role === "admin" ? d : { ...d, motDePasse: "" };
+};
+
 export const tacheDto = (r) => ({
   id: r.id,
   titre: r.titre,

@@ -73,6 +73,13 @@ function suggestIdentifiant(prenom: string, nom: string) {
   return `${p[0]}.${n}`;
 }
 
+// En modification, un mot de passe vide signifie « inchangé ».
+const editSchema = schema.extend({
+  motDePasse: z
+    .string()
+    .refine((v) => v === "" || v.length >= 8, "8 caractères minimum"),
+});
+
 export type EmployeFormValues = z.infer<typeof schema>;
 
 interface Props {
@@ -114,7 +121,7 @@ export function EmployeFormSheet({
     watch,
     formState: { errors },
   } = useForm<EmployeFormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(isEdit ? editSchema : schema),
     defaultValues: emptyValues,
   });
 
@@ -283,6 +290,7 @@ export function EmployeFormSheet({
                     type="password"
                     autoComplete="new-password"
                     aria-label="Mot de passe"
+                    placeholder={isEdit ? "Laisser vide pour ne pas changer" : undefined}
                   />
                   {errors.motDePasse?.message && (
                     <p className="text-xs text-destructive">

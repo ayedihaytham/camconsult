@@ -1,7 +1,21 @@
 import { query } from "./db.js";
 import { logAction } from "./journal.js";
 import { notifyMany, concernedBySociete } from "./notifications.js";
-import { sendCollecteRelanceEmail, sendCollecteRappelAvantEmail } from "./mailer.js";
+import {
+  frDateEcheance,
+  sendCollecteRelanceEmail,
+  sendCollecteRappelAvantEmail,
+} from "./mailer.js";
+
+/** true si l'échéance (Date pg ou « AAAA-MM-JJ ») est avant aujourd'hui. */
+function echeanceDepassee(echeance) {
+  const s = echeance instanceof Date
+    ? `${echeance.getFullYear()}-${String(echeance.getMonth() + 1).padStart(2, "0")}-${String(echeance.getDate()).padStart(2, "0")}`
+    : String(echeance).slice(0, 10);
+  const t = new Date();
+  const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+  return s < today;
+}
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // vérifie toutes les heures
 const RAPPEL_AVANT_JOURS = 3; // rappel envoyé 3 jours avant l'échéance
@@ -73,7 +87,7 @@ async function checkRappelsAvant() {
       targets,
       "collecte",
       `Échéance proche — collecte à transmettre : ${row.raison_sociale}`,
-      `${row.periode}`,
+      `Avant le ${frDateEcheance(row.echeance)} — ${(row.periode && row.periode.trim()) || "période non précisée"}`,
       `/collectes/${row.id}`,
     );
     await sendCollecteRappelAvantEmail({
@@ -98,11 +112,20 @@ async function checkRappelsAvant() {
  * doit porter societe_id, raison_sociale, societe_email, periode, echeance. */
 export async function sendRelance(row) {
   const targets = await concernedBySociete(row.societe_id, { includeAdmin: false });
+  // Le texte suit la situation réelle : une relance manuelle peut viser une
+  // collecte sans échéance, ou dont l'échéance n'est pas encore passée.
+  const date = frDateEcheance(row.echeance);
+  const depassee = Boolean(row.echeance) && echeanceDepassee(row.echeance);
+  const periode = (row.periode && row.periode.trim()) || "période non précisée";
   notifyMany(
     targets,
     "collecte",
     `Rappel — collecte en attente : ${row.raison_sociale}`,
-    `Échéance dépassée — ${row.periode}`,
+    date
+      ? depassee
+        ? `Échéance dépassée le ${date} — ${periode}`
+        : `À transmettre avant le ${date} — ${periode}`
+      : periode,
     `/collectes/${row.id}`,
   );
   await sendCollecteRelanceEmail({
@@ -110,6 +133,7 @@ export async function sendRelance(row) {
     raisonSociale: row.raison_sociale,
     periode: row.periode,
     echeance: row.echeance,
+    depassee,
   }).catch((err) => console.error("[mailer] relance échouée", err.message));
   await query("update collectes set derniere_relance_le = now() where id = $1", [row.id]);
   logAction(

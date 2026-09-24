@@ -8,8 +8,10 @@ import {
   Download,
   Eye,
   File as FileIcon,
+  FileText,
   History,
   Paperclip,
+  Printer,
   RotateCcw,
   Send,
   SlidersHorizontal,
@@ -33,7 +35,12 @@ import {
 import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
 import { aggregateRecapStatut, sectionRecapStatut } from "@/lib/collecte/recap";
-import { exportCollecteXlsx } from "@/lib/collecte/exportXlsx";
+import {
+  downloadCollecteSectionPdf,
+  exportCollecteSectionXlsx,
+  exportCollecteXlsx,
+  printCollecteSection,
+} from "@/lib/collecte/exportXlsx";
 import { downloadDataUrl } from "@/lib/file";
 import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { CollecteJournalEntry, CollecteStatut } from "@/types";
@@ -245,7 +252,7 @@ export function CollecteEditorPage() {
               }
             >
               <Download className="h-4 w-4" />
-              Excel
+              Tout en Excel
             </Button>
             {canSubmit && (
               <Button
@@ -472,6 +479,7 @@ export function CollecteEditorPage() {
 
         {/* ── Checklist ─────────────────────────── */}
         <TabsContent value="checklist">
+          <SectionExport collecte={collecte} section="checklist" societeNom={socNom} />
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-sm">
               <thead className="bg-primary text-xs uppercase tracking-wide text-primary-foreground">
@@ -626,6 +634,7 @@ export function CollecteEditorPage() {
           if (!def) return null;
           return (
             <TabsContent key={key} value={key}>
+              <SectionExport collecte={collecte} section={key} societeNom={socNom} />
               {(() => {
                 const hl = flaggedByTab.get(key);
                 const whole = wholeTab.has(key);
@@ -866,5 +875,53 @@ function NavItem({
         </span>
       )}
     </button>
+  );
+}
+
+/** Excel / PDF de CETTE section seulement, indépendamment des autres. */
+function SectionExport({
+  collecte,
+  section,
+  societeNom,
+}: {
+  collecte: Parameters<typeof printCollecteSection>[0];
+  section: string;
+  societeNom: string;
+}) {
+  return (
+    <div className="mb-3 flex justify-end gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() =>
+          exportCollecteSectionXlsx(collecte, section, societeNom).catch(() =>
+            toast.error("Export impossible"),
+          )
+        }
+      >
+        <Download className="h-4 w-4" />
+        Excel
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() =>
+          downloadCollecteSectionPdf(collecte, section, societeNom).catch(() =>
+            toast.error("PDF impossible"),
+          )
+        }
+      >
+        <FileText className="h-4 w-4" />
+        Enregistrer PDF
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => printCollecteSection(collecte, section, societeNom)}
+      >
+        <Printer className="h-4 w-4" />
+        Imprimer
+      </Button>
+    </div>
   );
 }

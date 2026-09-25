@@ -355,13 +355,21 @@ collectesRouter.patch("/:id", async (req, res) => {
 
 // ── Suppression (admin) ───────────────────────────
 collectesRouter.delete("/:id", requireAdmin, async (req, res) => {
-  const { rows } = await query(
-    "delete from collectes where id = $1 returning periode, societe_id",
-    [req.params.id],
-  );
-  if (!rows[0]) return res.status(404).json({ error: "Collecte introuvable" });
-  logAction(req.session.nom, "suppression", "collecte", periodeLabel(rows[0].periode), req.params.id);
-  res.json({ ok: true });
+  try {
+    const { rows } = await query(
+      "delete from collectes where id = $1 returning periode, societe_id",
+      [req.params.id],
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Collecte introuvable" });
+    logAction(req.session.nom, "suppression", "collecte", periodeLabel(rows[0].periode), req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    // Sans ce catch, une requête en échec (ex. contrainte imprévue) reste
+    // sans réponse en Express 4 — la suppression semble juste ne rien faire
+    // côté client au lieu d'afficher une erreur claire.
+    console.error("[collectes] suppression échouée:", err.message);
+    res.status(500).json({ error: "Suppression impossible — réessayez." });
+  }
 });
 
 // ── Lignes d'un onglet (remplacement complet) ─────

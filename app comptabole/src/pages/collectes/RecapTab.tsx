@@ -59,7 +59,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   // trompeuse "tout est rempli" ni un tableau vide.
   if (isClient && visibleRows.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           Aucune demande du cabinet pour le moment.
         </p>
@@ -68,8 +68,8 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/20 px-3 py-2">
         <span className="text-sm font-medium text-foreground">
           {totalCount === 0
             ? "Toutes les cases importantes sont remplies ✓"
@@ -78,7 +78,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
       </div>
 
       {isClient && anyPending && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="border-b border-warning/20 bg-warning/5 px-3 py-2 text-sm text-foreground">
           Cliquez « Ouvrir l'onglet » sur un tableau envoyé, remplissez les cases{" "}
           <span className="font-semibold">?</span>, enregistrez, puis
           «&nbsp;Transmettre au cabinet&nbsp;» (bouton en haut à droite).
@@ -90,9 +90,9 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto border-y border-border">
         <table className="w-full text-sm">
-          <thead className="bg-primary text-xs uppercase tracking-wide text-primary-foreground">
+          <thead className="bg-secondary/65 text-xs uppercase tracking-wide text-primary">
             <tr>
               <th className="px-3 py-2.5 text-left font-medium">Tableau</th>
               <th className="px-3 py-2.5 text-right font-medium">
@@ -195,7 +195,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
             <p className="text-sm text-muted-foreground">Aucune note.</p>
           )}
           {notesLibres.map((n) => (
-            <div key={n.id} className="rounded-md border border-border px-3 py-2">
+            <div key={n.id} className="border-b border-border px-3 py-2">
               <p className="text-sm text-foreground">{n.texte}</p>
               <p className="text-[11px] text-muted-foreground">
                 {n.auteur === "admin" ? "Cabinet" : "Client"} ·{" "}

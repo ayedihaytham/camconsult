@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { generatePassword } from "@/lib/password";
+import { IDENTIFIANT_RE, suggestIdentifiant } from "@/lib/identifiant";
 import { useSocietes } from "@/store/data";
 import type { Employe, EmployeType, Statut } from "@/types";
 
@@ -43,7 +44,7 @@ const schema = z.object({
     .min(3, "3 caractères minimum")
     .max(32, "32 caractères maximum")
     .regex(
-      /^[a-z][a-z0-9._-]*$/,
+      IDENTIFIANT_RE,
       "Minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre",
     ),
   motDePasse: z.string().min(8, "8 caractères minimum"),
@@ -54,26 +55,9 @@ const schema = z.object({
   societesAssignees: z.array(z.string()),
 });
 
-/** Identifiant proposé à partir du prénom/nom (ex. « Ahmed Ben Salah » →
- * « a.bensalah ») — accents retirés, minuscules, un seul point. Reste
- * modifiable : la proposition s'arrête dès que l'utilisateur tape
- * lui-même dans le champ (voir identifiantTouched). */
-function normalizeNamePart(s: string) {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
-
-function suggestIdentifiant(prenom: string, nom: string) {
-  const p = normalizeNamePart(prenom);
-  const n = normalizeNamePart(nom);
-  if (!p || !n) return "";
-  return `${p[0]}.${n}`;
-}
-
-// En modification, un mot de passe vide signifie « inchangé ».
+// En modification, un mot de passe vide signifie « inchangé ». La proposition
+// d'identifiant s'arrête dès que l'utilisateur tape lui-même dans le champ
+// (voir identifiantTouched).
 const editSchema = schema.extend({
   motDePasse: z
     .string()

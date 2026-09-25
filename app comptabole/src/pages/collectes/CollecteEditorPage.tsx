@@ -1141,40 +1141,52 @@ function SectionExport({
   section: string;
   societeNom: string;
 }) {
+  const exportExcel = () =>
+    exportCollecteSectionXlsx(collecte, section, societeNom).catch(() =>
+      toast.error("Export impossible"),
+    );
+  const exportPdf = () =>
+    downloadCollecteSectionPdf(collecte, section, societeNom).catch(() =>
+      toast.error("PDF impossible"),
+    );
+  const print = () => printCollecteSection(collecte, section, societeNom);
+
   return (
-    <div className="flex flex-wrap items-center justify-end gap-0.5">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() =>
-          exportCollecteSectionXlsx(collecte, section, societeNom).catch(() =>
-            toast.error("Export impossible"),
-          )
-        }
-      >
-        <Download className="h-4 w-4" />
-        Excel
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() =>
-          downloadCollecteSectionPdf(collecte, section, societeNom).catch(() =>
-            toast.error("PDF impossible"),
-          )
-        }
-      >
-        <FileText className="h-4 w-4" />
-        PDF
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => printCollecteSection(collecte, section, societeNom)}
-      >
-        <Printer className="h-4 w-4" />
-        Imprimer
-      </Button>
+    <div className="flex w-full justify-end lg:w-auto">
+      <div className="hidden flex-wrap items-center justify-end gap-0.5 lg:flex">
+        <Button variant="ghost" size="sm" onClick={exportExcel}>
+          <Download className="h-4 w-4" />
+          Excel
+        </Button>
+        <Button variant="ghost" size="sm" onClick={exportPdf}>
+          <FileText className="h-4 w-4" />
+          PDF
+        </Button>
+        <Button variant="ghost" size="sm" onClick={print}>
+          <Printer className="h-4 w-4" />
+          Imprimer
+        </Button>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="min-h-10 lg:hidden">
+            <Download className="h-4 w-4" />
+            Exporter
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={exportExcel}>
+            <Download className="h-4 w-4" /> Excel
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={exportPdf}>
+            <FileText className="h-4 w-4" /> PDF
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={print}>
+            <Printer className="h-4 w-4" /> Imprimer
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

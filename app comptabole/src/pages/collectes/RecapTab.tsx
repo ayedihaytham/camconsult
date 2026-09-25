@@ -91,7 +91,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         </p>
       )}
 
-      <div className="overflow-x-auto border-y border-border">
+      <div className="hidden overflow-x-auto border-y border-border lg:block">
         <table className="w-full text-sm">
           <thead className="bg-secondary/65 text-xs uppercase tracking-wide text-primary">
             <tr>
@@ -106,7 +106,9 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
           <tbody className="divide-y divide-border">
             {visibleRows.map((r) => (
               <tr key={r.onglet} className="hover:bg-muted/20">
-                <td className="px-3 py-2 font-medium text-foreground">{label(r.onglet)}</td>
+                <td className="px-3 py-2 font-medium text-foreground">
+                  {label(r.onglet)}
+                </td>
                 <td className="px-3 py-2 text-right text-xs tabular-nums text-muted-foreground">
                   {r.count}
                 </td>
@@ -185,6 +187,103 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="divide-y divide-border border-y border-border lg:hidden">
+        {visibleRows.map((r) => {
+          const rowLabel = label(r.onglet);
+          const statusLabel =
+            r.statut === "envoye"
+              ? "Envoyé — en attente"
+              : r.statut === "repondu"
+                ? "Complété par le client"
+                : r.count === 0
+                  ? "Complet"
+                  : "Non envoyé";
+
+          return (
+            <article
+              key={r.onglet}
+              className="flex min-w-0 items-center justify-between gap-3 px-3 py-2.5"
+            >
+              <div className="min-w-0 flex-1">
+                <h3 className="break-words text-sm font-semibold text-foreground">
+                  {rowLabel}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {r.count} {r.count === 1 ? "case" : "cases"} à compléter
+                </p>
+                <StatusDot
+                  className="mt-1 text-xs"
+                  tone={
+                    r.statut === "repondu"
+                      ? "success"
+                      : r.statut === "envoye"
+                        ? "warning"
+                        : "muted"
+                  }
+                  label={statusLabel}
+                />
+              </div>
+              <div className="shrink-0">
+                {canManageRecap && r.statut === "none" && r.count > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="min-h-10 gap-1.5 px-2.5"
+                    aria-label={`Envoyer la demande pour ${rowLabel}`}
+                    disabled={sending === r.onglet}
+                    onClick={async () => {
+                      setSending(r.onglet);
+                      try {
+                        await sendRecapSection(collecte.id, r.onglet, r.count);
+                        toast.success(
+                          `« ${rowLabel} » envoyé — ${r.count} case${r.count === 1 ? "" : "s"} à compléter`,
+                        );
+                      } finally {
+                        setSending(null);
+                      }
+                    }}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Envoyer
+                  </Button>
+                )}
+                {canManageRecap && r.statut !== "none" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="min-h-10 px-2.5"
+                    aria-label={`Clore la demande pour ${rowLabel}`}
+                    disabled={sending === r.onglet}
+                    onClick={async () => {
+                      setSending(r.onglet);
+                      try {
+                        await closeRecapSection(collecte.id, r.onglet);
+                        toast.success(`« ${rowLabel} » clôturé`);
+                      } finally {
+                        setSending(null);
+                      }
+                    }}
+                  >
+                    Clore
+                  </Button>
+                )}
+                {isClient && r.statut === "envoye" && (
+                  <button
+                    type="button"
+                    aria-label={`Ouvrir le tableau ${rowLabel}`}
+                    onClick={() => onNavigate(r.onglet)}
+                    className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-foreground hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Ouvrir
+                    <ChevronRight className="h-3.5 w-3.5 text-accent" />
+                  </button>
+                )}
+              </div>
+            </article>
+          );
+        })}
       </div>
 
       {/* Notes générales */}

@@ -318,32 +318,50 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       )}
 
       {!readOnly && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           {structureLocked ? (
             <span />
           ) : (
-            <Button variant="outline" size="sm" onClick={addRow}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-10 lg:min-h-8"
+              onClick={addRow}
+            >
               <Plus className="h-4 w-4" />
               Ajouter une ligne
             </Button>
           )}
-          <div className="flex items-center gap-3">
-          {dirty && <span role="status" className="text-xs font-medium text-warning">Modifications non enregistrées</span>}
-          {saveError && <span role="alert" className="text-xs text-destructive">Enregistrement impossible · réessayez</span>}
-          {saved && !dirty && <span role="status" className="text-xs text-success">Enregistré</span>}
-          <Button
-            variant="ledger"
-            size="sm"
-            onClick={() => { void save().catch(() => {}); }}
-            disabled={!dirty || saving}
-            className={cn(
-              !dirty &&
-                "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:justify-end">
+            {dirty && (
+              <span role="status" className="w-full text-xs font-medium text-warning lg:w-auto">
+                Modifications non enregistrées
+              </span>
             )}
-          >
-            <Save className="h-4 w-4" />
-            {saving ? "Enregistrement…" : "Enregistrer"}
-          </Button>
+            {saveError && (
+              <span role="alert" className="w-full text-xs text-destructive lg:w-auto">
+                Enregistrement impossible · réessayez
+              </span>
+            )}
+            {saved && !dirty && (
+              <span role="status" className="w-full text-xs text-success lg:w-auto">
+                Enregistré
+              </span>
+            )}
+            <Button
+              variant="ledger"
+              size="sm"
+              onClick={() => { void save().catch(() => {}); }}
+              disabled={!dirty || saving}
+              className={cn(
+                "min-h-10 lg:min-h-8",
+                !dirty &&
+                  "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
+              )}
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
           </div>
         </div>
       )}

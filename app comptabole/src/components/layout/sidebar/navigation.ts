@@ -186,6 +186,30 @@ export function isChildRouteActive(
   return children?.some((child) => pathname.startsWith(child.to)) ?? false;
 }
 
+/** Returns the single expandable navigation item that owns the current route. */
+export function getActiveExpandableGroupId(
+  pathname: string,
+  groups: NavGroup[],
+): string | null {
+  for (const group of groups) {
+    for (const item of group.items) {
+      if (item.children && isChildRouteActive(pathname, item.children)) {
+        return item.label;
+      }
+    }
+  }
+
+  return null;
+}
+
+/** Toggle one expanded navigation item while enforcing accordion behavior. */
+export function toggleExpandableGroup(
+  currentGroupId: string | null,
+  groupId: string,
+): string | null {
+  return currentGroupId === groupId ? null : groupId;
+}
+
 export function hasPendingNotification(
   notifications: AppNotification[],
   to: string,

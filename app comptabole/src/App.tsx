@@ -73,6 +73,21 @@ const EtatsFinanciersPage = lazy(() =>
     default: m.EtatsFinanciersPage,
   })),
 );
+const SuiviDeviseSocietesPage = lazy(() =>
+  import("@/pages/suiviDevise/SuiviDeviseSocietesPage").then((m) => ({
+    default: m.SuiviDeviseSocietesPage,
+  })),
+);
+const SuiviDeviseListPage = lazy(() =>
+  import("@/pages/suiviDevise/SuiviDeviseListPage").then((m) => ({
+    default: m.SuiviDeviseListPage,
+  })),
+);
+const SuiviDeviseEditorPage = lazy(() =>
+  import("@/pages/suiviDevise/SuiviDeviseEditorPage").then((m) => ({
+    default: m.SuiviDeviseEditorPage,
+  })),
+);
 const BalancesListPage = lazy(() =>
   import("@/pages/etatsFinanciers/BalancesListPage").then((m) => ({
     default: m.BalancesListPage,
@@ -280,6 +295,30 @@ export default function App() {
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <BalanceEditorPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/suivi-devise"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SuiviDeviseSocietesPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/suivi-devise/:societeId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SuiviDeviseListPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/suivi-devise/:societeId/:suiviId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SuiviDeviseEditorPage />
                     </Suspense>
                   }
                 />

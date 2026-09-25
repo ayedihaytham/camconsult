@@ -408,6 +408,88 @@ export interface BalanceFull extends Balance {
   lignes: BalanceLigne[];
 }
 
+// ── Suivi client devise ───────────────────────────
+export interface SuiviDevise {
+  id: string;
+  societeId: string;
+  client: string;
+  exercice: string;
+  devise: string;
+  note: string;
+  /** Report manuel de l'exercice précédent (ex. "Avoir 31/12/2022"), inclus
+   * tel quel dans le solde — jamais recalculé. */
+  soldeOuverture: number;
+  creeLe: string;
+  majLe: string;
+}
+
+export type SuiviDeviseLotType = "aucun" | "charges_trans_av" | "avoir";
+
+export interface SuiviDeviseLot {
+  id: string;
+  suiviId: string;
+  ordre: number;
+  libelle: string;
+  quantiteTonnes: number;
+  prixRendu: number;
+  rabais: number;
+  incoterm: string;
+  /** Régime du lot : "aucun" (EX WORK, pas d'écart), "charges_trans_av"
+   * (écart par tonne) ou "avoir" (écart par facture) — voir valeurReference. */
+  type: SuiviDeviseLotType;
+  /** Selon type : prix de référence par tonne (charges_trans_av) ou total
+   * forfaitaire de référence du lot (avoir). */
+  valeurReference: number;
+  /** Calculé côté serveur à partir des factures du lot et de son régime. */
+  ecart: number;
+}
+
+export interface SuiviDeviseFacture {
+  id: string;
+  suiviId: string;
+  lotId: string | null;
+  ordre: number;
+  nFacture: string;
+  nSecondaire: string;
+  dateFacture: string | null;
+  modePaiement: string;
+  designationProduit: string;
+  fournisseur: string;
+  qteTonnes: number;
+  pu: number;
+  montantTotal: number;
+  avoirMontant: number | null;
+  avoirDate: string | null;
+}
+
+export type SuiviDeviseMouvementType = "charge_transport" | "avoir" | "reglement";
+
+export interface SuiviDeviseMouvement {
+  id: string;
+  suiviId: string;
+  lotId: string | null;
+  ordre: number;
+  type: SuiviDeviseMouvementType;
+  libelle: string;
+  date: string | null;
+  montant: number;
+}
+
+export interface SuiviDeviseFull extends SuiviDevise {
+  lots: SuiviDeviseLot[];
+  factures: SuiviDeviseFacture[];
+  mouvements: SuiviDeviseMouvement[];
+  totalVentes: number;
+  /** Mouvements manuels de type charge_transport (hors écarts de lot). */
+  totalCharges: number;
+  /** Mouvements manuels de type avoir (hors écarts de lot). */
+  totalAvoir: number;
+  totalReglements: number;
+  /** Somme des écarts calculés de tous les lots à régime. */
+  totalEcartsLots: number;
+  solde: number;
+}
+
 /** Un point de la table 4 : total du solde pour un code AFFECTAT donné. */
 export interface AffectatSynthese {
   code: string;

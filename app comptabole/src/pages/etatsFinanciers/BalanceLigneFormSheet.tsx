@@ -33,7 +33,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   ligne?: BalanceLigne | null;
-  onSubmit: (values: BalanceLigneInput) => void;
+  onSubmit: (values: BalanceLigneInput) => void | Promise<void>;
 }
 
 export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: Props) {
@@ -46,7 +46,7 @@ export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: P
     reset,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { compte: "", libelle: "", debit: 0, credit: 0, affectat: "", scopeSociete: false },
@@ -73,7 +73,7 @@ export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: P
   const scopeSociete = watch("scopeSociete");
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={(next) => !isSubmitting && onOpenChange(next)}>
       <SheetContent side="right" className="sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{isEdit ? "Modifier la ligne" : "Nouvelle ligne"}</SheetTitle>
@@ -84,16 +84,20 @@ export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: P
 
         <form
           className="flex min-h-0 flex-1 flex-col"
-          onSubmit={handleSubmit((v) => {
-            onSubmit({
-              compte: v.compte.trim(),
-              libelle: v.libelle.trim(),
-              debit: v.debit,
-              credit: v.credit,
-              affectat: v.affectat.trim(),
-              scopeSociete: v.scopeSociete,
-            });
-            onOpenChange(false);
+          onSubmit={handleSubmit(async (v) => {
+            try {
+              await onSubmit({
+                compte: v.compte.trim(),
+                libelle: v.libelle.trim(),
+                debit: v.debit,
+                credit: v.credit,
+                affectat: v.affectat.trim(),
+                scopeSociete: v.scopeSociete,
+              });
+              onOpenChange(false);
+            } catch {
+              // The store reports the API error; leave the form open for correction/retry.
+            }
           })}
         >
           <SheetBody className="space-y-5">
@@ -173,11 +177,11 @@ export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: P
           </SheetBody>
 
           <SheetFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
-            <Button type="submit" variant="ledger">
-              {isEdit ? "Enregistrer" : "Ajouter la ligne"}
+            <Button type="submit" variant="ledger" disabled={isSubmitting}>
+              {isSubmitting ? "Enregistrement…" : isEdit ? "Enregistrer" : "Ajouter la ligne"}
             </Button>
           </SheetFooter>
         </form>

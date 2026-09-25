@@ -3,13 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Calculator, Download, FileText, Plus, Printer, Trash2, Upload } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerTable } from "@/components/ledger/LedgerTable";
-import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
 import type { DataTableColumn } from "@/components/common/DataTable";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSocieteById } from "@/store/data";
 import { useBalances, type BalanceLigneInput } from "@/store/balances";
 import type { BalanceLigne } from "@/types";
@@ -17,6 +16,7 @@ import { BalanceLigneFormSheet } from "./BalanceLigneFormSheet";
 import { ImportBalanceDialog } from "./ImportBalanceDialog";
 import { exportToXlsx, type ExportColumn } from "@/lib/export";
 import { printTable, type PrintColumn } from "@/lib/print";
+import { FinancialIdentityHeader } from "./FinancialIdentityHeader";
 
 const fmt = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -28,9 +28,11 @@ export function BalanceEditorPage() {
 
   const current = useBalances((s) => s.current);
   const loading = useBalances((s) => s.loadingCurrent);
+  const currentError = useBalances((s) => s.currentError);
   const fetchOne = useBalances((s) => s.fetchOne);
   const clearCurrent = useBalances((s) => s.clearCurrent);
   const fetchGrille = useBalances((s) => s.fetchGrille);
+  const grilleError = useBalances((s) => s.grilleError);
   const addLigne = useBalances((s) => s.addLigne);
   const updateLigne = useBalances((s) => s.updateLigne);
   const removeLigne = useBalances((s) => s.removeLigne);
@@ -41,8 +43,8 @@ export function BalanceEditorPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
-    fetchOne(balanceId);
-    fetchGrille(societeId);
+    void fetchOne(balanceId).catch(() => {});
+    void fetchGrille(societeId).catch(() => {});
     return () => clearCurrent();
   }, [balanceId, societeId, fetchOne, fetchGrille, clearCurrent]);
 
@@ -54,12 +56,12 @@ export function BalanceEditorPage() {
   );
   const sansCode = lignes.filter((l) => !l.affectat).length;
 
-  function handleSubmit(data: BalanceLigneInput) {
+  async function handleSubmit(data: BalanceLigneInput) {
     if (editing) {
-      updateLigne(balanceId, editing.id, data);
+      await updateLigne(balanceId, editing.id, data);
       toast.success("Ligne modifiée");
     } else {
-      addLigne(balanceId, data);
+      await addLigne(balanceId, data);
       toast.success("Ligne ajoutée");
     }
     setEditing(null);
@@ -130,6 +132,8 @@ export function BalanceEditorPage() {
     {
       id: "compte",
       header: "Compte",
+      headerClassName: "sticky left-0 z-30 min-w-[112px] bg-secondary",
+      className: "sticky left-0 z-20 min-w-[112px] bg-card group-hover:bg-card",
       sortable: true,
       sortAccessor: (l) => l.compte,
       cell: (l) => <span className="font-mono text-xs">{l.compte}</span>,
@@ -137,6 +141,8 @@ export function BalanceEditorPage() {
     {
       id: "libelle",
       header: "Libellé",
+      headerClassName: "sticky left-[112px] z-30 min-w-[220px] bg-secondary",
+      className: "sticky left-[112px] z-20 min-w-[220px] bg-card group-hover:bg-card",
       sortable: true,
       sortAccessor: (l) => l.libelle.toLowerCase(),
       cell: (l) => <span className="text-foreground">{l.libelle || "—"}</span>,
@@ -145,24 +151,32 @@ export function BalanceEditorPage() {
       id: "debit",
       header: "Débit",
       align: "right",
+      headerClassName: "min-w-[132px]",
+      className: "min-w-[132px]",
       cell: (l) => <span className="tabular-nums">{l.debit ? fmt(l.debit) : ""}</span>,
     },
     {
       id: "credit",
       header: "Crédit",
       align: "right",
+      headerClassName: "min-w-[132px]",
+      className: "min-w-[132px]",
       cell: (l) => <span className="tabular-nums">{l.credit ? fmt(l.credit) : ""}</span>,
     },
     {
       id: "solde",
       header: "Solde",
       align: "right",
+      headerClassName: "min-w-[132px]",
+      className: "min-w-[132px]",
       cell: (l) => <span className="font-bold tabular-nums">{fmt(l.solde)}</span>,
     },
     {
       id: "affectat",
       header: "Affectat",
       sortable: true,
+      headerClassName: "min-w-[100px]",
+      className: "min-w-[100px]",
       sortAccessor: (l) => l.affectat,
       cell: (l) =>
         l.affectat ? (
@@ -178,13 +192,15 @@ export function BalanceEditorPage() {
       header: "",
       align: "right",
       headerClassName: "w-[1%]",
+      className: "min-w-[56px]",
       cell: (l) => (
         <button
           onClick={(e) => {
             e.stopPropagation();
             setToDelete(l);
           }}
-          className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          aria-label={`Supprimer la ligne de compte ${l.compte}`}
+          className="flex size-9 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -208,24 +224,26 @@ export function BalanceEditorPage() {
         description="Une ligne par compte ; le code AFFECTAT reclasse chaque compte pour la synthèse ci-dessous."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void handleSavePdf()} disabled={lignes.length === 0}>
+            <Button variant="outline" size="sm" onClick={() => void handleSavePdf()} disabled={!current || lignes.length === 0}>
               <FileText className="h-4 w-4" />
               Enregistrer PDF
             </Button>
-            <Button variant="outline" onClick={handlePrint} disabled={lignes.length === 0}>
+            <Button variant="outline" size="sm" onClick={handlePrint} disabled={!current || lignes.length === 0}>
               <Printer className="h-4 w-4" />
               Imprimer
             </Button>
-            <Button variant="outline" onClick={handleExportExcel} disabled={lignes.length === 0}>
+            <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={!current || lignes.length === 0}>
               <Download className="h-4 w-4" />
               Excel
             </Button>
-            <Button variant="ledger-text" onClick={() => setImportOpen(true)}>
+            <Button variant="ledger-text" size="sm" disabled={!current} onClick={() => setImportOpen(true)}>
               <Upload className="h-3.5 w-3.5" />
               Importer une balance
             </Button>
             <Button
               variant="ledger"
+              size="sm"
+              disabled={!current}
               onClick={() => {
                 setEditing(null);
                 setFormOpen(true);
@@ -238,33 +256,66 @@ export function BalanceEditorPage() {
         }
       />
 
-      {/* KPI en lignes de relevé — héros = l'écart global, le signal le plus
-          critique d'une balance (doit tendre vers 0). */}
-      <LedgerSheet className="mt-4">
-        <LedgerKpiRow
-          hero
-          danger={Math.abs(ecartTotal) > 0.01}
-          label="Écart de la balance (doit être 0)"
-          value={fmt(ecartTotal)}
+      <div className="mt-2">
+        <FinancialIdentityHeader
+          eyebrow="Balance · Dossier financier"
+          title={current ? `Exercice ${current.exercice}` : "Balance"}
+          description={societe?.raisonSociale ?? "Dossier société"}
+          monogram={societe?.raisonSociale?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "S"}
+          details={[
+            { label: "Code", value: societe?.code || "—" },
+            { label: "RNE", value: societe?.rne || "Non renseigné" },
+          ]}
         />
-        <LedgerKpiRow label="Nombre de comptes" value={String(lignes.length)} />
-        <LedgerKpiRow
-          label="Sans code AFFECTAT"
-          value={String(sansCode)}
-          danger={sansCode > 0}
-        />
-      </LedgerSheet>
+      </div>
 
-      {lignes.length === 0 ? (
-        <LedgerSheet className="mt-4">
+      {grilleError && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-l-2 border-destructive bg-destructive/5 px-3 py-2 text-xs">
+          <p role="alert" className="text-foreground">La grille AFFECTAT n’a pas pu être chargée; les suggestions de code à l’import peuvent être indisponibles.</p>
+          <Button variant="outline" size="sm" onClick={() => void fetchGrille(societeId).catch(() => {})}>Réessayer</Button>
+        </div>
+      )}
+
+      {current && !currentError && !loading && (
+        <dl className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="flex items-baseline justify-between gap-3 px-3 py-2.5">
+            <dt className="text-xs text-muted-foreground">Écart de la balance <span className="text-muted-foreground/70">(cible : 0)</span></dt>
+            <dd className={`font-mono text-sm font-semibold tabular-nums ${Math.abs(ecartTotal) > 0.01 ? "text-warning" : "text-foreground"}`}>{fmt(ecartTotal)}</dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 px-3 py-2.5">
+            <dt className="text-xs text-muted-foreground">Nombre de comptes</dt>
+            <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">{lignes.length}</dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 px-3 py-2.5">
+            <dt className="text-xs text-muted-foreground">Sans code AFFECTAT</dt>
+            <dd className={`font-mono text-sm font-semibold tabular-nums ${sansCode > 0 ? "text-warning" : "text-foreground"}`}>{sansCode}</dd>
+          </div>
+        </dl>
+      )}
+
+      {loading ? (
+        <div aria-label="Chargement de la balance" className="mt-3 space-y-2 border-y border-border py-3">
+          {Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-7 w-full" />)}
+        </div>
+      ) : currentError ? (
+        <div className="mt-3 border-y border-border px-3 py-4">
           <EmptyState
             icon={Calculator}
-            title={loading ? "Chargement…" : "Balance vide"}
+            title="Balance indisponible"
+            description={currentError}
+            action={<Button variant="outline" size="sm" onClick={() => void fetchOne(balanceId).catch(() => {})}>Réessayer</Button>}
+          />
+        </div>
+      ) : lignes.length === 0 ? (
+        <div className="mt-3 border-y border-border px-3 py-3">
+          <EmptyState
+            icon={Calculator}
+            title="Balance vide"
             description="Importez un fichier Excel/CSV ou ajoutez les lignes une à une."
           />
-        </LedgerSheet>
+        </div>
       ) : (
-        <LedgerSheet className="mt-4">
+        <div className="mt-3 min-w-0 overflow-hidden border-y border-border bg-background">
           <LedgerTable
             columns={columns}
             data={lignes}
@@ -276,18 +327,17 @@ export function BalanceEditorPage() {
             pageSize={20}
             initialSort={{ columnId: "compte", direction: "asc" }}
           />
-        </LedgerSheet>
+        </div>
       )}
 
-      <LedgerSheet className="mt-4 flex items-center justify-between px-[18px] py-3">
-        <p className="text-sm text-muted-foreground">
-          La synthèse par code AFFECTAT (tous exercices) est désormais dans son propre
-          onglet, à côté de Bilan Actif/Passif.
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-y border-border py-2.5">
+        <p className="text-xs text-muted-foreground">
+          La synthèse par code AFFECTAT est disponible dans l’espace du dossier.
         </p>
         <Button variant="outline" size="sm" onClick={() => navigate(`/etats-financiers/${societeId}`)}>
           Voir la synthèse AFFECTAT
         </Button>
-      </LedgerSheet>
+      </div>
 
       <BalanceLigneFormSheet
         open={formOpen}
@@ -318,9 +368,8 @@ export function BalanceEditorPage() {
           </>
         }
         confirmLabel="Supprimer"
-        onConfirm={() => {
-          if (toDelete) removeLigne(balanceId, toDelete.id);
-          setToDelete(null);
+        onConfirm={async () => {
+          if (toDelete) await removeLigne(balanceId, toDelete.id);
         }}
       />
     </div>

@@ -2,20 +2,22 @@ import { Router } from "express";
 import { z } from "zod";
 import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin } from "../auth.js";
+import { canAccessFinanceSociete, canViewGlobalAffectat } from "../financeAccess.js";
 import { logAction } from "../journal.js";
 import { grilleAffectatCodeDto, grilleCompteDto, grilleCompteSocieteDto } from "../mappers.js";
 
 export const grilleAffectatRouter = Router();
 grilleAffectatRouter.use(requireAuth);
 
-/** Référentiel cabinet — jamais pour l'employé de société cliente. */
-function canView(session) {
-  return session.role === "admin" || session.poste !== "societe_employe";
-}
-
 grilleAffectatRouter.get("/", async (req, res) => {
-  if (!canView(req.session))
+  if (!canViewGlobalAffectat(req.session))
     return res.status(403).json({ error: "Accès non autorisé" });
+  const societeId = req.query.societeId;
+  if (societeId !== undefined && (typeof societeId !== "string" || !societeId))
+    return res.status(400).json({ error: "societeId invalide" });
+  if (societeId && !canAccessFinanceSociete(req.session, societeId))
+    return res.status(403).json({ error: "Accès non autorisé" });
+
   const codes = (await query("select * from grille_affectat_codes order by code")).rows;
   const comptes = (await query("select * from grille_comptes order by compte")).rows;
   const result = {
@@ -25,7 +27,6 @@ grilleAffectatRouter.get("/", async (req, res) => {
   // Override par société (voir grille_comptes_societe) : consultés en
   // priorité côté frontend pour préremplir l'import d'une balance, sans
   // jamais changer le mapping cabinet-wide ci-dessus.
-  const societeId = req.query.societeId;
   if (societeId) {
     const comptesSociete = (
       await query(

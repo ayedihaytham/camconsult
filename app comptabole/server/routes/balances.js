@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { query, withTransaction } from "../db.js";
 import { requireAuth } from "../auth.js";
+import { canAccessFinanceSociete } from "../financeAccess.js";
 import { logAction } from "../journal.js";
 import {
   balanceDto,
@@ -14,14 +15,6 @@ import {
 
 export const balancesRouter = Router();
 balancesRouter.use(requireAuth);
-
-/** États financiers = données comptables internes : admin + collaborateurs
- * de la société uniquement. Jamais l'employé de société cliente. */
-function canAccess(session, societeId) {
-  if (session.role === "admin") return true;
-  if (session.poste === "societe_employe") return false;
-  return (session.societeIds || []).includes(societeId);
-}
 
 const ligneSchema = z.object({
   compte: z.string().default(""),
@@ -84,7 +77,7 @@ async function learnMapping(client, lignes, societeId) {
 balancesRouter.get("/", async (req, res) => {
   const societeId = req.query.societeId;
   if (!societeId) return res.status(400).json({ error: "societeId requis" });
-  if (!canAccess(req.session, societeId))
+  if (!canAccessFinanceSociete(req.session, societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
   const { rows } = await query(
     "select * from balances where societe_id = $1 order by exercice desc",
@@ -103,7 +96,7 @@ balancesRouter.get("/", async (req, res) => {
 balancesRouter.get("/postes", async (req, res) => {
   const societeId = req.query.societeId;
   if (!societeId) return res.status(400).json({ error: "societeId requis" });
-  if (!canAccess(req.session, societeId))
+  if (!canAccessFinanceSociete(req.session, societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
 
   // debit/credit renvoyés séparément (pas juste le solde net) pour permettre
@@ -198,7 +191,7 @@ const MASSES = ["incorporelles", "corporelles", "financieres"];
 balancesRouter.get("/immo-mouvements", async (req, res) => {
   const societeId = req.query.societeId;
   if (!societeId) return res.status(400).json({ error: "societeId requis" });
-  if (!canAccess(req.session, societeId))
+  if (!canAccessFinanceSociete(req.session, societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
   const { rows } = await query(
     "select * from immo_mouvements where societe_id = $1 order by exercice desc, masse",
@@ -222,7 +215,7 @@ balancesRouter.put("/immo-mouvements", async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
-  if (!canAccess(req.session, v.societeId))
+  if (!canAccessFinanceSociete(req.session, v.societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
 
   const { rows } = await query(
@@ -248,7 +241,7 @@ balancesRouter.put("/immo-mouvements", async (req, res) => {
 balancesRouter.get("/financement-mouvements", async (req, res) => {
   const societeId = req.query.societeId;
   if (!societeId) return res.status(400).json({ error: "societeId requis" });
-  if (!canAccess(req.session, societeId))
+  if (!canAccessFinanceSociete(req.session, societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
   const { rows } = await query(
     "select * from financement_mouvements where societe_id = $1 order by exercice desc",
@@ -272,7 +265,7 @@ balancesRouter.put("/financement-mouvements", async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
-  if (!canAccess(req.session, v.societeId))
+  if (!canAccessFinanceSociete(req.session, v.societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
 
   const { rows } = await query(
@@ -305,7 +298,7 @@ balancesRouter.put("/financement-mouvements", async (req, res) => {
 balancesRouter.get("/tdrf-lignes", async (req, res) => {
   const societeId = req.query.societeId;
   if (!societeId) return res.status(400).json({ error: "societeId requis" });
-  if (!canAccess(req.session, societeId))
+  if (!canAccessFinanceSociete(req.session, societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
   const { rows } = await query(
     "select * from tdrf_lignes where societe_id = $1 order by exercice desc, ordre",
@@ -327,7 +320,7 @@ balancesRouter.post("/tdrf-lignes", async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
-  if (!canAccess(req.session, v.societeId))
+  if (!canAccessFinanceSociete(req.session, v.societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
 
   const { rows } = await query(
@@ -349,7 +342,7 @@ async function loadTdrfLigneOrFail(id, session, res) {
     res.status(404).json({ error: "Ligne introuvable" });
     return null;
   }
-  if (!canAccess(session, ligne.societe_id)) {
+  if (!canAccessFinanceSociete(session, ligne.societe_id)) {
     res.status(403).json({ error: "Accès non autorisé" });
     return null;
   }
@@ -394,7 +387,7 @@ balancesRouter.delete("/tdrf-lignes/:id", async (req, res) => {
 balancesRouter.get("/tdrf-parametres", async (req, res) => {
   const societeId = req.query.societeId;
   if (!societeId) return res.status(400).json({ error: "societeId requis" });
-  if (!canAccess(req.session, societeId))
+  if (!canAccessFinanceSociete(req.session, societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
   const { rows } = await query(
     "select * from tdrf_parametres where societe_id = $1 order by exercice desc",
@@ -460,7 +453,7 @@ balancesRouter.put("/tdrf-parametres", async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
-  if (!canAccess(req.session, v.societeId))
+  if (!canAccessFinanceSociete(req.session, v.societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
 
   const cols = TDRF_NUMERIC_FIELDS.map(([, col]) => col);
@@ -486,7 +479,7 @@ balancesRouter.get("/:id", async (req, res) => {
     await query("select * from balances where id = $1", [req.params.id])
   ).rows[0];
   if (!bal) return res.status(404).json({ error: "Balance introuvable" });
-  if (!canAccess(req.session, bal.societe_id))
+  if (!canAccessFinanceSociete(req.session, bal.societe_id))
     return res.status(403).json({ error: "Accès non autorisé" });
   const { rows: lignes } = await query(
     "select * from balance_lignes where balance_id = $1 order by ordre",
@@ -506,7 +499,7 @@ balancesRouter.post("/", async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
-  if (!canAccess(req.session, v.societeId))
+  if (!canAccessFinanceSociete(req.session, v.societeId))
     return res.status(403).json({ error: "Accès non autorisé" });
 
   const soc = (
@@ -534,7 +527,7 @@ balancesRouter.patch("/:id", async (req, res) => {
     await query("select * from balances where id = $1", [req.params.id])
   ).rows[0];
   if (!existing) return res.status(404).json({ error: "Balance introuvable" });
-  if (!canAccess(req.session, existing.societe_id))
+  if (!canAccessFinanceSociete(req.session, existing.societe_id))
     return res.status(403).json({ error: "Accès non autorisé" });
 
   const parsed = createSchema.partial().safeParse(req.body);
@@ -564,7 +557,7 @@ balancesRouter.delete("/:id", async (req, res) => {
     await query("select * from balances where id = $1", [req.params.id])
   ).rows[0];
   if (!existing) return res.status(404).json({ error: "Balance introuvable" });
-  if (!canAccess(req.session, existing.societe_id))
+  if (!canAccessFinanceSociete(req.session, existing.societe_id))
     return res.status(403).json({ error: "Accès non autorisé" });
 
   // Les saisies manuelles (TAB VAR Immob, financement, TDRF, Notes) sont
@@ -606,7 +599,7 @@ async function loadBalanceOrFail(id, session, res) {
     res.status(404).json({ error: "Balance introuvable" });
     return null;
   }
-  if (!canAccess(session, bal.societe_id)) {
+  if (!canAccessFinanceSociete(session, bal.societe_id)) {
     res.status(403).json({ error: "Accès non autorisé" });
     return null;
   }

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload } from "lucide-react";
+import { AlertTriangle, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,77 +12,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { useBalances, type BalanceLigneInput } from "@/store/balances";
 import { suggestAffectatFromCompte } from "@/lib/etatsFinanciers/pcgClassement";
+import {
+  parseBalanceAmount,
+  parseBalanceRows,
+  type AmountField,
+  type BalanceImportRow,
+} from "@/lib/etatsFinanciers/importBalance";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   balanceId: string;
   societeId: string;
-}
-
-const HEADER_KEYS: Record<string, keyof BalanceLigneInput | "solde"> = {
-  affectat: "affectat",
-  affect: "affectat",
-  compte: "compte",
-  libelle: "libelle",
-  libellé: "libelle",
-  debit: "debit",
-  débit: "debit",
-  credit: "credit",
-  crédit: "credit",
-  solde: "solde",
-};
-
-function toNum(cell: unknown): number {
-  if (typeof cell === "number") return Number.isFinite(cell) ? cell : 0;
-  const s = String(cell ?? "").trim().replace(/\s/g, "").replace(",", ".");
-  const n = parseFloat(s);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function normalize(s: string) {
-  return s
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
-}
-
-/** Cherche la ligne d'en-tête dans les 10 premières lignes du fichier
- * (COMPTE est la seule colonne vraiment obligatoire pour la reconnaître). */
-function parseRows(raw: unknown[][]): BalanceLigneInput[] {
-  let headerIdx = -1;
-  let colMap: Record<string, number> = {};
-  for (let i = 0; i < Math.min(raw.length, 10); i++) {
-    const row = raw[i] ?? [];
-    const map: Record<string, number> = {};
-    row.forEach((cell, j) => {
-      const key = HEADER_KEYS[normalize(String(cell ?? ""))];
-      if (key) map[key] = j;
-    });
-    if (map.compte !== undefined) {
-      headerIdx = i;
-      colMap = map;
-      break;
-    }
-  }
-  if (headerIdx === -1) return [];
-
-  const out: BalanceLigneInput[] = [];
-  for (let i = headerIdx + 1; i < raw.length; i++) {
-    const row = raw[i] ?? [];
-    const compte = String(row[colMap.compte] ?? "").trim();
-    if (!compte) continue;
-    out.push({
-      compte,
-      libelle: colMap.libelle !== undefined ? String(row[colMap.libelle] ?? "").trim() : "",
-      debit: colMap.debit !== undefined ? toNum(row[colMap.debit]) : 0,
-      credit: colMap.credit !== undefined ? toNum(row[colMap.credit]) : 0,
-      affectat:
-        colMap.affectat !== undefined ? String(row[colMap.affectat] ?? "").trim() : "",
-    });
-  }
-  return out;
 }
 
 const fmt = (n: number) =>
@@ -94,7 +35,7 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
   const replaceLignes = useBalances((s) => s.replaceLignes);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [rows, setRows] = useState<BalanceLigneInput[] | null>(null);
+  const [rows, setRows] = useState<BalanceImportRow[] | null>(null);
   const [fileName, setFileName] = useState("");
   const [saving, setSaving] = useState(false);
   // Index des lignes dont l'AFFECTAT vient d'être deviné (classe du compte),
@@ -119,8 +60,8 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
         raw: true,
         defval: "",
       }) as unknown[][];
-      const parsed = parseRows(raw);
-      if (parsed.length === 0) {
+      const parsed = parseBalanceRows(raw);
+      if (!parsed.headerFound || parsed.rows.length === 0) {
         toast.error("Aucune ligne reconnue — vérifiez qu'une colonne « Compte » existe.");
         return;
       }
@@ -134,7 +75,7 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
       const byCompte = new Map(grilleComptes.map((c) => [c.compte, c.affectatCode]));
       const nextSuggested = new Set<number>();
       const nextScoped = new Set<number>();
-      const preFilled = parsed.map((l, i) => {
+      const preFilled = parsed.rows.map((l, i) => {
         if (l.affectat) return l;
         const propreSociete = byCompteSociete.get(l.compte);
         if (propreSociete) {
@@ -169,6 +110,27 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
     });
   }
 
+  function updateAmount(idx: number, field: AmountField, raw: string) {
+    setRows((current) => {
+      if (!current) return current;
+      return current.map((row, i) => {
+        if (i !== idx) return row;
+        const parsed = parseBalanceAmount(raw);
+        const errors = { ...row.amountErrors };
+        if (parsed.ok) delete errors[field];
+        else errors[field] = `Montant ${field === "debit" ? "Débit" : "Crédit"} invalide ou ambigu.`;
+        return {
+          ...row,
+          ...(parsed.ok ? { [field]: parsed.value } : {}),
+          amountErrors: errors,
+          ...(field === "debit"
+            ? { debitRaw: parsed.ok ? undefined : raw }
+            : { creditRaw: parsed.ok ? undefined : raw }),
+        };
+      });
+    });
+  }
+
   function toggleScoped(idx: number) {
     setScoped((s) => {
       const next = new Set(s);
@@ -179,13 +141,20 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
   }
 
   async function confirm() {
-    if (!rows) return;
+    if (!rows || invalidAmountCount > 0 || saving) return;
     setSaving(true);
     try {
-      const withScope = rows.map((l, i) => ({ ...l, scopeSociete: scoped.has(i) }));
+      const withScope: BalanceLigneInput[] = rows.map(
+        ({ sourceRow: _sourceRow, amountErrors: _amountErrors, debitRaw: _debitRaw, creditRaw: _creditRaw, ...line }, i) => ({
+          ...line,
+          scopeSociete: scoped.has(i),
+        }),
+      );
       await replaceLignes(balanceId, withScope, societeId);
       toast.success(`${rows.length} ligne(s) importée(s)`);
       close();
+    } catch {
+      // The store reports the API error; retain the parsed preview for retry.
     } finally {
       setSaving(false);
     }
@@ -201,19 +170,60 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
 
   const nbSansCode = rows?.filter((r) => !r.affectat).length ?? 0;
   const nbSuggere = suggested.size;
+  const invalidAmountCount = rows?.reduce(
+    (count, row) => count + Object.keys(row.amountErrors).length,
+    0,
+  ) ?? 0;
+
+  function renderAmount(row: BalanceImportRow, index: number, field: AmountField) {
+    const error = row.amountErrors[field];
+    const raw = field === "debit" ? row.debitRaw : row.creditRaw;
+    if (!error) return row[field] ? fmt(row[field]) : "";
+
+    return (
+      <div className="min-w-28 text-left">
+        <label className="sr-only" htmlFor={`import-${field}-${row.sourceRow}`}>
+          Corriger le montant {field === "debit" ? "Débit" : "Crédit"}, ligne {row.sourceRow}
+        </label>
+        <input
+          id={`import-${field}-${row.sourceRow}`}
+          inputMode="decimal"
+          aria-invalid="true"
+          aria-describedby={`import-${field}-${row.sourceRow}-error`}
+          value={raw ?? ""}
+          onChange={(event) => updateAmount(index, field, event.target.value)}
+          className="h-8 w-full rounded-sm border border-destructive bg-background px-2 text-right text-xs tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <p
+          id={`import-${field}-${row.sourceRow}-error`}
+          role="alert"
+          className="mt-0.5 text-left text-[0.65rem] leading-tight text-destructive"
+        >
+          Ligne {row.sourceRow} · valeur invalide
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+    <Dialog open={open} onOpenChange={(o) => !o && !saving && close()}>
       <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col">
         <DialogHeader>
           <DialogTitle>Importer une balance</DialogTitle>
           <DialogDescription>
             Colonnes reconnues : Compte, Libellé, Débit, Crédit, Affectat (SOLDE est
-            recalculé automatiquement). Remplace toutes les lignes existantes de cet
-            exercice. Cochez la case à droite d'un code pour que le changement ne
-            s'applique qu'à ce dossier, sans modifier les autres sociétés.
+            recalculé automatiquement). Cochez la case à droite d'un code pour que le changement
+            ne s'applique qu'à ce dossier, sans modifier les autres sociétés.
           </DialogDescription>
         </DialogHeader>
+
+        <p className="flex items-start gap-2 border-l-2 border-warning bg-warning/10 px-3 py-2 text-xs text-foreground">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+          <span>
+            <strong>Remplacement intégral :</strong> confirmer l'import remplacera toutes les
+            lignes actuellement enregistrées pour cet exercice.
+          </span>
+        </p>
 
         {!rows ? (
           <label className="flex flex-col items-center gap-3 rounded-sm border border-dashed border-input px-4 py-12 text-center transition-colors hover:border-accent/50 hover:bg-secondary/40">
@@ -251,6 +261,11 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
                 )}
               </span>
             </div>
+            {invalidAmountCount > 0 && (
+              <p role="alert" className="text-xs font-medium text-destructive">
+                {invalidAmountCount} montant(s) à corriger avant de remplacer la balance.
+              </p>
+            )}
             <div className="min-h-0 flex-1 overflow-auto rounded-sm border border-border">
               <table className="w-full text-sm">
                 <thead>
@@ -281,7 +296,7 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
                 <tbody>
                   {rows.map((r, i) => (
                     <tr
-                      key={i}
+                      key={r.sourceRow}
                       className={
                         (i + 1) % 5 === 0
                           ? "border-b-[1.5px] border-rule-strong"
@@ -291,10 +306,10 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
                       <td className="px-2 py-1.5 font-mono text-xs">{r.compte}</td>
                       <td className="max-w-[220px] truncate px-2 py-1.5">{r.libelle}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">
-                        {r.debit ? fmt(r.debit) : ""}
+                        {renderAmount(r, i, "debit")}
                       </td>
                       <td className="px-2 py-1.5 text-right tabular-nums">
-                        {r.credit ? fmt(r.credit) : ""}
+                        {renderAmount(r, i, "credit")}
                       </td>
                       <td className="px-2 py-1">
                         <input
@@ -328,11 +343,11 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={close}>
+          <Button variant="outline" disabled={saving} onClick={close}>
             Annuler
           </Button>
           {rows && (
-            <Button variant="ledger" disabled={saving} onClick={confirm}>
+            <Button variant="ledger" disabled={saving || invalidAmountCount > 0} onClick={confirm}>
               {saving ? "Import en cours…" : `Importer ${rows.length} ligne(s)`}
             </Button>
           )}

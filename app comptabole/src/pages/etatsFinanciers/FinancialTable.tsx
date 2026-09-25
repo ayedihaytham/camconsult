@@ -30,13 +30,13 @@ export function FinancialTable({
       <table className="w-full text-sm">
         <thead>
           <tr>
-            <th className="sticky left-0 border-b-2 border-foreground bg-card px-[18px] py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+            <th className="sticky left-0 z-30 min-w-[240px] border-b-2 border-foreground bg-card px-[18px] py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
               {titre ?? "Poste"}
             </th>
             {columns.map((c) => (
               <th
                 key={c.exercice}
-                className="min-w-[130px] border-b-2 border-foreground px-3 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground"
+                  className="min-w-[130px] border-b-2 border-foreground bg-card px-3 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground"
               >
                 {c.exercice}
               </th>
@@ -61,7 +61,7 @@ export function FinancialTable({
               <tr key={r.id} className={cn(r.bold && "border-t border-border")}>
                 <td
                   className={cn(
-                    "sticky left-0 bg-card px-[18px] py-1.5",
+                    "sticky left-0 z-20 min-w-[240px] bg-card px-[18px] py-1.5",
                     r.indent && "pl-8 text-muted-foreground",
                     r.bold && "font-bold text-foreground",
                   )}

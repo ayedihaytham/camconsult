@@ -1,15 +1,28 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Calculator, Download, FileText, Plus, Printer, Trash2 } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
+import {
+  ArrowRight,
+  Calculator,
+  Download,
+  FileText,
+  MoreHorizontal,
+  Plus,
+  Printer,
+  Trash2,
+} from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -21,8 +34,22 @@ import { formatDate } from "@/lib/utils";
 import { useSocieteById } from "@/store/data";
 import { useBalances } from "@/store/balances";
 import { useImmobilisations } from "@/store/immobilisations";
-import { ROWS_BILAN_ACTIF, ROWS_BILAN_PASSIF, ROWS_ETAT_RESULTAT, resultatNet } from "@/lib/etatsFinanciers/postes";
-import { massesCouvertesParRegistre, mergeImmoMouvements } from "@/lib/etatsFinanciers/immobilisationsRegistre";
+import { FinancialIdentityHeader } from "./FinancialIdentityHeader";
+import {
+  FinancialViewNavigation,
+  financialViewLabel,
+  type FinancialView,
+} from "./FinancialViewNavigation";
+import {
+  ROWS_BILAN_ACTIF,
+  ROWS_BILAN_PASSIF,
+  ROWS_ETAT_RESULTAT,
+  resultatNet,
+} from "@/lib/etatsFinanciers/postes";
+import {
+  massesCouvertesParRegistre,
+  mergeImmoMouvements,
+} from "@/lib/etatsFinanciers/immobilisationsRegistre";
 import { FinancialTable } from "./FinancialTable";
 import { AffectatSyntheseTable } from "./AffectatSyntheseTable";
 import { SigTable } from "./SigTable";
@@ -50,19 +77,7 @@ import {
 } from "@/lib/etatsFinanciers/exportClasseur";
 import type { Balance } from "@/types";
 
-type Vue =
-  | "exercices"
-  | "actif"
-  | "passif"
-  | "resultat"
-  | "sig"
-  | "synthese"
-  | "immo"
-  | "registre"
-  | "flux"
-  | "tdrf"
-  | "controle"
-  | "notes";
+type Vue = FinancialView;
 
 const SECTION_SHEET_NAMES: Record<Exclude<Vue, "exercices">, string> = {
   actif: "Bilan Actif",
@@ -79,22 +94,36 @@ const SECTION_SHEET_NAMES: Record<Exclude<Vue, "exercices">, string> = {
 };
 
 /** Sections dont le tableau commence par une ligne d'en-têtes (« Actif | 2025 | 2024 »). */
-const SECTIONS_AVEC_EN_TETES = new Set<Vue>(["actif", "passif", "resultat", "synthese"]);
+const SECTIONS_AVEC_EN_TETES = new Set<Vue>([
+  "actif",
+  "passif",
+  "resultat",
+  "synthese",
+]);
 
-const VUE_OPTIONS: { value: Vue; label: string }[] = [
-  { value: "exercices", label: "Exercices" },
-  { value: "actif", label: "Bilan Actif" },
-  { value: "passif", label: "Bilan Passif" },
-  { value: "resultat", label: "Etat de résultat" },
-  { value: "flux", label: "Flux de trésorerie" },
-  { value: "notes", label: "Notes" },
-  { value: "immo", label: "TAB VAR Immob" },
-  { value: "registre", label: "Registre immobilisations" },
-  { value: "sig", label: "SIG" },
-  { value: "tdrf", label: "TDRF" },
-  { value: "controle", label: "Contrôle" },
-  { value: "synthese", label: "Synthèse AFFECTAT" },
-];
+const VUE_DESCRIPTIONS: Record<Vue, string> = {
+  exercices: "Une balance importée ou saisie par exercice.",
+  actif: "Actif comparé entre les exercices disponibles.",
+  passif: "Capitaux propres et passifs par exercice.",
+  resultat: "Produits et charges selon les postes AFFECTAT.",
+  sig: "Soldes intermédiaires de gestion.",
+  synthese: "Soldes regroupés par code AFFECTAT brut.",
+  immo: "Variations des immobilisations par exercice.",
+  registre: "Registre des immobilisations du dossier.",
+  flux: "Flux de trésorerie par exercice.",
+  tdrf: "Détermination du résultat fiscal.",
+  controle: "Contrôles et rapprochements des données comptables.",
+  notes: "Notes et informations complémentaires des exercices.",
+};
+
+function societyMonogram(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export function BalancesListPage() {
   const { societeId = "" } = useParams();
@@ -103,6 +132,7 @@ export function BalancesListPage() {
 
   const list = useBalances((s) => s.list);
   const loading = useBalances((s) => s.loadingList);
+  const listError = useBalances((s) => s.listError);
   const fetchList = useBalances((s) => s.fetchList);
   const clearList = useBalances((s) => s.clearList);
   const create = useBalances((s) => s.create);
@@ -110,11 +140,14 @@ export function BalancesListPage() {
 
   const postesParExercice = useBalances((s) => s.postesParExercice);
   const loadingPostes = useBalances((s) => s.loadingPostes);
+  const postesError = useBalances((s) => s.postesError);
   const fetchPostes = useBalances((s) => s.fetchPostes);
   const clearPostes = useBalances((s) => s.clearPostes);
 
   const grilleCodes = useBalances((s) => s.grilleCodes);
   const fetchGrille = useBalances((s) => s.fetchGrille);
+  const grilleLoading = useBalances((s) => s.grilleLoading);
+  const grilleError = useBalances((s) => s.grilleError);
 
   const immoMouvements = useBalances((s) => s.immoMouvements);
   const fetchImmoMouvements = useBalances((s) => s.fetchImmoMouvements);
@@ -122,9 +155,15 @@ export function BalancesListPage() {
   const saveImmoMouvement = useBalances((s) => s.saveImmoMouvement);
 
   const financementMouvements = useBalances((s) => s.financementMouvements);
-  const fetchFinancementMouvements = useBalances((s) => s.fetchFinancementMouvements);
-  const clearFinancementMouvements = useBalances((s) => s.clearFinancementMouvements);
-  const saveFinancementMouvement = useBalances((s) => s.saveFinancementMouvement);
+  const fetchFinancementMouvements = useBalances(
+    (s) => s.fetchFinancementMouvements,
+  );
+  const clearFinancementMouvements = useBalances(
+    (s) => s.clearFinancementMouvements,
+  );
+  const saveFinancementMouvement = useBalances(
+    (s) => s.saveFinancementMouvement,
+  );
 
   const tdrfLignes = useBalances((s) => s.tdrfLignes);
   const fetchTdrfLignes = useBalances((s) => s.fetchTdrfLignes);
@@ -148,25 +187,32 @@ export function BalancesListPage() {
   const [exercice, setExercice] = useState("");
   const [toDelete, setToDelete] = useState<Balance | null>(null);
   const [vue, setVue] = useState<Vue>("exercices");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    fetchList(societeId);
+    void fetchList(societeId).catch(() => {});
     return () => clearList();
   }, [societeId, fetchList, clearList]);
 
   useEffect(() => {
     if (vue === "exercices") return;
-    fetchPostes(societeId);
+    void fetchPostes(societeId).catch(() => {});
     return () => clearPostes();
   }, [vue, societeId, fetchPostes, clearPostes]);
 
   useEffect(() => {
     if (vue !== "synthese") return;
-    fetchGrille();
+    void fetchGrille().catch(() => {});
   }, [vue, fetchGrille]);
 
   useEffect(() => {
-    if (vue !== "immo" && vue !== "flux" && vue !== "notes" && vue !== "controle") return;
+    if (
+      vue !== "immo" &&
+      vue !== "flux" &&
+      vue !== "notes" &&
+      vue !== "controle"
+    )
+      return;
     fetchImmoMouvements(societeId);
     return () => clearImmoMouvements();
   }, [vue, societeId, fetchImmoMouvements, clearImmoMouvements]);
@@ -185,10 +231,24 @@ export function BalancesListPage() {
       clearTdrfLignes();
       clearTdrfParametres();
     };
-  }, [vue, societeId, fetchTdrfLignes, clearTdrfLignes, fetchTdrfParametres, clearTdrfParametres]);
+  }, [
+    vue,
+    societeId,
+    fetchTdrfLignes,
+    clearTdrfLignes,
+    fetchTdrfParametres,
+    clearTdrfParametres,
+  ]);
 
   useEffect(() => {
-    if (vue !== "immo" && vue !== "flux" && vue !== "notes" && vue !== "registre" && vue !== "controle") return;
+    if (
+      vue !== "immo" &&
+      vue !== "flux" &&
+      vue !== "notes" &&
+      vue !== "registre" &&
+      vue !== "controle"
+    )
+      return;
     fetchImmoCategories();
     fetchImmoBiens(societeId);
     return () => clearImmoBiens();
@@ -204,7 +264,8 @@ export function BalancesListPage() {
   );
 
   async function submitCreate() {
-    if (!exercice.trim()) return;
+    if (!exercice.trim() || creating) return;
+    setCreating(true);
     try {
       const b = await create(societeId, exercice.trim());
       toast.success("Exercice créé");
@@ -213,6 +274,8 @@ export function BalancesListPage() {
       navigate(`/etats-financiers/${societeId}/${b.id}`);
     } catch {
       // fail() du store affiche déjà le toast d'erreur (ex. exercice en doublon)
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -227,12 +290,21 @@ export function BalancesListPage() {
       case "actif":
         return financialSheet(ROWS_BILAN_ACTIF, postesParExercice, "Actif");
       case "passif":
-        return financialSheet(ROWS_BILAN_PASSIF, postesParExercice, "Capitaux propres et passifs", (ex) => {
-          const p = postesParExercice.find((e) => e.exercice === ex);
-          return { resultat_exercice: p ? resultatNet(p.postes) : 0 };
-        });
+        return financialSheet(
+          ROWS_BILAN_PASSIF,
+          postesParExercice,
+          "Capitaux propres et passifs",
+          (ex) => {
+            const p = postesParExercice.find((e) => e.exercice === ex);
+            return { resultat_exercice: p ? resultatNet(p.postes) : 0 };
+          },
+        );
       case "resultat":
-        return financialSheet(ROWS_ETAT_RESULTAT, postesParExercice, "Etat de résultat");
+        return financialSheet(
+          ROWS_ETAT_RESULTAT,
+          postesParExercice,
+          "Etat de résultat",
+        );
       case "sig":
         return sigSheet(postesParExercice);
       case "synthese":
@@ -242,11 +314,21 @@ export function BalancesListPage() {
       case "registre":
         return registreSheet(postesParExercice, immoBiens, immoCategories);
       case "flux":
-        return fluxSheet(postesParExercice, effectiveImmoMouvements, financementMouvements);
+        return fluxSheet(
+          postesParExercice,
+          effectiveImmoMouvements,
+          financementMouvements,
+        );
       case "tdrf":
         return tdrfSheet(postesParExercice, tdrfLignes, tdrfParametres);
       case "controle":
-        return controleSheet(postesParExercice, effectiveImmoMouvements, financementMouvements, tdrfLignes, tdrfParametres);
+        return controleSheet(
+          postesParExercice,
+          effectiveImmoMouvements,
+          financementMouvements,
+          tdrfLignes,
+          tdrfParametres,
+        );
       case "notes":
         return loadNotesSheet(societeId, societeName, postesParExercice);
     }
@@ -257,14 +339,30 @@ export function BalancesListPage() {
     setExporting(true);
     try {
       if (vue === "exercices") {
-        await (format === "xlsx" ? exportClasseurExcel : exportClasseurPdf)(societeId, societeName);
-        toast.success(format === "xlsx" ? "Classeur exporté" : "PDF enregistré");
+        await (format === "xlsx" ? exportClasseurExcel : exportClasseurPdf)(
+          societeId,
+          societeName,
+        );
+        toast.success(
+          format === "xlsx" ? "Classeur exporté" : "PDF enregistré",
+        );
       } else {
         const sheetName = SECTION_SHEET_NAMES[vue];
         const aoa = await sectionAoa(vue);
-        if (format === "xlsx") await downloadSingleSheetXlsx(aoa, sheetName, societeName);
-        else await downloadSectionPdf(aoa, sheetName, societeName, SECTIONS_AVEC_EN_TETES.has(vue));
-        toast.success(format === "xlsx" ? `${sheetName} exporté` : `${sheetName} — PDF enregistré`);
+        if (format === "xlsx")
+          await downloadSingleSheetXlsx(aoa, sheetName, societeName);
+        else
+          await downloadSectionPdf(
+            aoa,
+            sheetName,
+            societeName,
+            SECTIONS_AVEC_EN_TETES.has(vue),
+          );
+        toast.success(
+          format === "xlsx"
+            ? `${sheetName} exporté`
+            : `${sheetName} — PDF enregistré`,
+        );
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Export impossible");
@@ -274,209 +372,299 @@ export function BalancesListPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <LedgerPageHeader
-        breadcrumb={
-          <button
-            onClick={() => navigate("/etats-financiers")}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Toutes les sociétés
-          </button>
-        }
-        title={`États financiers — ${societe?.raisonSociale ?? "Société"}`}
-        description="Un exercice = une balance importée ou saisie, reclassée par code AFFECTAT."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => handleExport("pdf")}
-              disabled={exporting || list.length === 0 || (vue !== "exercices" && postesParExercice.length === 0)}
-              title={vue === "exercices" ? "Tout le classeur en PDF" : "Cette section en PDF"}
-            >
-              <FileText className="h-4 w-4" />
-              Enregistrer PDF
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                navigate(
-                  vue === "exercices"
-                    ? `/etats-financiers/${societeId}/imprimer`
-                    : `/etats-financiers/${societeId}/imprimer/${vue}`,
-                )
-              }
-              disabled={list.length === 0 || (vue !== "exercices" && postesParExercice.length === 0)}
-            >
-              <Printer className="h-4 w-4" />
-              Imprimer
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleExport("xlsx")}
-              disabled={exporting || list.length === 0 || (vue !== "exercices" && postesParExercice.length === 0)}
-              title={vue === "exercices" ? "Tout le classeur en Excel" : "Cette section en Excel"}
-            >
-              <Download className="h-4 w-4" />
-              {exporting ? "Export…" : "Excel"}
-            </Button>
-            <Button variant="ledger" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Nouvel exercice
-            </Button>
-          </div>
-        }
-      />
+    <div className="min-w-0">
+      <h1 className="sr-only">États financiers — {societe?.raisonSociale ?? "Société"}</h1>
+      <FinancialIdentityHeader
+          variant="dossier"
+          eyebrow="Dossier financier"
+          title={societe?.raisonSociale ?? "Société"}
+          description="Exercices, balances et états comptables du dossier."
+          monogram={societyMonogram(societe?.raisonSociale ?? "S")}
+          details={[
+            { label: "Code", value: societe?.code || "—" },
+            { label: "RNE", value: societe?.rne || "Non renseigné" },
+          ]}
+          actions={
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground lg:min-h-8">
+                    Outils
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onSelect={() => void handleExport("pdf")}
+                    disabled={exporting || list.length === 0 || (vue !== "exercices" && postesParExercice.length === 0)}
+                    title={vue === "exercices" ? "Tout le classeur en PDF" : "Cette section en PDF"}
+                  >
+                    <FileText /> Enregistrer PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => navigate(vue === "exercices" ? `/etats-financiers/${societeId}/imprimer` : `/etats-financiers/${societeId}/imprimer/${vue}`)}
+                    disabled={list.length === 0 || (vue !== "exercices" && postesParExercice.length === 0)}
+                  >
+                    <Printer /> Imprimer
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => void handleExport("xlsx")}
+                    disabled={exporting || list.length === 0 || (vue !== "exercices" && postesParExercice.length === 0)}
+                    title={vue === "exercices" ? "Tout le classeur en Excel" : "Cette section en Excel"}
+                  >
+                    <Download /> {exporting ? "Export…" : "Excel"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="accent" size="sm" className="min-h-11 lg:min-h-8" onClick={() => setCreateOpen(true)}>
+                <Plus className="size-4" /> Nouvel exercice
+              </Button>
+            </>
+          }
+        />
+      <div aria-hidden="true" className="my-2 h-px bg-accent" />
 
-      <div className="mt-4">
-        <LedgerSegmented value={vue} onChange={setVue} options={VUE_OPTIONS} />
+      <div className="grid min-w-0 grid-cols-1 border border-border bg-card lg:grid-cols-[208px_minmax(0,1fr)]">
+        <FinancialViewNavigation value={vue} onChange={setVue} />
+
+        <main className="min-w-0 px-3 py-3 lg:px-5 lg:py-4">
+          <div className="mb-2 flex min-w-0 flex-wrap items-end justify-between gap-x-4 gap-y-1 border-b border-border pb-2">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-primary">
+                {financialViewLabel(vue)}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {VUE_DESCRIPTIONS[vue]}
+              </p>
+            </div>
+            {vue === "exercices" ? (
+              <p className="mt-0.5 text-[0.65rem] font-normal uppercase tracking-wide text-muted-foreground sm:mt-0 sm:font-medium">
+                Portée des exports · classeur complet
+              </p>
+            ) : postesParExercice.length > 0 && (
+              <p className="text-xs tabular-nums text-muted-foreground">
+                Exercices ·{" "}
+                {postesParExercice.map((item) => item.exercice).join(" · ")}
+              </p>
+            )}
+          </div>
+
+          {vue === "synthese" && grilleLoading && (
+            <p role="status" className="mb-2 text-xs text-muted-foreground">
+              Chargement des libellés AFFECTAT…
+            </p>
+          )}
+          {vue === "synthese" && grilleError && (
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-l-2 border-warning bg-warning/10 px-3 py-2 text-xs">
+              <p role="status" className="text-foreground">
+                Les libellés de la grille ne sont pas disponibles; les codes et montants restent visibles.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => void fetchGrille().catch(() => {})}>
+                Réessayer
+              </Button>
+            </div>
+          )}
+
+          {vue === "exercices" ? (
+            loading ? (
+              <div
+                aria-label="Chargement des exercices"
+                className="divide-y divide-border border-y border-border"
+              >
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div
+                    key={index}
+                    className="flex min-h-14 items-center justify-between gap-4 px-3"
+                  >
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                ))}
+              </div>
+            ) : listError ? (
+              <div className="border-y border-border px-3 py-5">
+                <EmptyState
+                  icon={Calculator}
+                  title="Exercices indisponibles"
+                  description={listError}
+                  action={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void fetchList(societeId).catch(() => {})}
+                    >
+                      Réessayer
+                    </Button>
+                  }
+                />
+              </div>
+            ) : list.length === 0 ? (
+              <div className="border-y border-border px-3 pb-5 pt-0">
+                <EmptyState
+                  icon={Calculator}
+                  title="Aucun exercice"
+                  description="Créez un exercice (ex. « 2025 ») pour saisir ou importer sa balance."
+                  action={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="min-h-11 lg:min-h-8"
+                      onClick={() => setCreateOpen(true)}
+                    >
+                      <Plus className="size-4" />
+                      Nouvel exercice
+                    </Button>
+                  }
+                />
+              </div>
+            ) : (
+              <>
+                <ul className="hidden border-t border-border md:block" aria-label="Registre des exercices">
+                  {list.map((balance) => (
+                    <li key={balance.id} className="grid min-h-[59px] grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-primary">{balance.exercice}</p>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          Mis à jour le {formatDate(balance.majLe)}{balance.note ? ` · ${balance.note}` : ""}
+                        </p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/etats-financiers/${societeId}/${balance.id}`)}>
+                        Ouvrir la balance <ArrowRight className="size-3.5" aria-hidden="true" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-sm" aria-label={`Actions de l'exercice ${balance.exercice}`}>
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem variant="destructive" onSelect={() => setToDelete(balance)}>
+                            <Trash2 /> Supprimer l'exercice
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </li>
+                  ))}
+                </ul>
+                <ul
+                  className="divide-y divide-border border-y border-border md:hidden"
+                  aria-label="Registre des exercices"
+                >
+                  {list.map((balance) => (
+                    <li
+                      key={balance.id}
+                      className="flex min-h-[68px] items-center gap-3 px-2 py-2"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/etats-financiers/${societeId}/${balance.id}`,
+                          )
+                        }
+                        className="min-h-11 min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="block font-semibold text-primary">
+                          Exercice {balance.exercice}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          Mis à jour le {formatDate(balance.majLe)}
+                          {balance.note ? ` · ${balance.note}` : ""}
+                        </span>
+                        <span className="mt-1 inline-block text-xs font-semibold text-primary">
+                          Ouvrir la balance →
+                        </span>
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Supprimer l'exercice ${balance.exercice}`}
+                        onClick={() => setToDelete(balance)}
+                      >
+                        <Trash2 className="size-4 text-muted-foreground" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )
+          ) : loadingPostes ? (
+            <div
+              aria-label={`Chargement de ${financialViewLabel(vue)}`}
+              className="space-y-2 border-y border-border py-3"
+            >
+              {Array.from({ length: 7 }, (_, index) => (
+                <Skeleton key={index} className="h-7 w-full" />
+              ))}
+            </div>
+          ) : postesError ? (
+            <div className="border-y border-border px-3 py-5">
+              <EmptyState
+                icon={Calculator}
+                title="Données financières indisponibles"
+                description={postesError}
+                action={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void fetchPostes(societeId).catch(() => {})}
+                  >
+                    Réessayer
+                  </Button>
+                }
+              />
+            </div>
+          ) : postesParExercice.length === 0 ? (
+            <div className="border-y border-border px-3 py-4">
+              <EmptyState
+                icon={Calculator}
+                title="Aucune donnée"
+                description="Importez ou saisissez une balance dans un exercice pour construire cette vue."
+              />
+            </div>
+          ) : vue === "actif" ? (
+            <div className="min-w-0 overflow-x-auto border-y border-border bg-background">
+              <FinancialTable rows={ROWS_BILAN_ACTIF} exercices={postesParExercice} titre="Actif" />
+            </div>
+          ) : vue === "passif" ? (
+            <div className="min-w-0 overflow-x-auto border-y border-border bg-background">
+              <FinancialTable
+                rows={ROWS_BILAN_PASSIF}
+                exercices={postesParExercice}
+                extraByExercice={(ex) => {
+                  const p = postesParExercice.find((e) => e.exercice === ex);
+                  return { resultat_exercice: p ? resultatNet(p.postes) : 0 };
+                }}
+                titre="Capitaux propres et passifs"
+              />
+            </div>
+          ) : vue === "resultat" ? (
+            <div className="min-w-0 overflow-x-auto border-y border-border bg-background">
+              <FinancialTable rows={ROWS_ETAT_RESULTAT} exercices={postesParExercice} titre="État de résultat" />
+            </div>
+          ) : vue === "sig" ? (
+            <div className="min-w-0 overflow-x-auto border-y border-border bg-background"><SigTable exercices={postesParExercice} /></div>
+          ) : vue === "synthese" ? (
+            <div className="min-w-0 overflow-x-auto border-y border-border bg-background"><AffectatSyntheseTable exercices={postesParExercice} grilleCodes={grilleCodes} /></div>
+          ) : vue === "immo" ? (
+            <ImmoVariationTable exercices={postesParExercice} immoMouvements={effectiveImmoMouvements} readOnlyMasses={readOnlyMasses} onSave={(ex, masse, data) => saveImmoMouvement(societeId, ex, masse, data)} />
+          ) : vue === "registre" ? (
+            <ImmobilisationsRegistrePage societeId={societeId} exercices={postesParExercice} />
+          ) : vue === "flux" ? (
+            <FluxTable exercices={postesParExercice} immoMouvements={effectiveImmoMouvements} financementMouvements={financementMouvements} onSaveFinancement={(ex, data) => saveFinancementMouvement(societeId, ex, data)} />
+          ) : vue === "tdrf" ? (
+            <TdrfTable exercices={postesParExercice} lignes={tdrfLignes} parametres={tdrfParametres} onAdd={(ex, kind, libelle, montant) => addTdrfLigne(societeId, ex, kind, libelle, montant)} onUpdate={updateTdrfLigne} onRemove={removeTdrfLigne} onSaveParametres={(ex, data) => saveTdrfParametres(societeId, ex, data)} />
+          ) : vue === "controle" ? (
+            <ControleTable exercices={postesParExercice} immoMouvements={effectiveImmoMouvements} financementMouvements={financementMouvements} tdrfLignes={tdrfLignes} tdrfParametres={tdrfParametres} />
+          ) : (
+            <NotesView societeId={societeId} societeName={societe?.raisonSociale ?? ""} exercices={postesParExercice} immoMouvements={effectiveImmoMouvements} />
+          )}
+        </main>
       </div>
 
-      {vue === "exercices" ? (
-        list.length === 0 ? (
-          <LedgerSheet className="mt-4 flex-1">
-            <EmptyState
-              icon={Calculator}
-              title={loading ? "Chargement…" : "Aucun exercice"}
-              description="Créez un exercice (ex. « 2025 ») pour importer sa balance."
-              action={
-                <Button variant="ledger" size="sm" onClick={() => setCreateOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Nouvel exercice
-                </Button>
-              }
-            />
-          </LedgerSheet>
-        ) : (
-          <LedgerSheet className="mt-4 flex-1">
-            {list.map((b, i) => (
-              <div
-                key={b.id}
-                className={
-                  "flex items-center justify-between gap-3 border-border px-[18px] py-3 " +
-                  (i === list.length - 1
-                    ? ""
-                    : (i + 1) % 5 === 0
-                      ? "border-b-[1.5px] border-rule-strong"
-                      : "border-b")
-                }
-              >
-                <button
-                  onClick={() => navigate(`/etats-financiers/${societeId}/${b.id}`)}
-                  className="min-w-0 flex-1 text-left"
-                >
-                  <p className="text-sm font-semibold text-foreground">
-                    Exercice {b.exercice}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Mis à jour le {formatDate(b.majLe)}
-                    {b.note && ` · ${b.note}`}
-                  </p>
-                </button>
-                <button
-                  onClick={() => setToDelete(b)}
-                  className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  title="Supprimer"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </LedgerSheet>
-        )
-      ) : postesParExercice.length === 0 ? (
-        <LedgerSheet className="mt-4 flex-1">
-          <EmptyState
-            icon={Calculator}
-            title={loadingPostes ? "Chargement…" : "Aucune donnée"}
-            description="Importez ou saisissez une balance dans un exercice pour voir ce tableau se construire."
-          />
-        </LedgerSheet>
-      ) : vue === "actif" ? (
-        <LedgerSheet className="mt-4 flex-1">
-          <FinancialTable rows={ROWS_BILAN_ACTIF} exercices={postesParExercice} titre="Actif" />
-        </LedgerSheet>
-      ) : vue === "passif" ? (
-        <LedgerSheet className="mt-4 flex-1">
-          <FinancialTable
-            rows={ROWS_BILAN_PASSIF}
-            exercices={postesParExercice}
-            extraByExercice={(ex) => {
-              const p = postesParExercice.find((e) => e.exercice === ex);
-              return { resultat_exercice: p ? resultatNet(p.postes) : 0 };
-            }}
-            titre="Capitaux propres et passifs"
-          />
-        </LedgerSheet>
-      ) : vue === "resultat" ? (
-        <LedgerSheet className="mt-4 flex-1">
-          <FinancialTable rows={ROWS_ETAT_RESULTAT} exercices={postesParExercice} titre="Etat de résultat" />
-        </LedgerSheet>
-      ) : vue === "sig" ? (
-        <LedgerSheet className="mt-4 flex-1">
-          <SigTable exercices={postesParExercice} />
-        </LedgerSheet>
-      ) : vue === "synthese" ? (
-        <LedgerSheet className="mt-4 flex-1">
-          <AffectatSyntheseTable exercices={postesParExercice} grilleCodes={grilleCodes} />
-        </LedgerSheet>
-      ) : vue === "immo" ? (
-        <div className="mt-4">
-          <ImmoVariationTable
-            exercices={postesParExercice}
-            immoMouvements={effectiveImmoMouvements}
-            readOnlyMasses={readOnlyMasses}
-            onSave={(ex, masse, data) => saveImmoMouvement(societeId, ex, masse, data)}
-          />
-        </div>
-      ) : vue === "registre" ? (
-        <div className="mt-4">
-          <ImmobilisationsRegistrePage societeId={societeId} exercices={postesParExercice} />
-        </div>
-      ) : vue === "flux" ? (
-        <div className="mt-4">
-          <FluxTable
-            exercices={postesParExercice}
-            immoMouvements={effectiveImmoMouvements}
-            financementMouvements={financementMouvements}
-            onSaveFinancement={(ex, data) => saveFinancementMouvement(societeId, ex, data)}
-          />
-        </div>
-      ) : vue === "tdrf" ? (
-        <div className="mt-4">
-          <TdrfTable
-            exercices={postesParExercice}
-            lignes={tdrfLignes}
-            parametres={tdrfParametres}
-            onAdd={(ex, kind, libelle, montant) => addTdrfLigne(societeId, ex, kind, libelle, montant)}
-            onUpdate={updateTdrfLigne}
-            onRemove={removeTdrfLigne}
-            onSaveParametres={(ex, data) => saveTdrfParametres(societeId, ex, data)}
-          />
-        </div>
-      ) : vue === "controle" ? (
-        <div className="mt-4">
-          <ControleTable
-            exercices={postesParExercice}
-            immoMouvements={effectiveImmoMouvements}
-            financementMouvements={financementMouvements}
-            tdrfLignes={tdrfLignes}
-            tdrfParametres={tdrfParametres}
-          />
-        </div>
-      ) : (
-        <div className="mt-4">
-          <NotesView
-            societeId={societeId}
-            societeName={societe?.raisonSociale ?? ""}
-            exercices={postesParExercice}
-            immoMouvements={effectiveImmoMouvements}
-          />
-        </div>
-      )}
-
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => !creating && setCreateOpen(open)}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Nouvel exercice</DialogTitle>
@@ -495,11 +683,19 @@ export function BalancesListPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+            <Button
+              variant="outline"
+              disabled={creating}
+              onClick={() => setCreateOpen(false)}
+            >
               Annuler
             </Button>
-            <Button variant="ledger" disabled={!exercice.trim()} onClick={submitCreate}>
-              Créer
+            <Button
+              variant="ledger"
+              disabled={!exercice.trim() || creating}
+              onClick={submitCreate}
+            >
+              {creating ? "Création…" : "Créer"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -512,15 +708,17 @@ export function BalancesListPage() {
         description={
           <>
             L'exercice{" "}
-            <span className="font-medium text-foreground">{toDelete?.exercice}</span> sera
-            définitivement supprimé, avec sa balance et toutes les saisies qui lui sont
-            propres (TAB VAR Immob, mouvements de financement, TDRF, Notes de l'exercice).
+            <span className="font-medium text-foreground">
+              {toDelete?.exercice}
+            </span>{" "}
+            sera définitivement supprimé, avec sa balance et toutes les saisies
+            qui lui sont propres (TAB VAR Immob, mouvements de financement,
+            TDRF, Notes de l'exercice).
           </>
         }
         confirmLabel="Supprimer"
-        onConfirm={() => {
-          if (toDelete) remove(toDelete.id);
-          setToDelete(null);
+        onConfirm={async () => {
+          if (toDelete) await remove(toDelete.id);
         }}
       />
     </div>

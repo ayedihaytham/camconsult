@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowUpRight, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +19,23 @@ function totalLabel(total: number | null, devise: string) {
   return `${total.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
 }
 
-function Comment({ row, editable, onSave }: {
+function Comment({
+  row,
+  editable,
+  onSave,
+  mobileLayout = false,
+  editing: controlledEditing,
+  onEditingChange,
+}: {
   row: ChecklistRow;
   editable: boolean;
   onSave: (value: string) => Promise<void>;
+  mobileLayout?: boolean;
+  editing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [internalEditing, setInternalEditing] = useState(false);
+  const editing = controlledEditing ?? internalEditing;
   const [value, setValue] = useState(row.commentaire);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<"saved" | "error" | null>(null);
@@ -33,10 +44,15 @@ function Comment({ row, editable, onSave }: {
     if (!editing) setValue(row.commentaire);
   }, [row.commentaire, editing]);
 
+  function changeEditing(next: boolean) {
+    if (controlledEditing === undefined) setInternalEditing(next);
+    onEditingChange?.(next);
+  }
+
   async function save() {
     if (saving) return;
     if (value === row.commentaire) {
-      setEditing(false);
+      changeEditing(false);
       return;
     }
     setSaving(true);
@@ -44,7 +60,7 @@ function Comment({ row, editable, onSave }: {
     try {
       await onSave(value);
       setFeedback("saved");
-      setEditing(false);
+      changeEditing(false);
     } catch {
       setFeedback("error");
     } finally {
@@ -57,27 +73,60 @@ function Comment({ row, editable, onSave }: {
   return (
     <div className="min-w-0">
       {editing ? (
-        <div className="flex min-w-0 items-center gap-1">
+        <div
+          className={
+            mobileLayout
+              ? "flex min-w-0 flex-col gap-2"
+              : "flex min-w-0 flex-wrap items-center gap-1"
+          }
+        >
+          {mobileLayout && (
+            <span className="text-xs font-medium text-muted-foreground">
+              Commentaire
+            </span>
+          )}
           <Input
             aria-label={`Commentaire pour ${row.pieceLabel}`}
-            className="h-8 min-w-0 bg-background"
+            className={
+              mobileLayout
+                ? "h-10 w-full min-w-0 bg-background"
+                : "h-8 min-w-0 basis-32 flex-1 bg-background"
+            }
             value={value}
             disabled={saving}
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter") void save(); }}
           />
-          <Button size="sm" variant="outline" disabled={saving} onClick={() => void save()}>
-            {saving ? "Enregistrement…" : "Enregistrer"}
-          </Button>
-          <Button size="sm" variant="ghost" disabled={saving} onClick={() => { setValue(row.commentaire); setEditing(false); setFeedback(null); }}>
-            Annuler
-          </Button>
+          <div className={mobileLayout ? "flex items-center gap-2" : "contents"}>
+            <Button
+              size="sm"
+              variant="outline"
+              className={mobileLayout ? "min-h-10 px-2.5" : "px-2"}
+              disabled={saving}
+              onClick={() => void save()}
+            >
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className={mobileLayout ? "min-h-10 px-2" : "px-2"}
+              disabled={saving}
+              onClick={() => {
+                setValue(row.commentaire);
+                changeEditing(false);
+                setFeedback(null);
+              }}
+            >
+              Annuler
+            </Button>
+          </div>
         </div>
       ) : (
         <button
           type="button"
           className="inline-flex min-h-9 min-w-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={() => { setFeedback(null); setEditing(true); }}
+          onClick={() => { setFeedback(null); changeEditing(true); }}
           aria-label={`${row.commentaire ? "Modifier" : "Ajouter"} le commentaire pour ${row.pieceLabel}`}
         >
           <Pencil className="h-3.5 w-3.5 shrink-0" />
@@ -135,18 +184,14 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
       </div>
       <div className="divide-y divide-border lg:hidden">
         {rows.map((row) => (
-          <article key={row.onglet} className="px-3 py-3">
-            <h3 className="text-sm font-semibold text-primary">{row.pieceLabel}</h3>
-            {name(row)}
-            <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-              <StatusDot tone={row.recu ? "success" : "warning"} label={row.statutLabel} className="text-xs" />
-              <span>Date de suivi · {row.dateReception ?? "—"}</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3 border-t border-border/70 pt-1 text-xs">
-              <Comment row={row} editable={editable} onSave={(value) => onSaveComment(row.onglet, value)} />
-              <span className="shrink-0 tabular-nums text-muted-foreground">Total · {totalLabel(row.total, devise)}</span>
-            </div>
-          </article>
+          <MobileChecklistRow
+            key={row.onglet}
+            row={row}
+            devise={devise}
+            editable={editable}
+            name={name}
+            onSaveComment={onSaveComment}
+          />
         ))}
       </div>
       <div className="flex items-center justify-between border-t border-border bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
@@ -154,5 +199,61 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
         <strong className="tabular-nums text-primary">{recus} / {rows.length}</strong>
       </div>
     </>
+  );
+}
+
+function MobileChecklistRow({
+  row,
+  devise,
+  editable,
+  name,
+  onSaveComment,
+}: {
+  row: ChecklistRow;
+  devise: string;
+  editable: boolean;
+  name: (row: ChecklistRow) => ReactNode;
+  onSaveComment: (key: string, value: string) => Promise<void>;
+}) {
+  const [editingComment, setEditingComment] = useState(false);
+
+  return (
+    <article className="px-3 py-3">
+      <h3 className="text-sm font-semibold text-primary">{row.pieceLabel}</h3>
+      {name(row)}
+      <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <StatusDot
+          tone={row.recu ? "success" : "warning"}
+          label={row.statutLabel}
+          className="text-xs"
+        />
+        <span>Date de suivi · {row.dateReception ?? "—"}</span>
+      </div>
+      <div
+        className={
+          editingComment
+            ? "mt-2 flex min-w-0 flex-col gap-2 border-t border-border/70 pt-2 text-xs"
+            : "mt-2 flex min-w-0 items-center justify-between gap-3 border-t border-border/70 pt-1 text-xs"
+        }
+      >
+        <Comment
+          row={row}
+          editable={editable}
+          onSave={(value) => onSaveComment(row.onglet, value)}
+          mobileLayout
+          editing={editingComment}
+          onEditingChange={setEditingComment}
+        />
+        <span
+          className={
+            editingComment
+              ? "self-end tabular-nums text-muted-foreground"
+              : "shrink-0 tabular-nums text-muted-foreground"
+          }
+        >
+          Total · {totalLabel(row.total, devise)}
+        </span>
+      </div>
+    </article>
   );
 }

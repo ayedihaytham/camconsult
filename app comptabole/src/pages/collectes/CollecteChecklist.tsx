@@ -1,8 +1,28 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { ArrowUpRight, Pencil } from "lucide-react";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { ArrowUpRight, LoaderCircle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { StatusDot } from "@/components/ledger/StatusDot";
+import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { ChecklistRow } from "@/lib/collecte/checklist";
 
 interface Props {
@@ -23,120 +43,183 @@ function Comment({
   row,
   editable,
   onSave,
-  mobileLayout = false,
-  editing: controlledEditing,
-  onEditingChange,
 }: {
   row: ChecklistRow;
   editable: boolean;
   onSave: (value: string) => Promise<void>;
-  mobileLayout?: boolean;
-  editing?: boolean;
-  onEditingChange?: (editing: boolean) => void;
 }) {
-  const [internalEditing, setInternalEditing] = useState(false);
-  const editing = controlledEditing ?? internalEditing;
+  const isMobile = useIsMobile();
+  const textareaId = useId();
+  const [open, setOpen] = useState(false);
   const [value, setValue] = useState(row.commentaire);
   const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<"saved" | "error" | null>(null);
+  const [error, setError] = useState(false);
+  const hasComment = Boolean(row.commentaire.trim());
 
   useEffect(() => {
-    if (!editing) setValue(row.commentaire);
-  }, [row.commentaire, editing]);
+    if (!open) setValue(row.commentaire);
+  }, [row.commentaire, open]);
 
-  function changeEditing(next: boolean) {
-    if (controlledEditing === undefined) setInternalEditing(next);
-    onEditingChange?.(next);
+  function closeEditor() {
+    if (saving) return;
+    setValue(row.commentaire);
+    setError(false);
+    setOpen(false);
   }
 
   async function save() {
     if (saving) return;
     if (value === row.commentaire) {
-      changeEditing(false);
+      closeEditor();
       return;
     }
     setSaving(true);
-    setFeedback(null);
+    setError(false);
     try {
       await onSave(value);
-      setFeedback("saved");
-      changeEditing(false);
+      setOpen(false);
     } catch {
-      setFeedback("error");
+      setError(true);
     } finally {
       setSaving(false);
     }
   }
 
-  if (!editable) return <span className="text-muted-foreground">{row.commentaire || "—"}</span>;
+  if (!editable)
+    return (
+      <span className="text-muted-foreground">{row.commentaire || "—"}</span>
+    );
+
+  const editorTitle = hasComment
+    ? "Modifier le commentaire"
+    : "Ajouter un commentaire";
+  const editorContext = (
+    <>
+      <span className="block">{row.pieceLabel}</span>
+      <span className="block">{row.tabLabel}</span>
+    </>
+  );
+  const commentField = (
+    <div className="space-y-2">
+      <Label htmlFor={textareaId}>Commentaire</Label>
+      <Textarea
+        id={textareaId}
+        className="min-h-28 resize-y"
+        value={value}
+        disabled={saving}
+        onChange={(event) => {
+          setValue(event.target.value);
+          setError(false);
+        }}
+      />
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          Commentaire non enregistré. Vérifiez votre connexion puis réessayez.
+        </p>
+      )}
+    </div>
+  );
+  const actions = (
+    <div
+      className={
+        "flex w-full items-center gap-2 " +
+        (isMobile ? "justify-between" : "justify-end")
+      }
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        className={isMobile ? "min-h-11 px-4" : "min-h-9"}
+        disabled={saving}
+        onClick={closeEditor}
+      >
+        Annuler
+      </Button>
+      <Button
+        type="button"
+        variant="ledger"
+        className={isMobile ? "min-h-11 px-5" : "min-h-9"}
+        disabled={saving}
+        aria-busy={saving}
+        onClick={() => void save()}
+      >
+        {saving && (
+          <LoaderCircle
+            className="mr-2 size-4 animate-spin"
+            aria-hidden="true"
+          />
+        )}
+        {saving ? "Enregistrement…" : "Enregistrer"}
+      </Button>
+    </div>
+  );
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (saving && !nextOpen) return;
+    if (!nextOpen) {
+      setValue(row.commentaire);
+      setError(false);
+    }
+    setOpen(nextOpen);
+  };
+  const trigger = (
+    <button
+      type="button"
+      className="inline-flex min-h-9 max-w-full min-w-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={
+        (hasComment ? "Modifier" : "Ajouter") +
+        " le commentaire pour " +
+        row.pieceLabel
+      }
+      title={hasComment ? row.commentaire : undefined}
+    >
+      <Pencil className="size-3.5 shrink-0" aria-hidden="true" />
+      <span className="truncate">
+        {row.commentaire || "Ajouter une note"}
+      </span>
+    </button>
+  );
 
   return (
     <div className="min-w-0">
-      {editing ? (
-        <div
-          className={
-            mobileLayout
-              ? "flex min-w-0 flex-col gap-2"
-              : "flex min-w-0 flex-wrap items-center gap-1"
-          }
-        >
-          {mobileLayout && (
-            <span className="text-xs font-medium text-muted-foreground">
-              Commentaire
-            </span>
-          )}
-          <Input
-            aria-label={`Commentaire pour ${row.pieceLabel}`}
-            className={
-              mobileLayout
-                ? "h-10 w-full min-w-0 bg-background"
-                : "h-8 min-w-0 basis-32 flex-1 bg-background"
-            }
-            value={value}
-            disabled={saving}
-            onChange={(event) => setValue(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") void save(); }}
-          />
-          <div className={mobileLayout ? "flex items-center gap-2" : "contents"}>
-            <Button
-              size="sm"
-              variant="outline"
-              className={mobileLayout ? "min-h-10 px-2.5" : "px-2"}
-              disabled={saving}
-              onClick={() => void save()}
-            >
-              {saving ? "Enregistrement…" : "Enregistrer"}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className={mobileLayout ? "min-h-10 px-2" : "px-2"}
-              disabled={saving}
-              onClick={() => {
-                setValue(row.commentaire);
-                changeEditing(false);
-                setFeedback(null);
-              }}
-            >
-              Annuler
-            </Button>
-          </div>
-        </div>
+      {isMobile ? (
+        <Sheet open={open} onOpenChange={handleOpenChange}>
+          <SheetTrigger asChild>{trigger}</SheetTrigger>
+          <SheetContent
+            side="bottom"
+            className="max-h-[90dvh] rounded-t-2xl border-x-0 px-4 pt-5 sm:px-6"
+          >
+            <div
+              className="mx-auto mb-4 h-1 w-9 shrink-0 rounded-full bg-muted-foreground/30"
+              aria-hidden="true"
+            />
+            <SheetHeader className="space-y-1 border-0 px-0 py-0 pr-9">
+              <SheetTitle>{editorTitle}</SheetTitle>
+              <SheetDescription className="text-xs leading-relaxed">
+                {editorContext}
+              </SheetDescription>
+            </SheetHeader>
+            <SheetBody className="min-h-0 space-y-5 px-0 py-5">
+              {commentField}
+            </SheetBody>
+            <SheetFooter className="mt-auto flex-row items-center justify-between gap-2 px-0 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+              {actions}
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       ) : (
-        <button
-          type="button"
-          className="inline-flex min-h-9 min-w-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={() => { setFeedback(null); changeEditing(true); }}
-          aria-label={`${row.commentaire ? "Modifier" : "Ajouter"} le commentaire pour ${row.pieceLabel}`}
-        >
-          <Pencil className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{row.commentaire || "Ajouter une note"}</span>
-        </button>
-      )}
-      {feedback && (
-        <span role={feedback === "error" ? "alert" : "status"} className={feedback === "error" ? "text-xs text-destructive" : "text-xs text-success"}>
-          {feedback === "error" ? "Enregistrement impossible · réessayez" : "Enregistré"}
-        </span>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+          <DialogTrigger asChild>{trigger}</DialogTrigger>
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-lg gap-5 rounded-xl p-5 sm:p-6">
+            <DialogHeader className="pr-8">
+              <DialogTitle>{editorTitle}</DialogTitle>
+              <DialogDescription className="text-xs leading-relaxed">
+                {editorContext}
+              </DialogDescription>
+            </DialogHeader>
+            {commentField}
+            {actions}
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
@@ -215,8 +298,6 @@ function MobileChecklistRow({
   name: (row: ChecklistRow) => ReactNode;
   onSaveComment: (key: string, value: string) => Promise<void>;
 }) {
-  const [editingComment, setEditingComment] = useState(false);
-
   return (
     <article className="px-3 py-3">
       <h3 className="text-sm font-semibold text-primary">{row.pieceLabel}</h3>
@@ -229,28 +310,13 @@ function MobileChecklistRow({
         />
         <span>Date de suivi · {row.dateReception ?? "—"}</span>
       </div>
-      <div
-        className={
-          editingComment
-            ? "mt-2 flex min-w-0 flex-col gap-2 border-t border-border/70 pt-2 text-xs"
-            : "mt-2 flex min-w-0 items-center justify-between gap-3 border-t border-border/70 pt-1 text-xs"
-        }
-      >
+      <div className="mt-2 flex min-w-0 items-center justify-between gap-3 border-t border-border/70 pt-1 text-xs">
         <Comment
           row={row}
           editable={editable}
           onSave={(value) => onSaveComment(row.onglet, value)}
-          mobileLayout
-          editing={editingComment}
-          onEditingChange={setEditingComment}
         />
-        <span
-          className={
-            editingComment
-              ? "self-end tabular-nums text-muted-foreground"
-              : "shrink-0 tabular-nums text-muted-foreground"
-          }
-        >
+        <span className="shrink-0 tabular-nums text-muted-foreground">
           Total · {totalLabel(row.total, devise)}
         </span>
       </div>

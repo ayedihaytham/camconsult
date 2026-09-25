@@ -17,6 +17,11 @@ describe("CollecteChecklist", () => {
     expect(html).toContain("1 / 2");
     expect(html).toContain("Ajouter une note");
     expect(html).toContain('aria-label="Ajouter le commentaire pour Détail des achats"');
+    expect(html).toContain('aria-label="Modifier le commentaire pour Détail des virements reçus"');
+    expect(html).toContain("Vérifié");
+    expect(html).not.toContain("<textarea");
+    expect(html).not.toContain("Enregistrer");
+    expect(html).not.toContain("Annuler");
   });
 
   it("does not expose comment editing in a read-only context", () => {

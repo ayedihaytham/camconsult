@@ -40,16 +40,22 @@ const patchSchema = z.object({
 });
 
 // Deux circuits de tâches :
-// - "cabinet" : données par l'admin aux collaborateurs (inchangé) ;
+// - "cabinet" : données par l'admin ou le responsable des collaborateurs
+//   aux collaborateurs ;
 // - "societe" : données par un responsable de société à ses délégués. Le
 //   cabinet les voit (sur les sociétés de son périmètre) mais en lecture seule.
 const isSocieteSide = (s) => s.poste === "societe_employe";
 const isResponsableSociete = (s) => isSocieteSide(s) && !s.delegue;
 const ownSociete = (s, societeId) => (s.societeIds || []).includes(societeId);
+// Le responsable des collaborateurs gère le circuit cabinet au même titre
+// que l'admin (création, visibilité de toute l'équipe, statuts) — seule la
+// suppression admin d'une tâche société déjà Terminée (nettoyage) reste
+// strictement réservée à l'admin.
+const isCabinetManager = (s) => s.role === "admin" || s.poste === "responsable_collaborateurs";
 
 /** Tâches visibles par la session (lignes brutes). */
 export async function tachesVisibles(s) {
-  if (s.role === "admin")
+  if (isCabinetManager(s))
     return (await query("select * from taches order by cree_le desc")).rows;
   if (isSocieteSide(s)) {
     return s.delegue
@@ -106,7 +112,7 @@ tachesRouter.get("/", async (req, res) => {
   const rows = (await tachesVisibles(s)).filter(
     (r) =>
       (!q.societeId || r.societe_id === q.societeId) &&
-      (!q.assigneId || s.role !== "admin" || r.assigne_id === q.assigneId) &&
+      (!q.assigneId || !isCabinetManager(s) || r.assigne_id === q.assigneId) &&
       (!q.statut || !STATUTS.includes(q.statut) || r.statut === q.statut),
   );
   res.json(rows.map(tacheDto));
@@ -120,12 +126,12 @@ tachesRouter.post("/", async (req, res) => {
   const v = parsed.data;
 
   let origine;
-  if (s.role === "admin") origine = "cabinet";
+  if (isCabinetManager(s)) origine = "cabinet";
   else if (isResponsableSociete(s)) origine = "societe";
   else
     return res
       .status(403)
-      .json({ error: "Seul l'administrateur ou le responsable de société peut créer une tâche" });
+      .json({ error: "Seul le cabinet (admin/responsable des collaborateurs) ou le responsable de société peut créer une tâche" });
 
   if (origine === "societe" && !ownSociete(s, v.societeId))
     return res.status(403).json({ error: "Société hors de votre périmètre" });
@@ -190,13 +196,12 @@ tachesRouter.patch("/:id", async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
-  const isAdmin = s.role === "admin";
   const tacheSociete = existing.origine === "societe";
-  // Gestionnaire de la tâche : l'admin pour le circuit cabinet, le
-  // responsable de la société pour le circuit société.
+  // Gestionnaire de la tâche : l'admin/responsable des collaborateurs pour
+  // le circuit cabinet, le responsable de la société pour le circuit société.
   const isManager = tacheSociete
     ? isResponsableSociete(s) && ownSociete(s, existing.societe_id)
-    : isAdmin;
+    : isCabinetManager(s);
 
   if (!isManager) {
     if (tacheSociete && !isSocieteSide(s))
@@ -218,7 +223,7 @@ tachesRouter.patch("/:id", async (req, res) => {
       return res.status(403).json({
         error: tacheSociete
           ? "Seul le responsable de la société peut faire reculer une tâche"
-          : "Seul l'administrateur peut faire reculer une tâche",
+          : "Seul l'administrateur ou le responsable des collaborateurs peut faire reculer une tâche",
       });
   }
 
@@ -328,13 +333,13 @@ tachesRouter.delete("/:id", async (req, res) => {
     existing.origine === "societe"
       ? (isResponsableSociete(s) && ownSociete(s, existing.societe_id)) ||
         (s.role === "admin" && existing.statut === "termine")
-      : s.role === "admin";
+      : isCabinetManager(s);
   if (!allowed)
     return res.status(403).json({
       error:
         existing.origine === "societe"
           ? "Seul le responsable de la société peut supprimer cette tâche"
-          : "Accès réservé à l'administrateur",
+          : "Accès réservé à l'administrateur ou au responsable des collaborateurs",
     });
   const { rows } = await query(
     "delete from taches where id = $1 returning titre, assigne_id",

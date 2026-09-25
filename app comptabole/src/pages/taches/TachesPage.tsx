@@ -37,14 +37,21 @@ const ALL = "all";
 const STATUS_ORDER: TacheStatut[] = ["a_faire", "en_cours", "termine"];
 
 export function TachesPage() {
-  const { isAdmin, employeId, isResponsableSociete, isDelegue, societeIds } =
-    usePermissions();
+  const {
+    isAdmin,
+    employeId,
+    isResponsableSociete,
+    isDelegue,
+    societeIds,
+    canManageCollaborateurs,
+  } = usePermissions();
   const taches = useTaches();
   const societes = useSocietes();
   const collaborateurs = useCollaborateurs();
   const employes = useEmployes();
-  // Admin : tâches du cabinet. Responsable de société : tâches de ses délégués.
-  const isManager = isAdmin || isResponsableSociete;
+  // Cabinet (admin ou responsable des collaborateurs) : tâches du cabinet.
+  // Responsable de société : tâches de ses délégués.
+  const isManager = canManageCollaborateurs || isResponsableSociete;
   const ownSocieteId = isResponsableSociete ? (societeIds?.[0] ?? null) : null;
   const delegues = useMemo(
     () =>
@@ -90,7 +97,7 @@ export function TachesPage() {
       if (societeFilter !== ALL && task.societeId !== societeFilter) {
         return false;
       }
-      if (isAdmin && assigneFilter !== ALL) {
+      if (canManageCollaborateurs && assigneFilter !== ALL) {
         const matchesAssignee = assigneFilter === "none"
           ? !task.assigneId
           : task.assigneId === assigneFilter;
@@ -98,14 +105,14 @@ export function TachesPage() {
       }
       return statutFilter === ALL || task.statut === statutFilter;
     });
-  }, [assigneFilter, isAdmin, societeFilter, statutFilter, taches]);
+  }, [assigneFilter, canManageCollaborateurs, societeFilter, statutFilter, taches]);
 
   function canChangeStatus(task: Tache, status: TacheStatut) {
     if (status === task.statut) return true;
     // Chaque circuit est piloté par son côté : le cabinet suit les tâches
     // internes d'une société sans pouvoir les modifier.
     const tacheSociete = task.origine === "societe";
-    if (tacheSociete ? isResponsableSociete : isAdmin) return true;
+    if (tacheSociete ? isResponsableSociete : canManageCollaborateurs) return true;
     if (tacheSociete && !isResponsableSociete && !isDelegue) return false;
     return (
       task.assigneId === employeId &&
@@ -165,14 +172,14 @@ export function TachesPage() {
         hasAnyTasks={taches.length > 0}
         activeFilterCount={
           (societeFilter !== ALL ? 1 : 0) +
-          (isAdmin && assigneFilter !== ALL ? 1 : 0) +
+          (canManageCollaborateurs && assigneFilter !== ALL ? 1 : 0) +
           (statutFilter !== ALL ? 1 : 0)
         }
         societes={societes}
         collaborateurs={employes}
         collaboratorPresence={collaboratorPresence}
         description={
-          isAdmin
+          canManageCollaborateurs
             ? "Travail confié aux collaborateurs, par société. Les tâches internes des sociétés sont en lecture seule."
             : isResponsableSociete
               ? "Travail confié à vos délégués. Suivez l'avancement."
@@ -210,7 +217,7 @@ export function TachesPage() {
               </Select>
             </div>
 
-              {isAdmin && (
+              {canManageCollaborateurs && (
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Collaborateur</p>
                   <Select value={assigneFilter} onValueChange={setAssigneFilter}>

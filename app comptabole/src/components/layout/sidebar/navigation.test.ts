@@ -49,6 +49,7 @@ describe("sidebar navigation policy", () => {
       "/suivi-devise",
       "/structuration",
       "/messagerie",
+      "/conversions",
       "/journal",
       "/parametres",
     ]);
@@ -75,6 +76,7 @@ describe("sidebar navigation policy", () => {
       "/suivi-devise",
       "/structuration",
       "/messagerie",
+      "/conversions",
     ]);
   });
 
@@ -96,6 +98,7 @@ describe("sidebar navigation policy", () => {
       "/etats-financiers",
       "/suivi-devise",
       "/structuration",
+      "/conversions",
     ]);
   });
 

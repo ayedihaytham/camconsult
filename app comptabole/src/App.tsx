@@ -121,6 +121,9 @@ const MessageriePage = lazy(() =>
 const ParametresPage = lazy(() =>
   import("@/pages/ParametresPage").then((m) => ({ default: m.ParametresPage })),
 );
+const ConversionsPage = lazy(() =>
+  import("@/pages/ConversionsPage").then((m) => ({ default: m.ConversionsPage })),
+);
 const JournalPage = lazy(() =>
   import("@/pages/JournalPage").then((m) => ({ default: m.JournalPage })),
 );
@@ -352,6 +355,14 @@ export default function App() {
                 element={
                   <Suspense fallback={<PageFallback />}>
                     <MessageriePage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/conversions"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <ConversionsPage />
                   </Suspense>
                 }
               />

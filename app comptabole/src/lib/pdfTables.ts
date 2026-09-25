@@ -35,6 +35,11 @@ export async function downloadTablesPdf(opts: {
   subtitle?: string;
   sheets: PdfSheet[];
   fileName: string;
+  /** Désactive la détection de bandeaux/totaux (déduite des tableaux
+   * comptables du cabinet — une cellule seule en MAJUSCULES, "EXERCICE…",
+   * etc.) : pour un tableur quelconque (voir la page Conversions), ces
+   * heuristiques produisent des faux positifs. Tableau simple à la place. */
+  plain?: boolean;
 }): Promise<void> {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const maxCols = Math.max(1, ...opts.sheets.flatMap((s) => s.rows.map((r) => r.length)));
@@ -93,6 +98,11 @@ export async function downloadTablesPdf(opts: {
     for (const r of src) {
       const filled = r.filter((v) => v !== "" && v != null);
       if (filled.length === 0) continue;
+      if (opts.plain) {
+        kinds.push("normal");
+        body.push(pad(r));
+        continue;
+      }
       const first = String(r[0] ?? "");
       if (filled.length === 1 && r[0] !== "" && r[0] != null) {
         const kind: Kind = /^EXERCICE\b/.test(first) ? "exercice" : isUpper(first) ? "band" : "line";

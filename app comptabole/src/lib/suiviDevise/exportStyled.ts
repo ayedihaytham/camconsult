@@ -113,10 +113,27 @@ function feuilleVentes(wb: Workbook, fiche: SuiviDeviseFull, societeNom: string)
   });
   const last = first + fiche.factures.length - 1;
   if (fiche.factures.length > 0) {
-    const lettre = colLetter(10);
-    ligneTotal(ws, last + 2, 6, "TOTAL VENTES", [
-      { col: 10, formule: `SUM(${lettre}${first}:${lettre}${last})`, valeur: fiche.totalVentes },
+    const lotCol = colLetter(7);
+    const montantCol = colLetter(10);
+    // Seules les factures sans lot comptent dans le solde (voir
+    // suiviDeviseFullDto côté serveur) — une facture rattachée à un lot LC
+    // est déjà couverte par l'écart de ce lot, jamais réajoutée ici.
+    ligneTotal(ws, last + 2, 6, "TOTAL VENTES (hors lots)", [
+      {
+        col: 10,
+        formule: `SUMIF(${lotCol}${first}:${lotCol}${last},"",${montantCol}${first}:${montantCol}${last})`,
+        valeur: fiche.totalVentes,
+      },
     ]);
+    if (fiche.totalVentesLots !== 0) {
+      ligneTotal(ws, last + 3, 6, "dont factures de lots (hors solde)", [
+        {
+          col: 10,
+          formule: `SUMIF(${lotCol}${first}:${lotCol}${last},"<>",${montantCol}${first}:${montantCol}${last})`,
+          valeur: fiche.totalVentesLots,
+        },
+      ]);
+    }
   }
 }
 

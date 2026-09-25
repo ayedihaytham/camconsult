@@ -270,7 +270,15 @@ export function SuiviDeviseEditorPage() {
       />
 
       <LedgerSheet className="mt-4">
-        <LedgerKpiRow label="Total ventes" value={`${fmt(current.totalVentes)} ${current.devise}`} />
+        <LedgerKpiRow
+          label="Total ventes (hors lots)"
+          value={`${fmt(current.totalVentes)} ${current.devise}`}
+          hint={
+            current.totalVentesLots !== 0
+              ? `+ ${fmt(current.totalVentesLots)} ${current.devise} en factures de lots (écart déjà compté, pas le montant)`
+              : undefined
+          }
+        />
         <LedgerKpiRow
           label="Charges + avoirs"
           value={`${fmt(current.totalCharges + current.totalAvoir + current.totalEcartsLots)} ${current.devise}`}

@@ -619,13 +619,27 @@ function ecartFacture(facture, lot) {
  * Les mouvements réglement viennent EN PLUS du solde, pas en déduction :
  * le fichier réel les ajoute (`=-F30+F31+...+F32+F33+F34+F35+F36+...`),
  * jamais en soustraction.
+ *
+ * totalVentes ne compte QUE les factures sans lot (paiement "BANK
+ * TRANSFER", suivi au solde). Une facture rattachée à un lot (référence
+ * LC — le paiement est garanti par la lettre de crédit, pas par un
+ * virement à surveiller) ne s'ajoute jamais à totalVentes : seul l'écart
+ * de son lot (charges_trans_av/avoir) contribue au solde. Vérifié sur
+ * BYOUT EZZ (TOTAL = SUM des 23 lignes "BANK TRANSFER", jamais des
+ * lignes "LC:..." des lots) et BRAHIM (2) (même exclusion des 2 lignes
+ * "LC205ILC2023/0400" de son TOTAL).
  */
 export function suiviDeviseFullDto(suiviRow, lotRows, factureRows, mouvementRows) {
   const lots = lotRows.map(suiviDeviseLotDto).sort((a, b) => a.ordre - b.ordre);
   const factures = factureRows.map(suiviDeviseFactureDto).sort((a, b) => a.ordre - b.ordre);
   const mouvements = mouvementRows.map(suiviDeviseMouvementDto).sort((a, b) => a.ordre - b.ordre);
 
-  const totalVentes = round2(factures.reduce((s, f) => s + f.montantTotal, 0));
+  const totalVentes = round2(
+    factures.filter((f) => !f.lotId).reduce((s, f) => s + f.montantTotal, 0),
+  );
+  const totalVentesLots = round2(
+    factures.filter((f) => f.lotId).reduce((s, f) => s + f.montantTotal, 0),
+  );
   const totalCharges = round2(
     mouvements.filter((m) => m.type === "charge_transport").reduce((s, m) => s + m.montant, 0),
   );
@@ -657,6 +671,7 @@ export function suiviDeviseFullDto(suiviRow, lotRows, factureRows, mouvementRows
     factures,
     mouvements,
     totalVentes,
+    totalVentesLots,
     totalCharges,
     totalAvoir,
     totalReglements,

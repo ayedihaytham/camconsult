@@ -479,7 +479,11 @@ export interface SuiviDeviseFull extends SuiviDevise {
   lots: SuiviDeviseLot[];
   factures: SuiviDeviseFacture[];
   mouvements: SuiviDeviseMouvement[];
+  /** Factures sans lot (paiement "BANK TRANSFER") — seules celles-ci comptent dans le solde. */
   totalVentes: number;
+  /** Informatif seulement : factures rattachées à un lot (LC), déjà couvertes par
+   * l'écart de leur lot — jamais ajoutées à totalVentes ni au solde. */
+  totalVentesLots: number;
   /** Mouvements manuels de type charge_transport (hors écarts de lot). */
   totalCharges: number;
   /** Mouvements manuels de type avoir (hors écarts de lot). */

@@ -270,7 +270,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               <tr>
                 <td
                   colSpan={def.columns.length + (readOnly ? 1 : 2)}
-                  className="px-3 py-8 text-center text-sm text-muted-foreground"
+                  className="px-3 py-3 text-center text-sm text-muted-foreground"
                 >
                   {readOnly
                     ? "Aucune ligne saisie."
@@ -336,7 +336,10 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             size="sm"
             onClick={() => { void save().catch(() => {}); }}
             disabled={!dirty || saving}
-            className={cn(!dirty && "opacity-60")}
+            className={cn(
+              !dirty &&
+                "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
+            )}
           >
             <Save className="h-4 w-4" />
             {saving ? "Enregistrement…" : "Enregistrer"}

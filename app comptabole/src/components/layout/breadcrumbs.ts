@@ -105,7 +105,9 @@ export function getAppBreadcrumbs(
   if (collecteParams) {
     const collecte = collectes.find((item) => item.id === collecteParams.id);
     const label = collecte
-      ? `${societeName(collecte.societeId)} · ${collecte.periode}`
+      ? collecte.periode.trim()
+        ? `${societeName(collecte.societeId)} · ${collecte.periode.trim()}`
+        : societeName(collecte.societeId)
       : "Collecte";
     return [
       { label: "Collecte de pièces", to: "/collectes" },

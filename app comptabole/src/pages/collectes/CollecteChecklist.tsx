@@ -153,9 +153,6 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
         <span>Pièces reçues</span>
         <strong className="tabular-nums text-primary">{recus} / {rows.length}</strong>
       </div>
-      <p className="px-4 py-2 text-[11px] text-muted-foreground">
-        Date de suivi issue de la transmission ou de la dernière mise à jour, pas d’un horodatage de réception physique.
-      </p>
     </>
   );
 }

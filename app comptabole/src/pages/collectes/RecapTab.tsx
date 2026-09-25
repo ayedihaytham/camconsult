@@ -51,6 +51,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   // L'admin voit tout (pour choisir quoi envoyer ensuite).
   const visibleRows = isClient ? rows.filter((r) => r.statut !== "none") : rows;
   const totalCount = visibleRows.reduce((s, r) => s + r.count, 0);
+  const tableauCount = visibleRows.filter((r) => r.count > 0).length;
   const anyPending = rows.some((r) => r.statut === "envoye");
   const anyRepondu = rows.some((r) => r.statut === "repondu");
 
@@ -73,7 +74,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         <span className="text-sm font-medium text-foreground">
           {totalCount === 0
             ? "Toutes les cases importantes sont remplies ✓"
-            : `${totalCount} case(s) importante(s) à compléter, réparties sur ${visibleRows.filter((r) => r.count > 0).length} tableau(x)`}
+            : `${totalCount} case${totalCount === 1 ? "" : "s"} importante${totalCount === 1 ? "" : "s"} à compléter, répartie${totalCount === 1 ? "" : "s"} sur ${tableauCount} tableau${tableauCount === 1 ? "" : "x"}`}
         </span>
       </div>
 
@@ -105,12 +106,13 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
           <tbody className="divide-y divide-border">
             {visibleRows.map((r) => (
               <tr key={r.onglet} className="hover:bg-muted/20">
-                <td className="px-3 py-2 text-foreground">{label(r.onglet)}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-foreground">
+                <td className="px-3 py-2 font-medium text-foreground">{label(r.onglet)}</td>
+                <td className="px-3 py-2 text-right text-xs tabular-nums text-muted-foreground">
                   {r.count}
                 </td>
                 <td className="px-3 py-2">
                   <StatusDot
+                    className="text-xs"
                     tone={
                       r.statut === "repondu"
                         ? "success"
@@ -133,14 +135,14 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
                   {canManageRecap && r.statut === "none" && r.count > 0 && (
                     <Button
                       size="sm"
-                      variant="ledger"
+                      variant="outline"
                       disabled={sending === r.onglet}
                       onClick={async () => {
                         setSending(r.onglet);
                         try {
                           await sendRecapSection(collecte.id, r.onglet, r.count);
                           toast.success(
-                            `« ${label(r.onglet)} » envoyé — ${r.count} case(s) à compléter`,
+                            `« ${label(r.onglet)} » envoyé — ${r.count} case${r.count === 1 ? "" : "s"} à compléter`,
                           );
                         } finally {
                           setSending(null);

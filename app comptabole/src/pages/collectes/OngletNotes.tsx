@@ -20,7 +20,7 @@ export function OngletNotes({ collecteId, onglet, notes, canWrite }: Props) {
   const thread = notes.filter((n) => n.kind === "note" && n.onglet === onglet);
 
   return (
-    <div className="mt-4 rounded-lg border border-border bg-muted/20 p-3">
+    <div className="mt-3 border-t border-border pt-3">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Notes sur cet onglet {thread.length ? `(${thread.length})` : ""}
       </p>
@@ -31,7 +31,7 @@ export function OngletNotes({ collecteId, onglet, notes, canWrite }: Props) {
           </p>
         )}
         {thread.map((n) => (
-          <div key={n.id} className="rounded-md bg-card px-3 py-1.5">
+          <div key={n.id} className="border-b border-border/70 px-2 py-1.5 last:border-b-0">
             <p className="text-sm text-foreground">{n.texte}</p>
             <p className="text-[11px] text-muted-foreground">
               {n.auteur === "admin" ? "Cabinet" : "Client"} ·{" "}

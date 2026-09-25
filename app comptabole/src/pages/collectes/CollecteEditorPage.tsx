@@ -316,7 +316,9 @@ export function CollecteEditorPage() {
               {socNom}
             </h1>
             <p className="mt-1 text-xs text-primary-foreground/75">
-              {collecte.periode} · Collecte de pièces
+              {collecte.periode.trim()
+                ? `${collecte.periode.trim()} · Collecte de pièces`
+                : "Collecte de pièces"}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
@@ -561,7 +563,6 @@ export function CollecteEditorPage() {
                     onClick={() => requestTab(key)}
                     label={TAB_BY_KEY[key]?.label ?? key}
                     badge={showFlagsFor(key) ? manqueCount.get(key) : undefined}
-                    badgeTone="warning"
                   />
                 ))}
               </div>
@@ -1054,14 +1055,12 @@ function NavItem({
   onClick,
   label,
   badge,
-  badgeTone = "muted",
   dot,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
   badge?: number;
-  badgeTone?: "warning" | "muted";
   dot?: "success" | "warning";
 }) {
   return (
@@ -1093,9 +1092,7 @@ function NavItem({
             "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-semibold",
             active
               ? "bg-secondary text-primary"
-              : badgeTone === "warning"
-                ? "bg-warning/10 text-foreground"
-                : "bg-secondary text-foreground",
+              : "bg-secondary text-muted-foreground",
           )}
         >
           {badge}

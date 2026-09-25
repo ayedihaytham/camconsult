@@ -179,13 +179,16 @@ function feuilleMouvements(wb: Workbook, fiche: SuiviDeviseFull, societeNom: str
   });
   const last = first + fiche.mouvements.length - 1;
 
+  // Solde positif = reste dû par le client ; les lignes ci-dessous
+  // reprennent donc les ventes en positif et tout ce qui réduit la dette
+  // (écarts de lot, charges/avoirs, règlements, solde d'ouverture) en négatif.
   const rows = [
-    ["TOTAL VENTES (déduit)", -fiche.totalVentes],
-    ["ÉCARTS DES LOTS (charges/avoir)", fiche.totalEcartsLots],
-    ["CHARGES (mouvements)", fiche.totalCharges],
-    ["AVOIRS (mouvements)", fiche.totalAvoir],
-    ["RÈGLEMENTS", fiche.totalReglements],
-    ...(fiche.soldeOuverture !== 0 ? [["SOLDE D'OUVERTURE", fiche.soldeOuverture] as const] : []),
+    ["TOTAL VENTES", fiche.totalVentes],
+    ["ÉCARTS DES LOTS (charges/avoir)", -fiche.totalEcartsLots],
+    ["CHARGES (mouvements)", -fiche.totalCharges],
+    ["AVOIRS (mouvements)", -fiche.totalAvoir],
+    ["RÈGLEMENTS (déduits)", -fiche.totalReglements],
+    ...(fiche.soldeOuverture !== 0 ? [["SOLDE D'OUVERTURE (déduit)", -fiche.soldeOuverture] as const] : []),
   ] as const;
   rows.forEach(([label, valeur], i) => {
     const r = ws.getRow(last + 3 + i);

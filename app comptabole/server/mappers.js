@@ -611,14 +611,16 @@ function ecartFacture(facture, lot) {
  * Assemble la fiche complète avec solde calculé — jamais stocké, recalculé
  * à chaque lecture (même principe que honoraireLignesDto).
  *
- * Formule vérifiée au centime près contre le fichier Excel réel du cabinet
- * (onglet BYOUT EZZ, SOLDE = 18 556,90 €) :
- *   solde = solde_ouverture + écarts des lots à régime (charges_trans_av
- *     et avoir, calculés facture par facture ci-dessus) + mouvements
- *     manuels (charges/avoirs/règlements, tous additifs) − total ventes.
- * Les mouvements réglement viennent EN PLUS du solde, pas en déduction :
- * le fichier réel les ajoute (`=-F30+F31+...+F32+F33+F34+F35+F36+...`),
- * jamais en soustraction.
+ * Grandeurs vérifiées au centime près contre le fichier Excel réel du
+ * cabinet (onglet BYOUT EZZ, |solde| = 18 556,90 €) :
+ *   solde = total ventes − (solde_ouverture + écarts des lots à régime
+ *     (charges_trans_av et avoir, calculés facture par facture ci-dessus)
+ *     + mouvements manuels (charges/avoirs/règlements)).
+ * Convention : solde positif = le client doit encore ce montant ; négatif
+ * = trop perçu/crédit en sa faveur. C'est l'inverse du signe du fichier
+ * Excel d'origine (qui calcule `-TOTAL + règlements + ...`, donc négatif
+ * quand le client doit) — même formule, signe choisi pour rester intuitif
+ * dans l'appli plutôt que de reproduire le signe brut du fichier source.
  *
  * totalVentes ne compte QUE les factures sans lot (paiement "BANK
  * TRANSFER", suivi au solde). Une facture rattachée à un lot (référence
@@ -662,7 +664,7 @@ export function suiviDeviseFullDto(suiviRow, lotRows, factureRows, mouvementRows
 
   const soldeOuverture = num(suiviRow.solde_ouverture);
   const solde = round2(
-    soldeOuverture + totalEcartsLots + totalCharges + totalAvoir + totalReglements - totalVentes,
+    totalVentes - (soldeOuverture + totalEcartsLots + totalCharges + totalAvoir + totalReglements),
   );
 
   return {

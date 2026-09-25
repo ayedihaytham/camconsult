@@ -295,6 +295,13 @@ export function SuiviDeviseEditorPage() {
           danger={current.solde > 0.01}
           label="Solde"
           value={`${fmt(current.solde)} ${current.devise}`}
+          hint={
+            current.solde > 0.01
+              ? "Reste dû par le client"
+              : current.solde < -0.01
+                ? "Trop perçu / crédit en faveur du client"
+                : "Soldé"
+          }
         />
       </LedgerSheet>
 

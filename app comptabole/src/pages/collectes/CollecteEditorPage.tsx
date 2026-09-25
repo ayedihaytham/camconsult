@@ -61,7 +61,7 @@ import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { CollecteJournalEntry, CollecteStatut } from "@/types";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { CollecteChecklist } from "./CollecteChecklist";
-import { CollecteCreateDialog } from "./CollecteCreateDialog";
+import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
 import {
@@ -878,7 +878,7 @@ export function CollecteEditorPage() {
       </Tabs>
 
       {isAdmin && (
-        <CollecteCreateDialog
+        <CollecteFormDrawer
           open={editOpen}
           onOpenChange={setEditOpen}
           initial={{

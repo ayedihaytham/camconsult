@@ -53,7 +53,7 @@ import {
   type CollecteLens,
 } from "@/lib/collecte/collectionList";
 import type { Collecte, CollecteStatut } from "@/types";
-import { CollecteCreateDialog } from "./CollecteCreateDialog";
+import { CollecteFormDrawer } from "./CollecteFormDrawer";
 
 export function CollectesListPage() {
   const navigate = useNavigate();
@@ -304,7 +304,7 @@ export function CollectesListPage() {
       </LedgerWorkSurface>
 
       {canCreate && <OperationalFab label="Nouvelle collecte" onClick={() => setCreateOpen(true)} />}
-      {canCreate && <CollecteCreateDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={async (data) => {
+      {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} onCreate={async (data) => {
         const collecte = await create(data);
         toast.success("Collecte créée", { description: `${socNom(collecte.societeId)} — ${periodeLabel(collecte.periode)}` });
         navigate(`/collectes/${collecte.id}`);

@@ -318,12 +318,16 @@ tachesRouter.patch("/:id", async (req, res) => {
 tachesRouter.delete("/:id", async (req, res) => {
   const s = req.session;
   const existing = (
-    await query("select origine, societe_id from taches where id = $1", [req.params.id])
+    await query("select origine, societe_id, statut from taches where id = $1", [req.params.id])
   ).rows[0];
   if (!existing) return res.status(404).json({ error: "Tâche introuvable" });
+  // Le circuit société reste piloté par son responsable, mais l'admin peut
+  // nettoyer une tâche société déjà Terminée (pas les tâches actives : le
+  // responsable de société garde la main dessus tant qu'elles sont en cours).
   const allowed =
     existing.origine === "societe"
-      ? isResponsableSociete(s) && ownSociete(s, existing.societe_id)
+      ? (isResponsableSociete(s) && ownSociete(s, existing.societe_id)) ||
+        (s.role === "admin" && existing.statut === "termine")
       : s.role === "admin";
   if (!allowed)
     return res.status(403).json({

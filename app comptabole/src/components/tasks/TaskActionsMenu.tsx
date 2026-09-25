@@ -30,16 +30,23 @@ export function TaskActionsMenu({
   onDelete: (task: Tache) => void;
   isPending?: boolean;
 }) {
-  const { isResponsableSociete } = usePermissions();
+  const { isAdmin, isResponsableSociete } = usePermissions();
   // Chaque circuit n'est géré que par son côté : le cabinet ne modifie pas
   // les tâches internes d'une société (lecture seule), et inversement.
   const manageable =
     canManage && (task.origine === "societe") === isResponsableSociete;
+  // Exception : l'admin peut nettoyer une tâche société déjà Terminée, sans
+  // pouvoir la modifier ni supprimer une tâche société encore active — ça
+  // reste la main du responsable de société tant qu'elle est en cours.
+  const canDeleteAsAdminCleanup =
+    isAdmin && task.origine === "societe" && task.statut === "termine";
+  const canDelete = manageable || canDeleteAsAdminCleanup;
   const availableStatuses = STATUSES.filter(
     (status) => status !== task.statut && canChangeStatus(task, status),
   );
 
-  if (!manageable && availableStatuses.length === 0) return null;
+  if (!manageable && !canDeleteAsAdminCleanup && availableStatuses.length === 0)
+    return null;
 
   return (
     <DropdownMenu>
@@ -65,19 +72,21 @@ export function TaskActionsMenu({
             Passer à « {TACHE_STATUT_LABELS[status]} »
           </DropdownMenuItem>
         ))}
-        {manageable && availableStatuses.length > 0 && <DropdownMenuSeparator />}
+        {(manageable || canDeleteAsAdminCleanup) && availableStatuses.length > 0 && (
+          <DropdownMenuSeparator />
+        )}
         {manageable && (
-          <>
-            <DropdownMenuItem onSelect={() => onEdit(task)}>
-              Modifier
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() => onDelete(task)}
-            >
-              Supprimer
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem onSelect={() => onEdit(task)}>
+            Modifier
+          </DropdownMenuItem>
+        )}
+        {canDelete && (
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => onDelete(task)}
+          >
+            Supprimer
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

@@ -20,7 +20,7 @@ export function OngletNotes({ collecteId, onglet, notes, canWrite }: Props) {
   const thread = notes.filter((n) => n.kind === "note" && n.onglet === onglet);
 
   return (
-    <div className="mt-4 rounded-lg border border-border bg-muted/20 p-3">
+    <div className="mt-3 border-t border-border pt-3">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Notes sur cet onglet {thread.length ? `(${thread.length})` : ""}
       </p>
@@ -31,7 +31,7 @@ export function OngletNotes({ collecteId, onglet, notes, canWrite }: Props) {
           </p>
         )}
         {thread.map((n) => (
-          <div key={n.id} className="rounded-md bg-card px-3 py-1.5">
+          <div key={n.id} className="border-b border-border/70 px-2 py-1.5 last:border-b-0">
             <p className="text-sm text-foreground">{n.texte}</p>
             <p className="text-[11px] text-muted-foreground">
               {n.auteur === "admin" ? "Cabinet" : "Client"} ·{" "}
@@ -41,16 +41,18 @@ export function OngletNotes({ collecteId, onglet, notes, canWrite }: Props) {
         ))}
       </div>
       {canWrite && (
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center">
           <Input
-            className="h-8"
+            className="h-10 w-full min-w-0 flex-1 lg:h-8"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Préciser ce qui manque / une remarque…"
+            aria-label="Préciser ce qui manque ou ajouter une remarque"
           />
           <Button
             size="sm"
             variant="outline"
+            className="min-h-10 self-end lg:min-h-8 lg:self-auto"
             onClick={async () => {
               if (!text.trim()) return;
               await addNote(collecteId, onglet, text.trim());

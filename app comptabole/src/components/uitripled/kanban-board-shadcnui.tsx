@@ -27,12 +27,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  Columns3,
-  List,
-  Table2,
-} from "lucide-react";
-import { DataTableViewOptions } from "@/components/data-table/DataTableViewOptions";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
@@ -48,15 +42,12 @@ import {
 import { TaskActionsMenu } from "@/components/tasks/TaskActionsMenu";
 import { TaskAssignee } from "@/components/tasks/TaskAssignee";
 import { TaskActivity } from "@/components/tasks/TaskActivity";
-import { TaskListView } from "@/components/tasks/TaskListView";
 import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
 import { TaskTableView } from "@/components/tasks/TaskTableView";
 import { createTaskTableColumns } from "@/components/tasks/taskTableColumns";
 import { presentTasks } from "@/components/tasks/taskTypes";
 import type { PresentedTask } from "@/components/tasks/taskTypes";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import type { Employe, Societe, Tache, TacheStatut } from "@/types";
 
@@ -64,8 +55,6 @@ type Column = {
   id: TacheStatut;
   title: string;
 };
-
-type TasksView = "board" | "list" | "table";
 
 const COLUMNS: Column[] = [
   { id: "a_faire", title: "À faire" },
@@ -112,10 +101,7 @@ export function TasksKanban({
   filterKey,
   onResetFilters,
 }: TasksKanbanProps) {
-  const isMobile = useIsMobile();
   const [activeTask, setActiveTask] = useState<PresentedTask | null>(null);
-  const [view, setView] = useState<TasksView>("list");
-  const activeView: TasksView = isMobile ? "table" : view;
   const [searchQuery, setSearchQuery] = useState("");
   const [statusOverrides, setStatusOverrides] = useState<
     Record<string, TacheStatut>
@@ -233,7 +219,11 @@ export function TasksKanban({
   }
 
   async function changeTaskStatus(task: Tache, status: TacheStatut) {
-    if (pendingTaskIds.has(task.id) || status === task.statut || !canChangeStatus(task, status)) {
+    if (
+      pendingTaskIds.has(task.id) ||
+      status === task.statut ||
+      !canChangeStatus(task, status)
+    ) {
       clearStatusOverride(task.id);
       return;
     }
@@ -322,37 +312,52 @@ export function TasksKanban({
     </LedgerSearchFilter>
   );
 
-  const viewTools = (
-    <>
-      {activeView === "table" && <DataTableViewOptions table={taskTable} />}
-      <div className="inline-flex items-center rounded-md border border-border bg-muted/50 p-0.5" role="group" aria-label="Mode d'affichage des tâches">
-        {([
-          { value: "list", label: "Liste", icon: List },
-          { value: "table", label: "Table", icon: Table2 },
-          { value: "board", label: "Kanban", icon: Columns3 },
-        ] as const).map(({ value, label, icon: Icon }) => (
-          <Button
-            key={value}
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-7 gap-1.5 rounded px-2.5 text-xs shadow-none",
-              view === value ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "text-muted-foreground hover:bg-card hover:text-foreground",
-            )}
-            aria-pressed={view === value}
-            onClick={() => setView(value)}
-          >
-            <Icon className="size-3.5" aria-hidden="true" />
-            {label}
-          </Button>
+  const kanbanBoard = (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragEnd={onDragEnd}
+      onDragCancel={onDragCancel}
+    >
+      <OperationalContentHeader>
+        <h2 className="text-sm font-semibold text-foreground">Flux Kanban</h2>
+      </OperationalContentHeader>
+      <div className="flex min-w-0 items-start gap-3 bg-transparent px-3 py-2.5">
+        {COLUMNS.map((column) => (
+          <BoardColumn
+            key={column.id}
+            column={column}
+            tasks={filteredTasks.filter((task) => task.columnId === column.id)}
+            canManage={canManage}
+            canChangeStatus={canChangeStatus}
+            pendingTaskIds={pendingTaskIds}
+            onStatusChange={changeTaskStatus}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
         ))}
       </div>
-    </>
+      <DragOverlay dropAnimation={dropAnimation}>
+        {activeTask && (
+          <TaskCard
+            task={activeTask}
+            canManage={canManage}
+            canChangeStatus={canChangeStatus}
+            isPending={pendingTaskIds.has(activeTask.task.id)}
+            onStatusChange={changeTaskStatus}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            isOverlay
+          />
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 
   return (
-    <OperationalLedgerPage className="taches-work-ledger min-h-0 overflow-hidden font-sans lg:min-h-full">
+    <OperationalLedgerPage className="taches-work-ledger font-sans">
       <SignatureLedgerBanner
         className="operational-signature-banner"
         eyebrow="Clients & travail · Work Ledger"
@@ -364,105 +369,47 @@ export function TasksKanban({
           { label: "En cours", value: summary.doing },
           { label: "Terminées", value: summary.done },
         ]}
-        action={canManage ? { label: "Nouvelle tâche", onClick: onCreate } : undefined}
+        action={
+          canManage ? { label: "Nouvelle tâche", onClick: onCreate } : undefined
+        }
       />
 
-      <LedgerWorkSurface className="taches-work-surface flex min-h-0 flex-col">
-      <OperationalLedgerToolbar
-        label="Outils des tâches"
-        search={renderSearchFilter("max-w-none")}
-        resultCount={`${filteredTasks.length} tâches`}
-        tools={viewTools}
-      />
-      <OperationalMobileUtility label="Recherche et filtres des tâches">
-        {renderSearchFilter()}
-      </OperationalMobileUtility>
-
-      {filteredTasks.length === 0 ? (
-        <>
-          <OperationalContentHeader className="hidden lg:flex">
-            <h2 className="text-sm font-semibold text-foreground">
-              {activeView === "board"
-                ? "Flux Kanban"
-                : activeView === "table"
-                  ? "Vue comparaison"
-                  : "File de travail"}
-            </h2>
-          </OperationalContentHeader>
-          <OperationalMobileHeader>
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
-            File de travail
-            </h2>
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              0 tâches
-            </span>
-          </OperationalMobileHeader>
-          <TasksEmptyState message={emptyMessage} />
-        </>
-      ) : activeView === "board" ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDragEnd={onDragEnd}
-          onDragCancel={onDragCancel}
-        >
-          <OperationalContentHeader>
-            <h2 className="text-sm font-semibold text-foreground">Flux Kanban</h2>
-          </OperationalContentHeader>
-          <div className="flex min-w-0 flex-1 gap-3 overflow-x-auto bg-transparent p-2.5">
-            {COLUMNS.map((column) => (
-              <BoardColumn
-                key={column.id}
-                column={column}
-                tasks={filteredTasks.filter(
-                  (task) => task.columnId === column.id,
-                )}
-                canManage={canManage}
-                canChangeStatus={canChangeStatus}
-                pendingTaskIds={pendingTaskIds}
-                onStatusChange={changeTaskStatus}
-                onEdit={onEdit}
-                onDelete={onDelete}
-              />
-            ))}
-          </div>
-
-          <DragOverlay dropAnimation={dropAnimation}>
-            {activeTask && (
-              <TaskCard
-                task={activeTask}
-                canManage={canManage}
-                canChangeStatus={canChangeStatus}
-                isPending={pendingTaskIds.has(activeTask.task.id)}
-                onStatusChange={changeTaskStatus}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                isOverlay
-              />
-            )}
-          </DragOverlay>
-        </DndContext>
-      ) : null}
-
-      {filteredTasks.length > 0 && activeView === "list" && (
-        <TaskListView
-          table={taskTable}
-          emptyMessage={emptyMessage}
-          {...taskActions}
+      <LedgerWorkSurface className="taches-work-surface flex min-w-0 flex-col">
+        <OperationalLedgerToolbar
+          label="Outils des tâches"
+          search={renderSearchFilter("max-w-none")}
+          resultCount={`${filteredTasks.length} tâches`}
         />
-      )}
+        <OperationalMobileUtility label="Recherche et filtres des tâches">
+          {renderSearchFilter()}
+        </OperationalMobileUtility>
 
-      {filteredTasks.length > 0 && activeView === "table" && (
-        <TaskTableView
-          table={taskTable}
-          emptyMessage={emptyMessage}
-          {...taskActions}
-        />
-      )}
+        {filteredTasks.length === 0 ? (
+          <>
+            <div className="hidden min-w-0 lg:block">{kanbanBoard}</div>
+            <OperationalMobileHeader>
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+                File de travail
+              </h2>
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                0 tâches
+              </span>
+            </OperationalMobileHeader>
+            <TasksEmptyState message={emptyMessage} />
+          </>
+        ) : (
+          <>
+            <div className="hidden min-w-0 lg:block">{kanbanBoard}</div>
+            <div className="lg:hidden">
+              <TaskTableView
+                table={taskTable}
+                emptyMessage={emptyMessage}
+                {...taskActions}
+              />
+            </div>
+          </>
+        )}
       </LedgerWorkSurface>
-
     </OperationalLedgerPage>
   );
 }
@@ -500,7 +447,7 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "flex h-full w-[285px] min-w-[285px] flex-col overflow-hidden rounded-md border border-border/80 bg-card lg:flex-1",
+        "flex min-w-0 flex-1 flex-col overflow-hidden rounded-md border border-border/80 bg-card",
         isOver && "border-primary/35 ring-1 ring-primary/10",
       )}
     >
@@ -518,7 +465,7 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-2">
+      <div className="flex flex-col gap-2 p-2">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <TaskCard

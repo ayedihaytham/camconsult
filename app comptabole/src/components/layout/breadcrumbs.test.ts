@@ -46,6 +46,18 @@ describe("getAppBreadcrumbs", () => {
     ]);
   });
 
+  it("n'affiche pas de séparateur sans période de collecte", () => {
+    expect(
+      getAppBreadcrumbs("/collectes/collecte-73d9a8", {
+        ...data,
+        collectes: [{ ...data.collectes[0], periode: "   " }],
+      }),
+    ).toEqual([
+      { label: "Collecte de pièces", to: "/collectes" },
+      { label: "Atlas Conseil SARL" },
+    ]);
+  });
+
   it("résout les routes financières profondes", () => {
     expect(
       getAppBreadcrumbs(

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { Building2, Calculator } from "lucide-react";
 import type { AppNotification, Conversation, PermissionKey } from "@/types";
 import {
+  getActiveExpandableGroupId,
   hasPendingNotification,
   isChildRouteActive,
   isRouteActive,
+  toggleExpandableGroup,
   unreadMessageCount,
   visibleNavigation,
   type NavGroup,
@@ -129,6 +132,42 @@ describe("sidebar route state", () => {
         { label: "Balance", to: "/etats-financiers" },
       ]),
     ).toBe(true);
+  });
+
+  it("opens only the expandable parent matching the current route", () => {
+    const groups: NavGroup[] = [
+      {
+        label: "Clients & travail",
+        items: [
+          {
+            label: "Sociétés",
+            icon: Building2,
+            children: [{ label: "Liste des sociétés", to: "/societes" }],
+          },
+        ],
+      },
+      {
+        label: "Comptabilité",
+        items: [
+          {
+            label: "États financiers",
+            icon: Calculator,
+            children: [{ label: "Balance", to: "/etats-financiers" }],
+          },
+        ],
+      },
+    ];
+
+    expect(getActiveExpandableGroupId("/etats-financiers/societe-1", groups))
+      .toBe("États financiers");
+    expect(getActiveExpandableGroupId("/taches", groups)).toBeNull();
+  });
+
+  it("toggles the open group and closes the previous group when another opens", () => {
+    expect(toggleExpandableGroup(null, "Sociétés")).toBe("Sociétés");
+    expect(toggleExpandableGroup("Sociétés", "États financiers"))
+      .toBe("États financiers");
+    expect(toggleExpandableGroup("Sociétés", "Sociétés")).toBeNull();
   });
 });
 

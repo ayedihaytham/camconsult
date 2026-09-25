@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,9 +25,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
+  getActiveExpandableGroupId,
   hasPendingNotification,
   isChildRouteActive,
   isRouteActive,
+  toggleExpandableGroup,
   type NavGroup,
 } from "./navigation";
 
@@ -46,38 +48,20 @@ export function SidebarNavigation({
 }: SidebarNavigationProps) {
   const { pathname } = useLocation();
   const { isMobile, setOpenMobile, state } = useSidebar();
-  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [openGroupId, setOpenGroupId] = useState(() =>
+    getActiveExpandableGroupId(pathname, groups),
+  );
+  const submenuIdPrefix = useId();
   const previousPathname = useRef(pathname);
   const isCollapsedDesktop = state === "collapsed" && !isMobile;
 
   useEffect(() => {
-    setOpenGroups((previous) => {
-      const next = new Set(previous);
-      let changed = false;
-
-      for (const group of groups) {
-        for (const item of group.items) {
-          if (
-            item.children &&
-            isChildRouteActive(pathname, item.children) &&
-            !next.has(item.label)
-          ) {
-            next.add(item.label);
-            changed = true;
-          }
-        }
-      }
-
-      return changed ? next : previous;
-    });
-  }, [groups, pathname]);
-
-  useEffect(() => {
     if (previousPathname.current !== pathname) {
+      setOpenGroupId(getActiveExpandableGroupId(pathname, groups));
       setOpenMobile(false);
+      previousPathname.current = pathname;
     }
-    previousPathname.current = pathname;
-  }, [pathname, setOpenMobile]);
+  }, [pathname, groups, setOpenMobile]);
 
   return (
     <>
@@ -95,7 +79,7 @@ export function SidebarNavigation({
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {group.items.map((item) => {
+              {group.items.map((item, itemIndex) => {
                 const Icon = item.icon;
                 const badge =
                   item.badgeKey === "unread" && unreadMessages > 0
@@ -107,7 +91,8 @@ export function SidebarNavigation({
                   const pending = item.children.some((child) =>
                     hasPendingNotification(unreadNotifications, child.to),
                   );
-                  const open = openGroups.has(item.label);
+                  const open = openGroupId === item.label;
+                  const submenuId = `${submenuIdPrefix}-${groupIndex}-${itemIndex}`;
 
                   return (
                     <SidebarMenuItem key={item.label}>
@@ -167,14 +152,10 @@ export function SidebarNavigation({
                           isActive={active}
                           tooltip={item.label}
                           aria-expanded={open}
-                          onClick={() =>
-                            setOpenGroups((previous) => {
-                              const next = new Set(previous);
-                              if (next.has(item.label)) next.delete(item.label);
-                              else next.add(item.label);
-                              return next;
-                            })
-                          }
+                          aria-controls={submenuId}
+                          onClick={() => setOpenGroupId((current) =>
+                            toggleExpandableGroup(current, item.label),
+                          )}
                           aria-label={pending ? `${item.label}, notification en attente` : item.label}
                           className={NAV_ITEM_CLASS}
                         >
@@ -182,7 +163,7 @@ export function SidebarNavigation({
                           <span>{item.label}</span>
                           <ChevronDown
                             className={cn(
-                              "ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden",
+                              "ml-auto transition-transform duration-200 ease-out motion-reduce:transition-none group-data-[collapsible=icon]:hidden",
                               pending && "mr-5",
                               open && "rotate-180",
                             )}
@@ -191,34 +172,48 @@ export function SidebarNavigation({
                       )}
                       {pending && <PendingBadge />}
                       {pending && <CollapsedPendingIndicator />}
-                      {!isCollapsedDesktop && open && (
-                        <SidebarMenuSub className="signature-sidebar__nested">
-                          {item.children.map((child) => {
-                            const childActive = isRouteActive(
-                              pathname,
-                              child.to,
-                            );
-                            const childPending = hasPendingNotification(
-                              unreadNotifications,
-                              child.to,
-                            );
+                      {!isCollapsedDesktop && (
+                        <div
+                          id={submenuId}
+                          aria-hidden={!open}
+                          className={cn(
+                            "grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
+                            open
+                              ? "grid-rows-[1fr] opacity-100"
+                              : "grid-rows-[0fr] opacity-0",
+                          )}
+                        >
+                          <div className="min-h-0 overflow-hidden">
+                            <SidebarMenuSub className="signature-sidebar__nested">
+                              {item.children.map((child) => {
+                                const childActive = isRouteActive(
+                                  pathname,
+                                  child.to,
+                                );
+                                const childPending = hasPendingNotification(
+                                  unreadNotifications,
+                                  child.to,
+                                );
 
-                            return (
-                              <SidebarMenuSubItem key={child.to}>
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={childActive}
-                                  className="relative text-sidebar-muted data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-1 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']"
-                                >
-                                  <NavLink to={child.to}>
-                                    {childPending && <PendingDot />}
-                                    <span>{child.label}</span>
-                                  </NavLink>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            );
-                          })}
-                        </SidebarMenuSub>
+                                return (
+                                  <SidebarMenuSubItem key={child.to}>
+                                    <SidebarMenuSubButton
+                                      asChild
+                                      isActive={childActive}
+                                      tabIndex={open ? 0 : -1}
+                                      className="relative text-sidebar-muted data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-1 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']"
+                                    >
+                                      <NavLink to={child.to}>
+                                        {childPending && <PendingDot />}
+                                        <span>{child.label}</span>
+                                      </NavLink>
+                                    </SidebarMenuSubButton>
+                                  </SidebarMenuSubItem>
+                                );
+                              })}
+                            </SidebarMenuSub>
+                          </div>
+                        </div>
                       )}
                     </SidebarMenuItem>
                   );

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { runConfirmation } from "@/lib/confirmation";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -22,7 +23,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 }
 
 export function ConfirmDialog({
@@ -37,17 +38,36 @@ export function ConfirmDialog({
   onConfirm,
 }: ConfirmDialogProps) {
   const [typed, setTyped] = useState("");
+  const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
+  const [error, setError] = useState(false);
   const needsPhrase = Boolean(confirmPhrase);
   const canConfirm = !needsPhrase || typed.trim() === confirmPhrase;
 
   function handleOpenChange(next: boolean) {
+    if (pendingRef.current) return;
     if (!next) setTyped("");
+    setError(false);
     onOpenChange(next);
+  }
+
+  async function handleConfirm() {
+    if (!canConfirm) return;
+    await runConfirmation(onConfirm, pendingRef, {
+      setPending,
+      setError,
+      close: () => handleOpenChange(false),
+    });
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent
+        className="max-w-md"
+        aria-busy={pending}
+        onEscapeKeyDown={(event) => pending && event.preventDefault()}
+        onPointerDownOutside={(event) => pending && event.preventDefault()}
+      >
         <DialogHeader>
           <div className="flex items-start gap-3">
             {destructive && (
@@ -76,6 +96,7 @@ export function ConfirmDialog({
             <Input
               id="confirm-phrase"
               value={typed}
+              disabled={pending}
               autoComplete="off"
               onChange={(e) => setTyped(e.target.value)}
               placeholder={confirmPhrase}
@@ -83,19 +104,21 @@ export function ConfirmDialog({
           </div>
         )}
 
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            L’opération a échoué. Vérifiez les données puis réessayez.
+          </p>
+        )}
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+          <Button variant="outline" disabled={pending} onClick={() => handleOpenChange(false)}>
             {cancelLabel}
           </Button>
           <Button
             variant={destructive ? "destructive" : "default"}
-            disabled={!canConfirm}
-            onClick={() => {
-              onConfirm();
-              handleOpenChange(false);
-            }}
+            disabled={!canConfirm || pending}
+            onClick={handleConfirm}
           >
-            {confirmLabel}
+            {pending ? "En cours…" : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

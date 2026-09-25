@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,9 +27,16 @@ interface Props {
   wholeEditable?: boolean;
   /** clés « ordre:col » à signaler « ? » sans verrouiller le reste (vue admin) */
   flagged?: Set<string>;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function CollecteGrid({
+export interface CollecteGridHandle {
+  isDirty: () => boolean;
+  save: () => Promise<void>;
+  discard: () => void;
+}
+
+export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function CollecteGrid({
   def,
   lignes,
   readOnly,
@@ -39,7 +46,8 @@ export function CollecteGrid({
   highlight,
   wholeEditable = false,
   flagged,
-}: Props) {
+  onDirtyChange,
+}, ref) {
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
     if (!recapClient || wholeEditable) return false;
@@ -58,34 +66,72 @@ export function CollecteGrid({
   );
   const [rows, setRows] = useState<TabRow[]>(initial);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const baseline = useRef(initial);
+  const latestInitial = useRef(initial);
 
-  useEffect(() => setRows(initial), [initial]);
+  useEffect(() => {
+    latestInitial.current = initial;
+    // Store updates from comments/notes must not overwrite an unsaved grid draft.
+    if (JSON.stringify(rows) !== JSON.stringify(baseline.current)) return;
+    baseline.current = initial;
+    setRows(initial);
+  }, [initial]);
 
-  const dirty = JSON.stringify(rows) !== JSON.stringify(initial);
+  const dirty = JSON.stringify(rows) !== JSON.stringify(baseline.current);
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
   const derived = useMemo(
     () => (def.derive ? def.derive(rows) : rows),
     [rows, def],
   );
 
   function setCell(i: number, key: string, value: unknown) {
+    setSaved(false);
+    setSaveError(false);
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
   }
   function addRow() {
+    setSaved(false);
+    setSaveError(false);
     setRows((rs) => [...rs, {}]);
   }
   function removeRow(i: number) {
+    setSaved(false);
+    setSaveError(false);
     setRows((rs) => rs.filter((_, idx) => idx !== i));
   }
 
   async function save() {
+    if (saving) throw new Error("Enregistrement déjà en cours");
+    if (!dirty) return;
     setSaving(true);
+    setSaveError(false);
     try {
       const out = def.derive ? def.derive(rows) : rows;
       await onSave(out.map((data, ordre) => ({ data, ordre })));
+      baseline.current = rows;
+      setRows([...rows]);
+      setSaved(true);
+    } catch (error) {
+      setSaveError(true);
+      throw error;
     } finally {
       setSaving(false);
     }
   }
+
+  useImperativeHandle(ref, () => ({
+    isDirty: () => dirty,
+    save,
+    discard: () => {
+      baseline.current = latestInitial.current;
+      setRows(latestInitial.current);
+      setSaved(false);
+      setSaveError(false);
+      onDirtyChange?.(false);
+    },
+  }));
 
   const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
 
@@ -224,7 +270,7 @@ export function CollecteGrid({
               <tr>
                 <td
                   colSpan={def.columns.length + (readOnly ? 1 : 2)}
-                  className="px-3 py-8 text-center text-sm text-muted-foreground"
+                  className="px-3 py-3 text-center text-sm text-muted-foreground"
                 >
                   {readOnly
                     ? "Aucune ligne saisie."
@@ -272,27 +318,53 @@ export function CollecteGrid({
       )}
 
       {!readOnly && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           {structureLocked ? (
             <span />
           ) : (
-            <Button variant="outline" size="sm" onClick={addRow}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-10 lg:min-h-8"
+              onClick={addRow}
+            >
               <Plus className="h-4 w-4" />
               Ajouter une ligne
             </Button>
           )}
-          <Button
-            variant="ledger"
-            size="sm"
-            onClick={save}
-            disabled={!dirty || saving}
-            className={cn(!dirty && "opacity-60")}
-          >
-            <Save className="h-4 w-4" />
-            {saving ? "Enregistrement…" : "Enregistrer"}
-          </Button>
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:justify-end">
+            {dirty && (
+              <span role="status" className="w-full text-xs font-medium text-warning lg:w-auto">
+                Modifications non enregistrées
+              </span>
+            )}
+            {saveError && (
+              <span role="alert" className="w-full text-xs text-destructive lg:w-auto">
+                Enregistrement impossible · réessayez
+              </span>
+            )}
+            {saved && !dirty && (
+              <span role="status" className="w-full text-xs text-success lg:w-auto">
+                Enregistré
+              </span>
+            )}
+            <Button
+              variant="ledger"
+              size="sm"
+              onClick={() => { void save().catch(() => {}); }}
+              disabled={!dirty || saving}
+              className={cn(
+                "min-h-10 lg:min-h-8",
+                !dirty &&
+                  "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
+              )}
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </div>
         </div>
       )}
     </div>
   );
-}
+});

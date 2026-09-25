@@ -51,6 +51,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   // L'admin voit tout (pour choisir quoi envoyer ensuite).
   const visibleRows = isClient ? rows.filter((r) => r.statut !== "none") : rows;
   const totalCount = visibleRows.reduce((s, r) => s + r.count, 0);
+  const tableauCount = visibleRows.filter((r) => r.count > 0).length;
   const anyPending = rows.some((r) => r.statut === "envoye");
   const anyRepondu = rows.some((r) => r.statut === "repondu");
 
@@ -59,7 +60,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   // trompeuse "tout est rempli" ni un tableau vide.
   if (isClient && visibleRows.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           Aucune demande du cabinet pour le moment.
         </p>
@@ -68,17 +69,17 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/20 px-3 py-2">
         <span className="text-sm font-medium text-foreground">
           {totalCount === 0
             ? "Toutes les cases importantes sont remplies ✓"
-            : `${totalCount} case(s) importante(s) à compléter, réparties sur ${visibleRows.filter((r) => r.count > 0).length} tableau(x)`}
+            : `${totalCount} case${totalCount === 1 ? "" : "s"} importante${totalCount === 1 ? "" : "s"} à compléter, répartie${totalCount === 1 ? "" : "s"} sur ${tableauCount} tableau${tableauCount === 1 ? "" : "x"}`}
         </span>
       </div>
 
       {isClient && anyPending && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="border-b border-warning/20 bg-warning/5 px-3 py-2 text-sm text-foreground">
           Cliquez « Ouvrir l'onglet » sur un tableau envoyé, remplissez les cases{" "}
           <span className="font-semibold">?</span>, enregistrez, puis
           «&nbsp;Transmettre au cabinet&nbsp;» (bouton en haut à droite).
@@ -90,9 +91,9 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="hidden overflow-x-auto border-y border-border lg:block">
         <table className="w-full text-sm">
-          <thead className="bg-primary text-xs uppercase tracking-wide text-primary-foreground">
+          <thead className="bg-secondary/65 text-xs uppercase tracking-wide text-primary">
             <tr>
               <th className="px-3 py-2.5 text-left font-medium">Tableau</th>
               <th className="px-3 py-2.5 text-right font-medium">
@@ -105,12 +106,15 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
           <tbody className="divide-y divide-border">
             {visibleRows.map((r) => (
               <tr key={r.onglet} className="hover:bg-muted/20">
-                <td className="px-3 py-2 text-foreground">{label(r.onglet)}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-foreground">
+                <td className="px-3 py-2 font-medium text-foreground">
+                  {label(r.onglet)}
+                </td>
+                <td className="px-3 py-2 text-right text-xs tabular-nums text-muted-foreground">
                   {r.count}
                 </td>
                 <td className="px-3 py-2">
                   <StatusDot
+                    className="text-xs"
                     tone={
                       r.statut === "repondu"
                         ? "success"
@@ -133,14 +137,14 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
                   {canManageRecap && r.statut === "none" && r.count > 0 && (
                     <Button
                       size="sm"
-                      variant="ledger"
+                      variant="outline"
                       disabled={sending === r.onglet}
                       onClick={async () => {
                         setSending(r.onglet);
                         try {
                           await sendRecapSection(collecte.id, r.onglet, r.count);
                           toast.success(
-                            `« ${label(r.onglet)} » envoyé — ${r.count} case(s) à compléter`,
+                            `« ${label(r.onglet)} » envoyé — ${r.count} case${r.count === 1 ? "" : "s"} à compléter`,
                           );
                         } finally {
                           setSending(null);
@@ -185,6 +189,103 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         </table>
       </div>
 
+      <div className="divide-y divide-border border-y border-border lg:hidden">
+        {visibleRows.map((r) => {
+          const rowLabel = label(r.onglet);
+          const statusLabel =
+            r.statut === "envoye"
+              ? "Envoyé — en attente"
+              : r.statut === "repondu"
+                ? "Complété par le client"
+                : r.count === 0
+                  ? "Complet"
+                  : "Non envoyé";
+
+          return (
+            <article
+              key={r.onglet}
+              className="flex min-w-0 items-center justify-between gap-3 px-3 py-2.5"
+            >
+              <div className="min-w-0 flex-1">
+                <h3 className="break-words text-sm font-semibold text-foreground">
+                  {rowLabel}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {r.count} {r.count === 1 ? "case" : "cases"} à compléter
+                </p>
+                <StatusDot
+                  className="mt-1 text-xs"
+                  tone={
+                    r.statut === "repondu"
+                      ? "success"
+                      : r.statut === "envoye"
+                        ? "warning"
+                        : "muted"
+                  }
+                  label={statusLabel}
+                />
+              </div>
+              <div className="shrink-0">
+                {canManageRecap && r.statut === "none" && r.count > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="min-h-10 gap-1.5 px-2.5"
+                    aria-label={`Envoyer la demande pour ${rowLabel}`}
+                    disabled={sending === r.onglet}
+                    onClick={async () => {
+                      setSending(r.onglet);
+                      try {
+                        await sendRecapSection(collecte.id, r.onglet, r.count);
+                        toast.success(
+                          `« ${rowLabel} » envoyé — ${r.count} case${r.count === 1 ? "" : "s"} à compléter`,
+                        );
+                      } finally {
+                        setSending(null);
+                      }
+                    }}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Envoyer
+                  </Button>
+                )}
+                {canManageRecap && r.statut !== "none" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="min-h-10 px-2.5"
+                    aria-label={`Clore la demande pour ${rowLabel}`}
+                    disabled={sending === r.onglet}
+                    onClick={async () => {
+                      setSending(r.onglet);
+                      try {
+                        await closeRecapSection(collecte.id, r.onglet);
+                        toast.success(`« ${rowLabel} » clôturé`);
+                      } finally {
+                        setSending(null);
+                      }
+                    }}
+                  >
+                    Clore
+                  </Button>
+                )}
+                {isClient && r.statut === "envoye" && (
+                  <button
+                    type="button"
+                    aria-label={`Ouvrir le tableau ${rowLabel}`}
+                    onClick={() => onNavigate(r.onglet)}
+                    className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-foreground hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Ouvrir
+                    <ChevronRight className="h-3.5 w-3.5 text-accent" />
+                  </button>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
       {/* Notes générales */}
       <div>
         <h3 className="mb-2 text-sm font-semibold text-foreground">
@@ -195,7 +296,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
             <p className="text-sm text-muted-foreground">Aucune note.</p>
           )}
           {notesLibres.map((n) => (
-            <div key={n.id} className="rounded-md border border-border px-3 py-2">
+            <div key={n.id} className="border-b border-border px-3 py-2">
               <p className="text-sm text-foreground">{n.texte}</p>
               <p className="text-[11px] text-muted-foreground">
                 {n.auteur === "admin" ? "Cabinet" : "Client"} ·{" "}

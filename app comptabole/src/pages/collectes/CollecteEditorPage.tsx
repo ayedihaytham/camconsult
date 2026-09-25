@@ -73,7 +73,12 @@ import { DocPreviewDialog } from "../stock/DocPreviewDialog";
 export function CollecteEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { isAdmin, poste, isCollaborateur: isStaff } = usePermissions();
+  const {
+    isAdmin,
+    poste,
+    isCollaborateur: isStaff,
+    canManageCollaborateurs,
+  } = usePermissions();
   const societes = useSocietes();
 
   const collecte = useCollectes((s) => s.current);
@@ -144,11 +149,34 @@ export function CollecteEditorPage() {
   if (!collecte) {
     return (
       <EmptyState
-        title={loading ? "Chargement…" : detailError ? "Chargement impossible" : "Collecte introuvable"}
-        description={
-          loading ? "" : detailError ? "Vérifiez votre connexion ou réessayez." : "Cette collecte n'existe pas ou a été supprimée."
+        title={
+          loading
+            ? "Chargement…"
+            : detailError
+              ? "Chargement impossible"
+              : "Collecte introuvable"
         }
-        action={!loading && <Button variant="outline" size="sm" onClick={() => { setDetailError(false); void fetchOne(id).catch(() => setDetailError(true)); }}>Réessayer</Button>}
+        description={
+          loading
+            ? ""
+            : detailError
+              ? "Vérifiez votre connexion ou réessayez."
+              : "Cette collecte n'existe pas ou a été supprimée."
+        }
+        action={
+          !loading && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDetailError(false);
+                void fetchOne(id).catch(() => setDetailError(true));
+              }}
+            >
+              Réessayer
+            </Button>
+          )
+        }
       />
     );
   }
@@ -208,7 +236,8 @@ export function CollecteEditorPage() {
   // dans RecapTab (visibleRows), ici pour le sidenav et le surlignage en
   // lecture seule dans chaque onglet.
   const showFlagsFor = (key: string) =>
-    !archivee && (isAdmin || sectionRecapStatut(collecte, key) !== "none");
+    !archivee &&
+    (canManageCollaborateurs || sectionRecapStatut(collecte, key) !== "none");
   // Le client ne peut renvoyer un récap au cabinet qu'une fois TOUTES les
   // cases « ? » des tableaux demandés remplies et enregistrées — le cabinet
   // ne reçoit jamais de récap à moitié complété à clôturer.
@@ -275,7 +304,8 @@ export function CollecteEditorPage() {
   async function applyStatut(s: CollecteStatut) {
     if (!transmittedBeforeRecapRef.current) {
       await setStatut(id, s);
-      if (s === "transmis" && clientRecap) transmittedBeforeRecapRef.current = true;
+      if (s === "transmis" && clientRecap)
+        transmittedBeforeRecapRef.current = true;
     }
     // Une transmission peut coïncider avec un récap par tableau déjà en
     // attente (le cabinet en a envoyé un avant que le client n'ait jamais
@@ -387,7 +417,7 @@ export function CollecteEditorPage() {
               <Send className="h-4 w-4" /> Transmettre au cabinet
             </Button>
           )}
-          {isAdmin && collecte.statut === "transmis" && (
+          {canManageCollaborateurs && collecte.statut === "transmis" && (
             <Button
               variant="outline"
               size="sm"
@@ -397,7 +427,7 @@ export function CollecteEditorPage() {
               <CheckCircle2 className="h-4 w-4" /> Valider
             </Button>
           )}
-          {isAdmin && validee && (
+          {canManageCollaborateurs && validee && (
             <Button
               variant="outline"
               size="sm"
@@ -407,7 +437,7 @@ export function CollecteEditorPage() {
               Archiver la collecte
             </Button>
           )}
-          {isAdmin && archivee && (
+          {canManageCollaborateurs && archivee && (
             <Button
               variant="outline"
               size="sm"
@@ -439,21 +469,22 @@ export function CollecteEditorPage() {
                   : collecte.statut === "transmis"
                     ? "La collecte a été transmise au cabinet pour examen."
                     : "Préparez les tableaux et pièces avant transmission au cabinet."}
-          {isAdmin && currentRecap === "envoye" && (
+          {canManageRecap && currentRecap === "envoye" && (
             <span className="ml-2 font-medium">
               Récap en attente du client.
             </span>
           )}
         </span>
-        {isAdmin && (collecte.statut === "transmis" || validee) && (
-          <button
-            type="button"
-            className="text-xs font-medium text-primary hover:underline"
-            onClick={() => requestTab("__confirm_a_corriger__")}
-          >
-            {validee ? "Repasser en correction" : "Renvoyer pour correction"}
-          </button>
-        )}
+        {canManageCollaborateurs &&
+          (collecte.statut === "transmis" || validee) && (
+            <button
+              type="button"
+              className="text-xs font-medium text-primary hover:underline"
+              onClick={() => requestTab("__confirm_a_corriger__")}
+            >
+              {validee ? "Repasser en correction" : "Renvoyer pour correction"}
+            </button>
+          )}
       </div>
       {preview && (
         <p className="border-x border-b border-border bg-accent/5 px-3 py-2 text-xs text-foreground">
@@ -467,6 +498,7 @@ export function CollecteEditorPage() {
       )}
       <div className="flex min-h-10 items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>Travail sur le dossier · {socNom}</span>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -477,6 +509,7 @@ export function CollecteEditorPage() {
               Outils <ChevronDown className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent align="end">
             <DropdownMenuItem
               onSelect={() => {
@@ -485,31 +518,41 @@ export function CollecteEditorPage() {
                 );
               }}
             >
-              <Download className="h-4 w-4" /> Tout en Excel
+              <Download className="h-4 w-4" />
+              Tout en Excel
             </DropdownMenuItem>
+
             {isAdmin && !archivee && liveManques.length > 0 && (
               <DropdownMenuItem onSelect={() => requestTab("__preview__")}>
-                <Eye className="h-4 w-4" />{" "}
+                <Eye className="h-4 w-4" />
                 {preview ? "Quitter l'aperçu" : "Aperçu client"}
               </DropdownMenuItem>
             )}
-            {isAdmin && !archivee && (
+
+            {canManageCollaborateurs && (
               <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-                <SlidersHorizontal className="h-4 w-4" /> Modifier Collection
+                <SlidersHorizontal className="h-4 w-4" />
+                Modifier la collecte
               </DropdownMenuItem>
             )}
-            {isAdmin && enAttente && (
+
+            {canManageCollaborateurs && enAttente && (
               <DropdownMenuItem
                 disabled={relancing}
                 onSelect={() => {
                   setRelancing(true);
+
                   void relanceNow(id)
-                    .then(() => toast.success("Relance envoyée au client"))
+                    .then(() => {
+                      toast.success("Relance envoyée au client");
+                    })
                     .catch(() => {})
-                    .finally(() => setRelancing(false));
+                    .finally(() => {
+                      setRelancing(false);
+                    });
                 }}
               >
-                <BellRing className="h-4 w-4" />{" "}
+                <BellRing className="h-4 w-4" />
                 {relancing ? "Envoi…" : "Relancer maintenant"}
               </DropdownMenuItem>
             )}
@@ -877,7 +920,7 @@ export function CollecteEditorPage() {
         </div>
       </Tabs>
 
-      {isAdmin && (
+      {canManageCollaborateurs && (
         <CollecteFormDrawer
           open={editOpen}
           onOpenChange={setEditOpen}
@@ -958,7 +1001,12 @@ export function CollecteEditorPage() {
 
       <ConfirmDialog
         open={confirm !== null}
-        onOpenChange={(o) => { if (!o) { transmittedBeforeRecapRef.current = false; setConfirm(null); } }}
+        onOpenChange={(o) => {
+          if (!o) {
+            transmittedBeforeRecapRef.current = false;
+            setConfirm(null);
+          }
+        }}
         destructive={confirm === "a_corriger"}
         title={
           confirm === "reopen"
@@ -978,8 +1026,8 @@ export function CollecteEditorPage() {
               ? "Vous ne pourrez plus la modifier tant que le cabinet ne l'a pas renvoyée."
               : confirm === "valide"
                 ? "Le client de la société ne pourra plus la modifier. Vous (cabinet) pourrez encore l'ajuster, puis l'archiver."
-          : confirm === "archive"
-            ? "Elle sera rangée dans les archives. Vous pourrez la désarchiver si besoin."
+                : confirm === "archive"
+                  ? "Elle sera rangée dans les archives. Vous pourrez la désarchiver si besoin."
                   : "La collecte redevient modifiable (état « à corriger »)."
         }
         confirmLabel={

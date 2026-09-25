@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { KeyRound, Plus, Trash2, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { PasswordCell } from "@/components/common/PasswordCell";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { generatePassword } from "@/lib/password";
+import { IDENTIFIANT_RE, suggestIdentifiant } from "@/lib/identifiant";
+import { ApiError } from "@/lib/api";
 import { useData, useSocieteEmployes } from "@/store/data";
 import type { Employe, EmployePermissions } from "@/types";
 
@@ -37,10 +39,18 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
 
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
+  const [identifiantTouched, setIdentifiantTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Employe | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [resetValue, setResetValue] = useState("");
+
+  // Propose un identifiant à partir du prénom/nom (comme pour les
+  // collaborateurs) tant que l'utilisateur n'a pas tapé le sien.
+  useEffect(() => {
+    if (!adding || identifiantTouched) return;
+    setDraft((d) => ({ ...d, identifiant: suggestIdentifiant(d.prenom, d.nom) }));
+  }, [adding, identifiantTouched, draft.prenom, draft.nom]);
 
   async function confirmReset(id: string) {
     if (resetValue.length < 8) {
@@ -61,8 +71,15 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
       setError("Prénom et nom requis.");
       return;
     }
-    if (draft.identifiant.trim().length < 3) {
+    const identifiant = draft.identifiant.trim();
+    if (identifiant.length < 3) {
       setError("Identifiant : 3 caractères minimum.");
+      return;
+    }
+    if (!IDENTIFIANT_RE.test(identifiant)) {
+      setError(
+        "Identifiant : minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre.",
+      );
       return;
     }
     if (draft.motDePasse.length < 8) {
@@ -78,7 +95,7 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
       await addEmploye({
         prenom: draft.prenom.trim(),
         nom: draft.nom.trim(),
-        identifiant: draft.identifiant.trim(),
+        identifiant,
         motDePasse: draft.motDePasse,
         type: "Assistant",
         role: "societe_employe",
@@ -93,9 +110,12 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
         description: `${draft.prenom} ${draft.nom}`,
       });
       setDraft(emptyDraft());
+      setIdentifiantTouched(false);
       setAdding(false);
-    } catch {
-      setError("Impossible d'ajouter ce compte (identifiant déjà pris ?).");
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Impossible d'ajouter ce compte.",
+      );
     }
   }
 
@@ -111,6 +131,7 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
             variant="outline"
             onClick={() => {
               setDraft(emptyDraft());
+              setIdentifiantTouched(false);
               setError(null);
               setAdding(true);
             }}
@@ -288,11 +309,17 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
             <Label>Identifiant</Label>
             <Input
               value={draft.identifiant}
-              onChange={(ev) =>
-                setDraft((d) => ({ ...d, identifiant: ev.target.value }))
-              }
+              onChange={(ev) => {
+                setIdentifiantTouched(true);
+                setDraft((d) => ({ ...d, identifiant: ev.target.value }));
+              }}
               placeholder="prenom.nom"
             />
+            <p className="text-xs text-muted-foreground">
+              {!identifiantTouched
+                ? "Proposé à partir du prénom/nom — modifiable"
+                : "Minuscules, chiffres, points ou tirets — doit commencer par une lettre"}
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Email (facultatif)</Label>

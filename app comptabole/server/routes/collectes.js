@@ -92,6 +92,14 @@ function isCabinet(session, societeId) {
   );
 }
 
+/** Gestion "admin" d'une collecte (statuts, période/devise/onglets/échéance,
+ * relance) : réservée à l'admin ET au responsable des collaborateurs — pas
+ * à un simple collaborateur, qui garde les droits plus limités d'`isCabinet`
+ * (récap par tableau, notes). */
+function isCabinetManager(session) {
+  return session.role === "admin" || session.poste === "responsable_collaborateurs";
+}
+
 /** Qui peut écrire une note : le cabinet (admin/collaborateur) ou le client
  * de la société. */
 function canPostNote(session, societeId) {
@@ -119,7 +127,7 @@ function isLocked(session, collecte, sections) {
   const statut = collecte.statut;
   // archivée : lecture seule pour tout le monde, admin compris.
   if (statut === "archive") return true;
-  if (session.role === "admin") return false;
+  if (isCabinetManager(session)) return false;
   // validée : lecture seule pour le client / le collaborateur (côté cabinet ok).
   if (statut === "valide") return session.poste === "societe_employe" ? true : false;
   if (session.poste !== "societe_employe") return false;
@@ -141,7 +149,7 @@ function isLocked(session, collecte, sections) {
 async function isOngletLocked(session, collecte, onglet) {
   const statut = collecte.statut;
   if (statut === "archive") return true;
-  if (session.role === "admin") return false;
+  if (isCabinetManager(session)) return false;
   if (statut === "valide") return session.poste === "societe_employe" ? true : false;
   if (session.poste !== "societe_employe") return false;
   if (statut !== "transmis") return false;
@@ -240,7 +248,7 @@ collectesRouter.patch("/:id", async (req, res) => {
   const c = (await query("select * from collectes where id = $1", [req.params.id]))
     .rows[0];
   if (!c) return res.status(404).json({ error: "Collecte introuvable" });
-  const isAdmin = req.session.role === "admin";
+  const isAdmin = isCabinetManager(req.session);
   const b = req.body ?? {};
 
   const soc = (
@@ -283,7 +291,7 @@ collectesRouter.patch("/:id", async (req, res) => {
     return res.json(await loadCollecte(req.params.id));
   }
 
-  // Admin
+  // Admin ou responsable des collaborateurs
   const echeanceChanged = b.echeance !== undefined && (b.echeance || null) !== c.echeance;
   const next = {
     periode: typeof b.periode === "string" ? b.periode.trim() : c.periode,
@@ -637,8 +645,10 @@ collectesRouter.get("/:id/journal", async (req, res) => {
   );
 });
 
-// ── Relance manuelle (admin) ──────────────────────
-collectesRouter.post("/:id/relance", requireAdmin, async (req, res) => {
+// ── Relance manuelle (admin, responsable des collaborateurs) ──────────────
+collectesRouter.post("/:id/relance", async (req, res) => {
+  if (!isCabinetManager(req.session))
+    return res.status(403).json({ error: "Accès réservé à l'administrateur ou au responsable des collaborateurs" });
   const row = (
     await query(
       `select c.id, c.societe_id, c.periode, c.echeance, c.statut,

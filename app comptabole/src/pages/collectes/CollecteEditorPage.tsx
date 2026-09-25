@@ -54,7 +54,12 @@ import { DocPreviewDialog } from "../stock/DocPreviewDialog";
 export function CollecteEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { isAdmin, poste, isCollaborateur: isStaff } = usePermissions();
+  const {
+    isAdmin,
+    poste,
+    isCollaborateur: isStaff,
+    canManageCollaborateurs,
+  } = usePermissions();
   const societes = useSocietes();
 
   const collecte = useCollectes((s) => s.current);
@@ -167,7 +172,7 @@ export function CollecteEditorPage() {
   // dans RecapTab (visibleRows), ici pour le sidenav et le surlignage en
   // lecture seule dans chaque onglet.
   const showFlagsFor = (key: string) =>
-    !archivee && (isAdmin || sectionRecapStatut(collecte, key) !== "none");
+    !archivee && (canManageCollaborateurs || sectionRecapStatut(collecte, key) !== "none");
   // Le client ne peut renvoyer un récap au cabinet qu'une fois TOUTES les
   // cases « ? » des tableaux demandés remplies et enregistrées — le cabinet
   // ne reçoit jamais de récap à moitié complété à clôturer.
@@ -223,7 +228,7 @@ export function CollecteEditorPage() {
                 label={`Échéance ${formatDate(collecte.echeance)}${enRetard ? " — dépassée" : ""}`}
               />
             )}
-            {isAdmin && enAttente && (
+            {canManageCollaborateurs && enAttente && (
               <Button
                 variant="outline"
                 size="sm"
@@ -284,10 +289,10 @@ export function CollecteEditorPage() {
                 Transmettre au cabinet
               </Button>
             )}
-            {isAdmin && currentRecap === "envoye" && (
+            {canManageCollaborateurs && currentRecap === "envoye" && (
               <StatusDot tone="warning" label="Récap en attente du client" />
             )}
-            {isAdmin && !archivee && liveManques.length > 0 && (
+            {canManageCollaborateurs && !archivee && liveManques.length > 0 && (
               <Button
                 variant={preview ? "ledger" : "outline"}
                 size="sm"
@@ -296,7 +301,7 @@ export function CollecteEditorPage() {
                 {preview ? "Quitter l'aperçu" : "Aperçu client"}
               </Button>
             )}
-            {isAdmin && (
+            {canManageCollaborateurs && (
               <>
                 {!archivee && (
                   <Button
@@ -392,7 +397,7 @@ export function CollecteEditorPage() {
           <CheckCircle2 className="h-4 w-4" />
           <span>
             <strong>Collecte archivée</strong> — lecture seule pour tous.
-            {isAdmin && " Cliquez « Désarchiver » pour la rouvrir."}
+            {canManageCollaborateurs && " Cliquez « Désarchiver » pour la rouvrir."}
           </span>
         </div>
       )}
@@ -716,7 +721,7 @@ export function CollecteEditorPage() {
         </div>
       </Tabs>
 
-      {isAdmin && (
+      {canManageCollaborateurs && (
         <CollecteCreateDialog
           open={editOpen}
           onOpenChange={setEditOpen}

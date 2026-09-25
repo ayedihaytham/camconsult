@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -76,9 +76,15 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
     setValue,
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: empty });
+  // Montant total recalculé automatiquement depuis Qté × PU tant que
+  // l'utilisateur ne l'a pas modifié à la main (le montant réel peut
+  // différer d'un calcul mécanique — voir suivi_devise_factures.montant_total
+  // dans schema.sql) ; une facture existante garde sa valeur enregistrée.
+  const [montantTouched, setMontantTouched] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setMontantTouched(isEdit);
     reset(
       facture
         ? {
@@ -97,11 +103,16 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
           }
         : empty,
     );
-  }, [open, facture, reset]);
+  }, [open, facture, isEdit, reset]);
 
   const lotId = watch("lotId");
   const qte = watch("qteTonnes");
   const pu = watch("pu");
+
+  useEffect(() => {
+    if (!open || montantTouched) return;
+    setValue("montantTotal", Math.round(qte * pu * 100) / 100);
+  }, [open, montantTouched, qte, pu, setValue]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -196,16 +207,16 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
                 <Input
                   type="number"
                   step="any"
-                  {...register("montantTotal")}
+                  {...register("montantTotal", { onChange: () => setMontantTouched(true) })}
                   className="text-right font-semibold tabular-nums"
                 />
               </div>
             </div>
-            {qte > 0 && pu > 0 && (
+            {montantTouched && (
               <button
                 type="button"
                 className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                onClick={() => setValue("montantTotal", Math.round(qte * pu * 100) / 100)}
+                onClick={() => setMontantTouched(false)}
               >
                 Reprendre Qté × PU ({(qte * pu).toLocaleString("fr-FR", { minimumFractionDigits: 2 })})
               </button>

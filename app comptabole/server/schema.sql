@@ -776,3 +776,117 @@ create table if not exists honoraires_lignes (
   maj_le               timestamptz not null default now()
 );
 create index if not exists honoraires_lignes_societe_idx on honoraires_lignes(societe_id, ordre);
+
+-- Suivi client devise : ventes export d'une société vers SES propres
+-- clients, en devise (ex. négoce ciment RUSPINA/CAM) — une fiche par
+-- (société, client, exercice). Les factures peuvent être rattachées à un
+-- lot de Lettre de Crédit (LC : quantité, prix rendu, rabais, incoterm) ;
+-- lot_id nullable, une société sans négoce LC n'ouvre simplement aucun lot.
+-- Le solde (ventes − charges/avoirs − règlements) se calcule côté
+-- application à partir de suivi_devise_mouvements, jamais stocké — même
+-- principe que honoraires_lignes ci-dessus.
+create table if not exists suivi_devise (
+  id         uuid primary key default gen_random_uuid(),
+  societe_id uuid not null references societes(id) on delete cascade,
+  client     text not null,
+  exercice   text not null default '',
+  devise     text not null default 'EUR',
+  note       text not null default '',
+  -- Report manuel de l'exercice précédent (ex. "Avoir 31/12/2022" côté
+  -- Excel — GREEN LAND, HANACEM…) — inclus tel quel dans le solde, voir
+  -- suiviDeviseFullDto. Jamais recalculé : c'est un report, pas une donnée
+  -- dérivée d'autres lignes de cette fiche.
+  solde_ouverture numeric not null default 0,
+  cree_le    timestamptz not null default now(),
+  maj_le     timestamptz not null default now(),
+  -- Un même client peut acheter en EUR ET en USD la même année (ex. BRAHIM,
+  -- deux blocs Total/Solde distincts côté Excel) : une fiche par devise, pas
+  -- une fiche multi-devises.
+  unique (societe_id, client, exercice, devise)
+);
+
+-- type : 'aucun' | 'charges_trans_av' | 'avoir' — régime du lot (bandeau
+-- orange "LC 4000T PRIX RENDU -75,00 EUR" avec CHARGES TRANS+AV / AVOIR /
+-- EX WORK selon la capture). 'aucun' (= EX WORK ou pas de régime) ne
+-- produit aucun écart. valeur_reference selon type :
+--   - charges_trans_av : prix de référence par tonne — écart facture =
+--     qte_tonnes * (pu − valeur_reference), agrégé dans le solde ;
+--   - avoir : total forfaitaire de référence du lot — écart facture =
+--     montant_total − valeur_reference, agrégé ligne à ligne dans le solde.
+create table if not exists suivi_devise_lots (
+  id               uuid primary key default gen_random_uuid(),
+  suivi_id         uuid not null references suivi_devise(id) on delete cascade,
+  ordre            int not null default 0,
+  libelle          text not null default '', -- ex. "LC 4000T"
+  quantite_tonnes  numeric not null default 0,
+  prix_rendu       numeric not null default 0,
+  rabais           numeric not null default 0,
+  incoterm         text not null default '', -- EX WORK, CIF, FOB…
+  type             text not null default 'aucun',
+  valeur_reference numeric not null default 0
+);
+
+create table if not exists suivi_devise_factures (
+  id                  uuid primary key default gen_random_uuid(),
+  suivi_id            uuid not null references suivi_devise(id) on delete cascade,
+  lot_id              uuid references suivi_devise_lots(id) on delete set null,
+  ordre               int not null default 0,
+  n_facture           text not null default '',
+  n_secondaire        text not null default '',
+  date_facture        date,
+  mode_paiement       text not null default '',
+  designation_produit text not null default '',
+  fournisseur         text not null default '',
+  qte_tonnes          numeric not null default 0,
+  pu                  numeric not null default 0,
+  -- Éditable, pas forcément qte_tonnes * pu (cf. balance_lignes : le
+  -- montant réel d'une facture peut différer d'un calcul mécanique).
+  montant_total       numeric not null default 0,
+  avoir_montant       numeric,
+  avoir_date          date
+);
+
+-- Un seul journal pour charges transport / avoirs / règlements — comme
+-- honoraires_lignes, différencié par `type` pour l'affichage seulement.
+create table if not exists suivi_devise_mouvements (
+  id       uuid primary key default gen_random_uuid(),
+  suivi_id uuid not null references suivi_devise(id) on delete cascade,
+  -- Nullable : un mouvement général (ex. un règlement global) n'est
+  -- rattaché à aucun lot ; seuls ceux propres à un lot (voir captures
+  -- "CHARGES TRANS+AV"/"AVOIR"/"EX WORK" par lot LC) le sont.
+  lot_id   uuid references suivi_devise_lots(id) on delete set null,
+  ordre    int not null default 0,
+  type     text not null default 'reglement', -- charge_transport | avoir | reglement
+  libelle  text not null default '',
+  date     date,
+  montant  numeric not null default 0
+);
+
+create index if not exists suivi_devise_societe_idx on suivi_devise(societe_id);
+create index if not exists suivi_devise_lots_idx on suivi_devise_lots(suivi_id, ordre);
+create index if not exists suivi_devise_factures_idx on suivi_devise_factures(suivi_id, ordre);
+create index if not exists suivi_devise_mouvements_idx on suivi_devise_mouvements(suivi_id, ordre);
+
+-- Colonnes ajoutées après la première version de ce module (solde
+-- d'ouverture, régime de lot) — sans effet si la table vient d'être créée
+-- ci-dessus avec ces colonnes déjà en place.
+alter table suivi_devise add column if not exists solde_ouverture numeric not null default 0;
+alter table suivi_devise_lots add column if not exists type text not null default 'aucun';
+alter table suivi_devise_lots add column if not exists valeur_reference numeric not null default 0;
+-- Une fiche par devise (voir suivi_devise ci-dessus) : remplace l'ancienne
+-- contrainte (societe_id, client, exercice) par une version qui inclut la
+-- devise, pour une table déjà créée sans elle.
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint where conname = 'suivi_devise_societe_id_client_exercice_key'
+  ) then
+    alter table suivi_devise drop constraint suivi_devise_societe_id_client_exercice_key;
+  end if;
+  if not exists (
+    select 1 from pg_constraint where conname = 'suivi_devise_societe_id_client_exercice_devise_key'
+  ) then
+    alter table suivi_devise add constraint suivi_devise_societe_id_client_exercice_devise_key
+      unique (societe_id, client, exercice, devise);
+  end if;
+end $$;

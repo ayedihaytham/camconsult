@@ -46,8 +46,10 @@ describe("sidebar navigation policy", () => {
       "/grille-affectat",
       "/bordereaux",
       "/honoraires",
+      "/suivi-devise",
       "/structuration",
       "/messagerie",
+      "/conversions",
       "/journal",
       "/parametres",
     ]);
@@ -71,8 +73,10 @@ describe("sidebar navigation policy", () => {
       "/collectes",
       "/stock",
       "/etats-financiers",
+      "/suivi-devise",
       "/structuration",
       "/messagerie",
+      "/conversions",
     ]);
   });
 
@@ -92,7 +96,9 @@ describe("sidebar navigation policy", () => {
       "/collectes",
       "/stock",
       "/etats-financiers",
+      "/suivi-devise",
       "/structuration",
+      "/conversions",
     ]);
   });
 

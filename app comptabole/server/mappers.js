@@ -529,3 +529,155 @@ export function honoraireLignesDto(rows) {
       return { ...l, total, solde };
     });
 }
+
+// ── Suivi client devise ───────────────────────────
+export const suiviDeviseDto = (r) => ({
+  id: r.id,
+  societeId: r.societe_id,
+  client: r.client,
+  exercice: r.exercice ?? "",
+  devise: r.devise || "EUR",
+  note: r.note ?? "",
+  soldeOuverture: num(r.solde_ouverture),
+  creeLe: isoOrNull(r.cree_le),
+  majLe: isoOrNull(r.maj_le),
+});
+
+const round2 = (n) => Math.round(n * 100) / 100;
+
+const suiviDeviseLotDto = (r) => ({
+  id: r.id,
+  suiviId: r.suivi_id,
+  ordre: r.ordre ?? 0,
+  libelle: r.libelle ?? "",
+  quantiteTonnes: num(r.quantite_tonnes),
+  prixRendu: num(r.prix_rendu),
+  rabais: num(r.rabais),
+  incoterm: r.incoterm ?? "",
+  type: r.type || "aucun",
+  valeurReference: num(r.valeur_reference),
+});
+
+export const suiviDeviseFactureDto = (r) => ({
+  id: r.id,
+  suiviId: r.suivi_id,
+  lotId: r.lot_id,
+  ordre: r.ordre ?? 0,
+  nFacture: r.n_facture ?? "",
+  nSecondaire: r.n_secondaire ?? "",
+  dateFacture: r.date_facture ? dateStr(r.date_facture) : null,
+  modePaiement: r.mode_paiement ?? "",
+  designationProduit: r.designation_produit ?? "",
+  fournisseur: r.fournisseur ?? "",
+  qteTonnes: num(r.qte_tonnes),
+  pu: num(r.pu),
+  montantTotal: num(r.montant_total),
+  avoirMontant: r.avoir_montant == null ? null : num(r.avoir_montant),
+  avoirDate: r.avoir_date ? dateStr(r.avoir_date) : null,
+});
+
+export const suiviDeviseMouvementDto = (r) => ({
+  id: r.id,
+  suiviId: r.suivi_id,
+  lotId: r.lot_id,
+  ordre: r.ordre ?? 0,
+  type: r.type || "reglement",
+  libelle: r.libelle ?? "",
+  date: r.date ? dateStr(r.date) : null,
+  montant: num(r.montant),
+});
+
+/**
+ * Écart d'une facture rattachée à un lot à régime — reproduit exactement
+ * les formules trouvées dans le fichier Excel réel du cabinet (onglet
+ * BYOUT EZZ, vérifié au centime près contre son SOLDE affiché) :
+ *   - "charges_trans_av" : qte_tonnes * (pu − valeur_reference) — l'écart
+ *     entre le prix réellement facturé et un prix usine de référence par
+ *     tonne (ex. `=-(E39*52)+G39`).
+ *   - "avoir" : montant_total − valeur_reference — l'écart entre le
+ *     montant facturé et un total forfaitaire de référence pour ce lot
+ *     (ex. `=+G75-102000`).
+ *   - "aucun" (incoterm EX WORK ou pas de régime) : aucun écart.
+ */
+function ecartFacture(facture, lot) {
+  if (!lot) return 0;
+  if (lot.type === "charges_trans_av")
+    return facture.qteTonnes * (facture.pu - lot.valeurReference);
+  if (lot.type === "avoir") return facture.montantTotal - lot.valeurReference;
+  return 0;
+}
+
+/**
+ * Assemble la fiche complète avec solde calculé — jamais stocké, recalculé
+ * à chaque lecture (même principe que honoraireLignesDto).
+ *
+ * Grandeurs vérifiées au centime près contre le fichier Excel réel du
+ * cabinet (onglet BYOUT EZZ, |solde| = 18 556,90 €) :
+ *   solde = total ventes − (solde_ouverture + écarts des lots à régime
+ *     (charges_trans_av et avoir, calculés facture par facture ci-dessus)
+ *     + mouvements manuels (charges/avoirs/règlements)).
+ * Convention : solde positif = le client doit encore ce montant ; négatif
+ * = trop perçu/crédit en sa faveur. C'est l'inverse du signe du fichier
+ * Excel d'origine (qui calcule `-TOTAL + règlements + ...`, donc négatif
+ * quand le client doit) — même formule, signe choisi pour rester intuitif
+ * dans l'appli plutôt que de reproduire le signe brut du fichier source.
+ *
+ * totalVentes ne compte QUE les factures sans lot (paiement "BANK
+ * TRANSFER", suivi au solde). Une facture rattachée à un lot (référence
+ * LC — le paiement est garanti par la lettre de crédit, pas par un
+ * virement à surveiller) ne s'ajoute jamais à totalVentes : seul l'écart
+ * de son lot (charges_trans_av/avoir) contribue au solde. Vérifié sur
+ * BYOUT EZZ (TOTAL = SUM des 23 lignes "BANK TRANSFER", jamais des
+ * lignes "LC:..." des lots) et BRAHIM (2) (même exclusion des 2 lignes
+ * "LC205ILC2023/0400" de son TOTAL).
+ */
+export function suiviDeviseFullDto(suiviRow, lotRows, factureRows, mouvementRows) {
+  const lots = lotRows.map(suiviDeviseLotDto).sort((a, b) => a.ordre - b.ordre);
+  const factures = factureRows.map(suiviDeviseFactureDto).sort((a, b) => a.ordre - b.ordre);
+  const mouvements = mouvementRows.map(suiviDeviseMouvementDto).sort((a, b) => a.ordre - b.ordre);
+
+  const totalVentes = round2(
+    factures.filter((f) => !f.lotId).reduce((s, f) => s + f.montantTotal, 0),
+  );
+  const totalVentesLots = round2(
+    factures.filter((f) => f.lotId).reduce((s, f) => s + f.montantTotal, 0),
+  );
+  const totalCharges = round2(
+    mouvements.filter((m) => m.type === "charge_transport").reduce((s, m) => s + m.montant, 0),
+  );
+  const totalAvoir = round2(
+    mouvements.filter((m) => m.type === "avoir").reduce((s, m) => s + m.montant, 0),
+  );
+  const totalReglements = round2(
+    mouvements.filter((m) => m.type === "reglement").reduce((s, m) => s + m.montant, 0),
+  );
+
+  const lotsAvecEcart = lots.map((l) => ({
+    ...l,
+    ecart: round2(
+      factures
+        .filter((f) => f.lotId === l.id)
+        .reduce((s, f) => s + ecartFacture(f, l), 0),
+    ),
+  }));
+  const totalEcartsLots = round2(lotsAvecEcart.reduce((s, l) => s + l.ecart, 0));
+
+  const soldeOuverture = num(suiviRow.solde_ouverture);
+  const solde = round2(
+    totalVentes - (soldeOuverture + totalEcartsLots + totalCharges + totalAvoir + totalReglements),
+  );
+
+  return {
+    ...suiviDeviseDto(suiviRow),
+    lots: lotsAvecEcart,
+    factures,
+    mouvements,
+    totalVentes,
+    totalVentesLots,
+    totalCharges,
+    totalAvoir,
+    totalReglements,
+    totalEcartsLots,
+    solde,
+  };
+}

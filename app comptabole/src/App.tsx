@@ -73,6 +73,21 @@ const EtatsFinanciersPage = lazy(() =>
     default: m.EtatsFinanciersPage,
   })),
 );
+const SuiviDeviseSocietesPage = lazy(() =>
+  import("@/pages/suiviDevise/SuiviDeviseSocietesPage").then((m) => ({
+    default: m.SuiviDeviseSocietesPage,
+  })),
+);
+const SuiviDeviseListPage = lazy(() =>
+  import("@/pages/suiviDevise/SuiviDeviseListPage").then((m) => ({
+    default: m.SuiviDeviseListPage,
+  })),
+);
+const SuiviDeviseEditorPage = lazy(() =>
+  import("@/pages/suiviDevise/SuiviDeviseEditorPage").then((m) => ({
+    default: m.SuiviDeviseEditorPage,
+  })),
+);
 const BalancesListPage = lazy(() =>
   import("@/pages/etatsFinanciers/BalancesListPage").then((m) => ({
     default: m.BalancesListPage,
@@ -105,6 +120,9 @@ const MessageriePage = lazy(() =>
 );
 const ParametresPage = lazy(() =>
   import("@/pages/ParametresPage").then((m) => ({ default: m.ParametresPage })),
+);
+const ConversionsPage = lazy(() =>
+  import("@/pages/ConversionsPage").then((m) => ({ default: m.ConversionsPage })),
 );
 const JournalPage = lazy(() =>
   import("@/pages/JournalPage").then((m) => ({ default: m.JournalPage })),
@@ -283,6 +301,30 @@ export default function App() {
                     </Suspense>
                   }
                 />
+                <Route
+                  path="/suivi-devise"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SuiviDeviseSocietesPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/suivi-devise/:societeId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SuiviDeviseListPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/suivi-devise/:societeId/:suiviId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SuiviDeviseEditorPage />
+                    </Suspense>
+                  }
+                />
               </Route>
               <Route
                 path="/collectes"
@@ -313,6 +355,14 @@ export default function App() {
                 element={
                   <Suspense fallback={<PageFallback />}>
                     <MessageriePage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/conversions"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <ConversionsPage />
                   </Suspense>
                 }
               />

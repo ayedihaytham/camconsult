@@ -2,6 +2,7 @@
 // ceux des exports Excel) — téléchargé directement, sans la fenêtre
 // d'impression. Charte : CAMCONSULT, titre bleu, bandeaux bleus, montants
 // « 1 200,50 ». jsPDF est chargé à la demande.
+import type { jsPDF as JsPDF } from "jspdf";
 
 export type PdfCell = string | number;
 
@@ -30,12 +31,24 @@ const fmt = (n: number) =>
 
 const isUpper = (s: string) => /\p{L}/u.test(s) && s === s.toLocaleUpperCase("fr");
 
-export async function downloadTablesPdf(opts: {
+interface TablesPdfOpts {
   title: string;
   subtitle?: string;
   sheets: PdfSheet[];
   fileName: string;
-}): Promise<void> {
+  /** Désactive la détection de bandeaux/totaux (déduite des tableaux
+   * comptables du cabinet — une cellule seule en MAJUSCULES, "EXERCICE…",
+   * etc.) : pour un tableur quelconque (voir la page Conversions), ces
+   * heuristiques produisent des faux positifs. Tableau simple à la place. */
+  plain?: boolean;
+}
+
+/** Construit le document sans le télécharger — pour un aperçu (iframe,
+ * blob URL) avant de laisser l'utilisateur déclencher lui-même le
+ * téléchargement (voir ConversionsPage.tsx). `downloadTablesPdf`
+ * ci-dessous reste le raccourci "construire + télécharger" pour les
+ * appelants qui n'ont pas besoin d'aperçu. */
+export async function buildTablesPdf(opts: TablesPdfOpts): Promise<JsPDF> {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const maxCols = Math.max(1, ...opts.sheets.flatMap((s) => s.rows.map((r) => r.length)));
   const doc = new jsPDF({ orientation: maxCols >= 6 ? "landscape" : "portrait", unit: "pt", format: "a4" });
@@ -93,6 +106,11 @@ export async function downloadTablesPdf(opts: {
     for (const r of src) {
       const filled = r.filter((v) => v !== "" && v != null);
       if (filled.length === 0) continue;
+      if (opts.plain) {
+        kinds.push("normal");
+        body.push(pad(r));
+        continue;
+      }
       const first = String(r[0] ?? "");
       if (filled.length === 1 && r[0] !== "" && r[0] != null) {
         const kind: Kind = /^EXERCICE\b/.test(first) ? "exercice" : isUpper(first) ? "band" : "line";
@@ -158,5 +176,10 @@ export async function downloadTablesPdf(opts: {
     doc.text(`Édité le ${edite}`, MARGE, hauteur - MARGE / 2);
     doc.text(`Page ${p} / ${pages}`, largeur - MARGE, hauteur - MARGE / 2, { align: "right" });
   }
+  return doc;
+}
+
+export async function downloadTablesPdf(opts: TablesPdfOpts): Promise<void> {
+  const doc = await buildTablesPdf(opts);
   doc.save(opts.fileName.endsWith(".pdf") ? opts.fileName : `${opts.fileName}.pdf`);
 }

@@ -376,7 +376,7 @@ function CollecteActions({ collecte, socNom, onDelete, onOpen }: {
           <MoreHorizontal className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
         <DropdownMenuItem onSelect={onOpen}><ArrowRight /> Ouvrir la collecte</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={() => onDelete(collecte)}><Trash2 /> Supprimer…</DropdownMenuItem>

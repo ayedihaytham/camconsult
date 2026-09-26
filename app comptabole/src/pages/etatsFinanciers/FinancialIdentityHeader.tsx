@@ -26,16 +26,17 @@ export function FinancialIdentityHeader({
   if (variant === "dossier") {
     return (
       <header className={cn("border border-primary/15 bg-primary text-primary-foreground", className)}>
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-4 px-4 py-3 sm:min-h-[76px] sm:gap-y-3 sm:px-[18px]">
-          <div className="flex min-w-0 items-center gap-3">
-            {monogram && (
-              <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center border border-primary-foreground/25 bg-primary-foreground/10 font-mono text-xs font-semibold tracking-wide">
-                {monogram}
-              </span>
-            )}
+        <div className="flex min-w-0 flex-col items-stretch gap-2 px-4 py-3 sm:min-h-[76px] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-[18px] sm:py-2.5">
+          <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3">
+            <span
+              aria-hidden="true"
+              className="grid min-h-5 w-fit shrink-0 place-items-center border border-primary-foreground/20 px-1.5 text-center text-[9px] font-semibold uppercase leading-tight tracking-[0.1em] text-accent sm:min-h-[42px] sm:w-[82px] sm:px-1"
+            >
+              Dossier financier
+            </span>
             <div className="min-w-0">
               <p className="sr-only">{eyebrow}</p>
-              <h2 className="truncate text-lg font-semibold leading-tight tracking-tight">{title}</h2>
+              <h2 className="truncate text-lg font-semibold leading-tight tracking-tight sm:text-[19px]">{title}</h2>
               <p className="sr-only">{description}</p>
               {details.length > 0 && (
                 <p className="mt-1 truncate text-[0.7rem] text-primary-foreground/75">
@@ -46,7 +47,7 @@ export function FinancialIdentityHeader({
               )}
             </div>
           </div>
-          {actions && <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">{actions}</div>}
+          {actions && <div className="flex w-full min-w-0 items-center justify-end gap-2 sm:w-auto">{actions}</div>}
         </div>
       </header>
     );

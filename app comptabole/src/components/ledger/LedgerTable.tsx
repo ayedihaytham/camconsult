@@ -61,6 +61,11 @@ interface LedgerTableProps<T> {
   initialSort?: { columnId: string; direction: "asc" | "desc" };
   emptyState?: ReactNode;
   isLoading?: boolean;
+  /** Optional local scroll area for wide or long worksheets. */
+  scrollAreaClassName?: string;
+  scrollAreaLabel?: string;
+  /** Replaces the default lifted row hover treatment when a quieter one fits. */
+  rowInteractionClassName?: string;
   /** Glisser-déposer les en-têtes pour réordonner les colonnes (colonne
    * "actions" toujours épinglée à droite, non réordonnable). */
   enableColumnReorder?: boolean;
@@ -198,6 +203,9 @@ export function LedgerTable<T>({
   initialSort,
   emptyState,
   isLoading = false,
+  scrollAreaClassName,
+  scrollAreaLabel,
+  rowInteractionClassName,
   enableColumnReorder = false,
   enableColumnResize = false,
   enableDensityToggle = false,
@@ -376,7 +384,12 @@ export function LedgerTable<T>({
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      <div
+        className={cn("overflow-x-auto", scrollAreaClassName)}
+        tabIndex={scrollAreaLabel ? 0 : undefined}
+        role={scrollAreaLabel ? "region" : undefined}
+        aria-label={scrollAreaLabel}
+      >
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-secondary/50">
@@ -508,7 +521,8 @@ export function LedgerTable<T>({
                         onRowClick && "cursor-pointer",
                         selected
                           ? "bg-accent/[0.06]"
-                          : "hover:z-10 hover:-translate-y-px hover:bg-card hover:[filter:drop-shadow(0_4px_10px_rgba(15,23,42,0.12))]",
+                          : rowInteractionClassName ??
+                            "hover:z-10 hover:-translate-y-px hover:bg-card hover:[filter:drop-shadow(0_4px_10px_rgba(15,23,42,0.12))]",
                       )}
                     >
                       {renderExpanded && (

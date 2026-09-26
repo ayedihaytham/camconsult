@@ -116,15 +116,6 @@ const VUE_DESCRIPTIONS: Record<Vue, string> = {
   notes: "Notes et informations complémentaires des exercices.",
 };
 
-function societyMonogram(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
 export function BalancesListPage() {
   const { societeId = "" } = useParams();
   const navigate = useNavigate();
@@ -371,6 +362,9 @@ export function BalancesListPage() {
     }
   }
 
+  const showCreateExerciseInHeader =
+    vue === "exercices" && (loading || list.length > 0 || Boolean(listError));
+
   return (
     <div className="min-w-0">
       <h1 className="sr-only">États financiers — {societe?.raisonSociale ?? "Société"}</h1>
@@ -379,7 +373,6 @@ export function BalancesListPage() {
           eyebrow="Dossier financier"
           title={societe?.raisonSociale ?? "Société"}
           description="Exercices, balances et états comptables du dossier."
-          monogram={societyMonogram(societe?.raisonSociale ?? "S")}
           details={[
             { label: "Code", value: societe?.code || "—" },
             { label: "RNE", value: societe?.rne || "Non renseigné" },
@@ -388,7 +381,7 @@ export function BalancesListPage() {
             <>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground lg:min-h-8">
+                  <Button variant="outline" size="sm" className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9">
                     Outils
                   </Button>
                 </DropdownMenuTrigger>
@@ -415,9 +408,6 @@ export function BalancesListPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="accent" size="sm" className="min-h-11 lg:min-h-8" onClick={() => setCreateOpen(true)}>
-                <Plus className="size-4" /> Nouvel exercice
-              </Button>
             </>
           }
         />
@@ -437,9 +427,21 @@ export function BalancesListPage() {
               </p>
             </div>
             {vue === "exercices" ? (
-              <p className="mt-0.5 text-[0.65rem] font-normal uppercase tracking-wide text-muted-foreground sm:mt-0 sm:font-medium">
-                Portée des exports · classeur complet
-              </p>
+              <div className="flex shrink-0 items-center gap-2">
+                <p className="hidden text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground sm:block">
+                  Portée des exports · classeur complet
+                </p>
+                {showCreateExerciseInHeader && (
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    className="min-h-11 lg:min-h-8"
+                    onClick={() => setCreateOpen(true)}
+                  >
+                    <Plus className="size-4" /> Nouvel exercice
+                  </Button>
+                )}
+              </div>
             ) : postesParExercice.length > 0 && (
               <p className="text-xs tabular-nums text-muted-foreground">
                 Exercices ·{" "}

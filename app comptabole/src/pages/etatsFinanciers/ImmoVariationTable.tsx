@@ -144,12 +144,13 @@ export function ImmoVariationTable({
   if (chrono.length === 0) return null;
 
   return (
-    <LedgerSheet>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+    <LedgerSheet className="min-w-0 max-w-full">
+      <p className="px-3 pt-3 text-xs text-muted-foreground lg:hidden print:hidden">Faire défiler horizontalement pour lire le tableau complet.</p>
+      <div className="max-w-full overflow-x-auto overscroll-x-contain" role="region" aria-label="Tableau de variation des immobilisations, défilement horizontal" tabIndex={0}>
+        <table className="w-full min-w-[1080px] text-sm print:min-w-0">
           <thead>
             <tr>
-              <th rowSpan={2} className="px-[18px] py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground align-bottom">
+              <th rowSpan={2} className="sticky left-0 z-10 min-w-[112px] bg-card px-[18px] py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground align-bottom print:static">
                 Exercice
               </th>
               <th colSpan={4} className="border-b border-border px-2 py-1 text-center text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
@@ -256,7 +257,7 @@ function MasseGroup({
         const ecart = ligne.brutOuvertureEcart;
         return (
           <tr key={e.exercice} className="border-b border-border">
-            <td className="px-[18px] py-1.5 text-foreground">
+            <td className="sticky left-0 z-10 min-w-[112px] bg-card px-[18px] py-1.5 text-foreground print:static">
               {e.exercice}
               {ecart !== null && Math.abs(ecart) > 0.5 && (
                 <span
@@ -330,7 +331,7 @@ function EditableOrReadonlyCell({
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         placeholder="0"
-        className="ml-auto h-7 w-24 border-0 bg-transparent text-right shadow-none focus-visible:ring-1"
+        className="ml-auto h-11 w-24 border-0 bg-transparent text-right shadow-none focus-visible:ring-1 lg:h-7 print:h-7"
       />
     </td>
   );

@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { CollecteLigne } from "@/types";
 import { cellNumber, type TabDef, type TabRow } from "@/lib/collecte/tabs";
+import { RequestedTableRowDrawer } from "./RequestedTableRowDrawer";
 
 interface Props {
   def: TabDef;
@@ -68,6 +69,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [rowDrawerOpen, setRowDrawerOpen] = useState(false);
+  const addRowButtonRef = useRef<HTMLButtonElement>(null);
   const baseline = useRef(initial);
   const latestInitial = useRef(initial);
 
@@ -92,9 +95,13 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
   }
   function addRow() {
+    setRowDrawerOpen(true);
+  }
+
+  function stageRow(row: TabRow) {
     setSaved(false);
     setSaveError(false);
-    setRows((rs) => [...rs, {}]);
+    setRows((current) => [...current, row]);
   }
   function removeRow(i: number) {
     setSaved(false);
@@ -111,6 +118,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       const out = def.derive ? def.derive(rows) : rows;
       await onSave(out.map((data, ordre) => ({ data, ordre })));
       baseline.current = rows;
+      latestInitial.current = rows;
       setRows([...rows]);
       setSaved(true);
     } catch (error) {
@@ -323,9 +331,10 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             <span />
           ) : (
             <Button
+              ref={addRowButtonRef}
               variant="outline"
               size="sm"
-              className="min-h-10 lg:min-h-8"
+              className="min-h-11 lg:min-h-8"
               onClick={addRow}
             >
               <Plus className="h-4 w-4" />
@@ -364,6 +373,18 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             </Button>
           </div>
         </div>
+      )}
+
+      {!readOnly && !structureLocked && (
+        <RequestedTableRowDrawer
+          open={rowDrawerOpen}
+          onOpenChange={setRowDrawerOpen}
+          def={def}
+          rowCount={rows.length}
+          devise={devise}
+          onAdd={stageRow}
+          triggerRef={addRowButtonRef}
+        />
       )}
     </div>
   );

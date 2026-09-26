@@ -74,7 +74,27 @@ accessible labels when an icon stands alone.
 - **Process Ledger:** Collecte de pièces emphasizes workflow state, correction,
   actual overdue/deadline state, transmission/validation and next action. Tâches
   keeps its own real status semantics and does not invent due dates.
-- Financial pages foreground numeric alignment and precision.
+- Collecte requested-table row creation uses a contextual Sheet, not a blank
+  inline row. It opens on the right on desktop and adapts to mobile; edits inside
+  the Sheet stay local until submission. A submitted row joins the staged table
+  and marks it dirty, while page-level **Enregistrer** remains the persistence
+  action. The unsaved-changes confirmation applies to staged data, and
+  **Enregistrer et changer** uses that same save operation.
+- Financial pages foreground numeric alignment and precision. On narrow widths,
+  SIG reads as stacked Produits, Charges and Soldes blocks for one selected
+  exercise; TAB VAR Immob retains its full movement schedule in a local
+  horizontal scroller with the exercise column anchored. The immobilisations
+  register uses compact asset rows with disclosed movements, while Contrôle
+  presents each discrepancy before its two labelled source values. Desktop and
+  print tables retain their established accounting layouts.
+- The Balance Editor is the Financial Ledger working mode: the navy dossier
+  banner carries exercise and société identity, followed by one primary
+  **Nouvelle ligne** action, secondary import and PDF/Excel/print under
+  **Outils**. Its compact indicators retain real discrepancy, account and
+  unmapped-AFFECTAT counts. The worksheet keeps a sticky header, tabular
+  right-aligned amounts, a restrained calculated Solde, and destructive row
+  actions in an overflow menu; narrow screens scroll the grid locally while
+  keeping Compte visible.
 
 The archetypes share a visual grammar, not a fixed metric count or page layout.
 Do not derive société statuses, collaborator permissions or collecte workflow

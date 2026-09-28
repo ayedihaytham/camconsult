@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Receipt, Trash2, Upload } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useSocieteById } from "@/store/data";
 import { useHonoraires, type HonoraireLigneInput } from "@/store/honoraires";
 import { HONORAIRE_TYPE_LABELS, type HonoraireLigne } from "@/types";
+import { HonoraireImportDialog } from "./HonoraireImportDialog";
 import { HonoraireLigneFormSheet } from "./HonoraireLigneFormSheet";
 
 const fmt = (n: number) =>
@@ -31,6 +32,7 @@ export function HonorairesSocietePage() {
   const remove = useHonoraires((s) => s.remove);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<HonoraireLigne | null>(null);
   const [toDelete, setToDelete] = useState<HonoraireLigne | null>(null);
 
@@ -69,16 +71,22 @@ export function HonorairesSocietePage() {
         title={`État client — ${societe?.raisonSociale ?? "Société"}`}
         description="Déclarations traitées, honoraires et règlements — le solde cumule les honoraires et montants déclarés, réduit par chaque règlement."
         actions={
-          <Button
-            variant="ledger"
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Nouvelle ligne
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Importer un fichier
+            </Button>
+            <Button
+              variant="ledger"
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Nouvelle ligne
+            </Button>
+          </>
         }
       />
 
@@ -180,6 +188,12 @@ export function HonorairesSocietePage() {
           </div>
         </LedgerSheet>
       )}
+
+      <HonoraireImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        societeId={societeId}
+      />
 
       <HonoraireLigneFormSheet
         open={formOpen}

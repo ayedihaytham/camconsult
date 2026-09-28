@@ -27,6 +27,15 @@ export function parseAmount(text: string): number {
 /** Arrondi au millime — même précision que le serveur (server/mappers.js). */
 export const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
+/** Cellule Excel/CSV → nombre : accepte « 1 234,567 », « 1234.567 » et les
+ * nombres déjà typés (0 si illisible). */
+export function toNumber(cell: unknown): number {
+  if (typeof cell === "number") return Number.isFinite(cell) ? round3(cell) : 0;
+  const s = String(cell ?? "").trim().replace(/[\s  ]/g, "").replace(",", ".");
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? round3(n) : 0;
+}
+
 /** Nombre → texte de saisie avec virgule décimale, sans zéros inutiles. */
 export function formatAmountInput(n: number): string {
   return String(round3(n)).replace(".", ",");

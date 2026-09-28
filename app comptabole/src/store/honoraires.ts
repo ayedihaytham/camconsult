@@ -20,6 +20,11 @@ interface HonorairesState {
   fetchList: (societeId: string) => Promise<void>;
   clear: () => void;
   create: (data: HonoraireLigneInput) => Promise<void>;
+  /** Ajoute plusieurs lignes (import Excel) sans remplacer les existantes. */
+  importLignes: (
+    societeId: string,
+    lignes: Omit<HonoraireLigneInput, "societeId">[],
+  ) => Promise<void>;
   update: (id: string, data: Partial<HonoraireLigneInput>) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
@@ -46,6 +51,15 @@ export const useHonoraires = create<HonorairesState>((set) => ({
   create: async (data) => {
     try {
       const list = await api.post<HonoraireLigne[]>("/honoraires", data);
+      set({ list });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  importLignes: async (societeId, lignes) => {
+    try {
+      const list = await api.post<HonoraireLigne[]>("/honoraires/import", { societeId, lignes });
       set({ list });
     } catch (e) {
       fail(e);

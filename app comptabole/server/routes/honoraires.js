@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { query } from "../db.js";
+import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
 import { honoraireLignesDto } from "../mappers.js";
@@ -80,6 +80,52 @@ honorairesRouter.post("/", async (req, res) => {
     `${v.libelle || v.periode || v.type} — ${soc.raison_sociale}`,
   );
   res.status(201).json(await lignesFor(v.societeId));
+});
+
+// Import en masse depuis un fichier Excel (voir HonoraireImportDialog.tsx) —
+// s'ajoute aux lignes existantes de la société, sans jamais les remplacer.
+honorairesRouter.post("/import", async (req, res) => {
+  const parsed = z
+    .object({
+      societeId: z.string().uuid(),
+      lignes: z.array(schema.omit({ societeId: true })).min(1),
+    })
+    .safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  const { societeId, lignes } = parsed.data;
+  const soc = (
+    await query("select raison_sociale from societes where id = $1", [societeId])
+  ).rows[0];
+  if (!soc) return res.status(400).json({ error: "Société introuvable" });
+
+  await withTransaction(async (client) => {
+    const { rows } = await client.query(
+      "select coalesce(max(ordre), 0) as n from honoraires_lignes where societe_id = $1",
+      [societeId],
+    );
+    let ordre = rows[0].n;
+    for (const v of lignes) {
+      ordre += 1;
+      await client.query(
+        `insert into honoraires_lignes
+           (societe_id, ordre, type, nature, periode, libelle, cnss, num_quittance,
+            montant_declaration, honoraire, reglement, note)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [
+          societeId, ordre, v.type, v.nature, v.periode, v.libelle,
+          v.cnss, v.numQuittance, v.montantDeclaration, v.honoraire, v.reglement, v.note,
+        ],
+      );
+    }
+  });
+  logAction(
+    req.session.nom,
+    "creation",
+    "honoraires",
+    `Import ${lignes.length} ligne(s) — ${soc.raison_sociale}`,
+  );
+  res.status(201).json(await lignesFor(societeId));
 });
 
 honorairesRouter.patch("/:id", async (req, res) => {

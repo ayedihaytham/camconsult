@@ -1,20 +1,23 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Paperclip, Pencil, Plus, Receipt, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, FileText, Paperclip, Pencil, Plus, Receipt, Send, Trash2, Upload } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/usePermissions";
 import { downloadDataUrl } from "@/lib/file";
+import { buildEtatClientPdf } from "@/lib/honoraires/etatClientPdf";
 import { cn } from "@/lib/utils";
 import { useSocieteById } from "@/store/data";
 import { useHonoraires, type HonoraireLigneInput } from "@/store/honoraires";
 import { HONORAIRE_TYPE_LABELS, type HonoraireLigne } from "@/types";
 import { HonoraireImportDialog } from "./HonoraireImportDialog";
 import { HonoraireLigneFormSheet } from "./HonoraireLigneFormSheet";
+import { HonoraireMessageDialog } from "./HonoraireMessageDialog";
 
 const fmt = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -23,6 +26,10 @@ export function HonorairesSocietePage() {
   const { societeId = "" } = useParams();
   const navigate = useNavigate();
   const societe = useSocieteById(societeId);
+  // Le responsable de société consulte sa propre société en lecture seule
+  // (télécharger les pièces jointes, rien d'autre) ; l'admin gère tout.
+  const { isAdmin, isResponsableSociete, societeIds } = usePermissions();
+  const readOnly = !isAdmin;
 
   const list = useHonoraires((s) => s.list);
   const loading = useHonoraires((s) => s.loading);
@@ -35,6 +42,8 @@ export function HonorairesSocietePage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [editing, setEditing] = useState<HonoraireLigne | null>(null);
   const [toDelete, setToDelete] = useState<HonoraireLigne | null>(null);
 
@@ -47,6 +56,23 @@ export function HonorairesSocietePage() {
   const totalHonoraires = list.reduce((s, l) => s + l.honoraire, 0);
   const totalReglements = list.reduce((s, l) => s + l.reglement, 0);
 
+  async function downloadPdf() {
+    setPdfBusy(true);
+    try {
+      const { doc, fileName } = await buildEtatClientPdf(list, societe?.raisonSociale ?? "Société");
+      doc.save(fileName);
+    } catch {
+      toast.error("PDF impossible");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
+  async function openPiece(l: HonoraireLigne) {
+    const { nom, dataUrl } = await fetchPiece(l.id);
+    downloadDataUrl(dataUrl, nom || "piece");
+  }
+
   function handleSubmit(data: HonoraireLigneInput) {
     if (editing) {
       update(editing.id, data);
@@ -58,37 +84,54 @@ export function HonorairesSocietePage() {
     setEditing(null);
   }
 
+  // Un responsable ne consulte que SA société (le serveur refuse aussi le reste).
+  if (isResponsableSociete && !(societeIds ?? []).includes(societeId)) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div>
       <LedgerPageHeader
         breadcrumb={
-          <button
-            onClick={() => navigate("/honoraires")}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Toutes les sociétés
-          </button>
+          readOnly ? undefined : (
+            <button
+              onClick={() => navigate("/honoraires")}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Toutes les sociétés
+            </button>
+          )
         }
         title={`État client — ${societe?.raisonSociale ?? "Société"}`}
         description="Déclarations traitées, honoraires et règlements — le solde cumule les honoraires et montants déclarés, réduit par chaque règlement."
         actions={
-          <>
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Importer un fichier
-            </Button>
-            <Button
-              variant="ledger"
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Nouvelle ligne
-            </Button>
-          </>
+          readOnly ? undefined : (
+            <>
+              <Button variant="outline" onClick={downloadPdf} disabled={pdfBusy || list.length === 0}>
+                <FileText className="h-4 w-4" />
+                {pdfBusy ? "PDF…" : "Enregistrer PDF"}
+              </Button>
+              <Button variant="outline" onClick={() => setMessageOpen(true)} disabled={list.length === 0}>
+                <Send className="h-4 w-4" />
+                Envoyer au responsable
+              </Button>
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                <Upload className="h-4 w-4" />
+                Importer un fichier
+              </Button>
+              <Button
+                variant="ledger"
+                onClick={() => {
+                  setEditing(null);
+                  setFormOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Nouvelle ligne
+              </Button>
+            </>
+          )
         }
       />
 
@@ -108,7 +151,11 @@ export function HonorairesSocietePage() {
           <EmptyState
             icon={Receipt}
             title={loading ? "Chargement…" : "Aucune ligne"}
-            description="Ajoutez une déclaration traitée pour cette société (CNSS, acompte, IS, mensuelle…)."
+            description={
+              readOnly
+                ? "Aucune déclaration enregistrée pour votre société pour le moment."
+                : "Ajoutez une déclaration traitée pour cette société (CNSS, acompte, IS, mensuelle…)."
+            }
           />
         </LedgerSheet>
       ) : (
@@ -126,7 +173,8 @@ export function HonorairesSocietePage() {
                   <th className="border-b-2 border-foreground px-2 py-2 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Total</th>
                   <th className="border-b-2 border-foreground px-2 py-2 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Règlt</th>
                   <th className="border-b-2 border-foreground px-2 py-2 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Solde</th>
-                  <th className="w-[1%] border-b-2 border-foreground px-2 py-2" />
+                  <th className="border-b-2 border-foreground px-2 py-2 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">Pièce jointe</th>
+                  {!readOnly && <th className="w-[1%] border-b-2 border-foreground px-2 py-2" />}
                 </tr>
               </thead>
               <tbody>
@@ -164,37 +212,40 @@ export function HonorairesSocietePage() {
                         {fmt(l.solde)}
                       </td>
                       <td className="px-2 py-2">
-                        <div className="flex gap-0.5">
-                          {l.aPiece && (
-                            <button
-                              title={`Ouvrir la pièce jointe : ${l.pieceNom}`}
-                              aria-label={`Ouvrir la pièce jointe : ${l.pieceNom}`}
-                              onClick={async () => {
-                                const { nom, dataUrl } = await fetchPiece(l.id);
-                                downloadDataUrl(dataUrl, nom || "piece");
-                              }}
-                              className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-accent transition-colors hover:bg-muted"
-                            >
-                              <Paperclip className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+                        {l.aPiece ? (
                           <button
-                            onClick={() => {
-                              setEditing(l);
-                              setFormOpen(true);
-                            }}
-                            className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            title={`Télécharger : ${l.pieceNom}`}
+                            onClick={() => openPiece(l)}
+                            className="inline-flex max-w-[180px] items-center gap-1.5 text-xs text-accent underline-offset-2 hover:underline"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{l.pieceNom || "Pièce jointe"}</span>
                           </button>
-                          <button
-                            onClick={() => setToDelete(l)}
-                            className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
+                      {!readOnly && (
+                        <td className="px-2 py-2">
+                          <div className="flex gap-0.5">
+                            <button
+                              onClick={() => {
+                                setEditing(l);
+                                setFormOpen(true);
+                              }}
+                              className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setToDelete(l)}
+                              className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -204,34 +255,46 @@ export function HonorairesSocietePage() {
         </LedgerSheet>
       )}
 
-      <HonoraireImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        societeId={societeId}
-      />
+      {!readOnly && (
+        <>
+          <HonoraireImportDialog
+            open={importOpen}
+            onOpenChange={setImportOpen}
+            societeId={societeId}
+          />
 
-      <HonoraireLigneFormSheet
-        open={formOpen}
-        onOpenChange={(o) => {
-          setFormOpen(o);
-          if (!o) setEditing(null);
-        }}
-        societeId={societeId}
-        ligne={editing}
-        onSubmit={handleSubmit}
-      />
+          <HonoraireMessageDialog
+            open={messageOpen}
+            onOpenChange={setMessageOpen}
+            societeId={societeId}
+            societeNom={societe?.raisonSociale ?? "Société"}
+            list={list}
+          />
 
-      <ConfirmDialog
-        open={Boolean(toDelete)}
-        onOpenChange={(o) => !o && setToDelete(null)}
-        title="Supprimer cette ligne ?"
-        description="Cette ligne du compte honoraires sera définitivement supprimée."
-        confirmLabel="Supprimer"
-        onConfirm={() => {
-          if (toDelete) remove(toDelete.id);
-          setToDelete(null);
-        }}
-      />
+          <HonoraireLigneFormSheet
+            open={formOpen}
+            onOpenChange={(o) => {
+              setFormOpen(o);
+              if (!o) setEditing(null);
+            }}
+            societeId={societeId}
+            ligne={editing}
+            onSubmit={handleSubmit}
+          />
+
+          <ConfirmDialog
+            open={Boolean(toDelete)}
+            onOpenChange={(o) => !o && setToDelete(null)}
+            title="Supprimer cette ligne ?"
+            description="Cette ligne du compte honoraires sera définitivement supprimée."
+            confirmLabel="Supprimer"
+            onConfirm={() => {
+              if (toDelete) remove(toDelete.id);
+              setToDelete(null);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

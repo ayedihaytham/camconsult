@@ -5,10 +5,16 @@ import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
 import { honoraireLignesDto, HONORAIRE_COLONNES_LEGERES } from "../mappers.js";
 
-/** État client (honoraires) — réservé à l'admin, voir la demande initiale
- * ("ajouter à l'admin"). */
+/** État client (honoraires) — écriture réservée à l'admin. Lecture seule
+ * (liste + téléchargement des pièces jointes) aussi pour le RESPONSABLE de la
+ * société concernée — jamais un délégué, jamais une autre société. */
 export const honorairesRouter = Router();
-honorairesRouter.use(requireAuth, requireAdmin);
+honorairesRouter.use(requireAuth);
+
+const isResponsableSociete = (s) => s.poste === "societe_employe" && !s.delegue;
+const canRead = (s, societeId) =>
+  s.role === "admin" ||
+  (isResponsableSociete(s) && (s.societeIds || []).includes(societeId));
 
 const TYPES = [
   "mensuelle",
@@ -54,10 +60,12 @@ async function lignesFor(societeId) {
 honorairesRouter.get("/", async (req, res) => {
   const societeId = req.query.societeId;
   if (!societeId) return res.status(400).json({ error: "societeId requis" });
+  if (!canRead(req.session, societeId))
+    return res.status(403).json({ error: "Accès non autorisé" });
   res.json(await lignesFor(societeId));
 });
 
-honorairesRouter.post("/", async (req, res) => {
+honorairesRouter.post("/", requireAdmin, async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
@@ -96,7 +104,7 @@ honorairesRouter.post("/", async (req, res) => {
 
 // Import en masse depuis un fichier Excel (voir HonoraireImportDialog.tsx) —
 // s'ajoute aux lignes existantes de la société, sans jamais les remplacer.
-honorairesRouter.post("/import", async (req, res) => {
+honorairesRouter.post("/import", requireAdmin, async (req, res) => {
   const parsed = z
     .object({
       societeId: z.string().uuid(),
@@ -143,15 +151,17 @@ honorairesRouter.post("/import", async (req, res) => {
 // Contenu de la pièce jointe, à la demande (jamais dans les listes).
 honorairesRouter.get("/:id/piece", async (req, res) => {
   const { rows } = await query(
-    "select piece_nom, piece_data_url from honoraires_lignes where id = $1",
+    "select societe_id, piece_nom, piece_data_url from honoraires_lignes where id = $1",
     [req.params.id],
   );
   if (!rows[0] || !rows[0].piece_data_url)
     return res.status(404).json({ error: "Pièce jointe introuvable" });
+  if (!canRead(req.session, rows[0].societe_id))
+    return res.status(403).json({ error: "Accès non autorisé" });
   res.json({ nom: rows[0].piece_nom, dataUrl: rows[0].piece_data_url });
 });
 
-honorairesRouter.patch("/:id", async (req, res) => {
+honorairesRouter.patch("/:id", requireAdmin, async (req, res) => {
   const existing = (
     await query(`select ${HONORAIRE_COLONNES_LEGERES} from honoraires_lignes where id = $1`, [req.params.id])
   ).rows[0];
@@ -201,7 +211,7 @@ honorairesRouter.patch("/:id", async (req, res) => {
   res.json(await lignesFor(existing.societe_id));
 });
 
-honorairesRouter.delete("/:id", async (req, res) => {
+honorairesRouter.delete("/:id", requireAdmin, async (req, res) => {
   const { rows } = await query(
     "delete from honoraires_lignes where id = $1 returning societe_id, libelle, periode, type",
     [req.params.id],

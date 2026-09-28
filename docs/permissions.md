@@ -65,3 +65,15 @@ operation-specific checks.
 **Frontend visibility does not replace backend authorization.** Hiding a button,
 route or navigation item is UX only; the matching API must reject unauthorized
 requests and out-of-scope society IDs.
+
+## État client (honoraires)
+
+- Écriture (lignes, pièces jointes, import, envoi par la messagerie) : admin
+  uniquement — `server/routes/honoraires.js`, `requireAdmin` sur chaque route
+  d'écriture.
+- Lecture seule (liste + téléchargement des pièces jointes) : admin, et le
+  **responsable de la société concernée** (`poste === "societe_employe"`,
+  jamais un délégué, jamais une autre société — `canRead` côté serveur,
+  `RequireEtatClient` + redirection vers sa société côté client).
+- Le contenu d'une pièce jointe n'est jamais dans les listes : chargé à la
+  demande via `GET /honoraires/:id/piece` (même contrôle d'accès).

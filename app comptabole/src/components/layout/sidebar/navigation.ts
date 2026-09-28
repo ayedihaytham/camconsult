@@ -37,6 +37,9 @@ export interface NavItem {
   children?: NavChild[];
   badgeKey?: "unread";
   adminOnly?: boolean;
+  /** Visible aussi pour le responsable de société (pas son délégué), en plus
+   * de l'admin — la page reste en lecture seule pour lui. */
+  responsableSocieteOk?: boolean;
   perm?: PermissionKey;
   hideForSocieteEmploye?: boolean;
 }
@@ -108,6 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/honoraires",
         icon: Receipt,
         adminOnly: true,
+        responsableSocieteOk: true,
       },
       {
         label: "Suivi client devise",
@@ -155,17 +159,24 @@ export function visibleNavigation({
   lectureSeule,
   can,
   canManageCollaborateurs = false,
+  isResponsableSociete = false,
 }: {
   isAdmin: boolean;
   lectureSeule: boolean;
   can: (permission: PermissionKey) => boolean;
   canManageCollaborateurs?: boolean;
+  isResponsableSociete?: boolean;
 }): NavGroup[] {
   return NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items
       .filter((item) => {
-        if (item.adminOnly && !isAdmin) return false;
+        if (
+          item.adminOnly &&
+          !isAdmin &&
+          !(item.responsableSocieteOk && isResponsableSociete)
+        )
+          return false;
         if (item.hideForSocieteEmploye && lectureSeule) return false;
         if (item.perm && !can(item.perm)) return false;
         return true;

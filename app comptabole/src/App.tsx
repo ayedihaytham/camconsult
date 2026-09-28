@@ -9,6 +9,7 @@ import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { RequireEquipeManager } from "@/components/auth/RequireEquipeManager";
 import { RequireEquipe } from "@/components/auth/RequireEquipe";
+import { RequireEtatClient } from "@/components/auth/RequireEtatClient";
 import { useAuth } from "@/store/auth";
 import { useData } from "@/store/data";
 import { registerQuotaHandler } from "@/lib/safeStorage";
@@ -366,7 +367,7 @@ export default function App() {
                   </Suspense>
                 }
               />
-              <Route element={<RequireAdmin />}>
+              <Route element={<RequireEtatClient />}>
                 <Route
                   path="/honoraires"
                   element={
@@ -383,6 +384,8 @@ export default function App() {
                     </Suspense>
                   }
                 />
+              </Route>
+              <Route element={<RequireAdmin />}>
                 <Route
                   path="/bordereaux"
                   element={

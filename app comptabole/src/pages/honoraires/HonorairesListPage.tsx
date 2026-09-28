@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Receipt } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
@@ -6,12 +7,19 @@ import { SocieteCard } from "@/components/ledger/SocieteCard";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useData, useSocietes } from "@/store/data";
 
-/** Réservé à l'admin (voir RequireAdmin sur la route) — les honoraires et
- * soldes clients restent une information sensible au cabinet. */
+/** Admin (toutes les sociétés) ; le responsable de société est redirigé vers
+ * la page de SA société (voir RequireEtatClient sur la route) — les
+ * honoraires et soldes restent une information sensible au cabinet. */
 export function HonorairesListPage() {
   const navigate = useNavigate();
   const societes = useSocietes();
   const employes = useData((s) => s.employes);
+  const { isResponsableSociete, societeIds } = usePermissions();
+
+  // Le responsable de société n'a qu'une société : directement sur sa page.
+  if (isResponsableSociete && societeIds?.[0]) {
+    return <Navigate to={`/honoraires/${societeIds[0]}`} replace />;
+  }
 
   return (
     <div>

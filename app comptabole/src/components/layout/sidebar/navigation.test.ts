@@ -121,6 +121,25 @@ describe("sidebar navigation policy", () => {
   });
 });
 
+describe("État client pour le responsable de société", () => {
+  it("le responsable de société voit État client (lecture seule), pas son délégué", () => {
+    const base = { isAdmin: false, lectureSeule: true, can: allowAll };
+    expect(
+      destinations(visibleNavigation({ ...base, isResponsableSociete: true })),
+    ).toEqual([
+      "/",
+      "/taches",
+      "/collectes",
+      "/honoraires",
+      "/structuration",
+      "/messagerie",
+    ]);
+    expect(
+      destinations(visibleNavigation({ ...base, isResponsableSociete: false })),
+    ).not.toContain("/honoraires");
+  });
+});
+
 describe("sidebar route state", () => {
   it("matches dashboard exactly and leaf detail routes by path segment", () => {
     expect(isRouteActive("/", "/")).toBe(true);

@@ -3,12 +3,13 @@ import { z } from "zod";
 import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
+import { safeRouter } from "../asyncRoutes.js";
 import { honoraireLignesDto, HONORAIRE_COLONNES_LEGERES } from "../mappers.js";
 
 /** État client (honoraires) — écriture réservée à l'admin. Lecture seule
  * (liste + téléchargement des pièces jointes) aussi pour le RESPONSABLE de la
  * société concernée — jamais un délégué, jamais une autre société. */
-export const honorairesRouter = Router();
+export const honorairesRouter = safeRouter(Router());
 honorairesRouter.use(requireAuth);
 
 const isResponsableSociete = (s) => s.poste === "societe_employe" && !s.delegue;

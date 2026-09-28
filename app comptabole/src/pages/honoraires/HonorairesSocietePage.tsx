@@ -73,15 +73,17 @@ export function HonorairesSocietePage() {
     downloadDataUrl(dataUrl, nom || "piece");
   }
 
-  function handleSubmit(data: HonoraireLigneInput) {
+  // Attend la réponse du serveur : le message de succès n'apparaît (et le
+  // formulaire ne se ferme) que si la ligne — pièce jointe comprise — est bien
+  // enregistrée ; sinon l'erreur du store s'affiche et la saisie est conservée.
+  async function handleSubmit(data: HonoraireLigneInput) {
     if (editing) {
-      update(editing.id, data);
+      await update(editing.id, data);
       toast.success("Ligne modifiée");
     } else {
-      create(data);
+      await create(data);
       toast.success("Ligne ajoutée");
     }
-    setEditing(null);
   }
 
   // Un responsable ne consulte que SA société (le serveur refuse aussi le reste).

@@ -33,7 +33,8 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   societeId: string;
   ligne?: HonoraireLigne | null;
-  onSubmit: (data: HonoraireLigneInput) => void;
+  /** Rejette en cas d'échec (le formulaire reste ouvert, la saisie est conservée). */
+  onSubmit: (data: HonoraireLigneInput) => void | Promise<void>;
 }
 
 /** Limite de la pièce jointe (base64 ≈ ×1,37 côté serveur, plafonné à ~8 Mo de fichier). */
@@ -66,6 +67,7 @@ export function HonoraireLigneFormSheet({
   // Le libellé se re-suggère tant que l'utilisateur ne l'a pas retouché à
   // la main — dès qu'il tape dedans, on arrête de l'écraser automatiquement.
   const [libelleTouched, setLibelleTouched] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -300,12 +302,20 @@ export function HonoraireLigneFormSheet({
           <Button
             type="button"
             variant="ledger"
-            onClick={() => {
-              onSubmit(v);
-              onOpenChange(false);
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onSubmit(v);
+                onOpenChange(false);
+              } catch {
+                // le store a déjà affiché l'erreur : on garde la saisie et la pièce
+              } finally {
+                setSaving(false);
+              }
             }}
           >
-            {isEdit ? "Enregistrer" : "Ajouter la ligne"}
+            {saving ? "Enregistrement…" : isEdit ? "Enregistrer" : "Ajouter la ligne"}
           </Button>
         </SheetFooter>
       </SheetContent>

@@ -3,10 +3,11 @@ import { z } from "zod";
 import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
+import { safeRouter } from "../asyncRoutes.js";
 import { soucheChequeDto } from "../mappers.js";
 
 /** État de souche de chèques — réservé à l'admin. */
-export const soucheChequesRouter = Router();
+export const soucheChequesRouter = safeRouter(Router());
 soucheChequesRouter.use(requireAuth, requireAdmin);
 
 const DEVISES = ["TND", "EUR", "USD"];

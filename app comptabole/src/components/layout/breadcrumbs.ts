@@ -23,6 +23,7 @@ const STATIC_ROUTES: Record<string, string> = {
   "/grille-affectat": "Paramétrage",
   "/bordereaux": "Bordereaux bancaires",
   "/honoraires": "État client",
+  "/souche-cheques": "Souche de chèques",
   "/structuration": "Structuration",
   "/messagerie": "Messagerie",
   "/journal": "Journal",
@@ -98,6 +99,14 @@ export function getAppBreadcrumbs(
     return [
       { label: "État client", to: "/honoraires" },
       { label: societeName(honorairesParams.societeId) },
+    ];
+  }
+
+  const soucheParams = paramsFor("/souche-cheques/:societeId", pathname);
+  if (soucheParams) {
+    return [
+      { label: "Souche de chèques", to: "/souche-cheques" },
+      { label: societeName(soucheParams.societeId) },
     ];
   }
 

@@ -691,3 +691,21 @@ export function suiviDeviseFullDto(suiviRow, lotRows, factureRows, mouvementRows
     solde,
   };
 }
+
+// ── État de souche de chèques ─────────────────────
+export const soucheChequeDto = (r) => ({
+  id: r.id,
+  societeId: r.societe_id,
+  ordre: r.ordre ?? 0,
+  banque: r.banque ?? "",
+  numCheque: r.n_cheque ?? "",
+  dateEmission: r.date_emission ? dateStr(r.date_emission) : null,
+  beneficiaire: r.beneficiaire ?? "",
+  motif: r.motif ?? "",
+  montant: num(r.montant),
+  devise: r.devise || "TND",
+  debite: Boolean(r.debite),
+  dateDebit: r.date_debit ? dateStr(r.date_debit) : null,
+  creeLe: isoOrNull(r.cree_le),
+  majLe: isoOrNull(r.maj_le),
+});

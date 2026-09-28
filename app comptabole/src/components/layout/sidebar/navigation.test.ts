@@ -46,6 +46,7 @@ describe("sidebar navigation policy", () => {
       "/grille-affectat",
       "/bordereaux",
       "/honoraires",
+      "/souche-cheques",
       "/suivi-devise",
       "/structuration",
       "/messagerie",

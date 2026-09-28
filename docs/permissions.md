@@ -77,3 +77,10 @@ requests and out-of-scope society IDs.
   `RequireEtatClient` + redirection vers sa société côté client).
 - Le contenu d'une pièce jointe n'est jamais dans les listes : chargé à la
   demande via `GET /honoraires/:id/piece` (même contrôle d'accès).
+
+## État de souche de chèques
+
+- Admin uniquement, lecture comme écriture : `server/routes/soucheCheques.js`
+  (`requireAuth` + `requireAdmin` sur tout le routeur), routes client sous
+  `RequireAdmin` (`/souche-cheques`, `/souche-cheques/:societeId`) et entrée de
+  menu `adminOnly`. Aucun accès collaborateur, responsable ou société.

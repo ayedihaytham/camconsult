@@ -1,4 +1,5 @@
 import {
+  BookText,
   Boxes,
   Building2,
   Calculator,
@@ -112,6 +113,12 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Receipt,
         adminOnly: true,
         responsableSocieteOk: true,
+      },
+      {
+        label: "Souche de chèques",
+        to: "/souche-cheques",
+        icon: BookText,
+        adminOnly: true,
       },
       {
         label: "Suivi client devise",

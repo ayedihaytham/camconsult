@@ -762,3 +762,25 @@ export interface GroupConversation {
   membreIds: string[];
   creeLe: string;
 }
+
+// ── État de souche de chèques ─────────────────────
+export type SoucheChequeDevise = "TND" | "EUR" | "USD";
+
+export interface SoucheCheque {
+  id: string;
+  societeId: string;
+  ordre: number;
+  banque: string;
+  /** Texte : garde les zéros de tête (« 0000001 »). */
+  numCheque: string;
+  dateEmission: string | null;
+  beneficiaire: string;
+  motif: string;
+  montant: number;
+  devise: SoucheChequeDevise;
+  debite: boolean;
+  /** Renseignée seulement si le chèque est débité. */
+  dateDebit: string | null;
+  creeLe: string;
+  majLe: string;
+}

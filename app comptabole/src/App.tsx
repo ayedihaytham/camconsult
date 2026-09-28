@@ -69,6 +69,16 @@ const HonorairesSocietePage = lazy(() =>
     default: m.HonorairesSocietePage,
   })),
 );
+const SoucheChequesListPage = lazy(() =>
+  import("@/pages/soucheCheques/SoucheChequesListPage").then((m) => ({
+    default: m.SoucheChequesListPage,
+  })),
+);
+const SoucheChequesSocietePage = lazy(() =>
+  import("@/pages/soucheCheques/SoucheChequesSocietePage").then((m) => ({
+    default: m.SoucheChequesSocietePage,
+  })),
+);
 const EtatsFinanciersPage = lazy(() =>
   import("@/pages/etatsFinanciers/EtatsFinanciersPage").then((m) => ({
     default: m.EtatsFinanciersPage,
@@ -386,6 +396,22 @@ export default function App() {
                 />
               </Route>
               <Route element={<RequireAdmin />}>
+                <Route
+                  path="/souche-cheques"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SoucheChequesListPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/souche-cheques/:societeId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SoucheChequesSocietePage />
+                    </Suspense>
+                  }
+                />
                 <Route
                   path="/bordereaux"
                   element={

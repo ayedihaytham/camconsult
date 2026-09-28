@@ -113,7 +113,7 @@ function parseRows(raw: unknown[][], lots: SuiviDeviseLot[]): FactureInput[] {
     // Montant = formule sans valeur en cache (fichier jamais rouvert dans
     // Excel) : retombe sur Qté × PU plutôt que d'importer 0.
     const montantLu = toNum(cellAt(row, "montantTotal"));
-    const montantTotal = montantLu || Math.round(qteTonnes * pu * 100) / 100;
+    const montantTotal = montantLu || Math.round(qteTonnes * pu * 1000) / 1000;
     const lotLabel = String(cellAt(row, "lotId") ?? "").trim();
     out.push({
       lotId: lotLabel ? (lotByName.get(normalize(lotLabel)) ?? null) : null,
@@ -134,7 +134,7 @@ function parseRows(raw: unknown[][], lots: SuiviDeviseLot[]): FactureInput[] {
 }
 
 const fmt = (n: number) =>
-  n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 export function SuiviDeviseImportDialog({ open, onOpenChange, suiviId, lots }: Props) {
   const importFactures = useSuiviDevise((s) => s.importFactures);

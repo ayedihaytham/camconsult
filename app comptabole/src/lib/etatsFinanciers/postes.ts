@@ -396,7 +396,7 @@ export function computeSig(postes: Postes): SigResult {
 }
 
 export const fmt = (n: number) =>
-  n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 /** Signe d'affichage d'un poste quelconque (Bilan Actif/Passif ou CPC) —
  * même convention que partout ailleurs dans le module (voir l'en-tête de ce

@@ -543,7 +543,7 @@ export const suiviDeviseDto = (r) => ({
   majLe: isoOrNull(r.maj_le),
 });
 
-const round2 = (n) => Math.round(n * 100) / 100;
+const round2 = (n) => Math.round(n * 1000) / 1000; // millime (3 décimales)
 
 const suiviDeviseLotDto = (r) => ({
   id: r.id,

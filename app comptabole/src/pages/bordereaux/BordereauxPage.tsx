@@ -33,8 +33,8 @@ import { BordereauFormSheet } from "./BordereauFormSheet";
 
 const fmt = (n: number) =>
   n.toLocaleString("fr-FR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
   });
 
 const TYPES = Object.keys(BORDEREAU_TYPE_LABELS) as BordereauType[];

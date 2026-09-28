@@ -19,6 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AmountInput } from "@/components/common/AmountInput";
+import { round3 } from "@/lib/amount";
 import { suggestLibelle } from "@/lib/honoraires/labels";
 import type { HonoraireLigneInput } from "@/store/honoraires";
 import { HONORAIRE_TYPE_LABELS, type HonoraireLigne, type HonoraireType } from "@/types";
@@ -156,28 +158,46 @@ export function HonoraireLigneFormSheet({
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Montant déclaration</Label>
-              <Input
-                type="number"
+              <AmountInput
                 value={v.montantDeclaration}
-                onChange={(e) => set("montantDeclaration", Number(e.target.value) || 0)}
+                onValueChange={(n) => set("montantDeclaration", n)}
+                className="text-right tabular-nums"
               />
             </div>
             <div className="space-y-1.5">
               <Label>Honoraire</Label>
-              <Input
-                type="number"
+              <AmountInput
                 value={v.honoraire}
-                onChange={(e) => set("honoraire", Number(e.target.value) || 0)}
+                onValueChange={(n) => set("honoraire", n)}
+                className="text-right tabular-nums"
               />
             </div>
             <div className="space-y-1.5">
               <Label>Règlement reçu</Label>
-              <Input
-                type="number"
+              <AmountInput
                 value={v.reglement}
-                onChange={(e) => set("reglement", Number(e.target.value) || 0)}
+                onValueChange={(n) => set("reglement", n)}
+                className="text-right tabular-nums"
               />
             </div>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Total de la ligne (déclaration + honoraire)</span>
+            <span className="font-semibold tabular-nums">
+              {round3(v.montantDeclaration + v.honoraire).toLocaleString("fr-FR", {
+                minimumFractionDigits: 3,
+                maximumFractionDigits: 3,
+              })}
+            </span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Reste sur cette ligne (total − règlement)</span>
+            <span className="font-semibold tabular-nums">
+              {round3(v.montantDeclaration + v.honoraire - v.reglement).toLocaleString("fr-FR", {
+                minimumFractionDigits: 3,
+                maximumFractionDigits: 3,
+              })}
+            </span>
           </div>
 
           <div className="space-y-1.5">

@@ -240,6 +240,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                                 : "text"
                           }
                           inputMode={c.type === "number" ? "decimal" : undefined}
+                          step={c.type === "number" ? "any" : undefined}
                           placeholder={hi ? "?" : undefined}
                           value={String(row[c.key] ?? "")}
                           onChange={(e) =>
@@ -299,8 +300,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 </td>
                 <td className="px-2 py-2">
                   {total.toLocaleString("fr-FR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
                   })}{" "}
                   {symbol}
                 </td>

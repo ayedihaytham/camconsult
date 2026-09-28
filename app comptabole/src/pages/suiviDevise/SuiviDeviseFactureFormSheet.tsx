@@ -111,7 +111,7 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
 
   useEffect(() => {
     if (!open || montantTouched) return;
-    setValue("montantTotal", Math.round(qte * pu * 100) / 100);
+    setValue("montantTotal", Math.round(qte * pu * 1000) / 1000);
   }, [open, montantTouched, qte, pu, setValue]);
 
   return (
@@ -218,7 +218,7 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
                 className="text-xs text-muted-foreground underline-offset-2 hover:underline"
                 onClick={() => setMontantTouched(false)}
               >
-                Reprendre Qté × PU ({(qte * pu).toLocaleString("fr-FR", { minimumFractionDigits: 2 })})
+                Reprendre Qté × PU ({(qte * pu).toLocaleString("fr-FR", { minimumFractionDigits: 3 })})
               </button>
             )}
 

@@ -24,8 +24,8 @@ const fmt = (n: number) =>
   clean(
     // jamais « -0,00 » (zéro négatif issu des calculs de signe)
     (Math.abs(n) < 0.005 ? 0 : n).toLocaleString("fr-FR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
     }),
   );
 

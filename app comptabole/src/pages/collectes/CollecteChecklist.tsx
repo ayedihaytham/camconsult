@@ -36,7 +36,7 @@ interface Props {
 function totalLabel(total: number | null, devise: string) {
   if (total == null) return "—";
   const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
-  return `${total.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
+  return `${total.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ${symbol}`;
 }
 
 function Comment({

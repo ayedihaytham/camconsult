@@ -11,7 +11,7 @@ const BLEU = "FF1F4E79";
 const JAUNE = "FFFFFF00";
 const ORANGE_CLAIR = "FFFFE699";
 const GRIS_BORD = "FFBFBFBF";
-const MONTANT = "#,##0.00";
+const MONTANT = "#,##0.000";
 /** Lignes de saisie proposées même si le client en a rempli moins (comme le modèle). */
 const LIGNES_MIN = 25;
 const SOUS_TITRE = "Cellules jaunes = à saisir par le client · le reste se calcule automatiquement";
@@ -138,7 +138,7 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
       const tot = r.getCell(idx + 1);
       tot.value = {
         formula: `SUM(${lettre}${first}:${lettre}${last})`,
-        result: Math.round(derived.reduce((s, x) => s + cellNumber(x[key]), 0) * 100) / 100,
+        result: Math.round(derived.reduce((s, x) => s + cellNumber(x[key]), 0) * 1000) / 1000,
       };
       tot.numFmt = MONTANT;
       tot.font = { bold: true };
@@ -220,7 +220,7 @@ function feuilleCaisse(wb: Workbook, collecte: CollecteFull) {
   rt.getCell(2).value = "TOTAUX / SOLDE FINAL";
   rt.getCell(2).font = { bold: true };
   const sum = (key: "entree" | "sortie") =>
-    Math.round(ops.reduce((s, x) => s + cellNumber(x[key]), 0) * 100) / 100;
+    Math.round(ops.reduce((s, x) => s + cellNumber(x[key]), 0) * 1000) / 1000;
   const cells: [number, string, number][] = [
     [3, `SUM(C${first}:C${last})`, sum("entree")],
     [4, `SUM(D${first}:D${last})`, sum("sortie")],
@@ -228,7 +228,7 @@ function feuilleCaisse(wb: Workbook, collecte: CollecteFull) {
   ];
   for (const [j, formula, result] of cells) {
     const c = rt.getCell(j);
-    c.value = { formula, result: Math.round(result * 100) / 100 };
+    c.value = { formula, result: Math.round(result * 1000) / 1000 };
     c.numFmt = MONTANT;
     c.font = { bold: true };
   }

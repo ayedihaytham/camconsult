@@ -13,7 +13,7 @@ describe("CollecteChecklist", () => {
     const html = renderToStaticMarkup(<CollecteChecklist rows={rows} devise="TND" editable onSelectTab={vi.fn()} onSaveComment={vi.fn()} />);
     expect(html).toContain("Détail des virements reçus");
     expect(html).toContain("Date de suivi");
-    expect(html).toContain("4 250,00 TND");
+    expect(html).toContain("4 250,000 TND");
     expect(html).toContain("1 / 2");
     expect(html).toContain("Ajouter une note");
     expect(html).toContain('aria-label="Ajouter le commentaire pour Détail des achats"');

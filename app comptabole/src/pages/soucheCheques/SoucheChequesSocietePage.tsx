@@ -9,6 +9,7 @@ import {
   FileText,
   Pencil,
   Plus,
+  Printer,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -60,7 +61,7 @@ export function SoucheChequesSocietePage() {
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<SoucheCheque | null>(null);
   const [toDelete, setToDelete] = useState<SoucheCheque | null>(null);
-  const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
+  const [busy, setBusy] = useState<"pdf" | "print" | "xlsx" | null>(null);
 
   useEffect(() => {
     fetchList(societeId).catch(() => {});
@@ -92,6 +93,30 @@ export function SoucheChequesSocietePage() {
       doc.save(fileName);
     } catch {
       toast.error("PDF impossible");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Ouvre le PDF dans un onglet avec la boîte d'impression. La fenêtre est
+  // ouverte tout de suite (avant la génération, asynchrone) pour ne pas être
+  // bloquée comme popup ; si elle l'est quand même, on enregistre le PDF.
+  async function imprimer() {
+    setBusy("print");
+    const w = window.open("", "_blank");
+    try {
+      const { doc, fileName } = await buildSouchePdf(visibles, societeNom);
+      if (!w) {
+        doc.save(fileName);
+        toast.info("Fenêtre d'impression bloquée : le PDF a été téléchargé.");
+        return;
+      }
+      doc.autoPrint();
+      // jsPDF type `output("bloburl")` en URL mais renvoie bien une chaîne
+      w.location.href = doc.output("bloburl") as unknown as string;
+    } catch {
+      w?.close();
+      toast.error("Impression impossible");
     } finally {
       setBusy(null);
     }
@@ -161,6 +186,10 @@ export function SoucheChequesSocietePage() {
             <Button variant="outline" onClick={exportPdf} disabled={busy !== null || list.length === 0}>
               <FileText className="h-4 w-4" />
               {busy === "pdf" ? "PDF…" : "Enregistrer PDF"}
+            </Button>
+            <Button variant="outline" onClick={imprimer} disabled={busy !== null || list.length === 0}>
+              <Printer className="h-4 w-4" />
+              {busy === "print" ? "Impression…" : "Imprimer"}
             </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" />

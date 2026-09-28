@@ -4,6 +4,7 @@ import { PencilLine, Plus, Trash2, Undo2, Upload } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
+import type { RowAction } from "@/components/common/RowActions";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -102,26 +103,46 @@ export function ImmobilisationsRegistrePage({
     },
   );
 
+  function actionsForBien(bien: ImmoBien): RowAction[] {
+    return [
+      {
+        icon: PencilLine,
+        label: "Modifier",
+        onClick: () => {
+          setEditing(bien);
+          setFormOpen(true);
+        },
+      },
+      ...(bien.dateCession
+        ? [{ icon: Undo2, label: "Annuler la cession", onClick: () => setToReactivate(bien) }]
+        : []),
+      { icon: Trash2, label: "Supprimer", onClick: () => setToDelete(bien), destructive: true },
+    ];
+  }
+
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
+    <div className="min-w-0">
+      <div className="mb-4 flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         {chrono.length > 0 ? (
-          <LedgerSegmented
-            value={exercice}
-            onChange={setExercice}
-            options={chrono.map((e) => ({ value: e.exercice, label: e.exercice }))}
-          />
+          <div className="max-w-full overflow-x-auto [&_button]:min-h-11 lg:[&_button]:min-h-0">
+            <LedgerSegmented
+              value={exercice}
+              onChange={setExercice}
+              options={chrono.map((e) => ({ value: e.exercice, label: e.exercice }))}
+            />
+          </div>
         ) : (
           <div />
         )}
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+        <div className="flex min-w-0 flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="order-2 min-h-11 flex-1 lg:order-1 lg:min-h-8 lg:flex-none" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4" />
             Importer
           </Button>
           <Button
             variant="ledger"
             size="sm"
+            className={cn("order-1 min-h-11 flex-1 lg:order-2 lg:min-h-8 lg:flex-none", biens.length === 0 && "hidden lg:inline-flex")}
             onClick={() => {
               setEditing(null);
               setFormOpen(true);
@@ -135,13 +156,13 @@ export function ImmobilisationsRegistrePage({
       </div>
 
       {biens.length === 0 ? (
-        <LedgerSheet>
+        <LedgerSheet className="min-w-0">
           <EmptyState
             icon={Calculator}
             title={loadingBiens ? "Chargement…" : "Aucun bien enregistré"}
             description="Enregistrez chaque immobilisation une fois — l'amortissement de chaque exercice se calcule ensuite automatiquement."
             action={
-              <Button variant="ledger" size="sm" onClick={() => setFormOpen(true)}>
+              <Button variant="ledger" size="sm" className="min-h-11 lg:min-h-8" onClick={() => setFormOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Nouveau bien
               </Button>
@@ -149,8 +170,54 @@ export function ImmobilisationsRegistrePage({
           />
         </LedgerSheet>
       ) : (
-        <LedgerSheet>
-          <div className="overflow-x-auto">
+        <LedgerSheet className="min-w-0">
+          <div className="divide-y divide-border lg:hidden print:hidden" aria-label={`Registre immobilisations — exercice ${exercice}`}>
+            {categoriesUtilisees.map((cat) => (
+              <section key={cat.id} aria-label={cat.nom}>
+                <h3 className="bg-muted px-3 py-2 text-xs font-bold uppercase tracking-wide text-foreground">{cat.nom} ({cat.taux}%)</h3>
+                <div className="divide-y divide-border">
+                  {(parCategorie.get(cat.id) ?? []).map((c) => (
+                    <article key={c.bien.id} className="min-w-0 px-3 py-3">
+                      <div className="flex min-w-0 items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="break-words text-sm font-semibold text-foreground">{c.bien.libelle}</h4>
+                          <p className="mt-0.5 text-xs text-muted-foreground">Acquis le {c.bien.dateAcquisition}{c.bien.dateCession ? ` · Cédé le ${c.bien.dateCession}` : ""}</p>
+                        </div>
+                        <div className="flex min-h-11 min-w-11 shrink-0 items-center justify-center [&_button]:h-11 [&_button]:w-11">
+                          <LedgerRowMenu actions={actionsForBien(c.bien)} />
+                        </div>
+                      </div>
+                      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                        <div><dt className="text-xs text-muted-foreground">Coût d'acquisition</dt><dd className="whitespace-nowrap tabular-nums text-foreground">{fmt(c.bien.coutAcquisition)}</dd></div>
+                        <div><dt className="text-xs text-muted-foreground">VNC</dt><dd className="whitespace-nowrap font-semibold tabular-nums text-foreground">{fmt(c.vcn)}</dd></div>
+                        <div><dt className="text-xs text-muted-foreground">Amort. clôture</dt><dd className="whitespace-nowrap tabular-nums text-foreground">{fmt(c.amortCloture)}</dd></div>
+                      </dl>
+                      <details className="mt-2 border-t border-border/70 text-sm">
+                        <summary className="flex min-h-11 cursor-pointer items-center text-xs font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Détail des mouvements</summary>
+                        <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 pb-2 text-xs">
+                          {([
+                            ["Brut ouverture", c.brutOuverture], ["Acquisitions", c.acquisitions],
+                            ["Cessions brutes", c.cessionsBrut], ["Brut clôture", c.brutCloture],
+                            ["Amort. ouverture", c.amortOuverture], ["Dotations", c.dotations],
+                            ["Cessions amort.", c.cessionsAmort], ["Amort. clôture", c.amortCloture],
+                          ] as const).map(([label, amount]) => (
+                            <div key={label} className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+                              <dt className="min-w-0 text-muted-foreground">{label}</dt>
+                              <dd className="whitespace-nowrap text-right tabular-nums text-foreground">{fmt(amount)}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </details>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+            <div className="px-3 py-3 text-sm font-bold text-foreground">
+              <div className="flex justify-between gap-3"><span>TOTAL VNC</span><span className="whitespace-nowrap tabular-nums">{fmt(grandTotal.vcn)}</span></div>
+            </div>
+          </div>
+          <div className="hidden overflow-x-auto lg:block print:block">
             <table className="w-full text-sm">
               <thead>
                 <tr>
@@ -255,33 +322,7 @@ export function ImmobilisationsRegistrePage({
                           <td className="px-2 py-1.5 text-right tabular-nums">{fmt(c.amortCloture)}</td>
                           <td className="border-l border-border px-2 py-1.5 text-right font-semibold tabular-nums text-foreground">{fmt(c.vcn)}</td>
                           <td className="px-[18px] py-1.5">
-                            <LedgerRowMenu
-                              actions={[
-                                {
-                                  icon: PencilLine,
-                                  label: "Modifier",
-                                  onClick: () => {
-                                    setEditing(c.bien);
-                                    setFormOpen(true);
-                                  },
-                                },
-                                ...(c.bien.dateCession
-                                  ? [
-                                      {
-                                        icon: Undo2,
-                                        label: "Annuler la cession",
-                                        onClick: () => setToReactivate(c.bien),
-                                      },
-                                    ]
-                                  : []),
-                                {
-                                  icon: Trash2,
-                                  label: "Supprimer",
-                                  onClick: () => setToDelete(c.bien),
-                                  destructive: true,
-                                },
-                              ]}
-                            />
+                            <LedgerRowMenu actions={actionsForBien(c.bien)} />
                           </td>
                         </tr>
                       ))}

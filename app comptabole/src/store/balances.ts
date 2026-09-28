@@ -49,8 +49,10 @@ export type BalanceLigneInput = Omit<BalanceLigne, "id" | "ordre" | "solde"> & {
 interface BalancesState {
   list: Balance[]; // en-têtes (exercices) de la société courante
   loadingList: boolean;
+  listError: string | null;
   current: BalanceFull | null; // balance ouverte (avec ses lignes)
   loadingCurrent: boolean;
+  currentError: string | null;
 
   grilleCodes: GrilleAffectatCode[];
   grilleComptes: GrilleCompte[];
@@ -59,9 +61,12 @@ interface BalancesState {
    * n'a été fait. */
   grilleComptesSociete: GrilleCompte[];
   grilleLoaded: boolean;
+  grilleLoading: boolean;
+  grilleError: string | null;
 
   postesParExercice: PostesExercice[];
   loadingPostes: boolean;
+  postesError: string | null;
   fetchPostes: (societeId: string) => Promise<void>;
   clearPostes: () => void;
 
@@ -149,44 +154,49 @@ interface BalancesState {
 export const useBalances = create<BalancesState>((set, get) => ({
   list: [],
   loadingList: false,
+  listError: null,
   current: null,
   loadingCurrent: false,
+  currentError: null,
 
   grilleCodes: [],
   grilleComptes: [],
   grilleComptesSociete: [],
   grilleLoaded: false,
+  grilleLoading: false,
+  grilleError: null,
 
   postesParExercice: [],
   loadingPostes: false,
+  postesError: null,
 
   fetchPostes: async (societeId) => {
-    set({ loadingPostes: true });
+    set({ loadingPostes: true, postesError: null, postesParExercice: [] });
     try {
       const postesParExercice = await api.get<PostesExercice[]>(
         `/balances/postes?societeId=${societeId}`,
       );
       set({ postesParExercice, loadingPostes: false });
     } catch (e) {
-      set({ loadingPostes: false });
+      set({ loadingPostes: false, postesError: e instanceof ApiError ? e.message : "Chargement des états impossible." });
       fail(e);
     }
   },
 
-  clearPostes: () => set({ postesParExercice: [] }),
+  clearPostes: () => set({ postesParExercice: [], postesError: null, loadingPostes: false }),
 
   fetchList: async (societeId) => {
-    set({ loadingList: true });
+    set({ loadingList: true, listError: null, list: [] });
     try {
       const list = await api.get<Balance[]>(`/balances?societeId=${societeId}`);
       set({ list, loadingList: false });
     } catch (e) {
-      set({ loadingList: false });
+      set({ loadingList: false, listError: e instanceof ApiError ? e.message : "Chargement des exercices impossible." });
       fail(e);
     }
   },
 
-  clearList: () => set({ list: [] }),
+  clearList: () => set({ list: [], listError: null, loadingList: false }),
 
   create: async (societeId, exercice, note = "") => {
     try {
@@ -220,17 +230,17 @@ export const useBalances = create<BalancesState>((set, get) => ({
   },
 
   fetchOne: async (id) => {
-    set({ loadingCurrent: true });
+    set({ loadingCurrent: true, currentError: null, current: null });
     try {
       const current = await api.get<BalanceFull>(`/balances/${id}`);
       set({ current, loadingCurrent: false });
     } catch (e) {
-      set({ loadingCurrent: false });
+      set({ loadingCurrent: false, currentError: e instanceof ApiError ? e.message : "Chargement de la balance impossible." });
       fail(e);
     }
   },
 
-  clearCurrent: () => set({ current: null }),
+  clearCurrent: () => set({ current: null, currentError: null, loadingCurrent: false }),
 
   addLigne: async (balanceId, data) => {
     try {
@@ -296,13 +306,14 @@ export const useBalances = create<BalancesState>((set, get) => ({
       );
       // La grille (comptes -> AFFECTAT, cabinet-wide et/ou société) a pu
       // être enrichie par l'import.
-      get().fetchGrille(societeId);
+      void get().fetchGrille(societeId).catch(() => {});
     } catch (e) {
       fail(e);
     }
   },
 
   fetchGrille: async (societeId) => {
+    set({ grilleLoading: true, grilleError: null });
     try {
       const q = societeId ? `?societeId=${societeId}` : "";
       const { codes, comptes, comptesSociete } = await api.get<{
@@ -315,8 +326,10 @@ export const useBalances = create<BalancesState>((set, get) => ({
         grilleComptes: comptes,
         grilleComptesSociete: comptesSociete ?? [],
         grilleLoaded: true,
+        grilleLoading: false,
       });
     } catch (e) {
+      set({ grilleLoading: false, grilleError: e instanceof ApiError ? e.message : "Chargement de la grille AFFECTAT impossible." });
       fail(e);
     }
   },

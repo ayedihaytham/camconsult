@@ -1,4 +1,9 @@
-import { Fragment, type ComponentProps, type ReactNode } from "react";
+import {
+  Fragment,
+  type ComponentProps,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import {
   flexRender,
   type Row,
@@ -23,6 +28,7 @@ interface DataTableProps<TData> extends ComponentProps<"div"> {
   emptyMessage: string;
   footer?: ReactNode;
   getRowClassName?: (row: Row<TData>) => string | undefined;
+  getRowAriaLabel?: (row: Row<TData>) => string;
   isLoading?: boolean;
   isRowExpanded?: (row: Row<TData>) => boolean;
   mobileRow?: (row: Row<TData>) => ReactNode;
@@ -40,6 +46,7 @@ export function DataTable<TData>({
   emptyMessage,
   footer,
   getRowClassName,
+  getRowAriaLabel,
   isLoading = false,
   isRowExpanded,
   mobileRow,
@@ -53,6 +60,7 @@ export function DataTable<TData>({
   const isCompactDesktop = desktopDensity === "compact";
   const isLedgerDensity = desktopDensity === "ledger";
   const isRegisterDesktop = desktopVariant === "register";
+  const hasAccessibleRowNavigation = Boolean(onRowClick && getRowAriaLabel);
   if (isLoading) {
     return (
       <DataTableSkeleton
@@ -123,6 +131,23 @@ export function DataTable<TData>({
                 <Fragment key={row.id}>
                   <TableRow
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    onKeyDown={
+                      hasAccessibleRowNavigation && onRowClick
+                        ? (event: KeyboardEvent<HTMLTableRowElement>) => {
+                            if (
+                              event.target !== event.currentTarget ||
+                              (event.key !== "Enter" && event.key !== " ")
+                            ) {
+                              return;
+                            }
+                            event.preventDefault();
+                            onRowClick(row);
+                          }
+                        : undefined
+                    }
+                    tabIndex={hasAccessibleRowNavigation ? 0 : undefined}
+                    role={hasAccessibleRowNavigation ? "link" : undefined}
+                    aria-label={getRowAriaLabel?.(row)}
                     className={cn(
                       "group",
                       isRegisterDesktop
@@ -136,6 +161,8 @@ export function DataTable<TData>({
                             : "h-[52px] [&>td]:align-middle"
                           : "h-12",
                       onRowClick && "cursor-pointer",
+                      hasAccessibleRowNavigation &&
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                       getRowClassName?.(row),
                     )}
                   >

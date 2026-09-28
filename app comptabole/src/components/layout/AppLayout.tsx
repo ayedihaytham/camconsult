@@ -5,7 +5,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useUi } from "@/store/ui";
 import { cn } from "@/lib/utils";
 
-const EDGE_TO_EDGE_REGISTERS = new Set(["/societes", "/employes", "/collectes", "/taches"]);
+const EDGE_TO_EDGE_REGISTERS = new Set(["/societes", "/employes", "/collectes", "/taches", "/etats-financiers"]);
 
 export function AppLayout() {
   const { pathname } = useLocation();

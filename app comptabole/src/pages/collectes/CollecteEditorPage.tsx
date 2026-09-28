@@ -952,7 +952,7 @@ export function CollecteEditorPage() {
         }}
       >
         <DialogContent
-          className="max-w-md"
+          className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6"
           onEscapeKeyDown={(event) => savingDraft && event.preventDefault()}
           onPointerDownOutside={(event) =>
             savingDraft && event.preventDefault()
@@ -971,9 +971,10 @@ export function CollecteEditorPage() {
               réessayez.
             </p>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
+              className="min-h-11 w-full sm:min-h-9 sm:w-auto"
               disabled={savingDraft}
               onClick={() => setPendingTab(null)}
             >
@@ -981,6 +982,7 @@ export function CollecteEditorPage() {
             </Button>
             <Button
               variant="outline"
+              className="min-h-11 w-full sm:min-h-9 sm:w-auto"
               disabled={savingDraft}
               onClick={() => {
                 gridRef.current?.discard();
@@ -990,6 +992,7 @@ export function CollecteEditorPage() {
               Quitter sans enregistrer
             </Button>
             <Button
+              className="min-h-11 w-full sm:min-h-9 sm:w-auto"
               disabled={savingDraft}
               onClick={() => void saveDraftAndLeave()}
             >

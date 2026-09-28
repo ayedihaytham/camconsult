@@ -41,16 +41,16 @@ export function AffectatSyntheseTable({
       <table className="w-full text-sm">
         <thead>
           <tr>
-            <th className="sticky left-0 border-b-2 border-foreground bg-card px-[18px] py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+            <th className="sticky left-0 z-30 w-[132px] min-w-[132px] border-b-2 border-foreground bg-card px-3 py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
               Code
             </th>
-            <th className="border-b-2 border-foreground bg-card px-3 py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+            <th className="sticky left-[132px] z-30 w-[220px] min-w-[220px] border-b-2 border-foreground bg-card px-3 py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
               Libellé
             </th>
             {exercices.map((e) => (
               <th
                 key={e.exercice}
-                className="min-w-[130px] border-b-2 border-foreground px-3 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground"
+                className="min-w-[130px] border-b-2 border-foreground bg-card px-3 py-2.5 text-right text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground"
               >
                 {e.exercice}
               </th>
@@ -70,13 +70,13 @@ export function AffectatSyntheseTable({
               >
                 <td
                   className={cn(
-                    "sticky left-0 bg-card px-[18px] py-1.5 font-mono text-xs font-semibold",
+                    "sticky left-0 z-20 w-[132px] min-w-[132px] bg-card px-3 py-1.5 font-mono text-xs font-semibold",
                     sansCode ? "text-warning" : "text-foreground",
                   )}
                 >
                   {sansCode ? "(sans code)" : code}
                 </td>
-                <td className="px-3 py-1.5 text-muted-foreground">
+                <td className="sticky left-[132px] z-20 w-[220px] min-w-[220px] bg-card px-3 py-1.5 text-muted-foreground">
                   {sansCode ? "Lignes non reclassées" : libelleByCode.get(code) || "—"}
                 </td>
                 {exercices.map((e) => {
@@ -85,7 +85,7 @@ export function AffectatSyntheseTable({
                     <td
                       key={e.exercice}
                       className={cn(
-                        "px-3 py-1.5 text-right tabular-nums",
+                        "min-w-[130px] px-3 py-1.5 text-right tabular-nums",
                         sansCode && Math.abs(v) > 0.005 && "font-bold text-warning",
                         Math.abs(v) < 0.005 && "text-muted-foreground",
                       )}
@@ -102,7 +102,7 @@ export function AffectatSyntheseTable({
           <tr>
             <td
               colSpan={2}
-              className="sticky left-0 border-t-2 border-foreground bg-card px-[18px] py-2.5 font-bold text-foreground"
+              className="sticky left-0 z-20 border-t-2 border-foreground bg-card px-3 py-2.5 font-bold text-foreground"
             >
               Total général
             </td>

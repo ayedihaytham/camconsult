@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, Plus, Receipt, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Paperclip, Pencil, Plus, Receipt, Trash2, Upload } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { downloadDataUrl } from "@/lib/file";
 import { cn } from "@/lib/utils";
 import { useSocieteById } from "@/store/data";
 import { useHonoraires, type HonoraireLigneInput } from "@/store/honoraires";
@@ -30,6 +31,7 @@ export function HonorairesSocietePage() {
   const create = useHonoraires((s) => s.create);
   const update = useHonoraires((s) => s.update);
   const remove = useHonoraires((s) => s.remove);
+  const fetchPiece = useHonoraires((s) => s.fetchPiece);
 
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -163,6 +165,19 @@ export function HonorairesSocietePage() {
                       </td>
                       <td className="px-2 py-2">
                         <div className="flex gap-0.5">
+                          {l.aPiece && (
+                            <button
+                              title={`Ouvrir la pièce jointe : ${l.pieceNom}`}
+                              aria-label={`Ouvrir la pièce jointe : ${l.pieceNom}`}
+                              onClick={async () => {
+                                const { nom, dataUrl } = await fetchPiece(l.id);
+                                downloadDataUrl(dataUrl, nom || "piece");
+                              }}
+                              className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-accent transition-colors hover:bg-muted"
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setEditing(l);

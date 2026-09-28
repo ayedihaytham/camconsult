@@ -3,7 +3,7 @@ import { z } from "zod";
 import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
-import { honoraireLignesDto } from "../mappers.js";
+import { honoraireLignesDto, HONORAIRE_COLONNES_LEGERES } from "../mappers.js";
 
 /** État client (honoraires) — réservé à l'admin, voir la demande initiale
  * ("ajouter à l'admin"). */
@@ -32,11 +32,20 @@ const schema = z.object({
   honoraire: z.coerce.number().default(0),
   reglement: z.coerce.number().default(0),
   note: z.string().default(""),
+  // Pièce jointe : pieceDataUrl absent = inchangée (PATCH), null = retirée,
+  // chaîne = remplacée. ~8 Mo de fichier au maximum (base64 ≈ ×1,37).
+  pieceNom: z.string().default(""),
+  pieceFormat: z.string().default(""),
+  pieceTaille: z.string().default(""),
+  pieceDataUrl: z
+    .string()
+    .max(12_500_000, "Fichier trop volumineux (8 Mo maximum)")
+    .nullish(),
 });
 
 async function lignesFor(societeId) {
   const { rows } = await query(
-    "select * from honoraires_lignes where societe_id = $1 order by ordre, cree_le",
+    `select ${HONORAIRE_COLONNES_LEGERES} from honoraires_lignes where societe_id = $1 order by ordre, cree_le`,
     [societeId],
   );
   return honoraireLignesDto(rows);
@@ -66,11 +75,14 @@ honorairesRouter.post("/", async (req, res) => {
   await query(
     `insert into honoraires_lignes
        (societe_id, ordre, type, nature, periode, libelle, cnss, num_quittance,
-        montant_declaration, honoraire, reglement, note)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        montant_declaration, honoraire, reglement, note,
+        piece_nom, piece_format, piece_taille, piece_data_url)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
     [
       v.societeId, ordreRows[0].n, v.type, v.nature, v.periode, v.libelle,
       v.cnss, v.numQuittance, v.montantDeclaration, v.honoraire, v.reglement, v.note,
+      v.pieceDataUrl ? v.pieceNom : "", v.pieceDataUrl ? v.pieceFormat : "",
+      v.pieceDataUrl ? v.pieceTaille : "", v.pieceDataUrl || null,
     ],
   );
   logAction(
@@ -128,9 +140,20 @@ honorairesRouter.post("/import", async (req, res) => {
   res.status(201).json(await lignesFor(societeId));
 });
 
+// Contenu de la pièce jointe, à la demande (jamais dans les listes).
+honorairesRouter.get("/:id/piece", async (req, res) => {
+  const { rows } = await query(
+    "select piece_nom, piece_data_url from honoraires_lignes where id = $1",
+    [req.params.id],
+  );
+  if (!rows[0] || !rows[0].piece_data_url)
+    return res.status(404).json({ error: "Pièce jointe introuvable" });
+  res.json({ nom: rows[0].piece_nom, dataUrl: rows[0].piece_data_url });
+});
+
 honorairesRouter.patch("/:id", async (req, res) => {
   const existing = (
-    await query("select * from honoraires_lignes where id = $1", [req.params.id])
+    await query(`select ${HONORAIRE_COLONNES_LEGERES} from honoraires_lignes where id = $1`, [req.params.id])
   ).rows[0];
   if (!existing) return res.status(404).json({ error: "Ligne introuvable" });
 
@@ -159,6 +182,16 @@ honorairesRouter.patch("/:id", async (req, res) => {
       v.honoraire ?? null, v.reglement ?? null, v.note ?? null, req.params.id,
     ],
   );
+  if (v.pieceDataUrl !== undefined) {
+    await query(
+      `update honoraires_lignes set piece_nom = $1, piece_format = $2,
+         piece_taille = $3, piece_data_url = $4 where id = $5`,
+      [
+        v.pieceDataUrl ? (v.pieceNom ?? "") : "", v.pieceDataUrl ? (v.pieceFormat ?? "") : "",
+        v.pieceDataUrl ? (v.pieceTaille ?? "") : "", v.pieceDataUrl || null, req.params.id,
+      ],
+    );
+  }
   logAction(
     req.session.nom,
     "modification",

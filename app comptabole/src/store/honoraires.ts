@@ -10,8 +10,14 @@ function fail(err: unknown): never {
 
 export type HonoraireLigneInput = Omit<
   HonoraireLigne,
-  "id" | "ordre" | "total" | "solde" | "creeLe" | "majLe"
->;
+  "id" | "ordre" | "total" | "solde" | "creeLe" | "majLe" | "aPiece" | "pieceNom" | "pieceFormat" | "pieceTaille"
+> & {
+  pieceNom?: string;
+  pieceFormat?: string;
+  pieceTaille?: string;
+  /** absent = pièce inchangée, null = retirée, chaîne = nouveau fichier (data URL) */
+  pieceDataUrl?: string | null;
+};
 
 interface HonorairesState {
   list: HonoraireLigne[];
@@ -27,6 +33,8 @@ interface HonorairesState {
   ) => Promise<void>;
   update: (id: string, data: Partial<HonoraireLigneInput>) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  /** Contenu de la pièce jointe d'une ligne (chargé à la demande). */
+  fetchPiece: (id: string) => Promise<{ nom: string; dataUrl: string }>;
 }
 
 export const useHonoraires = create<HonorairesState>((set) => ({
@@ -54,6 +62,14 @@ export const useHonoraires = create<HonorairesState>((set) => ({
       set({ list });
     } catch (e) {
       fail(e);
+    }
+  },
+
+  fetchPiece: async (id) => {
+    try {
+      return await api.get<{ nom: string; dataUrl: string }>(`/honoraires/${id}/piece`);
+    } catch (e) {
+      return fail(e);
     }
   },
 

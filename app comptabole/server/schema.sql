@@ -776,6 +776,13 @@ create table if not exists honoraires_lignes (
   maj_le               timestamptz not null default now()
 );
 create index if not exists honoraires_lignes_societe_idx on honoraires_lignes(societe_id, ordre);
+-- Pièce jointe d'une ligne (quittance, déclaration scannée…) : contenu en
+-- base64 dans piece_data_url, jamais renvoyé dans les listes — chargé à la
+-- demande (GET /honoraires/:id/piece), comme les fichiers de Structuration.
+alter table honoraires_lignes add column if not exists piece_nom text not null default '';
+alter table honoraires_lignes add column if not exists piece_format text not null default '';
+alter table honoraires_lignes add column if not exists piece_taille text not null default '';
+alter table honoraires_lignes add column if not exists piece_data_url text;
 
 -- Suivi client devise : ventes export d'une société vers SES propres
 -- clients, en devise (ex. négoce ciment RUSPINA/CAM) — une fiche par

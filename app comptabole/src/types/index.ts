@@ -273,6 +273,12 @@ export interface HonoraireLigne {
   honoraire: number;
   reglement: number;
   note: string;
+  /** Pièce jointe (fichier de l'ordinateur) — le contenu ne vient jamais avec
+   * la ligne : GET /honoraires/:id/piece à la demande. */
+  pieceNom: string;
+  pieceFormat: string;
+  pieceTaille: string;
+  aPiece: boolean;
   /** montantDeclaration + honoraire, calculé côté serveur */
   total: number;
   /** cumul (montantDeclaration + honoraire − reglement) depuis la 1ère ligne de la société, calculé côté serveur */

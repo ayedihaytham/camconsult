@@ -37,6 +37,13 @@ export interface CollecteGridHandle {
   discard: () => void;
 }
 
+/** Largeur minimale d'une colonne : réduite par rapport à la largeur « confortable »
+ * du modèle pour que le tableau tienne à l'écran sans défilement horizontal
+ * (les colonnes se répartissent ensuite l'espace disponible). Une date garde
+ * la place de « jj/mm/aaaa » + icône. */
+const minColWidth = (c: { width?: number; type?: string }) =>
+  Math.max(c.type === "date" ? 112 : 84, Math.round((c.width ?? 140) * 0.62));
+
 export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function CollecteGrid({
   def,
   lignes,
@@ -167,8 +174,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               {def.columns.map((c) => (
                 <th
                   key={c.key}
-                  className="px-2 py-2 text-left font-medium"
-                  style={{ minWidth: c.width ?? 140 }}
+                  className="px-1.5 py-2 text-left font-medium"
+                  style={{ minWidth: minColWidth(c) }}
                 >
                   {c.label}
                   {c.type === "number" && !c.label.includes("%") && !/\(.+\)$/.test(c.label)
@@ -189,9 +196,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                   const shown = String(derived[i]?.[c.key] ?? "");
                   if (c.computed) {
                     return (
-                      <td key={c.key} className="px-1.5 py-1">
+                      <td key={c.key} className="px-1 py-1">
                         <Input
-                          className="h-8 bg-muted/40"
+                          className="h-8 bg-muted/40 px-2 text-[13px]"
                           value={shown}
                           readOnly
                           tabIndex={-1}
@@ -202,7 +209,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                   const ro = cellRO(i, c.key);
                   const hi = cellHi(i, c.key);
                   return (
-                    <td key={c.key} className="px-1.5 py-1">
+                    <td key={c.key} className="px-1 py-1">
                       {c.type === "select" ? (
                         <Select
                           value={String(row[c.key] ?? "")}
@@ -211,7 +218,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                         >
                           <SelectTrigger
                             className={cn(
-                              "h-8",
+                              "h-8 px-2 text-[13px]",
                               hi && "ring-1 ring-amber-400 bg-amber-50",
                             )}
                           >
@@ -228,7 +235,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                       ) : (
                         <Input
                           className={cn(
-                            "h-8",
+                            "h-8 min-w-0 px-2 text-[13px]",
                             hi && "ring-1 ring-amber-400 bg-amber-50",
                             ro && !hi && "bg-muted/30",
                           )}

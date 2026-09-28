@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Download, FileText, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
@@ -33,6 +33,7 @@ import type {
   SuiviDeviseMouvementType,
 } from "@/types";
 import { SuiviDeviseFactureFormSheet } from "./SuiviDeviseFactureFormSheet";
+import { SuiviDeviseImportDialog } from "./SuiviDeviseImportDialog";
 import { SuiviDeviseLotFormSheet } from "./SuiviDeviseLotFormSheet";
 import { SuiviDeviseMouvementFormSheet } from "./SuiviDeviseMouvementFormSheet";
 
@@ -88,6 +89,7 @@ export function SuiviDeviseEditorPage() {
   const [mouvementToDelete, setMouvementToDelete] = useState<SuiviDeviseMouvement | null>(null);
   const [exporting, setExporting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editSoldeOuverture, setEditSoldeOuverture] = useState("0");
 
   useEffect(() => {
@@ -311,7 +313,11 @@ export function SuiviDeviseEditorPage() {
 
       {vue === "ventes" && (
         <LedgerSheet className="mt-4 flex-1">
-          <div className="flex justify-end border-b border-border px-[18px] py-2.5">
+          <div className="flex justify-end gap-2 border-b border-border px-[18px] py-2.5">
+            <Button variant="ledger-text" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Importer Excel
+            </Button>
             <Button
               variant="ledger-text"
               size="sm"
@@ -442,6 +448,12 @@ export function SuiviDeviseEditorPage() {
           if (editingFacture) updateFacture(editingFacture.id, v);
           else addFacture(suiviId, v);
         }}
+      />
+      <SuiviDeviseImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        suiviId={suiviId}
+        lots={current.lots}
       />
       <SuiviDeviseLotFormSheet
         open={lotOpen}

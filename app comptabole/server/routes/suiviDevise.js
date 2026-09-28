@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { query } from "../db.js";
+import { query, withTransaction } from "../db.js";
 import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import {
@@ -287,6 +287,46 @@ suiviDeviseRouter.post("/:id/factures", async (req, res) => {
   );
   await query("update suivi_devise set maj_le = now() where id = $1", [req.params.id]);
   logAction(req.session.nom, "creation", "suivi_devise", `Facture ${v.nFacture || "—"} — ${s.client}`);
+  res.status(201).json(await loadFull(req.params.id));
+});
+
+// Import en masse depuis un fichier Excel (voir SuiviDeviseImportDialog.tsx) —
+// ajoute aux factures existantes, ne les remplace jamais (import répété =
+// accumulation, comme une nouvelle collecte de pièces).
+suiviDeviseRouter.post("/:id/factures/import", async (req, res) => {
+  const s = await loadSuiviOrFail(req.params.id, req.session, res);
+  if (!s) return;
+  const parsed = z.object({ factures: z.array(factureSchema).min(1) }).safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  const { factures } = parsed.data;
+
+  await withTransaction(async (client) => {
+    const { rows } = await client.query(
+      "select coalesce(max(ordre), 0) as max_ordre from suivi_devise_factures where suivi_id = $1",
+      [req.params.id],
+    );
+    let ordre = rows[0].max_ordre;
+    for (const v of factures) {
+      ordre += 1;
+      await client.query(
+        `insert into suivi_devise_factures
+           (suivi_id, lot_id, ordre, n_facture, n_secondaire, date_facture, mode_paiement,
+            designation_produit, fournisseur, qte_tonnes, pu, montant_total, avoir_montant, avoir_date)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        [
+          req.params.id, v.lotId ?? null, ordre, v.nFacture, v.nSecondaire, v.dateFacture || null,
+          v.modePaiement, v.designationProduit, v.fournisseur, v.qteTonnes, v.pu, v.montantTotal,
+          v.avoirMontant ?? null, v.avoirDate || null,
+        ],
+      );
+    }
+  });
+  await query("update suivi_devise set maj_le = now() where id = $1", [req.params.id]);
+  logAction(
+    req.session.nom, "creation", "suivi_devise",
+    `Import ${factures.length} facture(s) — ${s.client}`,
+  );
   res.status(201).json(await loadFull(req.params.id));
 });
 

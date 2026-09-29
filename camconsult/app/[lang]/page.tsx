@@ -44,7 +44,6 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
       <CamconsultHeader lang={lang} theme="navy" />
       <main>
         <section id="accueil" className="relative overflow-hidden bg-navy px-6 pb-20 pt-20 text-white sm:px-10 lg:px-16 lg:pb-28 lg:pt-28">
-          <div className="pointer-events-none absolute -right-24 -top-28 size-[30rem] rounded-full border border-gold/20 [background:radial-gradient(circle_at_center,rgba(201,169,106,.14),transparent_65%)]" />
           <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.1fr_.9fr]">
             <div className="animate-fade-up">
               <p className="eyebrow">{home.heroEyebrow}</p>

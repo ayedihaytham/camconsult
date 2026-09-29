@@ -6,7 +6,8 @@ import {
   BookText,
   Check,
   CheckCircle2,
-  FileSpreadsheet,
+  ChevronDown,
+  Download,
   FileText,
   Pencil,
   Plus,
@@ -15,15 +16,18 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { AmountInput } from "@/components/common/AmountInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -47,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { useSocieteById } from "@/store/data";
 import { useSoucheCheques, type SoucheChequeInput } from "@/store/soucheCheques";
 import type { SoucheCheque, SoucheChequeDevise } from "@/types";
+import { FinancialIdentityHeader } from "@/pages/etatsFinanciers/FinancialIdentityHeader";
 import { SoucheChequeImportDialog } from "./SoucheChequeImportDialog";
 
 type Vue = "tous" | "a_debiter" | "debites";
@@ -81,8 +86,11 @@ const draftFrom = (l: SoucheCheque): SoucheChequeInput => ({
   dateDebit: l.dateDebit,
 });
 
-const TH = "border-b-2 border-foreground px-1.5 py-2 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground";
+const TH = "whitespace-nowrap border-b border-border bg-secondary/50 px-2 py-2 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground";
 const inputCls = "h-8 px-2 text-[13px]";
+
+const monogram = (name: string) =>
+  name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "S";
 
 /** Ligne éditable en place — nouveau chèque (sous la dernière ligne) ou
  * modification d'une ligne existante, comme le tableau de Collecte de pièces
@@ -378,75 +386,104 @@ export function SoucheChequesSocietePage() {
 
   const isEditing = editingId !== null;
   const showTable = visibles.length > 0 || editingId === "new";
+  const busyAny = busy !== null;
 
   return (
-    <div>
-      <LedgerPageHeader
-        breadcrumb={
-          <button
-            onClick={() => navigate("/souche-cheques")}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Toutes les sociétés
-          </button>
-        }
-        title={`Souche de chèques — ${societeNom}`}
-        description="Chèques émis, montants et statut de débit. Les totaux sont calculés par devise (TND, EUR, USD) sans jamais les mélanger."
-        actions={
-          <>
-            <Button variant="outline" onClick={exportExcel} disabled={busy !== null || list.length === 0}>
-              <FileSpreadsheet className="h-4 w-4" />
-              {busy === "xlsx" ? "Excel…" : "Exporter Excel"}
-            </Button>
-            <Button variant="outline" onClick={exportPdf} disabled={busy !== null || list.length === 0}>
-              <FileText className="h-4 w-4" />
-              {busy === "pdf" ? "PDF…" : "Enregistrer PDF"}
-            </Button>
-            <Button variant="outline" onClick={imprimer} disabled={busy !== null || list.length === 0}>
-              <Printer className="h-4 w-4" />
-              {busy === "print" ? "Impression…" : "Imprimer"}
-            </Button>
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Importer un fichier
-            </Button>
-            <Button variant="ledger" onClick={startNew} disabled={isEditing}>
-              <Plus className="h-4 w-4" />
-              Nouveau chèque
-            </Button>
-          </>
-        }
+    <div className="min-w-0">
+      <h1 className="sr-only">{`Souche de chèques — ${societeNom}`}</h1>
+      <button
+        onClick={() => navigate("/souche-cheques")}
+        className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Toutes les sociétés
+      </button>
+
+      <FinancialIdentityHeader
+        eyebrow="Comptabilité · Dossier bancaire"
+        title={societeNom}
+        description="Souche de chèques"
+        monogram={monogram(societeNom)}
+        details={[
+          { label: "Code", value: societe?.code || "—" },
+          { label: "RNE", value: societe?.rne || "Non renseigné" },
+        ]}
       />
 
+      <div className="mt-3 flex min-w-0 flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Chèques émis</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Les totaux sont calculés par devise (TND, EUR, USD) sans jamais les mélanger.
+          </p>
+        </div>
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:items-center">
+          <Button
+            variant="ledger"
+            size="sm"
+            onClick={startNew}
+            disabled={isEditing}
+            className="col-span-2 sm:order-3"
+          >
+            <Plus className="h-4 w-4" />
+            Nouveau chèque
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="min-w-0 sm:order-1">
+            <Upload className="h-4 w-4" />
+            Importer un fichier
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={busyAny || list.length === 0} className="sm:order-2">
+                Outils
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => void exportPdf()}>
+                <FileText className="h-4 w-4" /> Enregistrer PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void exportExcel()}>
+                <Download className="h-4 w-4" /> Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void imprimer()}>
+                <Printer className="h-4 w-4" /> Imprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
       {totaux.length > 0 && (
-        <LedgerSheet className="mt-4">
-          {totaux.map((t, i) => (
-            <LedgerKpiRow
-              key={t.devise}
-              hero={i === 0}
-              danger={t.restant > 0.0005}
-              label={`Reste à débiter (${t.devise})`}
-              value={`${fmtMontant(t.restant)} ${t.devise}`}
-              hint={`${t.nb} chèque(s) · émis ${fmtMontant(t.emis)} · débité ${fmtMontant(t.debite)} (${t.nbDebites}) · moyenne ${fmtMontant(t.moyenEmis)}`}
-            />
+        <dl className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-2 lg:grid-cols-4 sm:divide-x sm:divide-y-0">
+          {totaux.map((t) => (
+            <div key={t.devise} className="flex items-center justify-between gap-3 px-3 py-2.5">
+              <dt className="text-xs text-muted-foreground">
+                Reste à débiter ({t.devise})
+                <span className="block text-[0.65rem]">
+                  {t.nb} chèque(s) · moyenne {fmtMontant(t.moyenEmis)}
+                </span>
+              </dt>
+              <dd className={cn("font-mono text-sm font-semibold tabular-nums", t.restant > 0.0005 ? "text-warning" : "text-foreground")}>
+                {fmtMontant(t.restant)}
+              </dd>
+            </div>
           ))}
-          <LedgerKpiRow
-            danger={enAttente.length > 0}
-            label={`Chèques en attente (> ${SEUIL_ATTENTE_JOURS} j)`}
-            value={String(enAttente.length)}
-            hint={
-              enAttente.length > 0
-                ? "Émis depuis plus de 30 jours, toujours non débités — à relancer."
-                : "Aucun chèque non débité depuis plus de 30 jours."
-            }
-          />
-        </LedgerSheet>
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <dt className="text-xs text-muted-foreground">
+              Chèques en attente
+              <span className="block text-[0.65rem]">Émis depuis plus de {SEUIL_ATTENTE_JOURS} jours</span>
+            </dt>
+            <dd className={cn("font-mono text-sm font-semibold tabular-nums", enAttente.length > 0 ? "text-warning" : "text-foreground")}>
+              {enAttente.length}
+            </dd>
+          </div>
+        </dl>
       )}
 
       {nbBanques > 1 && (
-        <LedgerSheet className="mt-3">
-          <p className="mb-2 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+        <div className="mt-3 min-w-0 overflow-hidden border-y border-border bg-background">
+          <p className="border-b border-border bg-secondary/50 px-3 py-1.5 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
             Reste à débiter par banque
           </p>
           <div className="overflow-x-auto">
@@ -462,7 +499,7 @@ export function SoucheChequesSocietePage() {
               </thead>
               <tbody>
                 {parBanque.map((t) => (
-                  <tr key={`${t.banque}-${t.devise}`} className="border-b border-border last:border-b-0">
+                  <tr key={`${t.banque}-${t.devise}`} className="border-b border-border/70 last:border-b-0 hover:bg-secondary/30">
                     <td className="px-2 py-1.5 text-foreground">{t.banque}</td>
                     <td className="px-2 py-1.5 text-muted-foreground">{t.devise}</td>
                     <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-muted-foreground">
@@ -484,10 +521,10 @@ export function SoucheChequesSocietePage() {
               </tbody>
             </table>
           </div>
-        </LedgerSheet>
+        </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <LedgerSegmented<Vue>
           value={vue}
           onChange={setVue}
@@ -507,7 +544,7 @@ export function SoucheChequesSocietePage() {
       </div>
 
       {!showTable ? (
-        <LedgerSheet className="mt-3">
+        <div className="mt-3 border-y border-border px-3 py-3">
           <EmptyState
             icon={BookText}
             title={loading ? "Chargement…" : list.length === 0 ? "Aucun chèque" : "Aucun résultat"}
@@ -517,9 +554,9 @@ export function SoucheChequesSocietePage() {
                 : "Aucun chèque ne correspond à ce filtre."
             }
           />
-        </LedgerSheet>
+        </div>
       ) : (
-        <LedgerSheet className="mt-3">
+        <div className="mt-3 min-w-0 overflow-hidden border-y border-border bg-background">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -536,7 +573,7 @@ export function SoucheChequesSocietePage() {
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((l, i) => {
+                {visibles.map((l) => {
                   const jours = joursDepuis(l.dateEmission);
                   const attente = !l.debite && jours !== null && jours > SEUIL_ATTENTE_JOURS;
                   return l.id === editingId ? (
@@ -553,8 +590,7 @@ export function SoucheChequesSocietePage() {
                     <tr
                       key={l.id}
                       className={cn(
-                        (i + 1) % 5 === 0 ? "border-b-[1.5px] border-rule-strong" : "border-b border-border",
-                        "hover:bg-primary/[0.03]",
+                        "border-b border-border/70 last:border-b-0 hover:bg-secondary/40",
                         isEditing && "opacity-60",
                       )}
                     >
@@ -638,7 +674,7 @@ export function SoucheChequesSocietePage() {
               </tbody>
             </table>
           </div>
-        </LedgerSheet>
+        </div>
       )}
 
       <SoucheChequeImportDialog open={importOpen} onOpenChange={setImportOpen} societeId={societeId} />

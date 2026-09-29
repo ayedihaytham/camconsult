@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronDown, FileText, Paperclip, Pencil, Receipt, Send, Trash2, Upload } from "lucide-react";
+import { ChevronDown, FileText, Paperclip, Pencil, Receipt, Send, Trash2, Upload } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import {
   LedgerWorkSurface,
@@ -42,7 +42,6 @@ const fmt = (n: number) =>
 
 export function HonorairesSocietePage() {
   const { societeId = "" } = useParams();
-  const navigate = useNavigate();
   const societe = useSocieteById(societeId);
   // Le responsable de société consulte sa propre société en lecture seule
   // (télécharger les pièces jointes, rien d'autre) ; l'admin gère tout.
@@ -120,16 +119,6 @@ export function HonorairesSocietePage() {
 
   return (
     <div>
-      {!readOnly && (
-        <button
-          onClick={() => navigate("/honoraires")}
-          className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Toutes les sociétés
-        </button>
-      )}
-
       <SignatureLedgerBanner
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronDown, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { ChevronDown, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { LedgerTable } from "@/components/ledger/LedgerTable";
@@ -71,7 +71,6 @@ const LOT_TYPE_LABELS: Record<SuiviDeviseLotType, string> = {
 
 export function SuiviDeviseEditorPage() {
   const { societeId = "", suiviId = "" } = useParams();
-  const navigate = useNavigate();
   const societe = useSocieteById(societeId);
 
   const current = useSuiviDevise((s) => s.current);
@@ -113,7 +112,6 @@ export function SuiviDeviseEditorPage() {
   if (!current) {
     return (
       <div>
-        <BackBar societeId={societeId} navigate={navigate} />
         <LedgerSheet className="mt-4">
           <EmptyState title={loading ? "Chargement…" : "Fiche introuvable"} description="" />
         </LedgerSheet>
@@ -283,8 +281,6 @@ export function SuiviDeviseEditorPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <BackBar societeId={societeId} navigate={navigate} />
-
       <SignatureLedgerBanner
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"
@@ -608,17 +604,5 @@ export function SuiviDeviseEditorPage() {
         }}
       />
     </div>
-  );
-}
-
-function BackBar({ societeId, navigate }: { societeId: string; navigate: (path: string) => void }) {
-  return (
-    <button
-      onClick={() => navigate(`/suivi-devise/${societeId}`)}
-      className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-    >
-      <ArrowLeft className="h-4 w-4" />
-      Toutes les fiches
-    </button>
   );
 }

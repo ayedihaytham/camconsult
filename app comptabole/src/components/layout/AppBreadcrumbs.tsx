@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useBalances } from "@/store/balances";
 import { useCollectes } from "@/store/collectes";
 import { useSocietes } from "@/store/data";
+import { useSuiviDevise } from "@/store/suiviDevise";
 import { getAppBreadcrumbs } from "./breadcrumbs";
 
 export function AppBreadcrumbs() {
@@ -21,6 +22,8 @@ export function AppBreadcrumbs() {
   const currentCollecte = useCollectes((state) => state.current);
   const balanceList = useBalances((state) => state.list);
   const currentBalance = useBalances((state) => state.current);
+  const suiviDeviseList = useSuiviDevise((state) => state.list);
+  const currentSuiviDevise = useSuiviDevise((state) => state.current);
 
   const crumbs = useMemo(
     () =>
@@ -32,14 +35,19 @@ export function AppBreadcrumbs() {
         balances: currentBalance
           ? [currentBalance, ...balanceList.filter((item) => item.id !== currentBalance.id)]
           : balanceList,
+        suiviDevise: currentSuiviDevise
+          ? [currentSuiviDevise, ...suiviDeviseList.filter((item) => item.id !== currentSuiviDevise.id)]
+          : suiviDeviseList,
       }),
     [
       balanceList,
       collecteList,
       currentBalance,
       currentCollecte,
+      currentSuiviDevise,
       pathname,
       societes,
+      suiviDeviseList,
     ],
   );
   const firstVisibleOnMobile = crumbs.length > 2 ? crumbs.length - 2 : 0;

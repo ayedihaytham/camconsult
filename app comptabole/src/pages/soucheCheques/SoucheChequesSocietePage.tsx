@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -237,7 +236,6 @@ function EditableRow({
 
 export function SoucheChequesSocietePage() {
   const { societeId = "" } = useParams();
-  const navigate = useNavigate();
   const societe = useSocieteById(societeId);
   const societeNom = societe?.raisonSociale ?? "Société";
 
@@ -398,13 +396,6 @@ export function SoucheChequesSocietePage() {
   return (
     <div className="min-w-0">
       <h1 className="sr-only">{`Souche de chèques — ${societeNom}`}</h1>
-      <button
-        onClick={() => navigate("/souche-cheques")}
-        className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Toutes les sociétés
-      </button>
 
       <SignatureLedgerBanner
         className="mb-0 sm:mb-2"

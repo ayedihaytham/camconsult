@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, CircleDollarSign, Trash2 } from "lucide-react";
+import { CircleDollarSign, Trash2 } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import {
   LedgerWorkSurface,
@@ -105,14 +105,6 @@ export function SuiviDeviseListPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <button
-        onClick={() => navigate("/suivi-devise")}
-        className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Toutes les sociétés
-      </button>
-
       <SignatureLedgerBanner
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"

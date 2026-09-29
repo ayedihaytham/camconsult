@@ -151,7 +151,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
           {/* CTA Button */}
           <a
             href={withLocale(lang, '/contact')}
-            className="group relative overflow-hidden rounded-lg bg-gold px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.12em] xl:px-4 xl:text-[10px] xl:tracking-widest 2xl:px-5 text-navy shadow-lg shadow-gold/30 transition-all duration-300 hover:shadow-lg hover:shadow-gold/50 hover:scale-105 active:scale-95"
+            className="group relative rounded-lg border border-gold bg-transparent px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.12em] xl:px-4 xl:text-[10px] xl:tracking-widest 2xl:px-5 text-gold transition-all duration-300 hover:bg-gold hover:text-navy"
           >
             <span className="relative inline-flex items-center gap-2">
               {dict.nav.bookAppointment}

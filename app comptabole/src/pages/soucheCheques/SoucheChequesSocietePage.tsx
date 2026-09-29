@@ -32,7 +32,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { exportSoucheChequesStyled } from "@/lib/soucheCheques/exportStyled";
-import { DEVISES, fmtDate, fmtMontant, totauxParDevise } from "@/lib/soucheCheques/model";
+import {
+  chequesEnAttente,
+  DEVISES,
+  fmtDate,
+  fmtMontant,
+  joursDepuis,
+  SEUIL_ATTENTE_JOURS,
+  totauxParBanque,
+  totauxParDevise,
+} from "@/lib/soucheCheques/model";
 import { buildSouchePdf } from "@/lib/soucheCheques/pdf";
 import { cn } from "@/lib/utils";
 import { useSocieteById } from "@/store/data";
@@ -241,6 +250,12 @@ export function SoucheChequesSocietePage() {
   }, [societeId, fetchList, clear]);
 
   const totaux = useMemo(() => totauxParDevise(list), [list]);
+  const parBanque = useMemo(() => totauxParBanque(list), [list]);
+  const nbBanques = useMemo(
+    () => new Set(list.map((l) => l.banque || "Sans banque")).size,
+    [list],
+  );
+  const enAttente = useMemo(() => chequesEnAttente(list), [list]);
   const banques = useMemo(
     () => [...new Set(list.map((l) => l.banque).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr")),
     [list],
@@ -413,9 +428,62 @@ export function SoucheChequesSocietePage() {
               danger={t.restant > 0.0005}
               label={`Reste à débiter (${t.devise})`}
               value={`${fmtMontant(t.restant)} ${t.devise}`}
-              hint={`${t.nb} chèque(s) · émis ${fmtMontant(t.emis)} · débité ${fmtMontant(t.debite)} (${t.nbDebites})`}
+              hint={`${t.nb} chèque(s) · émis ${fmtMontant(t.emis)} · débité ${fmtMontant(t.debite)} (${t.nbDebites}) · moyenne ${fmtMontant(t.moyenEmis)}`}
             />
           ))}
+          <LedgerKpiRow
+            danger={enAttente.length > 0}
+            label={`Chèques en attente (> ${SEUIL_ATTENTE_JOURS} j)`}
+            value={String(enAttente.length)}
+            hint={
+              enAttente.length > 0
+                ? "Émis depuis plus de 30 jours, toujours non débités — à relancer."
+                : "Aucun chèque non débité depuis plus de 30 jours."
+            }
+          />
+        </LedgerSheet>
+      )}
+
+      {nbBanques > 1 && (
+        <LedgerSheet className="mt-3">
+          <p className="mb-2 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+            Reste à débiter par banque
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className={cn(TH, "text-left")}>Banque</th>
+                  <th className={cn(TH, "text-left")}>Devise</th>
+                  <th className={cn(TH, "text-right")}>Émis</th>
+                  <th className={cn(TH, "text-right")}>Débité</th>
+                  <th className={cn(TH, "text-right")}>Reste à débiter</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parBanque.map((t) => (
+                  <tr key={`${t.banque}-${t.devise}`} className="border-b border-border last:border-b-0">
+                    <td className="px-2 py-1.5 text-foreground">{t.banque}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{t.devise}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                      {fmtMontant(t.emis)}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                      {fmtMontant(t.debite)}
+                    </td>
+                    <td
+                      className={cn(
+                        "whitespace-nowrap px-2 py-1.5 text-right font-semibold tabular-nums",
+                        t.restant > 0.0005 && "text-destructive",
+                      )}
+                    >
+                      {fmtMontant(t.restant)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </LedgerSheet>
       )}
 
@@ -468,8 +536,10 @@ export function SoucheChequesSocietePage() {
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((l, i) =>
-                  l.id === editingId ? (
+                {visibles.map((l, i) => {
+                  const jours = joursDepuis(l.dateEmission);
+                  const attente = !l.debite && jours !== null && jours > SEUIL_ATTENTE_JOURS;
+                  return l.id === editingId ? (
                     <EditableRow
                       key={l.id}
                       draft={draft}
@@ -492,6 +562,11 @@ export function SoucheChequesSocietePage() {
                       <td className="px-2 py-2 font-mono text-xs">{l.numCheque || "—"}</td>
                       <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
                         {fmtDate(l.dateEmission) || "—"}
+                        {!l.debite && jours !== null && (
+                          <span className={cn("ml-1.5 text-[11px]", attente ? "font-semibold text-amber-600" : "text-muted-foreground/70")}>
+                            · {jours} j
+                          </span>
+                        )}
                       </td>
                       <td className="px-2 py-2 text-foreground">{l.beneficiaire || "—"}</td>
                       <td className="px-2 py-2 text-muted-foreground">{l.motif || "—"}</td>
@@ -506,10 +581,19 @@ export function SoucheChequesSocietePage() {
                           </span>
                         ) : (
                           <button
-                            title="Marquer comme débité aujourd'hui"
+                            title={
+                              attente
+                                ? `Émis il y a ${jours} jours, toujours non débité — marquer comme débité aujourd'hui`
+                                : "Marquer comme débité aujourd'hui"
+                            }
                             disabled={isEditing}
                             onClick={() => marquerDebite(l)}
-                            className="inline-flex items-center gap-1 rounded-[5px] border border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-success hover:text-success disabled:pointer-events-none"
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-[5px] border px-1.5 py-0.5 text-xs transition-colors hover:border-success hover:text-success disabled:pointer-events-none",
+                              attente
+                                ? "border-amber-300 bg-amber-50 text-amber-700"
+                                : "border-border text-muted-foreground",
+                            )}
                           >
                             Non · marquer débité
                           </button>
@@ -539,8 +623,8 @@ export function SoucheChequesSocietePage() {
                         </div>
                       </td>
                     </tr>
-                  ),
-                )}
+                  );
+                })}
                 {editingId === "new" && (
                   <EditableRow
                     draft={draft}

@@ -21,6 +21,21 @@ export interface TotauxDevise {
   debite: number;
   /** émis − débité : ce qui reste à débiter sur le compte */
   restant: number;
+  /** montant moyen d'un chèque émis (emis / nb) */
+  moyenEmis: number;
+}
+
+function totaux(lignes: SoucheCheque[]): Omit<TotauxDevise, "devise"> {
+  const emis = round3(lignes.reduce((s, l) => s + l.montant, 0));
+  const debite = round3(lignes.filter((l) => l.debite).reduce((s, l) => s + l.montant, 0));
+  return {
+    nb: lignes.length,
+    nbDebites: lignes.filter((l) => l.debite).length,
+    emis,
+    debite,
+    restant: round3(emis - debite),
+    moyenEmis: lignes.length > 0 ? round3(emis / lignes.length) : 0,
+  };
 }
 
 /** Totaux par devise (jamais de somme entre devises différentes), dans
@@ -29,19 +44,48 @@ export function totauxParDevise(list: SoucheCheque[]): TotauxDevise[] {
   return DEVISES.flatMap((devise) => {
     const lignes = list.filter((l) => l.devise === devise);
     if (lignes.length === 0) return [];
-    const emis = round3(lignes.reduce((s, l) => s + l.montant, 0));
-    const debite = round3(lignes.filter((l) => l.debite).reduce((s, l) => s + l.montant, 0));
-    return [
-      {
-        devise,
-        nb: lignes.length,
-        nbDebites: lignes.filter((l) => l.debite).length,
-        emis,
-        debite,
-        restant: round3(emis - debite),
-      },
-    ];
+    return [{ devise, ...totaux(lignes) }];
   });
+}
+
+export interface TotauxBanque extends TotauxDevise {
+  banque: string;
+}
+
+/** Reste à débiter par banque puis par devise — utile dès qu'il y a plusieurs
+ * comptes bancaires : chaque compte a son propre encours à surveiller. */
+export function totauxParBanque(list: SoucheCheque[]): TotauxBanque[] {
+  const banques = [...new Set(list.map((l) => l.banque || "Sans banque"))].sort((a, b) =>
+    a.localeCompare(b, "fr"),
+  );
+  return banques.flatMap((banque) =>
+    totauxParDevise(list.filter((l) => (l.banque || "Sans banque") === banque)).map((t) => ({
+      banque,
+      ...t,
+    })),
+  );
+}
+
+/** Nombre de jours calendaires depuis la date d'émission (0 = aujourd'hui). */
+export function joursDepuis(dateIso: string | null): number | null {
+  const m = dateIso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(dateIso) : null;
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return Math.round((today.getTime() - d.getTime()) / 86_400_000);
+}
+
+/** Un chèque émis mais non débité depuis plus de ce délai mérite d'être
+ * relancé auprès de la banque ou du bénéficiaire. */
+export const SEUIL_ATTENTE_JOURS = 30;
+
+export function chequesEnAttente(
+  list: SoucheCheque[],
+  seuilJours: number = SEUIL_ATTENTE_JOURS,
+): SoucheCheque[] {
+  return list.filter((l) => !l.debite && (joursDepuis(l.dateEmission) ?? 0) > seuilJours);
 }
 
 /** Colonnes du modèle du cabinet (A→H, identiques au fichier fourni) + Devise. */

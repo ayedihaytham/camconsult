@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { SoucheCheque } from "@/types";
 import { toDateString } from "@/lib/importCells";
 import { champPour, parseRows } from "./importRows";
-import { soucheRows, totauxParDevise } from "./model";
+import {
+  chequesEnAttente,
+  joursDepuis,
+  soucheRows,
+  totauxParBanque,
+  totauxParDevise,
+} from "./model";
 
 const chq = (over: Partial<SoucheCheque>): SoucheCheque => ({
   id: "1", societeId: "s", ordre: 1, banque: "BIAT", numCheque: "0000001",
@@ -18,10 +24,22 @@ describe("souche de chèques — totaux et PDF", () => {
     chq({ id: "3", numCheque: "0000003", montant: 145.2, devise: "EUR", debite: false, dateDebit: null }),
   ];
 
-  it("totalise par devise sans jamais mélanger les devises", () => {
+  it("totalise par devise sans jamais mélanger les devises, avec le montant moyen", () => {
     expect(totauxParDevise(list)).toEqual([
-      { devise: "TND", nb: 2, nbDebites: 1, emis: 2100, debite: 1250, restant: 850 },
-      { devise: "EUR", nb: 1, nbDebites: 0, emis: 145.2, debite: 0, restant: 145.2 },
+      { devise: "TND", nb: 2, nbDebites: 1, emis: 2100, debite: 1250, restant: 850, moyenEmis: 1050 },
+      { devise: "EUR", nb: 1, nbDebites: 0, emis: 145.2, debite: 0, restant: 145.2, moyenEmis: 145.2 },
+    ]);
+  });
+
+  it("totalise par banque puis par devise", () => {
+    const list2 = [
+      chq({ banque: "BIAT" }),
+      chq({ id: "4", banque: "STB", numCheque: "4", montant: 500, devise: "TND", debite: false, dateDebit: null }),
+    ];
+    const t = totauxParBanque(list2);
+    expect(t).toEqual([
+      { banque: "BIAT", devise: "TND", nb: 1, nbDebites: 1, emis: 1250, debite: 1250, restant: 0, moyenEmis: 1250 },
+      { banque: "STB", devise: "TND", nb: 1, nbDebites: 0, emis: 500, debite: 0, restant: 500, moyenEmis: 500 },
     ]);
   });
 
@@ -33,6 +51,30 @@ describe("souche de chèques — totaux et PDF", () => {
     expect(rows[2][7]).toBe("Non");
     expect(rows[4]).toEqual(["TOTAL ÉMIS", "", "", "", "", 2100, "TND", "", ""]);
     expect(rows[6]).toEqual(["RESTE À DÉBITER", "", "", "", "", 850, "TND", "", ""]);
+  });
+});
+
+describe("souche de chèques — délai d'attente", () => {
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const ancien = new Date();
+  ancien.setDate(ancien.getDate() - 45);
+  const recent = new Date();
+  recent.setDate(recent.getDate() - 5);
+
+  it("compte les jours écoulés depuis l'émission", () => {
+    expect(joursDepuis(iso(ancien))).toBe(45);
+    expect(joursDepuis(null)).toBeNull();
+  });
+
+  it("signale les chèques non débités émis depuis plus de 30 jours", () => {
+    const list = [
+      chq({ dateEmission: iso(ancien), debite: false, dateDebit: null }),
+      chq({ id: "2", numCheque: "2", dateEmission: iso(recent), debite: false, dateDebit: null }),
+      chq({ id: "3", numCheque: "3", dateEmission: iso(ancien), debite: true }),
+    ];
+    const attente = chequesEnAttente(list);
+    expect(attente).toHaveLength(1);
+    expect(attente[0].id).toBe("1");
   });
 });
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, FileText, Paperclip, Pencil, Plus, Receipt, Send, Trash2, Upload } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
+import { FinancialIdentityHeader } from "@/components/ledger/FinancialIdentityHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -93,37 +93,62 @@ export function HonorairesSocietePage() {
 
   return (
     <div>
-      <LedgerPageHeader
-        breadcrumb={
-          readOnly ? undefined : (
-            <button
-              onClick={() => navigate("/honoraires")}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Toutes les sociétés
-            </button>
-          )
-        }
-        title={`État client — ${societe?.raisonSociale ?? "Société"}`}
+      {!readOnly && (
+        <button
+          onClick={() => navigate("/honoraires")}
+          className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Toutes les sociétés
+        </button>
+      )}
+
+      <FinancialIdentityHeader
+        variant="dossier"
+        badge="Dossier client"
+        eyebrow="État client"
+        title={societe?.raisonSociale ?? "Société"}
         description="Déclarations traitées, honoraires et règlements — le solde cumule les honoraires et montants déclarés, réduit par chaque règlement."
+        details={[
+          { label: "Code", value: societe?.code || "—" },
+          { label: "RNE", value: societe?.rne || "Non renseigné" },
+        ]}
         actions={
           readOnly ? undefined : (
-            <>
-              <Button variant="outline" onClick={downloadPdf} disabled={pdfBusy || list.length === 0}>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9"
+                onClick={downloadPdf}
+                disabled={pdfBusy || list.length === 0}
+              >
                 <FileText className="h-4 w-4" />
                 {pdfBusy ? "PDF…" : "Enregistrer PDF"}
               </Button>
-              <Button variant="outline" onClick={() => setMessageOpen(true)} disabled={list.length === 0}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9"
+                onClick={() => setMessageOpen(true)}
+                disabled={list.length === 0}
+              >
                 <Send className="h-4 w-4" />
                 Envoyer au responsable
               </Button>
-              <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9"
+                onClick={() => setImportOpen(true)}
+              >
                 <Upload className="h-4 w-4" />
                 Importer un fichier
               </Button>
               <Button
-                variant="ledger"
+                variant="accent"
+                size="sm"
+                className="min-h-11 sm:min-h-9"
                 onClick={() => {
                   setEditing(null);
                   setFormOpen(true);
@@ -132,7 +157,7 @@ export function HonorairesSocietePage() {
                 <Plus className="h-4 w-4" />
                 Nouvelle ligne
               </Button>
-            </>
+            </div>
           )
         }
       />

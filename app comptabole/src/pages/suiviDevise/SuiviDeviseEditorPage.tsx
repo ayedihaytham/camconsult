@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
+import { FinancialIdentityHeader } from "@/components/ledger/FinancialIdentityHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { LedgerTable } from "@/components/ledger/LedgerTable";
@@ -244,13 +244,19 @@ export function SuiviDeviseEditorPage() {
     <div className="flex flex-1 flex-col">
       <BackBar societeId={societeId} navigate={navigate} />
 
-      <LedgerPageHeader
+      <FinancialIdentityHeader
+        variant="dossier"
+        badge="Dossier devise"
+        eyebrow="Suivi client devise"
         title={`${current.client}${current.exercice ? ` — ${current.exercice}` : ""}`}
         description={`${societeName} · Devise ${current.devise}`}
+        details={[{ label: "Société", value: societeName }]}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button
               variant="outline"
+              size="sm"
+              className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9"
               onClick={() => {
                 setEditSoldeOuverture(String(current.soldeOuverture));
                 setEditOpen(true);
@@ -259,11 +265,22 @@ export function SuiviDeviseEditorPage() {
               <Pencil className="h-4 w-4" />
               Modifier
             </Button>
-            <Button variant="outline" onClick={handleExportPdf}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9"
+              onClick={handleExportPdf}
+            >
               <FileText className="h-4 w-4" />
               Enregistrer PDF
             </Button>
-            <Button variant="outline" onClick={handleExportExcel} disabled={exporting}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9"
+              onClick={handleExportExcel}
+              disabled={exporting}
+            >
               <Download className="h-4 w-4" />
               {exporting ? "Export…" : "Excel"}
             </Button>

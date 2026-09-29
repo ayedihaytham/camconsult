@@ -34,7 +34,7 @@ import { formatDate } from "@/lib/utils";
 import { useSocieteById } from "@/store/data";
 import { useBalances } from "@/store/balances";
 import { useImmobilisations } from "@/store/immobilisations";
-import { FinancialIdentityHeader } from "./FinancialIdentityHeader";
+import { FinancialIdentityHeader } from "@/components/ledger/FinancialIdentityHeader";
 import {
   FinancialViewNavigation,
   financialViewLabel,

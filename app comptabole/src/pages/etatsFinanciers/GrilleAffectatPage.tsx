@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useBalances } from "@/store/balances";
 import { POSTE_OPTIONS } from "@/lib/etatsFinanciers/postes";
 import type { GrilleAffectatCode } from "@/types";
-import { FinancialIdentityHeader } from "./FinancialIdentityHeader";
+import { FinancialIdentityHeader } from "@/components/ledger/FinancialIdentityHeader";
 
 const POSTE_GROUPES = [...new Set(POSTE_OPTIONS.map((o) => o.groupe))];
 

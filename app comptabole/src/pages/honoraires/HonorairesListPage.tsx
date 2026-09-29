@@ -1,10 +1,7 @@
 import { Navigate, useNavigate } from "react-router-dom";
-import { usePermissions } from "@/hooks/usePermissions";
 import { Receipt } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { SocieteCard } from "@/components/ledger/SocieteCard";
-import { EmptyState } from "@/components/common/EmptyState";
+import { usePermissions } from "@/hooks/usePermissions";
+import { SocieteRegistryPage } from "@/components/ledger/SocieteRegistryPage";
 import { useData, useSocietes } from "@/store/data";
 
 /** Admin (toutes les sociétés) ; le responsable de société est redirigé vers
@@ -13,7 +10,7 @@ import { useData, useSocietes } from "@/store/data";
 export function HonorairesListPage() {
   const navigate = useNavigate();
   const societes = useSocietes();
-  const employes = useData((s) => s.employes);
+  const hydrated = useData((s) => s.hydrated);
   const { isResponsableSociete, societeIds } = usePermissions();
 
   // Le responsable de société n'a qu'une société : directement sur sa page.
@@ -22,36 +19,21 @@ export function HonorairesListPage() {
   }
 
   return (
-    <div>
-      <LedgerPageHeader
-        title="État client"
-        description="Déclarations traitées, honoraires et règlements — compte courant du cabinet, par société."
-      />
-
-      {societes.length === 0 ? (
-        <LedgerSheet className="mt-3">
-          <EmptyState
-            icon={Receipt}
-            title="Aucune société"
-            description="Créez une société pour suivre son compte d'honoraires."
-          />
-        </LedgerSheet>
-      ) : (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {societes.map((s) => (
-            <SocieteCard
-              key={s.id}
-              societe={s}
-              employeCount={
-                employes.filter(
-                  (e) => e.role === "societe_employe" && e.societeId === s.id,
-                ).length
-              }
-              onClick={() => navigate(`/honoraires/${s.id}`)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <SocieteRegistryPage
+      eyebrow="Comptabilité · Financial Ledger"
+      title="État client"
+      description="Déclarations traitées, honoraires et règlements — compte courant du cabinet, par société."
+      societes={societes}
+      hydrated={hydrated}
+      emptyIcon={Receipt}
+      emptyTitle="Aucune société"
+      emptyDescription="Créez une société pour suivre son compte d'honoraires."
+      onOpen={(societeId) => navigate(`/honoraires/${societeId}`)}
+      getAriaLabel={(s) => `Ouvrir l'état client de ${s.raisonSociale}`}
+      registryLabel="Registre des sociétés"
+      registryDescription="Accès au compte d'honoraires"
+      searchLabel="Rechercher une société, un code, un RNE, un type ou un statut"
+      searchPlaceholder="Rechercher une société, un code ou un RNE"
+    />
   );
 }

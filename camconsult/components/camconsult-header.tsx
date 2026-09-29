@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { ArrowRight, Check, ChevronDown, Globe2, Menu, X } from 'lucide-react'
+import { ArrowRight, Briefcase, Check, ChevronDown, Globe2, Menu, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ClientPortalLink } from '@/components/client-portal-link'
@@ -146,6 +146,19 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
 
           <span className={cn('h-8 w-px shrink-0 transition-all duration-300', !isNavy ? 'bg-navy/15' : 'bg-white/20')} aria-hidden="true" />
           <div className="shrink-0"><ClientPortalLink href={clientPortalUrl} lang={lang} compact /></div>
+
+          {/* Job Application */}
+          <a
+            href={withLocale(lang, '/candidature')}
+            title={dict.nav.jobApplicationTooltip}
+            className="group relative shrink-0 rounded-lg border border-gold bg-transparent px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.12em] xl:px-4 xl:text-[10px] xl:tracking-widest text-gold transition-all duration-300 hover:bg-gold hover:text-navy"
+          >
+            <span className="relative inline-flex items-center gap-2">
+              <Briefcase className="size-3.5" aria-hidden="true" />
+              {dict.nav.jobApplication}
+            </span>
+          </a>
+
           <span className={cn('h-8 w-px shrink-0 transition-all duration-300', !isNavy ? 'bg-navy/15' : 'bg-white/20')} aria-hidden="true" />
 
           {/* CTA Button */}
@@ -209,6 +222,14 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
             ))}
           </div>
           <ClientPortalLink href={clientPortalUrl} lang={lang} />
+          <a
+            href={withLocale(lang, '/candidature')}
+            onClick={() => setIsOpen(false)}
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg border border-gold bg-transparent px-4 py-3 text-xs font-bold uppercase tracking-widest text-gold transition-colors hover:bg-gold hover:text-navy"
+          >
+            <Briefcase className="size-4" aria-hidden="true" />
+            {dict.nav.jobApplication}
+          </a>
           <a
             href={withLocale(lang, '/contact')}
             onClick={() => setIsOpen(false)}

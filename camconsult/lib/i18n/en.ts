@@ -15,6 +15,8 @@ const en: Dictionary = {
     resources: 'Resources',
     contact: 'Contact',
     bookAppointment: 'Book an appointment',
+    jobApplication: 'Join us',
+    jobApplicationTooltip: 'Spontaneous application',
     chooseLanguage: 'Choose language',
     clientArea: 'Client area',
     clientAreaTooltip: 'Access reserved for clients',
@@ -316,6 +318,27 @@ const en: Dictionary = {
     sidebarTitle: 'Let’s talk about your project',
     hours: 'Mon–Sat, 8:00 AM–5:00 PM',
     mapPlaceholder: 'Location map',
+  },
+
+  careers: {
+    breadcrumbHome: 'Home',
+    breadcrumbCareers: 'Application',
+    eyebrow: 'Join the firm',
+    title: 'Send us your application',
+    description: 'Want to join CAMCONSULT? Share your profile and CV — we’ll get back to you as soon as a role matches your background.',
+    successTitle: 'Application received',
+    successText: 'Thank you for your application. We are reviewing it and will get back to you if your profile matches an open role.',
+    sendAnother: 'Send another application',
+    form: {
+      name: 'Full name', email: 'Email address', phone: 'Phone',
+      position: 'Desired position', message: 'Your message',
+      cv: 'CV (PDF, Word — 5 MB max)', cvHint: 'Accepted formats: PDF, DOC, DOCX',
+      required: 'Please fill in the required fields.',
+      submit: 'Send my application', loading: 'Sending…',
+    },
+    sidebarEyebrow: 'Contact details',
+    sidebarTitle: 'Questions about our hiring?',
+    hours: 'Mon–Sat, 8am–5pm',
   },
 
   legal: {

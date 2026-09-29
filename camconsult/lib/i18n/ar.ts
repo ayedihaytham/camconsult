@@ -15,6 +15,8 @@ const ar: Dictionary = {
     resources: 'الموارد',
     contact: 'اتصل بنا',
     bookAppointment: 'احجز موعداً',
+    jobApplication: 'انضم إلينا',
+    jobApplicationTooltip: 'ترشح تلقائي',
     chooseLanguage: 'اختيار اللغة',
     clientArea: 'فضاء العملاء',
     clientAreaTooltip: 'الوصول محجوز للعملاء',
@@ -316,6 +318,27 @@ const ar: Dictionary = {
     sidebarTitle: 'لنتحدث عن مشروعكم',
     hours: 'الإثنين–السبت، 8:00–17:00',
     mapPlaceholder: 'خريطة الموقع',
+  },
+
+  careers: {
+    breadcrumbHome: 'الرئيسية',
+    breadcrumbCareers: 'الترشح',
+    eyebrow: 'انضموا إلى المكتب',
+    title: 'أرسلوا لنا ترشحكم',
+    description: 'ترغبون في الانضمام إلى كامكونسلت؟ شاركونا ملفكم الشخصي وسيرتكم الذاتية، وسنعاود الاتصال بكم فور توفر منصب يناسب مساركم.',
+    successTitle: 'تم استلام ترشحكم',
+    successText: 'شكراً على ترشحكم. نقوم بدراسته وسنعاود الاتصال بكم إذا كان ملفكم يناسب منصباً شاغراً.',
+    sendAnother: 'إرسال ترشح آخر',
+    form: {
+      name: 'الاسم الكامل', email: 'البريد الإلكتروني', phone: 'الهاتف',
+      position: 'المنصب المرغوب', message: 'رسالتكم',
+      cv: 'السيرة الذاتية (PDF أو Word — 5 ميغا كحد أقصى)', cvHint: 'الصيغ المقبولة: PDF، DOC، DOCX',
+      required: 'يرجى إكمال الحقول المطلوبة.',
+      submit: 'إرسال ترشحي', loading: 'جارٍ الإرسال…',
+    },
+    sidebarEyebrow: 'معلومات الاتصال',
+    sidebarTitle: 'أسئلة حول توظيفنا؟',
+    hours: 'الإثنين–السبت، 8:00–17:00',
   },
 
   legal: {

@@ -13,6 +13,8 @@ const fr = {
     resources: 'Ressources',
     contact: 'Contact',
     bookAppointment: 'Prendre rendez-vous',
+    jobApplication: 'Rejoignez-nous',
+    jobApplicationTooltip: 'Candidature spontanée',
     chooseLanguage: 'Choisir la langue',
     clientArea: 'Espace client',
     clientAreaTooltip: 'Accès réservé aux clients',
@@ -314,6 +316,27 @@ const fr = {
     sidebarTitle: 'Parlons de votre projet',
     hours: 'Lun–Sam, 8h00–17h00',
     mapPlaceholder: 'Carte de localisation',
+  },
+
+  careers: {
+    breadcrumbHome: 'Accueil',
+    breadcrumbCareers: 'Candidature',
+    eyebrow: 'Rejoindre le cabinet',
+    title: 'Envoyez-nous votre candidature',
+    description: 'Vous souhaitez rejoindre CAMCONSULT ? Partagez votre profil et votre CV, nous revenons vers vous dès qu’un poste correspond à votre parcours.',
+    successTitle: 'Candidature bien reçue',
+    successText: 'Merci pour votre candidature. Nous l’étudions et revenons vers vous si votre profil correspond à un poste ouvert.',
+    sendAnother: 'Envoyer une autre candidature',
+    form: {
+      name: 'Nom complet', email: 'Adresse email', phone: 'Téléphone',
+      position: 'Poste souhaité', message: 'Votre message',
+      cv: 'CV (PDF, Word — 5 Mo max)', cvHint: 'Formats acceptés : PDF, DOC, DOCX',
+      required: 'Veuillez renseigner les champs obligatoires.',
+      submit: 'Envoyer ma candidature', loading: 'Envoi en cours…',
+    },
+    sidebarEyebrow: 'Coordonnées',
+    sidebarTitle: 'Des questions sur nos recrutements ?',
+    hours: 'Lun–Sam, 8h00–17h00',
   },
 
   legal: {

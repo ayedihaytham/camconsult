@@ -3,21 +3,25 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ArrowLeft,
-  BookText,
   Check,
   CheckCircle2,
   ChevronDown,
   Download,
   FileText,
   Pencil,
-  Plus,
   Printer,
   Trash2,
   Upload,
   X,
 } from "lucide-react";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
-import { EmptyState } from "@/components/common/EmptyState";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
+import {
+  LedgerWorkSurface,
+  OperationalContentHeader,
+  OperationalLedgerToolbar,
+  OperationalMobileUtility,
+} from "@/components/ledger/OperationalLedgerLayout";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { AmountInput } from "@/components/common/AmountInput";
 import { Button } from "@/components/ui/button";
@@ -59,7 +63,6 @@ import { cn } from "@/lib/utils";
 import { useSocieteById } from "@/store/data";
 import { useSoucheCheques, type SoucheChequeInput } from "@/store/soucheCheques";
 import type { SoucheCheque, SoucheChequeDevise } from "@/types";
-import { FinancialIdentityHeader } from "@/pages/etatsFinanciers/FinancialIdentityHeader";
 import { SoucheChequeImportDialog } from "./SoucheChequeImportDialog";
 
 type Vue = "tous" | "a_debiter" | "debites";
@@ -95,9 +98,6 @@ const draftFrom = (l: SoucheCheque): SoucheChequeInput => ({
 });
 
 const inputCls = "h-8 px-2 text-[13px]";
-
-const monogram = (name: string) =>
-  name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "S";
 
 /** Ligne éditable en place — nouveau chèque (sous la dernière ligne) ou
  * modification d'une ligne existante, comme le tableau de Collecte de pièces
@@ -406,60 +406,18 @@ export function SoucheChequesSocietePage() {
         Toutes les sociétés
       </button>
 
-      <FinancialIdentityHeader
-        eyebrow="Comptabilité · Dossier bancaire"
+      <SignatureLedgerBanner
+        className="mb-0 sm:mb-2"
+        eyebrow="Comptabilité · Financial Ledger"
         title={societeNom}
-        description="Souche de chèques"
-        monogram={monogram(societeNom)}
-        details={[
-          { label: "Code", value: societe?.code || "—" },
-          { label: "RNE", value: societe?.rne || "Non renseigné" },
+        description="Chèques émis, montants et statut de débit — le reste à débiter est calculé par devise (TND, EUR, USD)."
+        metrics={[
+          { label: "Chèques", value: list.length },
+          { label: "À débiter", value: nbADebiter, tone: nbADebiter > 0 ? "warning" : "default" },
+          { label: "En attente (> 30 j)", value: enAttente.length, tone: enAttente.length > 0 ? "destructive" : "default" },
         ]}
+        action={{ label: "Nouveau chèque", onClick: startNew }}
       />
-
-      <div className="mt-3 flex min-w-0 flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Chèques émis</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Les totaux sont calculés par devise (TND, EUR, USD) sans jamais les mélanger.
-          </p>
-        </div>
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:items-center">
-          <Button
-            variant="ledger"
-            size="sm"
-            onClick={startNew}
-            disabled={isEditing}
-            className="col-span-2 sm:order-3"
-          >
-            <Plus className="h-4 w-4" />
-            Nouveau chèque
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="min-w-0 sm:order-1">
-            <Upload className="h-4 w-4" />
-            Importer un fichier
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={busyAny || list.length === 0} className="sm:order-2">
-                Outils
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => void exportPdf()}>
-                <FileText className="h-4 w-4" /> Enregistrer PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void exportExcel()}>
-                <Download className="h-4 w-4" /> Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void imprimer()}>
-                <Printer className="h-4 w-4" /> Imprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
 
       {totaux.length > 0 && (
         <dl className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-2 lg:grid-cols-4 sm:divide-x sm:divide-y-0">
@@ -531,39 +489,107 @@ export function SoucheChequesSocietePage() {
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-        <LedgerSegmented<Vue>
-          value={vue}
-          onChange={setVue}
-          ariaLabel="Filtrer par statut"
-          options={[
-            { value: "tous", label: `Tous (${list.length})` },
-            { value: "a_debiter", label: `À débiter (${nbADebiter})` },
-            { value: "debites", label: `Débités (${list.length - nbADebiter})` },
-          ]}
-        />
-        <Input
-          value={recherche}
-          onChange={(e) => setRecherche(e.target.value)}
-          placeholder="Rechercher (n°, bénéficiaire, banque, motif)…"
-          className="h-9 w-full sm:w-72"
-        />
-      </div>
-
-      {!showTable ? (
-        <div className="mt-3 border-y border-border px-3 py-3">
-          <EmptyState
-            icon={BookText}
-            title={loading ? "Chargement…" : list.length === 0 ? "Aucun chèque" : "Aucun résultat"}
-            description={
-              list.length === 0
-                ? "Ajoutez un chèque ou importez le modèle Excel de la souche de chèques."
-                : "Aucun chèque ne correspond à ce filtre."
-            }
+      <LedgerWorkSurface className="mt-3">
+        <div className="px-3">
+          <LedgerSegmented<Vue>
+            value={vue}
+            onChange={setVue}
+            ariaLabel="Filtrer par statut"
+            options={[
+              { value: "tous", label: `Tous (${list.length})` },
+              { value: "a_debiter", label: `À débiter (${nbADebiter})` },
+              { value: "debites", label: `Débités (${list.length - nbADebiter})` },
+            ]}
           />
         </div>
-      ) : (
-        <div className="mt-3 min-w-0 overflow-visible border-y border-border/80 bg-transparent">
+        <OperationalLedgerToolbar
+          label="Recherche des chèques"
+          search={
+            <Input
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher (n°, bénéficiaire, banque, motif)…"
+              className="h-9"
+            />
+          }
+          tools={
+            <>
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                <Upload className="h-4 w-4" />
+                Importer
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={busyAny || list.length === 0}>
+                    Outils
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => void exportPdf()}>
+                    <FileText className="h-4 w-4" /> Enregistrer PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void exportExcel()}>
+                    <Download className="h-4 w-4" /> Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void imprimer()}>
+                    <Printer className="h-4 w-4" /> Imprimer
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          }
+        />
+        <OperationalMobileUtility label="Recherche des chèques">
+          <div className="flex flex-col gap-2">
+            <Input
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher (n°, bénéficiaire, banque, motif)…"
+              className="h-9"
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => setImportOpen(true)}>
+                <Upload className="h-4 w-4" />
+                Importer
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex-1" disabled={busyAny || list.length === 0}>
+                    Outils
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => void exportPdf()}>
+                    <FileText className="h-4 w-4" /> Enregistrer PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void exportExcel()}>
+                    <Download className="h-4 w-4" /> Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void imprimer()}>
+                    <Printer className="h-4 w-4" /> Imprimer
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </OperationalMobileUtility>
+        <OperationalContentHeader>
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h2 className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">Registre des chèques</h2>
+            <p className="hidden truncate text-[11px] text-muted-foreground md:block">Banque, montant et statut de débit</p>
+          </div>
+          {!loading && <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">{visibles.length} chèque{visibles.length === 1 ? "" : "s"} visible{visibles.length === 1 ? "" : "s"}</span>}
+        </OperationalContentHeader>
+
+        {!showTable ? (
+          <div className="border-b border-border/80 px-4 py-5">
+            <p className="text-sm text-muted-foreground">
+              {loading ? "Chargement…" : list.length === 0 ? "Aucun chèque." : "Aucun chèque ne correspond à ce filtre."}
+            </p>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -675,11 +701,13 @@ export function SoucheChequesSocietePage() {
               </TableBody>
             </Table>
           </div>
-          <div className="border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
+        )}
+        {showTable && (
+          <div className="operational-ledger-footer">
             {visibles.length} chèque{visibles.length === 1 ? "" : "s"}
           </div>
-        </div>
-      )}
+        )}
+      </LedgerWorkSurface>
 
       <SoucheChequeImportDialog open={importOpen} onOpenChange={setImportOpen} societeId={societeId} />
 

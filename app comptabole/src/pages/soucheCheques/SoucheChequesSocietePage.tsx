@@ -35,6 +35,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { exportSoucheChequesStyled } from "@/lib/soucheCheques/exportStyled";
 import {
   chequesEnAttente,
@@ -86,7 +94,6 @@ const draftFrom = (l: SoucheCheque): SoucheChequeInput => ({
   dateDebit: l.dateDebit,
 });
 
-const TH = "whitespace-nowrap border-b border-border bg-secondary/50 px-2 py-2 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground";
 const inputCls = "h-8 px-2 text-[13px]";
 
 const monogram = (name: string) =>
@@ -111,8 +118,8 @@ function EditableRow({
   onCancel: () => void;
 }) {
   return (
-    <tr className="border-b border-border bg-primary/[0.04]">
-      <td className="px-1 py-1.5">
+    <TableRow className="!bg-primary/[0.04] hover:!bg-primary/[0.04]">
+      <TableCell className="px-1 py-1.5">
         <Input
           list="souche-banques-inline"
           className={inputCls}
@@ -125,8 +132,8 @@ function EditableRow({
             <option key={b} value={b} />
           ))}
         </datalist>
-      </td>
-      <td className="px-1 py-1.5">
+      </TableCell>
+      <TableCell className="px-1 py-1.5">
         <Input
           className={cn(inputCls, "font-mono")}
           value={draft.numCheque}
@@ -134,32 +141,32 @@ function EditableRow({
           placeholder="N°"
           autoFocus
         />
-      </td>
-      <td className="px-1 py-1.5">
+      </TableCell>
+      <TableCell className="px-1 py-1.5">
         <Input
           type="date"
           className={inputCls}
           value={draft.dateEmission ?? ""}
           onChange={(e) => onChange("dateEmission", e.target.value || null)}
         />
-      </td>
-      <td className="px-1 py-1.5">
+      </TableCell>
+      <TableCell className="px-1 py-1.5">
         <Input
           className={inputCls}
           value={draft.beneficiaire}
           onChange={(e) => onChange("beneficiaire", e.target.value)}
           placeholder="Bénéficiaire"
         />
-      </td>
-      <td className="px-1 py-1.5">
+      </TableCell>
+      <TableCell className="px-1 py-1.5">
         <Input
           className={inputCls}
           value={draft.motif}
           onChange={(e) => onChange("motif", e.target.value)}
           placeholder="Motif / description"
         />
-      </td>
-      <td className="px-1 py-1.5">
+      </TableCell>
+      <TableCell className="px-1 py-1.5">
         <div className="flex items-center gap-1">
           <AmountInput
             value={draft.montant}
@@ -180,8 +187,8 @@ function EditableRow({
             </SelectContent>
           </Select>
         </div>
-      </td>
-      <td className="px-1 py-1.5">
+      </TableCell>
+      <TableCell className="px-1 py-1.5">
         <Select
           value={draft.debite ? "oui" : "non"}
           onValueChange={(v) => onChange("debite", v === "oui")}
@@ -194,8 +201,8 @@ function EditableRow({
             <SelectItem value="oui">Oui</SelectItem>
           </SelectContent>
         </Select>
-      </td>
-      <td className="px-1 py-1.5">
+      </TableCell>
+      <TableCell className="px-1 py-1.5">
         <Input
           type="date"
           className={inputCls}
@@ -203,8 +210,8 @@ function EditableRow({
           value={draft.dateDebit ?? ""}
           onChange={(e) => onChange("dateDebit", e.target.value || null)}
         />
-      </td>
-      <td className="px-1 py-1.5">
+      </TableCell>
+      <TableCell className="px-1 py-1.5">
         <div className="flex gap-0.5">
           <button
             aria-label="Enregistrer"
@@ -223,8 +230,8 @@ function EditableRow({
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -482,44 +489,44 @@ export function SoucheChequesSocietePage() {
       )}
 
       {nbBanques > 1 && (
-        <div className="mt-3 min-w-0 overflow-hidden border-y border-border bg-background">
-          <p className="border-b border-border bg-secondary/50 px-3 py-1.5 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
+        <div className="mt-3 min-w-0">
+          <p className="mb-1 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
             Reste à débiter par banque
           </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className={cn(TH, "text-left")}>Banque</th>
-                  <th className={cn(TH, "text-left")}>Devise</th>
-                  <th className={cn(TH, "text-right")}>Émis</th>
-                  <th className={cn(TH, "text-right")}>Débité</th>
-                  <th className={cn(TH, "text-right")}>Reste à débiter</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-visible border-y border-border/80 bg-transparent">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Banque</TableHead>
+                  <TableHead>Devise</TableHead>
+                  <TableHead className="text-right">Émis</TableHead>
+                  <TableHead className="text-right">Débité</TableHead>
+                  <TableHead className="text-right">Reste à débiter</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {parBanque.map((t) => (
-                  <tr key={`${t.banque}-${t.devise}`} className="border-b border-border/70 last:border-b-0 hover:bg-secondary/30">
-                    <td className="px-2 py-1.5 text-foreground">{t.banque}</td>
-                    <td className="px-2 py-1.5 text-muted-foreground">{t.devise}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                  <TableRow key={`${t.banque}-${t.devise}`}>
+                    <TableCell className="text-foreground">{t.banque}</TableCell>
+                    <TableCell className="text-muted-foreground">{t.devise}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
                       {fmtMontant(t.emis)}
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
                       {fmtMontant(t.debite)}
-                    </td>
-                    <td
+                    </TableCell>
+                    <TableCell
                       className={cn(
-                        "whitespace-nowrap px-2 py-1.5 text-right font-semibold tabular-nums",
+                        "whitespace-nowrap text-right font-semibold tabular-nums",
                         t.restant > 0.0005 && "text-destructive",
                       )}
                     >
                       {fmtMontant(t.restant)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
@@ -556,23 +563,23 @@ export function SoucheChequesSocietePage() {
           />
         </div>
       ) : (
-        <div className="mt-3 min-w-0 overflow-hidden border-y border-border bg-background">
+        <div className="mt-3 min-w-0 overflow-visible border-y border-border/80 bg-transparent">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className={cn(TH, "text-left")}>Banque</th>
-                  <th className={cn(TH, "text-left")}>N° chèque</th>
-                  <th className={cn(TH, "text-left")}>Émission</th>
-                  <th className={cn(TH, "text-left")}>Bénéficiaire</th>
-                  <th className={cn(TH, "text-left")}>Motif / Description</th>
-                  <th className={cn(TH, "text-right")}>Montant</th>
-                  <th className={cn(TH, "text-left")}>Débité</th>
-                  <th className={cn(TH, "text-left")}>Date de débit</th>
-                  <th className={cn(TH, "w-[1%]")} />
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Banque</TableHead>
+                  <TableHead>N° chèque</TableHead>
+                  <TableHead>Émission</TableHead>
+                  <TableHead>Bénéficiaire</TableHead>
+                  <TableHead>Motif / Description</TableHead>
+                  <TableHead className="text-right">Montant</TableHead>
+                  <TableHead>Débité</TableHead>
+                  <TableHead>Date de débit</TableHead>
+                  <TableHead className="w-[1%]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {visibles.map((l) => {
                   const jours = joursDepuis(l.dateEmission);
                   const attente = !l.debite && jours !== null && jours > SEUIL_ATTENTE_JOURS;
@@ -587,29 +594,23 @@ export function SoucheChequesSocietePage() {
                       onCancel={cancelEdit}
                     />
                   ) : (
-                    <tr
-                      key={l.id}
-                      className={cn(
-                        "border-b border-border/70 last:border-b-0 hover:bg-secondary/40",
-                        isEditing && "opacity-60",
-                      )}
-                    >
-                      <td className="px-2 py-2 text-foreground">{l.banque || "—"}</td>
-                      <td className="px-2 py-2 font-mono text-xs">{l.numCheque || "—"}</td>
-                      <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
+                    <TableRow key={l.id} className={cn(isEditing && "opacity-60")}>
+                      <TableCell className="text-foreground">{l.banque || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{l.numCheque || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
                         {fmtDate(l.dateEmission) || "—"}
                         {!l.debite && jours !== null && (
                           <span className={cn("ml-1.5 text-[11px]", attente ? "font-semibold text-amber-600" : "text-muted-foreground/70")}>
                             · {jours} j
                           </span>
                         )}
-                      </td>
-                      <td className="px-2 py-2 text-foreground">{l.beneficiaire || "—"}</td>
-                      <td className="px-2 py-2 text-muted-foreground">{l.motif || "—"}</td>
-                      <td className="whitespace-nowrap px-2 py-2 text-right font-semibold tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-foreground">{l.beneficiaire || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{l.motif || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">
                         {fmtMontant(l.montant)} <span className="text-xs font-normal text-muted-foreground">{l.devise}</span>
-                      </td>
-                      <td className="px-2 py-2">
+                      </TableCell>
+                      <TableCell>
                         {l.debite ? (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
                             <CheckCircle2 className="h-3.5 w-3.5" />
@@ -634,11 +635,11 @@ export function SoucheChequesSocietePage() {
                             Non · marquer débité
                           </button>
                         )}
-                      </td>
-                      <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
                         {fmtDate(l.dateDebit) || "—"}
-                      </td>
-                      <td className="px-2 py-2">
+                      </TableCell>
+                      <TableCell>
                         <div className="flex gap-0.5">
                           <button
                             aria-label="Modifier"
@@ -657,8 +658,8 @@ export function SoucheChequesSocietePage() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
                 {editingId === "new" && (
@@ -671,8 +672,11 @@ export function SoucheChequesSocietePage() {
                     onCancel={cancelEdit}
                   />
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
+          </div>
+          <div className="border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
+            {visibles.length} chèque{visibles.length === 1 ? "" : "s"}
           </div>
         </div>
       )}

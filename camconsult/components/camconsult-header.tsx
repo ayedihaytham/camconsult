@@ -71,7 +71,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
   }
 
   return (
-    <header dir={isArabic ? 'rtl' : 'ltr'} className={cn('sticky top-0 z-50 w-full transition-all duration-300', isScrolled ? 'bg-white/98 shadow-[0_12px_32px_rgba(11,37,69,0.12)] backdrop-blur-lg border-b border-navy/8' : isNavy ? 'border-b border-white/10 bg-gradient-to-b from-navy/95 to-navy/90 backdrop-blur-md' : 'border-b border-navy/8 bg-white/90 backdrop-blur-md')}>
+    <header dir={isArabic ? 'rtl' : 'ltr'} className={cn('sticky top-0 z-50 w-full transition-all duration-300', isScrolled ? 'bg-white/98 shadow-[0_12px_32px_rgba(11,37,69,0.12)] backdrop-blur-lg border-b border-navy/8' : isNavy ? 'border-b border-white/10 bg-navy/95 backdrop-blur-md' : 'border-b border-navy/8 bg-white/90 backdrop-blur-md')}>
       <div className={cn('mx-auto flex max-w-[1760px] items-center gap-4 px-4 transition-all duration-300 sm:px-6 lg:px-8 2xl:gap-7 2xl:px-10', isScrolled ? 'min-h-16' : 'min-h-[80px]')}>
 
         {/* Logo & Rail — isolated zone, never overlaps navigation */}
@@ -151,13 +151,12 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
           {/* CTA Button */}
           <a
             href={withLocale(lang, '/contact')}
-            className="group relative overflow-hidden rounded-lg bg-gradient-to-b from-gold to-gold/90 px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.12em] xl:px-4 xl:text-[10px] xl:tracking-widest 2xl:px-5 text-navy shadow-lg shadow-gold/30 transition-all duration-300 hover:shadow-lg hover:shadow-gold/50 hover:scale-105 active:scale-95"
+            className="group relative overflow-hidden rounded-lg bg-gold px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.12em] xl:px-4 xl:text-[10px] xl:tracking-widest 2xl:px-5 text-navy shadow-lg shadow-gold/30 transition-all duration-300 hover:shadow-lg hover:shadow-gold/50 hover:scale-105 active:scale-95"
           >
             <span className="relative inline-flex items-center gap-2">
               {dict.nav.bookAppointment}
               <ArrowRight className={cn('size-3.5 transition-transform duration-300 group-hover:translate-x-0.5', isArabic && 'rotate-180')} aria-hidden="true" />
             </span>
-            <div className="absolute inset-0 -left-full bg-gradient-to-r from-transparent via-white to-transparent opacity-0 transition-all duration-500 group-hover:left-full group-hover:opacity-20" />
           </a>
         </div>
 

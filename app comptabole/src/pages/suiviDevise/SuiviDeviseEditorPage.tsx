@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
-import { FinancialIdentityHeader } from "@/components/ledger/FinancialIdentityHeader";
+import { ArrowLeft, ChevronDown, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { LedgerTable } from "@/components/ledger/LedgerTable";
-import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
+import {
+  LedgerWorkSurface,
+  OperationalContentHeader,
+  OperationalLedgerToolbar,
+  OperationalMobileUtility,
+} from "@/components/ledger/OperationalLedgerLayout";
 import type { DataTableColumn } from "@/components/common/DataTable";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -20,6 +25,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { fmt } from "@/lib/etatsFinanciers/postes";
 import { useSocieteById } from "@/store/data";
 import { useSuiviDevise } from "@/store/suiviDevise";
@@ -91,6 +103,7 @@ export function SuiviDeviseEditorPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editSoldeOuverture, setEditSoldeOuverture] = useState("0");
+  const [recherche, setRecherche] = useState("");
 
   useEffect(() => {
     fetchOne(suiviId);
@@ -194,6 +207,34 @@ export function SuiviDeviseEditorPage() {
     },
   ];
 
+  const q = recherche.trim().toLowerCase();
+  const facturesVisibles = !q
+    ? current.factures
+    : current.factures.filter((f) => [f.nFacture, f.designationProduit, f.fournisseur].some((v) => (v || "").toLowerCase().includes(q)));
+  const lotsVisibles = !q
+    ? current.lots
+    : current.lots.filter((l) => [l.libelle, l.incoterm].some((v) => (v || "").toLowerCase().includes(q)));
+  const mouvementsVisibles = !q
+    ? current.mouvements
+    : current.mouvements.filter((m) => [m.libelle, TYPE_LABELS[m.type]].some((v) => (v || "").toLowerCase().includes(q)));
+
+  const registryLabel = vue === "ventes" ? "Registre des ventes" : vue === "lots" ? "Registre des lots" : "Registre des mouvements";
+  const registryDescription = vue === "ventes" ? "Factures et avoirs" : vue === "lots" ? "Lots LC et écarts" : "Charges, avoirs et règlements";
+  const visibleCount = vue === "ventes" ? facturesVisibles.length : vue === "lots" ? lotsVisibles.length : mouvementsVisibles.length;
+  const bannerActionLabel = vue === "ventes" ? "Nouvelle facture" : vue === "lots" ? "Nouveau lot" : "Nouveau mouvement";
+  function bannerAction() {
+    if (vue === "ventes") {
+      setEditingFacture(null);
+      setFactureOpen(true);
+    } else if (vue === "lots") {
+      setEditingLot(null);
+      setLotOpen(true);
+    } else {
+      setEditingMouvement(null);
+      setMouvementOpen(true);
+    }
+  }
+
   async function handleExportPdf() {
     try {
       await downloadTablesPdf({
@@ -244,112 +285,141 @@ export function SuiviDeviseEditorPage() {
     <div className="flex flex-1 flex-col">
       <BackBar societeId={societeId} navigate={navigate} />
 
-      <FinancialIdentityHeader
-        variant="dossier"
-        badge="Dossier devise"
-        eyebrow="Suivi client devise"
+      <SignatureLedgerBanner
+        className="mb-0 sm:mb-2"
+        eyebrow="Comptabilité · Financial Ledger"
         title={`${current.client}${current.exercice ? ` — ${current.exercice}` : ""}`}
         description={`${societeName} · Devise ${current.devise}`}
-        details={[{ label: "Société", value: societeName }]}
-        actions={
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9"
-              onClick={() => {
-                setEditSoldeOuverture(String(current.soldeOuverture));
-                setEditOpen(true);
-              }}
-            >
-              <Pencil className="h-4 w-4" />
-              Modifier
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9"
-              onClick={handleExportPdf}
-            >
-              <FileText className="h-4 w-4" />
-              Enregistrer PDF
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9"
-              onClick={handleExportExcel}
-              disabled={exporting}
-            >
-              <Download className="h-4 w-4" />
-              {exporting ? "Export…" : "Excel"}
-            </Button>
-          </div>
-        }
+        metrics={[
+          { label: "Factures", value: current.factures.length },
+          { label: "Lots LC", value: current.lots.length },
+          { label: "Mouvements", value: current.mouvements.length },
+        ]}
+        action={{ label: bannerActionLabel, onClick: bannerAction }}
       />
 
-      <LedgerSheet className="mt-4">
-        <LedgerKpiRow
-          label="Total ventes (hors lots)"
-          value={`${fmt(current.totalVentes)} ${current.devise}`}
-          hint={
-            current.totalVentesLots !== 0
-              ? `+ ${fmt(current.totalVentesLots)} ${current.devise} en factures de lots (écart déjà compté, pas le montant)`
-              : undefined
-          }
-        />
-        <LedgerKpiRow
-          label="Charges + avoirs"
-          value={`${fmt(current.totalCharges + current.totalAvoir + current.totalEcartsLots)} ${current.devise}`}
-        />
-        <LedgerKpiRow label="Règlements" value={`${fmt(current.totalReglements)} ${current.devise}`} />
+      <dl className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-2 lg:grid-cols-4 sm:divide-x sm:divide-y-0">
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          <dt className="text-xs text-muted-foreground">
+            Total ventes (hors lots)
+            {current.totalVentesLots !== 0 && (
+              <span className="block text-[0.65rem]">
+                + {fmt(current.totalVentesLots)} {current.devise} en factures de lots
+              </span>
+            )}
+          </dt>
+          <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">
+            {fmt(current.totalVentes)} {current.devise}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          <dt className="text-xs text-muted-foreground">Charges + avoirs</dt>
+          <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">
+            {fmt(current.totalCharges + current.totalAvoir + current.totalEcartsLots)} {current.devise}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          <dt className="text-xs text-muted-foreground">Règlements</dt>
+          <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">
+            {fmt(current.totalReglements)} {current.devise}
+          </dd>
+        </div>
         {current.soldeOuverture !== 0 && (
-          <LedgerKpiRow
-            label="Solde d'ouverture"
-            value={`${fmt(current.soldeOuverture)} ${current.devise}`}
-          />
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <dt className="text-xs text-muted-foreground">Solde d'ouverture</dt>
+            <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">
+              {fmt(current.soldeOuverture)} {current.devise}
+            </dd>
+          </div>
         )}
-        <LedgerKpiRow
-          hero
-          danger={current.solde > 0.01}
-          label="Solde"
-          value={`${fmt(current.solde)} ${current.devise}`}
-          hint={
-            current.solde > 0.01
-              ? "Reste dû par le client"
-              : current.solde < -0.01
-                ? "Trop perçu / crédit en faveur du client"
-                : "Soldé"
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          <dt className="text-xs text-muted-foreground">
+            Solde
+            <span className="block text-[0.65rem]">
+              {current.solde > 0.01
+                ? "Reste dû par le client"
+                : current.solde < -0.01
+                  ? "Trop perçu / crédit en faveur du client"
+                  : "Soldé"}
+            </span>
+          </dt>
+          <dd className={cn("font-mono text-sm font-semibold tabular-nums", current.solde > 0.01 ? "text-warning" : "text-foreground")}>
+            {fmt(current.solde)} {current.devise}
+          </dd>
+        </div>
+      </dl>
+
+      <LedgerWorkSurface className="mt-3">
+        <div className="px-3">
+          <LedgerSegmented value={vue} onChange={setVue} options={VUE_OPTIONS} />
+        </div>
+        <OperationalLedgerToolbar
+          label="Recherche du suivi client devise"
+          search={
+            <Input
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher (n° facture, désignation, libellé…)…"
+              className="h-9"
+            />
+          }
+          tools={
+            <>
+              {vue === "ventes" && (
+                <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                  <Upload className="h-4 w-4" />
+                  Importer
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Outils
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setEditSoldeOuverture(String(current.soldeOuverture));
+                      setEditOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" /> Modifier le solde d'ouverture
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void handleExportPdf()}>
+                    <FileText className="h-4 w-4" /> Enregistrer PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void handleExportExcel()} disabled={exporting}>
+                    <Download className="h-4 w-4" /> {exporting ? "Export…" : "Excel"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           }
         />
-      </LedgerSheet>
-
-      <div className="mt-4">
-        <LedgerSegmented value={vue} onChange={setVue} options={VUE_OPTIONS} />
-      </div>
-
-      {vue === "ventes" && (
-        <LedgerSheet className="mt-4 flex-1">
-          <div className="flex justify-end gap-2 border-b border-border px-[18px] py-2.5">
-            <Button variant="ledger-text" size="sm" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Importer Excel
-            </Button>
-            <Button
-              variant="ledger-text"
-              size="sm"
-              onClick={() => {
-                setEditingFacture(null);
-                setFactureOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Nouvelle facture
-            </Button>
+        <OperationalMobileUtility label="Recherche du suivi client devise">
+          <Input
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            placeholder="Rechercher (n° facture, désignation, libellé…)…"
+            className="h-9"
+          />
+        </OperationalMobileUtility>
+        <OperationalContentHeader>
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h2 className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">{registryLabel}</h2>
+            <p className="hidden truncate text-[11px] text-muted-foreground md:block">{registryDescription}</p>
           </div>
+          <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+            {visibleCount} ligne{visibleCount === 1 ? "" : "s"} visible{visibleCount === 1 ? "" : "s"}
+          </span>
+        </OperationalContentHeader>
+
+        {vue === "ventes" && (
           <LedgerTable
             columns={factureColumns}
-            data={current.factures}
+            data={facturesVisibles}
             getRowId={(f) => f.id}
             onRowClick={(f) => {
               setEditingFacture(f);
@@ -369,27 +439,12 @@ export function SuiviDeviseEditorPage() {
               />
             }
           />
-        </LedgerSheet>
-      )}
+        )}
 
-      {vue === "lots" && (
-        <LedgerSheet className="mt-4 flex-1">
-          <div className="flex justify-end border-b border-border px-[18px] py-2.5">
-            <Button
-              variant="ledger-text"
-              size="sm"
-              onClick={() => {
-                setEditingLot(null);
-                setLotOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Nouveau lot
-            </Button>
-          </div>
+        {vue === "lots" && (
           <LedgerTable
             columns={lotColumns}
-            data={current.lots}
+            data={lotsVisibles}
             getRowId={(l) => l.id}
             onRowClick={(l) => {
               setEditingLot(l);
@@ -410,27 +465,12 @@ export function SuiviDeviseEditorPage() {
               />
             }
           />
-        </LedgerSheet>
-      )}
+        )}
 
-      {vue === "mouvements" && (
-        <LedgerSheet className="mt-4 flex-1">
-          <div className="flex justify-end border-b border-border px-[18px] py-2.5">
-            <Button
-              variant="ledger-text"
-              size="sm"
-              onClick={() => {
-                setEditingMouvement(null);
-                setMouvementOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Nouveau mouvement
-            </Button>
-          </div>
+        {vue === "mouvements" && (
           <LedgerTable
             columns={mouvementColumns}
-            data={current.mouvements}
+            data={mouvementsVisibles}
             getRowId={(m) => m.id}
             onRowClick={(m) => {
               setEditingMouvement(m);
@@ -450,8 +490,8 @@ export function SuiviDeviseEditorPage() {
               />
             }
           />
-        </LedgerSheet>
-      )}
+        )}
+      </LedgerWorkSurface>
 
       <SuiviDeviseFactureFormSheet
         open={factureOpen}

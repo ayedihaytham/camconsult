@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   BookText,
+  Check,
   CheckCircle2,
   FileSpreadsheet,
   FileText,
@@ -12,6 +13,7 @@ import {
   Printer,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
@@ -19,16 +21,23 @@ import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { AmountInput } from "@/components/common/AmountInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { exportSoucheChequesStyled } from "@/lib/soucheCheques/exportStyled";
-import { fmtDate, fmtMontant, totauxParDevise } from "@/lib/soucheCheques/model";
+import { DEVISES, fmtDate, fmtMontant, totauxParDevise } from "@/lib/soucheCheques/model";
 import { buildSouchePdf } from "@/lib/soucheCheques/pdf";
 import { cn } from "@/lib/utils";
 import { useSocieteById } from "@/store/data";
 import { useSoucheCheques, type SoucheChequeInput } from "@/store/soucheCheques";
-import type { SoucheCheque } from "@/types";
-import { SoucheChequeFormSheet } from "./SoucheChequeFormSheet";
+import type { SoucheCheque, SoucheChequeDevise } from "@/types";
 import { SoucheChequeImportDialog } from "./SoucheChequeImportDialog";
 
 type Vue = "tous" | "a_debiter" | "debites";
@@ -39,7 +48,168 @@ const todayIso = () => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-const TH = "border-b-2 border-foreground px-2 py-2 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground";
+const emptyDraft = (): SoucheChequeInput => ({
+  banque: "",
+  numCheque: "",
+  dateEmission: todayIso(),
+  beneficiaire: "",
+  motif: "",
+  montant: 0,
+  devise: "TND",
+  debite: false,
+  dateDebit: null,
+});
+
+const draftFrom = (l: SoucheCheque): SoucheChequeInput => ({
+  banque: l.banque,
+  numCheque: l.numCheque,
+  dateEmission: l.dateEmission,
+  beneficiaire: l.beneficiaire,
+  motif: l.motif,
+  montant: l.montant,
+  devise: l.devise,
+  debite: l.debite,
+  dateDebit: l.dateDebit,
+});
+
+const TH = "border-b-2 border-foreground px-1.5 py-2 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground";
+const inputCls = "h-8 px-2 text-[13px]";
+
+/** Ligne éditable en place — nouveau chèque (sous la dernière ligne) ou
+ * modification d'une ligne existante, comme le tableau de Collecte de pièces
+ * (pas de fiche à droite). */
+function EditableRow({
+  draft,
+  banques,
+  saving,
+  onChange,
+  onSave,
+  onCancel,
+}: {
+  draft: SoucheChequeInput;
+  banques: string[];
+  saving: boolean;
+  onChange: <K extends keyof SoucheChequeInput>(key: K, value: SoucheChequeInput[K]) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <tr className="border-b border-border bg-primary/[0.04]">
+      <td className="px-1 py-1.5">
+        <Input
+          list="souche-banques-inline"
+          className={inputCls}
+          value={draft.banque}
+          onChange={(e) => onChange("banque", e.target.value)}
+          placeholder="Banque"
+        />
+        <datalist id="souche-banques-inline">
+          {banques.map((b) => (
+            <option key={b} value={b} />
+          ))}
+        </datalist>
+      </td>
+      <td className="px-1 py-1.5">
+        <Input
+          className={cn(inputCls, "font-mono")}
+          value={draft.numCheque}
+          onChange={(e) => onChange("numCheque", e.target.value)}
+          placeholder="N°"
+          autoFocus
+        />
+      </td>
+      <td className="px-1 py-1.5">
+        <Input
+          type="date"
+          className={inputCls}
+          value={draft.dateEmission ?? ""}
+          onChange={(e) => onChange("dateEmission", e.target.value || null)}
+        />
+      </td>
+      <td className="px-1 py-1.5">
+        <Input
+          className={inputCls}
+          value={draft.beneficiaire}
+          onChange={(e) => onChange("beneficiaire", e.target.value)}
+          placeholder="Bénéficiaire"
+        />
+      </td>
+      <td className="px-1 py-1.5">
+        <Input
+          className={inputCls}
+          value={draft.motif}
+          onChange={(e) => onChange("motif", e.target.value)}
+          placeholder="Motif / description"
+        />
+      </td>
+      <td className="px-1 py-1.5">
+        <div className="flex items-center gap-1">
+          <AmountInput
+            value={draft.montant}
+            onValueChange={(n) => onChange("montant", n)}
+            allowNegative={false}
+            className={cn(inputCls, "w-20 text-right tabular-nums")}
+          />
+          <Select value={draft.devise} onValueChange={(d) => onChange("devise", d as SoucheChequeDevise)}>
+            <SelectTrigger className={cn(inputCls, "w-[4.2rem] shrink-0")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DEVISES.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {d}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </td>
+      <td className="px-1 py-1.5">
+        <Select
+          value={draft.debite ? "oui" : "non"}
+          onValueChange={(v) => onChange("debite", v === "oui")}
+        >
+          <SelectTrigger className={cn(inputCls, "w-20")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="non">Non</SelectItem>
+            <SelectItem value="oui">Oui</SelectItem>
+          </SelectContent>
+        </Select>
+      </td>
+      <td className="px-1 py-1.5">
+        <Input
+          type="date"
+          className={inputCls}
+          disabled={!draft.debite}
+          value={draft.dateDebit ?? ""}
+          onChange={(e) => onChange("dateDebit", e.target.value || null)}
+        />
+      </td>
+      <td className="px-1 py-1.5">
+        <div className="flex gap-0.5">
+          <button
+            aria-label="Enregistrer"
+            disabled={saving}
+            onClick={onSave}
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-success transition-colors hover:bg-success/10 disabled:opacity-50"
+          >
+            <Check className="h-3.5 w-3.5" />
+          </button>
+          <button
+            aria-label="Annuler"
+            disabled={saving}
+            onClick={onCancel}
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 export function SoucheChequesSocietePage() {
   const { societeId = "" } = useParams();
@@ -57,11 +227,13 @@ export function SoucheChequesSocietePage() {
 
   const [vue, setVue] = useState<Vue>("tous");
   const [recherche, setRecherche] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [editing, setEditing] = useState<SoucheCheque | null>(null);
   const [toDelete, setToDelete] = useState<SoucheCheque | null>(null);
   const [busy, setBusy] = useState<"pdf" | "print" | "xlsx" | null>(null);
+
+  const [editingId, setEditingId] = useState<string | "new" | null>(null);
+  const [draft, setDraft] = useState<SoucheChequeInput>(emptyDraft());
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchList(societeId).catch(() => {});
@@ -133,35 +305,64 @@ export function SoucheChequesSocietePage() {
     }
   }
 
-  async function handleSubmit(data: SoucheChequeInput) {
-    if (editing) {
-      await update(editing.id, data);
-      toast.success("Chèque modifié");
-    } else {
-      await create(societeId, data);
-      toast.success("Chèque ajouté");
+  function startNew() {
+    setDraft(emptyDraft());
+    setEditingId("new");
+  }
+  function startEdit(l: SoucheCheque) {
+    setDraft(draftFrom(l));
+    setEditingId(l.id);
+  }
+  function cancelEdit() {
+    setEditingId(null);
+  }
+  function changeDraft<K extends keyof SoucheChequeInput>(key: K, value: SoucheChequeInput[K]) {
+    setDraft((d) => {
+      if (key === "debite") {
+        const debite = value as boolean;
+        return { ...d, debite, dateDebit: debite ? d.dateDebit || todayIso() : null };
+      }
+      return { ...d, [key]: value };
+    });
+  }
+
+  async function saveDraft() {
+    if (!draft.numCheque.trim()) {
+      toast.error("Le n° de chèque est obligatoire.");
+      return;
     }
-    setEditing(null);
+    if (!(draft.montant > 0)) {
+      toast.error("Saisissez le montant du chèque.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingId === "new") {
+        await create(societeId, draft);
+        toast.success("Chèque ajouté");
+      } else if (editingId) {
+        await update(editingId, draft);
+        toast.success("Chèque modifié");
+      }
+      setEditingId(null);
+    } catch {
+      // erreur déjà affichée par le store — on garde la saisie
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function marquerDebite(l: SoucheCheque) {
     try {
-      await update(l.id, {
-        banque: l.banque,
-        numCheque: l.numCheque,
-        dateEmission: l.dateEmission,
-        beneficiaire: l.beneficiaire,
-        motif: l.motif,
-        montant: l.montant,
-        devise: l.devise,
-        debite: true,
-        dateDebit: todayIso(),
-      });
+      await update(l.id, { ...draftFrom(l), debite: true, dateDebit: todayIso() });
       toast.success(`Chèque ${l.numCheque} marqué débité`);
     } catch {
       // erreur déjà affichée par le store
     }
   }
+
+  const isEditing = editingId !== null;
+  const showTable = visibles.length > 0 || editingId === "new";
 
   return (
     <div>
@@ -195,13 +396,7 @@ export function SoucheChequesSocietePage() {
               <Upload className="h-4 w-4" />
               Importer un fichier
             </Button>
-            <Button
-              variant="ledger"
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
+            <Button variant="ledger" onClick={startNew} disabled={isEditing}>
               <Plus className="h-4 w-4" />
               Nouveau chèque
             </Button>
@@ -243,7 +438,7 @@ export function SoucheChequesSocietePage() {
         />
       </div>
 
-      {visibles.length === 0 ? (
+      {!showTable ? (
         <LedgerSheet className="mt-3">
           <EmptyState
             icon={BookText}
@@ -273,66 +468,89 @@ export function SoucheChequesSocietePage() {
                 </tr>
               </thead>
               <tbody>
-                {visibles.map((l, i) => (
-                  <tr
-                    key={l.id}
-                    className={cn(
-                      (i + 1) % 5 === 0 ? "border-b-[1.5px] border-rule-strong" : "border-b border-border",
-                      "hover:bg-primary/[0.03]",
-                    )}
-                  >
-                    <td className="px-2 py-2 text-foreground">{l.banque || "—"}</td>
-                    <td className="px-2 py-2 font-mono text-xs">{l.numCheque || "—"}</td>
-                    <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
-                      {fmtDate(l.dateEmission) || "—"}
-                    </td>
-                    <td className="px-2 py-2 text-foreground">{l.beneficiaire || "—"}</td>
-                    <td className="px-2 py-2 text-muted-foreground">{l.motif || "—"}</td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right font-semibold tabular-nums">
-                      {fmtMontant(l.montant)} <span className="text-xs font-normal text-muted-foreground">{l.devise}</span>
-                    </td>
-                    <td className="px-2 py-2">
-                      {l.debite ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Oui
-                        </span>
-                      ) : (
-                        <button
-                          title="Marquer comme débité aujourd'hui"
-                          onClick={() => marquerDebite(l)}
-                          className="inline-flex items-center gap-1 rounded-[5px] border border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-success hover:text-success"
-                        >
-                          Non · marquer débité
-                        </button>
+                {visibles.map((l, i) =>
+                  l.id === editingId ? (
+                    <EditableRow
+                      key={l.id}
+                      draft={draft}
+                      banques={banques}
+                      saving={saving}
+                      onChange={changeDraft}
+                      onSave={saveDraft}
+                      onCancel={cancelEdit}
+                    />
+                  ) : (
+                    <tr
+                      key={l.id}
+                      className={cn(
+                        (i + 1) % 5 === 0 ? "border-b-[1.5px] border-rule-strong" : "border-b border-border",
+                        "hover:bg-primary/[0.03]",
+                        isEditing && "opacity-60",
                       )}
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
-                      {fmtDate(l.dateDebit) || "—"}
-                    </td>
-                    <td className="px-2 py-2">
-                      <div className="flex gap-0.5">
-                        <button
-                          aria-label="Modifier"
-                          onClick={() => {
-                            setEditing(l);
-                            setFormOpen(true);
-                          }}
-                          className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          aria-label="Supprimer"
-                          onClick={() => setToDelete(l)}
-                          className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                    >
+                      <td className="px-2 py-2 text-foreground">{l.banque || "—"}</td>
+                      <td className="px-2 py-2 font-mono text-xs">{l.numCheque || "—"}</td>
+                      <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
+                        {fmtDate(l.dateEmission) || "—"}
+                      </td>
+                      <td className="px-2 py-2 text-foreground">{l.beneficiaire || "—"}</td>
+                      <td className="px-2 py-2 text-muted-foreground">{l.motif || "—"}</td>
+                      <td className="whitespace-nowrap px-2 py-2 text-right font-semibold tabular-nums">
+                        {fmtMontant(l.montant)} <span className="text-xs font-normal text-muted-foreground">{l.devise}</span>
+                      </td>
+                      <td className="px-2 py-2">
+                        {l.debite ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Oui
+                          </span>
+                        ) : (
+                          <button
+                            title="Marquer comme débité aujourd'hui"
+                            disabled={isEditing}
+                            onClick={() => marquerDebite(l)}
+                            className="inline-flex items-center gap-1 rounded-[5px] border border-border px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:border-success hover:text-success disabled:pointer-events-none"
+                          >
+                            Non · marquer débité
+                          </button>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
+                        {fmtDate(l.dateDebit) || "—"}
+                      </td>
+                      <td className="px-2 py-2">
+                        <div className="flex gap-0.5">
+                          <button
+                            aria-label="Modifier"
+                            disabled={isEditing}
+                            onClick={() => startEdit(l)}
+                            className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            aria-label="Supprimer"
+                            disabled={isEditing}
+                            onClick={() => setToDelete(l)}
+                            className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ),
+                )}
+                {editingId === "new" && (
+                  <EditableRow
+                    draft={draft}
+                    banques={banques}
+                    saving={saving}
+                    onChange={changeDraft}
+                    onSave={saveDraft}
+                    onCancel={cancelEdit}
+                  />
+                )}
               </tbody>
             </table>
           </div>
@@ -340,17 +558,6 @@ export function SoucheChequesSocietePage() {
       )}
 
       <SoucheChequeImportDialog open={importOpen} onOpenChange={setImportOpen} societeId={societeId} />
-
-      <SoucheChequeFormSheet
-        open={formOpen}
-        onOpenChange={(o) => {
-          setFormOpen(o);
-          if (!o) setEditing(null);
-        }}
-        ligne={editing}
-        banques={banques}
-        onSubmit={handleSubmit}
-      />
 
       <ConfirmDialog
         open={Boolean(toDelete)}

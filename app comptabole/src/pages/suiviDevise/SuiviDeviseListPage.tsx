@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, CircleDollarSign, Plus, Trash2 } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { EmptyState } from "@/components/common/EmptyState";
+import { CircleDollarSign, Trash2 } from "lucide-react";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
+import {
+  LedgerWorkSurface,
+  OperationalContentHeader,
+  OperationalLedgerToolbar,
+  OperationalMobileUtility,
+} from "@/components/ledger/OperationalLedgerLayout";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +27,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { fmt } from "@/lib/etatsFinanciers/postes";
 import { useSocieteById } from "@/store/data";
 import { useSuiviDevise } from "@/store/suiviDevise";
@@ -48,6 +61,7 @@ export function SuiviDeviseListPage() {
   const [devise, setDevise] = useState("EUR");
   const [soldeOuverture, setSoldeOuverture] = useState("0");
   const [toDelete, setToDelete] = useState<SuiviDeviseResume | null>(null);
+  const [recherche, setRecherche] = useState("");
 
   useEffect(() => {
     fetchList(societeId);
@@ -74,78 +88,119 @@ export function SuiviDeviseListPage() {
     }
   }
 
+  const avecSolde = list.filter((f) => f.solde > 0.01).length;
+  const q = recherche.trim().toLowerCase();
+  const visibles = !q
+    ? list
+    : list.filter((f) => [f.client, f.exercice, f.devise].some((v) => (v || "").toLowerCase().includes(q)));
+
+  const searchControl = (
+    <Input
+      value={recherche}
+      onChange={(e) => setRecherche(e.target.value)}
+      placeholder="Rechercher un client, un exercice ou une devise…"
+      className="h-9"
+    />
+  );
+
   return (
     <div className="flex flex-1 flex-col">
-      <LedgerPageHeader
-        breadcrumb={
-          <button
-            onClick={() => navigate("/suivi-devise")}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Toutes les sociétés
-          </button>
-        }
-        title={`Suivi client devise — ${societe?.raisonSociale ?? "Société"}`}
+      <SignatureLedgerBanner
+        className="mb-0 sm:mb-2"
+        eyebrow="Comptabilité · Financial Ledger"
+        title={societe?.raisonSociale ?? "Société"}
         description="Une fiche par client, exercice et devise — un même client en EUR et en USD sur la même année, c'est deux fiches."
-        actions={
-          <Button variant="ledger" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Nouvelle fiche
-          </Button>
-        }
+        metrics={[
+          { label: "Fiches", value: list.length, loading },
+          { label: "Avec solde dû", value: avecSolde, tone: avecSolde > 0 ? "warning" : "default", loading },
+        ]}
+        action={{ label: "Nouvelle fiche", onClick: () => setCreateOpen(true) }}
       />
 
-      {list.length === 0 ? (
-        <LedgerSheet className="mt-4 flex-1">
-          <EmptyState
-            icon={CircleDollarSign}
-            title={loading ? "Chargement…" : "Aucune fiche"}
-            description="Créez une fiche pour suivre les ventes export d'un client."
-            action={
-              <Button variant="ledger" size="sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="h-4 w-4" />
-                Nouvelle fiche
-              </Button>
-            }
-          />
-        </LedgerSheet>
-      ) : (
-        <LedgerSheet className="mt-4 flex-1">
-          {list.map((f, i) => (
-            <div
-              key={f.id}
-              className={
-                "flex items-center justify-between gap-3 border-border px-[18px] py-3 " +
-                (i === list.length - 1 ? "" : "border-b")
-              }
-            >
-              <button
-                onClick={() => navigate(`/suivi-devise/${societeId}/${f.id}`)}
-                className="min-w-0 flex-1 text-left"
-              >
-                <p className="text-sm font-semibold text-foreground">
-                  {f.client}
-                  {f.exercice && <span className="text-muted-foreground"> — {f.exercice}</span>}
+      <LedgerWorkSurface className="mt-3">
+        <OperationalLedgerToolbar label="Recherche du suivi client devise" search={searchControl} />
+        <OperationalMobileUtility label="Recherche du suivi client devise">{searchControl}</OperationalMobileUtility>
+        <OperationalContentHeader>
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h2 className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">Registre des fiches</h2>
+            <p className="hidden truncate text-[11px] text-muted-foreground md:block">Client, exercice et devise</p>
+          </div>
+          {!loading && (
+            <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+              {visibles.length} fiche{visibles.length === 1 ? "" : "s"} visible{visibles.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </OperationalContentHeader>
+
+        {visibles.length === 0 ? (
+          <div className="border-b border-border/80 px-4 py-5">
+            <div className="flex items-start gap-3 text-sm">
+              <CircleDollarSign className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <div>
+                <p className="font-medium text-foreground">{loading ? "Chargement…" : list.length === 0 ? "Aucune fiche" : "Aucun résultat"}</p>
+                <p className="text-muted-foreground">
+                  {list.length > 0
+                    ? "Aucune fiche ne correspond à ce filtre."
+                    : "Créez une fiche pour suivre les ventes export d'un client."}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Total ventes {fmt(f.totalVentes)} {f.devise} · Solde{" "}
-                  <span className={f.solde > 0.01 ? "font-semibold text-warning" : ""}>
-                    {fmt(f.solde)} {f.devise}
-                  </span>
-                </p>
-              </button>
-              <button
-                onClick={() => setToDelete(f)}
-                className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                title="Supprimer"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              </div>
             </div>
-          ))}
-        </LedgerSheet>
-      )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Client</TableHead>
+                  <TableHead>Devise</TableHead>
+                  <TableHead className="text-right">Total ventes</TableHead>
+                  <TableHead className="text-right">Solde</TableHead>
+                  <TableHead className="w-[1%]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibles.map((f) => (
+                  <TableRow
+                    key={f.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/suivi-devise/${societeId}/${f.id}`)}
+                  >
+                    <TableCell>
+                      <span className="block font-semibold text-foreground">{f.client}</span>
+                      {f.exercice && <span className="block text-xs text-muted-foreground">{f.exercice}</span>}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{f.devise}</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
+                      {fmt(f.totalVentes)} {f.devise}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "whitespace-nowrap text-right font-semibold tabular-nums",
+                        f.solde > 0.01 && "text-warning",
+                      )}
+                    >
+                      {fmt(f.solde)} {f.devise}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setToDelete(f);
+                        }}
+                        className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        title="Supprimer"
+                        aria-label={`Supprimer la fiche ${f.client}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </LedgerWorkSurface>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-sm">

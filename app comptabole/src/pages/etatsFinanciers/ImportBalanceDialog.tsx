@@ -27,7 +27,7 @@ interface Props {
 }
 
 const fmt = (n: number) =>
-  n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }: Props) {
   const grilleComptes = useBalances((s) => s.grilleComptes);

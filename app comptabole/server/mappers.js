@@ -510,9 +510,19 @@ const honoraireLigneDto = (r) => ({
   honoraire: num(r.honoraire),
   reglement: num(r.reglement),
   note: r.note ?? "",
+  pieceNom: r.piece_nom ?? "",
+  pieceFormat: r.piece_format ?? "",
+  pieceTaille: r.piece_taille ?? "",
+  // Le contenu n'est jamais dans le DTO : seulement sa présence (voir
+  // HONORAIRE_COLONNES_LEGERES et GET /honoraires/:id/piece).
+  aPiece: r.a_piece ?? Boolean(r.piece_data_url),
   creeLe: isoOrNull(r.cree_le),
   majLe: isoOrNull(r.maj_le),
 });
+
+/** Colonnes d'une ligne d'état client SANS le contenu de sa pièce jointe. */
+export const HONORAIRE_COLONNES_LEGERES =
+  "id, societe_id, ordre, type, nature, periode, libelle, cnss, num_quittance, montant_declaration, honoraire, reglement, note, piece_nom, piece_format, piece_taille, (piece_data_url is not null) as a_piece, cree_le, maj_le";
 
 /** Ajoute le total de ligne et le solde cumulé (état client) — jamais
  * stocké, recalculé à chaque lecture dans l'ordre `ordre` : un solde figé
@@ -543,7 +553,7 @@ export const suiviDeviseDto = (r) => ({
   majLe: isoOrNull(r.maj_le),
 });
 
-const round2 = (n) => Math.round(n * 100) / 100;
+const round2 = (n) => Math.round(n * 1000) / 1000; // millime (3 décimales)
 
 const suiviDeviseLotDto = (r) => ({
   id: r.id,
@@ -681,3 +691,21 @@ export function suiviDeviseFullDto(suiviRow, lotRows, factureRows, mouvementRows
     solde,
   };
 }
+
+// ── État de souche de chèques ─────────────────────
+export const soucheChequeDto = (r) => ({
+  id: r.id,
+  societeId: r.societe_id,
+  ordre: r.ordre ?? 0,
+  banque: r.banque ?? "",
+  numCheque: r.n_cheque ?? "",
+  dateEmission: r.date_emission ? dateStr(r.date_emission) : null,
+  beneficiaire: r.beneficiaire ?? "",
+  motif: r.motif ?? "",
+  montant: num(r.montant),
+  devise: r.devise || "TND",
+  debite: Boolean(r.debite),
+  dateDebit: r.date_debit ? dateStr(r.date_debit) : null,
+  creeLe: isoOrNull(r.cree_le),
+  majLe: isoOrNull(r.maj_le),
+});

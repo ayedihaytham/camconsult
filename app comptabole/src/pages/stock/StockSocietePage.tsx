@@ -26,7 +26,7 @@ import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
 import { DocPreviewDialog } from "./DocPreviewDialog";
 
 const fmt = (n: number) =>
-  n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const fmtQ = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 3 });
 

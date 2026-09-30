@@ -46,6 +46,7 @@ describe("sidebar navigation policy", () => {
       "/grille-affectat",
       "/bordereaux",
       "/honoraires",
+      "/souche-cheques",
       "/suivi-devise",
       "/structuration",
       "/messagerie",
@@ -118,6 +119,25 @@ describe("sidebar navigation policy", () => {
       "/structuration",
       "/messagerie",
     ]);
+  });
+});
+
+describe("État client pour le responsable de société", () => {
+  it("le responsable de société voit État client (lecture seule), pas son délégué", () => {
+    const base = { isAdmin: false, lectureSeule: true, can: allowAll };
+    expect(
+      destinations(visibleNavigation({ ...base, isResponsableSociete: true })),
+    ).toEqual([
+      "/",
+      "/taches",
+      "/collectes",
+      "/honoraires",
+      "/structuration",
+      "/messagerie",
+    ]);
+    expect(
+      destinations(visibleNavigation({ ...base, isResponsableSociete: false })),
+    ).not.toContain("/honoraires");
   });
 });
 

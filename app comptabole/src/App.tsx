@@ -9,6 +9,7 @@ import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { RequireEquipeManager } from "@/components/auth/RequireEquipeManager";
 import { RequireEquipe } from "@/components/auth/RequireEquipe";
+import { RequireEtatClient } from "@/components/auth/RequireEtatClient";
 import { useAuth } from "@/store/auth";
 import { useData } from "@/store/data";
 import { registerQuotaHandler } from "@/lib/safeStorage";
@@ -66,6 +67,16 @@ const HonorairesListPage = lazy(() =>
 const HonorairesSocietePage = lazy(() =>
   import("@/pages/honoraires/HonorairesSocietePage").then((m) => ({
     default: m.HonorairesSocietePage,
+  })),
+);
+const SoucheChequesListPage = lazy(() =>
+  import("@/pages/soucheCheques/SoucheChequesListPage").then((m) => ({
+    default: m.SoucheChequesListPage,
+  })),
+);
+const SoucheChequesSocietePage = lazy(() =>
+  import("@/pages/soucheCheques/SoucheChequesSocietePage").then((m) => ({
+    default: m.SoucheChequesSocietePage,
   })),
 );
 const EtatsFinanciersPage = lazy(() =>
@@ -366,7 +377,7 @@ export default function App() {
                   </Suspense>
                 }
               />
-              <Route element={<RequireAdmin />}>
+              <Route element={<RequireEtatClient />}>
                 <Route
                   path="/honoraires"
                   element={
@@ -380,6 +391,24 @@ export default function App() {
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <HonorairesSocietePage />
+                    </Suspense>
+                  }
+                />
+              </Route>
+              <Route element={<RequireAdmin />}>
+                <Route
+                  path="/souche-cheques"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SoucheChequesListPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/souche-cheques/:societeId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SoucheChequesSocietePage />
                     </Suspense>
                   }
                 />

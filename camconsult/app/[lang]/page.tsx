@@ -44,13 +44,12 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
       <CamconsultHeader lang={lang} theme="navy" />
       <main>
         <section id="accueil" className="relative overflow-hidden bg-navy px-6 pb-20 pt-20 text-white sm:px-10 lg:px-16 lg:pb-28 lg:pt-28">
-          <div className="pointer-events-none absolute -right-24 -top-28 size-[30rem] rounded-full border border-gold/20 [background:radial-gradient(circle_at_center,rgba(201,169,106,.14),transparent_65%)]" />
           <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.1fr_.9fr]">
             <div className="animate-fade-up">
               <p className="eyebrow">{home.heroEyebrow}</p>
               <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[.98] sm:text-7xl lg:text-8xl">{home.heroTitle}</h1>
               <p className="mt-8 max-w-xl text-base leading-7 text-white/65 sm:text-lg">{home.heroText}</p>
-              <div className="mt-10 flex flex-wrap gap-3"><a href={p('/contact')} className="group inline-flex items-center gap-3 rounded-sm bg-gold px-6 py-4 text-xs font-bold uppercase tracking-wider text-navy transition-transform duration-300 hover:-translate-y-0.5">{home.ctaPrimary} <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" /></a><a href={p('/services')} className="inline-flex items-center gap-3 rounded-sm border border-white/25 px-6 py-4 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-300 hover:border-gold hover:text-gold">{home.ctaSecondary}</a></div>
+              <div className="mt-10 flex flex-wrap gap-3"><a href={p('/contact')} className="group inline-flex items-center gap-3 rounded-sm border border-gold bg-transparent px-6 py-4 text-xs font-bold uppercase tracking-wider text-gold transition-all duration-300 hover:-translate-y-0.5 hover:bg-gold hover:text-navy">{home.ctaPrimary} <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" /></a><a href={p('/services')} className="inline-flex items-center gap-3 rounded-sm border border-white/25 px-6 py-4 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-300 hover:border-gold hover:text-gold">{home.ctaSecondary}</a></div>
             </div>
             <div className="relative min-h-[21rem] border-l border-gold/40 pl-8 lg:mb-4"><div className="absolute -left-3 top-8 grid size-6 place-items-center rounded-full bg-gold text-navy"><Sparkles className="size-3" /></div><p className="max-w-sm font-serif text-3xl leading-tight">{home.sideQuote}</p><div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-2">{home.stats.map((stat) => <Stat key={stat.label} value={stat.value} label={stat.label} />)}</div></div>
           </div>

@@ -23,7 +23,7 @@ export interface TabColumn {
   /** Export Excel : formule de la cellule à la ligne `r` (col(k) = lettre de
    * la colonne k), pour qu'une colonne calculée le reste dans Excel. */
   excelFormula?: (r: number, col: (key: string) => string) => string;
-  /** Export Excel : format numérique (défaut « #,##0.00 » pour un montant). */
+  /** Export Excel : format numérique (défaut « #,##0.000 » pour un montant). */
   excelNumFmt?: string;
 }
 
@@ -52,7 +52,7 @@ export function cellNumber(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
+const round2 = (n: number) => Math.round(n * 1000) / 1000;
 
 /** HT + TVA % → TTC, sur chaque ligne. */
 const deriveTtc = (rows: TabRow[]): TabRow[] =>

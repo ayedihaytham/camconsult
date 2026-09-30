@@ -169,8 +169,8 @@ export function BalanceLigneFormSheet({ open, onOpenChange, ligne, onSubmit }: P
               <span className="text-muted-foreground">Solde (débit − crédit)</span>
               <span className="font-bold tabular-nums text-foreground">
                 {(Number(debit || 0) - Number(credit || 0)).toLocaleString("fr-FR", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
                 })}
               </span>
             </div>

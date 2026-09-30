@@ -21,6 +21,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { AmountInput } from "@/components/common/AmountInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -566,10 +567,9 @@ export function StockMouvementFormSheet({
                     />
                   </Field>
                   <Field label="Cours (taux de change)">
-                    <Input
-                      type="number"
+                    <AmountInput
                       value={v.achatCours}
-                      onChange={(e) => set("achatCours", Number(e.target.value) || 0)}
+                      onValueChange={(n) => set("achatCours", n)}
                     />
                   </Field>
                 </div>
@@ -626,10 +626,9 @@ export function StockMouvementFormSheet({
                     />
                   </Field>
                   <Field label="Cours (taux de change)">
-                    <Input
-                      type="number"
+                    <AmountInput
                       value={v.venteCours}
-                      onChange={(e) => set("venteCours", Number(e.target.value) || 0)}
+                      onValueChange={(n) => set("venteCours", n)}
                     />
                   </Field>
                 </div>
@@ -790,32 +789,28 @@ function LignesEditor({
               </div>
               <div className="grid grid-cols-4 gap-2">
                 <Field label="Qté">
-                  <Input
-                    type="number"
-                    value={l.quantite}
-                    onChange={(e) => update(i, { quantite: Number(e.target.value) || 0 })}
-                  />
+                  <AmountInput
+                      value={l.quantite}
+                      onValueChange={(n) => update(i, { quantite: n })}
+                    />
                 </Field>
                 <Field label="Prix unit.">
-                  <Input
-                    type="number"
-                    value={l.prixUnitaire}
-                    onChange={(e) => update(i, { prixUnitaire: Number(e.target.value) || 0 })}
-                  />
+                  <AmountInput
+                      value={l.prixUnitaire}
+                      onValueChange={(n) => update(i, { prixUnitaire: n })}
+                    />
                 </Field>
                 <Field label="Mt devise">
-                  <Input
-                    type="number"
-                    value={l.montantDevise}
-                    onChange={(e) => update(i, { montantDevise: Number(e.target.value) || 0 })}
-                  />
+                  <AmountInput
+                      value={l.montantDevise}
+                      onValueChange={(n) => update(i, { montantDevise: n })}
+                    />
                 </Field>
                 <Field label="Mt TND">
-                  <Input
-                    type="number"
-                    value={l.montantTnd}
-                    onChange={(e) => update(i, { montantTnd: Number(e.target.value) || 0 })}
-                  />
+                  <AmountInput
+                      value={l.montantTnd}
+                      onValueChange={(n) => update(i, { montantTnd: n })}
+                    />
                 </Field>
               </div>
             </div>

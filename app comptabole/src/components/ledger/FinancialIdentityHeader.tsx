@@ -9,10 +9,15 @@ interface FinancialIdentityHeaderProps {
   details?: { label: string; value: ReactNode }[];
   actions?: ReactNode;
   variant?: "default" | "dossier";
+  /** Étiquette courte affichée dans le badge navy de la variante « dossier »
+   * (ex. « Dossier financier », « Dossier devise », « Dossier client »).
+   * Par défaut le texte de `eyebrow`. */
+  badge?: string;
   className?: string;
 }
 
-/** Compact navy identity surface shared by the financial register and dossier. */
+/** Compact navy identity surface shared by financial-style register/dossier
+ * pages — États financiers, Suivi client devise, État client. */
 export function FinancialIdentityHeader({
   eyebrow,
   title,
@@ -21,6 +26,7 @@ export function FinancialIdentityHeader({
   details = [],
   actions,
   variant = "default",
+  badge,
   className,
 }: FinancialIdentityHeaderProps) {
   if (variant === "dossier") {
@@ -32,7 +38,7 @@ export function FinancialIdentityHeader({
               aria-hidden="true"
               className="grid min-h-5 w-fit shrink-0 place-items-center border border-primary-foreground/20 px-1.5 text-center text-[9px] font-semibold uppercase leading-tight tracking-[0.1em] text-accent sm:min-h-[42px] sm:w-[82px] sm:px-1"
             >
-              Dossier financier
+              {badge ?? eyebrow}
             </span>
             <div className="min-w-0">
               <p className="sr-only">{eyebrow}</p>

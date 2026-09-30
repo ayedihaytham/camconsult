@@ -35,7 +35,7 @@ import type {
 
 export type Aoa = (string | number)[][];
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
+const round2 = (n: number) => Math.round(n * 1000) / 1000;
 
 /**
  * Télécharge une seule feuille comme classeur Excel autonome — utilisé pour

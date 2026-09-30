@@ -14,7 +14,7 @@ const frDate = (v: unknown): string => {
 /** « 1 200,50 » — espaces normales (les polices PDF standard n'ont pas l'espace fine insécable). */
 const fmtMontant = (n: number) =>
   n
-    .toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })
     .replace(/[  ]/g, " ");
 
 const isPct = (c: Pick<TabColumn, "label">) => c.label.includes("%");
@@ -100,7 +100,7 @@ export function sectionReport(
     rows.push(
       def.columns.map((c, i) =>
         keys.includes(c.key)
-          ? fmtMontant(Math.round(derived.reduce((s, r) => s + cellNumber(r[c.key]), 0) * 100) / 100)
+          ? fmtMontant(Math.round(derived.reduce((s, r) => s + cellNumber(r[c.key]), 0) * 1000) / 1000)
           : i === 0
             ? def.excelTotalLabel ?? (def.totalLabel ?? "Total").toUpperCase()
             : "",

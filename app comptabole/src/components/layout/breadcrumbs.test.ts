@@ -11,6 +11,14 @@ const data: BreadcrumbData = {
     },
   ],
   balances: [{ id: "balance-73d9a8", exercice: "2026" }],
+  suiviDevise: [
+    {
+      id: "suivi-73d9a8",
+      societeId: "soc-73d9a8",
+      client: "GROUP BYOUT EZZ",
+      exercice: "2026",
+    },
+  ],
 };
 
 describe("getAppBreadcrumbs", () => {
@@ -24,6 +32,9 @@ describe("getAppBreadcrumbs", () => {
     ["/etats-financiers", "États financiers"],
     ["/grille-affectat", "Paramétrage"],
     ["/bordereaux", "Bordereaux bancaires"],
+    ["/honoraires", "État client"],
+    ["/souche-cheques", "Souche de chèques"],
+    ["/suivi-devise", "Suivi client devise"],
     ["/structuration", "Structuration"],
     ["/messagerie", "Messagerie"],
     ["/journal", "Journal"],
@@ -36,6 +47,19 @@ describe("getAppBreadcrumbs", () => {
     expect(getAppBreadcrumbs("/stock/soc-73d9a8", data)).toEqual([
       { label: "Gestion de stock", to: "/stock" },
       { label: "Atlas Conseil SARL" },
+    ]);
+  });
+
+  it("résout une société puis une fiche dans le suivi client devise", () => {
+    expect(getAppBreadcrumbs("/suivi-devise/soc-73d9a8", data)).toEqual([
+      { label: "Suivi client devise", to: "/suivi-devise" },
+      { label: "Atlas Conseil SARL" },
+    ]);
+
+    expect(getAppBreadcrumbs("/suivi-devise/soc-73d9a8/suivi-73d9a8", data)).toEqual([
+      { label: "Suivi client devise", to: "/suivi-devise" },
+      { label: "Atlas Conseil SARL", to: "/suivi-devise/soc-73d9a8" },
+      { label: "GROUP BYOUT EZZ — 2026" },
     ]);
   });
 
@@ -90,12 +114,17 @@ describe("getAppBreadcrumbs", () => {
       societes: [],
       collectes: [],
       balances: [],
+      suiviDevise: [],
     };
     const paths = [
       "/stock/73d9a8-secret",
       "/collectes/73d9a8-secret",
       "/etats-financiers/73d9a8-secret",
       "/etats-financiers/73d9a8-secret/balance-secret",
+      "/honoraires/73d9a8-secret",
+      "/souche-cheques/73d9a8-secret",
+      "/suivi-devise/73d9a8-secret",
+      "/suivi-devise/73d9a8-secret/suivi-secret",
     ];
 
     for (const pathname of paths) {

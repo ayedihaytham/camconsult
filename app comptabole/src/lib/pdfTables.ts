@@ -12,6 +12,10 @@ export interface PdfSheet {
   rows: PdfCell[][];
   /** la 1re ligne est une ligne d'en-têtes */
   headerRow?: boolean;
+  /** Nombre de lignes finales à styler comme totaux (gras, fond gris) même en
+   * mode `plain` — pour les tableaux dont la 1re colonne peut être en
+   * MAJUSCULES sans être un total (ex. noms de banque). */
+  totalRows?: number;
 }
 
 const BLEU: [number, number, number] = [31, 78, 121];
@@ -24,8 +28,8 @@ const fmt = (n: number) =>
   clean(
     // jamais « -0,00 » (zéro négatif issu des calculs de signe)
     (Math.abs(n) < 0.005 ? 0 : n).toLocaleString("fr-FR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
     }),
   );
 
@@ -103,20 +107,20 @@ export async function buildTablesPdf(opts: TablesPdfOpts): Promise<JsPDF> {
     type Kind = "band" | "exercice" | "line" | "total" | "subhead" | "normal";
     const kinds: Kind[] = [];
     const body: unknown[] = [];
-    for (const r of src) {
+    src.forEach((r, i) => {
       const filled = r.filter((v) => v !== "" && v != null);
-      if (filled.length === 0) continue;
+      if (filled.length === 0) return;
       if (opts.plain) {
-        kinds.push("normal");
+        kinds.push(i >= src.length - (sheet.totalRows ?? 0) ? "total" : "normal");
         body.push(pad(r));
-        continue;
+        return;
       }
       const first = String(r[0] ?? "");
       if (filled.length === 1 && r[0] !== "" && r[0] != null) {
         const kind: Kind = /^EXERCICE\b/.test(first) ? "exercice" : isUpper(first) ? "band" : "line";
         kinds.push(kind);
         body.push([{ content: clean(first), colSpan: cols }]);
-        continue;
+        return;
       }
       kinds.push(
         isUpper(first)
@@ -126,7 +130,7 @@ export async function buildTablesPdf(opts: TablesPdfOpts): Promise<JsPDF> {
             : "normal",
       );
       body.push(pad(r));
-    }
+    });
     const numericCol = Array.from({ length: cols }, (_, i) => src.some((r) => typeof r[i] === "number"));
 
     autoTable(doc, {

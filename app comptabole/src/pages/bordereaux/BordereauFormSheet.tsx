@@ -10,6 +10,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { AmountInput } from "@/components/common/AmountInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -222,19 +223,10 @@ export function BordereauFormSheet({
                       />
                     </td>
                     <td className="px-1.5 py-1">
-                      <Input
+                      <AmountInput
                         className="h-8"
-                        type="number"
-                        inputMode="decimal"
-                        value={String(l.montant ?? "")}
-                        onChange={(e) =>
-                          setLigne(i, {
-                            montant:
-                              e.target.value === ""
-                                ? 0
-                                : Number(e.target.value),
-                          })
-                        }
+                        value={l.montant ?? 0}
+                        onValueChange={(n) => setLigne(i, { montant: n })}
                       />
                     </td>
                     <td className="px-1.5 py-1">
@@ -275,8 +267,8 @@ export function BordereauFormSheet({
                   </td>
                   <td className="px-2 py-2">
                     {total.toLocaleString("fr-FR", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
+                      minimumFractionDigits: 3,
+                      maximumFractionDigits: 3,
                     })}
                   </td>
                   <td colSpan={3} />

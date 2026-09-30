@@ -58,6 +58,9 @@ interface SuiviDeviseState {
   removeLot: (lotId: string) => Promise<void>;
 
   addFacture: (suiviId: string, data: FactureInput) => Promise<void>;
+  /** Ajoute plusieurs factures en une fois (import Excel) — vient s'ajouter
+   * aux factures existantes, ne les remplace jamais. */
+  importFactures: (suiviId: string, data: FactureInput[]) => Promise<void>;
   updateFacture: (factureId: string, data: Partial<FactureInput>) => Promise<void>;
   removeFacture: (factureId: string) => Promise<void>;
 
@@ -159,6 +162,16 @@ export const useSuiviDevise = create<SuiviDeviseState>((set) => ({
   addFacture: async (suiviId, data) => {
     try {
       const current = await api.post<SuiviDeviseFull>(`/suivi-devise/${suiviId}/factures`, data);
+      set({ current });
+    } catch (e) {
+      fail(e);
+    }
+  },
+  importFactures: async (suiviId, data) => {
+    try {
+      const current = await api.post<SuiviDeviseFull>(`/suivi-devise/${suiviId}/factures/import`, {
+        factures: data,
+      });
       set({ current });
     } catch (e) {
       fail(e);

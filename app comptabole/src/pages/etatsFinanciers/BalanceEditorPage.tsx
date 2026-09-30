@@ -31,12 +31,12 @@ import { BalanceLigneFormSheet } from "./BalanceLigneFormSheet";
 import { ImportBalanceDialog } from "./ImportBalanceDialog";
 import { exportToXlsx, type ExportColumn } from "@/lib/export";
 import { printTable, type PrintColumn } from "@/lib/print";
-import { FinancialIdentityHeader } from "./FinancialIdentityHeader";
+import { FinancialIdentityHeader } from "@/components/ledger/FinancialIdentityHeader";
 
 const fmt = (n: number) =>
   n.toLocaleString("fr-FR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
   });
 
 export function BalanceEditorPage() {

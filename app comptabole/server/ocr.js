@@ -834,8 +834,8 @@ export function parseFields(text, type, lines = []) {
       // quantité × prix unitaire = montant est presque toujours vrai sur une
       // ligne de facture — si l'un des trois manque, on le déduit plutôt que
       // de remonter un zéro trompeur.
-      if (!mt && q && pu) mt = Math.round(q * pu * 100) / 100;
-      if (!pu && q && mt) pu = Math.round((mt / q) * 100) / 100;
+      if (!mt && q && pu) mt = Math.round(q * pu * 1000) / 1000;
+      if (!pu && q && mt) pu = Math.round((mt / q) * 1000) / 1000;
       return { designation: (r.nom || "").trim(), quantite: q, prixUnitaire: pu, montantDevise: mt };
     })
     .filter((l) => l.designation || l.quantite || l.montantDevise);
@@ -869,7 +869,7 @@ export function parseFields(text, type, lines = []) {
       ]),
     ) || 0;
     if (!montantDevise && quantite && prixUnitaire) {
-      montantDevise = Math.round(quantite * prixUnitaire * 100) / 100;
+      montantDevise = Math.round(quantite * prixUnitaire * 1000) / 1000;
     }
     // Dernier recours : le montant en toutes lettres (« Fifty-two thousand
     // EUROS », « TOTAL AMOUNT: FIFTY-THREE THOUSAND EURO ») — courant sur les
@@ -881,7 +881,7 @@ export function parseFields(text, type, lines = []) {
       if (lettres) montantDevise = wordsToNumber(lettres) || 0;
     }
     if (!prixUnitaire && quantite && montantDevise) {
-      prixUnitaire = Math.round((montantDevise / quantite) * 100) / 100;
+      prixUnitaire = Math.round((montantDevise / quantite) * 1000) / 1000;
     }
     const designation =
       (shapeRow?.nom || "").trim() ||

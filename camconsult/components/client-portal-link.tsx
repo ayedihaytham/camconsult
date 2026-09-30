@@ -24,8 +24,8 @@ export function ClientPortalLink({ href = DEFAULT_CLIENT_PORTAL_URL, lang = 'fr'
       title={clientPortal.tooltip}
       aria-label={`${clientPortal.label} — ${clientPortal.tooltip}`}
       className={cn(
-        'client-portal-link group inline-flex items-center gap-2 rounded-full border border-gold/70 bg-white/[0.06] text-gold shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-sm transition-all duration-300 hover:border-gold hover:bg-gold hover:text-navy hover:shadow-[0_8px_22px_rgba(201,169,106,0.22)]',
-        compact ? 'px-3 py-2 text-[10px] font-semibold tracking-[0.04em]' : 'px-4 py-2.5 text-xs font-semibold tracking-[0.04em]'
+        'client-portal-link group inline-flex items-center gap-2 rounded-lg border border-gold bg-transparent text-gold transition-all duration-300 hover:bg-gold hover:text-navy',
+        compact ? 'px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.12em] xl:px-4 xl:text-[10px] xl:tracking-widest' : 'px-4 py-3 text-xs font-bold uppercase tracking-widest'
       )}
     >
       <LockKeyhole className="client-portal-lock size-3.5 shrink-0 transition-transform duration-300" aria-hidden="true" />

@@ -6,6 +6,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Check, X } from "lucide-react";
+import { DetailRow } from "@/components/ledger/DetailSheetRow";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { formatDate } from "@/lib/utils";
 import { useSocietes, PERMISSION_LABELS } from "@/store/data";
@@ -47,9 +48,13 @@ export function EmployeViewSheet({
             </div>
 
             <dl className="divide-y divide-border rounded-sm border border-border">
-              <Row label="Identifiant" value={employe.identifiant} />
-              <Row label="Email" value={employe.email} />
-              <Row label="Créé le" value={formatDate(employe.creeLe)} />
+              <DetailRow label="Identifiant" value={employe.identifiant} />
+              <DetailRow
+                label="Email"
+                value={employe.email}
+                href={employe.email ? `mailto:${employe.email}` : undefined}
+              />
+              <DetailRow label="Créé le" value={formatDate(employe.creeLe)} />
             </dl>
 
             <div>
@@ -113,14 +118,5 @@ export function EmployeViewSheet({
         )}
       </SheetContent>
     </Sheet>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-4 py-2.5">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-right text-sm font-medium text-foreground">{value}</dd>
-    </div>
   );
 }

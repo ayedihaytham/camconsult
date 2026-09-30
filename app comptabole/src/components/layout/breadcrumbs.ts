@@ -1,5 +1,5 @@
 import { matchPath } from "react-router-dom";
-import type { Balance, Collecte, Societe } from "@/types";
+import type { Balance, Collecte, Societe, SuiviDevise } from "@/types";
 
 export interface AppBreadcrumb {
   label: string;
@@ -10,6 +10,7 @@ export interface BreadcrumbData {
   societes: Pick<Societe, "id" | "raisonSociale">[];
   collectes: Pick<Collecte, "id" | "societeId" | "periode">[];
   balances: Pick<Balance, "id" | "exercice">[];
+  suiviDevise: Pick<SuiviDevise, "id" | "societeId" | "client" | "exercice">[];
 }
 
 const STATIC_ROUTES: Record<string, string> = {
@@ -23,6 +24,8 @@ const STATIC_ROUTES: Record<string, string> = {
   "/grille-affectat": "Paramétrage",
   "/bordereaux": "Bordereaux bancaires",
   "/honoraires": "État client",
+  "/souche-cheques": "Souche de chèques",
+  "/suivi-devise": "Suivi client devise",
   "/structuration": "Structuration",
   "/messagerie": "Messagerie",
   "/journal": "Journal",
@@ -35,7 +38,7 @@ function paramsFor(path: string, pathname: string) {
 
 export function getAppBreadcrumbs(
   pathname: string,
-  { societes, collectes, balances }: BreadcrumbData,
+  { societes, collectes, balances, suiviDevise }: BreadcrumbData,
 ): AppBreadcrumb[] {
   const societeName = (id: string | undefined) =>
     societes.find((societe) => societe.id === id)?.raisonSociale ?? "Société";
@@ -98,6 +101,40 @@ export function getAppBreadcrumbs(
     return [
       { label: "État client", to: "/honoraires" },
       { label: societeName(honorairesParams.societeId) },
+    ];
+  }
+
+  const soucheParams = paramsFor("/souche-cheques/:societeId", pathname);
+  if (soucheParams) {
+    return [
+      { label: "Souche de chèques", to: "/souche-cheques" },
+      { label: societeName(soucheParams.societeId) },
+    ];
+  }
+
+  const suiviFicheParams = paramsFor("/suivi-devise/:societeId/:suiviId", pathname);
+  if (suiviFicheParams) {
+    const fiche = suiviDevise.find((f) => f.id === suiviFicheParams.suiviId);
+    const label = fiche
+      ? fiche.exercice
+        ? `${fiche.client} — ${fiche.exercice}`
+        : fiche.client
+      : "Fiche";
+    return [
+      { label: "Suivi client devise", to: "/suivi-devise" },
+      {
+        label: societeName(suiviFicheParams.societeId),
+        to: `/suivi-devise/${suiviFicheParams.societeId}`,
+      },
+      { label },
+    ];
+  }
+
+  const suiviSocieteParams = paramsFor("/suivi-devise/:societeId", pathname);
+  if (suiviSocieteParams) {
+    return [
+      { label: "Suivi client devise", to: "/suivi-devise" },
+      { label: societeName(suiviSocieteParams.societeId) },
     ];
   }
 

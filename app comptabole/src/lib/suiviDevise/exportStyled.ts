@@ -8,7 +8,7 @@ import type { SuiviDeviseFull } from "@/types";
 
 const BLEU = "FF1F4E79";
 const GRIS_BORD = "FFBFBFBF";
-const MONTANT = "#,##0.00";
+const MONTANT = "#,##0.000";
 
 const fill = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
 const border = {
@@ -59,7 +59,7 @@ function ligneTotal(ws: Worksheet, row: number, labelCol: number, label: string,
   lab.font = { bold: true };
   for (const { col, formule, valeur } of montants) {
     const c = r.getCell(col);
-    c.value = { formula: formule, result: Math.round(valeur * 100) / 100 };
+    c.value = { formula: formule, result: Math.round(valeur * 1000) / 1000 };
     c.numFmt = MONTANT;
     c.font = { bold: true };
   }

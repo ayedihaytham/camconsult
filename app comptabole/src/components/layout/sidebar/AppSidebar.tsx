@@ -18,8 +18,14 @@ import {
 } from "./navigation";
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
-  const { isAdmin, can, employeId, lectureSeule, canManageCollaborateurs } =
-    usePermissions();
+  const {
+    isAdmin,
+    can,
+    employeId,
+    lectureSeule,
+    canManageCollaborateurs,
+    isResponsableSociete,
+  } = usePermissions();
   const { pathname } = useLocation();
   const markNotificationsRead = useData((s) => s.markNotificationsRead);
   const conversations = useConversations(
@@ -33,6 +39,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
     lectureSeule,
     can,
     canManageCollaborateurs,
+    isResponsableSociete,
   });
   const unreadMessages = unreadMessageCount(
     conversations,

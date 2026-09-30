@@ -95,7 +95,7 @@ export function SuiviDeviseListPage() {
     : list.filter((f) => [f.client, f.exercice, f.devise].some((v) => (v || "").toLowerCase().includes(q)));
 
   const searchControl = (
-    <Input
+    <Input data-tour="devise-search"
       value={recherche}
       onChange={(e) => setRecherche(e.target.value)}
       placeholder="Rechercher un client, un exercice ou une devise…"
@@ -148,7 +148,7 @@ export function SuiviDeviseListPage() {
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div data-tour="devise-register" className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">

@@ -64,6 +64,12 @@ owned by the Sidebar provider, with the intentional 1024 px breakpoint in
 `src/hooks/use-mobile.tsx`. Navigation declarations and visibility filters live
 under `src/components/layout/sidebar/`.
 
+The shell also mounts one `src/components/tour/TourProvider.tsx`. Its shared
+registry maps authenticated routes to short walkthroughs. Pages and shared
+components expose stable `data-tour` targets; the provider owns spotlight
+positioning, navigation, focus, and versioned per-account completion in local
+storage. Tour state is not sent to the backend.
+
 ## Main frontend data flow
 
 ```text

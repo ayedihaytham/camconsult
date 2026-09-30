@@ -16,6 +16,7 @@ export function OperationalFab({ label, onClick, className }: OperationalFabProp
       variant="default"
       size="icon"
       aria-label={label}
+      data-tour="page-primary-action"
       onClick={onClick}
       className={cn("operational-fab lg:hidden", className)}
     >

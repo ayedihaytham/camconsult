@@ -118,6 +118,20 @@ The archetypes share a visual grammar, not a fixed metric count or page layout.
 Do not derive société statuses, collaborator permissions or collecte workflow
 inside a shared presentation component.
 
+### Visite guidée
+
+Major authenticated workspaces offer **Aide → Visite guidée**. A one-time,
+nonblocking invitation may appear on first visit; dismissal or completion is
+stored per account, tour and version. Aide always allows replay. **Comprendre
+cette page** remains persistent reference help where available; coachmarks
+stay short and explain tasks without performing them.
+
+The shared engine handles spotlight, keyboard and Escape behavior, focus return,
+reduced motion, and missing or hidden targets. Use simple French, stable
+`data-tour` anchors, and separate desktop/mobile targets where layouts differ.
+Permission-gated controls are only toured when present. Sensitive actions are
+explained but never executed by a tour.
+
 ### Signature Ledger implementation
 
 - Reuse `app comptabole/src/components/ledger/SignatureLedgerBanner.tsx` for

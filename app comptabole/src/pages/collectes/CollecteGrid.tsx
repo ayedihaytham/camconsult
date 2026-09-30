@@ -366,6 +366,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               </span>
             )}
             <Button
+              data-tour="collecte-save"
               variant="ledger"
               size="sm"
               onClick={() => { void save().catch(() => {}); }}

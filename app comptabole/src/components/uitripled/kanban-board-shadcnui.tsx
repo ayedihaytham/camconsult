@@ -388,7 +388,7 @@ export function TasksKanban({
 
         {filteredTasks.length === 0 ? (
           <>
-            <div className="hidden min-w-0 lg:block">{kanbanBoard}</div>
+            <div data-tour="tasks-board" className="hidden min-w-0 lg:block">{kanbanBoard}</div>
             <OperationalMobileHeader>
               <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
                 File de travail
@@ -401,8 +401,8 @@ export function TasksKanban({
           </>
         ) : (
           <>
-            <div className="hidden min-w-0 lg:block">{kanbanBoard}</div>
-            <div className="lg:hidden">
+            <div data-tour="tasks-board" className="hidden min-w-0 lg:block">{kanbanBoard}</div>
+            <div data-tour="tasks-board" className="lg:hidden">
               <TaskTableView
                 table={taskTable}
                 emptyMessage={emptyMessage}

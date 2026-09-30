@@ -56,6 +56,7 @@ export function OperationalLedgerToolbar({
   return (
     <div
       role="toolbar"
+      data-tour="page-search-desktop"
       aria-label={label}
       className="operational-ledger-toolbar hidden min-w-0 items-center gap-3 border-b border-border/80 bg-transparent px-3 py-2 lg:flex"
     >
@@ -86,6 +87,7 @@ export function OperationalContentHeader({
 }: OperationalContentHeaderProps) {
   return (
     <div
+      data-tour="page-content-header"
       className={cn(
         "operational-ledger-content-header relative flex min-w-0 items-center justify-between gap-3 border-b border-border/80 bg-transparent pl-4 pr-3 py-1 sm:pr-4 lg:min-h-10 lg:pr-3",
         className,
@@ -111,6 +113,7 @@ export function OperationalMobileUtility({
   return (
     <div
       role="toolbar"
+      data-tour="page-search-mobile"
       aria-label={label}
       className={cn(
         "operational-mobile-utility min-w-0 border-b border-border/80 bg-transparent px-3 py-2 lg:hidden",
@@ -157,7 +160,7 @@ export function OperationalLedgerFooter<TData>({
   className,
 }: OperationalLedgerFooterProps<TData>) {
   return (
-    <div className={cn("operational-ledger-footer", className)}>
+    <div data-tour="page-pagination-desktop" className={cn("operational-ledger-footer", className)}>
       <DataTablePagination table={table} itemLabel={itemLabel} variant="count" />
       {table.getPageCount() > 1 && (
         <DataTablePagination table={table} itemLabel={itemLabel} variant="controls" />
@@ -182,6 +185,7 @@ export function OperationalMobilePagination<TData>({
 }: OperationalMobilePaginationProps<TData>) {
   return (
     <div
+      data-tour="page-pagination-mobile"
       className={cn(
         "operational-mobile-pagination min-w-0 bg-transparent px-3 lg:hidden",
         className,

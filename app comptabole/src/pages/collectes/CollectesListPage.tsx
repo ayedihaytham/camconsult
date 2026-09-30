@@ -257,7 +257,7 @@ export function CollectesListPage() {
       />
 
       <LedgerWorkSurface className="collectes-work-surface">
-        <div className="collectes-lenses">{lensControl}</div>
+        <div data-tour="collecte-lenses" className="collectes-lenses">{lensControl}</div>
         <OperationalLedgerToolbar
           label="Outils des collectes"
           search={search}

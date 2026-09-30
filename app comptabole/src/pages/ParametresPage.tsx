@@ -151,7 +151,7 @@ export function ParametresPage() {
 
       <div className="mt-3 grid gap-4 lg:grid-cols-2">
         {/* Compte & sécurité */}
-        <LedgerSheet>
+        <LedgerSheet data-tour="parametres-account">
           <SheetHead
             icon={KeyRound}
             title="Compte & sécurité"
@@ -239,7 +239,7 @@ export function ParametresPage() {
         </LedgerSheet>
 
         {/* Données */}
-        <LedgerSheet>
+        <LedgerSheet data-tour="parametres-data">
           <SheetHead
             icon={Database}
             title="Données"

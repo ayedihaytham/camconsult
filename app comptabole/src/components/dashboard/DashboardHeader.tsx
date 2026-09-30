@@ -28,7 +28,7 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
       ];
 
   return (
-    <header className="overflow-hidden rounded-lg bg-primary text-primary-foreground">
+    <header data-tour="dashboard-summary" className="overflow-hidden rounded-lg bg-primary text-primary-foreground">
       <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
         <div className="min-w-0">
           <h1 className="font-serif text-2xl font-semibold tracking-tight sm:text-[1.7rem]">{salutation}</h1>

@@ -242,7 +242,7 @@ export function JournalPage() {
         description="Historique des actions sensibles (créations, modifications, suppressions, connexions)."
       />
 
-      <DataTableToolbar
+      <DataTableToolbar data-tour="journal-filters"
         table={table}
         ariaLabel="Outils du journal"
         showViewOptions
@@ -282,6 +282,7 @@ export function JournalPage() {
         primaryAction={
           entries.length > 0 ? (
             <Button
+              data-tour="journal-actions"
               variant="ledger-text"
               className="text-destructive hover:text-destructive"
               onClick={() => setClearOpen(true)}
@@ -314,7 +315,7 @@ export function JournalPage() {
         </Button>
       </DataTableToolbar>
 
-      <DataTable
+      <DataTable data-tour="journal-register"
         table={table}
         isLoading={loading}
         emptyMessage={emptyMessage}

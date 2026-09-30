@@ -38,8 +38,8 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
   }
 
   return (
-    <Tabs value={value} onValueChange={changeTab} className="min-w-0">
-      <div className="max-w-full overflow-x-auto">
+    <Tabs data-tour="dashboard-work" value={value} onValueChange={changeTab} className="min-w-0">
+      <div data-tour="dashboard-tabs" className="max-w-full overflow-x-auto">
         <TabsList className="h-auto w-max min-w-full justify-start gap-6 rounded-none border-b border-border bg-transparent p-0 sm:min-w-0" aria-label="Sections du tableau de bord">
           <TabsTrigger value="overview" className={DASHBOARD_TAB_TRIGGER_CLASS}>Vue d'ensemble</TabsTrigger>
           {isClient ? (

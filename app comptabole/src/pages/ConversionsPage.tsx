@@ -132,7 +132,7 @@ export function ConversionsPage() {
           </p>
         </div>
         <div className="p-[18px]">
-          <label className="flex flex-col items-center gap-3 rounded-sm border border-dashed border-input px-4 py-10 text-center transition-colors hover:border-accent/50 hover:bg-secondary/40">
+          <label data-tour="conversions-upload" className="flex flex-col items-center gap-3 rounded-sm border border-dashed border-input px-4 py-10 text-center transition-colors hover:border-accent/50 hover:bg-secondary/40">
             <Upload className="h-6 w-6 text-muted-foreground" />
             <p className="text-sm text-foreground">
               {converting ? (
@@ -201,7 +201,7 @@ export function ConversionsPage() {
       </LedgerSheet>
 
       {active && activeSheetData && (
-        <LedgerSheet className="mt-4">
+        <LedgerSheet data-tour="conversions-results" className="mt-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-[18px] py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{active.name}</p>

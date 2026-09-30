@@ -212,7 +212,7 @@ export function Messenger({
 
   return (
     <section className="relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm md:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
-      <aside
+      <aside data-tour="messages-list"
         className={cn(
           "min-h-0 flex-col border-border bg-card md:flex md:border-r",
           mobileView === "chat" ? "hidden" : "flex",
@@ -399,7 +399,7 @@ export function Messenger({
               )}
             </header>
 
-            <div
+            <div data-tour="messages-thread"
               ref={messagesContainerRef}
               className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5"
               aria-label={`Messages avec ${activeConversation.name}`}
@@ -550,7 +550,7 @@ export function Messenger({
               )}
             </div>
 
-            <form
+            <form data-tour="messages-composer"
               onSubmit={handleSubmit}
               className="border-t border-border bg-card p-3 pr-16 sm:p-4 sm:pr-16"
               aria-label="Écrire un message"

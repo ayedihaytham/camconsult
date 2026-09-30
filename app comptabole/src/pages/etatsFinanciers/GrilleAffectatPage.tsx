@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import {
@@ -51,6 +51,7 @@ import {
 } from "@/components/ledger/OperationalLedgerLayout";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { GrilleAffectatPosteCombobox } from "./GrilleAffectatPosteCombobox";
+import { usePageTour } from "@/components/tour/TourProvider";
 import { useBalances } from "@/store/balances";
 import { POSTE_OPTIONS } from "@/lib/etatsFinanciers/postes";
 import type { GrilleAffectatCode } from "@/types";
@@ -73,6 +74,9 @@ function posteLabel(poste: string) {
 }
 
 export function GrilleAffectatPage() {
+  const { start: startTour } = usePageTour();
+  const helpTriggerRef = useRef<HTMLButtonElement>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const codes = useBalances((s) => s.grilleCodes);
   const comptes = useBalances((s) => s.grilleComptes);
   const loading = useBalances((s) => s.grilleLoading);
@@ -281,6 +285,7 @@ export function GrilleAffectatPage() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
+            data-tour="affectat-actions"
             variant="ghost"
             size="icon-sm"
             disabled={saveStatus[code.code]?.state === "saving"}
@@ -378,7 +383,7 @@ export function GrilleAffectatPage() {
           aria-label="Recherche et filtres des codes AFFECTAT"
           className="flex min-w-0 items-center gap-2 border-b border-border/80 px-3 py-1.5"
         >
-          <div className="min-w-0 flex-1">
+          <div data-tour="affectat-search" className="min-w-0 flex-1">
             <LedgerSearchFilter
               value={search}
               onValueChange={(value) => {
@@ -403,9 +408,10 @@ export function GrilleAffectatPage() {
               {filters}
             </LedgerSearchFilter>
           </div>
-          <Popover>
+          <Popover open={helpOpen} onOpenChange={setHelpOpen}>
             <PopoverTrigger asChild>
               <Button
+                ref={helpTriggerRef}
                 type="button"
                 variant="ghost"
                 size="sm"
@@ -421,6 +427,16 @@ export function GrilleAffectatPage() {
               sideOffset={6}
               className="max-h-[75dvh] w-[min(25rem,calc(100vw-1.5rem))] overflow-y-auto p-3.5"
             >
+              <button
+                type="button"
+                className="mb-3 flex min-h-11 w-full items-center rounded border border-border px-3 text-left text-sm font-medium text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => {
+                  setHelpOpen(false);
+                  requestAnimationFrame(() => startTour(helpTriggerRef.current));
+                }}
+              >
+                Visite guidée
+              </button>
               <h2 className="mb-2 text-sm font-semibold text-foreground">
                 Comprendre la grille
               </h2>
@@ -462,7 +478,7 @@ export function GrilleAffectatPage() {
         </div>
         <OperationalContentHeader className="items-start sm:items-center">
           <div className="flex min-w-0 flex-1 flex-col items-stretch gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
-            <h2 className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">
+            <h2 data-tour="affectat-register" className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">
               Registre des codes AFFECTAT
             </h2>
             <div className="flex min-w-0 items-baseline justify-between gap-2 sm:contents">
@@ -551,7 +567,7 @@ export function GrilleAffectatPage() {
           </div>
         ) : (
           <div className="min-w-0">
-            <div className="hidden border-y border-border/80 lg:block">
+            <div data-tour="affectat-rows-desktop" className="hidden border-y border-border/80 lg:block">
               <Table className="table-fixed ledger-table-density">
                 <TableHeader className="[&_tr]:bg-transparent [&_tr]:hover:bg-transparent [&_th]:h-8 [&_th]:px-3 [&_th]:text-[0.65rem] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-muted-foreground">
                   <TableRow>
@@ -602,7 +618,7 @@ export function GrilleAffectatPage() {
                 itemLabel={filteredCodes.length === 1 ? "code" : "codes"}
               />
             </div>
-            <div className="lg:hidden">
+            <div data-tour="affectat-rows-mobile" className="lg:hidden">
               {table.getRowModel().rows.map(({ original: code }) => {
                 const count = countFor(code.code);
                 return (

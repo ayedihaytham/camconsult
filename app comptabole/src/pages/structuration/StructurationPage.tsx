@@ -576,7 +576,7 @@ export function StructurationPage() {
         </DialogContent>
       </Dialog>
 
-      <LedgerSegmented
+      <div data-tour="structuration-lenses"><LedgerSegmented
         value={tab}
         onChange={(v) => {
           setTab(v);
@@ -590,11 +590,11 @@ export function StructurationPage() {
           { value: "arbre", label: "Arborescence" },
           { value: "organigramme", label: "Organigramme" },
         ]}
-      />
+      /></div>
 
       {tab === "tableau" && (
-        <div className="mt-3 flex flex-1 flex-col">
-          <LedgerToolbar
+        <div data-tour="structuration-content" className="mt-3 flex flex-1 flex-col">
+          <div data-tour="structuration-search"><LedgerToolbar
             search={search}
             onSearchChange={setSearch}
             searchPlaceholder="Rechercher un dossier, une description…"
@@ -653,7 +653,7 @@ export function StructurationPage() {
                 </Select>
               </>
             }
-          />
+          /></div>
 
           <LedgerSheet className="flex-1">
             <LedgerTable
@@ -678,7 +678,7 @@ export function StructurationPage() {
       )}
 
       {tab === "arbre" && (
-        <div className="mt-3">
+        <div data-tour="structuration-content" className="mt-3">
           {/* Vue arborescence : widget d'explorateur non couvert par les
               maquettes Ledger (drag & drop, aperçu, réparentage) — laissé
               intact pour ne pas improviser un design non validé. */}
@@ -704,7 +704,7 @@ export function StructurationPage() {
       )}
 
       {tab === "organigramme" && (
-        <div className="mt-3">
+        <div data-tour="structuration-content" className="mt-3">
           {roots.length === 0 ? (
             <LedgerSheet>
               <EmptyState

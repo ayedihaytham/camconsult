@@ -39,6 +39,7 @@ export function SignatureLedgerBanner({
 }: SignatureLedgerBannerProps) {
   return (
     <header
+      data-tour="page-identity"
       className={cn(
         "signature-ledger",
         variant === "process" && "signature-ledger--process",
@@ -68,6 +69,7 @@ export function SignatureLedgerBanner({
         )}
         {action && (
           <Button
+            data-tour="page-primary-action"
             type="button"
             variant="outline"
             size="sm"

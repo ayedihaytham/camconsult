@@ -106,6 +106,7 @@ export function SuiviDeviseListPage() {
   return (
     <div className="flex flex-1 flex-col">
       <SignatureLedgerBanner
+        icon={CircleDollarSign}
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"
         title={societe?.raisonSociale ?? "Société"}

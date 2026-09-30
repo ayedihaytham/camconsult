@@ -120,6 +120,7 @@ export function HonorairesSocietePage() {
   return (
     <div>
       <SignatureLedgerBanner
+        icon={Receipt}
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"
         title={societe?.raisonSociale ?? "Société"}

@@ -398,6 +398,7 @@ export function SoucheChequesSocietePage() {
       <h1 className="sr-only">{`Souche de chèques — ${societeNom}`}</h1>
 
       <SignatureLedgerBanner
+        icon={FileText}
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"
         title={societeNom}

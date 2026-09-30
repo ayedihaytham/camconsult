@@ -282,6 +282,7 @@ export function SuiviDeviseEditorPage() {
   return (
     <div className="flex flex-1 flex-col">
       <SignatureLedgerBanner
+        icon={Package}
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"
         title={`${current.client}${current.exercice ? ` — ${current.exercice}` : ""}`}

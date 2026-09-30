@@ -196,6 +196,7 @@ export function EtatsFinanciersPage() {
   return (
     <div className="flex min-w-0 flex-col">
       <SignatureLedgerBanner
+        icon={Calculator}
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"
         title="États financiers"

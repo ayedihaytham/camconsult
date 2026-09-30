@@ -27,6 +27,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { ListChecks } from "lucide-react";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
@@ -359,6 +360,7 @@ export function TasksKanban({
   return (
     <OperationalLedgerPage className="taches-work-ledger font-sans">
       <SignatureLedgerBanner
+        icon={ListChecks}
         className="operational-signature-banner"
         eyebrow="Clients & travail · Work Ledger"
         title="Tâches"

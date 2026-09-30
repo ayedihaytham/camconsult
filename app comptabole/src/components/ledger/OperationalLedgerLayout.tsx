@@ -170,6 +170,7 @@ interface OperationalMobilePaginationProps<TData> {
   table: Table<TData>;
   itemLabel: string;
   className?: string;
+  touchTargets?: boolean;
 }
 
 /** Shared post-register mobile pagination and quiet result count. */
@@ -177,6 +178,7 @@ export function OperationalMobilePagination<TData>({
   table,
   itemLabel,
   className,
+  touchTargets,
 }: OperationalMobilePaginationProps<TData>) {
   return (
     <div
@@ -189,6 +191,7 @@ export function OperationalMobilePagination<TData>({
         table={table}
         itemLabel={itemLabel}
         variant="mobile"
+        mobileTouchTargets={touchTargets}
         className="px-0"
       />
     </div>

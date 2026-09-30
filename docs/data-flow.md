@@ -50,6 +50,15 @@ scope.
 These stores fetch their domain only when the relevant screen or orchestration
 hook needs it. Do not duplicate their server state in a new store.
 
+The Grille AFFECTAT register searches, filters and paginates its already loaded
+cabinet-wide codes in the client. Its attached-account count uses global
+associations only. Société-specific account-to-code overrides are stored
+separately and take precedence for that société; a code rename updates both
+global and société associations. Changing a global poste affects financial
+statement presentation, while removing a code leaves raw balance lines but
+their amounts appear as unassigned until a poste is available again. The UI
+keeps confirmation and impact copy for these report-affecting operations.
+
 ## Mutation pattern
 
 ```text

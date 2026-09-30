@@ -65,7 +65,17 @@ accessible labels when an icon stands alone.
   registration detail are signature, not a hard split or illustration. The
   motif must not compete with content. Shared presentation accepts page-provided
   eyebrow, title, description, metrics, action and archetype styling; domain
-  derivation and permission decisions remain in each page/module.
+  derivation and permission decisions remain in each page/module. All module
+  banners share this geometry, spacing rhythm, gold rule, responsive behavior
+  and architectural motif; page-specific wording and real context may vary.
+  The standard variant may use its lower strip for real contextual or metric
+  content; pages without meaningful lower content use the compact variant, in
+  which the optional lower region collapses completely and the gold rule follows
+  the identity content. Never invent KPIs to fill banner space.
+- A visible module banner may pair its main title with one small semantic Lucide
+  icon immediately before the text. Keep it 18–20px, aria-hidden, and aligned
+  with the title; use current/soft-white color without a background or badge.
+  Choose the icon for the module meaning and keep the title dominant.
 - **Client Ledger:** Sociétés emphasizes client/entity identity, direct status
   and context, high scanability, dominant search, secondary filters/tools and
   fine row rules.
@@ -95,6 +105,14 @@ accessible labels when an icon stands alone.
   right-aligned amounts, a restrained calculated Solde, and destructive row
   actions in an overflow menu; narrow screens scroll the grid locally while
   keeping Compte visible.
+- Grille AFFECTAT is a Ledger configuration register. Its compact navy identity
+  banner names the cabinet-wide reference; keep help beside search/filter tools.
+  Search code, libellé and poste before filtering by assigned poste or global
+  attached accounts; paginate the filtered codes in groups of 7 with the
+  canonical DataTable footer. Keep up to seven normal desktop rows and the footer
+  in document flow without an internal vertical table scroller. Use compact mapping
+  rows on mobile. The register shows global attached accounts; société overrides
+  are excluded from its count.
 
 The archetypes share a visual grammar, not a fixed metric count or page layout.
 Do not derive société statuses, collaborator permissions or collecte workflow

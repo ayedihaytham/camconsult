@@ -24,6 +24,7 @@ interface LedgerSearchFilterProps {
   value: string;
   onValueChange: (value: string) => void;
   placeholder: string;
+  mobilePlaceholder?: string;
   searchLabel: string;
   filterLabel: string;
   activeFilterCount: number;
@@ -60,6 +61,7 @@ export function LedgerSearchFilter({
   value,
   onValueChange,
   placeholder,
+  mobilePlaceholder,
   searchLabel,
   filterLabel,
   activeFilterCount,
@@ -88,7 +90,7 @@ export function LedgerSearchFilter({
       <Input
         value={value}
         onChange={(event) => onValueChange(event.target.value)}
-        placeholder={placeholder}
+        placeholder={isMobile ? mobilePlaceholder ?? placeholder : placeholder}
         aria-label={searchLabel}
         className="h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-2 shadow-none focus-visible:border-transparent focus-visible:ring-0"
       />

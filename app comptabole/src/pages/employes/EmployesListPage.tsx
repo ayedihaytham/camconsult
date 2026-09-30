@@ -9,6 +9,7 @@ import {
   Printer,
   ShieldCheck,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -766,6 +767,7 @@ export function EmployesListPage() {
       )}
     >
       <SignatureLedgerBanner
+        icon={Users}
         className="operational-signature-banner mb-0"
         titleId="team-ledger-title"
         eyebrow="Organisation · Team Ledger"

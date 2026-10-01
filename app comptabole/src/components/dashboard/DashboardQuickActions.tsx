@@ -57,8 +57,9 @@ export function DashboardQuickActions({ role, canAddSociete, canUseMessaging, in
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
+          data-tour="dashboard-quick-actions"
           variant="outline"
-          className={inverse ? "self-start border-accent/60 bg-transparent text-accent shadow-none hover:bg-primary-foreground/10 hover:text-accent" : "w-full shadow-none sm:w-auto"}
+          className={inverse ? "min-h-11 self-start border-accent/60 bg-transparent text-accent shadow-none hover:bg-primary-foreground/10 hover:text-accent" : "min-h-11 shadow-none"}
         >
           <span className="sm:hidden">Actions</span>
           <span className="hidden sm:inline">Actions rapides</span>
@@ -69,7 +70,7 @@ export function DashboardQuickActions({ role, canAddSociete, canUseMessaging, in
         {actions.map((action) => {
           const Icon = action.icon;
           return (
-            <DropdownMenuItem key={action.label} onSelect={() => navigate(action.route)}>
+            <DropdownMenuItem className="min-h-11" key={action.label} onSelect={() => navigate(action.route)}>
               <Icon aria-hidden="true" />
               {action.label}
             </DropdownMenuItem>

@@ -20,16 +20,16 @@ export function DeadlineList({ deadlines }: { deadlines: DashboardDeadline[] }) 
   return (
     <div>
       {groups.map((group) => (
-        <section key={group.bucket} aria-labelledby={`deadline-${group.bucket}`}>
-          <h3 id={`deadline-${group.bucket}`} className="flex items-center justify-between border-b border-primary/25 pb-2 pt-5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-primary first:pt-0"><span>{GROUP_LABELS[group.bucket]}</span><span className="tabular-nums text-muted-foreground">{group.items.length}</span></h3>
+        <section className="dashboard-group" key={group.bucket} aria-labelledby={`deadline-${group.bucket}`}>
+          <h3 id={`deadline-${group.bucket}`} className="dashboard-subsection flex items-center justify-between border-b border-primary/25 pb-2 pt-5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-primary first:pt-0"><span>{GROUP_LABELS[group.bucket]}</span><span className="min-w-6 shrink-0 text-right tabular-nums text-muted-foreground">{group.items.length}</span></h3>
           <ul>
             {group.items.map((item) => {
               const date = dateParts(item.echeance);
               return (
-                <li key={item.id} className="grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border py-3">
+                <li key={item.id} className="dashboard-row grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border py-3">
                   <time dateTime={item.echeance} className="flex shrink-0 flex-col items-center border-r border-border pr-3 leading-none"><span className="text-base font-semibold tabular-nums text-primary">{date.day}</span><span className="mt-1 text-[0.62rem] font-semibold tracking-wide text-muted-foreground">{date.month}</span></time>
-                  <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-medium text-foreground">{item.societeName}</p><Badge variant={item.bucket === "overdue" ? "destructive" : item.bucket === "today" ? "warning" : "outline"} className="shrink-0">{item.badge}</Badge></div><p className="mt-0.5 truncate text-xs text-muted-foreground">{item.periode}</p></div>
-                  <Button variant="ghost" size="icon-sm" onClick={() => navigate(item.route)} aria-label={`Ouvrir ${item.societeName}`}><ArrowRight className="size-4" /></Button>
+                  <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className={`break-words text-sm ${item.bucket === "overdue" ? "font-semibold text-destructive" : "font-medium text-foreground"}`}>{item.societeName}</p><Badge variant={item.bucket === "overdue" ? "destructive" : item.bucket === "today" ? "warning" : "outline"} className={`dashboard-badge shrink-0 ${item.bucket === "overdue" ? "dashboard-badge--danger" : item.bucket === "today" ? "dashboard-badge--warning" : "dashboard-badge--neutral"}`}>{item.badge}</Badge></div><p className="mt-0.5 truncate text-xs text-muted-foreground">{item.periode}</p></div>
+                  <Button variant="ghost" size="icon" className="size-11" onClick={() => navigate(item.route)} aria-label={`Ouvrir ${item.societeName}`}><ArrowRight className="size-4" /></Button>
                 </li>
               );
             })}

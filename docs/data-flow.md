@@ -94,6 +94,14 @@ bootstrap/refreshed through `/notifications`.
 `src/lib/dashboard/dashboardData.ts` converts those inputs into a role-specific,
 memoized view model. There is currently no dashboard-summary endpoint.
 
+The Daily Workspace collaborator lens, task continuation order and collection
+date strip are pure local derivations of those inputs; changing scope/day adds
+no request. Viewer conversations and unread counts do not change with the Admin
+employee filter. Bootstrap hydration still gates the page. Collection failures
+mask retained stale list data; journal exposes a fetch-error flag, and Admin
+source readiness/errors allow partial data with retries through existing list
+actions. No new endpoint or persistence subsystem is introduced.
+
 ## Performance rule
 
 Never loop through all companies and issue one specialized request per company

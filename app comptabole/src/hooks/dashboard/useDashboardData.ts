@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildDashboardData, type DashboardRole } from "@/lib/dashboard/dashboardData";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/store/auth";
@@ -14,7 +14,7 @@ import {
 } from "@/store/data";
 import { useJournal } from "@/store/journal";
 
-export function useDashboardData() {
+export function useDashboardData(selectedEmployeeId: string | null = null) {
   const { isAdmin, poste, employeId, can } = usePermissions();
   const session = useAuth((state) => state.session);
   const societes = useSocietes();
@@ -29,32 +29,43 @@ export function useDashboardData() {
   const bordereaux = useBordereaux((state) => state.list);
   const fetchBordereaux = useBordereaux((state) => state.fetchList);
   const journalEntries = useJournal((state) => state.entries);
+  const journalError = useJournal((state) => state.error);
   const fetchJournal = useJournal((state) => state.fetch);
 
   const [collectesReady, setCollectesReady] = useState(false);
   const [adminDataReady, setAdminDataReady] = useState(!isAdmin);
   const [collectesError, setCollectesError] = useState(false);
-  const now = useMemo(() => new Date(), []);
+  const collectionRequest = useRef(0);
+  const [adminDataError, setAdminDataError] = useState(false);
+  const [bordereauxError, setBordereauxError] = useState(false);
+  const [adminRefresh, setAdminRefresh] = useState(0);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const timer = window.setTimeout(() => setNow(new Date()), tomorrow.getTime() - Date.now());
+    return () => window.clearTimeout(timer);
+  }, [now]);
 
   const loadCollectes = useCallback(async () => {
+    const request = ++collectionRequest.current;
     setCollectesReady(false);
     setCollectesError(false);
     try {
       await fetchCollectes();
-      setCollectesReady(true);
+      if (request === collectionRequest.current) setCollectesReady(true);
     } catch {
-      setCollectesReady(true);
-      setCollectesError(true);
+      if (request === collectionRequest.current) {
+        setCollectesReady(true);
+        setCollectesError(true);
+      }
     }
   }, [fetchCollectes]);
 
   useEffect(() => {
-    let active = true;
-    loadCollectes().catch(() => {
-      if (active) setCollectesError(true);
-    });
+    void loadCollectes();
     return () => {
-      active = false;
+      collectionRequest.current++;
     };
   }, [loadCollectes, session?.employeId, session?.role]);
 
@@ -67,13 +78,19 @@ export function useDashboardData() {
       };
     }
     setAdminDataReady(false);
-    Promise.allSettled([fetchBordereaux(), fetchJournal()]).then(() => {
-      if (active) setAdminDataReady(true);
+    setAdminDataError(false);
+    setBordereauxError(false);
+    Promise.allSettled([fetchBordereaux(), fetchJournal()]).then((results) => {
+      if (active) {
+        setBordereauxError(results[0].status === "rejected");
+        setAdminDataError(results.some((result) => result.status === "rejected") || useJournal.getState().error);
+        setAdminDataReady(true);
+      }
     });
     return () => {
       active = false;
     };
-  }, [fetchBordereaux, fetchJournal, isAdmin, session?.employeId, session?.role]);
+  }, [fetchBordereaux, fetchJournal, isAdmin, session?.employeId, session?.role, adminRefresh]);
 
   const role: DashboardRole = isAdmin
     ? "admin"
@@ -94,18 +111,22 @@ export function useDashboardData() {
       taches,
       conversations: canUseMessaging ? conversations : [],
       notifications,
-      collectes: collectesReady ? collectes : [],
-      bordereaux: isAdmin && adminDataReady ? bordereaux : [],
-      journalEntries: isAdmin && adminDataReady ? journalEntries : [],
+      collectes: collectesReady && !collectesError ? collectes : [],
+      bordereaux: isAdmin && adminDataReady && !bordereauxError ? bordereaux : [],
+      journalEntries: isAdmin && adminDataReady && !journalError ? journalEntries : [],
       adminName: session?.cabinetNom ?? "Cabinet",
+      selectedEmployeeId: isAdmin ? selectedEmployeeId : null,
     }),
     [
       adminDataReady,
+      bordereauxError,
+      journalError,
       bordereaux,
       canUseMessaging,
       collaborateurs,
       collectes,
       collectesReady,
+      collectesError,
       conversations,
       employeId,
       isAdmin,
@@ -115,6 +136,7 @@ export function useDashboardData() {
       now,
       role,
       session?.cabinetNom,
+      selectedEmployeeId,
       societes,
       taches,
     ],
@@ -126,6 +148,11 @@ export function useDashboardData() {
     canUseMessaging,
     collectesLoading: !collectesReady,
     adminDataLoading: isAdmin && !adminDataReady,
+    retryAdminData: () => setAdminRefresh((value) => value + 1),
+    adminDataError,
+    journalError: isAdmin && journalError,
+    now,
+    employeeOptions: isAdmin ? collaborateurs.filter((employee) => employee.role !== "societe_employe") : [],
     collectesError,
     retryCollectes: loadCollectes,
   };

@@ -614,7 +614,21 @@ export function getPageTour(
   pathname: string,
   _session: Session | null,
 ): Tour | null {
-  if (pathname === "/") return TOURS.dashboard;
+  if (pathname === "/") {
+    if (_session?.poste === "societe_employe") return TOURS.dashboard;
+    return {
+      id: "dashboard", version: 2, title: "Mon bureau",
+      steps: [
+        { target: "page-workspace", title: "Votre tableau de bord", body: "Votre bureau rassemble le travail accessible à votre compte. Aucune action n’est effectuée pendant la visite." },
+        { target: "dashboard-summary", title: "Repérer l’essentiel", body: "Le bandeau situe votre journée de travail. Retrouvez les destinations autorisées dans Actions rapides et les vues du bureau." },
+        { target: "dashboard-resume", title: "Reprendre le travail", body: "Une tâche en cours permet de reprendre depuis la page Tâches. Les autres tâches restent dans la vue Tâches." },
+        { target: "dashboard-transmissions", title: "Préparer les transmissions", body: "Choisissez un jour pour consulter les échéances réelles des collectes. Les tâches n’ont pas de date limite." },
+        { target: "dashboard-tasks", title: "Avancer sur les tâches", body: "Retrouvez le travail en cours et les tâches à commencer, séparés des échéances de collecte." },
+        { target: "dashboard-attention-lens", title: "Consulter les éléments à traiter", body: "Cette vue regroupe corrections, échéances dépassées et communication. Les vues disponibles suivent vos droits." },
+        { target: "dashboard-quick-actions", title: "Accéder aux modules", body: "Actions rapides ouvre les destinations autorisées. La visite ne crée, n’envoie et ne modifie aucun élément." },
+      ],
+    };
+  }
   if (pathname === "/societes") return TOURS.societes;
   if (pathname === "/employes") return TOURS.employes;
   if (pathname === "/taches") return TOURS.taches;

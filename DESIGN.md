@@ -185,8 +185,8 @@ The authenticated app inherits the alignment discipline but not the marketing
 spaciousness. Desktop remains a workstation: use intentional outer gutters and
 align the page banner, utilities and register. Mobile favors an edge-to-edge
 workspace for major operational surfaces, with 12–16px of internal content
-padding rather than extra outer gutters. Keep the Dashboard's distinct Command
-Ledger composition. The mobile Sidebar breakpoint remains 1024px; phone-width
+padding rather than extra outer gutters. Keep the Dashboard's distinct Daily
+Workspace composition. The mobile Sidebar breakpoint remains 1024px; phone-width
 edge-to-edge register composition is a separate layout decision.
 
 ## Page archetypes
@@ -194,11 +194,25 @@ edge-to-edge register composition is a separate layout decision.
 One CamConsult design language supports several compositions. Do not copy one
 page literally into another.
 
-### Command Ledger — Dashboard
+### Daily Workspace — Dashboard
 
-The Dashboard is the strongest command page: a navy operational surface with
-role-aware real metrics, urgency hierarchy, ledger navigation, asymmetry and
-selective warm/gold work summaries. It answers what needs attention now.
+The approved Dashboard answers **what should I work on now?** A compact navy
+greeting/date identity leads directly into the ledger tabs. Reprendre is the
+signature warm/gold surface, followed by real
+collection transmissions, ongoing tasks and work to begin. Attention and messages
+stay secondary. Admin oversight remains a secondary view, not the main experience.
+The mobile DOM order follows that same work-first sequence; date/tab strips may
+scroll horizontally, while team counts use mobile rows. Tasks never acquire
+deadline language. Loading, partial failures and true emptiness are distinct.
+The internal header has no KPI card row or substitute statistics widgets. Its
+underlying counts and company-side KPIs remain available. The Transmission Ledger
+is a continuous working register: connected date ruler, tabular numerals, ticks,
+an explicit today marker and restrained gold selected-date registration. Selected
+detail and upcoming dated links share the same alignment, without nested cards,
+boxed dates or large status pills. The main work areas share a warm paper surface,
+aligned padding and fine dividers; a subtle gold tint identifies Reprendre. Across
+views, navy section rules, lighter subsection boundaries and fine row separators
+establish three clear levels.
 
 ### Signature Ledger — operational modules
 
@@ -216,9 +230,9 @@ within the remaining 35–45%; motif presence stays around 2–5%. The four-squa
 registration detail is tiny and secondary, not a logo replacement or repeated
 row icon.
 
-The Dashboard remains the larger, more expressive Command Ledger. Operational
-Signature Ledgers are shorter, quieter and specific to their workflow. Shared
-visual language does not mean identical page composition.
+The Dashboard retains its Daily Workspace identity. Operational Signature Ledgers
+remain specific to their workflows; shared navy/gold language does not mean
+identical composition or a mandatory banner height.
 
 #### Client Ledger — Sociétés
 
@@ -373,7 +387,7 @@ mobile spacing rhythm—typically 12–16px internal horizontal padding across t
 eyebrow, title/context, gold rule, metrics and lower breathing room. A banner
 may approach 165–180px when its content supports that presence, but its height
 is never fixed or padded with empty space; operational banners remain quieter
-than the Dashboard Command Ledger. Page content ends after its real final row,
+than a command surface that needs more context. Page content ends after its real final row,
 workflow control or pagination, with only compact breathing room. A mobile-only
 create action is a true circular,
 approximately 52px, icon-only navy `+` FAB with an accessible action name, the

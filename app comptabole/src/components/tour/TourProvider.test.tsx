@@ -36,7 +36,7 @@ describe("guided tour lifecycle", () => {
     await waitFor(() => expect(screen.getByText("Repérer l’essentiel")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Terminer" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(localStorage.getItem("camconsult:visite-guidee:tour-test:dashboard:v1")).toBe("done");
+    expect(localStorage.getItem("camconsult:visite-guidee:tour-test:dashboard:v2")).toBe("done");
     expect(screen.queryByText("Découvrir cette page")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Relancer" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();

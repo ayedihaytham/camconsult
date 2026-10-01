@@ -1,4 +1,5 @@
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import "@/components/dashboard/dashboard-polish.css";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardData } from "@/hooks/dashboard/useDashboardData";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -13,7 +14,6 @@ function greeting(date: Date) {
 }
 
 export function DashboardPage() {
-  const now = new Date();
   const sessionName = toTitleCase(useAuth((state) => state.session?.nom ?? ""));
   const firstName = sessionName.split(" ")[0] || "";
   const { isAdmin, can, lectureSeule } = usePermissions();
@@ -24,6 +24,11 @@ export function DashboardPage() {
     collectesLoading,
     collectesError,
     retryCollectes,
+    adminDataLoading,
+    adminDataError,
+    journalError,
+    retryAdminData,
+    now,
   } = useDashboardData();
   const dateLabel = toTitleCase(
     new Intl.DateTimeFormat("fr-FR", {
@@ -35,12 +40,14 @@ export function DashboardPage() {
   const canAddSociete = !lectureSeule && (isAdmin || can("modifierSocietes"));
 
   return (
-    <div className="min-w-0 space-y-4">
+    <div className="dashboard-workspace min-w-0 space-y-4">
       <DashboardHeader
         salutation={`${greeting(now)}${firstName ? ` ${firstName}` : ""}`}
         dateLabel={dateLabel}
         data={data}
         loading={collectesLoading}
+        error={collectesError}
+        now={now}
         role={role}
         canAddSociete={canAddSociete}
         canUseMessaging={canUseMessaging}
@@ -51,6 +58,11 @@ export function DashboardPage() {
         collectesLoading={collectesLoading}
         collectesError={collectesError}
         onRetryCollectes={() => void retryCollectes()}
+        now={now}
+        adminDataLoading={adminDataLoading}
+        adminDataError={adminDataError}
+        journalError={journalError}
+        onRetryAdminData={retryAdminData}
       />
     </div>
   );

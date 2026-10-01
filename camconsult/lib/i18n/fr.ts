@@ -426,6 +426,14 @@ const fr = {
     sidebarEyebrow: 'Coordonnées',
     sidebarTitle: 'Des questions sur nos recrutements ?',
     hours: 'Lun–Sam, 8h00–17h00',
+    ui: {
+      formTitle: 'Votre candidature', complete: 'Complété à {n} %', positions: ['Comptable', 'Auditeur senior', 'Assistant(e) paie', 'Stage', 'Autre poste'],
+      dropTitle: 'Glissez votre CV ici ou', browse: 'parcourez vos fichiers', formats: 'Formats acceptés : PDF, DOC, DOCX', replace: 'Changer de fichier',
+      privacy: 'Vos données servent uniquement à traiter votre candidature et restent confidentielles.',
+      fileInvalid: 'Le CV doit être un fichier PDF ou Word de 5 Mo maximum.',
+      afterTitle: 'Après votre envoi',
+      after: [['Lecture de votre dossier', 'Chaque candidature est étudiée.'], ['Entretien au cabinet', 'Si votre profil correspond à nos besoins.'], ['Réponse par e-mail', 'Quelle que soit l’issue.']],
+    },
   },
 
   legal: {

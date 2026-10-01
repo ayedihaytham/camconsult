@@ -428,6 +428,14 @@ const en: Dictionary = {
     sidebarEyebrow: 'Contact details',
     sidebarTitle: 'Questions about our hiring?',
     hours: 'Mon–Sat, 8am–5pm',
+    ui: {
+      formTitle: 'Your application', complete: '{n} % complete', positions: ['Accountant', 'Senior auditor', 'Payroll assistant', 'Internship', 'Other role'],
+      dropTitle: 'Drop your CV here or', browse: 'browse your files', formats: 'Accepted formats: PDF, DOC, DOCX', replace: 'Change file',
+      privacy: 'Your data is used only to process your application and stays confidential.',
+      fileInvalid: 'The CV must be a PDF or Word file of 5 MB maximum.',
+      afterTitle: 'After you apply',
+      after: [['We read your file', 'Every application is reviewed.'], ['Interview at the firm', 'If your profile matches our needs.'], ['Reply by e-mail', 'Whatever the outcome.']],
+    },
   },
 
   legal: {

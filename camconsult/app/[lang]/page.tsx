@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { CamconsultHeader } from '@/components/camconsult-header'
 import { CamconsultFooter } from '@/components/camconsult-footer'
+import { MethodSection } from '@/components/method-section'
 import { getDictionary, isLang, type Lang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { useOpenNow } from '@/lib/business-hours'
@@ -229,7 +230,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
 
         <section id="a-propos" className="scroll-mt-20 bg-navy px-6 py-20 text-white sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-7xl"><SectionIntro eyebrow={home.differenceEyebrow} title={home.differenceTitle} text={home.differenceText} light /><div className="mt-12 grid gap-px overflow-hidden border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-3">{home.differentiators.map(([title, text], i) => { const Icon = DIFFERENTIATOR_ICONS[i]; return <div key={title} className="bg-navy p-7 transition-colors hover:bg-white/5"><Icon className="size-6 text-gold" /><h3 className="mt-6 font-serif text-2xl">{title}</h3><p className="mt-2 text-sm leading-6 text-white/60">{text}</p></div> })}</div></div></section>
 
-        <section className="bg-white px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-7xl"><SectionIntro eyebrow={home.methodEyebrow} title={home.methodTitle} text={home.methodText} /><div className="mt-14 grid gap-8 md:grid-cols-4">{home.steps.map(([number, title, text], index) => <div key={number} className="relative"><div className="flex items-center gap-4"><span className="grid size-12 shrink-0 place-items-center rounded-full border border-gold bg-gold/10 font-serif text-lg text-navy">{number}</span>{index < home.steps.length - 1 && <span className="hidden h-px flex-1 bg-gold/40 md:block" />}</div><h3 className="mt-6 font-serif text-xl text-navy">{title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p></div>)}</div></div></section>
+        <MethodSection lang={lang} home={home} />
 
         <section className="bg-[#f0eee8] px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-7xl"><div className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><SectionIntro eyebrow={home.toolsEyebrow} title={home.toolsTitle} text={home.toolsText} /><a href={p('/outils-fiscaux')} className="inline-flex shrink-0 items-center gap-2 text-xs font-bold uppercase tracking-widest text-navy hover:text-gold">{home.toolsSeeAll} <ArrowRight className="size-4" /></a></div><div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{home.tools.map(([title, text], i) => { const Icon = TOOL_ICONS[i]; return <a key={title} href={p('/outils-fiscaux')} className="group border border-border bg-background p-6 transition-all duration-300 hover:-translate-y-1 hover:border-gold"><Icon className="size-6 text-gold" /><h3 className="mt-8 font-serif text-xl text-navy">{title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p><ArrowRight className="mt-6 size-4 text-navy transition-transform group-hover:translate-x-1" /></a> })}</div></div></section>
 

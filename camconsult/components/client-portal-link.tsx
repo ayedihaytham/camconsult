@@ -24,13 +24,15 @@ export function ClientPortalLink({ href = DEFAULT_CLIENT_PORTAL_URL, lang = 'fr'
       title={clientPortal.tooltip}
       aria-label={`${clientPortal.label} — ${clientPortal.tooltip}`}
       className={cn(
-        'client-portal-link group inline-flex items-center gap-2 rounded-lg border border-gold bg-transparent text-gold transition-all duration-300 hover:bg-gold hover:text-navy',
-        compact ? 'px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.12em] xl:px-4 xl:text-[10px] xl:tracking-widest' : 'px-4 py-3 text-xs font-bold uppercase tracking-widest'
+        'client-portal-link group inline-flex items-center gap-2 transition-all duration-300',
+        compact
+          ? 'text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70 hover:text-white'
+          : 'rounded-lg border border-gold bg-transparent px-4 py-3 text-xs font-bold uppercase tracking-widest text-gold hover:bg-gold hover:text-navy'
       )}
     >
-      <LockKeyhole className="client-portal-lock size-3.5 shrink-0 transition-transform duration-300" aria-hidden="true" />
+      <LockKeyhole className={cn('client-portal-lock size-3.5 shrink-0 transition-transform duration-300', compact && 'text-gold')} aria-hidden="true" />
       <span>{clientPortal.label}</span>
-      <ExternalLink className="size-3 shrink-0 opacity-65 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
+      {!compact && <ExternalLink className="size-3 shrink-0 opacity-65 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />}
     </a>
   )
 }

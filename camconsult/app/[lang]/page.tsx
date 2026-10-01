@@ -62,7 +62,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
     <>
       <CamconsultHeader lang={lang} theme="navy" />
       <main>
-        <section id="accueil" className="relative overflow-hidden bg-navy px-6 pb-20 pt-10 text-white sm:px-10 sm:pt-12 lg:px-16 lg:pb-28 lg:pt-14">
+        <section id="accueil" className="relative overflow-hidden bg-navy px-6 pb-16 pt-10 text-white sm:px-10 sm:pt-12 lg:px-16 lg:pb-20 lg:pt-14">
           <div
             className="pointer-events-none absolute inset-0 opacity-[0.07]"
             style={{
@@ -73,9 +73,9 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
             aria-hidden="true"
           />
           <div className="relative z-10 mx-auto grid max-w-7xl items-start gap-14 lg:grid-cols-[1.1fr_.9fr]">
-            <div className="animate-fade-up rounded-2xl border border-white/10 p-8 lg:p-10">
+            <div className="animate-fade-up">
               <p className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.heroEyebrow}</p>
-              <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[.98] sm:text-7xl lg:text-8xl">
+              <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[.98] sm:text-7xl lg:text-7xl">
                 {home.heroTitlePre && <>{home.heroTitlePre}{' '}</>}
                 <em className="text-gold">{home.heroTitleHighlight}</em>{' '}
                 {home.heroTitlePost}

@@ -190,6 +190,7 @@ const en: Dictionary = {
     blogEyebrow: 'Insights & analysis',
     blogTitle: 'Our latest news.',
     blogText: 'Practical insights to help you make calmer decisions.',
+    blogUi: { read: 'Read the article', readSuffix: 'read', newsletterTitle: 'Get our insights', newsletterText: 'One e-mail for each new article. Nothing else.' },
     blogSeeAll: 'Read the blog',
     posts: [
       ['/images/blog-finance.webp', 'Finance', 'Managing your cash flow with method', 'The key indicators to keep a clear view of your flows.', 'Jun 12, 2025 · 5 min'],
@@ -200,11 +201,12 @@ const en: Dictionary = {
     faqTitle: 'First answers, right here.',
     faqText: 'Can’t find an answer to your question? Our team is listening.',
     faqSeeAll: 'See the full FAQ',
+    faqUi: { notHere: 'Your question is not here?' },
     faq: [
-      { q: 'How do I book an appointment?', a: 'We start with a simple conversation to understand your need and guide you to the most suitable solution.' },
-      { q: 'Do you work with freelancers?', a: 'We start with a simple conversation to understand your need and guide you to the most suitable solution.' },
-      { q: 'Do you offer flat-rate packages?', a: 'We start with a simple conversation to understand your need and guide you to the most suitable solution.' },
-      { q: 'What documents should I prepare for a first conversation?', a: 'We start with a simple conversation to understand your need and guide you to the most suitable solution.' },
+      { q: 'How do I book an appointment?', a: 'Click “Book an appointment”, call 98 400 368 or write to camcompta@planet.tn. We will get back to you to set a time, at the office or by phone.' },
+      { q: 'Do you work with freelancers?', a: 'Yes. We support freelancers and independent professionals as well as companies, with follow-up adapted to the size of your activity.' },
+      { q: 'Do you offer flat-rate packages?', a: 'Yes, depending on the engagement, we can agree a clear flat fee set in advance in the engagement letter: scope, calendar and fees.' },
+      { q: 'What documents should I prepare for a first conversation?', a: 'Nothing complicated: come with your questions and, if you already have a business, your latest accounting or tax documents. We will then tell you what else we need.' },
     ],
     contactEyebrow: 'Let’s talk about your project',
     contactTitle: 'A first conversation can change everything.',
@@ -428,6 +430,14 @@ const en: Dictionary = {
     sidebarEyebrow: 'Contact details',
     sidebarTitle: 'Questions about our hiring?',
     hours: 'Mon–Sat, 8am–5pm',
+    ui: {
+      formTitle: 'Your application', complete: '{n} % complete', positions: ['Accountant', 'Senior auditor', 'Payroll assistant', 'Internship', 'Other role'],
+      dropTitle: 'Drop your CV here or', browse: 'browse your files', formats: 'Accepted formats: PDF, DOC, DOCX', replace: 'Change file',
+      privacy: 'Your data is used only to process your application and stays confidential.',
+      fileInvalid: 'The CV must be a PDF or Word file of 5 MB maximum.',
+      afterTitle: 'After you apply',
+      after: [['We read your file', 'Every application is reviewed.'], ['Interview at the firm', 'If your profile matches our needs.'], ['Reply by e-mail', 'Whatever the outcome.']],
+    },
   },
 
   legal: {

@@ -188,6 +188,7 @@ const fr = {
     blogEyebrow: 'Regards & analyses',
     blogTitle: 'Nos dernières actualités.',
     blogText: 'Des éclairages concrets pour prendre des décisions plus sereines.',
+    blogUi: { read: 'Lire l’article', readSuffix: 'de lecture', newsletterTitle: 'Recevez nos analyses', newsletterText: 'Un e-mail à chaque nouvel article. Rien d’autre.' },
     blogSeeAll: 'Tout le blog',
     posts: [
       ['/images/blog-finance.webp', 'Finance', 'Piloter sa trésorerie avec méthode', 'Les repères essentiels pour garder une vision claire de vos flux.', '12 juin 2025 · 5 min'],
@@ -198,11 +199,12 @@ const fr = {
     faqTitle: 'Les premières réponses, ici.',
     faqText: 'Une question ne trouve pas sa réponse ? Notre équipe est à votre écoute.',
     faqSeeAll: 'Voir toute la FAQ',
+    faqUi: { notHere: 'Votre question n’est pas ici ?' },
     faq: [
-      { q: 'Comment prendre rendez-vous ?', a: 'Nous commençons par un échange simple pour comprendre votre besoin et vous orienter vers la solution la plus adaptée.' },
-      { q: 'Travaillez-vous avec les indépendants ?', a: 'Nous commençons par un échange simple pour comprendre votre besoin et vous orienter vers la solution la plus adaptée.' },
-      { q: 'Proposez-vous des forfaits ?', a: 'Nous commençons par un échange simple pour comprendre votre besoin et vous orienter vers la solution la plus adaptée.' },
-      { q: 'Quels documents préparer pour un premier échange ?', a: 'Nous commençons par un échange simple pour comprendre votre besoin et vous orienter vers la solution la plus adaptée.' },
+      { q: 'Comment prendre rendez-vous ?', a: 'Cliquez sur « Prendre rendez-vous », appelez le 98 400 368 ou écrivez à camcompta@planet.tn. Nous vous recontactons pour fixer un créneau, au cabinet ou par téléphone.' },
+      { q: 'Travaillez-vous avec les indépendants ?', a: 'Oui. Nous accompagnons les indépendants et les professions libérales comme les sociétés, avec un suivi adapté à la taille de votre activité.' },
+      { q: 'Proposez-vous des forfaits ?', a: 'Oui, selon la mission, nous pouvons convenir d’un forfait clair, défini à l’avance dans la lettre de mission : missions, calendrier et honoraires.' },
+      { q: 'Quels documents préparer pour un premier échange ?', a: 'Rien de compliqué : venez avec vos questions et, si vous avez déjà une activité, vos derniers documents comptables ou fiscaux. Nous vous dirons ensuite ce dont nous avons besoin.' },
     ],
     contactEyebrow: 'Parlons de votre projet',
     contactTitle: 'Un premier échange peut tout changer.',
@@ -426,6 +428,14 @@ const fr = {
     sidebarEyebrow: 'Coordonnées',
     sidebarTitle: 'Des questions sur nos recrutements ?',
     hours: 'Lun–Sam, 8h00–17h00',
+    ui: {
+      formTitle: 'Votre candidature', complete: 'Complété à {n} %', positions: ['Comptable', 'Auditeur senior', 'Assistant(e) paie', 'Stage', 'Autre poste'],
+      dropTitle: 'Glissez votre CV ici ou', browse: 'parcourez vos fichiers', formats: 'Formats acceptés : PDF, DOC, DOCX', replace: 'Changer de fichier',
+      privacy: 'Vos données servent uniquement à traiter votre candidature et restent confidentielles.',
+      fileInvalid: 'Le CV doit être un fichier PDF ou Word de 5 Mo maximum.',
+      afterTitle: 'Après votre envoi',
+      after: [['Lecture de votre dossier', 'Chaque candidature est étudiée.'], ['Entretien au cabinet', 'Si votre profil correspond à nos besoins.'], ['Réponse par e-mail', 'Quelle que soit l’issue.']],
+    },
   },
 
   legal: {

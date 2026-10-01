@@ -33,6 +33,8 @@ import { CamconsultFooter } from '@/components/camconsult-footer'
 import { BalanceSection } from '@/components/balance-section'
 import { HomeToolsSection } from '@/components/home-tools-section'
 import { DeadlineSection } from '@/components/deadline-section'
+import { BlogSection } from '@/components/blog-section'
+import { FaqSection } from '@/components/faq-section'
 import { MethodSection } from '@/components/method-section'
 import { getDictionary, isLang, type Lang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -203,22 +205,22 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
 
         <DeadlineSection lang={lang} home={home} />
 
-        <section className="bg-white px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-7xl"><div className="flex items-end justify-between gap-6"><SectionIntro eyebrow={home.blogEyebrow} title={home.blogTitle} text={home.blogText} /><a href={p('/blog')} className="hidden items-center gap-2 text-xs font-bold uppercase tracking-widest text-navy hover:text-gold md:inline-flex">{home.blogSeeAll} <ArrowRight className="size-4" /></a></div><div className="mt-12 grid gap-6 md:grid-cols-3">{home.posts.map(([image, category, title, text, date]) => <article key={title} className="group overflow-hidden border border-border bg-background"><img src={image} alt="" width={800} height={800} loading="lazy" decoding="async" className="h-48 w-full object-cover grayscale transition duration-500 group-hover:grayscale-0" /><div className="p-6"><span className="badge badge-gold">{category}</span><h3 className="mt-5 font-serif text-2xl leading-tight text-navy">{title}</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">{text}</p><p className="mt-6 text-xs font-semibold text-navy/50">{date}</p></div></article>)}</div></div></section>
+        <BlogSection lang={lang} dict={dict} />
 
-        <section className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-4xl"><SectionIntro eyebrow={home.faqEyebrow} title={home.faqTitle} text={home.faqText} /><div className="mt-10 divide-y divide-border border-y border-border">{home.faq.map((item) => <details key={item.q} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-5 font-serif text-xl text-navy"><span>{item.q}</span><ChevronDown className="size-5 shrink-0 text-gold transition-transform group-open:rotate-180" /></summary><p className="max-w-2xl pt-4 text-sm leading-7 text-muted-foreground">{item.a}</p></details>)}</div><a href={p('/ressources')} className="mt-7 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-navy hover:text-gold">{home.faqSeeAll} <ArrowRight className="size-4" /></a></div></section>
+        <FaqSection lang={lang} home={home} />
 
-        <section className="bg-navy px-6 py-20 text-white sm:px-10 lg:px-16 lg:py-28">
-          <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1fr_.8fr]">
-            <div className="flex flex-col justify-between gap-10">
+        <section className="bg-navy px-6 py-12 text-white sm:px-10 lg:px-16 lg:py-8">
+          <div className="mx-auto grid max-w-7xl items-start gap-10 lg:grid-cols-[1fr_.8fr] lg:gap-14">
+            <div>
               <div>
               <p className="eyebrow flex items-center gap-2 leading-none"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.contactEyebrow}</p>
               <h2 className="mt-4 max-w-md font-serif text-4xl leading-tight sm:text-5xl">
                 {contactTitleLead} <em className="text-gold">{contactTitleLastWord}</em>
               </h2>
-              <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">{home.contactText}</p>
+              <p className="mt-4 max-w-sm text-sm leading-6 text-white/65">{home.contactText}</p>
               </div>
 
-              <div className="divide-y divide-white/10 border-t border-white/10">
+              <div className="mt-8 divide-y divide-white/10 border-t border-white/10">
                 <a href="tel:+21698400368" className="group flex items-center gap-4 py-4 hover:text-gold">
                   <span className="grid size-10 shrink-0 place-items-center rounded-full border border-white/20"><Phone className="size-4 text-gold" aria-hidden="true" /></span>
                   <span className="min-w-0 flex-1">
@@ -259,13 +261,13 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
               </div>
             </div>
 
-            <div className="border-t-2 border-gold bg-white/[0.03] p-6 sm:p-8">
+            <div className="border-t-2 border-gold bg-white/[0.03] p-5 sm:p-6">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="font-serif text-2xl text-white">{home.writeToUs}</h3>
                 <p className="shrink-0 pt-1 text-[11px] text-white/45">{home.requiredNote}</p>
               </div>
 
-              <form className="mt-6 flex flex-col gap-5" onSubmit={(event) => { event.preventDefault(); setSent(true) }}>
+              <form className="mt-4 flex flex-col gap-3.5" onSubmit={(event) => { event.preventDefault(); setSent(true) }}>
                 <div>
                   <p className="text-xs font-semibold text-white/70">{home.form.requestType} *</p>
                   <div className="mt-2 grid grid-cols-3 gap-2">
@@ -275,7 +277,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                         type="button"
                         onClick={() => setRequestCategory(i)}
                         aria-pressed={requestCategory === i}
-                        className={cn('rounded-full border px-3 py-2 text-xs font-semibold transition-colors', requestCategory === i ? 'border-gold bg-gold text-navy' : 'border-white/20 bg-transparent text-white/75 hover:border-gold hover:text-gold')}
+                        className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', requestCategory === i ? 'border-gold bg-gold text-navy' : 'border-white/20 bg-transparent text-white/75 hover:border-gold hover:text-gold')}
                       >
                         {label}
                       </button>
@@ -318,7 +320,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                       id="contact-message"
                       name="message"
                       placeholder={home.form.messagePlaceholder}
-                      rows={4}
+                      rows={3}
                       maxLength={500}
                       value={contactMessage}
                       onChange={(event) => setContactMessage(event.target.value)}

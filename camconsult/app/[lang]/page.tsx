@@ -87,10 +87,15 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
           />
           <div className="relative z-10 mx-auto grid max-w-7xl items-start gap-14 lg:grid-cols-[1.1fr_.9fr]">
             <div className="animate-fade-up">
-              <p className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.heroEyebrow}</p>
+              <p className="eyebrow flex items-center gap-2"><span className="h-px w-8 bg-gold/60" aria-hidden="true" />{home.heroEyebrow}</p>
               <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[.98] sm:text-7xl lg:text-7xl">
                 {home.heroTitlePre && <>{home.heroTitlePre}{' '}</>}
-                <em className="text-gold underline decoration-gold/70 decoration-2 underline-offset-[0.14em]">{home.heroTitleHighlight}</em>{' '}
+                <span className="relative inline-block">
+                  <em className="text-gold">{home.heroTitleHighlight}</em>
+                  <svg aria-hidden="true" className="pointer-events-none absolute -bottom-[0.1em] left-0 h-[0.2em] w-full text-gold" viewBox="0 0 200 14" preserveAspectRatio="none">
+                    <path d="M2 5 Q100 15 198 3 Q100 8 2 5 Z" fill="currentColor" />
+                  </svg>
+                </span>{' '}
                 {home.heroTitlePost}
               </h1>
               <p className="mt-8 max-w-xl text-base leading-7 text-white/65 sm:text-lg">{home.heroText}</p>

@@ -209,18 +209,18 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
 
         <FaqSection lang={lang} home={home} />
 
-        <section className="bg-navy px-6 py-20 text-white sm:px-10 lg:px-16 lg:py-28">
-          <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1fr_.8fr]">
-            <div className="flex flex-col justify-between gap-10">
+        <section className="bg-navy px-6 py-12 text-white sm:px-10 lg:px-16 lg:py-8">
+          <div className="mx-auto grid max-w-7xl items-start gap-10 lg:grid-cols-[1fr_.8fr] lg:gap-14">
+            <div>
               <div>
               <p className="eyebrow flex items-center gap-2 leading-none"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.contactEyebrow}</p>
               <h2 className="mt-4 max-w-md font-serif text-4xl leading-tight sm:text-5xl">
                 {contactTitleLead} <em className="text-gold">{contactTitleLastWord}</em>
               </h2>
-              <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">{home.contactText}</p>
+              <p className="mt-4 max-w-sm text-sm leading-6 text-white/65">{home.contactText}</p>
               </div>
 
-              <div className="divide-y divide-white/10 border-t border-white/10">
+              <div className="mt-8 divide-y divide-white/10 border-t border-white/10">
                 <a href="tel:+21698400368" className="group flex items-center gap-4 py-4 hover:text-gold">
                   <span className="grid size-10 shrink-0 place-items-center rounded-full border border-white/20"><Phone className="size-4 text-gold" aria-hidden="true" /></span>
                   <span className="min-w-0 flex-1">
@@ -261,13 +261,13 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
               </div>
             </div>
 
-            <div className="border-t-2 border-gold bg-white/[0.03] p-6 sm:p-8">
+            <div className="border-t-2 border-gold bg-white/[0.03] p-5 sm:p-6">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="font-serif text-2xl text-white">{home.writeToUs}</h3>
                 <p className="shrink-0 pt-1 text-[11px] text-white/45">{home.requiredNote}</p>
               </div>
 
-              <form className="mt-6 flex flex-col gap-5" onSubmit={(event) => { event.preventDefault(); setSent(true) }}>
+              <form className="mt-4 flex flex-col gap-3.5" onSubmit={(event) => { event.preventDefault(); setSent(true) }}>
                 <div>
                   <p className="text-xs font-semibold text-white/70">{home.form.requestType} *</p>
                   <div className="mt-2 grid grid-cols-3 gap-2">
@@ -277,7 +277,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                         type="button"
                         onClick={() => setRequestCategory(i)}
                         aria-pressed={requestCategory === i}
-                        className={cn('rounded-full border px-3 py-2 text-xs font-semibold transition-colors', requestCategory === i ? 'border-gold bg-gold text-navy' : 'border-white/20 bg-transparent text-white/75 hover:border-gold hover:text-gold')}
+                        className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors', requestCategory === i ? 'border-gold bg-gold text-navy' : 'border-white/20 bg-transparent text-white/75 hover:border-gold hover:text-gold')}
                       >
                         {label}
                       </button>
@@ -320,7 +320,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                       id="contact-message"
                       name="message"
                       placeholder={home.form.messagePlaceholder}
-                      rows={4}
+                      rows={3}
                       maxLength={500}
                       value={contactMessage}
                       onChange={(event) => setContactMessage(event.target.value)}

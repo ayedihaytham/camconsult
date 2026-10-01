@@ -262,49 +262,53 @@
 }
 .dashboard-workspace .dashboard-bureau .dashboard-resume-continuation {
   --paper-opacity: 0.45;
-  --paper-bottom: -108px;
   position: relative;
   isolation: isolate;
   grid-column: 1 / -1;
   min-width: 0;
 }
-.dashboard-workspace .dashboard-bureau .dashboard-resume-continuation::before,
-.dashboard-workspace .dashboard-bureau .dashboard-resume-continuation::after {
-  content: "";
+.dashboard-workspace .dashboard-bureau .dashboard-paper-stack {
   position: absolute;
   z-index: -1;
-  width: 224px;
-  height: 146px;
-  border-radius: 1px;
+  right: -18px;
+  bottom: -10px;
+  width: 44%;
+  max-width: 140px;
+  height: 64px;
   opacity: var(--paper-opacity);
   pointer-events: none;
 }
-/* Broad sheet faces and softened sand edges give the stack depth. */
-.dashboard-workspace .dashboard-bureau .dashboard-resume-continuation::before {
-  right: -62px;
-  bottom: calc(var(--paper-bottom) - 12px);
-  transform: rotate(-26deg);
-  background: color-mix(in srgb, var(--workspace-surface) 88%, hsl(var(--accent)));
-  box-shadow: 0 8px 15px hsl(var(--primary) / 0.1);
+/* Four individual sheets fan out only from the clipped lower-right corner. */
+.dashboard-workspace .dashboard-bureau .dashboard-paper-stack > span {
+  position: absolute;
+  right: 0;
+  bottom: -34px;
+  width: 135%;
+  height: 112px;
+  transform-origin: bottom right;
+  transform: rotate(-12deg);
+  border: 1px solid hsl(var(--accent) / 0.3);
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--workspace-surface) 92%, hsl(var(--accent)));
+  box-shadow: 0 4px 7px hsl(var(--primary) / 0.15);
 }
-.dashboard-workspace .dashboard-bureau .dashboard-resume-continuation::after {
-  right: -44px;
-  bottom: var(--paper-bottom);
-  transform: rotate(-28deg);
-  border-bottom: 1px solid hsl(var(--accent) / 0.3);
-  background:
-    linear-gradient(hsl(var(--accent) / 0.28), hsl(var(--accent) / 0.28)) right 18px bottom 24px / 92px 1px no-repeat,
-    linear-gradient(hsl(var(--accent) / 0.2), hsl(var(--accent) / 0.2)) right 18px bottom 30px / 82px 1px no-repeat,
-    linear-gradient(hsl(var(--accent) / 0.14), hsl(var(--accent) / 0.14)) right 18px bottom 36px / 72px 1px no-repeat,
-    linear-gradient(135deg, var(--workspace-surface), color-mix(in srgb, var(--workspace-surface) 94%, hsl(var(--accent))));
-  box-shadow:
-    0 3px 1px color-mix(in srgb, var(--workspace-surface) 80%, hsl(var(--accent))),
-    0 6px 1px var(--workspace-surface),
-    0 8px 1px color-mix(in srgb, var(--workspace-surface) 72%, hsl(var(--accent))),
-    0 11px 1px var(--workspace-surface),
-    0 13px 1px color-mix(in srgb, var(--workspace-surface) 78%, hsl(var(--accent))),
-    0 16px 1px var(--workspace-surface),
-    0 19px 9px hsl(var(--primary) / 0.12);
+.dashboard-workspace .dashboard-bureau .dashboard-paper-stack > span:nth-child(2) {
+  right: -10px;
+  bottom: -44px;
+  transform: rotate(-9deg);
+  background: color-mix(in srgb, var(--workspace-surface) 96%, hsl(var(--accent)));
+}
+.dashboard-workspace .dashboard-bureau .dashboard-paper-stack > span:nth-child(3) {
+  right: -20px;
+  bottom: -54px;
+  transform: rotate(-6deg);
+  background: color-mix(in srgb, var(--workspace-surface) 90%, hsl(var(--accent)));
+}
+.dashboard-workspace .dashboard-bureau .dashboard-paper-stack > span:nth-child(4) {
+  right: -30px;
+  bottom: -64px;
+  transform: rotate(-3deg);
+  background: color-mix(in srgb, hsl(var(--card)) 60%, var(--workspace-surface));
 }
 .dashboard-workspace .dashboard-bureau .dashboard-resume-continuation > p {
   max-width: 28ch;
@@ -961,7 +965,6 @@
   }
   .dashboard-workspace .dashboard-bureau .dashboard-resume-continuation {
     --paper-opacity: 1;
-    --paper-bottom: -74px;
     position: relative;
     grid-column: auto;
     align-self: stretch;
@@ -1013,7 +1016,6 @@
     }
     .dashboard-workspace .dashboard-bureau .dashboard-resume-continuation {
       --paper-opacity: 1;
-      --paper-bottom: -74px;
       grid-column: auto;
       align-self: stretch;
       display: flex;

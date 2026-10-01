@@ -15,6 +15,9 @@ export function ResumeWork({ task, admin }: { task: DashboardTaskRow | null; adm
         </> : <p className="dashboard-resume-empty">Rien à reprendre pour le moment. Retrouvez les tâches à commencer ci-dessous.</p>}
       </div>
       {task && <div className="dashboard-resume-continuation">
+        <span className="dashboard-paper-stack" aria-hidden="true">
+          <span /><span /><span /><span />
+        </span>
         <p>Poursuivre cette tâche depuis votre espace de travail.</p>
         <Link to="/taches" className="dashboard-resume-action dashboard-navigation">Reprendre<ArrowRight className="size-4" aria-hidden="true" /></Link>
       </div>}

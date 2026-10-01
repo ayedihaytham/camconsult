@@ -4,6 +4,9 @@
   "title": "Design System: CamConsult",
   "extensions": {
     "colorMeta": {
+      "mon-bureau-canvas": { "role": "neutral", "displayName": "Mon bureau Warm Canvas", "canonical": "color-mix(in srgb, hsl(var(--background)) 92%, hsl(var(--accent)))" },
+      "mon-bureau-surface": { "role": "neutral", "displayName": "Mon bureau Ivory", "canonical": "color-mix(in srgb, hsl(var(--background)) 98%, hsl(var(--accent)))" },
+      "mon-bureau-dossier": { "role": "neutral", "displayName": "Mon bureau Dossier", "canonical": "color-mix(in srgb, hsl(var(--accent)) 6%, color-mix(in srgb, hsl(var(--background)) 98%, hsl(var(--accent))))" },
       "navy": { "role": "primary", "displayName": "Cabinet Navy", "canonical": "#0B2545", "tonalRamp": ["#08182E", "#0B2545", "#183C63", "#31587C", "#5E829E", "#95B1C4", "#C7D8E0", "#F1F6F8"] },
       "gold": { "role": "primary", "displayName": "CamConsult Gold", "canonical": "#C9A96A", "tonalRamp": ["#3D2F13", "#6D531F", "#9B7736", "#C9A96A", "#D9C08F", "#E8D7B4", "#F4EAD3", "#FCF8EC"] },
       "background": { "role": "neutral", "displayName": "Warm Paper", "canonical": "#F8F7F4", "tonalRamp": ["#2B2A28", "#5A5853", "#89867D", "#B7B3AA", "#D7D3CB", "#EAE7E1", "#F8F7F4", "#FFFFFF"] },
@@ -13,6 +16,7 @@
       "destructive": { "role": "tertiary", "displayName": "Semantic Destructive", "canonical": "hsl(0 72% 45%)", "tonalRamp": ["#4B1010", "#791818", "#A52222", "#C72020", "#DF6262", "#EE9B9B", "#F7CBCB", "#FFF3F3"] }
     },
     "typographyMeta": {
+      "mon-bureau-section-heading": { "displayName": "Mon bureau Register Heading", "purpose": "Main desktop register heading from the approved Mon bureau Playfair exception. Rail headings reduce to 17.5px and phone headings to 17px; operational rows, metadata, ruler dates, counts, tabs and badges retain Inter. Dedicated views and other authenticated pages retain their working sans." },
       "display": { "displayName": "Playfair Display", "purpose": "Rare hero, brand and major page headings." },
       "headline": { "displayName": "Playfair Headline", "purpose": "Public section headings; only selective product headings." },
       "body": { "displayName": "Inter Working Text", "purpose": "Reading copy and every dense operational interface." },
@@ -35,7 +39,10 @@
       { "name": "public-sm", "value": "640px" },
       { "name": "public-lg", "value": "1024px" },
       { "name": "public-2xl-navigation", "value": "1536px" },
-      { "name": "product-mobile-sidebar", "value": "1024px" }
+      { "name": "product-mobile-sidebar", "value": "1024px" },
+      { "name": "mon-bureau-desktop-rail", "value": "1280px" },
+      { "name": "mon-bureau-phone-rhythm", "value": "640px" },
+      { "name": "mon-bureau-inner-container-width", "value": "620px" }
     ]
   },
   "components": [

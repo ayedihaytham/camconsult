@@ -13,7 +13,7 @@ function Harness() {
   return <>
     <button onClick={(event) => start(event.currentTarget)}>Relancer</button>
     <div data-tour="page-workspace">Tableau de bord</div>
-    <div data-tour="dashboard-summary">Indicateurs</div>
+    <div data-tour="dashboard-summary">Bandeau du bureau</div>
   </>;
 }
 
@@ -36,7 +36,7 @@ describe("guided tour lifecycle", () => {
     await waitFor(() => expect(screen.getByText("Repérer l’essentiel")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Terminer" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(localStorage.getItem("camconsult:visite-guidee:tour-test:dashboard:v2")).toBe("done");
+    expect(localStorage.getItem("camconsult:visite-guidee:tour-test:dashboard:v3")).toBe("done");
     expect(screen.queryByText("Découvrir cette page")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Relancer" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();

@@ -1,5 +1,6 @@
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import "@/components/dashboard/dashboard-polish.css";
+import "@/components/dashboard/mon-bureau.css";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { useDashboardData } from "@/hooks/dashboard/useDashboardData";
 import { usePermissions } from "@/hooks/usePermissions";

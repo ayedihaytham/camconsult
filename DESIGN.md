@@ -14,10 +14,18 @@ colors:
   input-border: "#D8D5CE"
   soft-gold-surface: "#F5ECD9"
   warm-highlight-surface: "#FBF4E6"
+  mon-bureau-canvas: "color-mix(in srgb, hsl(var(--background)) 92%, hsl(var(--accent)))"
+  mon-bureau-surface: "color-mix(in srgb, hsl(var(--background)) 98%, hsl(var(--accent)))"
+  mon-bureau-dossier: "color-mix(in srgb, hsl(var(--accent)) 6%, color-mix(in srgb, hsl(var(--background)) 98%, hsl(var(--accent))))"
   success: "hsl(160 84% 33%)"
   warning: "hsl(33 92% 45%)"
   destructive: "hsl(0 72% 45%)"
 typography:
+  mon-bureau-section-heading:
+    fontFamily: "Playfair Display, Georgia, serif"
+    fontSize: "20px"
+    fontWeight: 700
+    lineHeight: "1.35"
   authenticated-heading:
     fontFamily: "Inter, Arial, sans-serif"
     fontWeight: 700
@@ -42,12 +50,18 @@ typography:
     fontWeight: 700
     letterSpacing: "0.24em"
 rounded:
+  mon-bureau-surface: "4px"
+  dashboard-command: "6px"
   sharp: "0.2rem"
   field: "0.25rem"
   medium: "0.375rem"
   component: "0.5rem"
   pill: "999px"
 spacing:
+  mon-bureau-inset: "18px"
+  mon-bureau-phone-inset: "14px"
+  mon-bureau-gap: "16px"
+  mon-bureau-phone-gap: "12px"
   control: "0.5rem"
   card: "1.5rem"
   page-mobile: "1.5rem"
@@ -152,6 +166,13 @@ navigation, tables, forms, buttons, metrics and dense metadata. Playfair gives
 rare, explicitly editorial brand moments a considered advisory tone; it is not
 the default product heading font.
 
+The approved Mon bureau composition is a scoped editorial exception: the
+internal command title/date numeral/quick action, dossier heading/title/CTA,
+section headings and transmission-detail headings use the existing Playfair
+Display. Rows, metadata, ruler dates, counts, tabs and badges stay Inter.
+Dedicated Dashboard tab contents and other authenticated pages keep the
+working sans; this exception adds no font or dependency.
+
 ### Hierarchy
 
 - **Display:** the public hero ranges from 3rem on mobile to 4.5rem at `sm` and
@@ -170,7 +191,8 @@ the default product heading font.
 
 **The Working Sans Rule.** Anything scanned repeatedly or compared in rows—
 page identity, navigation, data, fields, actions, metrics and charts—uses the
-working sans, not Playfair. Codes, identifiers and aligned numeric values may
+working sans, with the approved Mon bureau identity/heading/CTA exception above.
+Codes, identifiers and aligned numeric values may
 use a tabular or technical treatment where useful.
 
 ## Layout
@@ -196,23 +218,47 @@ page literally into another.
 
 ### Daily Workspace — Dashboard
 
-The approved Dashboard answers **what should I work on now?** A compact navy
-greeting/date identity leads directly into the ledger tabs. Reprendre is the
-signature warm/gold surface, followed by real
-collection transmissions, ongoing tasks and work to begin. Attention and messages
-stay secondary. Admin oversight remains a secondary view, not the main experience.
-The mobile DOM order follows that same work-first sequence; date/tab strips may
-scroll horizontally, while team counts use mobile rows. Tasks never acquire
-deadline language. Loading, partial failures and true emptiness are distinct.
-The internal header has no KPI card row or substitute statistics widgets. Its
-underlying counts and company-side KPIs remain available. The Transmission Ledger
-is a continuous working register: connected date ruler, tabular numerals, ticks,
-an explicit today marker and restrained gold selected-date registration. Selected
-detail and upcoming dated links share the same alignment, without nested cards,
-boxed dates or large status pills. The main work areas share a warm paper surface,
-aligned padding and fine dividers; a subtle gold tint identifies Reprendre. Across
-views, navy section rules, lighter subsection boundaries and fine row separators
-establish three clear levels.
+Mon bureau answers **what should I work on now?** Its visual authority is the
+user-approved **Tableau de bord comptable moderne.png** (2026-10-01), superseding
+the earlier `direction-b-final.html` composition. The shared compact navy command
+banner anchors its date at left beside a small greeting, title and quick action;
+a fine partial gold rule leads into gold-underlined tabs. Its selective serif
+identity is the approved exception described in Typography.
+
+The signature ivory dossier carries a folder marker, real task/status/company
+context, neutral continuation copy and navy CTA. A separate transmission register
+uses a continuous seven-day ruler with ticks, tabular dates and a gold selected mark.
+Local previous/next controls move the loaded deadline window by seven days and
+select its first day; previous is disabled in the window that starts today.
+Selected-day detail and the next two upcoming collections share a detail row
+when actual width permits; both retain their labels and distinct empty states
+inside finely bordered warm detail areas with a compact inset.
+Company, period and textual transmission state remain readable beside the date.
+Two bounded task registers preview ongoing work and tasks to begin.
+
+At viewport widths of 1280px and above, an independent 320px rail starts alongside
+the tabs. A single-row master grid separates it from the stable view column by
+20px; their vertical flows stay independent. The rail holds grouped attention,
+viewer-specific unread messages and
+admin-only alphabetical team counts. Light warm rail surfaces pair gold heading
+icons with pale slate message/team initials, blue unread badges and warm ink
+for open task counts. The third unread avatar's navy treatment is decorative
+and conveys no priority or person category. Each work/context preview has at most three
+items. Below 1280px visual, DOM, reading and focus order is dossier, transmissions,
+attention, ongoing tasks, tasks to begin, messages, then team. Each section mounts
+once in the selected composition. Internal dossier/detail splits
+depend on 620px of actual available width; paired tasks require a wide desktop
+main column, where a nested header/body subgrid aligns the two task registers'
+headings and overall heights. Phone CTA spans its surface; only tabs/ruler scroll horizontally.
+Main insets, gaps and restrained corners use the scoped frontmatter tokens.
+The section-heading token describes the main desktop register heading; the
+right rail uses a smaller heading (17.5px) and phone layouts reduce it to 17px.
+Quiet ivory surfaces, fine rules and semantic red/amber/navy cues establish
+hierarchy without a KPI row. Company-side KPIs and dedicated tab contents retain
+their existing composition. Tasks never acquire deadlines; loading, partial
+failures and true emptiness stay distinct. Implemented presentation lives in
+`app comptabole/src/components/dashboard/mon-bureau.css`; role and data rules
+remain documented in [Dashboard](docs/dashboard.md).
 
 ### Signature Ledger — operational modules
 
@@ -411,8 +457,8 @@ color-only.
 ### Do:
 
 - **Do** use the frontmatter tokens as the canonical brand reference.
-- **Do** reserve Playfair for rare brand/display moments and use the working
-  sans for authenticated headings and operational UI.
+- **Do** reserve Playfair for rare brand/display moments and the approved Mon
+  bureau heading/identity/CTA exception; use the working sans for operational rows.
 - **Do** use gold as a small structural brand accent paired with navy.
 - **Do** keep product forms, tables and navigation compact, ruled and easy to
   scan; use cards only when they improve hierarchy.
@@ -424,8 +470,8 @@ color-only.
 - **Don't** copy public hero spacing, editorial card scale or promotional motion
   into the accounting workspace.
 - **Don't** use gold to mean warning, overdue or generic status.
-- **Don't** use Playfair in tables, forms, buttons, navigation, badges, KPIs or
-  charts.
+- **Don't** extend the Mon bureau serif exception into tables, forms, tab labels,
+  badges, KPIs, charts or other authenticated page controls.
 - **Don't** replace fine rules with heavy shadows or arbitrary colorful surfaces.
 - **Don't** communicate a product state with color alone.
 - **Don't** turn every module into a Dashboard command surface or every entity

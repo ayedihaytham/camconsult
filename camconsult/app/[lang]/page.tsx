@@ -111,7 +111,19 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
           </div>
         </section>
 
-        <section className="border-b border-border bg-white px-6 py-7 sm:px-10 lg:px-16"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-10 gap-y-4 text-[10px] font-bold uppercase tracking-[.16em] text-navy/45 sm:justify-between">{home.trustBar.map((label, i) => { const Icon = TRUST_ICONS[i]; return <span key={label} className="flex items-center gap-2"><Icon className="size-4" /> {label}</span> })}</div></section>
+        <section className="border-t-[3px] border-navy/20 bg-[#f4f1ea] px-6 sm:px-10 lg:px-16">
+          <div className="mx-auto grid max-w-7xl sm:grid-cols-2 lg:grid-cols-4">
+            {home.trustBar.map((label, i) => {
+              const Icon = TRUST_ICONS[i]
+              return (
+                <div key={label} className="flex items-center gap-3 border-navy/10 px-6 py-7 lg:[&:not(:first-child)]:border-l">
+                  <Icon className="size-5 shrink-0 text-gold" aria-hidden="true" />
+                  <span className="font-serif text-xl leading-tight text-navy">{label}</span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
 
         <section id="services" className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28">
           <div className="mx-auto max-w-7xl">

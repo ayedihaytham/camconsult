@@ -77,7 +77,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
               <p className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.heroEyebrow}</p>
               <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[.98] sm:text-7xl lg:text-7xl">
                 {home.heroTitlePre && <>{home.heroTitlePre}{' '}</>}
-                <em className="text-gold">{home.heroTitleHighlight}</em>{' '}
+                <em className="text-gold underline decoration-gold/70 decoration-2 underline-offset-[0.14em]">{home.heroTitleHighlight}</em>{' '}
                 {home.heroTitlePost}
               </h1>
               <p className="mt-8 max-w-xl text-base leading-7 text-white/65 sm:text-lg">{home.heroText}</p>

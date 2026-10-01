@@ -182,6 +182,7 @@ const en: Dictionary = {
       ['Social security charges', 'Simulate employee and employer contributions.'],
       ['Legal structures', 'Compare SUARL, SARL and SA.'],
     ],
+    deadlineUi: { today: 'Today', due: 'Deadline', days: 'Days', hours: 'Hours', minutes: 'Minutes', remind: 'Remind me the day before', reminderTitle: 'Periodic VAT return' },
     calendarEyebrow: 'Tax calendar',
     calendarTitle: 'Next deadline: periodic VAT return',
     calendarText: 'Anticipate your obligations and find every useful date.',

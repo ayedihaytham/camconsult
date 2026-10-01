@@ -180,6 +180,7 @@ const fr = {
       ['Charges CNSS', 'Simulez les cotisations salariales et patronales.'],
       ['Statuts juridiques', 'Comparez SUARL, SARL et SA.'],
     ] as [string, string][],
+    deadlineUi: { today: 'Aujourd’hui', due: 'Échéance', days: 'Jours', hours: 'Heures', minutes: 'Minutes', remind: 'Me rappeler la veille', reminderTitle: 'Déclaration périodique de TVA' },
     calendarEyebrow: 'Calendrier fiscal',
     calendarTitle: 'Prochaine échéance : déclaration périodique de TVA',
     calendarText: 'Anticipez vos obligations et retrouvez toutes les dates utiles.',

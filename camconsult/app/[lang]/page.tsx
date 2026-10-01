@@ -43,7 +43,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
     <>
       <CamconsultHeader lang={lang} theme="navy" />
       <main>
-        <section id="accueil" className="relative overflow-hidden bg-navy px-6 pb-20 pt-20 text-white sm:px-10 lg:px-16 lg:pb-28 lg:pt-28">
+        <section id="accueil" className="relative overflow-hidden bg-navy px-6 pb-20 pt-10 text-white sm:px-10 sm:pt-12 lg:px-16 lg:pb-28 lg:pt-14">
           <div
             className="pointer-events-none absolute inset-0 opacity-[0.07]"
             style={{

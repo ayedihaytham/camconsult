@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowRight, CalendarDays, Check, Globe2, Mail, Phone, ShieldCheck } from 'lucide-react'
+import { ArrowRight, CalendarDays, Camera, Check, Mail, Phone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ClientPortalLink } from '@/components/client-portal-link'
 import { getDictionary, type Lang } from '@/lib/i18n'
@@ -136,7 +136,11 @@ export function CamconsultFooter({ lang = 'fr', clientPortalUrl }: CamconsultFoo
               </div>
             )}
             <div className="mt-7 flex items-center gap-2">
-              {[{ label: 'LinkedIn', icon: Globe2 }, { label: 'Site web', icon: Globe2 }, { label: 'Avis clients', icon: ShieldCheck }].map(({ label, icon: Icon }) => <a key={label} href="#reseaux" aria-label={label} className="grid size-9 place-items-center rounded-xl border border-white/20 text-white/65 transition-colors duration-200 hover:border-gold hover:text-gold"><Icon className="size-4" /></a>)}
+              {[
+                { label: dict.footer.phoneMobile, icon: Phone, href: 'tel:+21698400368' },
+                { label: 'Email', icon: Mail, href: 'mailto:camcompta@planet.tn' },
+                { label: 'Instagram', icon: Camera, href: '#reseaux' },
+              ].map(({ label, icon: Icon, href }) => <a key={label} href={href} aria-label={label} className="grid size-9 place-items-center rounded-xl border border-white/20 text-white/65 transition-colors duration-200 hover:border-gold hover:text-gold"><Icon className="size-4" /></a>)}
             </div>
           </div>
 
@@ -153,7 +157,7 @@ export function CamconsultFooter({ lang = 'fr', clientPortalUrl }: CamconsultFoo
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dict.footer.address)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gold underline-offset-4 hover:text-white hover:underline"
+                className="mt-2 inline-flex items-center gap-1 text-sm text-gold underline underline-offset-4 hover:text-white"
               >
                 {dict.footer.directions}
                 <ArrowRight className={cn('size-3.5', isArabic && 'rtl-mirror')} aria-hidden="true" />
@@ -170,14 +174,10 @@ export function CamconsultFooter({ lang = 'fr', clientPortalUrl }: CamconsultFoo
                 </a>
               </div>
 
-              <a href="mailto:camcompta@planet.tn" className="mt-4 flex items-center gap-2 hover:text-white">
-                <Mail className="size-4 shrink-0 text-gold" aria-hidden="true" />
+              <a href="mailto:camcompta@planet.tn" className="mt-4 block hover:text-white">
                 camcompta@planet.tn
               </a>
-              <p className="mt-3 flex items-center gap-2 font-medium text-gold">
-                <Phone className="size-4 shrink-0" aria-hidden="true" />
-                {dict.footer.hours}
-              </p>
+              <p className="mt-3 font-medium text-gold">{dict.footer.hours}</p>
             </div>
             <div className="mt-6"><ClientPortalLink href={clientPortalUrl} lang={lang} /></div>
           </div>

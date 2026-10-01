@@ -48,12 +48,12 @@ function useMobileTour() {
 }
 
 export function TourProvider({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const session = useAuth((state) => state.session);
   const mobile = useMobileTour();
   const tour = useMemo(
-    () => getPageTour(pathname, session),
-    [pathname, session],
+    () => getPageTour(pathname, session, search),
+    [pathname, session, search],
   );
   const storageKey = tour ? tourStorageKey(tour, session) : null;
   const [invitation, setInvitation] = useState(false);

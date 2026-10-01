@@ -7,8 +7,9 @@ The authenticated Dashboard is the approved **Daily Workspace**, answering:
 metrics. The user-approved image **Tableau de bord comptable moderne.png**
 (2026-10-01) is the visual authority for `Mon bureau` and its shared command
 banner/tab bar. It supersedes the earlier `direction-b-final.html` composition.
-Dedicated tab contents and the company-side composition retain their existing
-presentation and business rules.
+The approved **Tableau de bord des tâches CAMCONSULT.png** (2026-10-01)
+governs the dedicated `Tâches` view. Other dedicated tabs and the company-side
+composition retain their existing presentation and business rules.
 
 Current implementation:
 
@@ -17,6 +18,8 @@ Current implementation:
 - Pure view-model rules: `app comptabole/src/lib/dashboard/dashboardData.ts`
 - UI: `app comptabole/src/components/dashboard/`
 - Mon bureau presentation: `app comptabole/src/components/dashboard/mon-bureau.css`
+- Tâches: `app comptabole/src/components/dashboard/tabs/TasksTab.tsx`,
+  `TaskRegister.tsx` and `tasks-workspace.css` in the same Dashboard component tree
 - Existing dedicated/client view styling: `app comptabole/src/components/dashboard/dashboard-polish.css`
 
 ## Structure
@@ -85,6 +88,38 @@ admin `Équipe`, and `Activité`. `overview` remains the default URL tab key.
 
 Company employee tabs: `Vue d'ensemble`, `Collectes`, `Documents`, and
 `Messages` when messaging is permitted.
+
+## Dedicated Tâches view
+
+`/?tab=tasks` starts directly with compact `Ouvertes` / `Terminées` controls,
+the full accessible-work summary, an optional active dossier and complete task
+registers. The page-level heading, subtitle, search input and filter control
+were removed by design. The tabs switch only the loaded `taskRows` /
+`otherTaskRows`; there are no search/filter requests or duplicate domain state.
+
+Open, completed, in-progress and todo counts cover all loaded accessible tasks,
+including `otherTaskRows`, independently of the selected lens.
+The open lens separates `En cours` and `À faire`; the completed lens uses the
+same ledger for `Tâches terminées`. Registers render every matching real row,
+without the reference image's four-row sample limit or an overview preview cap.
+
+In the open lens, the dossier selects the first `en_cours` row from
+`taskRows`, preserving the deterministic order of `majLe` descending,
+`creeLe` descending, then ID ascending. These are personal assigned rows for a
+collaborator and authorized cabinet rows for Admin. It does not imply priority
+or last-worked history. Reprendre, row links and Tout voir all open `/taches`.
+`Autres tâches accessibles` remains separate when matching rows exist; company-
+origin rows explicitly retain **Tâche de société (lecture seule au cabinet)**.
+Task dates, deadlines and percentage progress are not invented.
+
+The scoped styling keeps the command and task headings in the working sans,
+with warm paper registers, blue in-progress badges/initials, warm neutral todo
+and count treatments, and green completed states. Desktop initials are 28px
+circles. At 900px and below, column headers disappear and company/assignee
+metadata stacks under the title; initials shrink to 22px. Below 640px the status
+also stacks, controls reach 44px and the dossier CTA spans its surface. Surface
+insets are 20px, then 16px at 900px and 14px below 640px, with 12px gaps and
+5px corners. These local tokens and rules do not change Mon bureau.
 
 ## Role-specific view
 
@@ -262,6 +297,13 @@ first-visit persistence and replay remain unchanged. Controls retain visible
 focus, semantic status text and 44px interaction targets; tabs use Radix keyboard
 navigation and only tab/date rails scroll horizontally. Existing short row
 color transitions respect reduced-motion preferences.
+
+For internal users on `/?tab=tasks` only, `TourProvider` passes the URL search
+to `getPageTour`, selecting the separate `dashboard-tasks:v1` visit. Its targets
+cover the workspace, open/completed controls, dossier, ongoing,
+todo, completed registers and opening a row; absent targets are skipped by the
+same engine. The existing Mon bureau tour remains unchanged, and company users
+retain their restricted tour even when the URL contains `tab=tasks`.
 
 ## Data sources and performance
 

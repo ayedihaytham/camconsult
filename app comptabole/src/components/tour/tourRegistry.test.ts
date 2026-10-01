@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { financialViewTour, getPageTour } from "./tourRegistry";
+import { session } from "@/lib/dashboard/dashboardFixtures.test-support";
 
 describe("guided tour route coverage", () => {
+  it("selects the Tasks tab walkthrough without changing bureau, other tabs or company tours", () => {
+    expect(getPageTour("/", session(), "?tab=tasks")?.id).toBe("dashboard-tasks");
+    for (const tab of ["overview", "attention", "deadlines", "team", "activity"]) {
+      expect(getPageTour("/", session(), `?tab=${tab}`)?.id).toBe("dashboard");
+      expect(getPageTour("/", session(), `?tab=${tab}`)?.version).toBe(3);
+    }
+    expect(getPageTour("/", session("societe_employe"), "?tab=tasks")?.version).toBe(1);
+  });
   it.each([
     "/", "/societes", "/employes", "/taches", "/collectes", "/collectes/1",
     "/stock", "/stock/1", "/etats-financiers", "/etats-financiers/1",

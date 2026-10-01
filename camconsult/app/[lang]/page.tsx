@@ -4,6 +4,8 @@ import { use, useState } from 'react'
 
 import {
   ArrowRight,
+  ArrowUpRight,
+  AtSign,
   BarChart3,
   CalendarDays,
   Check,
@@ -12,6 +14,7 @@ import {
   FileCheck2,
   FileText,
   Landmark,
+  Lock,
   Mail,
   MapPin,
   MessageCircle,
@@ -19,7 +22,9 @@ import {
   PieChart,
   Scale,
   ShieldCheck,
+  Smartphone,
   Sparkles,
+  User,
   Users,
   WalletCards,
 } from 'lucide-react'
@@ -27,6 +32,7 @@ import { CamconsultHeader } from '@/components/camconsult-header'
 import { CamconsultFooter } from '@/components/camconsult-footer'
 import { getDictionary, isLang, type Lang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+import { useOpenNow } from '@/lib/business-hours'
 
 type ServiceCategoryId = 'all' | 'quotidien' | 'securiser' | 'decider' | 'demarrer'
 const CATEGORY_IDS: ServiceCategoryId[] = ['all', 'quotidien', 'securiser', 'decider', 'demarrer']
@@ -39,10 +45,17 @@ const TRUST_ICONS = [ShieldCheck, CheckCircle2, Sparkles, FileCheck2]
 export default function Home({ params }: { params: Promise<{ lang: string }> }) {
   const { lang: rawLang } = use(params)
   const lang: Lang = isLang(rawLang) ? rawLang : 'fr'
-  const { home } = getDictionary(lang)
+  const { home, footer } = getDictionary(lang)
   const isArabic = lang === 'ar'
   const [sent, setSent] = useState(false)
   const p = (path: string) => `/${lang}${path === '/' ? '' : path}`
+  const isOpen = useOpenNow()
+  const [requestCategory, setRequestCategory] = useState(0)
+  const [preferredContact, setPreferredContact] = useState<'phone' | 'email'>('phone')
+  const [contactMessage, setContactMessage] = useState('')
+  const contactTitleWords = home.contactTitle.trim().split(' ')
+  const contactTitleLastWord = contactTitleWords.pop()
+  const contactTitleLead = contactTitleWords.join(' ')
 
   const [serviceCategory, setServiceCategory] = useState<ServiceCategoryId>('all')
   const servicesIndexed = home.services.map((service, index) => ({ ...service, index }))
@@ -209,7 +222,152 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
 
         <section className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-4xl"><SectionIntro eyebrow={home.faqEyebrow} title={home.faqTitle} text={home.faqText} /><div className="mt-10 divide-y divide-border border-y border-border">{home.faq.map((item) => <details key={item.q} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-5 font-serif text-xl text-navy"><span>{item.q}</span><ChevronDown className="size-5 shrink-0 text-gold transition-transform group-open:rotate-180" /></summary><p className="max-w-2xl pt-4 text-sm leading-7 text-muted-foreground">{item.a}</p></details>)}</div><a href={p('/ressources')} className="mt-7 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-navy hover:text-gold">{home.faqSeeAll} <ArrowRight className="size-4" /></a></div></section>
 
-        <section className="bg-navy px-6 py-20 text-white sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1fr_.8fr]"><div><SectionIntro eyebrow={home.contactEyebrow} title={home.contactTitle} text={home.contactText} light /><div className="mt-10 grid gap-4 text-sm text-white/70 sm:grid-cols-2"><a href="tel:+21698400368" className="flex items-center gap-3 hover:text-gold"><Phone className="size-4 text-gold" />98 400 368</a><a href="mailto:camcompta@planet.tn" className="flex items-center gap-3 hover:text-gold"><Mail className="size-4 text-gold" />camcompta@planet.tn</a><span className="flex items-center gap-3"><MapPin className="size-4 text-gold" />21 Rue Iraq, 1001 Lafayette, Tunis</span><span className="flex items-center gap-3"><CalendarDays className="size-4 text-gold" />{home.contactHours}</span></div></div><form className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); setSent(true) }}><div className="grid gap-4 sm:grid-cols-2"><input required id="contact-nom" name="name" autoComplete="name" aria-label={home.form.name} placeholder={home.form.name} className="field-input border-white/25 bg-white/10 text-white placeholder:text-white/75 placeholder:opacity-100 focus:border-gold focus:ring-1 focus:ring-gold/40" /><input required type="email" id="contact-email" name="email" autoComplete="email" aria-label={home.form.email} placeholder={home.form.email} className="field-input border-white/25 bg-white/10 text-white placeholder:text-white/75 placeholder:opacity-100 focus:border-gold focus:ring-1 focus:ring-gold/40" /></div><input type="tel" id="contact-telephone" name="phone" autoComplete="tel" aria-label={home.form.phone} placeholder={home.form.phone} className="field-input border-white/25 bg-white/10 text-white placeholder:text-white/75 placeholder:opacity-100 focus:border-gold focus:ring-1 focus:ring-gold/40" /><select id="contact-type" name="requestType" aria-label={home.form.requestType} className="field-input border-white/20 bg-white/10 text-white">{home.form.requestTypes.map((option) => <option key={option} className="text-navy">{option}</option>)}</select><textarea required id="contact-message" name="message" aria-label={home.form.message} placeholder={home.form.message} rows={4} className="field-input border-white/25 bg-white/10 text-white placeholder:text-white/75 placeholder:opacity-100 focus:border-gold focus:ring-1 focus:ring-gold/40" /><button className="group inline-flex items-center justify-center gap-3 bg-gold px-6 py-4 text-xs font-bold uppercase tracking-widest text-navy">{sent ? home.form.sent : home.form.send} {sent ? <Check className="size-4" /> : <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />}</button></form></div></section>
+        <section className="bg-navy px-6 py-20 text-white sm:px-10 lg:px-16 lg:py-28">
+          <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1fr_.8fr]">
+            <div>
+              <p className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.contactEyebrow}</p>
+              <h2 className="mt-4 max-w-md font-serif text-4xl leading-tight sm:text-5xl">
+                {contactTitleLead} <em className="text-gold">{contactTitleLastWord}</em>
+              </h2>
+              <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">{home.contactText}</p>
+
+              <div className="mt-10 divide-y divide-white/10 border-t border-white/10">
+                <a href="tel:+21698400368" className="group flex items-center gap-4 py-4 hover:text-gold">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full border border-white/20"><Phone className="size-4 text-gold" aria-hidden="true" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-white/45">{home.contactInfo.phoneLabel}</span>
+                    <span className="block font-semibold text-white group-hover:text-gold">98 400 368</span>
+                  </span>
+                  <ArrowRight className={cn('size-4 shrink-0 text-white/30 transition-colors group-hover:text-gold', isArabic && 'rtl-mirror')} aria-hidden="true" />
+                </a>
+                <a href="mailto:camcompta@planet.tn" className="group flex items-center gap-4 py-4 hover:text-gold">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full border border-white/20"><Mail className="size-4 text-gold" aria-hidden="true" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-white/45">{home.contactInfo.emailLabel}</span>
+                    <span className="block truncate font-semibold text-white group-hover:text-gold">camcompta@planet.tn</span>
+                  </span>
+                  <ArrowRight className={cn('size-4 shrink-0 text-white/30 transition-colors group-hover:text-gold', isArabic && 'rtl-mirror')} aria-hidden="true" />
+                </a>
+                <a href="https://www.google.com/maps/search/?api=1&query=21+Rue+Iraq%2C+1001+Lafayette%2C+Tunis" target="_blank" rel="noopener noreferrer" className="group flex items-center gap-4 py-4 hover:text-gold">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full border border-white/20"><MapPin className="size-4 text-gold" aria-hidden="true" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-white/45">{home.contactInfo.addressLabel}</span>
+                    <span className="block font-semibold text-white group-hover:text-gold">21 Rue Iraq, 1001 Lafayette, Tunis</span>
+                  </span>
+                  <ArrowUpRight className="size-4 shrink-0 text-white/30 transition-colors group-hover:text-gold" aria-hidden="true" />
+                </a>
+                <div className="flex items-center gap-4 py-4">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full border border-white/20"><CalendarDays className="size-4 text-gold" aria-hidden="true" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-white/45">{home.contactInfo.hoursLabel}</span>
+                    <span className="block font-semibold text-white">{home.contactHours}</span>
+                  </span>
+                  {isOpen !== null && (
+                    <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase', isOpen ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-white/20 bg-white/5 text-white/50')}>
+                      <span className={cn('size-1.5 shrink-0 rounded-full', isOpen ? 'bg-emerald-400' : 'bg-white/40')} aria-hidden="true" />
+                      {isOpen ? footer.openShort : footer.closedShort}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t-2 border-gold bg-white/[0.03] p-6 sm:p-8">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="font-serif text-2xl text-white">{home.writeToUs}</h3>
+                <p className="shrink-0 pt-1 text-[11px] text-white/45">{home.requiredNote}</p>
+              </div>
+
+              <form className="mt-6 flex flex-col gap-5" onSubmit={(event) => { event.preventDefault(); setSent(true) }}>
+                <div>
+                  <p className="text-xs font-semibold text-white/70">{home.form.requestType} *</p>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {home.requestCategories.map((label, i) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setRequestCategory(i)}
+                        aria-pressed={requestCategory === i}
+                        className={cn('rounded-full border px-3 py-2 text-xs font-semibold transition-colors', requestCategory === i ? 'border-gold bg-gold text-navy' : 'border-white/20 bg-transparent text-white/75 hover:border-gold hover:text-gold')}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block text-xs font-semibold text-white/70">
+                    {home.form.name} *
+                    <span className="relative mt-1.5 block">
+                      <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/40" aria-hidden="true" />
+                      <input required id="contact-nom" name="name" autoComplete="name" placeholder={home.form.namePlaceholder} className="field-input border-white/25 bg-white/10 pl-10 text-white placeholder:text-white/50 focus:border-gold focus:ring-1 focus:ring-gold/40" />
+                    </span>
+                  </label>
+                  <label className="block text-xs font-semibold text-white/70">
+                    {home.form.email} *
+                    <span className="relative mt-1.5 block">
+                      <AtSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/40" aria-hidden="true" />
+                      <input required type="email" id="contact-email" name="email" autoComplete="email" placeholder={home.form.emailPlaceholder} className="field-input border-white/25 bg-white/10 pl-10 text-white placeholder:text-white/50 focus:border-gold focus:ring-1 focus:ring-gold/40" />
+                    </span>
+                  </label>
+                </div>
+
+                <label className="block text-xs font-semibold text-white/70">
+                  {home.form.phone} <span className="font-normal text-white/40">{home.form.phoneHint}</span>
+                  <span className="relative mt-1.5 block">
+                    <span className="pointer-events-none absolute left-3 top-1/2 flex -translate-y-1/2 items-center gap-1 text-xs font-semibold text-white/50">
+                      <Smartphone className="size-3.5" aria-hidden="true" /> +216
+                    </span>
+                    <input type="tel" id="contact-telephone" name="phone" autoComplete="tel" placeholder={home.form.phonePlaceholder} className="field-input border-white/25 bg-white/10 pl-16 text-white placeholder:text-white/50 focus:border-gold focus:ring-1 focus:ring-gold/40" />
+                  </span>
+                </label>
+
+                <label className="block text-xs font-semibold text-white/70">
+                  {home.form.message}
+                  <span className="relative mt-1.5 block">
+                    <textarea
+                      required
+                      id="contact-message"
+                      name="message"
+                      placeholder={home.form.messagePlaceholder}
+                      rows={4}
+                      maxLength={500}
+                      value={contactMessage}
+                      onChange={(event) => setContactMessage(event.target.value)}
+                      className="field-input resize-y border-white/25 bg-white/10 pb-6 text-white placeholder:text-white/50 focus:border-gold focus:ring-1 focus:ring-gold/40"
+                    />
+                    <span className="pointer-events-none absolute bottom-2.5 right-3 text-[10px] tabular-nums text-white/40">{contactMessage.length} / 500</span>
+                  </span>
+                </label>
+
+                <div>
+                  <p className="text-xs font-semibold text-white/70">{home.preferredContactLabel}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {(['phone', 'email'] as const).map((method) => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setPreferredContact(method)}
+                        aria-pressed={preferredContact === method}
+                        className={cn('flex items-center gap-2 border px-3 py-2.5 text-xs font-semibold transition-colors', preferredContact === method ? 'border-gold text-white' : 'border-white/20 text-white/60 hover:border-white/40')}
+                      >
+                        <span className={cn('size-2.5 shrink-0 rounded-full border', preferredContact === method ? 'border-gold bg-gold' : 'border-white/40')} aria-hidden="true" />
+                        {method === 'phone' ? home.preferredByPhone : home.preferredByEmail}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button className="group mt-1 inline-flex items-center justify-center gap-3 bg-gold px-6 py-4 text-xs font-bold uppercase tracking-widest text-navy">
+                  {sent ? home.form.sent : home.form.send} {sent ? <Check className="size-4" aria-hidden="true" /> : <ArrowRight className={cn('size-4 transition-transform group-hover:translate-x-1', isArabic && 'rtl-mirror')} aria-hidden="true" />}
+                </button>
+
+                <p className="flex items-center gap-2 text-[11px] text-white/45"><Lock className="size-3 shrink-0" aria-hidden="true" />{home.confidentialityNote}</p>
+              </form>
+            </div>
+          </div>
+        </section>
 
         <section className="bg-gold px-6 py-14 text-navy sm:px-10 lg:px-16"><div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 sm:flex-row sm:items-center"><div><p className="text-xs font-bold uppercase tracking-[.2em]">{home.finalEyebrow}</p><h2 className="mt-3 font-serif text-4xl">{home.finalTitle}</h2></div><a href={p('/contact')} className="group inline-flex items-center gap-3 border border-navy px-6 py-4 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-navy hover:text-gold">{home.finalCta} <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" /></a></div></section>
       </main>

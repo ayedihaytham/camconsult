@@ -34,6 +34,7 @@ import { BalanceSection } from '@/components/balance-section'
 import { HomeToolsSection } from '@/components/home-tools-section'
 import { DeadlineSection } from '@/components/deadline-section'
 import { BlogSection } from '@/components/blog-section'
+import { FaqSection } from '@/components/faq-section'
 import { MethodSection } from '@/components/method-section'
 import { getDictionary, isLang, type Lang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -206,7 +207,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
 
         <BlogSection lang={lang} dict={dict} />
 
-        <section className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-4xl"><SectionIntro eyebrow={home.faqEyebrow} title={home.faqTitle} text={home.faqText} /><div className="mt-10 divide-y divide-border border-y border-border">{home.faq.map((item) => <details key={item.q} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-5 font-serif text-xl text-navy"><span>{item.q}</span><ChevronDown className="size-5 shrink-0 text-gold transition-transform group-open:rotate-180" /></summary><p className="max-w-2xl pt-4 text-sm leading-7 text-muted-foreground">{item.a}</p></details>)}</div><a href={p('/ressources')} className="mt-7 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-navy hover:text-gold">{home.faqSeeAll} <ArrowRight className="size-4" /></a></div></section>
+        <FaqSection lang={lang} home={home} />
 
         <section className="bg-navy px-6 py-20 text-white sm:px-10 lg:px-16 lg:py-28">
           <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1fr_.8fr]">

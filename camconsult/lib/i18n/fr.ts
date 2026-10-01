@@ -165,6 +165,11 @@ const fr = {
       letter: { brand: 'CAMCONSULT', title: 'Lettre de mission', fields: ['Missions', 'Calendrier', 'Honoraires'], signed: 'Lu et approuvé', stamp: 'Validé' },
       monthly: { title: 'Point mensuel', example: 'Exemple', months: ['Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept'], checks: ['Déclarations du mois déposées', 'Comptes à jour'] },
     },
+    toolsUi: {
+      live: 'En direct', htToTtc: 'HT → TTC', ttcToHt: 'TTC → HT', amountHt: 'Montant hors taxes', amountTtc: 'Montant TTC',
+      currency: 'DT', resHt: 'Montant HT', resVat: 'TVA {rate} %', resTtc: 'Montant TTC', taxable: 'Revenu imposable',
+      doubt: 'Un doute ? Parlons-en', note: 'Résultats indicatifs : ils ne remplacent pas l’analyse de votre dossier par le cabinet.',
+    },
     toolsEyebrow: 'Outils fiscaux',
     toolsTitle: 'Des réponses utiles, immédiatement.',
     toolsText: 'Testez nos simulateurs gratuits pour préparer vos décisions.',

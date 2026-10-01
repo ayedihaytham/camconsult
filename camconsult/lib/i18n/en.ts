@@ -167,6 +167,11 @@ const en: Dictionary = {
       letter: { brand: 'CAMCONSULT', title: 'Engagement letter', fields: ['Scope', 'Calendar', 'Fees'], signed: 'Read and approved', stamp: 'Valid' },
       monthly: { title: 'Monthly review', example: 'Example', months: ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'], checks: ["Month's filings submitted", 'Accounts up to date'] },
     },
+    toolsUi: {
+      live: 'Live', htToTtc: 'Excl. → incl. VAT', ttcToHt: 'Incl. → excl. VAT', amountHt: 'Amount excluding tax', amountTtc: 'Amount including tax',
+      currency: 'TND', resHt: 'Amount excl. VAT', resVat: 'VAT {rate} %', resTtc: 'Amount incl. VAT', taxable: 'Taxable income',
+      doubt: 'In doubt? Let’s talk', note: 'Indicative results: they do not replace the firm’s analysis of your file.',
+    },
     toolsEyebrow: 'Tax tools',
     toolsTitle: 'Useful answers, instantly.',
     toolsText: 'Try our free simulators to prepare your decisions.',

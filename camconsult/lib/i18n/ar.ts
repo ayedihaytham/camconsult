@@ -190,6 +190,7 @@ const ar: Dictionary = {
     blogEyebrow: 'آراء وتحليلات',
     blogTitle: 'آخر أخبارنا.',
     blogText: 'إضاءات ملموسة لاتخاذ قرارات أكثر هدوءاً.',
+    blogUi: { read: 'اقرأ المقال', readSuffix: 'قراءة', newsletterTitle: 'توصلوا بتحليلاتنا', newsletterText: 'رسالة إلكترونية مع كل مقال جديد. لا شيء آخر.' },
     blogSeeAll: 'كل المدونة',
     posts: [
       ['/images/blog-finance.webp', 'مالية', 'إدارة خزينتكم بمنهجية', 'المؤشرات الأساسية للحفاظ على رؤية واضحة لتدفقاتكم.', '12 جوان 2025 · 5 د'],

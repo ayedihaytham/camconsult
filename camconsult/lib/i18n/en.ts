@@ -190,6 +190,7 @@ const en: Dictionary = {
     blogEyebrow: 'Insights & analysis',
     blogTitle: 'Our latest news.',
     blogText: 'Practical insights to help you make calmer decisions.',
+    blogUi: { read: 'Read the article', readSuffix: 'read', newsletterTitle: 'Get our insights', newsletterText: 'One e-mail for each new article. Nothing else.' },
     blogSeeAll: 'Read the blog',
     posts: [
       ['/images/blog-finance.webp', 'Finance', 'Managing your cash flow with method', 'The key indicators to keep a clear view of your flows.', 'Jun 12, 2025 · 5 min'],

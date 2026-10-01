@@ -188,6 +188,7 @@ const fr = {
     blogEyebrow: 'Regards & analyses',
     blogTitle: 'Nos dernières actualités.',
     blogText: 'Des éclairages concrets pour prendre des décisions plus sereines.',
+    blogUi: { read: 'Lire l’article', readSuffix: 'de lecture', newsletterTitle: 'Recevez nos analyses', newsletterText: 'Un e-mail à chaque nouvel article. Rien d’autre.' },
     blogSeeAll: 'Tout le blog',
     posts: [
       ['/images/blog-finance.webp', 'Finance', 'Piloter sa trésorerie avec méthode', 'Les repères essentiels pour garder une vision claire de vos flux.', '12 juin 2025 · 5 min'],

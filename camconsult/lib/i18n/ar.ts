@@ -132,6 +132,7 @@ const ar: Dictionary = {
     differenceEyebrow: 'ما يميزنا',
     differenceTitle: 'الدقة، مع حضور إنساني حقيقي.',
     differenceText: 'نجعل من المحاسبة أداة اتخاذ قرار، لا مجرد التزام.',
+    balance: { leftKicker: 'من جهة', leftTitle: 'الدقة', rightKicker: 'ومن جهة أخرى', rightTitle: 'الحضور الإنساني', closing: 'التوازن هو مهنتنا.' },
     differentiators: [
       ['سرعة الاستجابة', 'إجابات واضحة، في الوقت المناسب.'],
       ['خبرة قطاعية', 'قراءة دقيقة لتحديات نشاطكم.'],

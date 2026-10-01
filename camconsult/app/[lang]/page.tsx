@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { CamconsultHeader } from '@/components/camconsult-header'
 import { CamconsultFooter } from '@/components/camconsult-footer'
+import { BalanceSection } from '@/components/balance-section'
 import { MethodSection } from '@/components/method-section'
 import { getDictionary, isLang, type Lang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -37,7 +38,6 @@ import { useOpenNow } from '@/lib/business-hours'
 
 
 const SERVICE_ICONS = [FileText, BarChart3, Landmark, ShieldCheck, Users, Sparkles, Scale, PieChart]
-const DIFFERENTIATOR_ICONS = [MessageCircle, Landmark, Users, ShieldCheck, BarChart3, Sparkles]
 const TOOL_ICONS = [WalletCards, BarChart3, Users, Scale]
 const TRUST_ICONS = [ShieldCheck, CheckCircle2, Sparkles, FileCheck2]
 
@@ -193,7 +193,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
           </div>
         </section>
 
-        <section id="a-propos" className="scroll-mt-20 bg-navy px-6 py-20 text-white sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-7xl"><SectionIntro eyebrow={home.differenceEyebrow} title={home.differenceTitle} text={home.differenceText} light /><div className="mt-12 grid gap-px overflow-hidden border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-3">{home.differentiators.map(([title, text], i) => { const Icon = DIFFERENTIATOR_ICONS[i]; return <div key={title} className="bg-navy p-7 transition-colors hover:bg-white/5"><Icon className="size-6 text-gold" /><h3 className="mt-6 font-serif text-2xl">{title}</h3><p className="mt-2 text-sm leading-6 text-white/60">{text}</p></div> })}</div></div></section>
+        <BalanceSection lang={lang} home={home} />
 
         <MethodSection lang={lang} home={home} />
 

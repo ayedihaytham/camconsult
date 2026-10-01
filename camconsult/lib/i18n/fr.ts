@@ -130,6 +130,7 @@ const fr = {
     differenceEyebrow: 'Notre différence',
     differenceTitle: 'La rigueur, avec une vraie présence humaine.',
     differenceText: 'Nous faisons de la comptabilité un outil de décision, pas une simple obligation.',
+    balance: { leftKicker: 'D’un côté', leftTitle: 'La rigueur', rightKicker: 'De l’autre', rightTitle: 'La présence humaine', closing: 'L’équilibre, c’est notre métier.' },
     differentiators: [
       ['Réactivité', 'Des réponses claires, au bon moment.'],
       ['Expertise sectorielle', 'Une lecture fine de vos enjeux métier.'],

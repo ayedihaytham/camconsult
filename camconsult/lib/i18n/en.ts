@@ -132,6 +132,7 @@ const en: Dictionary = {
     differenceEyebrow: 'What sets us apart',
     differenceTitle: 'Rigor, with a genuine human presence.',
     differenceText: 'We turn accounting into a decision-making tool, not a mere obligation.',
+    balance: { leftKicker: 'On one side', leftTitle: 'Rigor', rightKicker: 'On the other', rightTitle: 'Human presence', closing: 'Balance is our craft.' },
     differentiators: [
       ['Responsiveness', 'Clear answers, at the right time.'],
       ['Sector expertise', 'A sharp read of your business challenges.'],

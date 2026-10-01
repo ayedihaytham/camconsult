@@ -72,7 +72,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
             }}
             aria-hidden="true"
           />
-          <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.1fr_.9fr]">
+          <div className="relative z-10 mx-auto grid max-w-7xl items-start gap-14 lg:grid-cols-[1.1fr_.9fr]">
             <div className="animate-fade-up">
               <p className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.heroEyebrow}</p>
               <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[.98] sm:text-7xl lg:text-8xl">
@@ -86,7 +86,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
             <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl shadow-black/20 lg:mb-4 lg:p-10">
               <span className="font-serif text-6xl leading-none text-gold/70" aria-hidden="true">&ldquo;</span>
               <p className="-mt-3 max-w-sm font-serif text-3xl leading-tight">{home.sideQuote}</p>
-              <div className="mt-10 flex flex-col gap-5 border-y border-white/15 py-8">
+              <div className="mt-8 flex flex-col gap-4 border-y border-white/15 py-6">
                 {home.stats.map((stat) => <StatRow key={stat.label} value={stat.value} label={stat.label} />)}
               </div>
             </div>

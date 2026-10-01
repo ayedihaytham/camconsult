@@ -209,14 +209,16 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
 
         <section className="bg-navy px-6 py-20 text-white sm:px-10 lg:px-16 lg:py-28">
           <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1fr_.8fr]">
-            <div>
-              <p className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.contactEyebrow}</p>
+            <div className="flex flex-col justify-between gap-10">
+              <div>
+              <p className="eyebrow flex items-center gap-2 leading-none"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.contactEyebrow}</p>
               <h2 className="mt-4 max-w-md font-serif text-4xl leading-tight sm:text-5xl">
                 {contactTitleLead} <em className="text-gold">{contactTitleLastWord}</em>
               </h2>
               <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">{home.contactText}</p>
+              </div>
 
-              <div className="mt-10 divide-y divide-white/10 border-t border-white/10">
+              <div className="divide-y divide-white/10 border-t border-white/10">
                 <a href="tel:+21698400368" className="group flex items-center gap-4 py-4 hover:text-gold">
                   <span className="grid size-10 shrink-0 place-items-center rounded-full border border-white/20"><Phone className="size-4 text-gold" aria-hidden="true" /></span>
                   <span className="min-w-0 flex-1">

@@ -42,7 +42,6 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
     { label: dict.nav.tools, href: '/outils-fiscaux' },
     { label: dict.nav.blog, href: '/blog' },
     { label: dict.nav.resources, href: '/ressources' },
-    { label: dict.nav.contact, href: '/contact' },
   ]
 
   useEffect(() => {
@@ -70,28 +69,26 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
     router.push(`/${next}${rest === '/' ? '' : rest}`)
   }
 
+  const sepClass = cn('h-6 w-px shrink-0', !isNavy ? 'bg-navy/15' : 'bg-white/15')
+
   return (
     <header dir={isArabic ? 'rtl' : 'ltr'} className={cn('sticky top-0 z-50 w-full transition-all duration-300 backdrop-blur-md', isNavy ? cn('border-b border-white/10 bg-navy/95', isScrolled && 'shadow-[0_12px_32px_rgba(0,0,0,0.25)]') : cn('border-b border-navy/8 bg-white/90', isScrolled && 'shadow-[0_12px_32px_rgba(11,37,69,0.12)]'))}>
-      <div className={cn('mx-auto flex max-w-[1760px] items-center gap-4 px-4 transition-all duration-300 sm:px-6 lg:px-8 2xl:gap-7 2xl:px-10', isScrolled ? 'min-h-16' : 'min-h-[80px]')}>
+      <div className={cn('mx-auto flex max-w-[1760px] items-center gap-6 px-4 transition-all duration-300 sm:px-6 lg:px-8 xl:px-10', isScrolled ? 'min-h-[60px]' : 'min-h-[68px]')}>
 
-        {/* Logo & Rail — isolated zone, never overlaps navigation */}
-        <div className="flex min-w-0 flex-1 items-center gap-0 xl:flex-none xl:min-w-[210px]">
-          <div className={cn('h-12 w-px transition-all duration-300', isScrolled ? 'bg-gold/40' : 'bg-gold/60')} aria-hidden="true" />
-          <a href={withLocale(lang, '/')} className={cn('ml-5 flex shrink-0 items-center gap-2.5', !isNavy ? 'text-navy' : 'text-white')} aria-label={`CAMCONSULT — ${dict.nav.home}`}>
-            <div className="relative grid size-9 place-items-center">
-              <div className="absolute inset-0 rounded-full animate-pulse opacity-30" style={{ background: 'radial-gradient(circle, #C9A96A 0%, transparent 70%)' }} aria-hidden="true" />
-              <img
-                src={!isNavy ? '/brand/logo-mark-light.png' : '/brand/logo-mark-dark.png'}
-                alt="CAMCONSULT"
-                className="relative size-8 object-contain"
-              />
-            </div>
-            <span className={cn('text-xs font-bold tracking-widest transition-opacity duration-300', isScrolled ? 'opacity-90' : 'opacity-100')}>CAMCONSULT</span>
-          </a>
-        </div>
+        {/* Logo */}
+        <a href={withLocale(lang, '/')} className={cn('flex shrink-0 items-center gap-3', !isNavy ? 'text-navy' : 'text-white')} aria-label={`CAMCONSULT — ${dict.nav.home}`}>
+          <span className={cn('grid size-9 place-items-center rounded border', !isNavy ? 'border-navy/25' : 'border-white/35')}>
+            <img
+              src={!isNavy ? '/brand/logo-mark-light.png' : '/brand/logo-mark-dark.png'}
+              alt="CAMCONSULT"
+              className="size-6 object-contain"
+            />
+          </span>
+          <span className="text-xs font-bold tracking-[0.2em]">CAMCONSULT</span>
+        </a>
 
         {/* Desktop Navigation */}
-        <nav className="hidden min-w-0 flex-1 items-center justify-start gap-0.5 overflow-hidden 2xl:flex 2xl:gap-1" aria-label={dict.nav.mainNavLabel}>
+        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 xl:flex 2xl:gap-3" aria-label={dict.nav.mainNavLabel}>
           {navigation.map((item) => {
             const href = withLocale(lang, item.href)
             const isActive = activeHref === href || (item.href === '/' && (activeHref === '' || activeHref === `/${lang}`))
@@ -100,34 +97,32 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
                 key={item.href}
                 href={href}
                 onClick={() => setActiveHref(href)}
-                className={cn('group relative shrink-0 whitespace-nowrap px-1 py-2 text-[9.5px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 xl:px-1.5 xl:text-[10px] 2xl:px-2 2xl:text-[11px] 2xl:tracking-wide', !isNavy ? 'text-navy/55 hover:text-navy/85' : 'text-white/60 hover:text-white/90', isActive && cn('font-bold', !isNavy ? 'text-navy' : 'text-white'))}
+                className={cn('group relative shrink-0 whitespace-nowrap px-2.5 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors duration-200', !isNavy ? 'text-navy/60 hover:text-navy' : 'text-white/65 hover:text-white', isActive && cn('font-bold', !isNavy ? 'text-navy' : 'text-white'))}
               >
                 {item.label}
-                <span className={cn('absolute inset-x-0 bottom-0 h-0.5 origin-center bg-gradient-to-r from-transparent via-gold to-transparent transition-all duration-300', isActive ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0 group-hover:scale-x-75 group-hover:opacity-70')} />
+                <span className={cn('absolute -bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-gold transition-opacity duration-200', isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-60')} aria-hidden="true" />
               </a>
             )
           })}
         </nav>
 
         {/* Right Actions */}
-        <div className="hidden shrink-0 items-center justify-end gap-2 2xl:flex 2xl:gap-3">
-          <span className={cn('mx-1 h-8 w-px shrink-0 transition-all duration-300', !isNavy ? 'bg-navy/15' : 'bg-white/20')} aria-hidden="true" />
-
+        <div className="hidden shrink-0 items-center justify-end gap-4 xl:flex">
           {/* Language Selector */}
           <div ref={langMenuRef} className="relative shrink-0">
             <button
               type="button"
               onClick={() => setLangMenuOpen((v) => !v)}
-              className={cn('group relative flex min-w-[78px] items-center justify-center gap-2 rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all duration-300', !isNavy ? 'border border-navy/10 bg-navy/5 text-navy hover:bg-navy/8' : 'border border-white/15 bg-white/5 text-white hover:bg-white/10')}
+              className={cn('flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest transition-colors', !isNavy ? 'text-navy/70 hover:text-navy' : 'text-white/70 hover:text-white')}
               aria-label={dict.nav.chooseLanguage}
               aria-expanded={langMenuOpen}
             >
-              <Globe2 className="size-3 text-gold" aria-hidden="true" />
-              <span className="rounded-full bg-gold/80 px-1.5 py-0.5 text-navy">{LANGUAGE_SHORT[lang]}</span>
-              <ChevronDown className={cn('size-2.5 transition-transform', langMenuOpen && 'rotate-180')} aria-hidden="true" />
+              <Globe2 className="size-3.5 text-gold" aria-hidden="true" />
+              {LANGUAGE_SHORT[lang]}
+              <ChevronDown className={cn('size-3 transition-transform', langMenuOpen && 'rotate-180')} aria-hidden="true" />
             </button>
             {langMenuOpen && (
-              <div className="absolute end-0 top-full z-50 mt-2 w-40 overflow-hidden rounded-2xl border border-navy/10 bg-white p-1.5 shadow-pop" role="menu">
+              <div className="absolute end-0 top-full z-50 mt-3 w-40 overflow-hidden rounded-2xl border border-navy/10 bg-white p-1.5 shadow-pop" role="menu">
                 {LOCALES.map((code) => (
                   <button
                     key={code}
@@ -144,32 +139,26 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
             )}
           </div>
 
-          <span className={cn('h-8 w-px shrink-0 transition-all duration-300', !isNavy ? 'bg-navy/15' : 'bg-white/20')} aria-hidden="true" />
+          <span className={sepClass} aria-hidden="true" />
           <div className="shrink-0"><ClientPortalLink href={clientPortalUrl} lang={lang} compact /></div>
 
           {/* Job Application */}
           <a
             href={withLocale(lang, '/candidature')}
             title={dict.nav.jobApplicationTooltip}
-            className="group relative shrink-0 rounded-lg border border-gold bg-transparent px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.12em] xl:px-4 xl:text-[10px] xl:tracking-widest text-gold transition-all duration-300 hover:bg-gold hover:text-navy"
+            className={cn('inline-flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors', !isNavy ? 'text-navy/70 hover:text-navy' : 'text-white/70 hover:text-white')}
           >
-            <span className="relative inline-flex items-center gap-2">
-              <Briefcase className="size-3.5" aria-hidden="true" />
-              {dict.nav.jobApplication}
-            </span>
+            <Briefcase className="size-3.5 text-gold" aria-hidden="true" />
+            {dict.nav.jobApplication}
           </a>
-
-          <span className={cn('h-8 w-px shrink-0 transition-all duration-300', !isNavy ? 'bg-navy/15' : 'bg-white/20')} aria-hidden="true" />
 
           {/* CTA Button */}
           <a
             href={withLocale(lang, '/contact')}
-            className="group relative rounded-lg border border-gold bg-transparent px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.12em] xl:px-4 xl:text-[10px] xl:tracking-widest 2xl:px-5 text-gold transition-all duration-300 hover:bg-gold hover:text-navy"
+            className="group inline-flex shrink-0 items-center gap-2 rounded-sm bg-gold px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-navy transition-opacity hover:opacity-90"
           >
-            <span className="relative inline-flex items-center gap-2">
-              {dict.nav.bookAppointment}
-              <ArrowRight className={cn('size-3.5 transition-transform duration-300 group-hover:translate-x-0.5', isArabic && 'rotate-180')} aria-hidden="true" />
-            </span>
+            {dict.nav.bookAppointment}
+            <ArrowRight className={cn('size-3.5 transition-transform duration-300 group-hover:translate-x-0.5', isArabic && 'rotate-180')} aria-hidden="true" />
           </a>
         </div>
 
@@ -177,7 +166,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={cn('ml-auto grid size-10 shrink-0 place-items-center rounded-lg border transition-all duration-300 2xl:hidden', !isNavy ? 'border-navy/15 text-navy hover:bg-navy/5' : 'border-white/20 text-white hover:bg-white/10')}
+          className={cn('ml-auto grid size-10 shrink-0 place-items-center rounded-lg border transition-all duration-300 xl:hidden', !isNavy ? 'border-navy/15 text-navy hover:bg-navy/5' : 'border-white/20 text-white hover:bg-white/10')}
           aria-expanded={isOpen}
           aria-controls="mobile-navigation"
           aria-label={isOpen ? dict.nav.closeMenu : dict.nav.openMenu}
@@ -189,7 +178,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
       {/* Mobile Navigation */}
       <div
         id="mobile-navigation"
-        className={cn('overflow-hidden transition-all duration-300 2xl:hidden', !isNavy ? 'border-t border-navy/10 bg-white/95' : 'border-t border-white/10 bg-navy/95', isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0')}
+        className={cn('overflow-hidden transition-all duration-300 xl:hidden', !isNavy ? 'border-t border-navy/10 bg-white/95' : 'border-t border-white/10 bg-navy/95', isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0')}
       >
         <nav className="mx-auto flex max-w-7xl flex-col gap-0 px-6 py-3 sm:px-10" aria-label={dict.nav.mobileNavLabel}>
           {navigation.map((item) => {

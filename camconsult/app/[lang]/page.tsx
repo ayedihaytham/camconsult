@@ -35,8 +35,6 @@ import { getDictionary, isLang, type Lang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { useOpenNow } from '@/lib/business-hours'
 
-type ServiceCategoryId = 'all' | 'quotidien' | 'securiser' | 'decider' | 'demarrer'
-const CATEGORY_IDS: ServiceCategoryId[] = ['all', 'quotidien', 'securiser', 'decider', 'demarrer']
 
 const SERVICE_ICONS = [FileText, BarChart3, Landmark, ShieldCheck, Users, Sparkles, Scale, PieChart]
 const DIFFERENTIATOR_ICONS = [MessageCircle, Landmark, Users, ShieldCheck, BarChart3, Sparkles]
@@ -58,16 +56,9 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
   const contactTitleLastWord = contactTitleWords.pop()
   const contactTitleLead = contactTitleWords.join(' ')
 
-  const [serviceCategory, setServiceCategory] = useState<ServiceCategoryId>('all')
   const servicesIndexed = home.services.map((service, index) => ({ ...service, index }))
-  const servicesFiltered = serviceCategory === 'all' ? servicesIndexed : servicesIndexed.filter((s) => s.category === serviceCategory)
   const [selectedServiceIndex, setSelectedServiceIndex] = useState(0)
-  const selectedService = servicesIndexed.find((s) => s.index === selectedServiceIndex) ?? servicesFiltered[0] ?? servicesIndexed[0]
-  function chooseCategory(id: ServiceCategoryId) {
-    setServiceCategory(id)
-    const next = id === 'all' ? servicesIndexed : servicesIndexed.filter((s) => s.category === id)
-    if (next.length > 0 && !next.some((s) => s.index === selectedServiceIndex)) setSelectedServiceIndex(next[0].index)
-  }
+  const selectedService = servicesIndexed[selectedServiceIndex] ?? servicesIndexed[0]
   const servicesTitleWords = home.servicesTitle.trim().split(' ')
   const servicesTitleLastWord = servicesTitleWords.pop()
   const servicesTitleLead = servicesTitleWords.join(' ')
@@ -126,7 +117,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
           </div>
         </section>
 
-        <section id="services" className="px-6 py-10 sm:px-10 lg:px-16 lg:py-12">
+        <section id="services" className="px-6 pb-10 pt-5 sm:px-10 lg:px-16 lg:pb-12 lg:pt-6">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col gap-3 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
               <div>
@@ -135,37 +126,11 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                   {servicesTitleLead} <em className="text-gold">{servicesTitleLastWord}</em>
                 </h2>
               </div>
-              <p className="max-w-xs text-sm leading-6 text-muted-foreground lg:border-l lg:border-border lg:pl-8">{home.servicesText}</p>
-            </div>
-
-            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-muted-foreground">{home.servicesFilterLabel}</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-5">
-              {CATEGORY_IDS.map((id) => {
-                const cat = home.serviceCategories[id]
-                const count = id === 'all' ? servicesIndexed.length : servicesIndexed.filter((s) => s.category === id).length
-                const active = serviceCategory === id
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => chooseCategory(id)}
-                    aria-pressed={active}
-                    className={cn('relative border px-4 py-2 text-left transition-colors', active ? 'border-navy bg-navy text-white' : 'border-border bg-white text-navy hover:border-gold')}
-                  >
-                    <span className="flex items-center gap-2 text-sm font-bold">
-                      {cat.label}
-                      <span className={cn('text-xs font-normal', active ? 'text-white/55' : 'text-muted-foreground')}>{String(count).padStart(2, '0')}</span>
-                    </span>
-                    <span className={cn('mt-1 block text-xs', active ? 'text-white/70' : 'text-muted-foreground')}>{cat.subtitle}</span>
-                    {active && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-gold" aria-hidden="true" />}
-                  </button>
-                )
-              })}
             </div>
 
             <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1.15fr] lg:gap-6">
               <ul className="divide-y divide-border border border-border">
-                {servicesFiltered.map((service) => {
+                {servicesIndexed.map((service) => {
                   const active = service.index === selectedService.index
                   return (
                     <li key={service.title}>

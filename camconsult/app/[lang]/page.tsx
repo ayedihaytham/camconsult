@@ -73,7 +73,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
             aria-hidden="true"
           />
           <div className="relative z-10 mx-auto grid max-w-7xl items-start gap-14 lg:grid-cols-[1.1fr_.9fr]">
-            <div className="animate-fade-up">
+            <div className="animate-fade-up rounded-2xl border border-white/10 p-8 lg:p-10">
               <p className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.heroEyebrow}</p>
               <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[.98] sm:text-7xl lg:text-8xl">
                 {home.heroTitlePre && <>{home.heroTitlePre}{' '}</>}
@@ -81,7 +81,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                 {home.heroTitlePost}
               </h1>
               <p className="mt-8 max-w-xl text-base leading-7 text-white/65 sm:text-lg">{home.heroText}</p>
-              <div className="mt-10 flex flex-wrap gap-3"><a href={p('/contact')} className="group inline-flex items-center gap-3 rounded-sm bg-gold px-6 py-4 text-xs font-bold uppercase tracking-wider text-navy transition-transform duration-300 hover:-translate-y-0.5">{home.ctaPrimary} <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" /></a><a href={p('/services')} className="inline-flex items-center gap-3 rounded-sm border border-white/25 px-6 py-4 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-300 hover:border-gold hover:text-gold">{home.ctaSecondary}</a></div>
+              <div className="mt-6 flex flex-wrap gap-3"><a href={p('/contact')} className="group inline-flex items-center gap-3 rounded-sm bg-gold px-6 py-4 text-xs font-bold uppercase tracking-wider text-navy transition-transform duration-300 hover:-translate-y-0.5">{home.ctaPrimary} <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" /></a><a href={p('/services')} className="inline-flex items-center gap-3 rounded-sm border border-white/25 px-6 py-4 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-300 hover:border-gold hover:text-gold">{home.ctaSecondary}</a></div>
             </div>
             <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl shadow-black/20 lg:mb-4 lg:p-10">
               <span className="font-serif text-6xl leading-none text-gold/70" aria-hidden="true">&ldquo;</span>

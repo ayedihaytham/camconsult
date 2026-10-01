@@ -78,6 +78,7 @@ export function DataTable<TData>({
   return (
     <div className={cn("min-w-0", className)} {...props}>
       <div
+        data-tour="page-table-desktop"
         className={cn(
           "hidden lg:block",
           isRegisterDesktop
@@ -220,7 +221,7 @@ export function DataTable<TData>({
         )}
       </div>
 
-      {!hideMobile && <div className="space-y-2 lg:hidden">
+      {!hideMobile && <div data-tour="page-table-mobile" className="space-y-2 lg:hidden">
         {rows.length > 0 ? (
           rows.map((row) =>
             mobileRow ? (

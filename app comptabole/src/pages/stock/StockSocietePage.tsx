@@ -180,7 +180,7 @@ export function StockSocietePage() {
         title={`Stock — ${societe?.raisonSociale ?? "Société"}`}
         description="Un mouvement = un achat et/ou une vente appariés. L'écart doit tendre vers 0."
         actions={
-          <div className="flex gap-2">
+          <div data-tour="stock-actions" className="flex gap-2">
             <Button variant="ledger-text" onClick={exportXlsx}>
               <Download className="h-3.5 w-3.5" />
               Excel
@@ -202,7 +202,7 @@ export function StockSocietePage() {
       {/* KPI en lignes de relevé — héros = Anomalies, le signal métier le
           plus critique de cet écran (écart doit tendre vers 0), pas le 1er
           indicateur par défaut. Voir DESIGN-SYSTEM.md §1. */}
-      <LedgerSheet className="mt-4">
+      <LedgerSheet data-tour="stock-summary" className="mt-4">
         <LedgerKpiRow
           hero
           danger={nbAnomalies > 0}
@@ -236,7 +236,7 @@ export function StockSocietePage() {
       </label>
 
       {shown.length === 0 ? (
-        <LedgerSheet>
+        <LedgerSheet data-tour="stock-register">
           <EmptyState
             icon={Boxes}
             title={loading ? "Chargement…" : "Aucun mouvement"}
@@ -252,6 +252,7 @@ export function StockSocietePage() {
             );
             return (
               <div
+                data-tour="stock-register"
                 key={m.id}
                 className="overflow-hidden rounded-2xl border border-border bg-card shadow-card"
               >

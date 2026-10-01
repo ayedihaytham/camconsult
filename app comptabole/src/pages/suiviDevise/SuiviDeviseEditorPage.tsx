@@ -282,6 +282,7 @@ export function SuiviDeviseEditorPage() {
   return (
     <div className="flex flex-1 flex-col">
       <SignatureLedgerBanner
+        icon={Package}
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"
         title={`${current.client}${current.exercice ? ` — ${current.exercice}` : ""}`}
@@ -346,10 +347,10 @@ export function SuiviDeviseEditorPage() {
       </dl>
 
       <LedgerWorkSurface className="mt-3">
-        <div className="px-3">
+        <div data-tour="devise-tabs" className="px-3">
           <LedgerSegmented value={vue} onChange={setVue} options={VUE_OPTIONS} />
         </div>
-        <OperationalLedgerToolbar
+        <div data-tour="devise-actions"><OperationalLedgerToolbar
           label="Recherche du suivi client devise"
           search={
             <Input
@@ -393,7 +394,7 @@ export function SuiviDeviseEditorPage() {
               </DropdownMenu>
             </>
           }
-        />
+        /></div>
         <OperationalMobileUtility label="Recherche du suivi client devise">
           <Input
             value={recherche}
@@ -412,7 +413,7 @@ export function SuiviDeviseEditorPage() {
           </span>
         </OperationalContentHeader>
 
-        {vue === "ventes" && (
+        <div data-tour="devise-editor">{vue === "ventes" && (
           <LedgerTable
             columns={factureColumns}
             data={facturesVisibles}
@@ -486,7 +487,7 @@ export function SuiviDeviseEditorPage() {
               />
             }
           />
-        )}
+        )}</div>
       </LedgerWorkSurface>
 
       <SuiviDeviseFactureFormSheet

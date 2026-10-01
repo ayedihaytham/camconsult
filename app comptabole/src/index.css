@@ -327,6 +327,23 @@
   border-right: 0;
 }
 
+.signature-ledger__context {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  margin-left: auto;
+}
+
+.signature-ledger__context dd {
+  margin: 0;
+  color: hsl(var(--primary-foreground) / 0.72);
+  font-size: 0.625rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
 .signature-ledger__metric dt {
   order: 2;
   color: hsl(var(--primary-foreground) / 0.78);
@@ -352,6 +369,46 @@
 
 .signature-ledger--process .signature-ledger__metric:first-child {
   margin-right: 2rem;
+}
+
+/* Compact Signature Ledger: keep the shared navy/motif identity when a page
+   has no real lower metric region. */
+.signature-ledger--compact {
+  grid-template-rows: auto;
+  min-height: 0;
+  padding-block: 0.75rem 1.125rem;
+}
+
+.signature-ledger--compact .signature-ledger__identity {
+  padding-block: 0.125rem;
+}
+
+.signature-ledger--compact .signature-ledger__signature {
+  align-items: center;
+  padding-top: 0;
+}
+
+.signature-ledger--compact .signature-ledger__registration {
+  margin-top: 0;
+}
+
+.signature-ledger__compact-context {
+  max-width: 12rem;
+  color: hsl(var(--primary-foreground) / 0.68);
+  font-size: 0.5625rem;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  line-height: 1.4;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.signature-ledger--compact::after {
+  inset: auto auto 0.5rem 1.25rem;
+  width: min(53%, 32rem);
+  height: 1px;
+  background: hsl(var(--accent));
+  mask-image: none;
 }
 
 .operational-fab {
@@ -425,7 +482,29 @@
   }
   .signature-ledger__metric dd { font-size: 1.0625rem; }
   .signature-ledger__metric dt { margin-top: 0.2rem; font-size: 0.5625rem; letter-spacing: 0.025em; line-height: 1.2; }
+  .signature-ledger__context { margin-left: 0; }
+  .signature-ledger__context dd { font-size: 0.5625rem; letter-spacing: 0.025em; text-align: left; }
   .signature-ledger--process .signature-ledger__metric:first-child { margin-right: 0.45rem; }
+
+  .signature-ledger--compact {
+    padding: 0.75rem 0.9375rem 1.125rem;
+  }
+  .signature-ledger--compact .signature-ledger__identity { padding: 0 1.5rem 0.625rem 0; }
+  .signature-ledger--compact .signature-ledger__signature {
+    position: relative;
+    top: auto;
+    right: auto;
+    justify-content: space-between;
+    padding: 0;
+  }
+  .signature-ledger--compact .signature-ledger__registration { display: none; }
+  .signature-ledger__compact-context {
+    max-width: 100%;
+    font-size: 0.5625rem;
+    letter-spacing: 0.05em;
+    text-align: left;
+  }
+  .signature-ledger--compact::after { left: 0.9375rem; bottom: 0.4375rem; width: 47%; }
 
   .operational-signature-banner .signature-ledger__identity { padding-top: 1rem; padding-bottom: 0.875rem; }
   .operational-signature-banner .signature-ledger__title { margin-top: 0.4rem; }
@@ -466,9 +545,15 @@
     min-height: 7.75rem;
     grid-template-rows: minmax(0, 1fr) 2.375rem;
   }
+  .signature-ledger--compact {
+    min-height: 0;
+    grid-template-rows: auto;
+  }
   .signature-ledger__identity { padding-top: 0.625rem; padding-bottom: 0.25rem; }
   .signature-ledger__title { margin-top: 0.25rem; }
   .signature-ledger__signature { padding-top: 0.75rem; }
+  .signature-ledger--compact .signature-ledger__identity { padding-block: 0.125rem; }
+  .signature-ledger--compact .signature-ledger__signature { padding-top: 0; }
   .signature-ledger__metric dd { font-size: 1.1875rem; }
 }
 

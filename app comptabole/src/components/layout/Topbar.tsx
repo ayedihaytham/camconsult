@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
+import { TourHelpButton } from "@/components/tour/TourHelpButton";
 
 import {
   DropdownMenu,
@@ -21,6 +22,7 @@ import {
 export function Topbar() {
   const { session, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const nom = toTitleCase(session?.nom ?? "Utilisateur");
   const role = session?.fonction ?? "";
@@ -52,6 +54,7 @@ export function Topbar() {
         <AppBreadcrumbs />
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+          {pathname !== "/grille-affectat" && <TourHelpButton placement="topbar" />}
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

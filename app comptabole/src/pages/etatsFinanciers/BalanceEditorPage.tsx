@@ -289,6 +289,7 @@ export function BalanceEditorPage() {
     <div className="min-w-0">
       <h1 className="sr-only">{balanceLabel}</h1>
       <FinancialIdentityHeader
+          tourTarget="balance-identity"
           eyebrow="Balance · Dossier financier"
           title={current ? `Exercice ${current.exercice}` : "Balance"}
           description={societe?.raisonSociale ?? "Dossier société"}
@@ -313,7 +314,7 @@ export function BalanceEditorPage() {
             Une ligne par compte ; le code AFFECTAT sert à la synthèse du dossier.
           </p>
         </div>
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:items-center">
+        <div data-tour="balance-actions" className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:items-center">
           <Button
             variant="ledger"
             size="sm"
@@ -330,7 +331,7 @@ export function BalanceEditorPage() {
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={!current || lignes.length === 0} className="sm:order-2">
+              <Button data-tour="balance-tools" variant="outline" size="sm" disabled={!current || lignes.length === 0} className="sm:order-2">
                 Outils
                 <ChevronDown className="h-4 w-4" />
               </Button>
@@ -367,7 +368,7 @@ export function BalanceEditorPage() {
       )}
 
       {current && !currentError && !loading && (
-        <dl className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <dl data-tour="balance-indicators" className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
             <dt className="text-xs text-muted-foreground">
               Écart de balance
@@ -434,7 +435,7 @@ export function BalanceEditorPage() {
           />
         </div>
       ) : (
-        <div className="mt-3 min-w-0 overflow-hidden border-y border-border bg-background">
+        <div data-tour="balance-grid" className="mt-3 min-w-0 overflow-hidden border-y border-border bg-background">
           <LedgerTable
             columns={columns}
             data={lignes}

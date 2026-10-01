@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,12 +10,11 @@ import { cn } from "@/lib/utils";
 export function LedgerSheet({
   children,
   className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+  ...props
+}: ComponentProps<"div">) {
   return (
     <div
+      {...props}
       className={cn(
         "overflow-hidden rounded-2xl border border-border bg-card shadow-card",
         className,

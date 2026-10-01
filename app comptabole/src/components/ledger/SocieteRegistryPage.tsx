@@ -201,6 +201,7 @@ export function SocieteRegistryPage({
   return (
     <div className="flex min-w-0 flex-col">
       <SignatureLedgerBanner
+        icon={EmptyIcon}
         className="mb-0 sm:mb-2"
         eyebrow={eyebrow}
         title={title}

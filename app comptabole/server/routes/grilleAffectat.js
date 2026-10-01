@@ -5,6 +5,7 @@ import { requireAuth, requireAdmin } from "../auth.js";
 import { canAccessFinanceSociete, canViewGlobalAffectat } from "../financeAccess.js";
 import { logAction } from "../journal.js";
 import { grilleAffectatCodeDto, grilleCompteDto, grilleCompteSocieteDto } from "../mappers.js";
+import { renameAffectatCode } from "../affectatCodeRename.js";
 
 export const grilleAffectatRouter = Router();
 grilleAffectatRouter.use(requireAuth);
@@ -65,7 +66,7 @@ grilleAffectatRouter.patch("/codes/:code", requireAdmin, async (req, res) => {
 
 const renameSchema = z.object({ newCode: z.string().min(1, "Nouveau code requis") });
 
-/** Renomme un code AFFECTAT partout (grille + comptes + lignes de balance
+/** Renomme un code AFFECTAT partout (grille + comptes globaux et société + lignes de balance
  * déjà saisies). Si `newCode` existe déjà, ça fusionne les deux codes. */
 grilleAffectatRouter.post("/codes/:code/rename", requireAdmin, async (req, res) => {
   const parsed = renameSchema.safeParse(req.body);
@@ -76,27 +77,7 @@ grilleAffectatRouter.post("/codes/:code/rename", requireAdmin, async (req, res) 
   if (!newCode || newCode === oldCode)
     return res.status(400).json({ error: "Code invalide" });
 
-  await withTransaction(async (client) => {
-    const old = (
-      await client.query("select * from grille_affectat_codes where code = $1", [oldCode])
-    ).rows[0];
-    await client.query("update balance_lignes set affectat = $2 where affectat = $1", [
-      oldCode,
-      newCode,
-    ]);
-    await client.query(
-      "update grille_comptes set affectat_code = $2, maj_le = now() where affectat_code = $1",
-      [oldCode, newCode],
-    );
-    // Si newCode existe déjà, on garde SES libellé/poste (fusion) ; sinon on
-    // reprend ceux de oldCode pour ne rien perdre.
-    await client.query(
-      `insert into grille_affectat_codes (code, libelle, poste)
-       values ($1, $2, $3) on conflict (code) do nothing`,
-      [newCode, old?.libelle ?? "", old?.poste ?? ""],
-    );
-    await client.query("delete from grille_affectat_codes where code = $1", [oldCode]);
-  });
+  await withTransaction((client) => renameAffectatCode(client, oldCode, newCode));
   logAction(req.session.nom, "modification", "balance", `Code ${oldCode} → ${newCode}`);
   res.json({ ok: true });
 });

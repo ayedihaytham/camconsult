@@ -7,7 +7,7 @@ import { COLLECTE_STATUT_LABELS } from "@/lib/collecte/tabs";
 import type { DashboardViewModel } from "@/lib/dashboard/dashboardData";
 import { cn, formatDate, formatRelative } from "@/lib/utils";
 
-export function ClientOverviewTab({ data, loading }: { data: DashboardViewModel; loading: boolean }) {
+export function ClientOverviewTab({ data, loading, error = false }: { data: DashboardViewModel; loading: boolean; error?: boolean }) {
   const navigate = useNavigate();
   const file = data.recentFiles[0];
   const message = data.recentMessages[0];
@@ -19,8 +19,8 @@ export function ClientOverviewTab({ data, loading }: { data: DashboardViewModel;
       <div className="grid min-w-0 gap-x-6 sm:grid-cols-2">
         {loading ? [0, 1, 2, 3].map((item) => <div key={item} className="border-t border-border py-4"><Skeleton className="h-16 w-full" /></div>) : (
           <>
-            <ClientInsight icon={ClipboardCheck} label="Collecte en cours" title={collection?.periode ?? "Aucune collecte ouverte"} meta={collection ? COLLECTE_STATUT_LABELS[collection.statut] : undefined} action={collection ? () => navigate(`/collectes/${collection.id}`) : undefined} />
-            <ClientInsight icon={CalendarClock} label="Prochaine échéance" title={deadline ? formatDate(deadline.echeance) : "Aucune échéance à venir"} meta={deadline?.badge} action={deadline ? () => navigate(deadline.route) : undefined} warning={deadline ? deadline.daysFromToday <= 0 : false} />
+            <ClientInsight icon={ClipboardCheck} label="Collecte en cours" title={error ? "Collectes indisponibles" : collection?.periode ?? "Aucune collecte ouverte"} meta={collection ? COLLECTE_STATUT_LABELS[collection.statut] : undefined} action={collection ? () => navigate(`/collectes/${collection.id}`) : undefined} />
+            <ClientInsight icon={CalendarClock} label="Prochaine échéance" title={error ? "Échéances indisponibles" : deadline ? formatDate(deadline.echeance) : "Aucune échéance à venir"} meta={deadline?.badge} action={deadline ? () => navigate(deadline.route) : undefined} warning={deadline ? deadline.daysFromToday <= 0 : false} />
             <ClientInsight icon={FileText} label="Document récent" title={file?.name ?? "Aucun fichier récent"} meta={file ? `${file.societeName} · ${formatRelative(file.updatedAt)}` : undefined} action={file ? () => navigate("/structuration") : undefined} />
             <ClientInsight icon={MessageCircle} label="Dernier échange" title={message?.label ?? "Aucun échange récent"} meta={message?.preview} action={message ? () => navigate("/messagerie") : undefined} />
           </>

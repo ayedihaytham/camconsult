@@ -12,23 +12,36 @@ interface DashboardHeaderProps {
   role: DashboardRole;
   canAddSociete: boolean;
   canUseMessaging: boolean;
+  error?: boolean;
+  now?: Date;
 }
 
-export function DashboardHeader({ salutation, dateLabel, data, loading, role, canAddSociete, canUseMessaging }: DashboardHeaderProps) {
-  const metrics = role === "societe_employe"
-    ? data.kpis
-    : [
-        ...data.kpis.filter((kpi) => kpi.id !== "collectes"),
-        {
-          id: "overdue" as const,
-          label: "Échéances en retard",
-          value: data.deadlines.filter((deadline) => deadline.bucket === "overdue").length,
-          tone: data.deadlines.some((deadline) => deadline.bucket === "overdue") ? "destructive" as const : "neutral" as const,
-        },
-      ];
+export function DashboardHeader({ salutation, dateLabel, data, loading, role, canAddSociete, canUseMessaging, error = false, now = new Date() }: DashboardHeaderProps) {
+  const metrics = data.kpis;
 
+  if (role !== "societe_employe") return (
+    <header data-tour="dashboard-summary">
+      <div className="rounded-lg bg-primary px-4 py-4 text-primary-foreground sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <time dateTime={now.toISOString()} className="hidden shrink-0 border-r border-primary-foreground/20 pr-4 text-center sm:block" aria-label={dateLabel}>
+              <span className="block text-3xl font-semibold tabular-nums leading-none">{now.getDate()}</span>
+              <span className="mt-1 block text-xs text-primary-foreground/80">{new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(now)}</span>
+            </time>
+            <div className="min-w-0">
+              <p className="text-xs text-primary-foreground/80">{salutation}<span className="sm:hidden"> · {dateLabel}</span></p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[1.7rem]">{role === "admin" ? "Le travail du cabinet" : "Mon espace de travail"}</h1>
+              <p className="mt-1 text-xs leading-relaxed text-primary-foreground/80">Reprendre, avancer et préparer les prochaines transmissions.</p>
+            </div>
+          </div>
+          <div className="shrink-0"><DashboardQuickActions role={role} canAddSociete={canAddSociete} canUseMessaging={canUseMessaging} inverse /></div>
+        </div>
+        <div aria-hidden="true" className="mt-4 h-px w-[43%] bg-accent" />
+      </div>
+    </header>
+  );
   return (
-    <header className="overflow-hidden rounded-lg bg-primary text-primary-foreground">
+    <header data-tour="dashboard-summary" className="overflow-hidden rounded-lg bg-primary text-primary-foreground">
       <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
         <div className="min-w-0">
           <h1 className="font-serif text-2xl font-semibold tracking-tight sm:text-[1.7rem]">{salutation}</h1>
@@ -47,7 +60,7 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
       <div className="mx-4 border-t border-accent/60 sm:mx-5" />
       <dl className="grid grid-cols-2 px-4 py-3 sm:px-5 md:flex md:divide-x md:divide-primary-foreground/15">
         {metrics.map((metric, index) => {
-          const collectionDependent = metric.id === "deadline" || metric.id === "collectes" || metric.id === "overdue";
+          const collectionDependent = metric.id === "deadline" || metric.id === "collectes";
           return (
             <div
               key={metric.id}
@@ -59,8 +72,8 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
               )}
             >
               <dt className="truncate text-[0.67rem] font-medium uppercase tracking-[0.08em] text-primary-foreground/58">{metric.label}</dt>
-              {loading && collectionDependent ? (
-                <Skeleton className="mt-1 h-7 w-14 bg-primary-foreground/20" />
+              {(loading || error) && collectionDependent ? (
+                loading ? <Skeleton className="mt-1 h-7 w-14 bg-primary-foreground/20 motion-reduce:animate-none" /> : <dd className="mt-1 text-sm">Indisponible</dd>
               ) : (
                 <dd className="mt-0.5 text-2xl font-semibold tabular-nums tracking-tight">
                   {typeof metric.value === "number" ? formatNumber(metric.value) : metric.value}

@@ -25,12 +25,12 @@ export function MessagesActivity({ messages, onOpen }: { messages: DashboardMess
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <p className="truncate text-sm font-medium text-foreground">{message.label}</p>
+                <p className={`truncate text-sm text-foreground ${message.unread > 0 ? "font-semibold" : "font-medium"}`}>{message.label}</p>
                 <span className="shrink-0 text-[0.68rem] text-muted-foreground">{formatRelative(message.updatedAt)}</span>
               </div>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{message.preview}</p>
             </div>
-            {message.unread > 0 && <Badge className="shrink-0">{message.unread}</Badge>}
+            {message.unread > 0 && <Badge className="dashboard-badge dashboard-badge--info shrink-0" aria-label={`${message.unread} message${message.unread > 1 ? "s" : ""} non lu${message.unread > 1 ? "s" : ""}`}>{message.unread}</Badge>}
             <Button variant="ghost" size="icon-sm" onClick={onOpen} aria-label={`Ouvrir la conversation avec ${message.label}`}>
               <ArrowRight className="size-4" />
             </Button>

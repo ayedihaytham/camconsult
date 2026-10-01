@@ -15,12 +15,14 @@ interface DataTablePaginationProps<TData> extends ComponentProps<"div"> {
   itemLabel?: string;
   table: Table<TData>;
   variant?: "full" | "controls" | "count" | "metadata" | "mobile";
+  mobileTouchTargets?: boolean;
 }
 
 export function DataTablePagination<TData>({
   table,
   itemLabel = "éléments",
   variant = "full",
+  mobileTouchTargets = false,
   className,
   ...props
 }: DataTablePaginationProps<TData>) {
@@ -95,7 +97,11 @@ export function DataTablePagination<TData>({
         size="icon-sm"
         className={cn(
           "shadow-none",
-          isMobile ? "h-8 w-8" : "h-9 w-9",
+          isMobile
+            ? mobileTouchTargets
+              ? "h-11 w-11"
+              : "h-8 w-8"
+            : "h-9 w-9",
         )}
         aria-label="Page précédente"
         disabled={!table.getCanPreviousPage()}
@@ -106,7 +112,7 @@ export function DataTablePagination<TData>({
       <div
         className={cn(
           "flex items-center gap-1.5 px-1 text-xs text-muted-foreground",
-          isMobile ? "h-8" : "h-9",
+          isMobile ? (mobileTouchTargets ? "h-11" : "h-8") : "h-9",
         )}
       >
         <Input
@@ -118,7 +124,11 @@ export function DataTablePagination<TData>({
           aria-label="Aller à la page"
           className={cn(
             "px-1 text-center text-xs font-medium text-foreground shadow-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
-            isMobile ? "h-8 w-10" : "h-9 w-11",
+            isMobile
+              ? mobileTouchTargets
+                ? "h-11 w-11"
+                : "h-8 w-10"
+              : "h-9 w-11",
           )}
           onChange={(event) => {
             const page = Number.parseInt(event.target.value, 10);
@@ -135,7 +145,11 @@ export function DataTablePagination<TData>({
         size="icon-sm"
         className={cn(
           "shadow-none",
-          isMobile ? "h-8 w-8" : "h-9 w-9",
+          isMobile
+            ? mobileTouchTargets
+              ? "h-11 w-11"
+              : "h-8 w-8"
+            : "h-9 w-9",
         )}
         aria-label="Page suivante"
         disabled={!table.getCanNextPage()}

@@ -27,6 +27,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { ListChecks } from "lucide-react";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
@@ -359,6 +360,7 @@ export function TasksKanban({
   return (
     <OperationalLedgerPage className="taches-work-ledger font-sans">
       <SignatureLedgerBanner
+        icon={ListChecks}
         className="operational-signature-banner"
         eyebrow="Clients & travail · Work Ledger"
         title="Tâches"
@@ -386,7 +388,7 @@ export function TasksKanban({
 
         {filteredTasks.length === 0 ? (
           <>
-            <div className="hidden min-w-0 lg:block">{kanbanBoard}</div>
+            <div data-tour="tasks-board" className="hidden min-w-0 lg:block">{kanbanBoard}</div>
             <OperationalMobileHeader>
               <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
                 File de travail
@@ -399,8 +401,8 @@ export function TasksKanban({
           </>
         ) : (
           <>
-            <div className="hidden min-w-0 lg:block">{kanbanBoard}</div>
-            <div className="lg:hidden">
+            <div data-tour="tasks-board" className="hidden min-w-0 lg:block">{kanbanBoard}</div>
+            <div data-tour="tasks-board" className="lg:hidden">
               <TaskTableView
                 table={taskTable}
                 emptyMessage={emptyMessage}

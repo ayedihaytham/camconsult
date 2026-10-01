@@ -39,6 +39,7 @@ export interface JournalEntry {
 interface JournalState {
   entries: JournalEntry[];
   loading: boolean;
+  error: boolean;
   fetch: () => Promise<void>;
   clear: () => Promise<void>;
 }
@@ -46,13 +47,14 @@ interface JournalState {
 export const useJournal = create<JournalState>((set) => ({
   entries: [],
   loading: false,
+  error: false,
   fetch: async () => {
-    set({ loading: true });
+    set({ loading: true, error: false });
     try {
       const entries = await api.get<JournalEntry[]>("/journal");
       set({ entries, loading: false });
     } catch {
-      set({ loading: false });
+      set({ loading: false, error: true });
     }
   },
   clear: async () => {

@@ -398,6 +398,7 @@ export function SoucheChequesSocietePage() {
       <h1 className="sr-only">{`Souche de chèques — ${societeNom}`}</h1>
 
       <SignatureLedgerBanner
+        icon={FileText}
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"
         title={societeNom}
@@ -481,7 +482,7 @@ export function SoucheChequesSocietePage() {
       )}
 
       <LedgerWorkSurface className="mt-3">
-        <div className="px-3">
+        <div data-tour="cheques-filters" className="px-3">
           <LedgerSegmented<Vue>
             value={vue}
             onChange={setVue}
@@ -581,7 +582,7 @@ export function SoucheChequesSocietePage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div data-tour="cheques-register" className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">

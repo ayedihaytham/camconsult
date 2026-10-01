@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
+  Building2,
   ChevronDown,
   Copy,
   Download,
@@ -739,6 +740,7 @@ export function SocietesListPage() {
       )}
     >
       <SignatureLedgerBanner
+        icon={Building2}
         className="operational-signature-banner mb-0"
         eyebrow="Clients & travail · Client Ledger"
         title="Sociétés"

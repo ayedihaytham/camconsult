@@ -1,21 +1,21 @@
-import { AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AttentionList } from "@/components/dashboard/attention/AttentionList";
+import { AttentionList } from "../attention/AttentionList";
+import { WorkspaceSection } from "../WorkspaceSection";
 import type { DashboardAttentionItem } from "@/lib/dashboard/dashboardData";
 
-export function AttentionTab({ items, loading, error, onRetry }: { items: DashboardAttentionItem[]; loading: boolean; error: boolean; onRetry: () => void; }) {
-  return (
-    <section className="min-w-0 border-t-2 border-primary">
-      <header className="flex items-end justify-between gap-3 py-3">
-        <div><h2 className="text-base font-semibold text-primary">File de traitement</h2><p className="mt-0.5 text-xs text-muted-foreground">Éléments classés par urgence et type d'action</p></div>
-        {!loading && !error ? <p className="text-xs tabular-nums text-muted-foreground">{items.length} élément{items.length > 1 ? "s" : ""}</p> : null}
-      </header>
-      {loading ? (
-        <div className="space-y-1">{[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-16 w-full" />)}</div>
-      ) : error ? (
-        <div className="flex items-start gap-3 border-b border-border py-4"><AlertTriangle className="mt-0.5 size-4 text-warning" /><div><p className="text-sm font-medium">Impossible de charger les collectes.</p><Button variant="link" size="sm" className="h-auto px-0" onClick={onRetry}>Réessayer</Button></div></div>
-      ) : <AttentionList items={items} grouped />}
-    </section>
-  );
+export function AttentionTab({ items, loading, error }: { items: DashboardAttentionItem[]; loading: boolean; error: boolean }) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("Tout");
+  const query = search.trim().toLocaleLowerCase("fr");
+  const filtered = items.filter((item) => (!query || `${item.title} ${item.description}`.toLocaleLowerCase("fr").includes(query)) && (filter === "Tout" || (filter === "Collectes" ? item.type === "collecte" : filter === "Messages" ? item.type === "message" : !["collecte", "message"].includes(item.type))));
+  return <WorkspaceSection title="À traiter" target="dashboard-attention" description="Échéances dépassées, corrections et éléments à examiner. Les tâches sont dans la vue Tâches.">
+    <div className="flex flex-wrap items-center gap-2 py-3">
+      <Input aria-label="Rechercher un élément à traiter" placeholder="Société ou élément…" value={search} onChange={(event) => setSearch(event.target.value)} className="min-h-11 w-full sm:w-80" />
+      <div role="group" aria-label="Type d’élément" className="flex flex-wrap gap-1">{["Tout", "Collectes", "Messages", "Autres"].map((value) => <Button key={value} variant={filter === value ? "secondary" : "ghost"} className="dashboard-choice min-h-11 px-3 text-xs" aria-pressed={filter === value} onClick={() => setFilter(value)}>{value}</Button>)}</div>
+    </div>
+    {(loading || error) && <p role="status" className="pb-3 text-xs text-muted-foreground">Liste partielle : certaines sources sont {loading ? "en chargement" : "indisponibles"}. Les éléments déjà chargés restent consultables.</p>}
+    {filtered.length ? <AttentionList items={filtered} grouped /> : <p className="py-4 text-sm text-muted-foreground">{loading || error ? "Aucun résultat parmi les éléments actuellement chargés." : query || filter !== "Tout" ? "Aucun élément ne correspond à cette recherche." : "Aucun élément à traiter dans ce périmètre."}</p>}
+  </WorkspaceSection>;
 }

@@ -333,7 +333,7 @@ export function CollecteEditorPage() {
 
   return (
     <div>
-      <header className="overflow-hidden rounded-t-md bg-primary px-4 pt-4 text-primary-foreground lg:px-5">
+      <header data-tour="collecte-identity" className="overflow-hidden rounded-t-md bg-primary px-4 pt-4 text-primary-foreground lg:px-5">
         <div className="flex flex-wrap items-start gap-3">
           <span
             aria-hidden="true"
@@ -502,6 +502,7 @@ export function CollecteEditorPage() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
+              data-tour="collecte-tools"
               variant="ghost"
               size="sm"
               className="gap-1 text-muted-foreground"
@@ -563,6 +564,7 @@ export function CollecteEditorPage() {
       <Tabs value={tab} onValueChange={requestTab}>
         <div className="grid min-w-0 border border-border bg-card lg:grid-cols-[210px_minmax(0,1fr)]">
           <nav
+            data-tour="collecte-navigation-desktop"
             aria-label="Sections du dossier"
             className="hidden border-r border-border bg-muted/20 lg:block"
           >
@@ -623,7 +625,7 @@ export function CollecteEditorPage() {
               </div>
             )}
           </nav>
-          <div className="border-b border-border bg-muted/20 p-2 lg:hidden">
+          <div data-tour="collecte-navigation-mobile" className="border-b border-border bg-muted/20 p-2 lg:hidden">
             <Select value={tab} onValueChange={requestTab}>
               <SelectTrigger
                 className="min-h-11 w-full bg-card"
@@ -651,7 +653,7 @@ export function CollecteEditorPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="min-w-0 bg-card">
+          <div data-tour="collecte-content" className="min-w-0 bg-card">
             <TabsContent value="recap" className="m-0">
               <SectionHeader
                 title="Récap"

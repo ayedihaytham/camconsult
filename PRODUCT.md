@@ -60,6 +60,9 @@ work unless a request explicitly spans both applications.
 
 - The authenticated application has Admin, Collaborateur and
   `societe_employe` contexts. Visibility, actions and data scope are role-aware.
+- Major authenticated workspaces offer short, replayable guided visits through
+  Aide. An optional first-visit invitation introduces the page without changing
+  data or launching workflow actions.
 - Client-side visibility is not authorization; backend scope and permission
   checks remain authoritative.
 - The Dashboard presents scoped operational data rather than invented metrics.

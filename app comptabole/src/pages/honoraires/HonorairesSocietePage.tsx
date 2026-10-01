@@ -120,6 +120,7 @@ export function HonorairesSocietePage() {
   return (
     <div>
       <SignatureLedgerBanner
+        icon={Receipt}
         className="mb-0 sm:mb-2"
         eyebrow="Comptabilité · Financial Ledger"
         title={societe?.raisonSociale ?? "Société"}
@@ -131,7 +132,7 @@ export function HonorairesSocietePage() {
         action={readOnly ? undefined : { label: "Nouvelle ligne", onClick: () => { setEditing(null); setFormOpen(true); } }}
       />
 
-      <dl className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+      <dl data-tour="honoraires-summary" className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">
           <dt className="text-xs text-muted-foreground">Solde actuel</dt>
           <dd className={cn("font-mono text-sm font-semibold tabular-nums", soldeActuel > 0 ? "text-warning" : "text-foreground")}>
@@ -152,7 +153,7 @@ export function HonorairesSocietePage() {
         <OperationalLedgerToolbar
           label="Recherche de l'état client"
           search={
-            <Input
+            <Input data-tour="honoraires-search"
               value={recherche}
               onChange={(e) => setRecherche(e.target.value)}
               placeholder="Rechercher (type, libellé, CNSS, quittance)…"
@@ -221,7 +222,7 @@ export function HonorairesSocietePage() {
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div data-tour="honoraires-register" className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">

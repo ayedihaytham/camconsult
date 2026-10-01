@@ -48,6 +48,12 @@ export interface DashboardDeadline {
   bucket: DeadlineBucket;
   badge: string;
   route: string;
+  statut?: CollecteStatut;
+}
+
+export interface DashboardTaskRow extends Tache {
+  societeName: string;
+  assigneeName: string;
 }
 
 export interface DashboardTeamMember {
@@ -109,10 +115,14 @@ export interface DashboardViewModel {
   attentionItems: DashboardAttentionItem[];
   deadlines: DashboardDeadline[];
   taskCounts: DashboardTaskCounts;
+  taskRows: DashboardTaskRow[];
+  otherTaskRows: DashboardTaskRow[];
+  resumeTask: DashboardTaskRow | null;
   collectionCounts: DashboardCollectionCounts;
   team: DashboardTeamMember[];
   recentFiles: DashboardFileActivity[];
   recentMessages: DashboardMessageActivity[];
+  unreadMessages: DashboardMessageActivity[];
   collections: DashboardCollectionActivity[];
   journalEntries: JournalEntry[];
   currentCollection: Collecte | null;
@@ -136,6 +146,35 @@ export interface DashboardDataInput {
   bordereaux: Bordereau[];
   journalEntries: JournalEntry[];
   adminName: string;
+  selectedEmployeeId?: string | null;
+}
+
+/** A local lens can only narrow the server-authorized inputs. Messages stay viewer-specific. */
+export function scopeDashboardInput(input: DashboardDataInput): DashboardDataInput {
+  if (input.role !== "admin" || !input.selectedEmployeeId) return input;
+  const employee = input.collaborateurs.find((item) => item.id === input.selectedEmployeeId);
+  const taches = input.taches.filter((task) => task.assigneId === employee?.id);
+  const ids = new Set([...(employee?.societesAssignees ?? []), ...taches.map((task) => task.societeId)]);
+  const societes = input.societes.filter((item) => ids.has(item.id));
+  const allowed = new Set(societes.map((item) => item.id));
+  return { ...input, societes, taches,
+    collectes: input.collectes.filter((item) => allowed.has(item.societeId)),
+    noeuds: input.noeuds.filter((item) => item.societeId && allowed.has(item.societeId)),
+    bordereaux: [],
+  };
+}
+
+export function dashboardDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export function dashboardDateStrip(now: Date): Date[] {
+  return Array.from({ length: 6 }, (_, index) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + index));
+}
+
+export function transmissionRows(deadlines: DashboardDeadline[], date: string) {
+  return { selected: deadlines.filter((item) => item.echeance === date),
+    upcoming: deadlines.filter((item) => item.echeance > date).slice(0, 2) };
 }
 
 const DAY_MS = 86_400_000;
@@ -250,6 +289,7 @@ function buildDeadlines(
         bucket: getDeadlineBucket(collecte.echeance!, now),
         badge: deadlineBadge(daysFromToday),
         route: `/collectes/${collecte.id}`,
+        statut: collecte.statut,
       };
     })
     .sort((left, right) => left.daysFromToday - right.daysFromToday || left.societeName.localeCompare(right.societeName));
@@ -314,7 +354,7 @@ function buildAttentionItems(
           severity: "information",
           title: conversation.type === "groupe"
             ? conversation.titre ?? "Conversation de groupe"
-            : input.adminName,
+            : conversationLabel(conversation, input),
           description: conversation.dernierMessage || "Nouveau message",
           date: conversation.dernierMessageLe,
           route: "/messagerie",
@@ -380,10 +420,24 @@ function buildAttentionItems(
     .sort((left, right) => groupOrder[left.group] - groupOrder[right.group] || left.date.localeCompare(right.date));
 }
 
-export function buildDashboardData(input: DashboardDataInput): DashboardViewModel {
+function conversationLabel(conversation: Conversation, input: DashboardDataInput): string {
+  if (conversation.type === "groupe") return conversation.titre ?? "Conversation de groupe";
+  if (input.role !== "admin" && conversation.employeId === input.viewerEmployeId) return input.adminName;
+  const employee = input.collaborateurs.find((item) => item.id === conversation.employeId);
+  return employee ? `${employee.prenom} ${employee.nom}` : input.adminName;
+}
+
+export function buildDashboardData(source: DashboardDataInput): DashboardViewModel {
+  const input = scopeDashboardInput(source);
   const societyNames = new Map(input.societes.map((societe) => [societe.id, societe.raisonSociale]));
+  const employees = new Map(input.collaborateurs.map((employee) => [employee.id, `${employee.prenom} ${employee.nom}`]));
+  const orderedTasks = [...input.taches].sort((a, b) => b.majLe.localeCompare(a.majLe) || b.creeLe.localeCompare(a.creeLe) || a.id.localeCompare(b.id));
+  const row = (task: Tache): DashboardTaskRow => ({ ...task, societeName: societyNames.get(task.societeId) ?? "Société", assigneeName: employees.get(task.assigneId ?? "") ?? "Non attribuée" });
+  const taskRows = input.role === "societe_employe" ? [] : orderedTasks.filter((task) => input.role === "admin" || task.assigneId === input.viewerEmployeId).map(row);
+  const otherTaskRows = input.role === "collaborateur" ? orderedTasks.filter((task) => task.assigneId !== input.viewerEmployeId).map(row) : [];
+  const resumeTask = taskRows.find((task) => task.statut === "en_cours") ?? null;
   const deadlines = buildDeadlines(input.collectes, societyNames, input.now);
-  const tasks = taskCounts(input.taches);
+  const tasks = taskCounts(input.role === "societe_employe" ? input.taches : taskRows);
   const collections = collectionCounts(input.collectes.filter((item) => item.statut !== "archive"));
   const openTasks = tasks.a_faire + tasks.en_cours;
   const actionableCollections = input.collectes.filter((item) => isActionableCollection(item, input.now));
@@ -498,7 +552,8 @@ export function buildDashboardData(input: DashboardDataInput): DashboardViewMode
         total: assigned.length,
       };
     })
-    .sort((left, right) => right.open - left.open || left.name.localeCompare(right.name));
+    .filter((member) => !input.selectedEmployeeId || input.role !== "admin" || member.id === input.selectedEmployeeId)
+    .sort((left, right) => left.name.localeCompare(right.name));
 
   const recentFiles = [...files]
     .sort((left, right) => right.majLe.localeCompare(left.majLe))
@@ -514,16 +569,8 @@ export function buildDashboardData(input: DashboardDataInput): DashboardViewMode
   const recentMessages = input.canUseMessaging
     ? [...input.conversations]
         .sort((left, right) => right.dernierMessageLe.localeCompare(left.dernierMessageLe))
-        .slice(0, 8)
         .map<DashboardMessageActivity>((conversation) => {
-          const directEmployee = input.collaborateurs.find((employee) => employee.id === conversation.employeId);
-          const label = conversation.type === "groupe"
-            ? conversation.titre ?? "Conversation de groupe"
-            : input.role !== "admin" && conversation.employeId === input.viewerEmployeId
-              ? input.adminName
-            : directEmployee
-              ? `${directEmployee.prenom} ${directEmployee.nom}`
-              : input.adminName;
+          const label = conversationLabel(conversation, input);
           return {
             id: conversation.id,
             label,
@@ -544,10 +591,14 @@ export function buildDashboardData(input: DashboardDataInput): DashboardViewMode
     attentionItems: buildAttentionItems(input, societyNames),
     deadlines,
     taskCounts: tasks,
+    taskRows,
+    otherTaskRows,
+    resumeTask,
     collectionCounts: collections,
-    team,
+    team: input.role === "admin" ? team : [],
     recentFiles,
-    recentMessages,
+    recentMessages: recentMessages.slice(0, 8),
+    unreadMessages: recentMessages.filter((message) => message.unread > 0).slice(0, 3),
     collections: [...openCollections]
       .sort((left, right) => right.majLe.localeCompare(left.majLe))
       .map((collecte) => ({
@@ -558,7 +609,7 @@ export function buildDashboardData(input: DashboardDataInput): DashboardViewMode
         updatedAt: collecte.majLe,
         route: `/collectes/${collecte.id}`,
       })),
-    journalEntries: [...input.journalEntries].sort((left, right) => right.at.localeCompare(left.at)).slice(0, 8),
+    journalEntries: input.role === "admin" ? [...input.journalEntries].sort((left, right) => right.at.localeCompare(left.at)).slice(0, 8) : [],
     currentCollection,
     nextDeadline,
     unpointedBordereaux: unpointed.length,

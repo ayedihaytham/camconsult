@@ -14,6 +14,7 @@ interface FinancialIdentityHeaderProps {
    * Par défaut le texte de `eyebrow`. */
   badge?: string;
   className?: string;
+  tourTarget?: string;
 }
 
 /** Compact navy identity surface shared by financial-style register/dossier
@@ -28,10 +29,11 @@ export function FinancialIdentityHeader({
   variant = "default",
   badge,
   className,
+  tourTarget,
 }: FinancialIdentityHeaderProps) {
   if (variant === "dossier") {
     return (
-      <header className={cn("border border-primary/15 bg-primary text-primary-foreground", className)}>
+      <header data-tour={tourTarget} className={cn("border border-primary/15 bg-primary text-primary-foreground", className)}>
         <div className="flex min-w-0 flex-col items-stretch gap-2 px-4 py-3 sm:min-h-[76px] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-[18px] sm:py-2.5">
           <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3">
             <span
@@ -61,6 +63,7 @@ export function FinancialIdentityHeader({
 
   return (
     <header
+      data-tour={tourTarget}
       className={cn(
         "overflow-hidden border border-primary/15 bg-primary text-primary-foreground",
         className,

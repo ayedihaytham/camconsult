@@ -51,6 +51,8 @@ import {
   mergeImmoMouvements,
 } from "@/lib/etatsFinanciers/immobilisationsRegistre";
 import { FinancialTable } from "./FinancialTable";
+import { usePageTour } from "@/components/tour/TourProvider";
+import { financialViewTour } from "@/components/tour/tourRegistry";
 import { AffectatSyntheseTable } from "./AffectatSyntheseTable";
 import { SigTable } from "./SigTable";
 import { ImmoVariationTable } from "./ImmoVariationTable";
@@ -178,6 +180,11 @@ export function BalancesListPage() {
   const [exercice, setExercice] = useState("");
   const [toDelete, setToDelete] = useState<Balance | null>(null);
   const [vue, setVue] = useState<Vue>("exercices");
+  const { setContextTour } = usePageTour();
+  useEffect(() => {
+    setContextTour(financialViewTour(vue));
+    return () => setContextTour(null);
+  }, [vue, setContextTour]);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -369,6 +376,7 @@ export function BalancesListPage() {
     <div className="min-w-0">
       <h1 className="sr-only">États financiers — {societe?.raisonSociale ?? "Société"}</h1>
       <FinancialIdentityHeader
+          tourTarget="finance-identity"
           variant="dossier"
           eyebrow="Dossier financier"
           title={societe?.raisonSociale ?? "Société"}
@@ -381,7 +389,7 @@ export function BalancesListPage() {
             <>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9">
+                  <Button data-tour="finance-tools" variant="outline" size="sm" className="min-h-11 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:min-h-9">
                     Outils
                   </Button>
                 </DropdownMenuTrigger>
@@ -416,7 +424,7 @@ export function BalancesListPage() {
       <div className="grid min-w-0 grid-cols-1 border border-border bg-card lg:grid-cols-[208px_minmax(0,1fr)]">
         <FinancialViewNavigation value={vue} onChange={setVue} />
 
-        <main className="min-w-0 px-3 py-3 lg:px-5 lg:py-4">
+        <main data-tour="finance-surface" className="min-w-0 px-3 py-3 lg:px-5 lg:py-4">
           <div className="mb-2 flex min-w-0 flex-wrap items-end justify-between gap-x-4 gap-y-1 border-b border-border pb-2">
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-primary">

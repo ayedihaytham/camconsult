@@ -44,6 +44,17 @@ The shared generic table is `src/components/common/DataTable.tsx`. Domain pages
 may provide a purpose-built compact mobile renderer; they should not fork a new
 generic table system.
 
+## Guided tours
+
+Add a major page walkthrough in `src/components/tour/tourRegistry.ts` and
+reuse `TourProvider`; do not create a second overlay or persistence mechanism.
+Keep steps concise and attach explicit `data-tour` attributes to stable,
+meaningful surfaces. Use responsive targets when desktop and mobile render
+different controls. Hidden or permission-gated targets are skipped. Increment
+the tour version when its walkthrough materially changes. Tours explain
+controls without invoking business actions; Aide keeps them replayable after
+the first-visit invitation is dismissed.
+
 ## Responsive behavior
 
 - Use `w-full` and `min-w-0` through nested flex/grid layouts.

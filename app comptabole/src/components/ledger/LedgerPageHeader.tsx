@@ -18,7 +18,7 @@ export function LedgerPageHeader({
   className,
 }: LedgerPageHeaderProps) {
   return (
-    <div className={cn("mb-1.5 space-y-2.5", className)}>
+    <div data-tour="page-identity" className={cn("mb-1.5 space-y-2.5", className)}>
       {breadcrumb}
       {/* Titre/description masqués visuellement (déjà affichés dans la
           topbar) — gardés en sr-only pour l'accessibilité (contour de

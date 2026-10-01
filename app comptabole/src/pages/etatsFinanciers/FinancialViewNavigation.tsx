@@ -127,13 +127,14 @@ export function FinancialViewNavigation({
   return (
     <>
       <nav
+        data-tour="finance-navigation-desktop"
         aria-label="Navigation des états financiers"
         className="hidden border-r border-border bg-muted/40 px-2 py-3 lg:block"
       >
         <ViewGroups value={value} onChange={onChange} rail />
       </nav>
 
-      <div className="border-b border-border p-3 lg:hidden">
+      <div data-tour="finance-navigation-mobile" className="border-b border-border p-3 lg:hidden">
         <Button
           type="button"
           variant="outline"

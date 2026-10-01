@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowRight, ChevronDown, MoreHorizontal, Trash2 } from "lucide-react";
+import { ArrowRight, ChevronDown, ClipboardList, MoreHorizontal, Trash2 } from "lucide-react";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
@@ -242,6 +242,7 @@ export function CollectesListPage() {
   return (
     <div className={`flex min-w-0 flex-1 flex-col ${canCreate ? "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0" : ""}`}>
       <SignatureLedgerBanner
+        icon={ClipboardList}
         className="mb-0 sm:mb-2"
         variant="process"
         eyebrow="Clients & travail · Process Ledger"
@@ -256,7 +257,7 @@ export function CollectesListPage() {
       />
 
       <LedgerWorkSurface className="collectes-work-surface">
-        <div className="collectes-lenses">{lensControl}</div>
+        <div data-tour="collecte-lenses" className="collectes-lenses">{lensControl}</div>
         <OperationalLedgerToolbar
           label="Outils des collectes"
           search={search}

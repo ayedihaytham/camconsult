@@ -53,10 +53,27 @@ accessible labels when an icon stands alone.
 
 ## Page grammar
 
-- **Command Ledger:** Dashboard uses a compact navy command surface, greeting,
-  context, fine gold rule, inline real metrics, role-aware actions and a
-  ledger-style tab rail. Dashboard sections may use asymmetry and selective
-  warm/gold tonal work summaries.
+- **Daily Workspace:** Dashboard uses a compact navy greeting/date identity and
+  fine gold rule, followed directly by a ledger tab rail. Reprendre leads into
+  collection transmissions and tasks on one warm, aligned working surface;
+  attention uses a compact priority panel with real urgency/review counts and a
+  few grouped action rows; messages occupy a separate secondary rail section. Mobile preserves that
+  reading/keyboard order. Team counts use desktop table/mobile rows, without
+  capacity bars. Collection date strips never assign deadlines to tasks. Failed
+  data remains explicitly unavailable/partial instead of appearing as zero.
+  The internal Dashboard has no KPI card row or replacement stat widgets;
+  company-side KPIs keep their existing separate composition. Major sections use
+  navy rules, subsections smaller headings/neutral rules, and rows fine separators.
+  The Transmission Ledger is one continuous dated register: a full-width deadline
+  ruler with ticks, tabular dates, explicit collection counts and a short gold
+  selected-date registration. Selected-day detail connects directly to it; upcoming
+  links use an anchored date column and quiet text statuses, without nested cards
+  or date boxes. Mobile scrolls the ruler and stacks readable register rows. Only
+  a loaded positive overdue header count uses red; tasks never acquire deadlines.
+  Dashboard badges share compact padding and semantic treatments: red for overdue,
+  amber for corrections or attention, navy for unread/progress, green for completed,
+  and muted neutral for routine metadata. Urgency also strengthens the item's main
+  line; badges do not carry meaning through color alone.
 - **Signature Ledger:** shared banner grammar for operational modules: canonical
   navy, sans product typography, a small tracked gold module/archetype eyebrow,
   partial gold rule, contextual inline metrics and one optional
@@ -65,7 +82,17 @@ accessible labels when an icon stands alone.
   registration detail are signature, not a hard split or illustration. The
   motif must not compete with content. Shared presentation accepts page-provided
   eyebrow, title, description, metrics, action and archetype styling; domain
-  derivation and permission decisions remain in each page/module.
+  derivation and permission decisions remain in each page/module. All module
+  banners share this geometry, spacing rhythm, gold rule, responsive behavior
+  and architectural motif; page-specific wording and real context may vary.
+  The standard variant may use its lower strip for real contextual or metric
+  content; pages without meaningful lower content use the compact variant, in
+  which the optional lower region collapses completely and the gold rule follows
+  the identity content. Never invent KPIs to fill banner space.
+- A visible module banner may pair its main title with one small semantic Lucide
+  icon immediately before the text. Keep it 18–20px, aria-hidden, and aligned
+  with the title; use current/soft-white color without a background or badge.
+  Choose the icon for the module meaning and keep the title dominant.
 - **Client Ledger:** Sociétés emphasizes client/entity identity, direct status
   and context, high scanability, dominant search, secondary filters/tools and
   fine row rules.
@@ -95,10 +122,32 @@ accessible labels when an icon stands alone.
   right-aligned amounts, a restrained calculated Solde, and destructive row
   actions in an overflow menu; narrow screens scroll the grid locally while
   keeping Compte visible.
+- Grille AFFECTAT is a Ledger configuration register. Its compact navy identity
+  banner names the cabinet-wide reference; keep help beside search/filter tools.
+  Search code, libellé and poste before filtering by assigned poste or global
+  attached accounts; paginate the filtered codes in groups of 7 with the
+  canonical DataTable footer. Keep up to seven normal desktop rows and the footer
+  in document flow without an internal vertical table scroller. Use compact mapping
+  rows on mobile. The register shows global attached accounts; société overrides
+  are excluded from its count.
 
 The archetypes share a visual grammar, not a fixed metric count or page layout.
 Do not derive société statuses, collaborator permissions or collecte workflow
 inside a shared presentation component.
+
+### Visite guidée
+
+Major authenticated workspaces offer **Aide → Visite guidée**. A one-time,
+nonblocking invitation may appear on first visit; dismissal or completion is
+stored per account, tour and version. Aide always allows replay. **Comprendre
+cette page** remains persistent reference help where available; coachmarks
+stay short and explain tasks without performing them.
+
+The shared engine handles spotlight, keyboard and Escape behavior, focus return,
+reduced motion, and missing or hidden targets. Use simple French, stable
+`data-tour` anchors, and separate desktop/mobile targets where layouts differ.
+Permission-gated controls are only toured when present. Sensitive actions are
+explained but never executed by a tour.
 
 ### Signature Ledger implementation
 
@@ -117,8 +166,8 @@ inside a shared presentation component.
 - At desktop sizes, allow one clear primary action in a restrained
   light/outlined-on-navy treatment. Do not elevate export/print or other utility
   actions to banner-primary status.
-- Preserve the distinction from the Dashboard Command Ledger: the Dashboard is
-  the strongest command surface; operational banners are shorter and quieter.
+- Preserve the distinction from the Dashboard Daily Workspace: operational
+  banners identify their module; the Dashboard prioritizes continuity of work.
 
 ## Components
 
@@ -202,7 +251,7 @@ inside a shared presentation component.
   spacing around eyebrow, title/context, partial gold rule, metrics and bottom
   breathing room. Around 165–180px is a presence guide only when content
   supports it; banners with fewer metrics or shorter copy may be naturally
-  shorter. The Dashboard Command Ledger may remain stronger/larger. Never add
+  shorter. The Dashboard Daily Workspace also stays content-sized. Never add
   blank space just to match a target height.
 - Prefer a shared authenticated shell/page-section mechanism for edge-to-edge
   surfaces instead of page-by-page negative margins. Current opt-in shell paths

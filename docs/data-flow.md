@@ -50,6 +50,15 @@ scope.
 These stores fetch their domain only when the relevant screen or orchestration
 hook needs it. Do not duplicate their server state in a new store.
 
+The Grille AFFECTAT register searches, filters and paginates its already loaded
+cabinet-wide codes in the client. Its attached-account count uses global
+associations only. Société-specific account-to-code overrides are stored
+separately and take precedence for that société; a code rename updates both
+global and société associations. Changing a global poste affects financial
+statement presentation, while removing a code leaves raw balance lines but
+their amounts appear as unassigned until a poste is available again. The UI
+keeps confirmation and impact copy for these report-affecting operations.
+
 ## Mutation pattern
 
 ```text
@@ -84,6 +93,14 @@ bootstrap/refreshed through `/notifications`.
 
 `src/lib/dashboard/dashboardData.ts` converts those inputs into a role-specific,
 memoized view model. There is currently no dashboard-summary endpoint.
+
+The Daily Workspace collaborator lens, task continuation order and collection
+date strip are pure local derivations of those inputs; changing scope/day adds
+no request. Viewer conversations and unread counts do not change with the Admin
+employee filter. Bootstrap hydration still gates the page. Collection failures
+mask retained stale list data; journal exposes a fetch-error flag, and Admin
+source readiness/errors allow partial data with retries through existing list
+actions. No new endpoint or persistence subsystem is introduced.
 
 ## Performance rule
 

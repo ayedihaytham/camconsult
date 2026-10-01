@@ -64,6 +64,9 @@ const fr = {
   home: {
     heroEyebrow: 'Cabinet AYEDI Mohamed',
     heroTitle: 'La clarté financière au service de vos ambitions.',
+    heroTitlePre: 'La',
+    heroTitleHighlight: 'clarté',
+    heroTitlePost: 'financière au service de vos ambitions.',
     heroText: 'CAMCONSULT accompagne les entreprises et les entrepreneurs avec une expertise comptable exigeante, un conseil concret et une vision durable.',
     ctaPrimary: 'Prendre rendez-vous',
     ctaSecondary: 'Découvrir nos services',

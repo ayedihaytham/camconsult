@@ -66,6 +66,9 @@ const ar: Dictionary = {
   home: {
     heroEyebrow: 'مكتب عيادي محمد',
     heroTitle: 'الوضوح المالي في خدمة طموحاتكم.',
+    heroTitlePre: '',
+    heroTitleHighlight: 'الوضوح',
+    heroTitlePost: 'المالي في خدمة طموحاتكم.',
     heroText: 'ترافق كامكونسلت الشركات ورواد الأعمال بخبرة محاسبية دقيقة، واستشارة عملية، ورؤية مستدامة.',
     ctaPrimary: 'احجز موعداً',
     ctaSecondary: 'اكتشف خدماتنا',

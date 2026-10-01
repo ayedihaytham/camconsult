@@ -66,6 +66,9 @@ const en: Dictionary = {
   home: {
     heroEyebrow: 'AYEDI Mohamed Firm',
     heroTitle: 'Financial clarity in service of your ambitions.',
+    heroTitlePre: 'Financial',
+    heroTitleHighlight: 'clarity',
+    heroTitlePost: 'in service of your ambitions.',
     heroText: 'CAMCONSULT supports businesses and entrepreneurs with rigorous accounting expertise, practical advice, and a long-term vision.',
     ctaPrimary: 'Book an appointment',
     ctaSecondary: 'Discover our services',

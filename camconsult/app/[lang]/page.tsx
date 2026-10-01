@@ -44,14 +44,33 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
       <CamconsultHeader lang={lang} theme="navy" />
       <main>
         <section id="accueil" className="relative overflow-hidden bg-navy px-6 pb-20 pt-20 text-white sm:px-10 lg:px-16 lg:pb-28 lg:pt-28">
-          <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.1fr_.9fr]">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
+              backgroundSize: '48px 48px',
+            }}
+            aria-hidden="true"
+          />
+          <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.1fr_.9fr]">
             <div className="animate-fade-up">
-              <p className="eyebrow">{home.heroEyebrow}</p>
-              <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[.98] sm:text-7xl lg:text-8xl">{home.heroTitle}</h1>
+              <p className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-gold" aria-hidden="true" />{home.heroEyebrow}</p>
+              <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[.98] sm:text-7xl lg:text-8xl">
+                {home.heroTitlePre && <>{home.heroTitlePre}{' '}</>}
+                <em className="text-gold">{home.heroTitleHighlight}</em>{' '}
+                {home.heroTitlePost}
+              </h1>
               <p className="mt-8 max-w-xl text-base leading-7 text-white/65 sm:text-lg">{home.heroText}</p>
-              <div className="mt-10 flex flex-wrap gap-3"><a href={p('/contact')} className="group inline-flex items-center gap-3 rounded-sm border border-gold bg-transparent px-6 py-4 text-xs font-bold uppercase tracking-wider text-gold transition-all duration-300 hover:-translate-y-0.5 hover:bg-gold hover:text-navy">{home.ctaPrimary} <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" /></a><a href={p('/services')} className="inline-flex items-center gap-3 rounded-sm border border-white/25 px-6 py-4 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-300 hover:border-gold hover:text-gold">{home.ctaSecondary}</a></div>
+              <div className="mt-10 flex flex-wrap gap-3"><a href={p('/contact')} className="group inline-flex items-center gap-3 rounded-sm bg-gold px-6 py-4 text-xs font-bold uppercase tracking-wider text-navy transition-transform duration-300 hover:-translate-y-0.5">{home.ctaPrimary} <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" /></a><a href={p('/services')} className="inline-flex items-center gap-3 rounded-sm border border-white/25 px-6 py-4 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-300 hover:border-gold hover:text-gold">{home.ctaSecondary}</a></div>
             </div>
-            <div className="relative min-h-[21rem] border-l border-gold/40 pl-8 lg:mb-4"><div className="absolute -left-3 top-8 grid size-6 place-items-center rounded-full bg-gold text-navy"><Sparkles className="size-3" /></div><p className="max-w-sm font-serif text-3xl leading-tight">{home.sideQuote}</p><div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-2">{home.stats.map((stat) => <Stat key={stat.label} value={stat.value} label={stat.label} />)}</div></div>
+            <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl shadow-black/20 lg:mb-4 lg:p-10">
+              <span className="font-serif text-6xl leading-none text-gold/70" aria-hidden="true">&ldquo;</span>
+              <p className="-mt-3 max-w-sm font-serif text-3xl leading-tight">{home.sideQuote}</p>
+              <div className="mt-10 flex flex-col gap-5 border-y border-white/15 py-8">
+                {home.stats.map((stat) => <StatRow key={stat.label} value={stat.value} label={stat.label} />)}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -80,6 +99,14 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
   )
 }
 
-function Stat({ value, label }: { value: string; label: string }) { return <div className="border-t border-white/15 pt-4"><p className="font-serif text-3xl text-gold">{value}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-white/50">{label}</p></div> }
+function StatRow({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/45">{label}</span>
+      <span className="h-px flex-1 border-b border-dotted border-white/25" aria-hidden="true" />
+      <span className="shrink-0 font-serif text-3xl text-gold">{value}</span>
+    </div>
+  )
+}
 
 function SectionIntro({ eyebrow, title, text, light = false }: { eyebrow: string; title: string; text: string; light?: boolean }) { return <div className="max-w-2xl"><p className="eyebrow">{eyebrow}</p><h2 className={`mt-4 font-serif text-4xl leading-tight sm:text-5xl ${light ? 'text-white' : 'text-navy'}`}>{title}</h2><p className={`mt-5 text-base leading-7 ${light ? 'text-white/60' : 'text-muted-foreground'}`}>{text}</p></div> }

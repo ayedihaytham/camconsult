@@ -125,20 +125,20 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
           </div>
         </section>
 
-        <section id="services" className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28">
+        <section id="services" className="px-6 py-10 sm:px-10 lg:px-16 lg:py-12">
           <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col gap-6 border-b border-border pb-10 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
+            <div className="flex flex-col gap-3 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
               <div>
                 <p className="eyebrow">{home.servicesEyebrow}</p>
-                <h2 className="mt-4 max-w-xl font-serif text-4xl leading-tight text-navy sm:text-5xl">
+                <h2 className="mt-2 max-w-2xl font-serif text-3xl leading-tight text-navy sm:text-4xl">
                   {servicesTitleLead} <em className="text-gold">{servicesTitleLastWord}</em>
                 </h2>
               </div>
               <p className="max-w-xs text-sm leading-6 text-muted-foreground lg:border-l lg:border-border lg:pl-8">{home.servicesText}</p>
             </div>
 
-            <p className="mt-10 text-xs font-bold uppercase tracking-wide text-muted-foreground">{home.servicesFilterLabel}</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-5">
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-muted-foreground">{home.servicesFilterLabel}</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-5">
               {CATEGORY_IDS.map((id) => {
                 const cat = home.serviceCategories[id]
                 const count = id === 'all' ? servicesIndexed.length : servicesIndexed.filter((s) => s.category === id).length
@@ -149,7 +149,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                     type="button"
                     onClick={() => chooseCategory(id)}
                     aria-pressed={active}
-                    className={cn('relative border px-4 py-3 text-left transition-colors', active ? 'border-navy bg-navy text-white' : 'border-border bg-white text-navy hover:border-gold')}
+                    className={cn('relative border px-4 py-2 text-left transition-colors', active ? 'border-navy bg-navy text-white' : 'border-border bg-white text-navy hover:border-gold')}
                   >
                     <span className="flex items-center gap-2 text-sm font-bold">
                       {cat.label}
@@ -162,7 +162,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
               })}
             </div>
 
-            <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_1.15fr] lg:gap-10">
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1.15fr] lg:gap-6">
               <ul className="divide-y divide-border border border-border">
                 {servicesFiltered.map((service) => {
                   const active = service.index === selectedService.index
@@ -172,7 +172,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                         type="button"
                         onClick={() => setSelectedServiceIndex(service.index)}
                         aria-pressed={active}
-                        className={cn('flex w-full items-center justify-between gap-4 border-l-4 px-5 py-4 text-left transition-colors', active ? 'border-l-gold bg-[#faf7f0]' : 'border-l-transparent hover:bg-secondary/40')}
+                        className={cn('flex w-full items-center justify-between gap-4 border-l-4 px-5 py-3 text-left transition-colors', active ? 'border-l-gold bg-[#faf7f0]' : 'border-l-transparent hover:bg-secondary/40')}
                       >
                         <span className="flex min-w-0 items-center gap-4">
                           <span className="shrink-0 font-serif text-sm text-muted-foreground">{String(service.index + 1).padStart(2, '0')}</span>
@@ -190,7 +190,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                 })}
               </ul>
 
-              <div className="relative overflow-hidden bg-navy p-8 text-white lg:p-10">
+              <div className="relative overflow-hidden bg-navy p-6 text-white lg:p-7">
                 <span className="pointer-events-none absolute -right-2 -top-6 select-none font-serif text-[9rem] leading-none text-white/5" aria-hidden="true">{String(selectedService.index + 1).padStart(2, '0')}</span>
                 {(() => {
                   const Icon = SERVICE_ICONS[selectedService.index]
@@ -200,10 +200,10 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                     </span>
                   )
                 })()}
-                <p className="relative mt-6 text-xs font-bold uppercase tracking-widest text-gold">{home.serviceCategories[selectedService.category].tag}</p>
+                <p className="relative mt-4 text-xs font-bold uppercase tracking-widest text-gold">{home.serviceCategories[selectedService.category].tag}</p>
                 <h3 className="relative mt-2 font-serif text-3xl">{selectedService.title}</h3>
                 <p className="relative mt-3 max-w-sm text-sm leading-6 text-white/70">{selectedService.text}</p>
-                <ul className="relative mt-8 flex flex-col gap-3 border-t border-white/15 pt-6">
+                <ul className="relative mt-5 flex flex-col gap-2 border-t border-white/15 pt-4">
                   {selectedService.deliverables.map((item) => (
                     <li key={item} className="flex items-start gap-3 text-sm text-white/85">
                       <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-400" aria-hidden="true" />
@@ -211,7 +211,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
                     </li>
                   ))}
                 </ul>
-                <div className="relative mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-white/15 pt-6">
+                <div className="relative mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-white/15 pt-4">
                   <div className="flex flex-wrap items-center gap-5">
                     <a href={p('/services')} className="inline-flex items-center gap-2 rounded-sm bg-gold px-5 py-3 text-xs font-bold uppercase tracking-wider text-navy">
                       {home.servicesMore} <ArrowRight className={cn('size-4', isArabic && 'rtl-mirror')} aria-hidden="true" />
@@ -223,7 +223,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
               </div>
             </div>
 
-            <div className="mt-10 text-center"><a href={p('/services')} className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-navy hover:text-gold">{home.servicesSeeAll} <ArrowRight className={cn('size-4', isArabic && 'rtl-mirror')} aria-hidden="true" /></a></div>
+            <div className="mt-5 text-center"><a href={p('/services')} className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-navy hover:text-gold">{home.servicesSeeAll} <ArrowRight className={cn('size-4', isArabic && 'rtl-mirror')} aria-hidden="true" /></a></div>
           </div>
         </section>
 

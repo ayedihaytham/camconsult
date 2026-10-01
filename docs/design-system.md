@@ -46,34 +46,60 @@ its marker with readable text, an icon or another non-color cue.
 
 Use the existing modern sans/grotesk voice—Inter or the established neutral UI
 sans—for authenticated page headings, interface copy and dense data. Reserve
-Playfair/serif for rare, deliberate brand/display moments; never use it in
-tables, forms, navigation, buttons, badges, KPIs or charts. Use tabular numeric
+Playfair/serif for rare, deliberate brand/display moments. The approved Dashboard
+exception uses the already-loaded Playfair Display for the internal command
+title/date numeral/quick action and Mon bureau dossier heading/title/CTA,
+section headings and transmission-detail headings. Inter remains the font for
+rows, metadata, ruler dates, counts, tabs and badges. Dedicated Dashboard tab
+contents and other authenticated pages retain their working sans. Outside this
+scoped exception, keep serif out of operational buttons and navigation; tables,
+forms, badges, KPIs and charts remain sans. Use tabular numeric
 styles where aligned financial values benefit, and existing Lucide icons with
 accessible labels when an icon stands alone.
 
 ## Page grammar
 
-- **Daily Workspace:** Dashboard uses a compact navy greeting/date identity and
-  fine gold rule, followed directly by a ledger tab rail. Reprendre leads into
-  collection transmissions and tasks on one warm, aligned working surface;
-  attention uses a compact priority panel with real urgency/review counts and a
-  few grouped action rows; messages occupy a separate secondary rail section. Mobile preserves that
-  reading/keyboard order. Team counts use desktop table/mobile rows, without
-  capacity bars. Collection date strips never assign deadlines to tasks. Failed
-  data remains explicitly unavailable/partial instead of appearing as zero.
-  The internal Dashboard has no KPI card row or replacement stat widgets;
-  company-side KPIs keep their existing separate composition. Major sections use
-  navy rules, subsections smaller headings/neutral rules, and rows fine separators.
-  The Transmission Ledger is one continuous dated register: a full-width deadline
-  ruler with ticks, tabular dates, explicit collection counts and a short gold
-  selected-date registration. Selected-day detail connects directly to it; upcoming
-  links use an anchored date column and quiet text statuses, without nested cards
-  or date boxes. Mobile scrolls the ruler and stacks readable register rows. Only
-  a loaded positive overdue header count uses red; tasks never acquire deadlines.
-  Dashboard badges share compact padding and semantic treatments: red for overdue,
-  amber for corrections or attention, navy for unread/progress, green for completed,
-  and muted neutral for routine metadata. Urgency also strengthens the item's main
-  line; badges do not carry meaning through color alone.
+- **Daily Workspace:** the approved **Tableau de bord comptable moderne.png**
+  (2026-10-01) governs Mon bureau and the shared command banner/tab bar. The
+  compact navy banner has a date anchor at left, small greeting, title, quick
+  actions and fine partial gold rule; the active tab has a gold underline.
+  Reprendre is an asymmetrical ivory dossier with folder marker, real task/company
+  context, neutral continuation copy and navy CTA. It leads into a separate
+  collection transmission register and two boxed task previews. At viewport
+  widths of 1280px and above, a single-row master grid places the stable view
+  column beside a 320px independent rail with a 20px column gap. The rail starts
+  alongside the tabs;
+  grouped attention, viewer-specific unread messages and admin-only team counts
+  each have their own light warm surface with gold heading icons. Message/team
+  initials use pale slate circles; the third unread avatar is decorative navy,
+  without priority or person semantics. Unread counts use a blue tint and team
+  open counts use readable warm ink. Previews contain at most three items;
+  team rows are alphabetical and informational. Main insets/gaps are 18px/16px,
+  with 16px rail insets. Transmission markers/gaps use 40px/24px; the compact
+  dossier uses 36px/28px at the same text anchor. Phone markers/gaps reduce to 32px/12px.
+  Insets/gaps follow the existing phone rhythm,
+  reducing to 14px/12px below 640px; surface/banner radii are 4px/6px.
+  Below 1280px, visual, DOM, reading and focus order is Reprendre, transmissions,
+  attention, ongoing tasks, tasks to begin, messages, then team. Each section
+  mounts once in the selected composition. The CTA and transmission
+  details split internally at 620px of actual available width; paired task
+  registers require a wide desktop main column and share a nested header/body
+  subgrid that aligns headings and heights within the pair. The seven-day transmission ruler
+  uses a continuous rule, ticks, tabular dates, explicit collection counts and
+  a restrained gold selected mark. Previous/next controls shift its loaded
+  deadline window locally and select its first day; previous is disabled at
+  today's window. Selected-day details and the next two
+  transmissions retain labelled empty states inside warm, finely bordered
+  detail areas with 12px padding and stack when width requires;
+  rows show company, then period and textual state, with a date column and arrow.
+  Phone CTA spans its surface; only ruler/tabs scroll horizontally. Warm amber
+  supports correction/review/todo previews; red identifies overdue work and
+  navy/slate carries unread/progress. Text remains explicit. Collection dates
+  never become task deadlines, and partial data never appears as verified zero.
+  The internal banner has no KPI/stat widgets; company-side KPIs and dedicated
+  tab contents retain their existing separate composition. Mon bureau styling
+  lives in `mon-bureau.css`; existing dedicated/client styling remains in
+  `dashboard-polish.css`. See [Dashboard](dashboard.md) for rules and role scope.
 - **Signature Ledger:** shared banner grammar for operational modules: canonical
   navy, sans product typography, a small tracked gold module/archetype eyebrow,
   partial gold rule, contextual inline metrics and one optional

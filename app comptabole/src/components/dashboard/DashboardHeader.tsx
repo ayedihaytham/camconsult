@@ -20,24 +20,22 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
   const metrics = data.kpis;
 
   if (role !== "societe_employe") return (
-    <header data-tour="dashboard-summary">
-      <div className="rounded-lg bg-primary px-4 py-4 text-primary-foreground sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-4">
-            <time dateTime={now.toISOString()} className="hidden shrink-0 border-r border-primary-foreground/20 pr-4 text-center sm:block" aria-label={dateLabel}>
-              <span className="block text-3xl font-semibold tabular-nums leading-none">{now.getDate()}</span>
-              <span className="mt-1 block text-xs text-primary-foreground/80">{new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(now)}</span>
+    <header data-tour="dashboard-summary" className="dashboard-command">
+        <div className="dashboard-command-content">
+          <div className="dashboard-command-identity">
+            <time dateTime={now.toISOString()} className="dashboard-command-date" aria-label={dateLabel}>
+              <span>{now.getDate()}</span>
+              <span>{new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(now)}</span>
             </time>
             <div className="min-w-0">
-              <p className="text-xs text-primary-foreground/80">{salutation}<span className="sm:hidden"> · {dateLabel}</span></p>
+              <p className="text-xs text-primary-foreground/80">{salutation}</p>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[1.7rem]">{role === "admin" ? "Le travail du cabinet" : "Mon espace de travail"}</h1>
               <p className="mt-1 text-xs leading-relaxed text-primary-foreground/80">Reprendre, avancer et préparer les prochaines transmissions.</p>
             </div>
           </div>
           <div className="shrink-0"><DashboardQuickActions role={role} canAddSociete={canAddSociete} canUseMessaging={canUseMessaging} inverse /></div>
         </div>
-        <div aria-hidden="true" className="mt-4 h-px w-[43%] bg-accent" />
-      </div>
+        <div aria-hidden="true" className="dashboard-command-rule" />
     </header>
   );
   return (

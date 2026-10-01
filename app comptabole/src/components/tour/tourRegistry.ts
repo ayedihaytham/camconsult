@@ -617,12 +617,15 @@ export function getPageTour(
   if (pathname === "/") {
     if (_session?.poste === "societe_employe") return TOURS.dashboard;
     return {
-      id: "dashboard", version: 2, title: "Mon bureau",
+      id: "dashboard", version: 3, title: "Mon bureau",
       steps: [
         { target: "page-workspace", title: "Votre tableau de bord", body: "Votre bureau rassemble le travail accessible à votre compte. Aucune action n’est effectuée pendant la visite." },
         { target: "dashboard-summary", title: "Repérer l’essentiel", body: "Le bandeau situe votre journée de travail. Retrouvez les destinations autorisées dans Actions rapides et les vues du bureau." },
-        { target: "dashboard-resume", title: "Reprendre le travail", body: "Une tâche en cours permet de reprendre depuis la page Tâches. Les autres tâches restent dans la vue Tâches." },
-        { target: "dashboard-transmissions", title: "Préparer les transmissions", body: "Choisissez un jour pour consulter les échéances réelles des collectes. Les tâches n’ont pas de date limite." },
+        { target: "dashboard-tabs", title: "Choisir une vue", body: "Mon bureau présente les aperçus du quotidien. Les autres onglets ouvrent les listes complètes accessibles à votre compte." },
+        { target: "dashboard-resume", title: "Reprendre le travail", body: "Ce dossier met en avant une tâche réellement en cours. Reprendre ouvre la page Tâches pour la poursuivre." },
+        { target: "dashboard-transmissions", title: "Préparer les transmissions", body: "Ce registre présente les collectes du jour sélectionné et les prochaines transmissions. Les tâches n’ont pas de date limite." },
+        { target: "dashboard-deadline-strip", title: "Choisir une date", body: "Le repère Aujourd’hui situe la journée. Sélectionnez une date du rail pour consulter ses collectes, sans modifier leurs échéances." },
+        { target: "dashboard-attention", title: "Repérer les éléments à traiter", body: "Les retards, corrections et éléments à examiner sont distingués dans ce suivi. Tout voir ouvre la liste complète." },
         { target: "dashboard-tasks", title: "Avancer sur les tâches", body: "Retrouvez le travail en cours et les tâches à commencer, séparés des échéances de collecte." },
         { target: "dashboard-attention-lens", title: "Consulter les éléments à traiter", body: "Cette vue regroupe corrections, échéances dépassées et communication. Les vues disponibles suivent vos droits." },
         { target: "dashboard-quick-actions", title: "Accéder aux modules", body: "Actions rapides ouvre les destinations autorisées. La visite ne crée, n’envoie et ne modifie aucun élément." },

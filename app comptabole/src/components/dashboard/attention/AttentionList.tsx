@@ -3,7 +3,7 @@ import { useId } from "react";
 import { AlertTriangle, ArrowRight, Bell, ClipboardCheck, Landmark, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState";
-import { cn, formatRelative } from "@/lib/utils";
+import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { DashboardAttentionItem } from "@/lib/dashboard/dashboardData";
 
 const GROUP_LABELS = { overdue: "Échéances dépassées", corrections: "Corrections", review: "À examiner", communication: "Communication", other: "Autres éléments" };
@@ -50,11 +50,11 @@ export function AttentionList({ items, limit, grouped = false, compact = false }
               const visual = presentation(item);
               return (
                 <li key={item.id} data-urgency={item.severity} className={cn("dashboard-row grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 border-b border-l border-border py-3 pl-2", compact && "dashboard-attention-preview", visual.edge)}>
-                  <span className={cn("mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md", visual.icon)}><Icon className="size-3.5" aria-hidden="true" /></span>
+                  <span className={cn("mt-0.5 flex size-7 shrink-0 items-center justify-center", compact ? "rounded-full" : "rounded-md", visual.icon)}><Icon className="size-3.5" aria-hidden="true" /></span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2"><p className={cn("min-w-0 break-words text-sm text-foreground", item.severity === "critical" ? "font-semibold text-destructive" : item.severity === "warning" ? "font-semibold" : "font-medium")}>{item.title}</p><Badge variant={badgeVariant(item)} className={cn("dashboard-badge shrink-0", badgeTone(item))}>{item.badge}</Badge></div>
                     <p className="mt-1 break-words line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
-                    <time dateTime={item.date} className={cn("mt-1 block text-[0.68rem] text-muted-foreground", !compact && "md:hidden")}>{formatRelative(item.date)}</time>
+                    <time dateTime={item.date} className={cn("mt-1 block text-[0.68rem] text-muted-foreground", compact && "tabular-nums", !compact && "md:hidden")}>{compact ? `le ${formatDate(item.date)}` : formatRelative(item.date)}</time>
                   </div>
                   <Link to={item.route} className="dashboard-attention-open dashboard-navigation flex size-11 items-center justify-center rounded text-muted-foreground" aria-label={`Ouvrir ${item.title}`}><ArrowRight className="size-4" aria-hidden="true" /></Link>
                 </li>

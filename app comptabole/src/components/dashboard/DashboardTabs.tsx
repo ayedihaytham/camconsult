@@ -8,12 +8,13 @@ import { AttentionTab } from "@/components/dashboard/tabs/AttentionTab";
 import { ClientCollectionsTab } from "@/components/dashboard/tabs/ClientCollectionsTab";
 import { ClientOverviewTab } from "@/components/dashboard/tabs/ClientOverviewTab";
 import { DeadlinesTab } from "@/components/dashboard/tabs/DeadlinesTab";
-import { DailyWorkspaceTab } from "@/components/dashboard/tabs/DailyWorkspaceTab";
+import { DailyWorkspaceRail, DailyWorkspaceTab } from "@/components/dashboard/tabs/DailyWorkspaceTab";
 import { TasksTab } from "@/components/dashboard/tabs/TasksTab";
 import { CollectionFailure } from "./WorkspaceSection";
 import { Button } from "@/components/ui/button";
 import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
 import type { DashboardViewModel } from "@/lib/dashboard/dashboardData";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 const DASHBOARD_TAB_TRIGGER_CLASS = "dashboard-tab relative min-h-11 shrink-0 rounded-none border-0 bg-transparent px-0 py-3 text-muted-foreground shadow-none data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-accent after:opacity-0 data-[state=active]:after:opacity-100";
 
@@ -34,6 +35,7 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabRailRef = useRef<HTMLDivElement>(null);
+  const wide = useMediaQuery("(min-width: 1280px)");
   const isClient = data.role === "societe_employe";
   const tabs = isClient
     ? ["overview", "collections", "documents", ...(canUseMessaging ? ["messages"] : [])]
@@ -52,8 +54,7 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
     setSearchParams(next, { replace: true });
   }
 
-  return (
-    <Tabs data-tour="dashboard-work" value={value} onValueChange={changeTab} className="min-w-0">
+  const navigation = (
       <div ref={tabRailRef} data-tour="dashboard-tabs" className="dashboard-tab-rail max-w-full overflow-x-auto border-b border-border">
         <TabsList className="h-auto w-max min-w-full justify-start gap-5 rounded-none bg-transparent p-0 sm:min-w-0" aria-label="Sections du tableau de bord">
           <TabsTrigger value="overview" className={DASHBOARD_TAB_TRIGGER_CLASS}>{isClient ? "Vue d'ensemble" : "Mon bureau"}</TabsTrigger>
@@ -74,11 +75,18 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
           )}
         </TabsList>
       </div>
-      {collectesError && <div className="mt-4"><CollectionFailure onRetry={onRetryCollectes} /></div>}
-      {data.role === "admin" && (adminDataLoading || adminDataError) && <div role="status" className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-border py-3 text-xs text-muted-foreground"><p>{adminDataLoading ? "Chargement du journal et des bordereaux…" : "Suivi partiel : une source cabinet est indisponible. Les tâches, fichiers et messages restent accessibles."}</p>{adminDataError && <Button variant="outline" className="min-h-11" onClick={onRetryAdminData}>Réessayer le suivi cabinet</Button>}</div>}
+  );
+  const bureau = !isClient && value === "overview";
+  const cabinetNotice = data.role === "admin" && (adminDataLoading || adminDataError);
+  return (
+    <Tabs data-tour="dashboard-work" value={value} onValueChange={changeTab} className={`min-w-0 ${bureau ? "dashboard-bureau" : ""}`}>
+      <div className="dashboard-view-column min-w-0">
+      {navigation}
+      {collectesError && <div className="dashboard-source-notice mt-4"><CollectionFailure onRetry={onRetryCollectes} /></div>}
+      {cabinetNotice && <div role="status" className="dashboard-source-notice mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-border py-3 text-xs text-muted-foreground"><p>{adminDataLoading ? "Chargement du journal et des bordereaux…" : "Suivi partiel : une source cabinet est indisponible. Les tâches, fichiers et messages restent accessibles."}</p>{adminDataError && <Button variant="outline" className="min-h-11" onClick={onRetryAdminData}>Réessayer le suivi cabinet</Button>}</div>}
 
-      <TabsContent value="overview" className="mt-4">
-        {isClient ? <ClientOverviewTab data={data} loading={collectesLoading} error={collectesError} /> : <DailyWorkspaceTab data={data} now={now} loading={collectesLoading} error={collectesError} adminDataLoading={adminDataLoading} adminDataError={adminDataError} canUseMessaging={canUseMessaging} />}
+      <TabsContent value="overview" className="dashboard-overview-content mt-4">
+        {isClient ? <ClientOverviewTab data={data} loading={collectesLoading} error={collectesError} /> : <DailyWorkspaceTab data={data} wide={wide} now={now} loading={collectesLoading} error={collectesError} adminDataLoading={adminDataLoading} adminDataError={adminDataError} canUseMessaging={canUseMessaging} />}
       </TabsContent>
       {isClient ? (
         <>
@@ -95,6 +103,8 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
           <TabsContent value="activity" className="mt-4"><ActivityTab data={data} canUseMessaging={canUseMessaging} loading={adminDataLoading} error={journalError} /></TabsContent>
         </>
       )}
+      </div>
+      {bureau && wide && <DailyWorkspaceRail data={data} loading={collectesLoading} error={collectesError} adminDataLoading={adminDataLoading} adminDataError={adminDataError} canUseMessaging={canUseMessaging} />}
     </Tabs>
   );
 }

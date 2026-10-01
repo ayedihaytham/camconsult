@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardTabs } from "./DashboardTabs";
@@ -13,12 +13,44 @@ import { ActivityTab } from "./tabs/ActivityTab";
 import { DeadlinesTab } from "./tabs/DeadlinesTab";
 import { CollectionTransmissions } from "./CollectionTransmissions";
 import { task, collection } from "@/lib/dashboard/dashboardFixtures.test-support";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
+vi.mock("@/hooks/use-media-query", () => ({ useMediaQuery: vi.fn(() => false) }));
+beforeEach(() => vi.mocked(useMediaQuery).mockReturnValue(false));
 afterEach(cleanup);
 const data = buildDashboardData(dashboardInput());
 const base = { data, now: NOW, canUseMessaging: true, collectesLoading: false, collectesError: false, onRetryCollectes: () => {}, adminDataLoading: false, adminDataError: false, onRetryAdminData: () => {} };
 
 describe("Daily Workspace UI contract", () => {
+  it("keeps compact reading order and mounts each preview only once in either composition", () => {
+    const { container, rerender } = render(<MemoryRouter><DashboardTabs {...base} /></MemoryRouter>);
+    const attention = container.querySelector('[data-tour="dashboard-attention"]')!;
+    const tasks = container.querySelector('[data-tour="dashboard-tasks"]')!;
+    expect(attention.compareDocumentPosition(tasks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelectorAll('[data-tour="dashboard-resume"]')).toHaveLength(1);
+    vi.mocked(useMediaQuery).mockReturnValue(true);
+    rerender(<MemoryRouter><DashboardTabs {...base} /></MemoryRouter>);
+    expect(container.querySelector('.dashboard-main [data-tour="dashboard-tasks"]')).toBeTruthy();
+    expect(container.querySelector('.dashboard-rail [data-tour="dashboard-attention"]')).toBeTruthy();
+    expect(container.querySelectorAll('[data-tour="dashboard-attention"]')).toHaveLength(1);
+  });
+  it("keeps navigation, partial-source notices and work in one flow independently of the desktop rail", () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true);
+    const { container } = render(<MemoryRouter><DashboardTabs {...base} collectesError adminDataError /></MemoryRouter>);
+    const bureau = container.querySelector('.dashboard-bureau')!;
+    const workColumn = container.querySelector('.dashboard-view-column')!;
+    const rail = container.querySelector('.dashboard-rail')!;
+    expect(workColumn.parentElement).toBe(bureau);
+    expect(rail.parentElement).toBe(bureau);
+    expect(workColumn.contains(container.querySelector('[data-tour="dashboard-tabs"]'))).toBe(true);
+    expect(workColumn.contains(container.querySelector('[data-tour="dashboard-resume"]'))).toBe(true);
+    expect(workColumn.querySelectorAll('.dashboard-source-notice')).toHaveLength(2);
+    expect(rail.querySelectorAll('[data-tour="dashboard-attention"]')).toHaveLength(1);
+    const tasksTab = screen.getByRole('tab', { name: 'Tâches' });
+    fireEvent.mouseDown(tasksTab, { button: 0, ctrlKey: false });
+    expect(screen.getByRole('tab', { name: 'Tâches' })).toBe(tasksTab);
+    expect(container.querySelector('.dashboard-rail')).toBeNull();
+  });
   it("exposes each overview section once for responsive composition", () => {
     const { container } = render(<MemoryRouter><DashboardTabs {...base} /></MemoryRouter>);
     expect(screen.getByRole("tab", { name: "Mon bureau" })).toBeTruthy();
@@ -69,10 +101,23 @@ describe("Daily Workspace UI contract", () => {
     expect(screen.queryByRole("tab", { name: "À traiter" })).toBeNull();
     expect(screen.getByRole("tab", { name: "Collectes" })).toBeTruthy();
   });
+  it("limits the dossier composition to Mon bureau and preserves the dedicated views", () => {
+    const { container } = render(<MemoryRouter><DashboardTabs {...base} /></MemoryRouter>);
+    expect(container.querySelector(".dashboard-bureau")).toBeTruthy();
+    for (const name of ["Tâches", "À traiter", "Échéances", "Équipe", "Activité"]) {
+      fireEvent.mouseDown(screen.getByRole("tab", { name }), { button: 0, ctrlKey: false });
+      expect(screen.getByRole("tab", { name }).getAttribute("aria-selected")).toBe("true");
+      expect(container.querySelector(".dashboard-bureau")).toBeNull();
+      expect(container.querySelector(".dashboard-resume")).toBeNull();
+      expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+    }
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Mon bureau" }), { button: 0, ctrlKey: false });
+    expect(container.querySelectorAll(".dashboard-resume")).toHaveLength(1);
+  });
   it("provides all internal tour targets using the existing versioned registry", () => {
     const { container } = render(<MemoryRouter><div data-tour="page-workspace"><DashboardHeader salutation="Bonjour" dateLabel="Mercredi" data={data} now={NOW} loading={false} role="admin" canAddSociete canUseMessaging /><DashboardTabs {...base} /></div></MemoryRouter>);
     const tour = getPageTour("/", session());
-    expect(tour?.version).toBe(2);
+    expect(tour?.version).toBe(3);
     tour?.steps.forEach((step) => { expect(typeof step.target).toBe("string"); expect(container.querySelector(`[data-tour="${step.target}"]`)).toBeTruthy(); });
     expect(getPageTour("/", session("societe_employe"))?.version).toBe(1);
   });
@@ -131,19 +176,44 @@ describe("Daily Workspace UI contract", () => {
     const { container } = render(<MemoryRouter><DashboardTabs {...base} /></MemoryRouter>);
     const rail = screen.getByRole("group", { name: "Dates des collectes" });
     const days = rail.querySelectorAll("button");
-    expect(days).toHaveLength(6);
+    expect(days).toHaveLength(7);
     expect(rail.className).toContain("overflow-x-auto");
     expect(days[0].getAttribute("aria-pressed")).toBe("true");
     expect(days[0].className).toContain("ledger-day");
     expect(days[0].getAttribute("aria-current")).toBe("date");
     expect(days[0].className).not.toContain("bg-primary text-primary-foreground");
-    expect(screen.getByText("30 septembre–5 octobre 2026")).toBeTruthy();
+    expect(screen.getByText("30 septembre–6 octobre 2026")).toBeTruthy();
     expect(rail.textContent).not.toContain("Aucune");
     expect(container.querySelector(".ledger-ruler-track")).toBeTruthy();
     expect(container.querySelector(".transmission-ledger")).toBeTruthy();
     fireEvent.click(days[1]);
     expect(days[1].getAttribute("aria-pressed")).toBe("true");
     expect(container.querySelector('[data-tour="dashboard-transmissions"]')?.textContent).toContain("Les tâches n’ont pas d’échéance.");
+  });
+  it("navigates seven-day ranges using loaded collection dates and keeps today reachable", () => {
+    const ledger = buildDashboardData(dashboardInput({ collectes: [collection("next-week", "2026-10-07")] }));
+    const { container } = render(<MemoryRouter><CollectionTransmissions deadlines={ledger.deadlines} now={NOW} loading={false} error={false} /></MemoryRouter>);
+    const previous = screen.getByRole("button", { name: "Sept jours précédents" });
+    expect(previous.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Sept jours suivants" }));
+    expect(screen.getByText("7–13 octobre 2026")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "07/10/2026, 1 collecte" }).getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector('.ledger-selected .transmission-entry')?.getAttribute("href")).toBe("/collectes/next-week");
+    expect(previous.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(previous);
+    expect(screen.getByText("30 septembre–6 octobre 2026")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "30/09/2026, 0 collecte" }).getAttribute("aria-current")).toBe("date");
+    expect(previous.hasAttribute("disabled")).toBe(true);
+  });
+  it("keeps the selected detail within the visible seven-day range after midnight", () => {
+    const ledger = buildDashboardData(dashboardInput({ collectes: [collection("rollover", "2026-10-08")] }));
+    const { container, rerender } = render(<MemoryRouter><CollectionTransmissions deadlines={ledger.deadlines} now={NOW} loading={false} error={false} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Sept jours suivants" }));
+    rerender(<MemoryRouter><CollectionTransmissions deadlines={ledger.deadlines} now={new Date("2026-10-01T00:01:00")} loading={false} error={false} /></MemoryRouter>);
+    expect(screen.getByText("8–14 octobre 2026")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "08/10/2026, 1 collecte" }).getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelectorAll('.ledger-day[aria-pressed="true"]')).toHaveLength(1);
+    expect(container.querySelector('.ledger-selected .transmission-entry')?.getAttribute("href")).toBe("/collectes/rollover");
   });
   it("shows only loaded overdue collection context inside the transmission ledger", () => {
     const now = new Date("2026-10-01T10:00:00");
@@ -179,6 +249,30 @@ describe("Daily Workspace UI contract", () => {
     render(<MemoryRouter initialEntries={["/?tab=team"]}><DashboardTabs {...base} /></MemoryRouter>);
     expect(screen.queryByRole("button", { name: /Voir les tâches de Amira/ })).toBeNull();
     expect(screen.getAllByText("Amira emp-1")).toHaveLength(2);
+  });
+  it("previews real team counts without ranking, row actions or company-side exposure", () => {
+    const team = Array.from({ length: 5 }, (_, index) => ({ id: `emp-${index}`, name: `Collaborateur ${index}`, initials: `C${index}`, active: true, online: false, aFaire: index + 1, enCours: 2, done: 0, open: index + 3, total: index + 3 }));
+    const { container, rerender } = render(<MemoryRouter><DashboardTabs {...base} data={{ ...data, team }} /></MemoryRouter>);
+    const preview = container.querySelector('[data-tour="dashboard-team"]') as HTMLElement;
+    expect(within(preview).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(preview).getByText("3 ouvertes")).toBeTruthy();
+    expect(within(preview).getByText(/1 à faire · 2 en cours/)).toBeTruthy();
+    expect(within(preview).getAllByRole("link")).toHaveLength(1);
+    expect(within(preview).getByRole("link", { name: "Voir l’équipe" }).getAttribute("href")).toBe("/?tab=team");
+    rerender(<MemoryRouter><DashboardTabs {...base} data={{ ...data, role: "collaborateur", team }} /></MemoryRouter>);
+    expect(container.querySelector('[data-tour="dashboard-team"]')).toBeNull();
+  });
+  it("keeps unread previews viewer-specific, bounded and permission-gated", () => {
+    const unreadMessages = Array.from({ length: 5 }, (_, index) => ({ id: `message-${index}`, label: `Conversation ${index}`, initials: `C${index}`, preview: `Extrait ${index}`, updatedAt: NOW.toISOString(), unread: index + 1, online: false }));
+    const { container, rerender } = render(<MemoryRouter><DashboardTabs {...base} data={{ ...data, recentMessages: [], unreadMessages }} /></MemoryRouter>);
+    const preview = container.querySelector('[data-tour="dashboard-communication"]') as HTMLElement;
+    expect(within(preview).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(preview).getByText("Extrait 0")).toBeTruthy();
+    expect(within(preview).getByText("3 non lus")).toBeTruthy();
+    expect(within(preview).queryByText("Conversation 3")).toBeNull();
+    expect(preview.querySelectorAll(".dashboard-monogram")).toHaveLength(3);
+    rerender(<MemoryRouter><DashboardTabs {...base} data={{ ...data, unreadMessages }} canUseMessaging={false} /></MemoryRouter>);
+    expect(container.querySelector('[data-tour="dashboard-communication"]')).toBeNull();
   });
   it("activity filters loaded sources while preserving partial failure and role boundaries", () => {
     const activityData = { ...data, recentFiles: [{ id: "file-1", name: "Balance.pdf", societeName: "Société soc-1", updatedAt: NOW.toISOString() }], recentMessages: [{ id: "message-1", label: "Discussion", initials: "AM", preview: "Document reçu", updatedAt: NOW.toISOString(), unread: 1, online: false }] };

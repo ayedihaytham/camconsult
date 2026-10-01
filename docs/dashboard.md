@@ -4,8 +4,11 @@
 
 The authenticated Dashboard is the approved **Daily Workspace**, answering:
 **what should I work on now?** It reflects real scoped data; it does not invent
-metrics. Its design reference is
-`.impeccable/mocks/dashboard-command-exploration/direction-b-final.html`.
+metrics. The user-approved image **Tableau de bord comptable moderne.png**
+(2026-10-01) is the visual authority for `Mon bureau` and its shared command
+banner/tab bar. It supersedes the earlier `direction-b-final.html` composition.
+Dedicated tab contents and the company-side composition retain their existing
+presentation and business rules.
 
 Current implementation:
 
@@ -13,16 +16,19 @@ Current implementation:
 - Orchestration: `app comptabole/src/hooks/dashboard/useDashboardData.ts`
 - Pure view-model rules: `app comptabole/src/lib/dashboard/dashboardData.ts`
 - UI: `app comptabole/src/components/dashboard/`
+- Mon bureau presentation: `app comptabole/src/components/dashboard/mon-bureau.css`
+- Existing dedicated/client view styling: `app comptabole/src/components/dashboard/dashboard-polish.css`
 
 ## Structure
 
-1. Compact navy daily identity: small greeting, date, sans workspace title,
+1. Compact navy daily identity: date at left, small greeting, workspace title,
    role-aware quick actions and partial gold rule. No internal KPI card row,
    replacement counter strip or statistics widgets: the banner flows directly
    into Dashboard navigation. Internal Admin/collaborator work is already scoped
    by the signed-in account; the restricted company Dashboard retains its existing
    scoped KPIs.
-2. URL-addressable shadcn Tabs (`?tab=`), with a scrollable rail on narrow screens.
+2. URL-addressable shadcn Tabs (`?tab=`), with a gold active underline and a
+   scrollable rail on narrow screens.
 3. `Mon bureau`: Reprendre, Transmission Ledger, À traiter, remaining
    in-progress tasks, tasks to begin, viewer-specific communication, then the
    team shortcut where authorized. On phones this is a deliberate single-column
@@ -31,20 +37,48 @@ Current implementation:
    Desktop retains its work column and secondary rail; no desktop table is
    squeezed into phone width.
 
-On large desktop, the overview keeps its work column beside an independently
-flowing secondary rail; rail content does not set the vertical positions of work
-sections. Below the wide two-column breakpoint, the presentation order becomes Reprendre,
-transmissions, À traiter, in-progress tasks, tasks to begin, messages, then the
-team shortcut. Each phone section has a quiet warm surface and consistent
-gutter; the deadline ruler and Dashboard tabs scroll horizontally when needed.
-Reprendre keeps its restrained gold marker. Major sections use clear headings;
-subsections and rows use lighter rules. The desktop rail is 320px where space
-permits, with roughly three items per work/attention/message preview. Dedicated
-task and attention views retain their full loaded lists.
+At viewport widths of 1280px and above, a single-row master grid places the
+stable view column (tabs, notices and content) beside a 320px rail with a 20px
+column gap. The rail begins alongside the tabs and flows independently of main
+section heights. Reprendre and the
+transmission register each have a separate ivory surface. The two task registers
+sit side by side when the actual main-column width reaches 620px, with a nested
+header/body subgrid aligning their headings and overall heights. Each task,
+attention, message and team preview contains at most three items.
+Below 1280px, the outer sections form one column in DOM, reading and focus order:
+Reprendre, transmissions,
+À traiter, in-progress tasks, tasks to begin, messages, then the admin team
+preview. The existing media-query hook in `DashboardTabs` selects one composition, mounting each
+section once. The dossier CTA and selected/upcoming collection details can still
+split internally when the actual available page width reaches 620px. Phone
+layouts use a full-width Reprendre CTA; only the ruler and tabs scroll locally.
+Main surfaces use an 18px inset and 16px section gap; rail surfaces use a 16px
+inset. Below 640px both insets become 14px and section gaps become 12px.
+Corners are restrained (4px surfaces, 6px command banner). The transmission
+header uses a 40px marker column and 24px identity gap; the compact dossier uses
+36px/28px to retain the same text anchor. Both reduce to 32px/12px on phones.
+Internal detail/row spacing reuses 12px/8px tokens.
+The command banner has 14px top and 18px bottom padding, a fine partial gold
+rule and permission-aware quick actions. Existing Playfair Display is used
+selectively for its title/date numeral/quick action, dossier heading/title/CTA,
+Mon bureau section headings and transmission-detail headings. Inter remains the
+working font for rows, metadata, ruler dates, counts, tabs and badges. This narrow
+editorial exception does not change dedicated tab or other page typography;
+no font or dependency is added. Dedicated task and attention views retain their
+full loaded lists.
+Mon bureau uses a warmer scoped canvas and ivory surfaces, with a stronger
+gold-tinted dossier and paper-stack detail. Its main headings are 20px (rail
+17.5px, phone 17px), transmission heading 22px (phone 18px), and dossier
+heading/title 18px/22px (phone 16px/19px). The overview command title/date
+numeral are 31px/40px (phone 24px/33px); dedicated views retain their existing
+command scale. Task row titles/metadata use 15.5px/13px, context initials use
+38px circles and task headings use 32px icon blocks. Phone navigation retains 44px targets.
 The `À traiter` preview shows loaded counts for overdue, corrections, review and
 other actionable items, then uses up to three rows selected across the highest
 priority represented groups. Partial-source states suppress the summary counts;
-`Voir tout` opens the complete attention view.
+`Tout voir` opens the complete attention view. Compact preview rows show an
+absolute source date, circular source icon and semantic left rule; the complete
+attention view retains its existing presentation.
 
 Admin/collaborator tabs: `Mon bureau`, `Tâches`, `À traiter`, `Échéances`, optional
 admin `Équipe`, and `Activité`. `overview` remains the default URL tab key.
@@ -150,19 +184,48 @@ Tasks have no deadline field and must not be used as fake deadline data.
   makes no last-worked or priority claim. The remaining in-progress preview
   excludes that task. `Tâches` retains all rows and a completed-work lens, with
   open/completed counts derived from all loaded accessible tasks.
-- The six-day Transmission Ledger starts at the actual local day and filters
+  The ivory dossier pairs a folder marker with real task status/title/company
+  and, for Admin, assignee. Neutral continuation copy makes no recency claim.
+  The wide dossier's right-hand action area occupies 33% (at least 180px), with
+  a stretched divider and 20px inset. The dossier uses 16px vertical padding,
+  a 36px folder block and a bottom-aligned helper/156px-wide, 40px-high CTA.
+  CSS sheet faces, sand-toned layered edges, fine rules and soft shadows decorate
+  the CTA area's lower-right corner behind its content; phones show a quieter,
+  lower-clipped version. Phones use 14px vertical padding and a full-width, 44px-high CTA below
+  the task; compact layouts retain the side split only when the page is wide enough.
+- The seven-day Transmission Ledger initially starts at the actual local day and filters
   collection `echeance` only. A continuous deadline ruler, date ticks and a short
   gold selected-date mark replace boxed day cells. Today has a stronger date and
   month anchor; days with collections show an explicit count and marker. The
   ruler uses the main-column width on desktop and scrolls horizontally on mobile.
-  Selected-day detail sits directly underneath. `Prochaines transmissions` keeps
+  Selected-day detail sits underneath. It shares a two-column detail row with
+  `Prochaines transmissions` at an actual available width of 620px; otherwise
+  both stack with their labels visible, including an empty upcoming panel.
+  Each existing detail area uses a fine inset border, warm surface and 12px padding.
+  `Prochaines transmissions` keeps
   the existing next-two preview, with strong tabular date columns and text statuses
   instead of pills. A small loaded positive overdue count may accompany the header
   link; it is not a KPI widget. The ledger's inset aligns with Reprendre and task
-  headings. No week-navigation requests, new calendar or task dates are introduced.
+  headings. Previous/next controls move the presentation window by seven days
+  using loaded collection deadlines and select its first day; previous is
+  disabled at the window starting today. This remains local UI state: no new
+  requests, calendar data or task dates are introduced. The shared six-day
+  `dashboardDateStrip` helper remains unchanged; the seven-day presentation is
+  owned by `CollectionTransmissions`.
   A `transmis` collection says **Déjà transmis · à examiner** rather than claiming
   its transmission is still expected. Validated/archived items are excluded.
-- Team (Admin only): alphabetical informational collaborator rows with À faire, En cours,
+  Rows show company first, then period and textual state on one naturally
+  wrapping line beside a compact date column and navigation arrow.
+- Mon bureau communication shows at most three viewer-specific unread
+  conversations, with initials, message preview, blue unread count and arrow.
+  Rail sections use light warm surfaces and gold heading icons. Message/team
+  initials sit on pale slate circles; the third unread preview uses a decorative
+  navy circle without conveying priority or a person category. Unread rows share
+  the rail surface, and team open counts use a readable warm ink emphasis.
+- Mon bureau team (Admin only): at most three alphabetical, informational
+  collaborator rows with initials and real Ouvertes, À faire and En cours counts;
+  `Voir l’équipe` opens the dedicated team view. Rows do not filter work or rank people.
+- Dedicated team (Admin only): alphabetical informational collaborator rows with À faire, En cours,
   Terminées and Ouvertes, rendered as a table on desktop and count rows on mobile.
   Names remain non-interactive because Dashboard collaborator filtering is not
   exposed. No relative bars, capacity,
@@ -189,13 +252,16 @@ have distinct text states. Quick actions navigate only; they perform no mutation
 
 ## Guided tour and accessibility
 
-The existing engine uses the internal `dashboard:v2` configuration; the restricted
+The existing engine uses the internal `dashboard:v3` configuration; the restricted
 company tour remains v1. Stable targets include summary, resume,
-transmissions/date strip, tasks, attention lens and responsive quick actions.
+tabs, transmissions/date strip, tasks, attention preview/lens and responsive
+quick actions. The tasks anchor belongs to the boxed in-progress register so
+the target remains available in the compact section order.
 Missing/hidden targets are skipped by the shared engine. Existing Aide placement,
 first-visit persistence and replay remain unchanged. Controls retain visible
 focus, semantic status text and 44px interaction targets; tabs use Radix keyboard
-navigation and only tab/date rails scroll horizontally. No motion is added.
+navigation and only tab/date rails scroll horizontally. Existing short row
+color transitions respect reduced-motion preferences.
 
 ## Data sources and performance
 

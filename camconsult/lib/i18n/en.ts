@@ -83,16 +83,48 @@ const en: Dictionary = {
     servicesEyebrow: 'Our expertise',
     servicesTitle: 'Solutions designed for you.',
     servicesText: 'From day-to-day bookkeeping to strategic decisions, we tailor our expertise to your business reality.',
+    servicesFilterLabel: 'What do you need right now?',
+    serviceCategories: {
+      all: { label: 'All services', tag: '', subtitle: 'A complete view of the firm' },
+      quotidien: { label: 'Day to day', tag: 'Day to day', subtitle: 'Accounts, payroll and filings' },
+      securiser: { label: 'Secure', tag: 'To secure', subtitle: 'Control and legal framework' },
+      decider: { label: 'Decide', tag: 'To decide', subtitle: 'Indicators and financing' },
+      demarrer: { label: 'Start up', tag: 'To start up', subtitle: 'Launch your business with confidence' },
+    },
     services: [
-      ['Bookkeeping', 'Reliable, organized accounting to steer your business.'],
-      ['Advisory & steering', 'Clear indicators to turn your data into decisions.'],
-      ['Taxation', 'A well-controlled tax strategy and careful deadline tracking.'],
-      ['Statutory audit', 'An independent view to secure your accounts and obligations.'],
-      ['Payroll & human resources', 'Precise, smooth and compliant social management.'],
-      ['Business creation', 'Structure, formalities and first choices for a solid start.'],
-      ['Legal', 'Deeds and advice suited to your company’s key moments.'],
-      ['Corporate finance', 'Concrete analysis to fund your projects and grow your business.'],
-    ],
+      {
+        title: 'Bookkeeping', text: 'Reliable, organized accounting to steer your business.', category: 'quotidien',
+        deliverables: ['Recording and filing of your documents', 'Monthly bank reconciliations', 'Up-to-date accounting position'],
+      },
+      {
+        title: 'Advisory & steering', text: 'Clear indicators to turn your data into decisions.', category: 'decider',
+        deliverables: ['Monthly dashboards', 'Profitability and cash-flow analysis', 'Regular steering reviews'],
+      },
+      {
+        title: 'Taxation', text: 'A well-controlled tax strategy and careful deadline tracking.', category: 'quotidien',
+        deliverables: ['Tax filings on time', 'Monitoring of obligations and deadlines', 'Lawful tax optimisation'],
+      },
+      {
+        title: 'Statutory audit', text: 'An independent view to secure your accounts and obligations.', category: 'securiser',
+        deliverables: ['Independent review of accounts', 'Detailed audit report', 'Corrective recommendations'],
+      },
+      {
+        title: 'Payroll & human resources', text: 'Precise, smooth and compliant social management.', category: 'quotidien',
+        deliverables: ['Monthly payslips', 'Social security filings (CNSS)', 'Tracking of contracts and leave'],
+      },
+      {
+        title: 'Business creation', text: 'Structure, formalities and first choices for a solid start.', category: 'demarrer',
+        deliverables: ['Choice of legal structure', 'Incorporation formalities', 'Start-up support'],
+      },
+      {
+        title: 'Legal', text: 'Deeds and advice suited to your company’s key moments.', category: 'securiser',
+        deliverables: ['Drafting of deeds and bylaws', 'Advice at key moments', 'Regulatory watch'],
+      },
+      {
+        title: 'Corporate finance', text: 'Concrete analysis to fund your projects and grow your business.', category: 'decider',
+        deliverables: ['Building financing files', 'Investment analysis', 'Growth planning'],
+      },
+    ] as { title: string; text: string; category: 'quotidien' | 'securiser' | 'decider' | 'demarrer'; deliverables: [string, string, string] }[],
     servicesMore: 'Learn more',
     servicesSeeAll: 'See all our services',
     differenceEyebrow: 'What sets us apart',

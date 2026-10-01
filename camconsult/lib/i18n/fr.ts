@@ -81,16 +81,48 @@ const fr = {
     servicesEyebrow: 'Nos expertises',
     servicesTitle: 'Des solutions pensées pour vous.',
     servicesText: 'De la tenue quotidienne aux décisions stratégiques, nous adaptons notre expertise à la réalité de votre activité.',
+    servicesFilterLabel: 'Quel est votre besoin du moment ?',
+    serviceCategories: {
+      all: { label: 'Tous les services', tag: '', subtitle: 'Une vue complète du cabinet' },
+      quotidien: { label: 'Au quotidien', tag: 'Au quotidien', subtitle: 'Comptes, paie et déclarations' },
+      securiser: { label: 'Sécuriser', tag: 'Pour sécuriser', subtitle: 'Contrôle et cadre juridique' },
+      decider: { label: 'Décider', tag: 'Pour décider', subtitle: 'Indicateurs et financement' },
+      demarrer: { label: 'Démarrer', tag: 'Pour démarrer', subtitle: 'Créer sa société sereinement' },
+    },
     services: [
-      ['Tenue comptable', 'Une comptabilité fiable et organisée pour piloter votre activité.'],
-      ['Conseil & pilotage', 'Des indicateurs clairs pour transformer vos données en décisions.'],
-      ['Fiscalité', 'Une stratégie fiscale maîtrisée et un suivi attentif des échéances.'],
-      ['Révision comptable', 'Un regard indépendant pour sécuriser vos comptes et obligations.'],
-      ['Paie & ressources humaines', 'Une gestion sociale précise, fluide et conforme.'],
-      ['Création d’entreprise', 'Structure, formalités et premiers choix pour bien démarrer.'],
-      ['Juridique', 'Des actes et conseils adaptés aux moments clés de votre société.'],
-      ['Finance d’entreprise', 'Des analyses concrètes pour financer et développer vos projets.'],
-    ] as [string, string][],
+      {
+        title: 'Tenue comptable', text: 'Une comptabilité fiable et organisée pour piloter votre activité.', category: 'quotidien',
+        deliverables: ['Saisie et classement de vos pièces', 'Rapprochements bancaires mensuels', 'Situation comptable à jour'],
+      },
+      {
+        title: 'Conseil & pilotage', text: 'Des indicateurs clairs pour transformer vos données en décisions.', category: 'decider',
+        deliverables: ['Tableaux de bord mensuels', 'Analyse de rentabilité et de trésorerie', 'Points de pilotage réguliers'],
+      },
+      {
+        title: 'Fiscalité', text: 'Une stratégie fiscale maîtrisée et un suivi attentif des échéances.', category: 'quotidien',
+        deliverables: ['Déclarations fiscales dans les délais', 'Veille sur les obligations et échéances', 'Optimisation fiscale légale'],
+      },
+      {
+        title: 'Révision comptable', text: 'Un regard indépendant pour sécuriser vos comptes et obligations.', category: 'securiser',
+        deliverables: ['Contrôle indépendant des comptes', 'Rapport de révision détaillé', 'Recommandations correctives'],
+      },
+      {
+        title: 'Paie & ressources humaines', text: 'Une gestion sociale précise, fluide et conforme.', category: 'quotidien',
+        deliverables: ['Bulletins de paie mensuels', 'Déclarations sociales (CNSS)', 'Suivi des contrats et absences'],
+      },
+      {
+        title: 'Création d’entreprise', text: 'Structure, formalités et premiers choix pour bien démarrer.', category: 'demarrer',
+        deliverables: ['Choix de la structure juridique', 'Formalités de constitution', 'Accompagnement au démarrage'],
+      },
+      {
+        title: 'Juridique', text: 'Des actes et conseils adaptés aux moments clés de votre société.', category: 'securiser',
+        deliverables: ['Rédaction des actes et statuts', 'Conseil sur les moments clés', 'Veille réglementaire'],
+      },
+      {
+        title: 'Finance d’entreprise', text: 'Des analyses concrètes pour financer et développer vos projets.', category: 'decider',
+        deliverables: ['Montage de dossiers de financement', 'Analyse d’investissement', 'Plans de développement'],
+      },
+    ] as { title: string; text: string; category: 'quotidien' | 'securiser' | 'decider' | 'demarrer'; deliverables: [string, string, string] }[],
     servicesMore: 'En savoir plus',
     servicesSeeAll: 'Voir tous nos services',
     differenceEyebrow: 'Notre différence',

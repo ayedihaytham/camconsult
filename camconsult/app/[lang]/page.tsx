@@ -26,6 +26,10 @@ import {
 import { CamconsultHeader } from '@/components/camconsult-header'
 import { CamconsultFooter } from '@/components/camconsult-footer'
 import { getDictionary, isLang, type Lang } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
+
+type ServiceCategoryId = 'all' | 'quotidien' | 'securiser' | 'decider' | 'demarrer'
+const CATEGORY_IDS: ServiceCategoryId[] = ['all', 'quotidien', 'securiser', 'decider', 'demarrer']
 
 const SERVICE_ICONS = [FileText, BarChart3, Landmark, ShieldCheck, Users, Sparkles, Scale, PieChart]
 const DIFFERENTIATOR_ICONS = [MessageCircle, Landmark, Users, ShieldCheck, BarChart3, Sparkles]
@@ -36,8 +40,23 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
   const { lang: rawLang } = use(params)
   const lang: Lang = isLang(rawLang) ? rawLang : 'fr'
   const { home } = getDictionary(lang)
+  const isArabic = lang === 'ar'
   const [sent, setSent] = useState(false)
   const p = (path: string) => `/${lang}${path === '/' ? '' : path}`
+
+  const [serviceCategory, setServiceCategory] = useState<ServiceCategoryId>('all')
+  const servicesIndexed = home.services.map((service, index) => ({ ...service, index }))
+  const servicesFiltered = serviceCategory === 'all' ? servicesIndexed : servicesIndexed.filter((s) => s.category === serviceCategory)
+  const [selectedServiceIndex, setSelectedServiceIndex] = useState(0)
+  const selectedService = servicesIndexed.find((s) => s.index === selectedServiceIndex) ?? servicesFiltered[0] ?? servicesIndexed[0]
+  function chooseCategory(id: ServiceCategoryId) {
+    setServiceCategory(id)
+    const next = id === 'all' ? servicesIndexed : servicesIndexed.filter((s) => s.category === id)
+    if (next.length > 0 && !next.some((s) => s.index === selectedServiceIndex)) setSelectedServiceIndex(next[0].index)
+  }
+  const servicesTitleWords = home.servicesTitle.trim().split(' ')
+  const servicesTitleLastWord = servicesTitleWords.pop()
+  const servicesTitleLead = servicesTitleWords.join(' ')
 
   return (
     <>
@@ -76,7 +95,107 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
 
         <section className="border-b border-border bg-white px-6 py-7 sm:px-10 lg:px-16"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-10 gap-y-4 text-[10px] font-bold uppercase tracking-[.16em] text-navy/45 sm:justify-between">{home.trustBar.map((label, i) => { const Icon = TRUST_ICONS[i]; return <span key={label} className="flex items-center gap-2"><Icon className="size-4" /> {label}</span> })}</div></section>
 
-        <section id="services" className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-7xl"><SectionIntro eyebrow={home.servicesEyebrow} title={home.servicesTitle} text={home.servicesText} /><div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{home.services.map(([title, text], index) => { const Icon = SERVICE_ICONS[index]; return <article key={title} className="group border border-border bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:border-gold hover:shadow-xl hover:shadow-navy/5"><div className="flex items-center justify-between"><Icon className="size-6 text-gold" /><span className="font-serif text-3xl text-navy/15">0{index + 1}</span></div><h3 className="mt-10 font-serif text-2xl text-navy">{title}</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">{text}</p><a href={p('/services')} className="mt-7 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-navy group-hover:text-gold">{home.servicesMore} <ArrowRight className="size-4" /></a></article> })}</div><div className="mt-10 text-center"><a href={p('/services')} className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-navy hover:text-gold">{home.servicesSeeAll} <ArrowRight className="size-4" /></a></div></div></section>
+        <section id="services" className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col gap-6 border-b border-border pb-10 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
+              <div>
+                <p className="eyebrow">{home.servicesEyebrow}</p>
+                <h2 className="mt-4 max-w-xl font-serif text-4xl leading-tight text-navy sm:text-5xl">
+                  {servicesTitleLead} <em className="text-gold">{servicesTitleLastWord}</em>
+                </h2>
+              </div>
+              <p className="max-w-xs text-sm leading-6 text-muted-foreground lg:border-l lg:border-border lg:pl-8">{home.servicesText}</p>
+            </div>
+
+            <p className="mt-10 text-xs font-bold uppercase tracking-wide text-muted-foreground">{home.servicesFilterLabel}</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-5">
+              {CATEGORY_IDS.map((id) => {
+                const cat = home.serviceCategories[id]
+                const count = id === 'all' ? servicesIndexed.length : servicesIndexed.filter((s) => s.category === id).length
+                const active = serviceCategory === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => chooseCategory(id)}
+                    aria-pressed={active}
+                    className={cn('relative border px-4 py-3 text-left transition-colors', active ? 'border-navy bg-navy text-white' : 'border-border bg-white text-navy hover:border-gold')}
+                  >
+                    <span className="flex items-center gap-2 text-sm font-bold">
+                      {cat.label}
+                      <span className={cn('text-xs font-normal', active ? 'text-white/55' : 'text-muted-foreground')}>{String(count).padStart(2, '0')}</span>
+                    </span>
+                    <span className={cn('mt-1 block text-xs', active ? 'text-white/70' : 'text-muted-foreground')}>{cat.subtitle}</span>
+                    {active && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-gold" aria-hidden="true" />}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_1.15fr] lg:gap-10">
+              <ul className="divide-y divide-border border border-border">
+                {servicesFiltered.map((service) => {
+                  const active = service.index === selectedService.index
+                  return (
+                    <li key={service.title}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedServiceIndex(service.index)}
+                        aria-pressed={active}
+                        className={cn('flex w-full items-center justify-between gap-4 border-l-4 px-5 py-4 text-left transition-colors', active ? 'border-l-gold bg-[#faf7f0]' : 'border-l-transparent hover:bg-secondary/40')}
+                      >
+                        <span className="flex min-w-0 items-center gap-4">
+                          <span className="shrink-0 font-serif text-sm text-muted-foreground">{String(service.index + 1).padStart(2, '0')}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-serif text-lg text-navy">{service.title}</span>
+                            <span className="block text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{home.serviceCategories[service.category].tag}</span>
+                          </span>
+                        </span>
+                        <span className={cn('grid size-8 shrink-0 place-items-center rounded-full border transition-colors', active ? 'border-navy text-navy' : 'border-border text-muted-foreground')}>
+                          <ArrowRight className={cn('size-3.5', isArabic && 'rtl-mirror')} aria-hidden="true" />
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+
+              <div className="relative overflow-hidden bg-navy p-8 text-white lg:p-10">
+                <span className="pointer-events-none absolute -right-2 -top-6 select-none font-serif text-[9rem] leading-none text-white/5" aria-hidden="true">{String(selectedService.index + 1).padStart(2, '0')}</span>
+                {(() => {
+                  const Icon = SERVICE_ICONS[selectedService.index]
+                  return (
+                    <span className="relative grid size-11 place-items-center rounded-full border border-white/20">
+                      <Icon className="size-5 text-gold" aria-hidden="true" />
+                    </span>
+                  )
+                })()}
+                <p className="relative mt-6 text-xs font-bold uppercase tracking-widest text-gold">{home.serviceCategories[selectedService.category].tag}</p>
+                <h3 className="relative mt-2 font-serif text-3xl">{selectedService.title}</h3>
+                <p className="relative mt-3 max-w-sm text-sm leading-6 text-white/70">{selectedService.text}</p>
+                <ul className="relative mt-8 flex flex-col gap-3 border-t border-white/15 pt-6">
+                  {selectedService.deliverables.map((item) => (
+                    <li key={item} className="flex items-start gap-3 text-sm text-white/85">
+                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-400" aria-hidden="true" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <div className="relative mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-white/15 pt-6">
+                  <div className="flex flex-wrap items-center gap-5">
+                    <a href={p('/services')} className="inline-flex items-center gap-2 rounded-sm bg-gold px-5 py-3 text-xs font-bold uppercase tracking-wider text-navy">
+                      {home.servicesMore} <ArrowRight className={cn('size-4', isArabic && 'rtl-mirror')} aria-hidden="true" />
+                    </a>
+                    <a href={p('/contact')} className="text-xs font-bold uppercase tracking-widest text-white underline underline-offset-4 hover:text-gold">{home.ctaPrimary}</a>
+                  </div>
+                  <span className="shrink-0 text-xs tabular-nums text-white/50">{String(selectedService.index + 1).padStart(2, '0')} / {String(servicesIndexed.length).padStart(2, '0')}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-10 text-center"><a href={p('/services')} className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-navy hover:text-gold">{home.servicesSeeAll} <ArrowRight className={cn('size-4', isArabic && 'rtl-mirror')} aria-hidden="true" /></a></div>
+          </div>
+        </section>
 
         <section id="a-propos" className="scroll-mt-20 bg-navy px-6 py-20 text-white sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-7xl"><SectionIntro eyebrow={home.differenceEyebrow} title={home.differenceTitle} text={home.differenceText} light /><div className="mt-12 grid gap-px overflow-hidden border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-3">{home.differentiators.map(([title, text], i) => { const Icon = DIFFERENTIATOR_ICONS[i]; return <div key={title} className="bg-navy p-7 transition-colors hover:bg-white/5"><Icon className="size-6 text-gold" /><h3 className="mt-6 font-serif text-2xl">{title}</h3><p className="mt-2 text-sm leading-6 text-white/60">{text}</p></div> })}</div></div></section>
 

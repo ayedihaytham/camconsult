@@ -148,7 +148,7 @@ export function CamconsultFooter({ lang = 'fr', clientPortalUrl }: CamconsultFoo
 
           <div><h2 className="footer-heading">{dict.footer.servicesHeading}</h2><nav className="mt-6 grid gap-3">{dict.footer.services.map((label) => <a key={label} href={withLocale(lang, '/services')} className="footer-link">{label}</a>)}</nav></div>
 
-          <div>
+          <div className="rounded-2xl border border-white/15 bg-white/[0.04] p-5">
             <h2 className="footer-heading">{dict.footer.contactHeading}</h2>
             <div className="mt-6 text-sm text-white/70">
               <p className="font-semibold text-white">{addressLine1}</p>

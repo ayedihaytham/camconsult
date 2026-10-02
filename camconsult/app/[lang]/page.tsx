@@ -35,6 +35,7 @@ import { HomeToolsSection } from '@/components/home-tools-section'
 import { DeadlineSection } from '@/components/deadline-section'
 import { BlogSection } from '@/components/blog-section'
 import { FaqSection } from '@/components/faq-section'
+import { CtaBand } from '@/components/cta-band'
 import { MethodSection } from '@/components/method-section'
 import { getDictionary, isLang, type Lang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -208,6 +209,8 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
         <BlogSection lang={lang} dict={dict} />
 
         <FaqSection lang={lang} home={home} />
+
+        <CtaBand lang={lang} home={home} />
 
         <section className="bg-navy px-6 py-12 text-white sm:px-10 lg:px-16 lg:py-8">
           <div className="mx-auto grid max-w-7xl items-start gap-10 lg:grid-cols-[1fr_.8fr] lg:gap-14">

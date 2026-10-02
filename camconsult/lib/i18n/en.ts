@@ -197,6 +197,7 @@ const en: Dictionary = {
       ['/images/blog-strategy.webp', 'Strategy', 'The right indicators for decision-making', 'Which KPIs should you track as your business scales?', 'May 28, 2025 · 6 min'],
       ['/images/blog-tax.webp', 'Taxation', 'Anticipating your tax deadlines', 'A simple method to avoid last-minute rushes and secure your filings.', 'May 9, 2025 · 4 min'],
     ],
+    ctaBand: { eyebrow: 'Your next decision starts here', titleLine1: 'Let’s build', titleLine2: 'what comes next', titleHighlight: 'together.', text: 'A first 30-minute conversation, no commitment, to lay out your situation and map the next steps.', button: 'Book an appointment', callPrefix: 'Or call us directly:', response: 'Reply within 24 business hours' },
     faqEyebrow: 'Frequently asked questions',
     faqTitle: 'First answers, right here.',
     faqText: 'Can’t find an answer to your question? Our team is listening.',

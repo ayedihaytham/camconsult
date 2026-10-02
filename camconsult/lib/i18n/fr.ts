@@ -195,6 +195,7 @@ const fr = {
       ['/images/blog-strategy.webp', 'Stratégie', 'Les bons indicateurs pour décider', 'Quels KPI suivre quand votre entreprise change d’échelle ?', '28 mai 2025 · 6 min'],
       ['/images/blog-tax.webp', 'Fiscalité', 'Anticiper ses échéances fiscales', 'Une méthode simple pour éviter les urgences et sécuriser vos déclarations.', '09 mai 2025 · 4 min'],
     ] as [string, string, string, string, string][],
+    ctaBand: { eyebrow: 'Votre prochaine décision commence ici', titleLine1: 'Construisons', titleLine2: 'la suite', titleHighlight: 'ensemble.', text: 'Un premier échange de 30 minutes, sans engagement, pour poser votre situation et tracer les prochaines étapes.', button: 'Prendre rendez-vous', callPrefix: 'Ou appelez-nous directement :', response: 'Réponse sous 24 h ouvrées' },
     faqEyebrow: 'Questions fréquentes',
     faqTitle: 'Les premières réponses, ici.',
     faqText: 'Une question ne trouve pas sa réponse ? Notre équipe est à votre écoute.',

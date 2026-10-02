@@ -76,15 +76,14 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
       <div className={cn('mx-auto flex max-w-[1760px] items-center gap-6 px-4 transition-all duration-300 sm:px-6 lg:px-8 xl:px-10', isScrolled ? 'min-h-[60px]' : 'min-h-[68px]')}>
 
         {/* Logo */}
-        <a href={withLocale(lang, '/')} className={cn('flex shrink-0 items-center gap-3', !isNavy ? 'text-navy' : 'text-white')} aria-label={`CAMCONSULT — ${dict.nav.home}`}>
-          <span className={cn('grid size-9 place-items-center rounded border', !isNavy ? 'border-navy/25' : 'border-white/35')}>
-            <img
-              src={!isNavy ? '/brand/logo-mark-light.png' : '/brand/logo-mark-dark.png'}
-              alt="CAMCONSULT"
-              className="size-6 object-contain"
-            />
-          </span>
-          <span className="text-xs font-bold tracking-[0.2em]">CAMCONSULT</span>
+        <a href={withLocale(lang, '/')} className="flex shrink-0 items-center" aria-label={`Cabinet Ayadi Mohamed — ${dict.nav.home}`}>
+          <img
+            src={!isNavy ? '/brand/logo-cabinet-navy.png' : '/brand/logo-cabinet-white.png'}
+            alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
+            width={1500}
+            height={382}
+            className={cn('w-auto transition-all duration-300', isScrolled ? 'h-8' : 'h-10')}
+          />
         </a>
 
         {/* Desktop Navigation */}

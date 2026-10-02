@@ -101,9 +101,8 @@ export function CamconsultFooter({ lang = 'fr', clientPortalUrl }: CamconsultFoo
 
         <div className="mt-10 grid gap-12 border-b border-white/15 pb-14 lg:grid-cols-[1.35fr_0.8fr_1.15fr_1.15fr] lg:gap-10">
           <div>
-            <a href={withLocale(lang, '/')} className="inline-flex items-center gap-3 text-white" aria-label="CAMCONSULT">
-              <span className="grid size-11 place-items-center"><img src="/brand/logo-mark-dark.png" alt="CAMCONSULT" className="size-9 object-contain" /></span>
-              <span className="text-sm font-semibold tracking-[0.28em]">CAMCONSULT</span>
+            <a href={withLocale(lang, '/')} className="inline-flex" aria-label="Cabinet Ayadi Mohamed">
+              <img src="/brand/logo-cabinet-white.png" alt="Cabinet Ayadi Mohamed — Accounting & Consulting" width={1500} height={382} className="h-12 w-auto" />
             </a>
             <p className="mt-6 max-w-xs text-sm leading-7 text-white/65">{taglineLead} <em className="text-gold">{taglineLastWord}</em></p>
             {isOpen !== null && (

@@ -85,25 +85,15 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
                 alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
                 width={1500}
                 height={382}
-                className="h-9 w-auto max-w-full group-data-[collapsible=icon]:hidden"
+                className="h-7 w-auto max-w-full group-data-[collapsible=icon]:hidden"
               />
-              <svg
-                viewBox="0 0 40 40"
-                aria-hidden="true"
-                className="hidden size-8 shrink-0 group-data-[collapsible=icon]:block"
-              >
-                <rect x="2" y="2" width="16" height="16" rx="3" fill="#fff8ee" />
-                <rect x="22" y="2" width="16" height="16" rx="3" fill="#fff8ee" />
-                <rect x="2" y="22" width="16" height="16" rx="3" fill="#fff8ee" />
-                <rect x="22" y="22" width="16" height="16" rx="3" fill="#fff8ee" />
-                <path
-                  d="m7 7 6 6m0-6-6 6M27 10h7m-3.5-3.5v7M7 30h7m-3.5-3.5h.01m0 7h.01M27 30h7"
-                  fill="none"
-                  stroke="#0b2545"
-                  strokeWidth="4.5"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <img
+                src="/brand/logo-mark-cabinet-white.png"
+                alt="Cabinet Ayadi Mohamed"
+                width={256}
+                height={256}
+                className="hidden size-7 shrink-0 object-contain group-data-[collapsible=icon]:block"
+              />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

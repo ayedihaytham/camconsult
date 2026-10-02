@@ -17,9 +17,17 @@ function LedgerField({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative rounded-md border border-accent/35 bg-secondary/60 px-4 pb-2.5 pt-3 transition-colors focus-within:border-accent focus-within:bg-card">
-      <label htmlFor={htmlFor} className="flex items-center gap-2 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-primary">
-        <span className="size-1.5 bg-accent" aria-hidden="true" />
+    <div className="group relative rounded-md border border-accent/35 bg-secondary/60 px-4 pb-2.5 pt-3 transition-colors focus-within:border-primary focus-within:bg-card">
+      {/* Équerres dorées : n'apparaissent qu'à la saisie */}
+      {["-left-2 -top-2 border-l-2 border-t-2", "-right-2 -top-2 border-r-2 border-t-2", "-bottom-2 -left-2 border-b-2 border-l-2", "-bottom-2 -right-2 border-b-2 border-r-2"].map((pos) => (
+        <span
+          key={pos}
+          className={`pointer-events-none absolute size-3 border-accent opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 ${pos}`}
+          aria-hidden="true"
+        />
+      ))}
+      <label htmlFor={htmlFor} className="flex items-center gap-2.5 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-primary/80">
+        <span className="size-1.5 rotate-45 bg-accent" aria-hidden="true" />
         {label}
       </label>
       {children}

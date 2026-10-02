@@ -171,7 +171,8 @@ internal command title/date numeral/quick action, dossier heading/title/CTA,
 section headings and transmission-detail headings use the existing Playfair
 Display. Rows, metadata, ruler dates, counts, tabs and badges stay Inter.
 Dedicated Dashboard tab contents and other authenticated pages keep the
-working sans; this exception adds no font or dependency.
+working sans; Tâches also uses sans for its scoped command title/date/actions.
+This exception adds no font or dependency.
 
 ### Hierarchy
 
@@ -254,11 +255,32 @@ Main insets, gaps and restrained corners use the scoped frontmatter tokens.
 The section-heading token describes the main desktop register heading; the
 right rail uses a smaller heading (17.5px) and phone layouts reduce it to 17px.
 Quiet ivory surfaces, fine rules and semantic red/amber/navy cues establish
-hierarchy without a KPI row. Company-side KPIs and dedicated tab contents retain
-their existing composition. Tasks never acquire deadlines; loading, partial
-failures and true emptiness stay distinct. Implemented presentation lives in
+hierarchy without a KPI row. Company-side KPIs and dedicated tab contents other
+than the approved Tâches view retain their existing composition. Tasks never
+acquire deadlines; loading, partial failures and true emptiness stay distinct.
+Implemented presentation lives in
 `app comptabole/src/components/dashboard/mon-bureau.css`; role and data rules
 remain documented in [Dashboard](docs/dashboard.md).
+
+#### Tâches — complete work registers
+
+The approved **Tableau de bord des tâches CAMCONSULT.png** (2026-10-01) governs
+this dedicated tab. Its working-sans composition starts directly with
+open/completed controls, a compact task summary, an optional real in-progress
+dossier and full registers. Warm paper surfaces, a gold dossier rule and navy CTA
+retain the cabinet identity. In-progress badges and initials use a pale blue
+mix of the existing chart/card tokens; todo and count treatments use warm
+neutral accent/paper mixes rather than warning semantics. Completed states
+remain green and every status stays textual.
+
+Local paper, warm, warm-ink, blue and inset tokens live in
+`app comptabole/src/components/dashboard/tasks-workspace.css`. Registers use
+fine rules, five desktop columns, 28px initials and restrained 5px corners.
+At 900px and below, company/assignee metadata stacks beneath the title and
+initials become 22px; below 640px the status also stacks and the dossier CTA
+fills its width. Insets reduce from 20px to 16px to 14px, with 12px gaps.
+The image's sample rows impose no data limit. This is a Tâches-only composition;
+Mon bureau retains its own approved layout and tokens.
 
 ### Signature Ledger — operational modules
 

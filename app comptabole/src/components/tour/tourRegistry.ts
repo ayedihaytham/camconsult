@@ -613,9 +613,22 @@ const TOURS = {
 export function getPageTour(
   pathname: string,
   _session: Session | null,
+  search = "",
 ): Tour | null {
   if (pathname === "/") {
     if (_session?.poste === "societe_employe") return TOURS.dashboard;
+    if (new URLSearchParams(search).get("tab") === "tasks") return {
+      id: "dashboard-tasks", version: 1, title: "Tâches du tableau de bord",
+      steps: [
+        { target: "dashboard-tasks", title: "Le travail accessible", body: "Cette vue conserve les tâches accessibles à votre compte. Les tâches n’ont pas de date limite." },
+        { target: "dashboard-task-lens", title: "Ouvertes ou terminées", body: "Changez de vue pour consulter le travail ouvert ou terminé. Les compteurs représentent tout le périmètre chargé." },
+        { target: "dashboard-task-resume", title: "Reprendre une tâche", body: "Le dossier présente une tâche réellement en cours, dans l’ordre existant. Reprendre ouvre la page Tâches." },
+        { target: "dashboard-task-ongoing", title: "Travail en cours", body: "Ce registre regroupe les tâches déjà commencées, leur société, leur collaborateur et leur statut." },
+        { target: "dashboard-task-todo", title: "Tâches à commencer", body: "Les tâches à faire restent distinctes du travail en cours, sans priorité ni échéance inventée." },
+        { target: "dashboard-task-completed", title: "Travail terminé", body: "Le même registre présente les tâches terminées lorsque cette vue est sélectionnée." },
+        { target: "dashboard-task-open", title: "Ouvrir le travail", body: "Chaque ligne ouvre la page Tâches. Les tâches de société conservent leur indication de lecture seule au cabinet." },
+      ],
+    };
     return {
       id: "dashboard", version: 3, title: "Mon bureau",
       steps: [

@@ -51,7 +51,8 @@ exception uses the already-loaded Playfair Display for the internal command
 title/date numeral/quick action and Mon bureau dossier heading/title/CTA,
 section headings and transmission-detail headings. Inter remains the font for
 rows, metadata, ruler dates, counts, tabs and badges. Dedicated Dashboard tab
-contents and other authenticated pages retain their working sans. Outside this
+contents and other authenticated pages retain their working sans. Tâches also
+keeps its scoped command title/date/actions sans. Outside this
 scoped exception, keep serif out of operational buttons and navigation; tables,
 forms, badges, KPIs and charts remain sans. Use tabular numeric
 styles where aligned financial values benefit, and existing Lucide icons with
@@ -97,9 +98,24 @@ accessible labels when an icon stands alone.
   navy/slate carries unread/progress. Text remains explicit. Collection dates
   never become task deadlines, and partial data never appears as verified zero.
   The internal banner has no KPI/stat widgets; company-side KPIs and dedicated
-  tab contents retain their existing separate composition. Mon bureau styling
-  lives in `mon-bureau.css`; existing dedicated/client styling remains in
+  tab contents other than the approved Tâches view retain their existing
+  separate composition. Mon bureau styling lives in `mon-bureau.css`;
+  existing dedicated/client styling remains in
   `dashboard-polish.css`. See [Dashboard](dashboard.md) for rules and role scope.
+- **Dashboard Tâches:** the approved **Tableau de bord des tâches CAMCONSULT.png**
+  (2026-10-01) governs this tab's compact sans workspace, open/completed
+  controls, real in-progress dossier and complete work
+  registers. `TasksTab.tsx`, `TaskRegister.tsx` and `tasks-workspace.css` under
+  `app comptabole/src/components/dashboard/` own this presentation. Keep local
+  warm paper surfaces and fine rules; pale blue in-progress badges and 28px
+  desktop initials use existing chart/card tokens, while todo/count treatments
+  use warm neutral accent/paper mixes. Green completed states retain explicit
+  text. The 20px inset reduces to 16px at 900px and 14px below 640px; gaps are
+  12px and corners 5px. At 900px and below, rows stack company/assignee metadata
+  and use 22px initials; below 640px status stacks too, controls reach 44px and
+  the dossier CTA fills its width. Preserve full real registers, distinct other
+  accessible tasks and society-origin read-only labels. This scoped exception
+  does not alter Mon bureau or promote these local tokens into other pages.
 - **Signature Ledger:** shared banner grammar for operational modules: canonical
   navy, sans product typography, a small tracked gold module/archetype eyebrow,
   partial gold rule, contextual inline metrics and one optional
@@ -174,6 +190,11 @@ reduced motion, and missing or hidden targets. Use simple French, stable
 `data-tour` anchors, and separate desktop/mobile targets where layouts differ.
 Permission-gated controls are only toured when present. Sensitive actions are
 explained but never executed by a tour.
+
+The internal Dashboard Tâches tab selects `dashboard-tasks:v1` only on
+`/?tab=tasks`, using the URL search in `TourProvider`. It explains the dossier
+and open/completed registers with existing stable targets and
+skip behavior. Mon bureau's `dashboard:v3` and the company tour stay unchanged.
 
 ### Signature Ledger implementation
 

@@ -75,14 +75,22 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem className="h-full">
             <SidebarMenuButton
               size="lg"
-              tooltip="CAMCONSULT"
+              tooltip="Cabinet Ayadi Mohamed"
               className="h-12 w-full gap-2.5 rounded-md px-2.5 hover:bg-transparent active:bg-transparent group-data-[collapsible=icon]:!p-0"
-              aria-label="CAMCONSULT"
+              aria-label="Cabinet Ayadi Mohamed"
             >
+              {/* Menu ouvert : logo officiel complet ; menu réduit : symbole seul. */}
+              <img
+                src="/brand/logo-cabinet-white.png"
+                alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
+                width={1500}
+                height={382}
+                className="h-9 w-auto max-w-full group-data-[collapsible=icon]:hidden"
+              />
               <svg
                 viewBox="0 0 40 40"
                 aria-hidden="true"
-                className="size-8 shrink-0 group-data-[collapsible=icon]:!size-8"
+                className="hidden size-8 shrink-0 group-data-[collapsible=icon]:block"
               >
                 <rect x="2" y="2" width="16" height="16" rx="3" fill="#fff8ee" />
                 <rect x="22" y="2" width="16" height="16" rx="3" fill="#fff8ee" />
@@ -96,9 +104,6 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
                   strokeLinecap="round"
                 />
               </svg>
-              <span className="text-[0.72rem] font-bold leading-none tracking-[0.16em] text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-                CAMCONSULT
-              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

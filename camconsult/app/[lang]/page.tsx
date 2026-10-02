@@ -210,8 +210,6 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
 
         <FaqSection lang={lang} home={home} />
 
-        <CtaBand lang={lang} home={home} />
-
         <section className="bg-navy px-6 py-12 text-white sm:px-10 lg:px-16 lg:py-8">
           <div className="mx-auto grid max-w-7xl items-start gap-10 lg:grid-cols-[1fr_.8fr] lg:gap-14">
             <div>
@@ -361,7 +359,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
           </div>
         </section>
 
-        <section className="bg-gold px-6 py-14 text-navy sm:px-10 lg:px-16"><div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 sm:flex-row sm:items-center"><div><p className="text-xs font-bold uppercase tracking-[.2em]">{home.finalEyebrow}</p><h2 className="mt-3 font-serif text-4xl">{home.finalTitle}</h2></div><a href={p('/contact')} className="group inline-flex items-center gap-3 border border-navy px-6 py-4 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-navy hover:text-gold">{home.finalCta} <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" /></a></div></section>
+        <CtaBand lang={lang} home={home} />
       </main>
       <CamconsultFooter lang={lang} />
     </>

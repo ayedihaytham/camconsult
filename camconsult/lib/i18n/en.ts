@@ -75,6 +75,7 @@ const en: Dictionary = {
     ctaPrimary: 'Book an appointment',
     ctaSecondary: 'Discover our services',
     sideQuote: 'A trusted partner at every stage of your growth.',
+    bilan: { title: 'Our balance sheet', exercice: 'Fiscal year {year}', post: 'Item', amount: 'Amount', result: 'Result: satisfied clients', author: 'Mohamed Ayadi, chartered accountant', seal: 'AYADI MOHAMED FIRM · ACCOUNTING EXPERTISE · ' },
     stats: [
       { value: '25+', label: 'Years of experience' },
       { value: '100+', label: 'Clients supported' },

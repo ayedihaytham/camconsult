@@ -75,6 +75,7 @@ const ar: Dictionary = {
     ctaPrimary: 'احجز موعداً',
     ctaSecondary: 'اكتشف خدماتنا',
     sideQuote: 'شريك موثوق في كل مرحلة من مراحل تطور نشاطكم.',
+    bilan: { title: 'حصيلتنا', exercice: 'السنة المالية {year}', post: 'البند', amount: 'القيمة', result: 'النتيجة: حرفاء راضون', author: 'محمد عيادي، خبير محاسب', seal: 'مكتب عيادي محمد · خبرة محاسبية · ' },
     stats: [
       { value: '+25', label: 'سنة من الخبرة' },
       { value: '+100', label: 'عميل مرافَق' },

@@ -36,6 +36,7 @@ import { DeadlineSection } from '@/components/deadline-section'
 import { BlogSection } from '@/components/blog-section'
 import { FaqSection } from '@/components/faq-section'
 import { CtaBand } from '@/components/cta-band'
+import { BilanCard } from '@/components/bilan-card'
 import { MethodSection } from '@/components/method-section'
 import { getDictionary, isLang, type Lang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -98,13 +99,7 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
               <p className="mt-8 max-w-xl text-base leading-7 text-white/65 sm:text-lg">{home.heroText}</p>
               <div className="mt-6 flex flex-wrap gap-3"><a href={p('/contact')} className="group inline-flex items-center gap-3 rounded-sm bg-gold px-6 py-4 text-xs font-bold uppercase tracking-wider text-navy transition-transform duration-300 hover:-translate-y-0.5">{home.ctaPrimary} <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" /></a><a href={p('/services')} className="inline-flex items-center gap-3 rounded-sm border border-white/25 px-6 py-4 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-300 hover:border-gold hover:text-gold">{home.ctaSecondary}</a></div>
             </div>
-            <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl shadow-black/20 lg:mb-4 lg:p-10">
-              <span className="font-serif text-6xl leading-none text-gold/70" aria-hidden="true">&ldquo;</span>
-              <p className="-mt-3 max-w-sm font-serif text-3xl leading-tight">{home.sideQuote}</p>
-              <div className="mt-8 flex flex-col gap-4 border-y border-white/15 py-6">
-                {home.stats.map((stat) => <StatRow key={stat.label} value={stat.value} label={stat.label} />)}
-              </div>
-            </div>
+            <BilanCard home={home} />
           </div>
         </section>
 
@@ -363,16 +358,6 @@ export default function Home({ params }: { params: Promise<{ lang: string }> }) 
       </main>
       <CamconsultFooter lang={lang} />
     </>
-  )
-}
-
-function StatRow({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex items-baseline gap-3">
-      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/45">{label}</span>
-      <span className="h-px flex-1 border-b border-dotted border-white/25" aria-hidden="true" />
-      <span className="shrink-0 font-serif text-3xl text-gold">{value}</span>
-    </div>
   )
 }
 

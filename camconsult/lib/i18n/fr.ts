@@ -73,6 +73,7 @@ const fr = {
     ctaPrimary: 'Prendre rendez-vous',
     ctaSecondary: 'Découvrir nos services',
     sideQuote: 'Un partenaire de confiance pour chaque étape de votre développement.',
+    bilan: { title: 'Notre bilan', exercice: 'Exercice {year}', post: 'Poste', amount: 'Montant', result: 'Résultat : clients satisfaits', author: 'Mohamed Ayadi, expert-comptable', seal: 'CABINET AYADI MOHAMED · EXPERTISE COMPTABLE · ' },
     stats: [
       { value: '25+', label: 'Ans d’expérience' },
       { value: '100+', label: 'Clients accompagnés' },

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { KeyRound, Plus, Trash2, UserRound, X } from "lucide-react";
+import { KeyRound, Pencil, Plus, Trash2, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,15 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
   const [toDelete, setToDelete] = useState<Employe | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [resetValue, setResetValue] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState({
+    prenom: "",
+    nom: "",
+    identifiant: "",
+    email: "",
+    delegue: false,
+  });
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Propose un identifiant à partir du prénom/nom (comme pour les
   // collaborateurs) tant que l'utilisateur n'a pas tapé le sien.
@@ -63,6 +72,62 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
     });
     setResettingId(null);
     setResetValue("");
+  }
+
+  function startEdit(e: Employe) {
+    setResettingId(null);
+    setEditError(null);
+    setEditDraft({
+      prenom: e.prenom,
+      nom: e.nom,
+      identifiant: e.identifiant,
+      email: e.email ?? "",
+      delegue: Boolean(e.delegue),
+    });
+    setEditingId(editingId === e.id ? null : e.id);
+  }
+
+  async function saveEdit(id: string) {
+    setEditError(null);
+    const prenom = editDraft.prenom.trim();
+    const nom = editDraft.nom.trim();
+    const identifiant = editDraft.identifiant.trim();
+    const email = editDraft.email.trim();
+    if (prenom.length < 2 || nom.length < 2) {
+      setEditError("Prénom et nom requis.");
+      return;
+    }
+    if (identifiant.length < 3) {
+      setEditError("Identifiant : 3 caractères minimum.");
+      return;
+    }
+    if (!IDENTIFIANT_RE.test(identifiant)) {
+      setEditError(
+        "Identifiant : minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre.",
+      );
+      return;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEditError("Email invalide (ou laissez-le vide).");
+      return;
+    }
+    try {
+      await updateEmploye(id, {
+        prenom,
+        nom,
+        identifiant,
+        email,
+        delegue: editDraft.delegue,
+      });
+      toast.success("Compte modifié", { description: `${prenom} ${nom}` });
+      setEditingId(null);
+    } catch (err) {
+      // Le store a déjà affiché le message du serveur (ex. identifiant pris) ;
+      // on garde le formulaire ouvert pour corriger.
+      setEditError(
+        err instanceof ApiError ? err.message : "Impossible de modifier ce compte.",
+      );
+    }
   }
 
   async function submit() {
@@ -177,6 +242,12 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
                   <span className="font-medium text-foreground">
                     {e.identifiant}
                   </span>
+                  {e.email && (
+                    <>
+                      <span className="mx-1.5">·</span>
+                      <span className="break-all">{e.email}</span>
+                    </>
+                  )}
                   <span className="mx-1.5">·</span>
                   <PasswordCell value={e.motDePasse} />
                   {e.doitChangerMotDePasse && (
@@ -199,7 +270,16 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
                 </button>
                 <button
                   className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  onClick={() => startEdit(e)}
+                  title="Modifier"
+                  aria-label="Modifier ce compte"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
                   onClick={() => {
+                    setEditingId(null);
                     setResettingId(resettingId === e.id ? null : e.id);
                     setResetValue(generatePassword());
                   }}
@@ -216,6 +296,80 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
                 </button>
               </div>
             </div>
+
+            {editingId === e.id && (
+              <div className="mt-2.5 space-y-3 border-t border-border pt-2.5 pl-6">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Rôle</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: false, label: "Responsable", hint: "Donne les tâches" },
+                      { value: true, label: "Délégué", hint: "Reçoit les tâches" },
+                    ].map((o) => (
+                      <button
+                        key={o.label}
+                        type="button"
+                        aria-pressed={editDraft.delegue === o.value}
+                        onClick={() => setEditDraft((d) => ({ ...d, delegue: o.value }))}
+                        className={
+                          "rounded-lg border px-3 py-2 text-left transition-colors " +
+                          (editDraft.delegue === o.value
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:bg-secondary")
+                        }
+                      >
+                        <span className="block text-sm font-medium text-foreground">{o.label}</span>
+                        <span className="block text-xs text-muted-foreground">{o.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Prénom</Label>
+                    <Input
+                      value={editDraft.prenom}
+                      onChange={(ev) => setEditDraft((d) => ({ ...d, prenom: ev.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Nom</Label>
+                    <Input
+                      value={editDraft.nom}
+                      onChange={(ev) => setEditDraft((d) => ({ ...d, nom: ev.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Identifiant</Label>
+                  <Input
+                    value={editDraft.identifiant}
+                    onChange={(ev) => setEditDraft((d) => ({ ...d, identifiant: ev.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    C'est avec cet identifiant que {e.prenom} se connecte — prévenez-le s'il change.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Email</Label>
+                  <Input
+                    type="email"
+                    value={editDraft.email}
+                    onChange={(ev) => setEditDraft((d) => ({ ...d, email: ev.target.value }))}
+                    placeholder="prenom@exemple.com"
+                  />
+                </div>
+                {editError && <p className="text-xs text-destructive">{editError}</p>}
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                    Annuler
+                  </Button>
+                  <Button size="sm" variant="ledger" onClick={() => saveEdit(e.id)}>
+                    Enregistrer
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {resettingId === e.id && (
               <div className="mt-2.5 space-y-2 border-t border-border pt-2.5 pl-6">

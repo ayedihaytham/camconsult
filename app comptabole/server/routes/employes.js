@@ -152,19 +152,26 @@ employesRouter.patch("/:id", async (req, res) => {
   // passe n'a pas bougé (simple modification de nom/email/statut…).
   const passwordChanged = v.motDePasse !== existing.mot_de_passe;
   const doitChangerMdp = passwordChanged ? true : Boolean(existing.doit_changer_mdp);
-  const { rows } = await query(
-    `update employes set nom=$1, prenom=$2, identifiant=$3, mot_de_passe=$4, type=$5,
-       role=$6, societe_id=$7, email=$8, statut=$9, societes_assignees=$10::jsonb, permissions=$11::jsonb,
-       doit_changer_mdp=$12, delegue=$14
-     where id=$13 returning *`,
-    [
-      v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
-      v.email, v.statut, JSON.stringify(sc.societesAssignees),
-      JSON.stringify(sc.permissions), doitChangerMdp, req.params.id,
-      v.role === "societe_employe" &&
-        (merged.data.delegue ?? Boolean(existing.delegue)),
-    ],
-  );
+  let rows;
+  try {
+    ({ rows } = await query(
+      `update employes set nom=$1, prenom=$2, identifiant=$3, mot_de_passe=$4, type=$5,
+         role=$6, societe_id=$7, email=$8, statut=$9, societes_assignees=$10::jsonb, permissions=$11::jsonb,
+         doit_changer_mdp=$12, delegue=$14
+       where id=$13 returning *`,
+      [
+        v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
+        v.email, v.statut, JSON.stringify(sc.societesAssignees),
+        JSON.stringify(sc.permissions), doitChangerMdp, req.params.id,
+        v.role === "societe_employe" &&
+          (merged.data.delegue ?? Boolean(existing.delegue)),
+      ],
+    ));
+  } catch (err) {
+    if (err.code === "23505")
+      return res.status(409).json({ error: "Cet identifiant existe déjà" });
+    throw err;
+  }
   logAction(req.session.nom, "modification", "employe", `${v.prenom} ${v.nom}`);
   notify(
     req.params.id,

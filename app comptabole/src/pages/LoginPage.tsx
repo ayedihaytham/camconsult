@@ -78,23 +78,24 @@ export function LoginPage() {
             alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
             width={1500}
             height={382}
-            className="h-14 w-auto xl:h-16"
+            className="h-10 w-auto xl:h-11"
           />
         </div>
-        <div className="relative z-10 max-w-lg">
-          <p className="mb-5 text-xs font-bold uppercase tracking-[0.3em] text-accent">
+        <div className="relative z-10 max-w-xl">
+          <p className="mb-6 flex items-center gap-4 text-xs font-bold uppercase tracking-[0.3em] text-accent">
+            <span className="h-px w-10 bg-accent/60" aria-hidden="true" />
             Cabinet comptable · Portail interne
           </p>
           <h1 className="font-serif text-4xl font-semibold leading-[1.08] xl:text-6xl">
-            Votre cabinet,{" "}
-            <span className="text-accent">en un coup d'œil.</span>
+            <span className="block">Votre cabinet,</span>
+            <span className="block text-accent">en un coup d'œil.</span>
           </h1>
           <p className="mt-8 max-w-lg text-base leading-8 text-primary-foreground/90">
             Sociétés, collecte de pièces, états financiers et bordereaux —
             tout l'outillage du cabinet dans un espace dédié.
           </p>
         </div>
-        <p className="relative z-10 text-sm text-primary-foreground/50">
+        <p className="relative z-10 border-t border-white/10 pt-6 text-sm text-primary-foreground/50">
           © {new Date().getFullYear()} Cabinet AYEDI Mohamed
         </p>
       </section>

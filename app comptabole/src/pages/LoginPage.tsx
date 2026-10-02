@@ -1,10 +1,32 @@
 import { useState } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
-import { Eye, EyeOff, Lock, LogIn, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useAuth } from "@/store/auth";
+
+/** Champ « carte » : l'étiquette est dans le cadre, au-dessus de la saisie. */
+function LedgerField({
+  label,
+  htmlFor,
+  trailing,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  trailing?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative rounded-md border border-accent/35 bg-secondary/60 px-4 pb-2.5 pt-3 transition-colors focus-within:border-accent focus-within:bg-card">
+      <label htmlFor={htmlFor} className="flex items-center gap-2 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-primary">
+        <span className="size-1.5 bg-accent" aria-hidden="true" />
+        {label}
+      </label>
+      {children}
+      {trailing}
+    </div>
+  );
+}
 
 export function LoginPage() {
   const status = useAuth((s) => s.status);
@@ -42,37 +64,48 @@ export function LoginPage() {
           <div className="absolute -left-24 top-28 size-[420px] rounded-full border border-accent/35" />
           <div className="absolute -right-32 -bottom-20 size-[420px] rotate-45 border border-accent/25" />
         </div>
-        <div className="relative z-10 inline-flex w-fit items-center gap-3">
-          <img src="/brand/logo-mark-dark.png" alt="CAMCONSULT" className="h-10 w-10 object-contain" />
-          <span className="text-sm font-semibold tracking-[0.28em]">
-            CAMCONSULT
-          </span>
+        <div className="relative z-10 inline-flex w-fit items-center">
+          <img
+            src="/brand/logo-cabinet-white.png"
+            alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
+            width={1500}
+            height={382}
+            className="h-14 w-auto xl:h-16"
+          />
         </div>
         <div className="relative z-10 max-w-lg">
           <p className="mb-5 text-xs font-bold uppercase tracking-[0.3em] text-accent">
             Cabinet comptable · Portail interne
           </p>
-          <h1 className="font-serif text-4xl leading-[1.1] xl:text-5xl">
+          <h1 className="font-serif text-4xl font-semibold leading-[1.08] xl:text-6xl">
             Votre cabinet,{" "}
             <span className="text-accent">en un coup d'œil.</span>
           </h1>
-          <p className="mt-6 max-w-md text-sm leading-7 text-primary-foreground/70">
+          <p className="mt-8 max-w-lg text-base leading-8 text-primary-foreground/90">
             Sociétés, collecte de pièces, états financiers et bordereaux —
             tout l'outillage du cabinet dans un espace dédié.
           </p>
         </div>
-        <p className="relative z-10 text-xs text-primary-foreground/40">
+        <p className="relative z-10 text-sm text-primary-foreground/50">
           © {new Date().getFullYear()} Cabinet AYEDI Mohamed
         </p>
       </section>
 
       {/* Panneau de connexion */}
-      <section className="flex min-h-full flex-col items-center justify-center bg-background px-4 py-12">
-        <div className="w-full max-w-sm">
+      <section className="relative flex min-h-full flex-col items-center justify-center overflow-hidden bg-background px-4 py-12">
+        <div className="pointer-events-none absolute inset-0 hidden lg:block" aria-hidden="true">
+          <div className="absolute -right-40 top-[58%] size-[520px] rounded-full border border-accent/20" />
+          <div className="absolute -left-48 top-[62%] size-[420px] rounded-full border border-accent/15" />
+        </div>
+        <div className="relative w-full max-w-sm lg:max-w-md">
           <div className="mb-8 flex flex-col items-center text-center lg:hidden">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center">
-              <img src="/brand/logo-mark-light.png" alt="CAMCONSULT" className="h-11 w-11 object-contain" />
-            </div>
+            <img
+              src="/brand/logo-cabinet-navy.png"
+              alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
+              width={1500}
+              height={382}
+              className="mb-4 h-12 w-auto"
+            />
             <h1 className="text-lg font-semibold tracking-tight text-foreground">
               Cabinet Comptable
             </h1>
@@ -81,59 +114,58 @@ export function LoginPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-accent/50 bg-card p-6 shadow-pop sm:p-8">
-            <div className="mb-6 hidden items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary lg:flex">
-              <span className="grid size-8 place-items-center rounded-full bg-primary text-accent">
+          <div className="rounded-3xl border border-accent/30 bg-card p-6 shadow-pop sm:p-10">
+            <div className="mb-8 hidden items-center gap-4 text-xs font-bold uppercase tracking-[0.22em] text-primary lg:flex">
+              <span className="grid size-11 place-items-center rounded-full bg-primary text-accent ring-4 ring-accent/15">
                 <ShieldCheck className="h-4 w-4" />
               </span>
               Accès sécurisé
             </div>
-            <h2 className="hidden font-serif text-3xl leading-tight text-primary lg:block">
+            <h2 className="hidden font-serif text-5xl leading-tight text-primary lg:block">
               Connexion
             </h2>
-            <p className="mt-2 hidden text-sm leading-6 text-muted-foreground lg:block">
+            <p className="mt-4 hidden max-w-xs font-serif text-lg italic leading-8 text-muted-foreground lg:block">
               Connectez-vous pour accéder à votre espace de gestion.
             </p>
+            <div className="mt-6 hidden h-px w-4/5 bg-border lg:block" aria-hidden="true" />
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4 lg:mt-8">
-              <div className="space-y-1.5">
-                <Label htmlFor="identifiant">Identifiant</Label>
-                <Input
+              <LedgerField label="Identifiant" htmlFor="identifiant">
+                <input
                   id="identifiant"
                   autoFocus
                   autoComplete="username"
                   value={identifiant}
                   onChange={(e) => setIdentifiant(e.target.value)}
                   placeholder="mohamed.ayedi"
+                  className="mt-1.5 block w-full bg-transparent text-lg text-foreground outline-none placeholder:text-muted-foreground/60"
                 />
-              </div>
+              </LedgerField>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="motdepasse">Mot de passe</Label>
-                <div className="relative">
-                  <Input
-                    id="motdepasse"
-                    type={visible ? "text" : "password"}
-                    autoComplete="current-password"
-                    value={motDePasse}
-                    onChange={(e) => setMotDePasse(e.target.value)}
-                    className="pr-9"
-                    placeholder="••••••••"
-                  />
+              <LedgerField
+                label="Mot de passe"
+                htmlFor="motdepasse"
+                trailing={
                   <button
                     type="button"
                     onClick={() => setVisible((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     aria-label={visible ? "Masquer" : "Afficher"}
                   >
-                    {visible ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
-                </div>
-              </div>
+                }
+              >
+                <input
+                  id="motdepasse"
+                  type={visible ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={motDePasse}
+                  onChange={(e) => setMotDePasse(e.target.value)}
+                  placeholder="••••••••"
+                  className="mt-1.5 block w-full bg-transparent pr-10 text-lg text-foreground outline-none placeholder:text-muted-foreground/60"
+                />
+              </LedgerField>
 
               {error && (
                 <p className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -145,11 +177,11 @@ export function LoginPage() {
               <Button
                 type="submit"
                 variant="ledger"
-                className="w-full"
+                className="h-14 w-full text-sm uppercase tracking-[0.2em]"
                 disabled={busy}
               >
-                <LogIn className="h-4 w-4" />
                 {busy ? "Connexion…" : "Se connecter"}
+                {!busy && <ArrowRight className="h-4 w-4" />}
               </Button>
             </form>
           </div>

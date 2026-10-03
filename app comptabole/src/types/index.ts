@@ -366,7 +366,7 @@ export interface StockChamps {
 }
 
 export interface StockExtractResult {
-  source: "texte" | "ocr";
+  source: "texte" | "ocr" | "ruspina";
   texte: string;
   champs: StockChamps;
 }
@@ -385,6 +385,9 @@ export interface StockExtractPage {
    * corriger le type deviné à l'écran n'a besoin d'aucun aller-retour
    * serveur, le bon jeu de champs est toujours prêt. */
   champsByType: Record<StockDocType, StockChamps>;
+  /** Informations lues par le moteur RUSPINA qui n'ont pas de champ dans le
+   * mouvement (page douane : exportateur, importateur, taux, valeur). */
+  details?: Record<string, string | number>;
 }
 
 // ── États financiers : balance par société/exercice, reclassée par

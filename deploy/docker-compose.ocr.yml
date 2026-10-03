@@ -1,0 +1,43 @@
+# Moteur d'extraction RUSPINA (module Gestion de stock) — OPTIONNEL.
+#
+# Ce fichier s'ajoute à docker-compose.yml SANS le modifier. Tant que l'image
+# n'est pas chargée sur le VPS, n'utilisez PAS ce fichier : l'application
+# continue d'extraire comme avant (IA si une clé est configurée, sinon OCR local).
+#
+#   1. docker load -i ocr-ruspina-3.1.tar          (image fournie en archive,
+#      elle n'est pas sur Docker Hub)
+#   2. docker compose -f docker-compose.yml -f docker-compose.ocr.yml up -d
+#
+# Le service n'a aucune authentification : il n'est joignable QUE par
+# l'application, sur le réseau interne Docker (aucun port publié). Un seul
+# conteneur / un seul worker : les sessions de revue de routage sont en mémoire.
+
+services:
+  ocr-ruspina:
+    image: ocr-ruspina:3.1
+    container_name: ocr-ruspina
+    restart: unless-stopped
+    # Pic mesuré ~0,8 Go de RAM ; 3 Go de marge sur un VPS de 8 Go.
+    mem_limit: 3g
+    cpus: 3
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/api/v1/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # Surtout pas de label Watchtower : l'image n'existe pas sur un registre.
+
+  app-comptable:
+    depends_on:
+      ocr-ruspina:
+        condition: service_healthy
+    environment:
+      RUSPINA_OCR_URL: http://ocr-ruspina:8000
+      # Sociétés lues par ce modèle (fragments de raison sociale, séparés par
+      # des virgules). Les autres sociétés gardent l'extraction habituelle.
+      RUSPINA_OCR_SOCIETES: ${RUSPINA_OCR_SOCIETES:-ruspina}

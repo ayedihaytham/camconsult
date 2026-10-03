@@ -37,3 +37,7 @@ next-env.d.ts
 .impeccable/questions/
 .impeccable/live/
 .impeccable/*.png
+
+# archives d'images Docker reçues (plusieurs Go) : jamais commitées
+transfer-*.zip
+*.tar

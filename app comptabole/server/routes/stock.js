@@ -5,6 +5,8 @@ import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { stockMouvementDto } from "../mappers.js";
 import { extractDocument, extractPages } from "../ocr.js";
+import { ruspinaApplies } from "../ruspinaOcr.js";
+import { randomUUID } from "node:crypto";
 
 export const stockRouter = Router();
 stockRouter.use(requireAuth);
@@ -228,10 +230,65 @@ stockRouter.delete("/mouvements/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Extraction automatique (OCR local) ────────────
+// ── Extraction automatique ────────────────────────
+//
+// Deux chemins :
+//  - société couverte par le moteur RUSPINA (voir ruspinaOcr.js) : la lecture
+//    prend de quelques dizaines de secondes à plusieurs minutes (OCR sur CPU),
+//    bien au-delà du délai d'un proxy HTTP. La requête répond donc tout de
+//    suite `202 { jobId }` et l'écran interroge `GET /extract-jobs/:id` ;
+//  - autres sociétés : réponse directe, comme avant.
+
+/** Tâches d'extraction en cours ou terminées (mémoire du processus, 30 min). */
+const JOB_TTL_MS = 30 * 60_000;
+const jobs = new Map();
+
+function sessionKey(session) {
+  return String(session.employeId ?? session.identifiant ?? session.nom ?? session.role);
+}
+
+function purgeJobs() {
+  const limit = Date.now() - JOB_TTL_MS;
+  for (const [id, job] of jobs) if (job.createdAt < limit) jobs.delete(id);
+}
+
+function startJob(session, work) {
+  purgeJobs();
+  const id = randomUUID();
+  const job = { id, owner: sessionKey(session), status: "pending", createdAt: Date.now() };
+  jobs.set(id, job);
+  work().then(
+    (result) => Object.assign(job, { status: "done", result }),
+    (err) => {
+      console.error("[stock/extract-job]", err);
+      Object.assign(job, { status: "error", error: "Extraction impossible sur ce document." });
+    },
+  );
+  return id;
+}
+
+stockRouter.get("/extract-jobs/:id", (req, res) => {
+  const job = jobs.get(req.params.id);
+  if (!job || job.owner !== sessionKey(req.session))
+    return res.status(404).json({ error: "Extraction introuvable ou expirée" });
+  if (job.status === "pending") return res.json({ status: "pending" });
+  if (job.status === "error") return res.json({ status: "error", error: job.error });
+  res.json({ status: "done", result: job.result });
+});
+
+async function raisonSocialeAccessible(session, societeId) {
+  if (!canAccess(session, societeId)) return { denied: true };
+  const soc = (
+    await query("select raison_sociale from societes where id = $1", [societeId])
+  ).rows[0];
+  return soc ? { raisonSociale: soc.raison_sociale } : { missing: true };
+}
+
 const extractSchema = z.object({
   type: z.enum(["achat", "vente", "douane"]),
   dataUrl: z.string().min(10),
+  // Permet de choisir le bon moteur d'extraction pour la société concernée.
+  societeId: z.string().uuid().optional(),
 });
 
 stockRouter.post("/extract", async (req, res) => {
@@ -239,6 +296,19 @@ stockRouter.post("/extract", async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   try {
+    let raisonSociale;
+    if (parsed.data.societeId) {
+      const soc = await raisonSocialeAccessible(req.session, parsed.data.societeId);
+      if (soc.denied) return res.status(403).json({ error: "Accès au stock non autorisé" });
+      if (soc.missing) return res.status(400).json({ error: "Société introuvable" });
+      raisonSociale = soc.raisonSociale;
+    }
+    if (ruspinaApplies(raisonSociale)) {
+      const jobId = startJob(req.session, () =>
+        extractDocument(parsed.data.dataUrl, parsed.data.type, raisonSociale),
+      );
+      return res.status(202).json({ jobId });
+    }
     const result = await extractDocument(parsed.data.dataUrl, parsed.data.type);
     res.json(result);
   } catch (err) {
@@ -256,32 +326,39 @@ const extractPagesSchema = z.object({
   dataUrl: z.string().min(10),
 });
 
+function pagesPourEcran(pages) {
+  return {
+    pages: pages.map((p) => ({
+      index: p.index,
+      imageDataUrl: p.imageDataUrl,
+      guessedType: p.type,
+      confidence: p.confidence,
+      // Calculés pour les 3 types dès l'extraction (voir ocr.js) : quand
+      // l'utilisateur corrige le type deviné à l'écran, le bon jeu de
+      // champs est déjà prêt, sans aller-retour serveur ni ré-OCR.
+      champsByType: p.champsByType,
+      ...(p.details ? { details: p.details } : {}),
+    })),
+  };
+}
+
 stockRouter.post("/extract-pages", async (req, res) => {
   const parsed = extractPagesSchema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
-  if (!canAccess(req.session, parsed.data.societeId))
-    return res.status(403).json({ error: "Accès au stock non autorisé" });
-
-  const soc = (
-    await query("select raison_sociale from societes where id = $1", [parsed.data.societeId])
-  ).rows[0];
-  if (!soc) return res.status(400).json({ error: "Société introuvable" });
+  const soc = await raisonSocialeAccessible(req.session, parsed.data.societeId);
+  if (soc.denied) return res.status(403).json({ error: "Accès au stock non autorisé" });
+  if (soc.missing) return res.status(400).json({ error: "Société introuvable" });
 
   try {
-    const pages = await extractPages(parsed.data.dataUrl, soc.raison_sociale);
-    res.json({
-      pages: pages.map((p) => ({
-        index: p.index,
-        imageDataUrl: p.imageDataUrl,
-        guessedType: p.type,
-        confidence: p.confidence,
-        // Calculés pour les 3 types dès l'extraction (voir ocr.js) : quand
-        // l'utilisateur corrige le type deviné à l'écran, le bon jeu de
-        // champs est déjà prêt, sans aller-retour serveur ni ré-OCR.
-        champsByType: p.champsByType,
-      })),
-    });
+    if (ruspinaApplies(soc.raisonSociale)) {
+      const jobId = startJob(req.session, async () =>
+        pagesPourEcran(await extractPages(parsed.data.dataUrl, soc.raisonSociale)),
+      );
+      return res.status(202).json({ jobId });
+    }
+    const pages = await extractPages(parsed.data.dataUrl, soc.raisonSociale);
+    res.json(pagesPourEcran(pages));
   } catch (err) {
     console.error("[stock/extract-pages]", err);
     res.status(500).json({ error: "Extraction impossible sur ce document." });

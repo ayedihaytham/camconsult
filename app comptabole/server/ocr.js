@@ -5,6 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { claudeAvailable, claudeExtractPage, champsByTypeFromClaude, champsByTypeVide } from "./claudeExtract.js";
 import { openrouterAvailable, openrouterExtractPage } from "./openrouterExtract.js";
+import {
+  RuspinaReviewRequired,
+  ruspinaApplies,
+  ruspinaChampsPourType,
+  ruspinaProcess,
+  ruspinaVersPages,
+} from "./ruspinaOcr.js";
 
 /** Fournisseur d'extraction IA (image/texte -> champs) : OpenRouter (Gemini
  * 2.5 Flash) en priorité si configuré, sinon Claude, sinon aucun (repli sur
@@ -69,8 +76,23 @@ const MAX_PAGES = 15;
  * combinant plusieurs documents distincts (achat + vente + douane), voir
  * `extractPages` ci-dessous, qui traite chaque page séparément.
  */
-export async function extractDocument(dataUrl, type) {
+export async function extractDocument(dataUrl, type, raisonSociale) {
   const { buffer, mime } = decodeDataUrl(dataUrl);
+
+  // Société couverte par le modèle RUSPINA : le moteur dédié lit la pièce
+  // (facture du producteur, facture RUSPINA ou déclaration douanière) avec le
+  // bon contrat de champs. Sans résultat pour ce type, ou service en échec,
+  // on retombe sur le pipeline existant ci-dessous.
+  if (ruspinaApplies(raisonSociale) && (mime === "application/pdf" || mime.startsWith("image/"))) {
+    try {
+      const data = await ruspinaProcess(buffer, mime);
+      const champs = ruspinaChampsPourType(data, type);
+      if (champs) return { source: "ruspina", texte: "", champs };
+      console.error(`[ocr] moteur RUSPINA : aucun groupe « ${type} » reconnu, repli sur le pipeline existant`);
+    } catch (err) {
+      logRuspinaFallback(err);
+    }
+  }
 
   let texte = "";
   let source = "texte";
@@ -120,8 +142,102 @@ function champsPourTousLesTypes(texte, lines) {
   };
 }
 
+function logRuspinaFallback(err) {
+  if (err instanceof RuspinaReviewRequired) {
+    console.error("[ocr] moteur RUSPINA : revue de routage demandée, repli sur le pipeline existant");
+  } else {
+    console.error(`[ocr] moteur RUSPINA indisponible, repli sur le pipeline existant : ${err.message}`);
+  }
+}
+
+/** Associe aux pages du moteur RUSPINA l'image de la page physique
+ * correspondante (aperçu et pièce jointe du mouvement). Le service répond par
+ * groupe (producteur / RUSPINA / douane) sans numéro de page : on rapproche
+ * chaque groupe de la page physique qui contient son numéro distinctif
+ * (n° de facture ou de déclaration, vendeur) lu par l'OCR local ; à défaut de
+ * correspondance sûre, l'ordre du dossier est utilisé quand le nombre de
+ * pages est identique. */
+async function imagesPourPagesRuspina(buffer, mime, dataUrl, pages, data) {
+  if (mime.startsWith("image/")) {
+    return pages.length === 1 ? [dataUrl] : pages.map(() => null);
+  }
+  const rastered = await rasterizeAllPages(buffer);
+  if (rastered.length === 0) return pages.map(() => null);
+  const toUrl = (png) => `data:image/png;base64,${png.toString("base64")}`;
+
+  const cles = [
+    [data.page1?.invoice_number, data.page1?.seller],
+    [data.page2?.invoice_number, data.page2?.referenced_invoice],
+    [data.page3?.declaration_number],
+  ];
+  const groupes = [];
+  if (data.page1) groupes.push(0);
+  if (data.page2) groupes.push(1);
+  if (data.page3) groupes.push(2);
+
+  const textes = [];
+  for (const { png } of rastered) {
+    try {
+      textes.push(normalizeFlat((await ocrImage(png)).text));
+    } catch {
+      textes.push("");
+    }
+  }
+  const scoreDe = (texte, groupe) =>
+    cles[groupe]
+      .filter(Boolean)
+      .reduce((total, cle) => total + (texte.includes(normalizeFlat(String(cle))) ? 1 : 0), 0);
+
+  // Attribution glouton : meilleur couple (page physique, groupe) d'abord.
+  const couples = [];
+  textes.forEach((texte, physique) =>
+    groupes.forEach((groupe, rang) => couples.push({ physique, rang, score: scoreDe(texte, groupe) })),
+  );
+  couples.sort((a, b) => b.score - a.score);
+  const parRang = new Map();
+  const utilisees = new Set();
+  for (const c of couples) {
+    if (c.score === 0) break;
+    if (parRang.has(c.rang) || utilisees.has(c.physique)) continue;
+    parRang.set(c.rang, c.physique);
+    utilisees.add(c.physique);
+  }
+  // Par élimination : un seul groupe et une seule page restent (typiquement la
+  // déclaration douanière, grille dense que l'OCR local lit mal) -> ils vont ensemble.
+  const groupesRestants = pages.map((_, rang) => rang).filter((rang) => !parRang.has(rang));
+  const pagesRestantes = rastered.map((_, physique) => physique).filter((physique) => !utilisees.has(physique));
+  if (parRang.size > 0 && groupesRestants.length === 1 && pagesRestantes.length === 1) {
+    parRang.set(groupesRestants[0], pagesRestantes[0]);
+  }
+  // Aucune page reconnue par son numéro (scan illisible pour l'OCR local) :
+  // à défaut de mieux, l'ordre du dossier si le nombre de pages est identique.
+  // Dès qu'une page est reconnue, on ne devine plus les autres.
+  const parOrdre = parRang.size === 0 && rastered.length === pages.length;
+  return pages.map((_, rang) => {
+    const physique = parOrdre ? rang : parRang.get(rang);
+    return physique === undefined ? null : toUrl(rastered[physique].png);
+  });
+}
+
+async function extractPagesRuspina(buffer, mime, dataUrl) {
+  const data = await ruspinaProcess(buffer, mime);
+  const pages = ruspinaVersPages(data);
+  if (pages.length === 0) throw new Error("aucun groupe de pages reconnu");
+  const images = await imagesPourPagesRuspina(buffer, mime, dataUrl, pages, data);
+  return pages.map((page, index) => ({ ...page, index, imageDataUrl: images[index] }));
+}
+
 export async function extractPages(dataUrl, raisonSociale) {
   const { buffer, mime } = decodeDataUrl(dataUrl);
+
+  if (ruspinaApplies(raisonSociale) && (mime === "application/pdf" || mime.startsWith("image/"))) {
+    try {
+      return await extractPagesRuspina(buffer, mime, dataUrl);
+    } catch (err) {
+      logRuspinaFallback(err);
+    }
+  }
+
   const useAI = aiAvailable();
   logProvider();
 

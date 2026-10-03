@@ -124,6 +124,42 @@ certbot --nginx -d monitor.camconsult.com.tn
 Accès ensuite sur `https://monitor.camconsult.com.tn`, identifiant/mot de
 passe définis à l'étape 8.2.
 
+## 9. Moteur d'extraction RUSPINA (module Stock) — optionnel
+
+Un service OCR dédié (conteneur Docker `ocr-ruspina`) lit les dossiers de
+trois pièces — facture du producteur (achat), facture RUSPINA (vente) et
+déclaration douanière — avec un contrat de champs figé par page. L'application
+l'appelle depuis le serveur (`app comptabole/server/ruspinaOcr.js`) pour les
+sociétés dont la raison sociale contient `ruspina` (réglable avec
+`RUSPINA_OCR_SOCIETES`). Pour toute autre société, ou si le service est
+absent / en échec / demande une revue de routage, l'extraction habituelle
+(IA puis OCR local) prend le relais : rien ne casse sans ce service.
+
+L'image est fournie en archive (`.tar`), elle n'est pas sur Docker Hub :
+
+```bash
+# 1. Copier l'archive sur le VPS puis vérifier son empreinte
+sha256sum -c ocr-ruspina-3.1.tar.sha256
+docker load -i ocr-ruspina-3.1.tar
+docker image inspect ocr-ruspina:3.1 --format '{{.Id}} {{.Os}}/{{.Architecture}} {{.Config.User}}'
+
+# 2. Démarrer la pile AVEC le moteur
+cd /opt/camconsult
+docker compose -f docker-compose.yml -f docker-compose.ocr.yml up -d
+docker compose ps        # "ocr-ruspina" doit passer à "healthy"
+```
+
+- Aucun port n'est publié : seul `app-comptable` joint le service, sur le
+  réseau interne Docker (il n'a pas d'authentification).
+- Un seul conteneur et un seul worker (les sessions de revue de routage sont
+  en mémoire). Prévoir ~0,8 Go de RAM et, sur CPU, de quelques dizaines de
+  secondes à plusieurs minutes par dossier de trois pages : l'écran Stock
+  suit l'extraction en tâche de fond (`GET /api/stock/extract-jobs/:id`).
+- Pour revenir à l'extraction habituelle : `docker compose up -d` (sans le
+  fichier `docker-compose.ocr.yml`).
+- Les mises à jour de l'image sont manuelles (pas de Watchtower) : charger la
+  nouvelle archive, puis relancer la commande de l'étape 2.
+
 ## Mettre à jour
 
 Rien à faire manuellement : `git push` sur `main` → GitHub Actions build +

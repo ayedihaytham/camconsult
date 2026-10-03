@@ -162,12 +162,14 @@ export function StockMouvementFormSheet({
       // d'enregistrer (et le retrouver plus tard).
       set(DOC_FIELD[type], dataUrl);
       setPreviewOpen((p) => ({ ...p, [type]: true }));
-      const { champs, source } = await extract(type, dataUrl);
+      const { champs, source } = await extract(type, dataUrl, societeId);
       applyChamps(type, champs);
       toast.success(
-        source === "ocr"
-          ? "Champs extraits par OCR — comparez avec le document ci-dessous avant d'enregistrer"
-          : "Champs extraits du PDF — comparez avec le document ci-dessous avant d'enregistrer",
+        source === "ruspina"
+          ? "Champs extraits par le moteur RUSPINA — comparez avec le document ci-dessous avant d'enregistrer"
+          : source === "ocr"
+            ? "Champs extraits par OCR — comparez avec le document ci-dessous avant d'enregistrer"
+            : "Champs extraits du PDF — comparez avec le document ci-dessous avant d'enregistrer",
       );
     } catch {
       /* le store affiche déjà l'erreur */

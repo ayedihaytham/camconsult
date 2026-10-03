@@ -8,6 +8,35 @@ import type {
   StockMouvement,
 } from "@/types";
 
+/** Délai maximal d'attente d'une extraction lancée en tâche de fond. */
+const EXTRACT_TIMEOUT_MS = 12 * 60_000;
+const EXTRACT_POLL_MS = 2_000;
+
+/** Les extractions du moteur RUSPINA durent de quelques dizaines de secondes à
+ * plusieurs minutes : le serveur répond `{ jobId }` et on interroge son état.
+ * Les autres moteurs répondent directement avec le résultat. */
+async function waitForExtraction<T>(response: T | { jobId: string }): Promise<T> {
+  if (!response || typeof response !== "object" || !("jobId" in response)) {
+    return response as T;
+  }
+  const started = Date.now();
+  for (;;) {
+    await new Promise((resolve) => setTimeout(resolve, EXTRACT_POLL_MS));
+    const job = await api.get<
+      | { status: "pending" }
+      | { status: "error"; error?: string }
+      | { status: "done"; result: T }
+    >(`/stock/extract-jobs/${response.jobId}`);
+    if (job.status === "done") return job.result;
+    if (job.status === "error") {
+      throw new ApiError(job.error ?? "Extraction impossible sur ce document.", 500);
+    }
+    if (Date.now() - started > EXTRACT_TIMEOUT_MS) {
+      throw new ApiError("L'extraction prend trop de temps. Réessayez dans un instant.", 504);
+    }
+  }
+}
+
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
   throw err;
@@ -28,7 +57,7 @@ interface StockState {
   create: (data: StockMouvementInput) => Promise<StockMouvement>;
   update: (id: string, data: Partial<StockMouvementInput>) => Promise<void>;
   remove: (id: string) => Promise<void>;
-  extract: (type: StockDocType, dataUrl: string) => Promise<StockExtractResult>;
+  extract: (type: StockDocType, dataUrl: string, societeId?: string) => Promise<StockExtractResult>;
   /** Import "document complet" : un PDF/image combinant plusieurs pièces —
    * chaque page est analysée séparément et son type deviné. */
   extractPages: (societeId: string, dataUrl: string) => Promise<StockExtractPage[]>;
@@ -82,14 +111,15 @@ export const useStock = create<StockState>((set) => ({
     }
   },
 
-  extract: async (type, dataUrl) => {
+  extract: async (type, dataUrl, societeId) => {
     set({ extracting: true });
     try {
-      const result = await api.post<StockExtractResult>("/stock/extract", {
+      const response = await api.post<StockExtractResult | { jobId: string }>("/stock/extract", {
         type,
         dataUrl,
+        societeId,
       });
-      return result;
+      return await waitForExtraction<StockExtractResult>(response);
     } catch (e) {
       return fail(e);
     } finally {
@@ -100,10 +130,11 @@ export const useStock = create<StockState>((set) => ({
   extractPages: async (societeId, dataUrl) => {
     set({ extracting: true });
     try {
-      const { pages } = await api.post<{ pages: StockExtractPage[] }>(
+      const response = await api.post<{ pages: StockExtractPage[] } | { jobId: string }>(
         "/stock/extract-pages",
         { societeId, dataUrl },
       );
+      const { pages } = await waitForExtraction<{ pages: StockExtractPage[] }>(response);
       return pages;
     } catch (e) {
       return fail(e);

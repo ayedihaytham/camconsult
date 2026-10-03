@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { CARD_FIELD_INPUT, CardField } from "@/components/common/CardField";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -26,6 +26,9 @@ import { generatePassword } from "@/lib/password";
 import { IDENTIFIANT_RE, suggestIdentifiant } from "@/lib/identifiant";
 import { useSocietes } from "@/store/data";
 import type { Employe, EmployeType, Statut } from "@/types";
+
+const SELECT_TRIGGER =
+  "mt-1 h-auto w-full border-0 bg-transparent p-0 text-base text-foreground shadow-none focus:ring-0 focus:ring-offset-0 [&>svg]:size-4 [&>svg]:text-muted-foreground";
 
 const TYPES: EmployeType[] = [
   "Comptable",
@@ -172,15 +175,16 @@ export function EmployeFormSheet({
           <SheetBody className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <Field label="Prénom" error={errors.prenom?.message}>
-                <Input {...register("prenom")} placeholder="Prénom" />
+                <input className={CARD_FIELD_INPUT} {...register("prenom")} placeholder="Prénom" />
               </Field>
               <Field label="Nom" error={errors.nom?.message}>
-                <Input {...register("nom")} placeholder="Nom" />
+                <input className={CARD_FIELD_INPUT} {...register("nom")} placeholder="Nom" />
               </Field>
             </div>
 
             <Field label="Email" error={errors.email?.message}>
-              <Input
+              <input
+                className={CARD_FIELD_INPUT}
                 {...register("email")}
                 type="email"
                 placeholder="email@camconsult.com.tn"
@@ -198,7 +202,7 @@ export function EmployeFormSheet({
                     setValue("role", v as EmployeFormValues["role"])
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={SELECT_TRIGGER}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -217,7 +221,7 @@ export function EmployeFormSheet({
                   value={type}
                   onValueChange={(v) => setValue("type", v as EmployeType)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={SELECT_TRIGGER}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -234,7 +238,7 @@ export function EmployeFormSheet({
                   value={statut}
                   onValueChange={(v) => setValue("statut", v as Statut)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={SELECT_TRIGGER}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -246,7 +250,7 @@ export function EmployeFormSheet({
               </Field>
             </div>
 
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
+            <div className="space-y-3 rounded-xl border border-accent/30 bg-card p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Identifiants de connexion
               </p>
@@ -260,7 +264,8 @@ export function EmployeFormSheet({
                       : undefined
                   }
                 >
-                  <Input
+                  <input
+                    className={CARD_FIELD_INPUT}
                     {...register("identifiant", {
                       onChange: () => setIdentifiantTouched(true),
                     })}
@@ -268,14 +273,17 @@ export function EmployeFormSheet({
                   />
                 </Field>
                 <div className="space-y-1.5">
-                  <Label>Mot de passe</Label>
-                  <Input
+                  <CardField id="employe-mdp" label="Mot de passe">
+                  <input
+                    id="employe-mdp"
+                    className={CARD_FIELD_INPUT}
                     {...register("motDePasse")}
                     type="password"
                     autoComplete="new-password"
                     aria-label="Mot de passe"
                     placeholder={isEdit ? "Laisser vide pour ne pas changer" : undefined}
                   />
+                  </CardField>
                   {errors.motDePasse?.message && (
                     <p className="text-xs text-destructive">
                       {errors.motDePasse.message}
@@ -324,11 +332,12 @@ export function EmployeFormSheet({
             <Button
               type="button"
               variant="outline"
+              className="h-12 rounded-lg px-6"
               onClick={() => onOpenChange(false)}
             >
               Annuler
             </Button>
-            <Button type="submit" variant="ledger">
+            <Button type="submit" variant="ledger" className="h-12 rounded-lg px-6 text-sm uppercase tracking-[0.14em]">
               {isEdit ? "Enregistrer" : "Créer le collaborateur"}
             </Button>
           </SheetFooter>
@@ -349,14 +358,14 @@ function Field({
   hint?: string;
   children: React.ReactNode;
 }) {
+  const id = useId();
+  const child =
+    isValidElement<{ id?: string }>(children) && children.type === "input"
+      ? cloneElement(children, { id: children.props.id ?? id })
+      : children;
   return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      {children}
-      {hint && !error && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
+    <CardField id={isValidElement<{ id?: string }>(child) && child.props.id ? child.props.id : id} label={label} hint={hint} error={error}>
+      {child}
+    </CardField>
   );
 }

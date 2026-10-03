@@ -72,7 +72,7 @@ const SheetHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1 border-b border-border px-6 py-4",
+      "flex flex-col space-y-1 border-b border-accent/30 px-6 py-5",
       className,
     )}
     {...props}
@@ -100,7 +100,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
     ref={ref}
-    className={cn("text-base font-semibold text-foreground", className)}
+    className={cn("font-serif text-2xl font-medium text-primary", className)}
     {...props}
   />
 ));

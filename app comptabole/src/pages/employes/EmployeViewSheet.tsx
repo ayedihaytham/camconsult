@@ -31,23 +31,23 @@ export function EmployeViewSheet({
         </SheetHeader>
         {employe && (
           <SheetBody className="space-y-5">
-            <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full border border-border text-sm font-bold text-foreground">
+            <div className="flex items-center gap-4">
+              <span className="flex size-[72px] shrink-0 items-center justify-center rounded-full bg-accent/15 text-lg font-bold text-primary">
                 {employe.prenom[0]}
                 {employe.nom[0]}
               </span>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">
+              <div className="min-w-0">
+                <h3 className="font-serif text-3xl font-medium leading-tight text-primary">
                   {employeNomComplet(employe)}
                 </h3>
-                <div className="mt-1 flex items-center gap-3 text-sm">
+                <div className="mt-1 flex items-center gap-3 text-base">
                   <span className="text-muted-foreground">{employe.type}</span>
                   <StatutDot statut={employe.statut} />
                 </div>
               </div>
             </div>
 
-            <dl className="divide-y divide-border rounded-sm border border-border">
+            <dl className="divide-y divide-accent/25 overflow-hidden rounded-xl border border-accent/30 bg-card">
               <DetailRow label="Identifiant" value={employe.identifiant} />
               <DetailRow
                 label="Email"
@@ -85,7 +85,7 @@ export function EmployeViewSheet({
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Permissions
               </p>
-              <ul className="divide-y divide-border rounded-sm border border-border">
+              <ul className="divide-y divide-accent/25 overflow-hidden rounded-xl border border-accent/30 bg-card">
                 {(Object.keys(PERMISSION_LABELS) as PermissionKey[]).map(
                   (key) => {
                     const on = Boolean(employe.permissions?.[key]);

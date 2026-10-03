@@ -5,7 +5,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { DetailRow } from "@/components/ledger/DetailSheetRow";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { THEME_ICON } from "@/lib/societeTheme";
@@ -34,22 +33,22 @@ export function SocieteViewSheet({
         </SheetHeader>
         {societe && (
           <SheetBody className="space-y-5">
-            <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border text-sm font-bold text-foreground">
-                {ThemeIcon ? <ThemeIcon className="h-5 w-5 text-muted-foreground" aria-hidden /> : societe.raisonSociale[0]}
+            <div className="flex items-center gap-4">
+              <span className="flex size-[72px] shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-lg font-bold text-primary">
+                {ThemeIcon ? <ThemeIcon className="h-7 w-7" aria-hidden /> : societe.raisonSociale[0]}
               </span>
               <div className="min-w-0">
-                <h3 className="truncate text-lg font-semibold text-foreground">
+                <h3 className="truncate font-serif text-3xl font-medium leading-tight text-primary">
                   {societe.raisonSociale}
                 </h3>
-                <div className="mt-1 flex items-center gap-3 text-sm">
+                <div className="mt-1 flex items-center gap-3 text-base">
                   <span className="text-muted-foreground">{societe.theme}</span>
                   <StatutDot statut={societe.statut} />
                 </div>
               </div>
             </div>
 
-            <dl className="divide-y divide-border rounded-sm border border-border">
+            <dl className="divide-y divide-accent/25 overflow-hidden rounded-xl border border-accent/30 bg-card">
               <DetailRow label="Code" value={societe.code} />
               <DetailRow label="RNE" value={societe.rne || "—"} />
               <DetailRow label="N° TVA" value={societe.tva || "—"} />
@@ -68,9 +67,9 @@ export function SocieteViewSheet({
             </dl>
 
             {isAdmin && (
-              <LedgerSheet className="p-4">
+              <div className="rounded-2xl border border-accent/30 bg-card p-5">
                 <SocieteEmployesSection societeId={societe.id} />
-              </LedgerSheet>
+              </div>
             )}
           </SheetBody>
         )}

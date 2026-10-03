@@ -544,7 +544,7 @@ export function EmployesListPage() {
                   event.stopPropagation();
                   openView(e);
                 }}
-                className="block max-w-full truncate text-left text-[13px] font-semibold leading-4 text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="ledger-soft-name block max-w-full truncate text-left text-[13px] font-semibold leading-4 text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {employeNomComplet(e)}
               </button>
@@ -794,7 +794,7 @@ export function EmployesListPage() {
         action={{ label: "Ajouter un collaborateur", onClick: startCreate }}
       />
 
-      <LedgerWorkSurface className="employes-ledger-surface">
+      <LedgerWorkSurface className="employes-ledger-surface ledger-soft-rows">
       {selectedIds.length === 0 && !mobileSelecting && (
         <OperationalLedgerToolbar
           label="Outils du registre des collaborateurs"

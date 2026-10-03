@@ -118,7 +118,7 @@ export function SuiviDeviseListPage() {
         action={{ label: "Nouvelle fiche", onClick: () => setCreateOpen(true) }}
       />
 
-      <LedgerWorkSurface className="mt-3">
+      <LedgerWorkSurface className="ledger-soft-rows mt-3">
         <OperationalLedgerToolbar label="Recherche du suivi client devise" search={searchControl} />
         <OperationalMobileUtility label="Recherche du suivi client devise">{searchControl}</OperationalMobileUtility>
         <OperationalContentHeader>
@@ -167,7 +167,7 @@ export function SuiviDeviseListPage() {
                     onClick={() => navigate(`/suivi-devise/${societeId}/${f.id}`)}
                   >
                     <TableCell>
-                      <span className="block font-semibold text-foreground">{f.client}</span>
+                      <span className="ledger-soft-name block font-semibold text-foreground">{f.client}</span>
                       {f.exercice && <span className="block text-xs text-muted-foreground">{f.exercice}</span>}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{f.devise}</TableCell>

@@ -59,7 +59,7 @@ const SOCIETY_COLUMNS: ColumnDef<Societe, unknown>[] = [
     accessorKey: "raisonSociale",
     meta: { label: "Société", headerClassName: "w-[33%]", cellClassName: "max-w-[360px]" },
     cell: ({ row }) => (
-      <span className="block truncate font-semibold text-foreground">{row.original.raisonSociale}</span>
+      <span className="ledger-soft-name block truncate font-semibold text-foreground">{row.original.raisonSociale}</span>
     ),
   },
   {
@@ -209,7 +209,7 @@ export function SocieteRegistryPage({
         metrics={metrics ?? [{ label: "Sociétés accessibles", value: societes.length, loading: !hydrated }]}
       />
 
-      <LedgerWorkSurface>
+      <LedgerWorkSurface className="ledger-soft-rows">
         <OperationalLedgerToolbar label={searchLabel} search={searchControl(searchPlaceholder)} />
         <OperationalMobileUtility label={searchLabel}>{searchControl(searchPlaceholder)}</OperationalMobileUtility>
         <OperationalContentHeader>

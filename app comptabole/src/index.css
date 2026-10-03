@@ -1139,3 +1139,65 @@
 .taches-work-ledger .ledger-work-surface .operational-ledger-toolbar input {
   border-radius: 10px;
 }
+
+/* Carte douce pour tous les registres : bandeau, surface de travail, tableaux. */
+:root {
+  --soft-border: color-mix(in srgb, hsl(var(--accent)) 24%, hsl(var(--border)));
+}
+.signature-ledger {
+  border-radius: 12px;
+}
+.signature-ledger__metric dd {
+  @apply font-serif;
+  font-weight: 500;
+}
+.signature-ledger__metric dt {
+  letter-spacing: 0.12em;
+}
+.ledger-work-surface {
+  overflow: hidden;
+  border-color: var(--soft-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, hsl(var(--background)) 50%, hsl(var(--card)));
+}
+.ledger-work-surface .operational-ledger-toolbar {
+  border-bottom-color: var(--soft-border);
+}
+.ledger-work-surface .operational-ledger-toolbar input {
+  border-radius: 10px;
+}
+.ledger-work-surface .ledger-work-table thead tr {
+  background: color-mix(in srgb, hsl(var(--accent)) 9%, hsl(var(--card))) !important;
+}
+.ledger-work-surface .ledger-work-table thead th {
+  border-bottom-color: var(--soft-border);
+}
+.ledger-work-surface .ledger-work-table tbody tr {
+  border-bottom-color: var(--soft-border);
+}
+@media (max-width: 639px) {
+  .ledger-work-surface {
+    border-radius: 0;
+  }
+}
+
+/* Listes (pas les grilles de saisie) : lignes aérées et noms en serif. */
+.ledger-soft-rows .ledger-work-table table.ledger-table-density thead th {
+  height: 2.75rem;
+  padding-inline: 1rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+}
+.ledger-soft-rows .ledger-work-table table.ledger-table-density tbody tr {
+  height: 4rem;
+}
+.ledger-soft-rows .ledger-work-table table.ledger-table-density tbody td {
+  padding: 0.5rem 1rem;
+}
+.ledger-soft-rows .ledger-soft-name {
+  @apply font-serif;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: hsl(var(--primary));
+}

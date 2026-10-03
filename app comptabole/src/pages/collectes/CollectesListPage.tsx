@@ -256,7 +256,7 @@ export function CollectesListPage() {
         action={canCreate ? { label: "Nouvelle collecte", onClick: () => setCreateOpen(true) } : undefined}
       />
 
-      <LedgerWorkSurface className="collectes-work-surface">
+      <LedgerWorkSurface className="collectes-work-surface ledger-soft-rows">
         <div data-tour="collecte-lenses" className="collectes-lenses">{lensControl}</div>
         <OperationalLedgerToolbar
           label="Outils des collectes"
@@ -396,7 +396,7 @@ function CollecteIdentity({ collecte, name }: { collecte: Collecte; name: string
         <Link
           to={`/collectes/${collecte.id}`}
           onClick={(event) => event.stopPropagation()}
-          className={`block truncate text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${collecte.statut === "archive" ? "text-muted-foreground" : "text-primary"}`}
+          className={`ledger-soft-name block truncate text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${collecte.statut === "archive" ? "text-muted-foreground" : "text-primary"}`}
           title={name}
         >
           {name}

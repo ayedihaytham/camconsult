@@ -59,7 +59,7 @@ const FINANCIAL_SOCIETY_COLUMNS: ColumnDef<Societe, unknown>[] = [
       cellClassName: "max-w-[360px]",
     },
     cell: ({ row }) => (
-      <span className="block truncate font-semibold text-foreground">
+      <span className="ledger-soft-name block truncate font-semibold text-foreground">
         {row.original.raisonSociale}
       </span>
     ),
@@ -204,7 +204,7 @@ export function EtatsFinanciersPage() {
         metrics={[{ label: "Sociétés accessibles", value: societes.length, loading: !hydrated }]}
       />
 
-      <LedgerWorkSurface>
+      <LedgerWorkSurface className="ledger-soft-rows">
         <OperationalLedgerToolbar
           label="Recherche des sociétés financières"
           search={searchControl("Rechercher une société, un code ou un RNE")}

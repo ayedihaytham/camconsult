@@ -1029,3 +1029,84 @@
     width: 24px;
   }
 }
+
+/* Liste des sociétés — carte douce (coins arrondis, noms en serif, lignes aérées). */
+.societes-ledger-page {
+  --soft-border: color-mix(in srgb, hsl(var(--accent)) 24%, hsl(var(--border)));
+  --soft-block: color-mix(in srgb, hsl(var(--accent)) 14%, hsl(var(--card)));
+}
+.societes-ledger-page .signature-ledger {
+  border-radius: 12px;
+}
+.societes-ledger-page .signature-ledger__metric dd {
+  @apply font-serif;
+  font-size: 1.6rem;
+  font-weight: 500;
+}
+.societes-ledger-page .signature-ledger__metric dt {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+}
+.societes-ledger-page .ledger-work-surface {
+  overflow: hidden;
+  border-color: var(--soft-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, hsl(var(--background)) 50%, hsl(var(--card)));
+}
+.societes-ledger-page .ledger-work-surface .operational-ledger-toolbar {
+  border-bottom-color: var(--soft-border);
+}
+.societes-ledger-page .ledger-work-surface .operational-ledger-toolbar input {
+  border-radius: 10px;
+}
+.societes-ledger-page .ledger-work-surface .ledger-work-table thead tr {
+  background: color-mix(in srgb, hsl(var(--accent)) 9%, hsl(var(--card))) !important;
+}
+.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density thead th {
+  height: 2.75rem;
+  padding-inline: 1rem;
+  border-bottom-color: var(--soft-border);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+}
+.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr {
+  height: 4.25rem;
+  border-bottom: 1px solid var(--soft-border);
+}
+.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr:last-child {
+  border-bottom: 0;
+}
+.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density tbody td {
+  padding: 0.5rem 1rem;
+}
+.societes-ledger-page .societes-ledger-monogram {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 10px;
+  font-size: 0.78rem;
+}
+.societes-ledger-page .societes-ledger-name {
+  @apply font-serif;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: hsl(var(--primary));
+}
+.societes-ledger-page .societes-ledger-meta {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+.societes-ledger-page .societes-ledger-contact {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.societes-ledger-page .societes-ledger-count {
+  @apply font-serif;
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1;
+}
+.societes-ledger-page .societes-ledger-count[data-zero="true"] {
+  color: hsl(var(--muted-foreground) / 0.6);
+}

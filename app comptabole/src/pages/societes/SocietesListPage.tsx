@@ -581,7 +581,7 @@ export function SocietesListPage() {
               {societeInitials(s.raisonSociale)}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold leading-4 text-foreground">
+              <p className="societes-ledger-name truncate text-[13px] font-semibold leading-4 text-foreground">
                 {s.raisonSociale}
               </p>
               <p className="societes-ledger-meta truncate text-[11px] leading-4 text-muted-foreground">
@@ -607,7 +607,7 @@ export function SocietesListPage() {
 
         return (
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-foreground">
+            <p className="societes-ledger-contact truncate text-xs font-medium text-foreground">
               Contact clé non désigné
             </p>
             <p className="societes-ledger-meta truncate text-[11px] text-muted-foreground">
@@ -630,7 +630,7 @@ export function SocietesListPage() {
         }
         const count = openTaskCount.get(row.original.id) ?? 0;
         return (
-          <span className="text-xs font-semibold tabular-nums text-foreground">
+          <span className="societes-ledger-count text-xs font-semibold tabular-nums text-foreground" data-zero={count === 0 ? "true" : undefined}>
             {count}
           </span>
         );

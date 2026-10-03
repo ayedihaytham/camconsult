@@ -288,7 +288,7 @@
   border-radius: 999px;
   background: var(--card-block, hsl(var(--accent) / 0.14));
   color: hsl(var(--primary));
-  font-family: var(--font-inter, inherit);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 14px;
   font-weight: 500;
 }

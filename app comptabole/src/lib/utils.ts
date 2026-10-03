@@ -112,6 +112,9 @@ export function toTitleCase(value: string): string {
 }
 
 export function initials(name: string): string {
+  // Les sociétés sont numérotées (« 05-I CARGO LINE ») : le numéro sert de monogramme.
+  const order = name.trim().match(/^\d{1,3}/);
+  if (order) return order[0];
   return name
     .split(" ")
     .filter(Boolean)

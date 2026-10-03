@@ -79,6 +79,8 @@ const MONOGRAM_TONES = [
 ] as const;
 
 function societeInitials(name: string) {
+  const order = name.trim().match(/^\d{1,3}/);
+  if (order) return order[0];
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length > 1) {
     return `${words[0][0]}${words[1][0]}`.toUpperCase();

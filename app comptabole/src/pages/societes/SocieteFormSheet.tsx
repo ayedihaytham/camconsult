@@ -60,6 +60,8 @@ export type SocieteFormValues = z.infer<typeof schema>;
 
 /** Initiales de l'aperçu : deux premières lettres des deux premiers mots, « ·· » tant que vide. */
 function previewInitials(name: string) {
+  const order = name.trim().match(/^\d{1,3}/);
+  if (order) return order[0];
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return "··";
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();

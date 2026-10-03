@@ -1546,3 +1546,44 @@
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
 }
+
+/* Aujourd’hui reste marine même un samedi/dimanche (la teinte week-end passait devant). */
+.dashboard-workspace .dashboard-bureau .ledger-day.ledger-today,
+.dashboard-workspace .dashboard-bureau .ledger-day.ledger-today[data-weekend="true"],
+.dashboard-workspace .dashboard-bureau .ledger-day.ledger-today:hover {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.dashboard-workspace .dashboard-bureau .ledger-day.ledger-today[aria-pressed="true"] {
+  border-color: hsl(var(--accent));
+}
+
+/* Barre d’onglets : icône, libellé et pastille de compteur. */
+.dashboard-workspace .dashboard-tab {
+  gap: 8px;
+  font-size: 15px;
+}
+.dashboard-workspace .dashboard-tab > svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  stroke-width: 1.6;
+  color: hsl(var(--muted-foreground));
+}
+.dashboard-workspace .dashboard-tab[data-state="active"] > svg {
+  color: hsl(var(--accent));
+}
+.dashboard-workspace .dashboard-tab-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding-inline: 6px;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+  color: hsl(var(--primary));
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}

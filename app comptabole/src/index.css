@@ -1201,3 +1201,10 @@
   line-height: 1.3;
   color: hsl(var(--primary));
 }
+
+/* Playfair affiche par défaut des chiffres elzéviriens (« 05 » ressemble à « o5 ») : chiffres alignés partout. */
+.font-serif,
+[class*="font-serif"],
+.signature-ledger__metric dd {
+  font-feature-settings: "lnum" 1;
+}

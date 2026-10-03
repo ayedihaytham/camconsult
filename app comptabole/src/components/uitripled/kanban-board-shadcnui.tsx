@@ -449,25 +449,25 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-w-0 flex-1 flex-col overflow-hidden rounded-md border border-border/80 bg-card",
+        "flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-accent/25 bg-secondary/50",
         isOver && "border-primary/35 ring-1 ring-primary/10",
       )}
     >
-      <div className="flex items-center justify-between border-b border-border/70 px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-foreground">
+      <div className="flex items-center justify-between border-b border-accent/25 px-4 py-3.5">
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-[0.8rem] font-bold uppercase tracking-[0.12em] text-primary">
             {column.title}
           </h2>
           <Badge
             variant="secondary"
-            className="h-5 min-w-5 justify-center px-1.5 text-[11px] tabular-nums"
+            className="size-7 justify-center rounded-full border border-accent/25 bg-card px-0 text-xs font-semibold tabular-nums text-primary"
           >
             {tasks.length}
           </Badge>
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 p-2">
+      <div className="flex flex-col gap-3 p-3">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <TaskCard
@@ -483,7 +483,7 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
           ))}
         </SortableContext>
         {tasks.length === 0 && (
-          <div className="border-t border-border px-3 py-5 text-center text-xs text-muted-foreground">
+          <div className="px-3 py-8 text-center text-base text-muted-foreground">
             Aucune tâche
           </div>
         )}
@@ -546,7 +546,7 @@ function TaskCard({
       {...attributes}
       {...listeners}
       className={cn(
-        "group relative flex flex-col gap-2 overflow-hidden rounded border border-border/80 bg-card p-2.5 transition-colors hover:bg-muted/15",
+        "group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-accent/25 bg-card p-4 transition-shadow hover:shadow-[0_6px_18px_rgba(11,37,69,0.08)]",
         canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-default",
         isDragging && "opacity-30",
         isPending && "pointer-events-none opacity-70",
@@ -554,7 +554,7 @@ function TaskCard({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 truncate text-[11px] text-muted-foreground" title={task.societeName}>{task.societeName}</span>
+        <span className="min-w-0 truncate text-[0.8rem] uppercase tracking-wide text-muted-foreground" title={task.societeName}>{task.societeName}</span>
         {!isOverlay && (
           <TaskActionsMenu
             task={task.task}
@@ -569,11 +569,11 @@ function TaskCard({
       </div>
 
       <div className="space-y-1">
-        <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground">
+        <p className="line-clamp-2 font-serif text-xl font-medium leading-snug text-primary">
           {task.task.titre}
         </p>
         {task.task.description && (
-          <p className="line-clamp-1 text-xs text-muted-foreground">
+          <p className="line-clamp-1 text-sm text-muted-foreground">
             {task.task.description}
           </p>
         )}
@@ -581,7 +581,7 @@ function TaskCard({
 
       <TaskAssignee task={task} />
 
-      <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
+      <div className="flex items-center justify-between gap-2 border-t border-accent/20 pt-3">
         <TaskStatusBadge status={task.task.statut} />
         <TaskActivity task={task.task} className="truncate text-[11px]" />
       </div>

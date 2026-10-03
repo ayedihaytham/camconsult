@@ -1110,3 +1110,32 @@
 .societes-ledger-page .societes-ledger-count[data-zero="true"] {
   color: hsl(var(--muted-foreground) / 0.6);
 }
+
+/* Tâches — carte douce, même langage que la liste des sociétés. */
+.taches-work-ledger {
+  --soft-border: color-mix(in srgb, hsl(var(--accent)) 24%, hsl(var(--border)));
+}
+.taches-work-ledger .signature-ledger {
+  border-radius: 12px;
+}
+.taches-work-ledger .signature-ledger__metric dd {
+  @apply font-serif;
+  font-size: 1.6rem;
+  font-weight: 500;
+}
+.taches-work-ledger .signature-ledger__metric dt {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+}
+.taches-work-ledger .ledger-work-surface {
+  overflow: hidden;
+  border-color: var(--soft-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, hsl(var(--background)) 50%, hsl(var(--card)));
+}
+.taches-work-ledger .ledger-work-surface .operational-ledger-toolbar {
+  border-bottom-color: var(--soft-border);
+}
+.taches-work-ledger .ledger-work-surface .operational-ledger-toolbar input {
+  border-radius: 10px;
+}

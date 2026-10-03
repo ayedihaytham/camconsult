@@ -1538,3 +1538,11 @@
     font-size: 19px;
   }
 }
+
+/* Aujourd’hui reste marine même sélectionné (la règle « sélectionné » éclaircissait le fond). */
+.dashboard-workspace .dashboard-bureau .ledger-today[aria-pressed="true"],
+.dashboard-workspace .dashboard-bureau .ledger-today:hover {
+  border-color: hsl(var(--accent));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}

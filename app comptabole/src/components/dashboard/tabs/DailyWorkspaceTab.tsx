@@ -18,31 +18,13 @@ interface DailyWorkspaceContextProps {
   canUseMessaging: boolean;
 }
 
-export function DailyWorkspaceTab({
-  data,
-  now,
-  wide,
-  loading,
-  error,
-  adminDataLoading,
-  adminDataError,
-  canUseMessaging,
-}: DailyWorkspaceContextProps & { now: Date; wide: boolean }) {
+function taskSections(data: DashboardViewModel) {
   const admin = data.role === "admin";
   const resume = data.resumeTask;
   const ongoing = data.taskRows.filter(
     (task) => task.statut === "en_cours" && task.id !== resume?.id,
   );
   const todo = data.taskRows.filter((task) => task.statut === "a_faire");
-  const resumeSurface = <ResumeWork task={resume} admin={admin} />;
-  const transmissions = (
-    <CollectionTransmissions
-      deadlines={data.deadlines}
-      now={now}
-      loading={loading}
-      error={error}
-    />
-  );
   const ongoingPreview = (
     <div
       data-tour="dashboard-tasks"
@@ -86,6 +68,31 @@ export function DailyWorkspaceTab({
       </WorkspaceSection>
     </div>
   );
+  return { ongoingPreview, todoPreview };
+}
+
+export function DailyWorkspaceTab({
+  data,
+  now,
+  wide,
+  loading,
+  error,
+  adminDataLoading,
+  adminDataError,
+  canUseMessaging,
+}: DailyWorkspaceContextProps & { now: Date; wide: boolean }) {
+  const admin = data.role === "admin";
+  const resume = data.resumeTask;
+  const resumeSurface = <ResumeWork task={resume} admin={admin} />;
+  const { ongoingPreview, todoPreview } = taskSections(data);
+  const transmissions = (
+    <CollectionTransmissions
+      deadlines={data.deadlines}
+      now={now}
+      loading={loading}
+      error={error}
+    />
+  );
   return (
     <div className="dashboard-overview-grid">
       {wide ? (
@@ -93,10 +100,6 @@ export function DailyWorkspaceTab({
           <div className="dashboard-main min-w-0">
             {resumeSurface}
             {transmissions}
-            <div className="dashboard-task-pair">
-              {ongoingPreview}
-              {todoPreview}
-            </div>
           </div>
         </>
       ) : (
@@ -133,6 +136,7 @@ export function DailyWorkspaceRail({
   adminDataError,
   canUseMessaging,
 }: DailyWorkspaceContextProps) {
+  const { ongoingPreview, todoPreview } = taskSections(data);
   return (
     <aside
       className="dashboard-rail min-w-0"
@@ -153,6 +157,8 @@ export function DailyWorkspaceRail({
           <TeamWorkPreview members={data.team} />
         </div>
       )}
+      {ongoingPreview}
+      {todoPreview}
     </aside>
   );
 }

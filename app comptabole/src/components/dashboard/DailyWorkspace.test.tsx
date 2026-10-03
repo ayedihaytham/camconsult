@@ -30,7 +30,8 @@ describe("Daily Workspace UI contract", () => {
     expect(container.querySelectorAll('[data-tour="dashboard-resume"]')).toHaveLength(1);
     vi.mocked(useMediaQuery).mockReturnValue(true);
     rerender(<MemoryRouter><DashboardTabs {...base} /></MemoryRouter>);
-    expect(container.querySelector('.dashboard-main [data-tour="dashboard-tasks"]')).toBeTruthy();
+    expect(container.querySelector('.dashboard-rail [data-tour="dashboard-tasks"]')).toBeTruthy();
+    expect(container.querySelector('.dashboard-main [data-tour="dashboard-tasks"]')).toBeNull();
     expect(container.querySelector('.dashboard-rail [data-tour="dashboard-attention"]')).toBeTruthy();
     expect(container.querySelectorAll('[data-tour="dashboard-attention"]')).toHaveLength(1);
   });

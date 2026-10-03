@@ -1,21 +1,52 @@
 import { type ComponentProps, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useConversations, useData, useNotifications } from "@/store/data";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { SidebarNavigation } from "./SidebarNavigation";
 import {
   unreadMessageCount,
   visibleNavigation,
 } from "./navigation";
+
+/** Pied du menu : réduit / développe le menu (même action que le bouton de la
+ * barre du haut et le raccourci clavier). Masqué sur mobile, où le menu est un
+ * tiroir qui se ferme au clic hors du panneau. */
+function SidebarCollapseButton() {
+  const { state, isMobile, toggleSidebar } = useSidebar();
+  if (isMobile) return null;
+  const collapsed = state === "collapsed";
+  const Icon = collapsed ? ChevronsRight : ChevronsLeft;
+  const label = collapsed ? "Développer le menu" : "Réduire le menu";
+  return (
+    <SidebarFooter className="signature-sidebar__footer shrink-0 gap-0 border-t border-white/10 p-2">
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            tooltip={label}
+            aria-label={label}
+            onClick={toggleSidebar}
+            className="h-10 gap-3 text-sidebar-muted hover:text-sidebar-accent-foreground"
+          >
+            <Icon />
+            <span>{label}</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarFooter>
+  );
+}
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const {
@@ -106,6 +137,8 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
           unreadNotifications={unreadNotifications}
         />
       </SidebarContent>
+
+      <SidebarCollapseButton />
 
       <SidebarRail />
     </Sidebar>

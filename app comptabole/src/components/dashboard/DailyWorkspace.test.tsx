@@ -183,7 +183,7 @@ describe("Daily Workspace UI contract", () => {
     expect(days[0].getAttribute("aria-current")).toBe("date");
     expect(days[0].className).not.toContain("bg-primary text-primary-foreground");
     expect(screen.getByText("30 septembre–6 octobre 2026")).toBeTruthy();
-    expect(rail.textContent).not.toContain("Aucune");
+    expect(rail.textContent).toContain("Aucune");
     expect(container.querySelector(".ledger-ruler-track")).toBeTruthy();
     expect(container.querySelector(".transmission-ledger")).toBeTruthy();
     fireEvent.click(days[1]);

@@ -5,7 +5,7 @@ import type { DashboardMessageActivity } from "@/lib/dashboard/dashboardData";
 import { WorkspaceSection } from "./WorkspaceSection";
 
 export function UnreadMessagesPreview({ messages }: { messages: DashboardMessageActivity[] }) {
-  return <WorkspaceSection title="Mes messages non lus" icon={Mail} target="dashboard-communication" route="/messagerie" linkLabel="Messagerie">
+  return <WorkspaceSection title="Mes messages non lus" icon={Mail} target="dashboard-communication" route="/messagerie" linkLabel="Messagerie" footerLink>
     {messages.length ? <ul className="dashboard-context-register">{messages.slice(0, 3).map((message) => <li key={message.id}>
       <Link to="/messagerie" className="dashboard-message-unread dashboard-context-row dashboard-navigation">
         <span className="dashboard-monogram" aria-hidden="true">{message.initials}</span>

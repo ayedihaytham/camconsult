@@ -54,6 +54,7 @@ export function DailyWorkspaceTab({
         description="Tâches déjà commencées, sans date limite."
         route="/?tab=tasks"
         linkLabel="Tâches"
+        footerLink
       >
         <TaskRows
           tasks={ongoing.slice(0, 3)}
@@ -75,6 +76,7 @@ export function DailyWorkspaceTab({
         description="À faire quand vous êtes disponible."
         route="/?tab=tasks"
         linkLabel={`${todo.length} à faire`}
+        footerLink
       >
         <TaskRows
           tasks={todo.slice(0, 3)}
@@ -200,6 +202,7 @@ function DailyWorkspaceAttention({
         target="dashboard-attention"
         route="/?tab=attention"
         linkLabel="Tout voir"
+        footerLink
       >
         {!partial && attentionSummary.length > 0 && (
           <div

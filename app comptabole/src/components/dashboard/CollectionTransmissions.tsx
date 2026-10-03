@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Files } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Clock, Files } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatDate } from "@/lib/utils";
 import {
@@ -115,9 +115,12 @@ export function CollectionTransmissions({
         </p>
       ) : (
         <>
-          <p className="ledger-range" aria-live="polite">{rangeLabel}</p>
-          <div className="ledger-navigation">
-          <button type="button" className="ledger-navigation-control" aria-label="Sept jours précédents" disabled={weekOffset === 0} onClick={() => changeWeek(-1)}><ChevronLeft aria-hidden="true" /></button>
+          <div className="ledger-weekbar">
+            <button type="button" className="ledger-navigation-control" aria-label="Sept jours précédents" disabled={weekOffset === 0} onClick={() => changeWeek(-1)}><ChevronLeft aria-hidden="true" /></button>
+            <p className="ledger-range" aria-live="polite">{rangeLabel}</p>
+            <button type="button" className="ledger-navigation-control" aria-label="Sept jours suivants" onClick={() => changeWeek(1)}><ChevronRight aria-hidden="true" /></button>
+            <p className="ledger-hint">Sélectionnez un jour pour voir ses transmissions.</p>
+          </div>
           <div
             data-tour="dashboard-deadline-strip"
             role="group"
@@ -129,12 +132,14 @@ export function CollectionTransmissions({
                 const key = dashboardDateKey(date);
                 const count = counts.get(key) ?? 0;
                 const isToday = key === today;
+                const weekend = date.getDay() === 0 || date.getDay() === 6;
                 return (
                   <button
                     key={key}
                     type="button"
                     onClick={() => setSelected(key)}
                     className={cn("ledger-day", isToday && "ledger-today")}
+                    data-weekend={weekend ? "true" : undefined}
                     aria-pressed={selectedDate === key}
                     aria-current={isToday ? "date" : undefined}
                     aria-label={`${formatDate(key)}, ${count} collecte${count > 1 ? "s" : ""}`}
@@ -164,15 +169,13 @@ export function CollectionTransmissions({
                           {count} collecte{count > 1 ? "s" : ""}
                         </>
                       ) : (
-                        <span aria-hidden="true">—</span>
+                        <span>Aucune</span>
                       )}
                     </span>
                   </button>
                 );
               })}
             </div>
-          </div>
-          <button type="button" className="ledger-navigation-control" aria-label="Sept jours suivants" onClick={() => changeWeek(1)}><ChevronRight aria-hidden="true" /></button>
           </div>
 
           <div className="ledger-details">
@@ -181,9 +184,10 @@ export function CollectionTransmissions({
               aria-live="polite"
               aria-atomic="true"
             >
+              <span className="ledger-row-icon" aria-hidden="true"><CalendarDays /></span>
+              <div className="min-w-0">
               <h3 className="flex flex-wrap items-baseline justify-between gap-2 text-sm font-semibold text-primary">
                 <span className="flex items-center gap-2">
-                  <CalendarDays className="size-4" aria-hidden="true" />
                   {selectedDate === today
                     ? "Aujourd’hui"
                     : formatDate(selectedDate)}
@@ -204,9 +208,12 @@ export function CollectionTransmissions({
                     : "Aucune transmission prévue."}
                 </p>
               )}
+              </div>
             </div>
 
             <div className="ledger-upcoming">
+              <span className="ledger-row-icon" aria-hidden="true"><Clock /></span>
+              <div className="min-w-0">
               <h3 className="mb-1 text-sm font-semibold text-primary">
                 Prochaines transmissions
               </h3>
@@ -217,6 +224,7 @@ export function CollectionTransmissions({
                   Aucune prochaine échéance dans le périmètre affiché.
                 </p>
               )}
+              </div>
             </div>
           </div>
         </>

@@ -55,6 +55,8 @@ const schema = z.object({
   douaneDate: dateStr,
   douaneRegime: z.string().default(""),
   douaneReference: z.string().default(""),
+  douaneTauxChange: num,
+  douaneValeurTnd: num,
 
   achatDocDataUrl: z.string().nullish(),
   venteDocDataUrl: z.string().nullish(),
@@ -70,6 +72,7 @@ const COL_NAMES = [
   "achat_date", "achat_num_facture", "achat_doc_type", "fournisseur", "achat_devise", "achat_cours",
   "vente_date", "vente_num_facture", "vente_doc_type", "client", "vente_devise", "vente_cours",
   "douane_num_declaration", "douane_date", "douane_regime", "douane_reference",
+  "douane_taux_change", "douane_valeur_tnd",
   "achat_doc_data_url", "vente_doc_data_url", "douane_doc_data_url",
   "note",
 ];
@@ -80,6 +83,7 @@ function values(v) {
     v.achatDate || null, v.achatNumFacture, v.achatDocType, v.fournisseur, v.achatDevise, v.achatCours,
     v.venteDate || null, v.venteNumFacture, v.venteDocType, v.client, v.venteDevise, v.venteCours,
     v.douaneNumDeclaration, v.douaneDate || null, v.douaneRegime, v.douaneReference,
+    v.douaneTauxChange, v.douaneValeurTnd,
     v.achatDocDataUrl || null, v.venteDocDataUrl || null, v.douaneDocDataUrl || null,
     v.note,
   ];

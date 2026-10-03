@@ -301,6 +301,8 @@ export const stockMouvementDto = (r, lignes = []) => {
     douaneDate: r.douane_date ? dateStr(r.douane_date) : null,
     douaneRegime: r.douane_regime ?? "",
     douaneReference: r.douane_reference ?? "",
+    douaneTauxChange: num(r.douane_taux_change),
+    douaneValeurTnd: num(r.douane_valeur_tnd),
 
     achatDocDataUrl: r.achat_doc_data_url ?? null,
     venteDocDataUrl: r.vente_doc_data_url ?? null,

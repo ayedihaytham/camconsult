@@ -334,6 +334,9 @@ export interface StockMouvement {
   douaneDate: string | null;
   douaneRegime: string;
   douaneReference: string;
+  /** Taux de change douanier (TND pour 1 unité de devise) et valeur en douane (TND). */
+  douaneTauxChange: number;
+  douaneValeurTnd: number;
 
   /** document source (PDF/image en data URL) conservé pour vérification */
   achatDocDataUrl: string | null;
@@ -363,6 +366,8 @@ export interface StockChamps {
   numDeclaration?: string;
   regime?: string;
   reference?: string;
+  tauxChange?: number;
+  valeurTnd?: number;
 }
 
 export interface StockExtractResult {

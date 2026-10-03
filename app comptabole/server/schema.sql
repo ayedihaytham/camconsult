@@ -230,6 +230,10 @@ create table if not exists stock_mouvements (
 alter table stock_mouvements add column if not exists achat_doc_data_url text;
 alter table stock_mouvements add column if not exists vente_doc_data_url text;
 alter table stock_mouvements add column if not exists douane_doc_data_url text;
+-- Taux de change appliqué par la douane (TND pour 1 unité de devise) et valeur
+-- en douane en TND, lus sur la déclaration (moteur RUSPINA) ou saisis à la main.
+alter table stock_mouvements add column if not exists douane_taux_change numeric not null default 0;
+alter table stock_mouvements add column if not exists douane_valeur_tnd numeric not null default 0;
 
 -- Lignes de produits d'un mouvement (plusieurs par mouvement, achat ET
 -- vente séparément) : une facture liste souvent plusieurs marchandises à

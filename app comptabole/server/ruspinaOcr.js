@@ -149,7 +149,7 @@ function champsRuspina(p) {
 }
 
 function champsDouaneVides() {
-  return { numDeclaration: "", date: "", regime: "", reference: "" };
+  return { numDeclaration: "", date: "", regime: "", reference: "", tauxChange: 0, valeurTnd: 0 };
 }
 
 /** Déclaration douanière (page 3 du service). */
@@ -162,6 +162,8 @@ function champsDouane(p) {
       date: normaliserDate(p.declaration_date),
       regime: text(p.declaration_type),
       reference: "",
+      tauxChange: normaliserNombre(p.currency_conversion_rate),
+      valeurTnd: normaliserNombre(p.customs_total_value_tnd),
     },
   };
 }

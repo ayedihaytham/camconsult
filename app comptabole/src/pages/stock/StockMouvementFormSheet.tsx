@@ -68,6 +68,8 @@ const empty = (societeId: string): StockMouvementInput => ({
   douaneDate: null,
   douaneRegime: "",
   douaneReference: "",
+  douaneTauxChange: 0,
+  douaneValeurTnd: 0,
   achatDocDataUrl: null,
   venteDocDataUrl: null,
   douaneDocDataUrl: null,
@@ -209,6 +211,8 @@ export function StockMouvementFormSheet({
         douaneDate: champs.date || prev.douaneDate,
         douaneRegime: champs.regime || prev.douaneRegime,
         douaneReference: champs.reference || prev.douaneReference,
+        douaneTauxChange: champs.tauxChange || prev.douaneTauxChange,
+        douaneValeurTnd: champs.valeurTnd || prev.douaneValeurTnd,
       }));
     }
   }
@@ -680,6 +684,19 @@ export function StockMouvementFormSheet({
                   <Input
                     value={v.douaneReference}
                     onChange={(e) => set("douaneReference", e.target.value)}
+                  />
+                </Field>
+                <Field label="Taux de change (TND)">
+                  <AmountInput
+                    value={v.douaneTauxChange}
+                    onValueChange={(n) => set("douaneTauxChange", n)}
+                    decimals={4}
+                  />
+                </Field>
+                <Field label="Valeur en douane (TND)">
+                  <AmountInput
+                    value={v.douaneValeurTnd}
+                    onValueChange={(n) => set("douaneValeurTnd", n)}
                   />
                 </Field>
               </div>

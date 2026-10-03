@@ -118,6 +118,8 @@ describe("ruspinaVersPages", () => {
       date: "2023-01-03",
       regime: "E",
       reference: "",
+      tauxChange: 3.2842,
+      valeurTnd: 170778.4,
     });
     expect(pages[2].details).toMatchObject({ tauxChange: 3.2842, valeurDouaneTnd: 170778.4 });
   });

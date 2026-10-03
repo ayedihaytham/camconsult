@@ -17,7 +17,7 @@ import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, formatNumber } from "@/lib/utils";
 import { useSocieteById, useNoeuds, useData } from "@/store/data";
 import { useStock, type StockMouvementInput } from "@/store/stock";
 import type { StockLigne, StockMouvement } from "@/types";
@@ -134,7 +134,7 @@ export function StockSocietePage() {
       "Nature", "Écart",
       "Achat: Date", "N° Facture", "Fournisseur", "Produits", "Quantité", "Montant devise", "Devise", "Cours", "Montant TND",
       "Vente: Date", "N° Facture", "Client", "Produits", "Quantité", "Montant devise", "Devise", "Cours", "Montant TND",
-      "Douane: N° Déclaration", "Date", "Régime", "Référence",
+      "Douane: N° Déclaration", "Date", "Régime", "Référence", "Taux de change", "Valeur en douane (TND)",
       "Note",
     ];
     // Une facture peut lister plusieurs produits (voir StockLigne) : le
@@ -156,7 +156,7 @@ export function StockSocietePage() {
       sumQ(m.achatLignes), sumDevise(m.achatLignes), m.achatDevise, m.achatCours, sumTnd(m.achatLignes),
       m.venteDate ?? "", m.venteNumFacture, m.client, designations(m.venteLignes),
       sumQ(m.venteLignes), sumDevise(m.venteLignes), m.venteDevise, m.venteCours, sumTnd(m.venteLignes),
-      m.douaneNumDeclaration, m.douaneDate ?? "", m.douaneRegime, m.douaneReference,
+      m.douaneNumDeclaration, m.douaneDate ?? "", m.douaneRegime, m.douaneReference, m.douaneTauxChange, m.douaneValeurTnd,
       m.note,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
@@ -248,7 +248,7 @@ export function StockSocietePage() {
           {shown.map((m) => {
             const hasDouane = Boolean(
               m.douaneNumDeclaration || m.douaneDate || m.douaneRegime ||
-              m.douaneReference || m.douaneDocDataUrl,
+              m.douaneReference || m.douaneTauxChange || m.douaneValeurTnd || m.douaneDocDataUrl,
             );
             return (
               <div
@@ -352,6 +352,8 @@ export function StockSocietePage() {
                       { label: "Date", value: m.douaneDate ? formatDate(m.douaneDate) : "—" },
                       { label: "Régime", value: m.douaneRegime || "—" },
                       { label: "Référence", value: m.douaneReference || "—" },
+                      { label: "Taux de change", value: m.douaneTauxChange ? String(m.douaneTauxChange) : "—" },
+                      { label: "Valeur douane (TND)", value: m.douaneValeurTnd ? formatNumber(m.douaneValeurTnd) : "—" },
                     ]}
                     lignes={[]}
                     docDataUrl={m.douaneDocDataUrl}

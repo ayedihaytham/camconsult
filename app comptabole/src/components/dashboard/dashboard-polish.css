@@ -230,3 +230,103 @@
   font-size: 12px;
   font-weight: 700;
 }
+
+/* Activité récente — carte douce (filtre en segments, lignes à pastille ronde). */
+.dashboard-workspace .dashboard-soft .activity-card {
+  padding: 22px 22px 10px;
+}
+.dashboard-workspace .dashboard-soft .activity-header {
+  display: block;
+  margin-bottom: 18px;
+}
+.dashboard-workspace .dashboard-soft .activity-filter {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 4px;
+  border: 1px solid var(--card-border, hsl(var(--border)));
+  border-radius: 12px;
+  background: hsl(var(--card));
+}
+.dashboard-workspace .dashboard-soft .activity-filter-option {
+  min-height: 40px;
+  padding-inline: 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+.dashboard-workspace .dashboard-soft .activity-filter-option[aria-pressed="true"] {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 650;
+}
+.dashboard-workspace .dashboard-soft .activity-group + .activity-group {
+  margin-top: 22px;
+}
+.dashboard-workspace .dashboard-soft .activity-group-title {
+  @apply font-serif;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--card-border, hsl(var(--border)));
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: hsl(var(--primary));
+}
+.dashboard-workspace .dashboard-soft .activity-count {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  height: 36px;
+  padding-inline: 12px;
+  border-radius: 999px;
+  background: var(--card-block, hsl(var(--accent) / 0.14));
+  color: hsl(var(--primary));
+  font-family: var(--font-inter, inherit);
+  font-size: 14px;
+  font-weight: 500;
+}
+.dashboard-workspace .dashboard-soft .activity-row {
+  padding-block: 16px;
+  border-bottom: 1px solid var(--card-border, hsl(var(--border)));
+}
+.dashboard-workspace .dashboard-soft .activity-row:last-child {
+  border-bottom: 0;
+}
+.dashboard-workspace .dashboard-soft .activity-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: hsl(var(--muted) / 0.8);
+  color: hsl(var(--primary));
+}
+.dashboard-workspace .dashboard-soft .activity-title {
+  @apply font-serif;
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: hsl(var(--primary));
+}
+.dashboard-workspace .dashboard-soft .activity-badge {
+  border-color: transparent;
+  background: var(--card-block, hsl(var(--accent) / 0.14));
+  color: hsl(var(--primary) / 0.8);
+}
+.dashboard-workspace .dashboard-soft .activity-time {
+  text-align: right;
+  font-size: 14px;
+  line-height: 1.5;
+  color: hsl(var(--muted-foreground));
+}
+.dashboard-workspace .dashboard-soft .activity-time span:last-child {
+  font-weight: 700;
+  color: hsl(var(--primary));
+}

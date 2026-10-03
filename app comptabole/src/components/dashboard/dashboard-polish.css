@@ -156,3 +156,77 @@
     transition: none;
   }
 }
+
+/* Vues secondaires en carte douce (Équipe) — même langage que Mon bureau. */
+.dashboard-workspace .dashboard-soft .dashboard-major {
+  padding: 22px 20px 8px;
+  border: 1px solid var(--card-border, hsl(var(--border)));
+  border-radius: 12px;
+  background: color-mix(in srgb, hsl(var(--background)) 55%, hsl(var(--card)));
+}
+.dashboard-workspace .dashboard-soft .dashboard-major > header {
+  margin-bottom: 14px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.dashboard-workspace .dashboard-soft .dashboard-section-identity {
+  align-items: center;
+  gap: 16px;
+}
+.dashboard-workspace .dashboard-soft .dashboard-section-icon {
+  flex-shrink: 0;
+  box-sizing: content-box;
+  width: 22px;
+  height: 22px;
+  padding: 11px;
+  border-radius: 10px;
+  background: var(--card-block, hsl(var(--accent) / 0.14));
+  color: hsl(var(--primary));
+  stroke-width: 1.5;
+}
+.dashboard-workspace .dashboard-soft .dashboard-major > header h2 {
+  @apply font-serif;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: hsl(var(--primary));
+}
+.dashboard-workspace .dashboard-soft .dashboard-major > header p {
+  font-size: 13px;
+}
+.dashboard-workspace .dashboard-soft .dashboard-team-table th {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  background: transparent;
+}
+.dashboard-workspace .dashboard-soft .dashboard-team-table th:last-child {
+  color: hsl(var(--primary));
+  font-weight: 650;
+}
+.dashboard-workspace .dashboard-soft .dashboard-team-table tbody th {
+  font-size: 15px;
+  font-weight: 600;
+  color: hsl(var(--primary));
+}
+.dashboard-workspace .dashboard-soft .dashboard-team-table tbody tr {
+  border-color: var(--card-border, hsl(var(--border)));
+}
+.dashboard-workspace .dashboard-soft .dashboard-team-count {
+  @apply font-serif;
+  font-size: 24px;
+  line-height: 1;
+}
+.dashboard-workspace .dashboard-soft .dashboard-team-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  margin-right: 12px;
+  border-radius: 50%;
+  background: var(--card-block, hsl(var(--accent) / 0.14));
+  color: color-mix(in srgb, hsl(var(--accent)) 75%, hsl(var(--primary)));
+  font-size: 12px;
+  font-weight: 700;
+}

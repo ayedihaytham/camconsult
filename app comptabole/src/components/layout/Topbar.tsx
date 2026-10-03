@@ -81,20 +81,18 @@ export function Topbar() {
                 />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-lg">
-              <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
-              <DropdownMenuSeparator />
+            <DropdownMenuContent align="end" sideOffset={8} className="topbar-account-menu w-64 rounded-xl border-border/70 p-1.5 shadow-pop">
               {isAdmin && (
                 <>
-                  <DropdownMenuItem onClick={() => navigate("/parametres")}>
-                    <Settings className="h-4 w-4" />
+                  <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={() => navigate("/parametres")}>
+                    <Settings className="h-[18px] w-[18px] text-muted-foreground" />
                     Paramètres
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="mx-3 my-1" />
                 </>
               )}
-              <DropdownMenuItem variant="destructive" onClick={handleLogout}>
-                <LogOut className="h-4 w-4" />
+              <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={handleLogout}>
+                <LogOut className="h-[18px] w-[18px] text-muted-foreground" />
                 Se déconnecter
               </DropdownMenuItem>
             </DropdownMenuContent>

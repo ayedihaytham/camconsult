@@ -150,3 +150,27 @@
   .dashboard-workspace:has(.dashboard-tasks-workspace) .dashboard-command h1 { font-size: 23px; }
   .dashboard-workspace:has(.dashboard-tasks-workspace) .dashboard-command-date span:first-child { font-size: 30px; }
 }
+
+/* Carte douce (aligne Tâches sur Mon bureau). */
+.dashboard-tasks-workspace {
+  --tasks-card-border: color-mix(in srgb, hsl(var(--accent)) 24%, hsl(var(--border)));
+}
+.dashboard-tasks-workspace .tasks-register,
+.dashboard-tasks-workspace .tasks-active-dossier {
+  border-color: var(--tasks-card-border);
+  border-radius: 12px;
+}
+.dashboard-tasks-workspace .tasks-active-dossier {
+  border-left-width: 1px;
+  border-top: 1px solid hsl(var(--accent) / 0.8);
+}
+.dashboard-tasks-workspace .tasks-folder {
+  border-radius: 10px;
+}
+.dashboard-tasks-workspace .tasks-lens {
+  border-color: var(--tasks-card-border);
+  border-radius: 10px;
+}
+.dashboard-tasks-workspace .tasks-active-action > a {
+  border-radius: 6px;
+}

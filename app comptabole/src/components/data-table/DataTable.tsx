@@ -83,7 +83,7 @@ export function DataTable<TData>({
           "hidden lg:block",
           isRegisterDesktop
             ? "overflow-visible border-y border-border/80 bg-transparent"
-            : "overflow-hidden rounded-lg border border-border bg-card",
+            : "overflow-hidden rounded-xl border border-accent/25 bg-card",
         )}
       >
         <Table
@@ -94,14 +94,14 @@ export function DataTable<TData>({
               isRegisterDesktop
                 ? "[&_tr]:bg-transparent [&_tr]:hover:bg-transparent [&_th]:h-8 [&_th]:px-3 [&_th]:text-[0.65rem] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-muted-foreground"
                 : isLedgerDensity
-                  ? "bg-muted/35"
-                  : "bg-muted/35 [&_th]:!h-9 [&_th]:!px-3 [&_th]:!text-xs [&_th]:!font-semibold [&_th]:!normal-case [&_th]:!tracking-normal",
+                  ? "bg-accent/[0.08]"
+                  : "bg-accent/[0.08] [&_th]:!h-9 [&_th]:!px-3 [&_th]:!text-xs [&_th]:!font-semibold [&_th]:!normal-case [&_th]:!tracking-normal",
             )}
           >
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className="bg-muted/40 hover:bg-muted/40"
+                className="bg-accent/[0.08] hover:bg-accent/[0.08]"
               >
                 {headerGroup.headers.map((header) => (
                   <TableHead

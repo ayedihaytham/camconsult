@@ -1,18 +1,15 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
-  Sheet,
-  SheetBody,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/common/AmountInput";
+import { CARD_FIELD_INPUT, CardField } from "@/components/common/CardField";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -114,202 +111,205 @@ export function BordereauFormSheet({
     onOpenChange(false);
   }
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-3xl">
-        <SheetHeader>
-          <SheetTitle>
-            {isEdit ? "Modifier le bordereau" : "Nouveau bordereau"}
-          </SheetTitle>
-          <SheetDescription>
-            En-tête du bordereau puis ses lignes ; le sous-total se calcule tout
-            seul.
-          </SheetDescription>
-        </SheetHeader>
+  const selectTrigger =
+    "mt-1 h-auto w-full border-0 bg-transparent p-0 text-base text-foreground shadow-none focus:ring-0 focus:ring-offset-0 [&>svg]:size-4 [&>svg]:text-muted-foreground";
+  // Cases de saisie des lignes : cartes crème arrondies, comme les champs du reste du formulaire.
+  const cell = "h-11 rounded-lg border-accent/35 bg-secondary/60 px-3 text-base focus-visible:border-primary focus-visible:bg-card";
 
-        <SheetBody className="space-y-5">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label>Type</Label>
-              <Select
-                value={type}
-                onValueChange={(v) => setType(v as BordereauType)}
-              >
-                <SelectTrigger>
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
+        <div className="shrink-0 border-b border-accent/30 px-6 pb-5 pt-6 sm:px-8">
+          <DialogTitle className="pr-8 font-serif text-3xl font-medium text-primary">
+            {isEdit ? "Modifier le bordereau" : "Nouveau bordereau"}
+          </DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted-foreground">
+            En-tête du bordereau puis ses lignes ; le sous-total se calcule tout seul.
+          </DialogDescription>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6 sm:px-8">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <CardField id="bordereau-type" label="Type">
+              <Select value={type} onValueChange={(v) => setType(v as BordereauType)}>
+                <SelectTrigger id="bordereau-type" className={selectTrigger}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(
-                    Object.keys(BORDEREAU_TYPE_LABELS) as BordereauType[]
-                  ).map((t) => (
+                  {(Object.keys(BORDEREAU_TYPE_LABELS) as BordereauType[]).map((t) => (
                     <SelectItem key={t} value={t}>
                       {BORDEREAU_TYPE_LABELS[t]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Volet</Label>
-              <Select
-                value={volet}
-                onValueChange={(v) => setVolet(v as BordereauVolet)}
-              >
-                <SelectTrigger>
+            </CardField>
+            <CardField id="bordereau-volet" label="Volet">
+              <Select value={volet} onValueChange={(v) => setVolet(v as BordereauVolet)}>
+                <SelectTrigger id="bordereau-volet" className={selectTrigger}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(
-                    Object.keys(BORDEREAU_VOLET_LABELS) as BordereauVolet[]
-                  ).map((v) => (
+                  {(Object.keys(BORDEREAU_VOLET_LABELS) as BordereauVolet[]).map((v) => (
                     <SelectItem key={v} value={v}>
                       {BORDEREAU_VOLET_LABELS[v]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>N° Bordereau</Label>
-              <Input
+            </CardField>
+            <CardField id="bordereau-numero" label="N° Bordereau">
+              <input
+                id="bordereau-numero"
                 value={numero}
                 onChange={(e) => setNumero(e.target.value)}
                 placeholder="787115"
+                className={CARD_FIELD_INPUT}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Date</Label>
-              <Input
+            </CardField>
+            <CardField id="bordereau-date" label="Date">
+              <input
+                id="bordereau-date"
                 type="date"
                 value={dateOperation}
                 onChange={(e) => setDateOperation(e.target.value)}
+                className={CARD_FIELD_INPUT}
               />
-            </div>
+            </CardField>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="w-10 px-2 py-2">N°</th>
-                  <th className="px-2 py-2 text-left font-medium">CHQ / Effet</th>
-                  <th className="px-2 py-2 text-left font-medium">
-                    {volet === "client" ? "Client" : "Fournisseur"}
-                  </th>
-                  <th className="px-2 py-2 text-left font-medium">Montant</th>
-                  <th className="px-2 py-2 text-left font-medium">Réf. facture</th>
-                  <th className="px-2 py-2 text-left font-medium">Remarque</th>
-                  <th className="w-10 px-2 py-2" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {lignes.map((l, i) => (
-                  <tr key={i}>
-                    <td className="px-2 py-1 text-center text-xs text-muted-foreground">
-                      {i + 1}
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <Input
-                        className="h-8"
-                        value={l.cheque}
-                        onChange={(e) => setLigne(i, { cheque: e.target.value })}
-                      />
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <Input
-                        className="h-8"
-                        value={l.tiers}
-                        onChange={(e) => setLigne(i, { tiers: e.target.value })}
-                      />
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <AmountInput
-                        className="h-8"
-                        value={l.montant ?? 0}
-                        onValueChange={(n) => setLigne(i, { montant: n })}
-                      />
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <Input
-                        className="h-8"
-                        value={l.facture}
-                        onChange={(e) => setLigne(i, { facture: e.target.value })}
-                        placeholder="219+217+218"
-                      />
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <Input
-                        className="h-8"
-                        value={l.remarque}
-                        onChange={(e) =>
-                          setLigne(i, { remarque: e.target.value })
-                        }
-                        placeholder="NON / RS…"
-                      />
-                    </td>
-                    <td className="px-1.5 py-1">
-                      <button
-                        onClick={() =>
-                          setLignes((ls) => ls.filter((_, idx) => idx !== i))
-                        }
-                        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
+          <div className="overflow-hidden rounded-xl border border-accent/30 bg-card">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[44rem] text-sm">
+                <thead className="bg-accent/[0.08] text-sm text-primary">
+                  <tr>
+                    <th className="w-12 px-3 py-3 text-left font-semibold">N°</th>
+                    <th className="px-2 py-3 text-left font-semibold">Chq / Effet</th>
+                    <th className="px-2 py-3 text-left font-semibold">
+                      {volet === "client" ? "Client" : "Fournisseur"}
+                    </th>
+                    <th className="px-2 py-3 text-right font-semibold">Montant</th>
+                    <th className="px-2 py-3 text-left font-semibold">Réf. facture</th>
+                    <th className="px-2 py-3 text-left font-semibold">Remarque</th>
+                    <th className="w-12 px-2 py-3" />
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-border bg-muted/30 font-medium">
-                  <td colSpan={3} className="px-2 py-2 text-right text-muted-foreground">
-                    Sous-total du bordereau
-                  </td>
-                  <td className="px-2 py-2">
-                    {total.toLocaleString("fr-FR", {
-                      minimumFractionDigits: 3,
-                      maximumFractionDigits: 3,
-                    })}
-                  </td>
-                  <td colSpan={3} />
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody>
+                  {lignes.map((l, i) => (
+                    <tr key={i} className="border-t border-accent/20">
+                      <td className="px-3 py-2.5 text-base text-muted-foreground">{i + 1}</td>
+                      <td className="px-1.5 py-2.5">
+                        <Input
+                          className={cell}
+                          aria-label={`Chèque ou effet, ligne ${i + 1}`}
+                          value={l.cheque}
+                          onChange={(e) => setLigne(i, { cheque: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-1.5 py-2.5">
+                        <Input
+                          className={cell}
+                          aria-label={`${volet === "client" ? "Client" : "Fournisseur"}, ligne ${i + 1}`}
+                          value={l.tiers}
+                          onChange={(e) => setLigne(i, { tiers: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-1.5 py-2.5">
+                        <AmountInput
+                          className={`${cell} text-right`}
+                          aria-label={`Montant, ligne ${i + 1}`}
+                          value={l.montant ?? 0}
+                          onValueChange={(n) => setLigne(i, { montant: n })}
+                        />
+                      </td>
+                      <td className="px-1.5 py-2.5">
+                        <Input
+                          className={cell}
+                          aria-label={`Référence facture, ligne ${i + 1}`}
+                          value={l.facture}
+                          onChange={(e) => setLigne(i, { facture: e.target.value })}
+                          placeholder="219+217+218"
+                        />
+                      </td>
+                      <td className="px-1.5 py-2.5">
+                        <Input
+                          className={cell}
+                          aria-label={`Remarque, ligne ${i + 1}`}
+                          value={l.remarque}
+                          onChange={(e) => setLigne(i, { remarque: e.target.value })}
+                          placeholder="NON / RS…"
+                        />
+                      </td>
+                      <td className="px-1.5 py-2.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setLignes((ls) => ls.filter((_, idx) => idx !== i))}
+                          className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={`Supprimer la ligne ${i + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-end gap-10 border-t border-accent/25 bg-accent/[0.05] px-5 py-4">
+              <span className="text-base text-muted-foreground">Sous-total du bordereau</span>
+              <span className="min-w-24 text-right text-xl font-bold tabular-nums text-primary">
+                {total.toLocaleString("fr-FR", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}
+              </span>
+            </div>
           </div>
 
           <Button
+            type="button"
             variant="outline"
-            size="sm"
+            className="h-11 rounded-lg px-5"
             onClick={() => setLignes((ls) => [...ls, emptyLigne()])}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 text-accent" />
             Ajouter une ligne
           </Button>
 
-          <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-            <div className="space-y-1.5">
-              <Label>Note / observation du bordereau</Label>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-            <label className="flex items-end gap-2 pb-2">
+          <div className="grid items-center gap-4 sm:grid-cols-[1fr_auto]">
+            <CardField id="bordereau-note" label="Note / observation du bordereau">
+              <input
+                id="bordereau-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className={`${CARD_FIELD_INPUT} min-h-8`}
+              />
+            </CardField>
+            <label className="flex items-center gap-3 sm:px-2">
               <Checkbox
                 checked={pointe}
                 onCheckedChange={(c) => setPointe(Boolean(c))}
+                className="size-5 rounded-md"
               />
-              <span className="text-sm text-foreground">Pointé / rapproché</span>
+              <span className="text-base text-foreground">Pointé / rapproché</span>
             </label>
           </div>
-        </SheetBody>
+        </div>
 
-        <SheetFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <div className="flex shrink-0 justify-end gap-3 border-t border-accent/30 px-6 py-4 sm:px-8">
+          <Button type="button" variant="outline" className="h-12 rounded-lg px-6" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button variant="ledger" onClick={submit}>
+          <Button
+            type="button"
+            variant="ledger"
+            className="h-12 rounded-lg px-6 text-sm uppercase tracking-[0.14em]"
+            onClick={submit}
+          >
             {isEdit ? "Enregistrer" : "Créer le bordereau"}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

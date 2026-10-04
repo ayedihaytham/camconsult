@@ -9,10 +9,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
-import { EmptyState } from "@/components/common/EmptyState";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +37,7 @@ const fmt = (n: number) =>
 const TYPES = Object.keys(BORDEREAU_TYPE_LABELS) as BordereauType[];
 
 const selectTriggerClass =
-  "h-auto w-auto gap-1.5 rounded-none border-0 border-b border-border bg-transparent px-0 pb-1.5 text-sm shadow-none focus:ring-0 data-[placeholder]:text-muted-foreground";
+  "h-11 w-auto min-w-[10rem] gap-2 rounded-lg border border-accent/35 bg-card px-4 text-base text-primary shadow-none focus:ring-0 data-[placeholder]:text-muted-foreground";
 
 export function BordereauxPage() {
   const list = useBordereaux((s) => s.list);
@@ -170,15 +167,26 @@ export function BordereauxPage() {
     XLSX.writeFile(wb, "Bordereaux_bancaires.xlsx");
   }
 
+  const nbPointes = filtered.filter((b) => b.pointe).length;
+  const compteParType = (t: BordereauType) => list.filter((b) => b.type === t).length;
+
   return (
     <div className="flex flex-1 flex-col">
-      <LedgerPageHeader
+      <SignatureLedgerBanner
+        icon={Landmark}
+        eyebrow="Comptabilité · Banque"
         title="Bordereaux bancaires"
-        description="Registre interne du cabinet — virements, remises de traites et de chèques, par bordereau."
+        description="Virements, remises de traites et remises de chèques."
+        metrics={[
+          { label: filtered.length > 1 ? "Bordereaux" : "Bordereau", value: filtered.length, loading },
+          { label: "Total", value: fmt(grandTotal), loading },
+          { label: filtered.length > 1 ? "Pointés" : "Pointé", value: nbPointes, tone: "default", loading },
+          { label: "Non pointé", value: filtered.length - nbPointes, loading },
+        ]}
         actions={
-          <div data-tour="bordereaux-actions" className="flex gap-2">
-            <Button variant="ledger-text" onClick={exportXlsx}>
-              <Download className="h-3.5 w-3.5" />
+          <div data-tour="bordereaux-actions" className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" className="signature-ledger__action" onClick={exportXlsx}>
+              <Download className="h-4 w-4" />
               Excel
             </Button>
             <Button
@@ -195,169 +203,183 @@ export function BordereauxPage() {
         }
       />
 
-      <div data-tour="bordereaux-filters" className="mt-3">
-        <LedgerSegmented
-          value={type}
-          onChange={setType}
-          options={TYPES.map((t) => ({ value: t, label: BORDEREAU_TYPE_LABELS[t] }))}
-        />
-      </div>
-
-      <div className="my-3 flex flex-wrap items-end gap-3">
-        <Select value={volet} onValueChange={setVolet}>
-          <SelectTrigger className={selectTriggerClass}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Clients + Fournisseurs</SelectItem>
-            <SelectItem value="client">Clients (411)</SelectItem>
-            <SelectItem value="fournisseur">Fournisseurs (401)</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={annee} onValueChange={setAnnee}>
-          <SelectTrigger className={selectTriggerClass}>
-            <SelectValue placeholder="Année" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Toutes années</SelectItem>
-            {annees.map((y) => (
-              <SelectItem key={y} value={y}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={pointeFilter} onValueChange={setPointeFilter}>
-          <SelectTrigger className={selectTriggerClass}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Pointés + non</SelectItem>
-            <SelectItem value="oui">Pointés</SelectItem>
-            <SelectItem value="non">Non pointés</SelectItem>
-          </SelectContent>
-        </Select>
-        <span className="ml-auto text-sm text-muted-foreground">
-          {filtered.length} bordereau(x) · total{" "}
-          <span className="font-bold tabular-nums text-foreground">
-            {fmt(grandTotal)}
-          </span>
-        </span>
-      </div>
-
-      {filtered.length === 0 ? (
-        <LedgerSheet data-tour="bordereaux-register" className="flex-1">
-          <EmptyState
-            icon={Landmark}
-            title={loading ? "Chargement…" : "Aucun bordereau"}
-            description="Créez un bordereau : en-tête (n° + date) puis ses lignes."
-          />
-        </LedgerSheet>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((b) => (
-            <LedgerSheet data-tour="bordereaux-register" key={b.id}>
-              <div className="flex flex-wrap items-center gap-3 rounded-t-sm border-b border-border bg-muted px-3 py-2.5 sm:px-4">
-                <span className="font-extrabold text-foreground">
-                  {b.numero || "—"}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {b.dateOperation ? formatDate(b.dateOperation) : "—"}
-                </span>
-                <span className="rounded-[3px] border border-border px-2 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-muted-foreground">
-                  {BORDEREAU_VOLET_LABELS[b.volet]}
-                </span>
-                <button
-                  onClick={() => update(b.id, { pointe: !b.pointe })}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground"
-                  title="Basculer pointé"
-                >
-                  {b.pointe ? (
-                    <CheckCircle2 className="h-4 w-4 text-success" />
-                  ) : (
-                    <Circle className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  {b.pointe ? "Pointé" : "Non pointé"}
-                </button>
-                <span className="ml-auto font-extrabold tabular-nums text-foreground">
-                  {fmt(sousTotal(b))}
-                </span>
-                <button
-                  onClick={() => {
-                    setEditing(b);
-                    setFormOpen(true);
-                  }}
-                  className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setToDelete(b)}
-                  className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              {b.note && (
-                <p className="border-b border-border px-4 py-1.5 text-xs text-muted-foreground">
-                  {b.note}
-                </p>
-              )}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className="w-10 border-b border-border px-2 py-1.5 text-[0.64rem] font-bold uppercase tracking-wide text-muted-foreground">
-                        N°
-                      </th>
-                      <th className="border-b border-border px-2 py-1.5 text-left text-[0.64rem] font-bold uppercase tracking-wide text-muted-foreground">
-                        CHQ / Effet
-                      </th>
-                      <th className="border-b border-border px-2 py-1.5 text-left text-[0.64rem] font-bold uppercase tracking-wide text-muted-foreground">
-                        {b.volet === "client" ? "Client" : "Fournisseur"}
-                      </th>
-                      <th className="border-b border-border px-2 py-1.5 text-right text-[0.64rem] font-bold uppercase tracking-wide text-muted-foreground">
-                        Montant
-                      </th>
-                      <th className="border-b border-border px-2 py-1.5 text-left text-[0.64rem] font-bold uppercase tracking-wide text-muted-foreground">
-                        Réf. facture
-                      </th>
-                      <th className="border-b border-border px-2 py-1.5 text-left text-[0.64rem] font-bold uppercase tracking-wide text-muted-foreground">
-                        Remarque
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {b.lignes.map((l, i) => (
-                      <tr
-                        key={l.id ?? i}
-                        className={cn(
-                          i === b.lignes.length - 1 ? "" : "border-b border-border",
-                        )}
-                      >
-                        <td className="px-2 py-1.5 text-center text-xs text-muted-foreground">
-                          {i + 1}
-                        </td>
-                        <td className="px-2 py-1.5 font-mono text-xs">{l.cheque || "—"}</td>
-                        <td className="px-2 py-1.5">{l.tiers || "—"}</td>
-                        <td className="px-2 py-1.5 text-right tabular-nums">
-                          {fmt(Number(l.montant) || 0)}
-                        </td>
-                        <td className="px-2 py-1.5 font-mono text-xs text-muted-foreground">
-                          {l.facture || "—"}
-                        </td>
-                        <td className="px-2 py-1.5 text-muted-foreground">
-                          {l.remarque || "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </LedgerSheet>
-          ))}
+      <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
+        <div
+          data-tour="bordereaux-filters"
+          role="group"
+          aria-label="Type de bordereau"
+          className="flex min-w-0 gap-8 overflow-x-auto border-b border-accent/25 px-6"
+        >
+          {TYPES.map((t) => {
+            const active = type === t;
+            const n = compteParType(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setType(t)}
+                className={cn(
+                  "-mb-px flex shrink-0 items-center gap-2 border-b-2 py-4 text-base transition-colors",
+                  active
+                    ? "border-accent font-semibold text-primary"
+                    : "border-transparent text-muted-foreground hover:text-primary",
+                )}
+              >
+                {BORDEREAU_TYPE_LABELS[t]}
+                {n > 0 && (
+                  <span className="grid min-w-6 place-items-center rounded-full bg-accent px-1.5 text-xs font-bold leading-6 text-accent-foreground">
+                    {n}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
-      )}
+
+        <div className="flex flex-wrap items-center gap-3 px-6 py-5">
+          <Select value={volet} onValueChange={setVolet}>
+            <SelectTrigger className={selectTriggerClass}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Clients + Fournisseurs</SelectItem>
+              <SelectItem value="client">Clients (411)</SelectItem>
+              <SelectItem value="fournisseur">Fournisseurs (401)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={annee} onValueChange={setAnnee}>
+            <SelectTrigger className={selectTriggerClass}>
+              <SelectValue placeholder="Année" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes années</SelectItem>
+              {annees.map((y) => (
+                <SelectItem key={y} value={y}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={pointeFilter} onValueChange={setPointeFilter}>
+            <SelectTrigger className={selectTriggerClass}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Pointés + non</SelectItem>
+              <SelectItem value="oui">Pointés</SelectItem>
+              <SelectItem value="non">Non pointés</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="ml-auto text-base text-muted-foreground">
+            {filtered.length} bordereau{filtered.length > 1 ? "x" : ""} · total{" "}
+            <span className="font-bold tabular-nums text-primary">{fmt(grandTotal)}</span>
+          </span>
+        </div>
+
+        <div data-tour="bordereaux-register" className="px-6 pb-6">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-accent/40 px-4 py-12 text-center">
+              <span className="grid size-[60px] place-items-center rounded-full bg-accent/15 text-primary">
+                <Landmark className="size-6" aria-hidden="true" />
+              </span>
+              <p className="font-serif text-2xl font-medium text-primary">
+                {loading ? "Chargement…" : "Aucun bordereau"}
+              </p>
+              <p className="max-w-md text-base text-muted-foreground">
+                Créez un bordereau : en-tête (n° + date) puis ses lignes.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filtered.map((b) => (
+                <article key={b.id} className="overflow-hidden rounded-xl border border-accent/30 bg-card">
+                  <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-accent/25 bg-accent/[0.07] px-5 py-4">
+                    <span className="text-base text-muted-foreground">
+                      N° <span className="font-semibold text-primary">{b.numero || "—"}</span>
+                    </span>
+                    <span className="text-base text-muted-foreground">
+                      {b.dateOperation ? formatDate(b.dateOperation) : "—"}
+                    </span>
+                    <span className="rounded-md border border-accent/35 bg-card px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary">
+                      {BORDEREAU_VOLET_LABELS[b.volet]}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => update(b.id, { pointe: !b.pointe })}
+                      className="inline-flex items-center gap-2 text-base font-medium text-primary"
+                      title="Basculer pointé"
+                    >
+                      {b.pointe ? (
+                        <CheckCircle2 className="h-5 w-5 text-success" />
+                      ) : (
+                        <Circle className="h-5 w-5 text-muted-foreground" />
+                      )}
+                      {b.pointe ? "Pointé" : "Non pointé"}
+                    </button>
+                    <span className="ml-auto font-serif text-3xl font-medium tabular-nums text-primary">
+                      {fmt(sousTotal(b))}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(b);
+                        setFormOpen(true);
+                      }}
+                      className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                      aria-label="Modifier ce bordereau"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setToDelete(b)}
+                      className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Supprimer ce bordereau"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </header>
+                  {b.note && (
+                    <p className="border-b border-accent/25 px-5 py-2 text-sm text-muted-foreground">{b.note}</p>
+                  )}
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[40rem] text-base">
+                      <thead>
+                        <tr className="border-b border-accent/25 text-sm font-semibold text-muted-foreground">
+                          <th className="w-14 px-5 py-3 text-left">N°</th>
+                          <th className="px-3 py-3 text-left">CHQ / Effet</th>
+                          <th className="px-3 py-3 text-left">{b.volet === "client" ? "Client" : "Fournisseur"}</th>
+                          <th className="px-3 py-3 text-right">Montant</th>
+                          <th className="px-3 py-3 text-left">Réf. facture</th>
+                          <th className="px-3 py-3 text-left">Remarque</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {b.lignes.map((l, i) => (
+                          <tr
+                            key={l.id ?? i}
+                            className={cn(i === b.lignes.length - 1 ? "" : "border-b border-accent/20")}
+                          >
+                            <td className="px-5 py-3.5 font-serif text-xl text-muted-foreground">{i + 1}</td>
+                            <td className="px-3 py-3.5 font-mono text-sm">{l.cheque || "—"}</td>
+                            <td className="px-3 py-3.5 text-primary">{l.tiers || "—"}</td>
+                            <td className="px-3 py-3.5 text-right font-semibold tabular-nums text-primary">
+                              {fmt(Number(l.montant) || 0)}
+                            </td>
+                            <td className="px-3 py-3.5 font-mono text-sm text-muted-foreground">{l.facture || "—"}</td>
+                            <td className="px-3 py-3.5 text-muted-foreground">{l.remarque || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <BordereauFormSheet
         open={formOpen}

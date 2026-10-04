@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Eye,
@@ -12,14 +12,12 @@ import {
   X,
 } from "lucide-react";
 import {
-  Sheet,
-  SheetBody,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CardField } from "@/components/common/CardField";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/common/AmountInput";
 import { Input } from "@/components/ui/input";
@@ -365,25 +363,30 @@ export function StockMouvementFormSheet({
     );
   }
 
+  const quantiteAchat = v.achatLignes.reduce((total, l) => total + (l.quantite || 0), 0);
+  const quantiteVente = v.venteLignes.reduce((total, l) => total + (l.quantite || 0), 0);
+  const ecartConnu = quantiteAchat > 0 && quantiteVente > 0;
+  const ecart = Math.round((quantiteAchat - quantiteVente) * 1000) / 1000;
+
   return (
     <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl">
-        <SheetHeader>
-          <SheetTitle>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
+        <div className="shrink-0 border-b border-accent/30 px-6 pb-5 pt-6 sm:px-8">
+          <DialogTitle className="pr-8 font-serif text-3xl font-medium text-primary">
             {isEdit ? "Modifier le mouvement" : "Nouveau mouvement de stock"}
-          </SheetTitle>
-          <SheetDescription>
+          </DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted-foreground">
             Importez un PDF par section, ou un seul document combinant
             plusieurs pièces (voir ci-dessous), pour pré-remplir les champs
             (OCR local) — le document reste affiché pour vérifier les
             chiffres avant d'enregistrer.
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </div>
 
-        <SheetBody className="space-y-6">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-6 sm:px-8">
           {/* ── Import "document complet" ──────── */}
-          <div className="space-y-3 rounded-lg border border-dashed border-accent/40 bg-accent/[0.04] p-4">
+          <div className="space-y-3 rounded-xl border border-dashed border-accent/50 bg-accent/[0.06] p-5">
             <input
               ref={batchInputRef}
               type="file"
@@ -397,7 +400,7 @@ export function StockMouvementFormSheet({
             />
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-foreground">
+                <p className="font-serif text-xl font-medium text-primary">
                   Document complet (plusieurs pages)
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -537,19 +540,18 @@ export function StockMouvementFormSheet({
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Nature de la marchandise</Label>
+          <Field label="Nature de la marchandise">
             <Input
               value={v.natureMarchandise}
               onChange={(e) => set("natureMarchandise", e.target.value)}
-              placeholder="HOT WASHED PET FLAKES"
+              placeholder="Ex. HOT WASHED PET FLAKES"
             />
-          </div>
+          </Field>
 
           {/* ── Achat ─────────────────────────── */}
-          <section className="space-y-3 rounded-lg border border-border p-4">
+          <section className="space-y-4 rounded-xl border border-accent/30 bg-card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Achat</h3>
+              <h3 className="font-serif text-2xl font-medium text-primary">Achat</h3>
               <ImportButton type="achat" />
             </div>
             <div
@@ -606,9 +608,9 @@ export function StockMouvementFormSheet({
           </section>
 
           {/* ── Vente ─────────────────────────── */}
-          <section className="space-y-3 rounded-lg border border-border p-4">
+          <section className="space-y-4 rounded-xl border border-accent/30 bg-card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Vente</h3>
+              <h3 className="font-serif text-2xl font-medium text-primary">Vente</h3>
               <ImportButton type="vente" />
             </div>
             <div
@@ -662,9 +664,9 @@ export function StockMouvementFormSheet({
           </section>
 
           {/* ── Douane ────────────────────────── */}
-          <section className="space-y-3 rounded-lg border border-border p-4">
+          <section className="space-y-4 rounded-xl border border-accent/30 bg-card p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Douane</h3>
+              <h3 className="font-serif text-2xl font-medium text-primary">Douane</h3>
               <ImportButton type="douane" />
             </div>
             <div
@@ -734,33 +736,44 @@ export function StockMouvementFormSheet({
             </div>
           </section>
 
-          <div className="space-y-1.5">
-            <Label>Note</Label>
+          <Field label="Note">
             <Textarea
               rows={2}
               value={v.note}
               onChange={(e) => set("note", e.target.value)}
             />
-          </div>
-        </SheetBody>
+          </Field>
+        </div>
 
-        <SheetFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            variant="ledger"
-            onClick={() => {
-              onSubmit(v);
-              onOpenChange(false);
-            }}
-          >
-            {isEdit ? "Enregistrer" : "Créer le mouvement"}
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        <div className="flex shrink-0 flex-col gap-3 border-t border-accent/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span
+              className={cn("size-2 shrink-0 rounded-[2px]", ecartConnu && ecart !== 0 ? "bg-destructive" : "bg-muted-foreground/50")}
+              aria-hidden="true"
+            />
+            {ecartConnu
+              ? `Écart achat − vente : ${ecart.toLocaleString("fr-FR", { maximumFractionDigits: 3 })}`
+              : "Renseignez au moins deux quantités pour contrôler l'écart."}
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button type="button" variant="outline" className="h-12 rounded-lg px-6" onClick={() => onOpenChange(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="ledger"
+              className="h-12 rounded-lg px-6 text-sm uppercase tracking-[0.14em]"
+              onClick={() => {
+                onSubmit(v);
+                onOpenChange(false);
+              }}
+            >
+              {isEdit ? "Enregistrer" : "Enregistrer le mouvement"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     <DocPreviewDialog
       open={Boolean(batchPreview)}
@@ -773,11 +786,16 @@ export function StockMouvementFormSheet({
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const generated = useId();
+  const child =
+    isValidElement<{ id?: string }>(children) && (children.type === Input || children.type === Textarea || children.type === AmountInput)
+      ? cloneElement(children, { id: children.props.id ?? generated })
+      : children;
+  const id = isValidElement<{ id?: string }>(child) && child.props.id ? child.props.id : generated;
   return (
-    <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
-      {children}
-    </div>
+    <CardField id={id} label={label}>
+      {child}
+    </CardField>
   );
 }
 

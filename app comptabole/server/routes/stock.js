@@ -118,6 +118,16 @@ async function lignesOf(mouvementId) {
   return rows;
 }
 
+// Nombre de mouvements par société accessible (liste des sociétés du module).
+stockRouter.get("/compteurs", async (req, res) => {
+  const { rows } = await query(
+    "select societe_id, count(*)::int as n from stock_mouvements group by societe_id",
+  );
+  const counts = {};
+  for (const r of rows) if (canAccess(req.session, r.societe_id)) counts[r.societe_id] = r.n;
+  res.json(counts);
+});
+
 stockRouter.get("/mouvements", async (req, res) => {
   const societeId = req.query.societeId;
   if (!societeId) return res.status(400).json({ error: "societeId requis" });

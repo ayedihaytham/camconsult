@@ -58,7 +58,10 @@ interface StockState {
   list: StockMouvement[];
   loading: boolean;
   extracting: boolean;
+  /** Nombre de mouvements par société (page d'accueil du module). */
+  counts: Record<string, number>;
 
+  fetchCounts: () => Promise<void>;
   fetchList: (societeId: string) => Promise<void>;
   clear: () => void;
   create: (data: StockMouvementInput) => Promise<StockMouvement>;
@@ -74,6 +77,15 @@ export const useStock = create<StockState>((set) => ({
   list: [],
   loading: false,
   extracting: false,
+  counts: {},
+
+  fetchCounts: async () => {
+    try {
+      set({ counts: await api.get<Record<string, number>>("/stock/compteurs") });
+    } catch {
+      /* l'accueil s'affiche sans compteurs */
+    }
+  },
 
   fetchList: async (societeId) => {
     set({ loading: true });

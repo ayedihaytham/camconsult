@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Plus, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -6,7 +7,7 @@ import { ModuleBannerTitle } from "./ModuleBannerTitle";
 
 export interface SignatureLedgerMetric {
   label: string;
-  value: number;
+  value: number | string;
   tone?: "default" | "success" | "warning" | "destructive";
   loading?: boolean;
 }
@@ -19,6 +20,8 @@ interface SignatureLedgerBannerProps {
   metrics: SignatureLedgerMetric[];
   contextLabel?: string;
   action?: { label: string; onClick: () => void };
+  /** Plusieurs actions libres (ex. Excel + Nouveau mouvement) à la place de `action`. */
+  actions?: ReactNode;
   variant?: "registry" | "process" | "compact";
   titleId?: string;
   className?: string;
@@ -33,6 +36,7 @@ export function SignatureLedgerBanner({
   metrics,
   contextLabel,
   action,
+  actions,
   variant = "registry",
   titleId,
   className,
@@ -67,7 +71,8 @@ export function SignatureLedgerBanner({
         {variant === "compact" && contextLabel && (
           <span className="signature-ledger__compact-context">{contextLabel}</span>
         )}
-        {action && (
+        {actions}
+        {action && !actions && (
           <Button
             data-tour="page-primary-action"
             type="button"

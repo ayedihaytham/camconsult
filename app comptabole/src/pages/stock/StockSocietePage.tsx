@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
   Boxes,
   Download,
   FolderInput,
@@ -11,10 +10,8 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { LedgerKpiRow } from "@/components/ledger/LedgerKpiRow";
-import { EmptyState } from "@/components/common/EmptyState";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
@@ -32,7 +29,6 @@ const fmtQ = (n: number) =>
 
 export function StockSocietePage() {
   const { societeId = "" } = useParams();
-  const navigate = useNavigate();
   const societe = useSocieteById(societeId);
 
   const list = useStock((s) => s.list);
@@ -128,6 +124,11 @@ export function StockSocietePage() {
     }
   }
 
+  function openNew() {
+    setEditing(null);
+    setFormOpen(true);
+  }
+
   async function exportXlsx() {
     const XLSX = await import("xlsx");
     const header = [
@@ -167,84 +168,71 @@ export function StockSocietePage() {
 
   return (
     <div>
-      <LedgerPageHeader
-        breadcrumb={
-          <button
-            onClick={() => navigate("/stock")}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Toutes les sociétés
-          </button>
-        }
-        title={`Stock — ${societe?.raisonSociale ?? "Société"}`}
-        description="Un mouvement = un achat et/ou une vente appariés. L'écart doit tendre vers 0."
-        actions={
-          <div data-tour="stock-actions" className="flex gap-2">
-            <Button variant="ledger-text" onClick={exportXlsx}>
-              <Download className="h-3.5 w-3.5" />
-              Excel
-            </Button>
-            <Button
-              variant="ledger"
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              Nouveau mouvement
-            </Button>
-          </div>
-        }
-      />
-
-      {/* KPI en lignes de relevé — héros = Anomalies, le signal métier le
-          plus critique de cet écran (écart doit tendre vers 0), pas le 1er
-          indicateur par défaut. Voir DESIGN-SYSTEM.md §1. */}
-      <LedgerSheet data-tour="stock-summary" className="mt-4">
-        <LedgerKpiRow
-          hero
-          danger={nbAnomalies > 0}
-          label="Anomalies (écart ≠ 0)"
-          value={String(nbAnomalies)}
+      <div data-tour="stock-summary">
+        <SignatureLedgerBanner
+          icon={Boxes}
+          eyebrow="Clients & travail · Stock"
+          title="Gestion de stock"
+          description={`${societe?.raisonSociale ?? "Société"} · ${societe?.code ?? ""}`}
+          metrics={[
+            { label: "Anomalies (écart ≠ 0)", value: nbAnomalies, tone: nbAnomalies > 0 ? "destructive" : "default" },
+            { label: "Qté achetée", value: fmtQ(totals.achatQ) },
+            { label: "Qté vendue", value: fmtQ(totals.venteQ) },
+            { label: "Montant achats (TND)", value: fmt(totals.achatTnd) },
+          ]}
+          actions={
+            <div data-tour="stock-actions" className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" className="signature-ledger__action" onClick={exportXlsx}>
+                <Download className="h-4 w-4" />
+                Excel
+              </Button>
+              <Button variant="ledger" onClick={openNew}>
+                <Plus className="h-4 w-4" />
+                Nouveau mouvement
+              </Button>
+            </div>
+          }
         />
-        <LedgerKpiRow label="Qté achetée" value={fmtQ(totals.achatQ)} />
-        <LedgerKpiRow label="Qté vendue" value={fmtQ(totals.venteQ)} />
-        <LedgerKpiRow label="Montant achats (TND)" value={fmt(totals.achatTnd)} />
-      </LedgerSheet>
+      </div>
 
-      <label className="my-3 flex w-fit cursor-pointer items-center gap-2 text-sm text-foreground">
-        <span
-          onClick={() => setOnlyAnomalies((v) => !v)}
-          className={cn(
-            "flex h-[15px] w-[15px] items-center justify-center rounded-[3px] border-[1.5px]",
-            onlyAnomalies
-              ? "border-foreground bg-foreground"
-              : "border-muted-foreground bg-card",
-          )}
-        >
-          {onlyAnomalies && (
-            <svg viewBox="0 0 10 10" className="h-2 w-2" fill="none">
-              <path d="M1 5l2.5 2.5L9 2" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
-        </span>
-        <span onClick={() => setOnlyAnomalies((v) => !v)}>
-          Anomalies seulement {nbAnomalies > 0 && `(${nbAnomalies})`}
-        </span>
-      </label>
+      <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="stock-register">
+        <div className="flex items-center justify-between gap-3 px-5 py-4">
+          <label className="flex w-fit cursor-pointer items-center gap-3 text-base text-foreground">
+            <Checkbox
+              checked={onlyAnomalies}
+              onCheckedChange={(v) => setOnlyAnomalies(v === true)}
+              className="size-5 rounded-md"
+            />
+            Anomalies seulement {nbAnomalies > 0 && `(${nbAnomalies})`}
+          </label>
+          <span className="text-sm tabular-nums text-muted-foreground">
+            {shown.length} mouvement{shown.length > 1 ? "s" : ""}
+          </span>
+        </div>
+        {shown.length === 0 && (
+          <div className="border-t border-accent/25">
+            <div className="flex flex-col items-center gap-3 px-4 py-14 text-center">
+              <span className="grid size-[70px] place-items-center rounded-full bg-accent/15 text-primary">
+                <Boxes className="size-7" aria-hidden="true" />
+              </span>
+              <p className="font-serif text-2xl font-medium text-primary">
+                {loading ? "Chargement…" : "Aucun mouvement"}
+              </p>
+              <p className="max-w-md text-base text-muted-foreground">
+                Créez un mouvement : renseignez l'achat, la vente et/ou la douane, ou importez un PDF.
+              </p>
+              <Button variant="outline" className="mt-2 h-11 rounded-lg px-5" onClick={openNew}>
+                <Plus className="h-4 w-4" />
+                Nouveau mouvement
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
-      {shown.length === 0 ? (
-        <LedgerSheet data-tour="stock-register">
-          <EmptyState
-            icon={Boxes}
-            title={loading ? "Chargement…" : "Aucun mouvement"}
-            description="Créez un mouvement : renseignez l'achat, la vente et/ou la douane, ou importez un PDF."
-          />
-        </LedgerSheet>
-      ) : (
-        <div className="flex flex-col gap-3">
+      {shown.length > 0 && (
+        <div className="mt-3 flex flex-col gap-3">
+
           {shown.map((m) => {
             const hasDouane = Boolean(
               m.douaneNumDeclaration || m.douaneDate || m.douaneRegime ||

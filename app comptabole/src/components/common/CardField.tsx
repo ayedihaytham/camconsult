@@ -27,7 +27,7 @@ export function CardField({
     <div className={cn("min-w-0", className)}>
       <div
         className={cn(
-          "group rounded-lg border bg-secondary/60 px-4 pb-2.5 pt-3 transition-[border-color,background-color,box-shadow] duration-150 focus-within:border-primary focus-within:bg-card focus-within:shadow-[0_0_0_3px_hsl(var(--accent)/0.22)]",
+          "card-field group rounded-lg border bg-secondary/60 px-4 pb-2.5 pt-3 transition-[border-color,background-color,box-shadow] duration-150 focus-within:border-primary focus-within:bg-card focus-within:shadow-[0_0_0_3px_hsl(var(--accent)/0.22)]",
           error ? "border-destructive/60" : "border-accent/35",
         )}
       >

@@ -1208,3 +1208,33 @@
 .signature-ledger__metric dd {
   font-feature-settings: "lnum" 1;
 }
+
+/* Champ « carte » : les champs existants (Input, AmountInput, Select) posés dans un
+   CardField perdent leur propre cadre — le cadre est celui de la carte. */
+.card-field :is(input, textarea, select, [role="combobox"]) {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  font-size: 1rem;
+}
+.card-field input,
+.card-field textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+.card-field :is(input, textarea)::placeholder {
+  color: hsl(var(--muted-foreground) / 0.5);
+}
+.card-field [role="combobox"] {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+.card-field input.pr-8 {
+  padding-right: 2rem !important;
+}

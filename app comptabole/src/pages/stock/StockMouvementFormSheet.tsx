@@ -371,7 +371,7 @@ export function StockMouvementFormSheet({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
+      <DialogContent className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[1600px] flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
         <div className="shrink-0 border-b border-accent/30 px-6 pb-5 pt-6 sm:px-8">
           <DialogTitle className="pr-8 font-serif text-3xl font-medium text-primary">
             {isEdit ? "Modifier le mouvement" : "Nouveau mouvement de stock"}
@@ -557,7 +557,7 @@ export function StockMouvementFormSheet({
             <div
               className={cn(
                 "grid gap-4",
-                v.achatDocDataUrl && previewOpen.achat && "lg:grid-cols-[2fr_3fr]",
+                v.achatDocDataUrl && previewOpen.achat && "lg:grid-cols-[5fr_7fr]",
               )}
             >
               <div className="space-y-3">
@@ -616,7 +616,7 @@ export function StockMouvementFormSheet({
             <div
               className={cn(
                 "grid gap-4",
-                v.venteDocDataUrl && previewOpen.vente && "lg:grid-cols-[2fr_3fr]",
+                v.venteDocDataUrl && previewOpen.vente && "lg:grid-cols-[5fr_7fr]",
               )}
             >
               <div className="space-y-3">
@@ -672,7 +672,7 @@ export function StockMouvementFormSheet({
             <div
               className={cn(
                 "grid gap-4",
-                v.douaneDocDataUrl && previewOpen.douane && "lg:grid-cols-[2fr_3fr]",
+                v.douaneDocDataUrl && previewOpen.douane && "lg:grid-cols-[5fr_7fr]",
               )}
             >
               <div className="grid grid-cols-2 gap-3">

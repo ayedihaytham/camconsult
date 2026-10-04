@@ -20,20 +20,27 @@ async function waitForExtraction<T>(response: T | { jobId: string }): Promise<T>
     return response as T;
   }
   const started = Date.now();
-  for (;;) {
-    await new Promise((resolve) => setTimeout(resolve, EXTRACT_POLL_MS));
-    const job = await api.get<
-      | { status: "pending" }
-      | { status: "error"; error?: string }
-      | { status: "done"; result: T }
-    >(`/stock/extract-jobs/${response.jobId}`);
-    if (job.status === "done") return job.result;
-    if (job.status === "error") {
-      throw new ApiError(job.error ?? "Extraction impossible sur ce document.", 500);
+  const notice = toast.loading(
+    "Lecture du document en cours — cela peut prendre quelques minutes. Gardez cette fenêtre ouverte.",
+  );
+  try {
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, EXTRACT_POLL_MS));
+      const job = await api.get<
+        | { status: "pending" }
+        | { status: "error"; error?: string }
+        | { status: "done"; result: T }
+      >(`/stock/extract-jobs/${response.jobId}`);
+      if (job.status === "done") return job.result;
+      if (job.status === "error") {
+        throw new ApiError(job.error ?? "Extraction impossible sur ce document.", 500);
+      }
+      if (Date.now() - started > EXTRACT_TIMEOUT_MS) {
+        throw new ApiError("L'extraction prend trop de temps. Réessayez dans un instant.", 504);
+      }
     }
-    if (Date.now() - started > EXTRACT_TIMEOUT_MS) {
-      throw new ApiError("L'extraction prend trop de temps. Réessayez dans un instant.", 504);
-    }
+  } finally {
+    toast.dismiss(notice);
   }
 }
 

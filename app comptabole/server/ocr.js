@@ -157,11 +157,34 @@ function logRuspinaFallback(err) {
  * (n° de facture ou de déclaration, vendeur) lu par l'OCR local ; à défaut de
  * correspondance sûre, l'ordre du dossier est utilisé quand le nombre de
  * pages est identique. */
-async function imagesPourPagesRuspina(buffer, mime, dataUrl, pages, data) {
+/** Rastérise les pages et lit leur texte avec l'OCR local. Lancé EN PARALLÈLE
+ * de l'appel au moteur RUSPINA (qui ne dépend pas de ce résultat) pour que
+ * cette étape ne s'ajoute pas à sa durée. Ne lève jamais : sans pages
+ * exploitables, les aperçus sont simplement absents. */
+async function preparerPagesPhysiques(buffer, mime) {
+  const vide = { rastered: [], textes: [] };
+  if (mime.startsWith("image/")) return vide;
+  try {
+    const rastered = await rasterizeAllPages(buffer);
+    const textes = [];
+    for (const { png } of rastered) {
+      try {
+        textes.push(normalizeFlat((await ocrImage(png)).text));
+      } catch {
+        textes.push("");
+      }
+    }
+    return { rastered, textes };
+  } catch {
+    return vide;
+  }
+}
+
+function imagesPourPagesRuspina(preparation, mime, dataUrl, pages, data) {
   if (mime.startsWith("image/")) {
     return pages.length === 1 ? [dataUrl] : pages.map(() => null);
   }
-  const rastered = await rasterizeAllPages(buffer);
+  const { rastered, textes } = preparation;
   if (rastered.length === 0) return pages.map(() => null);
   const toUrl = (png) => `data:image/png;base64,${png.toString("base64")}`;
 
@@ -175,14 +198,6 @@ async function imagesPourPagesRuspina(buffer, mime, dataUrl, pages, data) {
   if (data.page2) groupes.push(1);
   if (data.page3) groupes.push(2);
 
-  const textes = [];
-  for (const { png } of rastered) {
-    try {
-      textes.push(normalizeFlat((await ocrImage(png)).text));
-    } catch {
-      textes.push("");
-    }
-  }
   const scoreDe = (texte, groupe) =>
     cles[groupe]
       .filter(Boolean)
@@ -220,10 +235,12 @@ async function imagesPourPagesRuspina(buffer, mime, dataUrl, pages, data) {
 }
 
 async function extractPagesRuspina(buffer, mime, dataUrl) {
+  // Préparation des pages physiques pendant que le moteur lit le dossier.
+  const preparation = preparerPagesPhysiques(buffer, mime);
   const data = await ruspinaProcess(buffer, mime);
   const pages = ruspinaVersPages(data);
   if (pages.length === 0) throw new Error("aucun groupe de pages reconnu");
-  const images = await imagesPourPagesRuspina(buffer, mime, dataUrl, pages, data);
+  const images = imagesPourPagesRuspina(await preparation, mime, dataUrl, pages, data);
   return pages.map((page, index) => ({ ...page, index, imageDataUrl: images[index] }));
 }
 

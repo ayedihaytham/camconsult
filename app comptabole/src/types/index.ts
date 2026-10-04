@@ -337,6 +337,10 @@ export interface StockMouvement {
   /** Taux de change douanier (TND pour 1 unité de devise) et valeur en douane (TND). */
   douaneTauxChange: number;
   douaneValeurTnd: number;
+  /** PTFN déclaré, exportateur et importateur de la déclaration douanière. */
+  douanePtfn: number;
+  douaneExportateur: string;
+  douaneImportateur: string;
 
   /** document source (PDF/image en data URL) conservé pour vérification */
   achatDocDataUrl: string | null;
@@ -368,6 +372,9 @@ export interface StockChamps {
   reference?: string;
   tauxChange?: number;
   valeurTnd?: number;
+  ptfn?: number;
+  exportateur?: string;
+  importateur?: string;
 }
 
 export interface StockExtractResult {

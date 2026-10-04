@@ -149,7 +149,10 @@ function champsRuspina(p) {
 }
 
 function champsDouaneVides() {
-  return { numDeclaration: "", date: "", regime: "", reference: "", tauxChange: 0, valeurTnd: 0 };
+  return {
+    numDeclaration: "", date: "", regime: "", reference: "",
+    tauxChange: 0, valeurTnd: 0, ptfn: 0, exportateur: "", importateur: "",
+  };
 }
 
 /** Déclaration douanière (page 3 du service). */
@@ -164,6 +167,9 @@ function champsDouane(p) {
       reference: "",
       tauxChange: normaliserNombre(p.currency_conversion_rate),
       valeurTnd: normaliserNombre(p.customs_total_value_tnd),
+      ptfn: normaliserNombre(p.ptfn_amount),
+      exportateur: text(p.exporter),
+      importateur: text(p.importer),
     },
   };
 }
@@ -191,9 +197,6 @@ export function ruspinaVersPages(data) {
   if (data?.page2) add("vente", champsRuspina(data.page2));
   if (data?.page3) {
     add("douane", champsDouane(data.page3), {
-      exportateur: text(data.page3.exporter),
-      importateur: text(data.page3.importer),
-      montantPtfn: normaliserNombre(data.page3.ptfn_amount),
       tauxChange: normaliserNombre(data.page3.currency_conversion_rate),
       valeurDouaneTnd: normaliserNombre(data.page3.customs_total_value_tnd),
     });

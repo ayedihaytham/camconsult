@@ -70,11 +70,22 @@ const empty = (societeId: string): StockMouvementInput => ({
   douaneReference: "",
   douaneTauxChange: 0,
   douaneValeurTnd: 0,
+  douanePtfn: 0,
+  douaneExportateur: "",
+  douaneImportateur: "",
   achatDocDataUrl: null,
   venteDocDataUrl: null,
   douaneDocDataUrl: null,
   note: "",
 });
+
+/** Montant en dinars d'une ligne = montant en devise × cours (arrondi au millime). */
+const montantTnd = (montantDevise: number, cours: number) =>
+  Math.round((montantDevise || 0) * (cours || 0) * 1000) / 1000;
+
+/** Recalcule le montant en dinars de toutes les lignes avec le cours donné. */
+const avecMontantsTnd = (lignes: StockLigne[], cours: number): StockLigne[] =>
+  lignes.map((l) => ({ ...l, montantTnd: montantTnd(l.montantDevise, cours) }));
 
 const ligneVide = (): StockLigne => ({
   designation: "",
@@ -192,7 +203,10 @@ export function StockMouvementFormSheet({
         // ensuite (facture à plusieurs produits, ex. « Ciment + Sacs »).
         natureMarchandise: prev.natureMarchandise || champs.lignes?.[0]?.designation || "",
         achatDevise: champs.devise || prev.achatDevise,
-        achatLignes: champs.lignes && champs.lignes.length > 0 ? champs.lignes : prev.achatLignes,
+        achatLignes:
+          champs.lignes && champs.lignes.length > 0
+            ? avecMontantsTnd(champs.lignes, prev.achatCours)
+            : prev.achatLignes,
       }));
     } else if (type === "vente") {
       setV((prev) => ({
@@ -202,7 +216,10 @@ export function StockMouvementFormSheet({
         client: champs.client || prev.client,
         natureMarchandise: prev.natureMarchandise || champs.lignes?.[0]?.designation || "",
         venteDevise: champs.devise || prev.venteDevise,
-        venteLignes: champs.lignes && champs.lignes.length > 0 ? champs.lignes : prev.venteLignes,
+        venteLignes:
+          champs.lignes && champs.lignes.length > 0
+            ? avecMontantsTnd(champs.lignes, prev.venteCours)
+            : prev.venteLignes,
       }));
     } else {
       setV((prev) => ({
@@ -213,6 +230,9 @@ export function StockMouvementFormSheet({
         douaneReference: champs.reference || prev.douaneReference,
         douaneTauxChange: champs.tauxChange || prev.douaneTauxChange,
         douaneValeurTnd: champs.valeurTnd || prev.douaneValeurTnd,
+        douanePtfn: champs.ptfn || prev.douanePtfn,
+        douaneExportateur: champs.exportateur || prev.douaneExportateur,
+        douaneImportateur: champs.importateur || prev.douaneImportateur,
       }));
     }
   }
@@ -559,13 +579,6 @@ export function StockMouvementFormSheet({
                       onChange={(e) => set("fournisseur", e.target.value)}
                     />
                   </Field>
-                  <Field label="Type pièce">
-                    <Input
-                      value={v.achatDocType}
-                      onChange={(e) => set("achatDocType", e.target.value)}
-                      placeholder="Facture, avoir…"
-                    />
-                  </Field>
                   <Field label="Devise">
                     <Input
                       value={v.achatDevise}
@@ -575,12 +588,16 @@ export function StockMouvementFormSheet({
                   <Field label="Cours (taux de change)">
                     <AmountInput
                       value={v.achatCours}
-                      onValueChange={(n) => set("achatCours", n)}
+                      decimals={4}
+                      onValueChange={(n) =>
+                        setV((prev) => ({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }))
+                      }
                     />
                   </Field>
                 </div>
                 <LignesEditor
                   lignes={v.achatLignes}
+                  cours={v.achatCours}
                   onChange={(lignes) => set("achatLignes", lignes)}
                 />
               </div>
@@ -618,13 +635,6 @@ export function StockMouvementFormSheet({
                   <Field label="Client">
                     <Input value={v.client} onChange={(e) => set("client", e.target.value)} />
                   </Field>
-                  <Field label="Type pièce">
-                    <Input
-                      value={v.venteDocType}
-                      onChange={(e) => set("venteDocType", e.target.value)}
-                      placeholder="Facture, avoir (CN)…"
-                    />
-                  </Field>
                   <Field label="Devise">
                     <Input
                       value={v.venteDevise}
@@ -634,12 +644,16 @@ export function StockMouvementFormSheet({
                   <Field label="Cours (taux de change)">
                     <AmountInput
                       value={v.venteCours}
-                      onValueChange={(n) => set("venteCours", n)}
+                      decimals={4}
+                      onValueChange={(n) =>
+                        setV((prev) => ({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }))
+                      }
                     />
                   </Field>
                 </div>
                 <LignesEditor
                   lignes={v.venteLignes}
+                  cours={v.venteCours}
                   onChange={(lignes) => set("venteLignes", lignes)}
                 />
               </div>
@@ -680,12 +694,6 @@ export function StockMouvementFormSheet({
                     placeholder="RS, IM4, EX1…"
                   />
                 </Field>
-                <Field label="Référence">
-                  <Input
-                    value={v.douaneReference}
-                    onChange={(e) => set("douaneReference", e.target.value)}
-                  />
-                </Field>
                 <Field label="Taux de change (TND)">
                   <AmountInput
                     value={v.douaneTauxChange}
@@ -699,6 +707,28 @@ export function StockMouvementFormSheet({
                     onValueChange={(n) => set("douaneValeurTnd", n)}
                   />
                 </Field>
+                <Field label="PTFN">
+                  <AmountInput
+                    value={v.douanePtfn}
+                    onValueChange={(n) => set("douanePtfn", n)}
+                  />
+                </Field>
+                <div className="col-span-2">
+                  <Field label="Exportateur">
+                    <Input
+                      value={v.douaneExportateur}
+                      onChange={(e) => set("douaneExportateur", e.target.value)}
+                    />
+                  </Field>
+                </div>
+                <div className="col-span-2">
+                  <Field label="Importateur">
+                    <Input
+                      value={v.douaneImportateur}
+                      onChange={(e) => set("douaneImportateur", e.target.value)}
+                    />
+                  </Field>
+                </div>
               </div>
               <DocPreview type="douane" />
             </div>
@@ -756,13 +786,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  * librement (voir aussi ligneVide() et le schéma serveur stock_lignes). */
 function LignesEditor({
   lignes,
+  cours,
   onChange,
 }: {
   lignes: StockLigne[];
+  /** Cours (taux de change) de la section : le montant en dinars en découle. */
+  cours: number;
   onChange: (lignes: StockLigne[]) => void;
 }) {
   function update(i: number, patch: Partial<StockLigne>) {
-    onChange(lignes.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+    onChange(
+      lignes.map((l, idx) => {
+        if (idx !== i) return l;
+        const next = { ...l, ...patch };
+        // Le montant en dinars suit le montant en devise (il reste modifiable à la main ensuite).
+        if ("montantDevise" in patch) next.montantTnd = montantTnd(next.montantDevise, cours);
+        return next;
+      }),
+    );
   }
   function remove(i: number) {
     onChange(lignes.filter((_, idx) => idx !== i));
@@ -827,7 +868,7 @@ function LignesEditor({
                 </Field>
                 <Field label="Mt TND">
                   <AmountInput
-                      value={l.montantTnd}
+                      value={l.montantTnd ?? 0}
                       onValueChange={(n) => update(i, { montantTnd: n })}
                     />
                 </Field>

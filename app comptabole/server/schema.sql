@@ -234,6 +234,10 @@ alter table stock_mouvements add column if not exists douane_doc_data_url text;
 -- en douane en TND, lus sur la déclaration (moteur RUSPINA) ou saisis à la main.
 alter table stock_mouvements add column if not exists douane_taux_change numeric not null default 0;
 alter table stock_mouvements add column if not exists douane_valeur_tnd numeric not null default 0;
+-- PTFN (montant déclaré), exportateur et importateur lus sur la déclaration douanière.
+alter table stock_mouvements add column if not exists douane_ptfn numeric not null default 0;
+alter table stock_mouvements add column if not exists douane_exportateur text not null default '';
+alter table stock_mouvements add column if not exists douane_importateur text not null default '';
 
 -- Lignes de produits d'un mouvement (plusieurs par mouvement, achat ET
 -- vente séparément) : une facture liste souvent plusieurs marchandises à

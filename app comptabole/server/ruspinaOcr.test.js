@@ -120,6 +120,9 @@ describe("ruspinaVersPages", () => {
       reference: "",
       tauxChange: 3.2842,
       valeurTnd: 170778.4,
+      ptfn: 52000,
+      exportateur: "STE EXPORTATRICE",
+      importateur: "RUSPINA",
     });
     expect(pages[2].details).toMatchObject({ tauxChange: 3.2842, valeurDouaneTnd: 170778.4 });
   });

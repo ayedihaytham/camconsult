@@ -9,6 +9,8 @@ export interface Session {
   /** true = employé de société cliente (dossiers en lecture seule) */
   lectureSeule?: boolean;
   employeId: string | null;
+  /** Identifiant de connexion du compte. */
+  identifiant?: string;
   nom: string;
   fonction: string;
   initiales: string;

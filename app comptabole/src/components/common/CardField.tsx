@@ -18,7 +18,7 @@ export function CardField({
 }: {
   id: string;
   label: string;
-  hint?: string;
+  hint?: ReactNode;
   error?: string;
   className?: string;
   children: ReactNode;

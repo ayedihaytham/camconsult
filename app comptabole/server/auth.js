@@ -17,11 +17,12 @@ export function signToken(payload) {
 export async function sessionFromToken(payload) {
   if (payload.role === "admin") {
     const { rows } = await query(
-      "select admin_nom, admin_role, last_login from app_meta where id = 1",
+      "select admin_nom, admin_role, admin_identifiant, last_login from app_meta where id = 1",
     );
     const meta = rows[0] ?? {};
     return {
       role: "admin",
+      identifiant: meta.admin_identifiant ?? "",
       poste: null,
       lectureSeule: false,
       employeId: null,
@@ -86,6 +87,7 @@ export async function sessionFromToken(payload) {
     poste,
     lectureSeule: isSocieteEmp,
     employeId: e.id,
+    identifiant: e.identifiant,
     nom,
     fonction: isSocieteEmp
       ? e.delegue

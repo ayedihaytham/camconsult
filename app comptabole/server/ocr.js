@@ -238,9 +238,11 @@ async function completerDouane(lecture, zones, raisonSociale) {
     return fusion;
   }
 
+  const montants = (l) => `ptfn ${l.ptfn || "-"} x taux ${l.tauxChange || "-"} / valeur ${l.valeurTnd || "-"}`;
+  console.log(`[ocr] douane : lecture économique non retenue (${montants(fusion)}), relecture par ${MODELE_RENFORT}`);
   const forts = await lireZones(zones, raisonSociale, MODELE_RENFORT);
   fusion = fusionnerDouane([...forts, ...economiques, lecture]);
-  console.log(`[ocr] douane relue par ${MODELE_RENFORT} sur ${zones.length} zones (${avant} -> ${nombre(fusion)} champs${douaneCoherente(fusion) ? "" : ", montants à vérifier"})`);
+  console.log(`[ocr] douane relue par ${MODELE_RENFORT} sur ${zones.length} zones (${avant} -> ${nombre(fusion)} champs, ${montants(fusion)}${douaneCoherente(fusion) ? "" : ", montants à vérifier"})`);
   return fusion;
 }
 

@@ -123,23 +123,35 @@ export async function rasterizeAllPages(buffer) {
   }
 }
 
-/** Rastérise UNE page à une résolution donnée (repasse haute résolution d'une
- * déclaration douanière dont le numéro n'a pas été lu à 200 DPI). */
-async function rasterizeOnePage(buffer, pageNum, dpi) {
-  const dir = await mkdtemp(join(tmpdir(), "stock-hi-"));
+/** Découpe le haut d'une page de déclaration douanière en deux zones, rendues
+ * en grand : les cases de la grille TTN (taux, valeur, PTFN, exportateur…) y sont
+ * minuscules, et une page entière réduite à ~1568 px ne les rend pas lisibles.
+ * Chaque zone (1300 x 1550 px) est envoyée sans réduction : lecture ~2x plus fine.
+ * Les 45 % du haut contiennent tous les champs recherchés. Zones qui se
+ * recouvrent un peu pour ne couper aucune case. */
+async function rasterizeCrops(buffer, pageNum) {
+  const dir = await mkdtemp(join(tmpdir(), "stock-crop-"));
   try {
     const pdfPath = join(dir, "doc.pdf");
     await writeFile(pdfPath, buffer);
-    await execFileAsync("pdftoppm", [
-      "-png", "-r", String(dpi), "-f", String(pageNum), "-l", String(pageNum),
-      pdfPath, join(dir, "page"),
-    ]);
-    const files = (await readdir(dir)).filter((f) => f.endsWith(".png"));
-    if (!files.length) return null;
-    return await readFile(join(dir, files[0]));
+    const zones = [
+      ["gauche", 0],
+      ["droite", 1100],
+    ];
+    const images = [];
+    for (const [nom, x] of zones) {
+      await execFileAsync("pdftoppm", [
+        "-png", "-scale-to-x", "2400", "-scale-to-y", "3400", "-f", String(pageNum), "-l", String(pageNum),
+        "-x", String(x), "-y", "0", "-W", "1300", "-H", "1550",
+        pdfPath, join(dir, nom),
+      ]);
+      const fichier = (await readdir(dir)).find((f) => f.startsWith(nom) && f.endsWith(".png"));
+      if (fichier) images.push(await readFile(join(dir, fichier)));
+    }
+    return images;
   } catch (err) {
-    console.error("[ocr] rastérisation haute résolution impossible", err.message);
-    return null;
+    console.error("[ocr] découpe de la page impossible", err.message);
+    return [];
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
@@ -170,8 +182,35 @@ async function separerPages(buffer, nombre) {
  * (CLAUDE_FALLBACK_MODEL, Sonnet 5.5 par défaut). */
 const MODELE_RENFORT = process.env.CLAUDE_FALLBACK_MODEL || "claude-sonnet-5-5";
 const CHAMPS_DOUANE = ["numDeclaration", "date", "regime", "tauxChange", "valeurTnd", "ptfn", "exportateur", "importateur"];
-const champsRemplis = (l) => CHAMPS_DOUANE.filter((c) => l[c]).length;
 const douaneIncomplete = (l) => !l.numDeclaration || !l.tauxChange || !l.valeurTnd || !l.ptfn;
+
+/** Complète une lecture de douane avec celles des zones agrandies : première
+ * valeur lue pour chaque champ, la plus longue pour exportateur / importateur
+ * (cadres de plusieurs lignes). Les zones sont lues en parallèle. */
+async function completerDouane(lecture, zones, raisonSociale) {
+  if (zones.length === 0) return lecture;
+  const note = "This image is a zoomed crop of the upper part of a customs declaration (a page may show only part of the form). Read every field of the schema that is visible in this crop; leave the others null.";
+  const lectures = await Promise.all(
+    zones.map((png) =>
+      aiExtractPage({ imageDataUrl: toPngUrl(png), raisonSociale, model: MODELE_RENFORT, note }).catch((err) => {
+        console.error(`[ocr] relecture douane en échec : ${err.message}`);
+        return null;
+      }),
+    ),
+  );
+  const fusion = { ...lecture };
+  const avant = CHAMPS_DOUANE.filter((c) => lecture[c]).length;
+  for (const c of CHAMPS_DOUANE) {
+    const candidates = [lecture, ...lectures.filter(Boolean)].map((l) => l[c]).filter(Boolean);
+    if (candidates.length === 0) continue;
+    fusion[c] =
+      c === "exportateur" || c === "importateur"
+        ? candidates.reduce((a, b) => (String(b).length > String(a).length ? b : a))
+        : candidates[0];
+  }
+  console.log(`[ocr] douane relue par ${MODELE_RENFORT} sur ${zones.length} zones (${avant} -> ${CHAMPS_DOUANE.filter((c) => fusion[c]).length} champs)`);
+  return fusion;
+}
 
 const toPngUrl = (png) => `data:image/png;base64,${png.toString("base64")}`;
 
@@ -396,21 +435,10 @@ export async function extractPages(dataUrl, raisonSociale) {
         let lecture = await aiExtractPage({ imageDataUrl, raisonSociale });
         let image = imageDataUrl;
         // Déclaration douanière (grille serrée, petits caractères) dont des champs
-        // clés manquent : relecture par un modèle plus fort, qui lit mieux ces
-        // grilles que le modèle économique. La lecture la plus complète est gardée.
+        // clés manquent : le haut de la page est relu en deux zones agrandies par
+        // un modèle plus fort, et les champs trouvés complètent la première lecture.
         if (lecture.type === "douane" && douaneIncomplete(lecture)) {
-          const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
-          const retryUrl = hiRes ? toPngUrl(hiRes) : imageDataUrl;
-          try {
-            const retry = await aiExtractPage({ imageDataUrl: retryUrl, raisonSociale, model: MODELE_RENFORT });
-            if (retry.type === "douane" && champsRemplis(retry) > champsRemplis(lecture)) {
-              console.log(`[ocr] douane page ${index + 1} relue par ${MODELE_RENFORT} (${champsRemplis(lecture)} -> ${champsRemplis(retry)} champs)`);
-              lecture = retry;
-              image = retryUrl;
-            }
-          } catch (err) {
-            console.error(`[ocr] relecture douane en échec : ${err.message}`);
-          }
+          lecture = await completerDouane(lecture, await rasterizeCrops(buffer, index + 1), raisonSociale);
         }
         return pageIA(index, image, lecture);
       } catch (err) {

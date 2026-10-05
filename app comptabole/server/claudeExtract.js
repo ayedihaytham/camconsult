@@ -126,7 +126,7 @@ export function coutEstime(model, entree, sortie) {
 /**
  * @param {{ imageDataUrl?: string|null, texte?: string, raisonSociale?: string, model?: string, usage?: object }} p
  */
-export async function claudeExtractPage({ imageDataUrl, texte, raisonSociale, model = CLAUDE_EXTRACT_MODEL, usage }) {
+export async function claudeExtractPage({ imageDataUrl, texte, raisonSociale, model = CLAUDE_EXTRACT_MODEL, usage, note }) {
   const system = SYSTEM_PROMPT.replaceAll(
     "{{RAISON_SOCIALE}}",
     raisonSociale || "(non précisée)",
@@ -139,7 +139,7 @@ export async function claudeExtractPage({ imageDataUrl, texte, raisonSociale, mo
       type: "image",
       source: { type: "base64", media_type: image.mediaType, data: image.data },
     });
-    content.push({ type: "text", text: "Analyse cette page et extrait les champs demandés." });
+    content.push({ type: "text", text: note ? `Analyse cette page et extrait les champs demandés. ${note}` : "Analyse cette page et extrait les champs demandés." });
   } else {
     content.push({
       type: "text",

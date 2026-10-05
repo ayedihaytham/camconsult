@@ -46,7 +46,7 @@ ssh root@102.204.205.214
 cd /opt/camconsult
 cp .env.example .env
 nano .env        # DB_PASSWORD, JWT_SECRET (openssl rand -hex 48), ADMIN_PASSWORD...
-                  # OPENROUTER_API_KEY et/ou ANTHROPIC_API_KEY : extraction des
+                  # ANTHROPIC_API_KEY (Claude) : extraction des
                   # pièces du module Stock par un modèle de vision (voir
                   # app comptabole/server/ocr.js). Il n'y a plus d'OCR local :
                   # sans clé (ni moteur RUSPINA), l'import automatique est refusé.
@@ -134,7 +134,7 @@ l'appelle depuis le serveur (`app comptabole/server/ruspinaOcr.js`) pour les
 sociétés dont la raison sociale contient `ruspina` (réglable avec
 `RUSPINA_OCR_SOCIETES`). Pour toute autre société, ou si le service est
 absent / en échec / demande une revue de routage, le modèle de vision
-(OpenRouter puis Claude) prend le relais ; sans clé, l'import automatique est
+(Claude) prend le relais ; sans clé, l'import automatique est
 refusé avec un message clair.
 
 L'image est fournie en archive (`.tar`), elle n'est pas sur Docker Hub :

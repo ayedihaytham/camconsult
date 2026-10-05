@@ -30,18 +30,17 @@ PDF scannés : le script a besoin de poppler (`choco install poppler`) pour tran
 
 ## 2. Lancer
 
-Les clés `ANTHROPIC_API_KEY` et/ou `OPENROUTER_API_KEY` sont lues dans `app comptabole/.env`.
+La clé `ANTHROPIC_API_KEY` est lue dans `app comptabole/.env`.
 
 ```bash
 cd "app comptabole"
 npm run benchmark:extraction -- \
   --claude claude-sonnet-5-5,claude-haiku-4-5-20251001 \
-  --openrouter google/gemini-2.5-flash,google/gemini-2.5-pro \
   --societe "01-RUSPINA" \
-  --price claude-sonnet-5-5=3,15 --price google/gemini-2.5-flash=0.3,2.5
+  --price claude-sonnet-5-5=3,15
 ```
 
-- `--claude` / `--openrouter` : identifiants de modèles, séparés par des virgules (autant que vous voulez).
+- `--claude` : identifiants de modèles, séparés par des virgules (autant que vous voulez).
 - `--price modèle=entrée,sortie` : prix en dollars par million de jetons, **à relever sur les pages de tarifs des fournisseurs** (les valeurs ci-dessus ne sont que des exemples). Sans prix, le script affiche les jetons mais pas le coût.
 - `--societe` : raison sociale injectée dans la consigne (elle sert à distinguer achat et vente).
 - `--repeat 3` : répète chaque lecture (mesure la régularité), `--dir`, `--out` : dossiers d'entrée et de sortie.
@@ -62,9 +61,6 @@ Variables d'environnement de l'application (fichier `.env` du serveur, puis recr
 
 | Variable | Rôle | Défaut |
 |---|---|---|
-| `EXTRACT_PROVIDER` | `claude` pour essayer Claude avant OpenRouter | OpenRouter d'abord |
 | `CLAUDE_EXTRACT_MODEL` | modèle Claude utilisé | `claude-sonnet-5-5` |
-| `OPENROUTER_EXTRACT_MODEL` | modèle utilisé via OpenRouter | `google/gemini-2.5-flash` |
-| `OPENROUTER_EXTRACT_MAX_TOKENS` | taille maximale de la réponse | 750 (1 500 conseillé pour des factures à plusieurs lignes) |
 
-Les documents du banc d'essai sont envoyés aux fournisseurs testés (Anthropic, OpenRouter puis Google) : n'y mettez que des pièces que vous avez le droit de leur transmettre.
+Les documents du banc d'essai sont envoyés aux fournisseurs testés (Anthropic) : n'y mettez que des pièces que vous avez le droit de leur transmettre.

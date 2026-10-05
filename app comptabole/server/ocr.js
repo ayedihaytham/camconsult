@@ -4,7 +4,6 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { claudeAvailable, claudeExtractPage, champsByTypeFromClaude } from "./claudeExtract.js";
-import { openrouterAvailable, openrouterExtractPage } from "./openrouterExtract.js";
 import {
   RuspinaReviewRequired,
   ruspinaApplies,
@@ -19,8 +18,7 @@ import {
  *
  *  1. le moteur RUSPINA (conteneur dédié, voir ruspinaOcr.js) pour les
  *     sociétés qu'il couvre ;
- *  2. un modèle de vision : OpenRouter (Gemini 2.5 Flash) si OPENROUTER_API_KEY
- *     est configurée, sinon Claude si ANTHROPIC_API_KEY l'est ;
+ *  2. Claude (API Anthropic, vision) si ANTHROPIC_API_KEY est configurée ;
  *  3. rien d'autre : sans moteur disponible, l'extraction échoue avec un
  *     message clair (`ExtractionUnavailableError`) au lieu de produire une
  *     lecture approximative. Il n'y a plus d'OCR ni de règles locales.
@@ -39,45 +37,28 @@ export class ExtractionUnavailableError extends Error {
 }
 
 const AUCUN_MOTEUR =
-  "Aucun moteur d'extraction n'est configuré pour cette société. Renseignez une clé OPENROUTER_API_KEY ou ANTHROPIC_API_KEY (ou activez le moteur RUSPINA), ou saisissez la pièce à la main.";
+  "Aucun moteur d'extraction n'est configuré pour cette société. Renseignez la clé ANTHROPIC_API_KEY (ou activez le moteur RUSPINA), ou saisissez la pièce à la main.";
 
 const execFileAsync = promisify(execFile);
 const MAX_PAGES = 15;
 
 function aiAvailable() {
-  return openrouterAvailable() || claudeAvailable();
-}
-
-/** Fournisseurs de vision disponibles, dans l'ordre d'essai. Par défaut
- * OpenRouter (Gemini) puis Claude ; EXTRACT_PROVIDER=claude inverse l'ordre.
- * Le choix se fait donc par configuration, sans toucher au code. */
-function fournisseursIA() {
-  const claude = claudeAvailable() ? [["Claude", claudeExtractPage]] : [];
-  const openrouter = openrouterAvailable() ? [["OpenRouter", openrouterExtractPage]] : [];
-  return process.env.EXTRACT_PROVIDER === "claude" ? [...claude, ...openrouter] : [...openrouter, ...claude];
+  return claudeAvailable();
 }
 
 async function aiExtractPage(params) {
-  const fournisseurs = fournisseursIA();
-  let derniereErreur = null;
-  for (const [nom, extraire] of fournisseurs) {
-    try {
-      return await extraire(params);
-    } catch (err) {
-      // Échec à l'exécution (ex. 402 crédits insuffisants) : on essaie le
-      // fournisseur suivant ; sinon l'erreur remonte telle quelle.
-      derniereErreur = err;
-      console.error(`[ocr] ${nom} en échec : ${err.message}`);
-    }
+  try {
+    return await claudeExtractPage(params);
+  } catch (err) {
+    console.error(`[ocr] Claude en échec : ${err.message}`);
+    throw err;
   }
-  throw derniereErreur ?? new Error("Aucun modèle de vision configuré");
 }
 
 /** Log explicite du fournisseur réellement utilisé : sans lui, une clé absente
  * ou un appel en échec seraient indiscernables d'un import réussi. */
 function logProvider() {
-  const noms = fournisseursIA().map(([nom]) => nom);
-  console.log(noms.length ? `[ocr] extraction via ${noms.join(" puis ")}` : "[ocr] aucun modèle de vision configuré");
+  console.log(aiAvailable() ? "[ocr] extraction via Claude" : "[ocr] aucun modèle de vision configuré");
 }
 
 function decodeDataUrl(dataUrl) {

@@ -1,9 +1,9 @@
 // Banc d'essai de l'extraction des pièces du module Stock : passe les MÊMES
-// documents dans plusieurs modèles de vision (Claude, Gemini via OpenRouter…)
-// et compare, champ par champ, leur exactitude, leur durée et leur coût.
+// documents dans plusieurs modèles Claude et compare, champ par champ, leur
+// exactitude, leur durée et leur coût.
 //
 //   npm run benchmark:extraction -- --claude claude-sonnet-5-5,claude-haiku-4-5-20251001 \
-//        --openrouter google/gemini-2.5-flash,google/gemini-2.5-pro --societe "01-RUSPINA"
+//        --societe "01-RUSPINA"
 //
 // Documents : un dossier `benchmark/` (ou --dir) contenant des PDF/images, une
 // PAGE par pièce. Pour mesurer l'exactitude, ajoutez à côté de chaque document
@@ -11,13 +11,12 @@
 // Sans fichier de vérité, le rapport affiche les valeurs lues côte à côte pour
 // une comparaison à l'œil.
 //
-// Clés : OPENROUTER_API_KEY / ANTHROPIC_API_KEY lues dans .env (--env-file).
+// Clé : ANTHROPIC_API_KEY lue dans .env (--env-file).
 // Rien n'est enregistré dans l'application : le script ne fait que lire.
 
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { claudeAvailable, claudeExtractPage } from "../claudeExtract.js";
-import { openrouterAvailable, openrouterExtractPage } from "../openrouterExtract.js";
 import { rasterizeAllPages, tryPdfTextPages } from "../ocr.js";
 import { noter } from "./benchmarkScoring.js";
 
@@ -34,7 +33,6 @@ const sortie = resolve(option("out", "benchmark-results"));
 const societe = option("societe", "");
 const repetitions = Number(option("repeat", "1")) || 1;
 const modelesClaude = (option("claude", "") || "").split(",").filter(Boolean);
-const modelesOpenRouter = (option("openrouter", "") || "").split(",").filter(Boolean);
 // --price modele=entrée,sortie  (dollars par million de jetons) — à relever sur les pages de tarifs.
 const prix = Object.fromEntries(
   options("price").map((p) => {
@@ -46,12 +44,11 @@ const prix = Object.fromEntries(
 
 const modeles = [
   ...modelesClaude.map((m) => ({ id: `claude:${m}`, nom: m, fournisseur: "Claude", extraire: (p) => claudeExtractPage({ ...p, model: m }), disponible: claudeAvailable(), cle: "ANTHROPIC_API_KEY" })),
-  ...modelesOpenRouter.map((m) => ({ id: `openrouter:${m}`, nom: m, fournisseur: "OpenRouter", extraire: (p) => openrouterExtractPage({ ...p, model: m, maxTokens: 1500 }), disponible: openrouterAvailable(), cle: "OPENROUTER_API_KEY" })),
 ];
 
 if (modeles.length === 0) {
-  console.error("Indiquez au moins un modèle : --claude <ids> et/ou --openrouter <ids>.");
-  console.error("Ex. : --claude claude-sonnet-5-5 --openrouter google/gemini-2.5-flash");
+  console.error("Indiquez au moins un modèle : --claude <ids>.");
+  console.error("Ex. : --claude claude-sonnet-5-5,claude-haiku-4-5-20251001");
   process.exit(1);
 }
 for (const m of modeles) {

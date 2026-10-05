@@ -8,7 +8,7 @@
 //   1. envoie le fichier au service (multipart, `POST /api/v1/dossiers/process`) ;
 //   2. traduit les champs du service vers ceux du module Stock
 //      (`StockChamps` : date, numFacture, fournisseur/client, devise, lignes…) ;
-//   3. laisse `ocr.js` replier sur le modèle de vision (OpenRouter / Claude)
+//   3. laisse `ocr.js` replier sur le modèle de vision (Claude)
 //      quand le service est absent, en échec, ou demande une revue de routage.
 //
 // Activation : RUSPINA_OCR_URL (ex. http://ocr-ruspina:8000). Le moteur n'est

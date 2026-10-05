@@ -9,7 +9,6 @@ describe("extraction sans moteur", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   function sansMoteur() {
-    vi.stubEnv("OPENROUTER_API_KEY", "");
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     vi.stubEnv("RUSPINA_OCR_URL", "");
   }
@@ -19,7 +18,7 @@ describe("extraction sans moteur", () => {
     const err = await extractDocument(PNG, "achat", "CAM").catch((e) => e);
     expect(err).toBeInstanceOf(ExtractionUnavailableError);
     expect(err.code).toBe("EXTRACTION_UNAVAILABLE");
-    expect(err.message).toMatch(/OPENROUTER_API_KEY|ANTHROPIC_API_KEY/);
+    expect(err.message).toMatch(/ANTHROPIC_API_KEY/);
   });
 
   it("refuse l'import d'un document complet", async () => {

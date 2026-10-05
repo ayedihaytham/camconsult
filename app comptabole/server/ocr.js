@@ -166,6 +166,13 @@ async function separerPages(buffer, nombre) {
   }
 }
 
+/** Modèle plus fort pour relire les déclarations douanières incomplètes
+ * (CLAUDE_FALLBACK_MODEL, Sonnet 5.5 par défaut). */
+const MODELE_RENFORT = process.env.CLAUDE_FALLBACK_MODEL || "claude-sonnet-5-5";
+const CHAMPS_DOUANE = ["numDeclaration", "date", "regime", "tauxChange", "valeurTnd", "ptfn", "exportateur", "importateur"];
+const champsRemplis = (l) => CHAMPS_DOUANE.filter((c) => l[c]).length;
+const douaneIncomplete = (l) => !l.numDeclaration || !l.tauxChange || !l.valeurTnd || !l.ptfn;
+
 const toPngUrl = (png) => `data:image/png;base64,${png.toString("base64")}`;
 
 // ── Pièce seule ───────────────────────────────────────────────────────────
@@ -388,17 +395,21 @@ export async function extractPages(dataUrl, raisonSociale) {
       try {
         let lecture = await aiExtractPage({ imageDataUrl, raisonSociale });
         let image = imageDataUrl;
-        // Déclaration douanière (grille serrée) dont le numéro n'est pas lu à
-        // 200 DPI : une repasse à 400 DPI le retrouve souvent.
-        if (lecture.type === "douane" && !lecture.numDeclaration) {
+        // Déclaration douanière (grille serrée, petits caractères) dont des champs
+        // clés manquent : relecture par un modèle plus fort, qui lit mieux ces
+        // grilles que le modèle économique. La lecture la plus complète est gardée.
+        if (lecture.type === "douane" && douaneIncomplete(lecture)) {
           const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
-          if (hiRes) {
-            const hiResUrl = toPngUrl(hiRes);
-            const retry = await aiExtractPage({ imageDataUrl: hiResUrl, raisonSociale });
-            if (retry.numDeclaration) {
+          const retryUrl = hiRes ? toPngUrl(hiRes) : imageDataUrl;
+          try {
+            const retry = await aiExtractPage({ imageDataUrl: retryUrl, raisonSociale, model: MODELE_RENFORT });
+            if (retry.type === "douane" && champsRemplis(retry) > champsRemplis(lecture)) {
+              console.log(`[ocr] douane page ${index + 1} relue par ${MODELE_RENFORT} (${champsRemplis(lecture)} -> ${champsRemplis(retry)} champs)`);
               lecture = retry;
-              image = hiResUrl;
+              image = retryUrl;
             }
+          } catch (err) {
+            console.error(`[ocr] relecture douane en échec : ${err.message}`);
           }
         }
         return pageIA(index, image, lecture);

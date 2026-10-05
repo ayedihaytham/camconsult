@@ -84,12 +84,12 @@ const SYSTEM_PROMPT = `You read ONE page of a stock file for a Tunisian accounti
 The TTN form is a grid of numbered boxes: locate each value by the label of ITS box, not by its position.
 - "numDeclaration": the "Numéro" of the "Déclaration" box (top right, next to its "Date"), e.g. 447898. Do not confuse it with the repertoire number, the "Titre CE" number, the liquidation number or handwritten margin notes.
 - "date": the "Date" of that same "Déclaration" box (03-01-2023 = 3 January 2023 -> 2023-01-03).
-- "regime": the declared customs regime (box "Régimes douaniers": code and/or label).
+- "regime": the customs regime CODE only (digits, e.g. 40 or 150), read in the box "Régimes douaniers" under "déclaré". Not the "Bureau", "Frontière" or "Destination" numbers, which look similar. Null if that box is empty.
 - "tauxChange": box "Cours de conversion de la devise de facturation" (e.g. 3.2842000 -> 3.2842).
 - "valeurTnd": "Valeur douane totale (en dinars)" (e.g. 170778.400 -> 170778.4), not the FOB value of a single item.
 - "ptfn": the amount of the "PTFN" line next to "Devis" (e.g. 52000.000 -> 52000), in the invoicing currency.
-- "exportateur": the name in the "Exportateur" box (name only, no address).
-- "importateur": the name in the "Importateur" box (name only, no address).
+- "exportateur": the FULL text of the "Exportateur" box, every printed line (company name, then the address lines below it), joined with ", ". Exclude only the "Code" number printed on the right. Do not stop after the first line.
+- "importateur": the FULL text of the "Importateur" box, every printed line (company name, address, country), joined with ", ". Exclude only the "Code" number.
 - "numFacture", "partie", "devise": null unless the declaration clearly states them; "lignes": null.
 
 ## 4. Strict rules
@@ -97,7 +97,8 @@ The TTN form is a grid of numbered boxes: locate each value by the label of ITS 
 - Numbers use standard notation: decimal point, no thousands separator ("52 000,00 €" -> 52000, "1.234,50" -> 1234.5, "3,3412" -> 3.3412, "1 000.000" -> 1000, "53.00EUR" -> 53). A space is always a thousands separator. When a thousands separator is followed by another separator, the LAST separator is the decimal one ("1 000.000" = 1000, "170778.400" = 170778.4).
 - Read EVERY decimal digit exactly as printed, including trailing zeros and the third decimal: Tunisian dinar amounts have 3 decimals (millimes), e.g. "170778.405" -> 170778.405, never "170778.4" or "170778.41". Never round, never drop a decimal, never recompute anything. Never multiply a value by 1000 because of zeros after the decimal point.
 - Copy digits exactly as printed. Check each digit of long numbers (invoice, declaration numbers) twice.
-- Company names: copy the full company name, without address or VAT number.
+- Invoice company names ("partie"): copy the full company name, without address or VAT number. (Exportateur / importateur on a customs declaration are the exception: copy the whole box.)
+- Copy words letter by letter as printed, even when they look odd; "DE" and "DES" are common in Tunisian company names, never turn them into symbols.
 - A page that is neither an invoice nor a declaration (cover sheet, appendix): most plausible type with "confidence": "faible" and every field null.`;
 
 function decodeDataUrl(dataUrl) {

@@ -10,15 +10,12 @@ import { z } from "zod/v4";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 /**
- * Extraction par Claude (Sonnet 5) — remplace l'OCR local (tesseract) +
- * heuristiques regex quand une clé API est configurée : Claude lit
- * directement l'image de la page (ou le texte, pour un PDF natif) et
- * classe + extrait en un seul appel, avec une bien meilleure tolérance aux
- * documents denses/bilingues (déclarations douanières) que l'OCR local —
- * voir la discussion avec l'utilisateur sur les limites de l'OCR local.
- * Sans clé (ANTHROPIC_API_KEY absente), `claudeAvailable()` renvoie false et
- * `ocr.js` retombe sur le pipeline local existant — aucune régression pour
- * un environnement de dev sans clé configurée.
+ * Extraction par Claude (modèle de vision) : lit directement l'image de la page
+ * (ou le texte, pour un PDF natif), classe et extrait en un seul appel, avec une
+ * bonne tolérance aux documents denses/bilingues (déclarations douanières).
+ * Sans clé (ANTHROPIC_API_KEY absente), `claudeAvailable()` renvoie false ; il
+ * n'y a pas d'OCR local de repli (voir ocr.js : l'extraction est alors refusée
+ * avec un message clair).
  */
 export function claudeAvailable() {
   return Boolean(process.env.ANTHROPIC_API_KEY);

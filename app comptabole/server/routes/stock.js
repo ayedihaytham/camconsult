@@ -249,12 +249,13 @@ stockRouter.delete("/mouvements/:id", async (req, res) => {
 
 // ── Extraction automatique ────────────────────────
 //
-// Deux chemins :
+// Aucun OCR local : la lecture est faite par le moteur RUSPINA ou par un
+// modèle de vision (voir ocr.js). Deux chemins :
 //  - société couverte par le moteur RUSPINA (voir ruspinaOcr.js) : la lecture
 //    prend de quelques dizaines de secondes à plusieurs minutes (OCR sur CPU),
 //    bien au-delà du délai d'un proxy HTTP. La requête répond donc tout de
 //    suite `202 { jobId }` et l'écran interroge `GET /extract-jobs/:id` ;
-//  - autres sociétés : réponse directe, comme avant.
+//  - autres sociétés (modèle de vision) : réponse directe.
 
 /** Tâches d'extraction en cours ou terminées (mémoire du processus, 30 min). */
 const JOB_TTL_MS = 30 * 60_000;
@@ -278,10 +279,20 @@ function startJob(session, work) {
     (result) => Object.assign(job, { status: "done", result }),
     (err) => {
       console.error("[stock/extract-job]", err);
-      Object.assign(job, { status: "error", error: "Extraction impossible sur ce document." });
+      Object.assign(job, { status: "error", error: messageExtraction(err) });
     },
   );
   return id;
+}
+
+/** Message montré à l'utilisateur : précis quand aucun moteur n'est configuré,
+ * générique sinon (le détail reste dans le journal du serveur). */
+function messageExtraction(err) {
+  return err?.code === "EXTRACTION_UNAVAILABLE" ? err.message : "Extraction impossible sur ce document.";
+}
+
+function reponseErreurExtraction(res, err) {
+  res.status(err?.code === "EXTRACTION_UNAVAILABLE" ? 503 : 500).json({ error: messageExtraction(err) });
 }
 
 stockRouter.get("/extract-jobs/:id", (req, res) => {
@@ -326,11 +337,11 @@ stockRouter.post("/extract", async (req, res) => {
       );
       return res.status(202).json({ jobId });
     }
-    const result = await extractDocument(parsed.data.dataUrl, parsed.data.type);
+    const result = await extractDocument(parsed.data.dataUrl, parsed.data.type, raisonSociale);
     res.json(result);
   } catch (err) {
     console.error("[stock/extract]", err);
-    res.status(500).json({ error: "Extraction impossible sur ce document." });
+    reponseErreurExtraction(res, err);
   }
 });
 
@@ -378,6 +389,6 @@ stockRouter.post("/extract-pages", async (req, res) => {
     res.json(pagesPourEcran(pages));
   } catch (err) {
     console.error("[stock/extract-pages]", err);
-    res.status(500).json({ error: "Extraction impossible sur ce document." });
+    reponseErreurExtraction(res, err);
   }
 });

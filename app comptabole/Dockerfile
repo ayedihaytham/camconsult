@@ -13,7 +13,7 @@ FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# poppler-utils (pdftoppm) : rasterise les PDF scannés avant OCR (module Stock)
+# poppler-utils (pdftoppm, pdfseparate) : rend et sépare les pages des PDF (module Stock)
 RUN apk add --no-cache poppler-utils
 
 # Uniquement les dépendances de production

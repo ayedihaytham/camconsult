@@ -178,9 +178,7 @@ export function StockMouvementFormSheet({
       toast.success(
         source === "ruspina"
           ? "Champs extraits par le moteur RUSPINA — comparez avec le document ci-dessous avant d'enregistrer"
-          : source === "ocr"
-            ? "Champs extraits par OCR — comparez avec le document ci-dessous avant d'enregistrer"
-            : "Champs extraits du PDF — comparez avec le document ci-dessous avant d'enregistrer",
+          : "Champs extraits par l'IA — comparez avec le document ci-dessous avant d'enregistrer",
       );
     } catch {
       /* le store affiche déjà l'erreur */
@@ -379,7 +377,7 @@ export function StockMouvementFormSheet({
           <DialogDescription className="mt-1 text-sm text-muted-foreground">
             Importez un PDF par section, ou un seul document combinant
             plusieurs pièces (voir ci-dessous), pour pré-remplir les champs
-            (OCR local) — le document reste affiché pour vérifier les
+            (extraction automatique) — le document reste affiché pour vérifier les
             chiffres avant d'enregistrer.
           </DialogDescription>
         </div>
@@ -439,7 +437,7 @@ export function StockMouvementFormSheet({
                   Le type Achat/Vente est deviné en recherchant le nom «{" "}
                   {societe?.raisonSociale || "…"} » dans la page (acheteur ou
                   vendeur selon sa position). S'il n'apparaît pas — document
-                  sans lien avec cette société, ou lecture OCR imparfaite —
+                  sans lien avec cette société, ou lecture imparfaite —
                   choisissez le type vous-même ci-dessous.
                 </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

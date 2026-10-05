@@ -358,7 +358,7 @@ export interface StockMouvement {
 
 export type StockDocType = "achat" | "vente" | "douane";
 
-/** Champs extraits d'une page (OCR/IA) pour un type de document donné —
+/** Champs extraits d'une page (moteur RUSPINA ou modèle de vision) pour un type de document donné —
  * `lignes` seulement pour achat/vente (jamais douane). */
 export interface StockChamps {
   date?: string;
@@ -378,7 +378,7 @@ export interface StockChamps {
 }
 
 export interface StockExtractResult {
-  source: "texte" | "ocr" | "ruspina";
+  source: "ia" | "ruspina";
   texte: string;
   champs: StockChamps;
 }

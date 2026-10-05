@@ -2,7 +2,7 @@
 #
 # Ce fichier s'ajoute à docker-compose.yml SANS le modifier. Tant que l'image
 # n'est pas chargée sur le VPS, n'utilisez PAS ce fichier : l'application
-# continue d'extraire comme avant (IA si une clé est configurée, sinon OCR local).
+# continue d'extraire comme avant (modèle de vision si une clé est configurée).
 #
 #   1. docker load -i ocr-ruspina-3.1.tar          (image fournie en archive,
 #      elle n'est pas sur Docker Hub)

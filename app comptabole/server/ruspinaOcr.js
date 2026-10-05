@@ -19,6 +19,8 @@
 const DEFAULT_SOCIETES = "ruspina";
 
 export function ruspinaConfigured() {
+  // RUSPINA_OCR_ENABLED=false : le moteur reste installé mais n'est pas utilisé.
+  if (process.env.RUSPINA_OCR_ENABLED === "false") return false;
   return Boolean(process.env.RUSPINA_OCR_URL);
 }
 

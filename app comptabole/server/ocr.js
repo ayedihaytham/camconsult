@@ -353,57 +353,51 @@ export async function extractPages(dataUrl, raisonSociale) {
     return [pageIA(0, dataUrl, lecture)];
   }
 
-  const pages = [];
+  // Les pages sont lues EN PARALLÈLE (un appel Claude par page) : la durée
+  // d'un dossier est celle de la page la plus longue, pas la somme.
   const textPages = await tryPdfTextPages(buffer);
   if (textPages.some((t) => t.trim().length > 20)) {
-    for (let index = 0; index < textPages.length; index++) {
-      const texte = textPages[index];
-      pages.push(
+    return Promise.all(
+      textPages.map(async (texte, index) =>
         texte.trim().length < 20
           ? pageIA(index, null, lectureVide())
           : pageIA(index, null, await aiExtractPage({ texte, raisonSociale })),
-      );
-    }
-    return pages;
+      ),
+    );
   }
 
-  // PDF scanné : une image par page. Une fois le modèle en échec (quota épuisé,
-  // panne…), inutile de retenter les pages suivantes ; les pages déjà lues
-  // gardent leur résultat, les autres restent vides à compléter à la main.
+  // PDF scanné : une image par page. Une page en échec (quota épuisé, panne…)
+  // reste vide à compléter à la main ; les autres gardent leur résultat.
   const rastered = await rasterizeAllPages(buffer);
   if (rastered.length === 0) throw new Error("Aucune page lisible dans ce document");
-  let enPanne = false;
   let premiereErreur = null;
-  for (const { index, png } of rastered) {
-    const imageDataUrl = toPngUrl(png);
-    if (enPanne) {
-      pages.push(pageIA(index, imageDataUrl, lectureVide()));
-      continue;
-    }
-    try {
-      let lecture = await aiExtractPage({ imageDataUrl, raisonSociale });
-      let image = imageDataUrl;
-      // Déclaration douanière (grille serrée) dont le numéro n'est pas lu à
-      // 200 DPI : une repasse à 400 DPI le retrouve souvent.
-      if (lecture.type === "douane" && !lecture.numDeclaration) {
-        const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
-        if (hiRes) {
-          const hiResUrl = toPngUrl(hiRes);
-          const retry = await aiExtractPage({ imageDataUrl: hiResUrl, raisonSociale });
-          if (retry.numDeclaration) {
-            lecture = retry;
-            image = hiResUrl;
+  const pages = await Promise.all(
+    rastered.map(async ({ index, png }) => {
+      const imageDataUrl = toPngUrl(png);
+      try {
+        let lecture = await aiExtractPage({ imageDataUrl, raisonSociale });
+        let image = imageDataUrl;
+        // Déclaration douanière (grille serrée) dont le numéro n'est pas lu à
+        // 200 DPI : une repasse à 400 DPI le retrouve souvent.
+        if (lecture.type === "douane" && !lecture.numDeclaration) {
+          const hiRes = await rasterizeOnePage(buffer, index + 1, 400);
+          if (hiRes) {
+            const hiResUrl = toPngUrl(hiRes);
+            const retry = await aiExtractPage({ imageDataUrl: hiResUrl, raisonSociale });
+            if (retry.numDeclaration) {
+              lecture = retry;
+              image = hiResUrl;
+            }
           }
         }
+        return pageIA(index, image, lecture);
+      } catch (err) {
+        premiereErreur ??= err;
+        console.error(`[ocr] extraction en échec (page ${index + 1}) :`, err.message);
+        return pageIA(index, imageDataUrl, lectureVide());
       }
-      pages.push(pageIA(index, image, lecture));
-    } catch (err) {
-      enPanne = true;
-      premiereErreur ??= err;
-      console.error(`[ocr] extraction en échec (page ${index + 1}) :`, err.message);
-      pages.push(pageIA(index, imageDataUrl, lectureVide()));
-    }
-  }
+    }),
+  );
   // Aucune page lue : on le dit plutôt que d'afficher des pages vides.
   if (premiereErreur && pages.every((p) => !p.type)) throw premiereErreur;
   return pages;

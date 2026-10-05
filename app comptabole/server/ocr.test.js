@@ -31,6 +31,17 @@ describe("extraction sans moteur", () => {
     await expect(extractDocument("data:text/plain;base64,aGVsbG8=", "achat", "CAM")).rejects.toThrow(/non pris en charge/);
   });
 
+  it("n'utilise pas le moteur RUSPINA quand il est désactivé", async () => {
+    sansMoteur();
+    vi.stubEnv("RUSPINA_OCR_URL", "http://ocr:8000");
+    vi.stubEnv("RUSPINA_OCR_ENABLED", "false");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(extractDocument(PNG, "achat", "01-RUSPINA")).rejects.toBeInstanceOf(ExtractionUnavailableError);
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it("n'utilise pas le moteur RUSPINA pour une autre société", async () => {
     sansMoteur();
     vi.stubEnv("RUSPINA_OCR_URL", "http://ocr:8000");

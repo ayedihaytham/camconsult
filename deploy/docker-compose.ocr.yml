@@ -38,6 +38,9 @@ services:
         condition: service_healthy
     environment:
       RUSPINA_OCR_URL: http://ocr-ruspina:8000
+      # Désactivé par défaut : le moteur reste installé mais Claude lit toutes
+      # les pièces (plus rapide). RUSPINA_OCR_ENABLED=true dans .env pour le réactiver.
+      RUSPINA_OCR_ENABLED: ${RUSPINA_OCR_ENABLED:-false}
       # Sociétés lues par ce modèle (fragments de raison sociale, séparés par
       # des virgules). Les autres sociétés gardent l'extraction habituelle.
       RUSPINA_OCR_SOCIETES: ${RUSPINA_OCR_SOCIETES:-ruspina}

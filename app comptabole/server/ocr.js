@@ -182,33 +182,65 @@ async function separerPages(buffer, nombre) {
  * (CLAUDE_FALLBACK_MODEL, Sonnet 5.5 par défaut). */
 const MODELE_RENFORT = process.env.CLAUDE_FALLBACK_MODEL || "claude-sonnet-5-5";
 const CHAMPS_DOUANE = ["numDeclaration", "date", "regime", "tauxChange", "valeurTnd", "ptfn", "exportateur", "importateur"];
-const douaneIncomplete = (l) => !l.numDeclaration || !l.tauxChange || !l.valeurTnd || !l.ptfn;
+/** Valeur en douane = PTFN (devise) x taux de change, à 0,1 % près (arrondis de
+ * la déclaration). Un écart signale un chiffre mal lu ; sans l'un des trois
+ * montants, on ne peut rien conclure. Quand la déclaration porte fret ou
+ * assurance, l'écart déclenche seulement une relecture plus fine, jamais un rejet. */
+export const douaneCoherente = (l) =>
+  !l.ptfn || !l.tauxChange || !l.valeurTnd || Math.abs(l.ptfn * l.tauxChange - l.valeurTnd) <= l.valeurTnd * 0.001;
+export const douaneIncomplete = (l) => !l.numDeclaration || !l.tauxChange || !l.valeurTnd || !l.ptfn || !douaneCoherente(l);
 
-/** Complète une lecture de douane avec celles des zones agrandies : première
- * valeur lue pour chaque champ, la plus longue pour exportateur / importateur
- * (cadres de plusieurs lignes). Les zones sont lues en parallèle. */
-async function completerDouane(lecture, zones, raisonSociale) {
-  if (zones.length === 0) return lecture;
-  const note = "This image is a zoomed crop of the upper part of a customs declaration (a page may show only part of the form). Read every field of the schema that is visible in this crop; leave the others null.";
-  const lectures = await Promise.all(
-    zones.map((png) =>
-      aiExtractPage({ imageDataUrl: toPngUrl(png), raisonSociale, model: MODELE_RENFORT, note }).catch((err) => {
-        console.error(`[ocr] relecture douane en échec : ${err.message}`);
-        return null;
-      }),
-    ),
-  );
-  const fusion = { ...lecture };
-  const avant = CHAMPS_DOUANE.filter((c) => lecture[c]).length;
+/** Fusion des lectures d'une douane : première valeur lue pour chaque champ (dans
+ * l'ordre donné), la plus longue pour exportateur / importateur (cadres de
+ * plusieurs lignes). */
+function fusionnerDouane(lectures) {
+  const fusion = { ...lectures[lectures.length - 1] };
   for (const c of CHAMPS_DOUANE) {
-    const candidates = [lecture, ...lectures.filter(Boolean)].map((l) => l[c]).filter(Boolean);
+    const candidates = lectures.map((l) => l[c]).filter(Boolean);
     if (candidates.length === 0) continue;
     fusion[c] =
       c === "exportateur" || c === "importateur"
         ? candidates.reduce((a, b) => (String(b).length > String(a).length ? b : a))
         : candidates[0];
   }
-  console.log(`[ocr] douane relue par ${MODELE_RENFORT} sur ${zones.length} zones (${avant} -> ${CHAMPS_DOUANE.filter((c) => fusion[c]).length} champs)`);
+  return fusion;
+}
+
+const NOTE_ZONE =
+  "This image is a zoomed crop of the upper part of a customs declaration (a page may show only part of the form). Read every field of the schema that is visible in this crop; leave the others null.";
+
+/** Lit les zones agrandies avec un modèle (celui par défaut si `model` est absent). */
+async function lireZones(zones, raisonSociale, model) {
+  const lectures = await Promise.all(
+    zones.map((png) =>
+      aiExtractPage({ imageDataUrl: toPngUrl(png), raisonSociale, model, note: NOTE_ZONE }).catch((err) => {
+        console.error(`[ocr] relecture douane en échec : ${err.message}`);
+        return null;
+      }),
+    ),
+  );
+  return lectures.filter(Boolean);
+}
+
+/** Complète une lecture de douane en deux temps, du moins cher au plus fiable :
+ *  1. les zones agrandies sont lues par le modèle économique (même modèle que les
+ *     factures) ; si les champs clés sont là et cohérents, on s'arrête ;
+ *  2. sinon, un modèle plus fort relit les mêmes zones et ses valeurs priment. */
+async function completerDouane(lecture, zones, raisonSociale) {
+  if (zones.length === 0) return lecture;
+  const avant = CHAMPS_DOUANE.filter((c) => lecture[c]).length;
+  const nombre = (l) => CHAMPS_DOUANE.filter((c) => l[c]).length;
+
+  const economiques = await lireZones(zones, raisonSociale);
+  let fusion = fusionnerDouane([...economiques, lecture]);
+  if (!douaneIncomplete(fusion)) {
+    console.log(`[ocr] douane relue sur ${zones.length} zones par le modèle économique (${avant} -> ${nombre(fusion)} champs)`);
+    return fusion;
+  }
+
+  const forts = await lireZones(zones, raisonSociale, MODELE_RENFORT);
+  fusion = fusionnerDouane([...forts, ...economiques, lecture]);
+  console.log(`[ocr] douane relue par ${MODELE_RENFORT} sur ${zones.length} zones (${avant} -> ${nombre(fusion)} champs${douaneCoherente(fusion) ? "" : ", montants à vérifier"})`);
   return fusion;
 }
 

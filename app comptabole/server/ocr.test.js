@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ExtractionUnavailableError, extractDocument, extractPages } from "./ocr.js";
+import { ExtractionUnavailableError, douaneCoherente, douaneIncomplete, extractDocument, extractPages } from "./ocr.js";
 
 // Petite image PNG valide (1x1) — le contenu n'a pas d'importance : sans moteur,
 // l'extraction doit refuser avant toute lecture.
@@ -50,5 +50,22 @@ describe("extraction sans moteur", () => {
     await expect(extractDocument(PNG, "achat", "CAM")).rejects.toBeInstanceOf(ExtractionUnavailableError);
     expect(fetchMock).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
+  });
+});
+
+describe("cohérence d'une déclaration douanière", () => {
+  const base = { numDeclaration: "447898", ptfn: 52000, tauxChange: 3.2842, valeurTnd: 170778.4 };
+
+  it("accepte valeur = PTFN x taux", () => {
+    expect(douaneCoherente(base)).toBe(true);
+    expect(douaneIncomplete(base)).toBe(false);
+  });
+  it("détecte un chiffre mal lu", () => {
+    expect(douaneCoherente({ ...base, tauxChange: 3.2755 })).toBe(false);
+    expect(douaneIncomplete({ ...base, valeurTnd: 144115.4 })).toBe(true);
+  });
+  it("signale les champs manquants", () => {
+    expect(douaneIncomplete({ ...base, ptfn: 0 })).toBe(true);
+    expect(douaneIncomplete({ ...base, numDeclaration: "" })).toBe(true);
   });
 });

@@ -56,46 +56,47 @@ const ExtractionSchema = z.object({
   importateur: z.string().nullable(),
 });
 
-const SYSTEM_PROMPT = `Tu lis UNE page d'un dossier de stock pour un cabinet comptable tunisien : facture d'achat, facture de vente, ou déclaration douanière (TTN / TradeNet). Le document peut mélanger français, anglais et arabe, être dense, incliné ou de qualité moyenne. Tu remplis exactement les champs du schéma, rien d'autre.
+const SYSTEM_PROMPT = `You read ONE page of a stock file for a Tunisian accounting firm: a purchase invoice, a sales invoice, or a customs declaration (TTN / TradeNet). The page may mix French, English and Arabic, and may be dense, skewed or of average scan quality. Fill exactly the fields of the schema, nothing else.
 
-## 1. Type de la page ("type") et confiance ("confidence")
-- "achat" : facture dont la société "{{RAISON_SOCIALE}}" est l'ACHETEUSE (destinataire / "Bill to" / "Client").
-- "vente" : facture dont "{{RAISON_SOCIALE}}" est la VENDEUSE (émettrice / en-tête de la facture).
-- "douane" : déclaration en détail des marchandises (vocabulaire : exportateur, importateur, déclarant, bureau de douane, régime, DUM, TTN).
-- "confidence" : "haute" si le type est évident, "moyenne" ou "faible" sinon.
+## 1. Page type ("type") and confidence ("confidence")
+- "achat" (purchase): an invoice where the company "{{RAISON_SOCIALE}}" is the BUYER (recipient, "Bill to", "Client", "Consignee").
+- "vente" (sale): an invoice where "{{RAISON_SOCIALE}}" is the SELLER (the issuer, named in the invoice header).
+- "douane" (customs): a goods declaration (words: exportateur, importateur, déclarant, bureau de douane, régime, DUM, TTN).
+- "confidence": "haute" if the type is obvious, otherwise "moyenne" or "faible".
 
-## 2. Champs d'une facture (achat ou vente)
-- "date" : date de la facture (AAAA-MM-JJ). Pas la date d'échéance ni de livraison. Les dates sont écrites JOUR/MOIS/ANNÉE (02/01/2023 = 2 janvier 2023, jamais le 1er février).
-- "numFacture" : numéro de la facture tel qu'imprimé dans son propre cadre « Invoice N° » / « Facture N° » (ex. "6608000533"), sans le libellé. Ignore les numéros de renvoi : « As per invoice », « conform to the proforma invoice », bon de commande, numéro de contrat.
-- "partie" : nom de l'AUTRE société (le fournisseur si "achat", le client si "vente"). Jamais "{{RAISON_SOCIALE}}" elle-même.
-- "devise" : code ISO de la devise de la facture (EUR, USD, TND…). Déduis-le des symboles (€, $, DT) si le code n'est pas écrit.
-- "lignes" : UNE entrée par produit distinct du tableau, TOUS les produits (pas seulement le premier). Lis le tableau COLONNE PAR COLONNE en suivant les en-têtes (Quantity / Unit / Designation / Unit price / Total, ou Description of goods / Quantity / Unit price / Total price) : ne mélange pas les colonnes, la quantité n'est pas le prix.
-  - "designation" : libellé du produit. S'il tient sur plusieurs lignes dans la même cellule (produit, conditionnement, norme), regroupe-les en un seul texte ;
-  - "quantite" : le nombre de la colonne Quantity (ex. 1000 pour « 1000 MT »), pas un nombre de sacs ou de colis cité dans la désignation ;
-  - "prixUnitaire" : prix unitaire de la colonne Unit price, dans la devise de la facture ;
-  - "montantDevise" : montant de la ligne (colonne Total), dans la devise de la facture.
-  Ne sont JAMAIS une ligne de produit : les lignes « HS CODE », « conform to the proforma », « Total including all taxes », « Total », les sous-totaux, la TVA, le timbre, les frais de port, les montants en lettres.
-  Une cellule vide ou illisible vaut null ; si la quantité et le total sont lisibles mais pas le prix unitaire, laisse prixUnitaire à null (ne le calcule pas).
-- Champs de douane (numDeclaration, regime, tauxChange, valeurTnd, ptfn, exportateur, importateur) : null pour une facture.
+## 2. Invoice fields (achat or vente)
+- "date": invoice date (YYYY-MM-DD), not the due date or delivery date. Dates are written DAY/MONTH/YEAR (02/01/2023 = 2 January 2023, never 1 February).
+- "numFacture": the number printed in the invoice's own "Invoice N°" / "Facture N°" box (e.g. "6608000533"), without the label. Ignore cross-reference numbers: "As per invoice", "conform to the proforma invoice", purchase order, contract number.
+- "partie": the name of the OTHER company (the supplier if "achat", the customer if "vente"). Never "{{RAISON_SOCIALE}}" itself.
+- "devise": ISO currency code of the invoice (EUR, USD, TND…). Deduce it from the symbol (€, $, DT) if the code is not written.
+- "lignes": ONE entry per distinct product row of the table, ALL products (not only the first). Read the table COLUMN BY COLUMN following the headers (Quantity / Unit / Designation / Unit price / Total, or Description of goods / Quantity / Unit price / Total price). Never mix columns: a quantity is not a price.
+  - "designation": the product label. If it spans several lines in the same cell (product, packing, standard), join them into one text;
+  - "quantite": the number in the Quantity column (e.g. 1000 for "1000 MT"), not a number of bags or packages quoted inside the designation;
+  - "prixUnitaire": the Unit price column, in the invoice currency;
+  - "montantDevise": the row amount (Total column), in the invoice currency.
+  These are NEVER product rows: "HS CODE" lines, "conform to the proforma", "Total including all taxes", "Total", subtotals, VAT, stamp duty, shipping costs, amounts written in words.
+  An empty or unreadable cell is null. If the quantity and the row total are readable but not the unit price, leave prixUnitaire null (do not compute it).
+- Customs fields (numDeclaration, regime, tauxChange, valeurTnd, ptfn, exportateur, importateur): null for an invoice.
 
-## 3. Champs d'une déclaration douanière
-Le formulaire TTN est une grille de cases numérotées : repère chaque valeur par le libellé de SA case, pas par sa position.
-- "numDeclaration" : le « Numéro » de la case « Déclaration » (haut droite, à côté de la « Date »), ex. 447898. Ne le confonds pas avec le n° de répertoire, le n° de titre CE, le n° de liquidation ou les annotations manuscrites en marge.
-- "date" : la « Date » de cette même case « Déclaration » (03-01-2023 = 3 janvier 2023 → 2023-01-03).
-- "regime" : régime douanier déclaré (case « Régimes douaniers » : code et/ou libellé).
-- "tauxChange" : case « Cours de conversion de la devise de facturation » (ex. 3.2842000 → 3.2842).
-- "valeurTnd" : « Valeur douane totale (en dinars) » (ex. 170778.400 → 170778.4), pas la valeur FOB d'un article.
-- "ptfn" : montant de la ligne « PTFN » proche de « Devis » (ex. 52000.000 → 52000), dans la devise de facturation.
-- "exportateur" : nom dans la case « Exportateur » (recopie seulement le nom, sans adresse).
-- "importateur" : nom dans la case « Importateur » (idem).
-- "numFacture", "partie", "devise" : null sauf si la déclaration les mentionne clairement ; "lignes" : null.
+## 3. Customs declaration fields
+The TTN form is a grid of numbered boxes: locate each value by the label of ITS box, not by its position.
+- "numDeclaration": the "Numéro" of the "Déclaration" box (top right, next to its "Date"), e.g. 447898. Do not confuse it with the repertoire number, the "Titre CE" number, the liquidation number or handwritten margin notes.
+- "date": the "Date" of that same "Déclaration" box (03-01-2023 = 3 January 2023 -> 2023-01-03).
+- "regime": the declared customs regime (box "Régimes douaniers": code and/or label).
+- "tauxChange": box "Cours de conversion de la devise de facturation" (e.g. 3.2842000 -> 3.2842).
+- "valeurTnd": "Valeur douane totale (en dinars)" (e.g. 170778.400 -> 170778.4), not the FOB value of a single item.
+- "ptfn": the amount of the "PTFN" line next to "Devis" (e.g. 52000.000 -> 52000), in the invoicing currency.
+- "exportateur": the name in the "Exportateur" box (name only, no address).
+- "importateur": the name in the "Importateur" box (name only, no address).
+- "numFacture", "partie", "devise": null unless the declaration clearly states them; "lignes": null.
 
-## 4. Règles strictes
-- N'invente JAMAIS une valeur. Un champ illisible ou absent vaut null : mieux vaut vide que faux.
-- Nombres en notation standard : point décimal, aucun séparateur de milliers ("52 000,00 €" → 52000, "1.234,50" → 1234.5, "3,3412" → 3.3412, "1 000.000" → 1000, "53.00EUR" → 53). Un espace est toujours un séparateur de milliers. Quand un espace ou une virgule/un point de milliers précède un autre séparateur, c'est le DERNIER séparateur qui est décimal (« 1 000.000 » = 1000, « 170778.400 » = 170778.4, les montants en TND ont souvent trois décimales). Ne multiplie jamais une valeur par 1000 à cause de zéros après la virgule.
-- Recopie les chiffres tels qu'imprimés : ne recalcule rien, n'arrondis pas.
-- Noms de sociétés : recopie la raison sociale complète, sans adresse ni numéro de TVA.
-- Une page sans facture ni déclaration (page de garde, annexe) : type le plus plausible avec "confidence": "faible" et tous les champs à null.`;
+## 4. Strict rules
+- NEVER invent a value. An unreadable or absent field is null: empty is better than wrong.
+- Numbers use standard notation: decimal point, no thousands separator ("52 000,00 €" -> 52000, "1.234,50" -> 1234.5, "3,3412" -> 3.3412, "1 000.000" -> 1000, "53.00EUR" -> 53). A space is always a thousands separator. When a thousands separator is followed by another separator, the LAST separator is the decimal one ("1 000.000" = 1000, "170778.400" = 170778.4).
+- Read EVERY decimal digit exactly as printed, including trailing zeros and the third decimal: Tunisian dinar amounts have 3 decimals (millimes), e.g. "170778.405" -> 170778.405, never "170778.4" or "170778.41". Never round, never drop a decimal, never recompute anything. Never multiply a value by 1000 because of zeros after the decimal point.
+- Copy digits exactly as printed. Check each digit of long numbers (invoice, declaration numbers) twice.
+- Company names: copy the full company name, without address or VAT number.
+- A page that is neither an invoice nor a declaration (cover sheet, appendix): most plausible type with "confidence": "faible" and every field null.`;
 
 function decodeDataUrl(dataUrl) {
   const m = /^data:([^;]+);base64,(.*)$/s.exec(dataUrl);

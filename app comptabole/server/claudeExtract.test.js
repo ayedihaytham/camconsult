@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { champsByTypeFromClaude } from "./claudeExtract.js";
+import { champsByTypeFromClaude, extraireJson } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -49,5 +49,17 @@ describe("champsByTypeFromClaude", () => {
     const out = champsByTypeFromClaude({ ...base, type: "achat", partie: "ACME", lignes: [] });
     expect(out.achat.fournisseur).toBe("ACME");
     expect(out.vente.client).toBe("ACME");
+  });
+});
+
+describe("extraireJson", () => {
+  it("lit un JSON entouré de balises markdown", () => {
+    expect(extraireJson('```json
+{"type":"achat"}
+```')).toEqual({ type: "achat" });
+  });
+  it("renvoie null sans JSON exploitable", () => {
+    expect(extraireJson("désolé")).toBeNull();
+    expect(extraireJson("{ pas du json }")).toBeNull();
   });
 });

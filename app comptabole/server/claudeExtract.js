@@ -130,11 +130,22 @@ export async function claudeExtractPage({ imageDataUrl, texte, raisonSociale, mo
     });
   }
 
-  const response = await getClient().messages.parse({
+  // Service compatible (ANTHROPIC_BASE_URL) : il ignore souvent la réponse
+  // structurée et renvoie du JSON entouré de balises ```json. On décrit alors le
+  // schéma dans la consigne et on lit la réponse nous-mêmes.
+  const compatible = Boolean(process.env.ANTHROPIC_BASE_URL?.trim());
+  const consigne = compatible
+    ? `${system}
+
+Reply with ONLY one JSON object, no markdown, no commentary, matching this JSON schema:
+${JSON.stringify(z.toJSONSchema(ExtractionSchema))}`
+    : system;
+
+  const response = await getClient().messages.create({
     model,
     max_tokens: 4096,
-    system,
-    output_config: { effort: "medium", format: zodOutputFormat(ExtractionSchema) },
+    system: consigne,
+    ...(compatible ? {} : { output_config: { effort: "medium", format: zodOutputFormat(ExtractionSchema) } }),
     messages: [{ role: "user", content }],
   });
 
@@ -143,8 +154,25 @@ export async function claudeExtractPage({ imageDataUrl, texte, raisonSociale, mo
     usage.inputTokens = response.usage?.input_tokens ?? 0;
     usage.outputTokens = response.usage?.output_tokens ?? 0;
   }
-  if (!response.parsed_output) throw new Error("Réponse Claude non exploitable (parsing échoué)");
-  return response.parsed_output;
+  const texteReponse = (response.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+  const brut = extraireJson(texteReponse);
+  // Un service compatible peut omettre les champs vides : absent = null.
+  if (brut) for (const cle of Object.keys(ExtractionSchema.shape)) brut[cle] ??= null;
+  const parsed = ExtractionSchema.safeParse(brut);
+  if (!parsed.success) throw new Error(`Réponse Claude non exploitable : ${parsed.error.issues[0]?.message ?? "format inattendu"}`);
+  return parsed.data;
+}
+
+/** JSON d'une réponse de modèle, balises ```json et texte autour tolérés. */
+export function extraireJson(texte) {
+  const debut = texte.indexOf("{");
+  const fin = texte.lastIndexOf("}");
+  if (debut < 0 || fin < debut) return null;
+  try {
+    return JSON.parse(texte.slice(debut, fin + 1));
+  } catch {
+    return null;
+  }
 }
 
 /** Nettoie les lignes brutes du modèle (valeurs null tolérées, filtre les

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { champsByTypeFromClaude, extraireJson } from "./claudeExtract.js";
+import { champsByTypeFromClaude, coutEstime, extraireJson } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -60,5 +60,15 @@ describe("extraireJson", () => {
   it("renvoie null sans JSON exploitable", () => {
     expect(extraireJson("désolé")).toBeNull();
     expect(extraireJson("{ pas du json }")).toBeNull();
+  });
+});
+
+describe("coutEstime", () => {
+  it("calcule le coût selon le modèle", () => {
+    expect(coutEstime("claude-sonnet-5-5", 1_000_000, 100_000)).toBe("$3.0000");
+    expect(coutEstime("claude-haiku-4-5-20251001", 1_000_000, 0)).toBe("$1.0000");
+  });
+  it("signale un modèle sans tarif connu", () => {
+    expect(coutEstime("autre-modele", 1000, 1000)).toBe("coût inconnu");
   });
 });

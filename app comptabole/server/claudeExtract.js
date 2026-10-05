@@ -106,6 +106,22 @@ function decodeDataUrl(dataUrl) {
   return { mediaType: m[1], data: m[2] };
 }
 
+/** Dollars par million de jetons (entrée, sortie), tarifs Anthropic. Un service
+ * revendeur peut facturer autrement : CLAUDE_PRICE_IN / CLAUDE_PRICE_OUT les remplacent. */
+const TARIFS = [
+  [/haiku/, [1, 5]],
+  [/sonnet/, [2, 10]],
+  [/opus/, [4, 20]],
+];
+
+export function coutEstime(model, entree, sortie) {
+  const defaut = TARIFS.find(([motif]) => motif.test(model))?.[1];
+  const prixEntree = Number(process.env.CLAUDE_PRICE_IN) || defaut?.[0];
+  const prixSortie = Number(process.env.CLAUDE_PRICE_OUT) || defaut?.[1];
+  if (!prixEntree || !prixSortie) return "coût inconnu";
+  return `$${((entree * prixEntree + sortie * prixSortie) / 1e6).toFixed(4)}`;
+}
+
 /**
  * @param {{ imageDataUrl?: string|null, texte?: string, raisonSociale?: string, model?: string, usage?: object }} p
  */
@@ -150,10 +166,13 @@ ${JSON.stringify(z.toJSONSchema(ExtractionSchema))}`
   });
 
   // Jetons consommés (comparaison de coût, voir scripts/benchmark-extraction.mjs).
+  const inputTokens = response.usage?.input_tokens ?? 0;
+  const outputTokens = response.usage?.output_tokens ?? 0;
   if (usage) {
-    usage.inputTokens = response.usage?.input_tokens ?? 0;
-    usage.outputTokens = response.usage?.output_tokens ?? 0;
+    usage.inputTokens = inputTokens;
+    usage.outputTokens = outputTokens;
   }
+  console.log(`[ocr] Claude ${model} : ${inputTokens} jetons entrée, ${outputTokens} sortie ≈ ${coutEstime(model, inputTokens, outputTokens)}`);
   const texteReponse = (response.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
   const brut = extraireJson(texteReponse);
   // Un service compatible peut omettre les champs vides : absent = null.

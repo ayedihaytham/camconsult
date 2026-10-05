@@ -44,6 +44,7 @@ services:
       # sociétés non couvertes par le moteur RUSPINA ; sans clé, l'import
       # automatique est refusé avec un message clair.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
       # Choix du modèle de lecture (voir docs/benchmark-extraction.md) : tous
       # facultatifs, les valeurs par défaut sont celles du code.
       CLAUDE_EXTRACT_MODEL: ${CLAUDE_EXTRACT_MODEL:-}

@@ -25,7 +25,9 @@ export function claudeAvailable() {
 
 let client = null;
 function getClient() {
-  if (!client) client = new Anthropic();
+  // ANTHROPIC_BASE_URL (facultatif) : adresse d'un service compatible avec l'API
+  // Anthropic. Vide ou absente = API officielle.
+  if (!client) client = new Anthropic({ baseURL: process.env.ANTHROPIC_BASE_URL?.trim() || "https://api.anthropic.com" });
   return client;
 }
 

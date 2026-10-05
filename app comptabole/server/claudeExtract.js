@@ -65,32 +65,34 @@ const SYSTEM_PROMPT = `Tu lis UNE page d'un dossier de stock pour un cabinet com
 - "confidence" : "haute" si le type est évident, "moyenne" ou "faible" sinon.
 
 ## 2. Champs d'une facture (achat ou vente)
-- "date" : date de la facture (AAAA-MM-JJ). Pas la date d'échéance ni de livraison.
-- "numFacture" : numéro de la facture tel qu'imprimé (ex. "INV-2024-018"), sans le libellé "N°".
+- "date" : date de la facture (AAAA-MM-JJ). Pas la date d'échéance ni de livraison. Les dates sont écrites JOUR/MOIS/ANNÉE (02/01/2023 = 2 janvier 2023, jamais le 1er février).
+- "numFacture" : numéro de la facture tel qu'imprimé dans son propre cadre « Invoice N° » / « Facture N° » (ex. "6608000533"), sans le libellé. Ignore les numéros de renvoi : « As per invoice », « conform to the proforma invoice », bon de commande, numéro de contrat.
 - "partie" : nom de l'AUTRE société (le fournisseur si "achat", le client si "vente"). Jamais "{{RAISON_SOCIALE}}" elle-même.
 - "devise" : code ISO de la devise de la facture (EUR, USD, TND…). Déduis-le des symboles (€, $, DT) si le code n'est pas écrit.
-- "lignes" : UNE entrée par produit distinct du tableau, TOUS les produits (pas seulement le premier) :
-  - "designation" : libellé du produit ;
-  - "quantite" : quantité facturée (nombre) ;
-  - "prixUnitaire" : prix unitaire dans la devise de la facture ;
-  - "montantDevise" : montant de la ligne dans la devise de la facture.
-  Un total, un sous-total, une TVA, un timbre ou des frais de port ne sont JAMAIS une ligne de produit.
+- "lignes" : UNE entrée par produit distinct du tableau, TOUS les produits (pas seulement le premier). Lis le tableau COLONNE PAR COLONNE en suivant les en-têtes (Quantity / Unit / Designation / Unit price / Total, ou Description of goods / Quantity / Unit price / Total price) : ne mélange pas les colonnes, la quantité n'est pas le prix.
+  - "designation" : libellé du produit. S'il tient sur plusieurs lignes dans la même cellule (produit, conditionnement, norme), regroupe-les en un seul texte ;
+  - "quantite" : le nombre de la colonne Quantity (ex. 1000 pour « 1000 MT »), pas un nombre de sacs ou de colis cité dans la désignation ;
+  - "prixUnitaire" : prix unitaire de la colonne Unit price, dans la devise de la facture ;
+  - "montantDevise" : montant de la ligne (colonne Total), dans la devise de la facture.
+  Ne sont JAMAIS une ligne de produit : les lignes « HS CODE », « conform to the proforma », « Total including all taxes », « Total », les sous-totaux, la TVA, le timbre, les frais de port, les montants en lettres.
+  Une cellule vide ou illisible vaut null ; si la quantité et le total sont lisibles mais pas le prix unitaire, laisse prixUnitaire à null (ne le calcule pas).
 - Champs de douane (numDeclaration, regime, tauxChange, valeurTnd, ptfn, exportateur, importateur) : null pour une facture.
 
 ## 3. Champs d'une déclaration douanière
-- "numDeclaration" : numéro de la déclaration (série de chiffres, souvent proche du cachet / de la date d'enregistrement).
-- "date" : date d'enregistrement de la déclaration (AAAA-MM-JJ).
-- "regime" : régime douanier (code et/ou libellé, ex. "Mise à la consommation").
-- "tauxChange" : taux de change appliqué à la déclaration (devise de la facture → TND), nombre avec ses décimales (ex. 3.3412).
-- "valeurTnd" : valeur en douane totale, en dinars tunisiens (TND).
-- "ptfn" : montant du PTFN déclaré (nombre en TND).
-- "exportateur" : nom de l'exportateur / expéditeur étranger.
-- "importateur" : nom de l'importateur tunisien.
+Le formulaire TTN est une grille de cases numérotées : repère chaque valeur par le libellé de SA case, pas par sa position.
+- "numDeclaration" : le « Numéro » de la case « Déclaration » (haut droite, à côté de la « Date »), ex. 447898. Ne le confonds pas avec le n° de répertoire, le n° de titre CE, le n° de liquidation ou les annotations manuscrites en marge.
+- "date" : la « Date » de cette même case « Déclaration » (03-01-2023 = 3 janvier 2023 → 2023-01-03).
+- "regime" : régime douanier déclaré (case « Régimes douaniers » : code et/ou libellé).
+- "tauxChange" : case « Cours de conversion de la devise de facturation » (ex. 3.2842000 → 3.2842).
+- "valeurTnd" : « Valeur douane totale (en dinars) » (ex. 170778.400 → 170778.4), pas la valeur FOB d'un article.
+- "ptfn" : montant de la ligne « PTFN » proche de « Devis » (ex. 52000.000 → 52000), dans la devise de facturation.
+- "exportateur" : nom dans la case « Exportateur » (recopie seulement le nom, sans adresse).
+- "importateur" : nom dans la case « Importateur » (idem).
 - "numFacture", "partie", "devise" : null sauf si la déclaration les mentionne clairement ; "lignes" : null.
 
 ## 4. Règles strictes
 - N'invente JAMAIS une valeur. Un champ illisible ou absent vaut null : mieux vaut vide que faux.
-- Nombres en notation standard : point décimal, aucun séparateur de milliers ("52 000,00" → 52000, "1.234,50" → 1234.5, "3,3412" → 3.3412).
+- Nombres en notation standard : point décimal, aucun séparateur de milliers ("52 000,00 €" → 52000, "1.234,50" → 1234.5, "3,3412" → 3.3412, "1 000.000" → 1000, "53.00EUR" → 53). Un espace est toujours un séparateur de milliers. Quand un espace ou une virgule/un point de milliers précède un autre séparateur, c'est le DERNIER séparateur qui est décimal (« 1 000.000 » = 1000, « 170778.400 » = 170778.4, les montants en TND ont souvent trois décimales). Ne multiplie jamais une valeur par 1000 à cause de zéros après la virgule.
 - Recopie les chiffres tels qu'imprimés : ne recalcule rien, n'arrondis pas.
 - Noms de sociétés : recopie la raison sociale complète, sans adresse ni numéro de TVA.
 - Une page sans facture ni déclaration (page de garde, annexe) : type le plus plausible avec "confidence": "faible" et tous les champs à null.`;

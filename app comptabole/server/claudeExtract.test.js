@@ -54,9 +54,9 @@ describe("champsByTypeFromClaude", () => {
 
 describe("extraireJson", () => {
   it("lit un JSON entouré de balises markdown", () => {
-    expect(extraireJson('```json
-{"type":"achat"}
-```')).toEqual({ type: "achat" });
+    const reponse = ["```json", '{"type":"achat"}', "```"].join("
+");
+    expect(extraireJson(reponse)).toEqual({ type: "achat" });
   });
   it("renvoie null sans JSON exploitable", () => {
     expect(extraireJson("désolé")).toBeNull();

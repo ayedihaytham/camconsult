@@ -48,23 +48,52 @@ const ExtractionSchema = z.object({
   devise: z.string().nullable(),
   numDeclaration: z.string().nullable(),
   regime: z.string().nullable(),
-  reference: z.string().nullable(),
+  // Déclaration douanière uniquement (null pour une facture).
+  tauxChange: z.number().nullable(),
+  valeurTnd: z.number().nullable(),
+  ptfn: z.number().nullable(),
+  exportateur: z.string().nullable(),
+  importateur: z.string().nullable(),
 });
 
-const SYSTEM_PROMPT = `Tu analyses une page d'un document commercial ou douanier scanné (facture d'achat, facture de vente, ou déclaration douanière tunisienne — souvent via TTN/TradeNet), pour un cabinet comptable. Le document peut mélanger français, anglais et arabe, et l'image peut être dense, inclinée, ou de qualité moyenne.
+const SYSTEM_PROMPT = `Tu lis UNE page d'un dossier de stock pour un cabinet comptable tunisien : facture d'achat, facture de vente, ou déclaration douanière (TTN / TradeNet). Le document peut mélanger français, anglais et arabe, être dense, incliné ou de qualité moyenne. Tu remplis exactement les champs du schéma, rien d'autre.
 
-Détermine :
-- "type" : "achat" si la société "{{RAISON_SOCIALE}}" est l'ACHETEUSE / le destinataire de la facture, "vente" si elle est la VENDEUSE / l'émettrice, "douane" si c'est une déclaration en détail des marchandises (vocabulaire : exportateur, importateur, déclarant, bureau de douane, régime douanier).
-- "confidence" : ta confiance sur le type détecté ("haute" / "moyenne" / "faible").
-- Les champs lus directement sur le document.
+## 1. Type de la page ("type") et confiance ("confidence")
+- "achat" : facture dont la société "{{RAISON_SOCIALE}}" est l'ACHETEUSE (destinataire / "Bill to" / "Client").
+- "vente" : facture dont "{{RAISON_SOCIALE}}" est la VENDEUSE (émettrice / en-tête de la facture).
+- "douane" : déclaration en détail des marchandises (vocabulaire : exportateur, importateur, déclarant, bureau de douane, régime, DUM, TTN).
+- "confidence" : "haute" si le type est évident, "moyenne" ou "faible" sinon.
 
-Règles strictes :
-- N'invente JAMAIS une valeur. Si un champ n'est pas clairement lisible sur l'image, renvoie null pour ce champ plutôt qu'une supposition — mieux vaut un champ vide qu'un champ faux.
-- Dates au format ISO (AAAA-MM-JJ).
-- Nombres en notation standard (point décimal, sans séparateur de milliers) : ex. "52 000,00" → 52000.
-- "partie" = le nom de l'AUTRE société (le fournisseur si type="achat", le client si type="vente") — jamais "{{RAISON_SOCIALE}}" elle-même.
-- "lignes" : UNE entrée par ligne de produit/marchandise distincte dans le tableau de la facture (désignation, quantité, prix unitaire, montant) — le tableau contient souvent plusieurs produits avec des quantités différentes, liste-les TOUS, pas seulement le premier. Un total/sous-total/TVA en bas de tableau n'est jamais une ligne de produit.
-- Pour une déclaration douanière : numDeclaration est le numéro de la déclaration (souvent une suite de chiffres proche de la date d'enregistrement / du cachet), date = date d'enregistrement, regime = régime douanier, reference = référence associée s'il y en a une ; "lignes" reste vide (null) pour ce type.`;
+## 2. Champs d'une facture (achat ou vente)
+- "date" : date de la facture (AAAA-MM-JJ). Pas la date d'échéance ni de livraison.
+- "numFacture" : numéro de la facture tel qu'imprimé (ex. "INV-2024-018"), sans le libellé "N°".
+- "partie" : nom de l'AUTRE société (le fournisseur si "achat", le client si "vente"). Jamais "{{RAISON_SOCIALE}}" elle-même.
+- "devise" : code ISO de la devise de la facture (EUR, USD, TND…). Déduis-le des symboles (€, $, DT) si le code n'est pas écrit.
+- "lignes" : UNE entrée par produit distinct du tableau, TOUS les produits (pas seulement le premier) :
+  - "designation" : libellé du produit ;
+  - "quantite" : quantité facturée (nombre) ;
+  - "prixUnitaire" : prix unitaire dans la devise de la facture ;
+  - "montantDevise" : montant de la ligne dans la devise de la facture.
+  Un total, un sous-total, une TVA, un timbre ou des frais de port ne sont JAMAIS une ligne de produit.
+- Champs de douane (numDeclaration, regime, tauxChange, valeurTnd, ptfn, exportateur, importateur) : null pour une facture.
+
+## 3. Champs d'une déclaration douanière
+- "numDeclaration" : numéro de la déclaration (série de chiffres, souvent proche du cachet / de la date d'enregistrement).
+- "date" : date d'enregistrement de la déclaration (AAAA-MM-JJ).
+- "regime" : régime douanier (code et/ou libellé, ex. "Mise à la consommation").
+- "tauxChange" : taux de change appliqué à la déclaration (devise de la facture → TND), nombre avec ses décimales (ex. 3.3412).
+- "valeurTnd" : valeur en douane totale, en dinars tunisiens (TND).
+- "ptfn" : montant du PTFN déclaré (nombre en TND).
+- "exportateur" : nom de l'exportateur / expéditeur étranger.
+- "importateur" : nom de l'importateur tunisien.
+- "numFacture", "partie", "devise" : null sauf si la déclaration les mentionne clairement ; "lignes" : null.
+
+## 4. Règles strictes
+- N'invente JAMAIS une valeur. Un champ illisible ou absent vaut null : mieux vaut vide que faux.
+- Nombres en notation standard : point décimal, aucun séparateur de milliers ("52 000,00" → 52000, "1.234,50" → 1234.5, "3,3412" → 3.3412).
+- Recopie les chiffres tels qu'imprimés : ne recalcule rien, n'arrondis pas.
+- Noms de sociétés : recopie la raison sociale complète, sans adresse ni numéro de TVA.
+- Une page sans facture ni déclaration (page de garde, annexe) : type le plus plausible avec "confidence": "faible" et tous les champs à null.`;
 
 function decodeDataUrl(dataUrl) {
   const m = /^data:([^;]+);base64,(.*)$/s.exec(dataUrl);
@@ -155,7 +184,12 @@ export function champsByTypeFromClaude(out) {
       numDeclaration: out.numDeclaration || "",
       date: out.date || "",
       regime: out.regime || "",
-      reference: out.reference || "",
+      reference: "",
+      tauxChange: out.tauxChange ?? 0,
+      valeurTnd: out.valeurTnd ?? 0,
+      ptfn: out.ptfn ?? 0,
+      exportateur: out.exportateur || "",
+      importateur: out.importateur || "",
     },
   };
 }
@@ -164,6 +198,6 @@ export function champsByTypeVide() {
   return {
     achat: { date: "", numFacture: "", fournisseur: "", devise: "EUR", lignes: [] },
     vente: { date: "", numFacture: "", client: "", devise: "EUR", lignes: [] },
-    douane: { numDeclaration: "", date: "", regime: "", reference: "" },
+    douane: { numDeclaration: "", date: "", regime: "", reference: "", tauxChange: 0, valeurTnd: 0, ptfn: 0, exportateur: "", importateur: "" },
   };
 }

@@ -179,7 +179,11 @@ function fusionner(lectures) {
     devise: premier("devise"),
     numDeclaration: premier("numDeclaration"),
     regime: premier("regime"),
-    reference: premier("reference"),
+    tauxChange: premier("tauxChange"),
+    valeurTnd: premier("valeurTnd"),
+    ptfn: premier("ptfn"),
+    exportateur: premier("exportateur"),
+    importateur: premier("importateur"),
     lignes: lectures.flatMap((l) => l.lignes ?? []),
   };
 }
@@ -209,20 +213,19 @@ export async function extractDocument(dataUrl, type, raisonSociale) {
   if (!aiAvailable()) throw new ExtractionUnavailableError(AUCUN_MOTEUR);
   logProvider();
 
-  const lectures = [];
+  let lectures;
   if (mime.startsWith("image/")) {
-    lectures.push(await aiExtractPage({ imageDataUrl: dataUrl, raisonSociale }));
+    lectures = [await aiExtractPage({ imageDataUrl: dataUrl, raisonSociale })];
   } else {
     const textPages = await tryPdfTextPages(buffer);
     if (textPages.some((t) => t.trim().length > 20)) {
-      for (const texte of textPages) {
-        if (texte.trim().length < 20) continue;
-        lectures.push(await aiExtractPage({ texte, raisonSociale }));
-      }
+      lectures = await Promise.all(
+        textPages.filter((t) => t.trim().length >= 20).map((texte) => aiExtractPage({ texte, raisonSociale })),
+      );
     } else {
-      for (const { png } of await rasterizeAllPages(buffer)) {
-        lectures.push(await aiExtractPage({ imageDataUrl: toPngUrl(png), raisonSociale }));
-      }
+      lectures = await Promise.all(
+        (await rasterizeAllPages(buffer)).map(({ png }) => aiExtractPage({ imageDataUrl: toPngUrl(png), raisonSociale })),
+      );
     }
   }
   if (lectures.length === 0) throw new Error("Aucune page lisible dans ce document");
@@ -311,7 +314,11 @@ const lectureVide = () => ({
   devise: null,
   numDeclaration: null,
   regime: null,
-  reference: null,
+  tauxChange: null,
+  valeurTnd: null,
+  ptfn: null,
+  exportateur: null,
+  importateur: null,
 });
 
 /** Page lue par un modèle de vision, au format attendu par l'écran. */

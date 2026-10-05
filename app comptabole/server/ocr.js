@@ -41,6 +41,10 @@ const AUCUN_MOTEUR =
 
 const execFileAsync = promisify(execFile);
 const MAX_PAGES = 15;
+// Plus grand côté (pixels) des pages rendues pour le modèle. Au-delà de ~1568 px
+// l'API réduit elle-même l'image : envoyer plus gros ne lit pas mieux et coûte
+// beaucoup plus de jetons. PAGE_MAX_PX (environnement) pour ajuster.
+const PAGE_MAX_PX = Number(process.env.PAGE_MAX_PX) || 1568;
 
 function aiAvailable() {
   return claudeAvailable();
@@ -100,7 +104,7 @@ export async function rasterizeAllPages(buffer) {
     const pdfPath = join(dir, "doc.pdf");
     await writeFile(pdfPath, buffer);
     await execFileAsync("pdftoppm", [
-      "-png", "-r", "200", "-f", "1", "-l", String(MAX_PAGES),
+      "-png", "-scale-to", String(PAGE_MAX_PX), "-f", "1", "-l", String(MAX_PAGES),
       pdfPath, join(dir, "page"),
     ]);
     const files = (await readdir(dir))

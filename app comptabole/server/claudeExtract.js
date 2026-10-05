@@ -17,6 +17,10 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
  * n'y a pas d'OCR local de repli (voir ocr.js : l'extraction est alors refusée
  * avec un message clair).
  */
+/** Modèle Claude utilisé pour lire les pièces. Surchargeable sans toucher au code :
+ * CLAUDE_EXTRACT_MODEL (ex. claude-sonnet-5-5, claude-haiku-4-5-20251001). */
+export const CLAUDE_EXTRACT_MODEL = process.env.CLAUDE_EXTRACT_MODEL || "claude-sonnet-5-5";
+
 export function claudeAvailable() {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
@@ -71,9 +75,9 @@ function decodeDataUrl(dataUrl) {
 }
 
 /**
- * @param {{ imageDataUrl?: string|null, texte?: string, raisonSociale?: string }} p
+ * @param {{ imageDataUrl?: string|null, texte?: string, raisonSociale?: string, model?: string, usage?: object }} p
  */
-export async function claudeExtractPage({ imageDataUrl, texte, raisonSociale }) {
+export async function claudeExtractPage({ imageDataUrl, texte, raisonSociale, model = CLAUDE_EXTRACT_MODEL, usage }) {
   const system = SYSTEM_PROMPT.replaceAll(
     "{{RAISON_SOCIALE}}",
     raisonSociale || "(non précisée)",
@@ -95,13 +99,18 @@ export async function claudeExtractPage({ imageDataUrl, texte, raisonSociale }) 
   }
 
   const response = await getClient().messages.parse({
-    model: "claude-sonnet-5",
+    model,
     max_tokens: 4096,
     system,
     output_config: { effort: "medium", format: zodOutputFormat(ExtractionSchema) },
     messages: [{ role: "user", content }],
   });
 
+  // Jetons consommés (comparaison de coût, voir scripts/benchmark-extraction.mjs).
+  if (usage) {
+    usage.inputTokens = response.usage?.input_tokens ?? 0;
+    usage.outputTokens = response.usage?.output_tokens ?? 0;
+  }
   if (!response.parsed_output) throw new Error("Réponse Claude non exploitable (parsing échoué)");
   return response.parsed_output;
 }

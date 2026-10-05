@@ -48,27 +48,36 @@ function aiAvailable() {
   return openrouterAvailable() || claudeAvailable();
 }
 
+/** Fournisseurs de vision disponibles, dans l'ordre d'essai. Par défaut
+ * OpenRouter (Gemini) puis Claude ; EXTRACT_PROVIDER=claude inverse l'ordre.
+ * Le choix se fait donc par configuration, sans toucher au code. */
+function fournisseursIA() {
+  const claude = claudeAvailable() ? [["Claude", claudeExtractPage]] : [];
+  const openrouter = openrouterAvailable() ? [["OpenRouter", openrouterExtractPage]] : [];
+  return process.env.EXTRACT_PROVIDER === "claude" ? [...claude, ...openrouter] : [...openrouter, ...claude];
+}
+
 async function aiExtractPage(params) {
-  if (openrouterAvailable()) {
+  const fournisseurs = fournisseursIA();
+  let derniereErreur = null;
+  for (const [nom, extraire] of fournisseurs) {
     try {
-      return await openrouterExtractPage(params);
+      return await extraire(params);
     } catch (err) {
-      // Échec à l'exécution (ex. 402 crédits insuffisants) : bascule sur
-      // Claude s'il est configuré ; sinon l'erreur remonte telle quelle.
-      if (!claudeAvailable()) throw err;
-      console.error(`[ocr] OpenRouter en échec, tentative Claude : ${err.message}`);
-      return claudeExtractPage(params);
+      // Échec à l'exécution (ex. 402 crédits insuffisants) : on essaie le
+      // fournisseur suivant ; sinon l'erreur remonte telle quelle.
+      derniereErreur = err;
+      console.error(`[ocr] ${nom} en échec : ${err.message}`);
     }
   }
-  return claudeExtractPage(params);
+  throw derniereErreur ?? new Error("Aucun modèle de vision configuré");
 }
 
 /** Log explicite du fournisseur réellement utilisé : sans lui, une clé absente
  * ou un appel en échec seraient indiscernables d'un import réussi. */
 function logProvider() {
-  if (openrouterAvailable()) console.log("[ocr] extraction via OpenRouter (Gemini 2.5 Flash)");
-  else if (claudeAvailable()) console.log("[ocr] extraction via Claude");
-  else console.log("[ocr] aucun modèle de vision configuré");
+  const noms = fournisseursIA().map(([nom]) => nom);
+  console.log(noms.length ? `[ocr] extraction via ${noms.join(" puis ")}` : "[ocr] aucun modèle de vision configuré");
 }
 
 function decodeDataUrl(dataUrl) {
@@ -83,7 +92,7 @@ const estPriseEnCharge = (mime) => estPdf(mime) || mime.startsWith("image/");
 // ── Lecture des fichiers (aucun OCR : texte numérique d'un PDF et rendu image) ──
 
 /** Texte par page d'un PDF numérique (pas de rendu image nécessaire). */
-async function tryPdfTextPages(buffer) {
+export async function tryPdfTextPages(buffer) {
   try {
     const pdfParse = (await import("pdf-parse")).default;
     const pages = [];
@@ -104,7 +113,7 @@ async function tryPdfTextPages(buffer) {
 }
 
 /** Rastérise chaque page du PDF (poppler) en PNG, jusqu'à MAX_PAGES. */
-async function rasterizeAllPages(buffer) {
+export async function rasterizeAllPages(buffer) {
   const dir = await mkdtemp(join(tmpdir(), "stock-pages-"));
   try {
     const pdfPath = join(dir, "doc.pdf");

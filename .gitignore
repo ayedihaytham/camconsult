@@ -41,3 +41,7 @@ next-env.d.ts
 # archives d'images Docker reçues (plusieurs Go) : jamais commitées
 transfer-*.zip
 *.tar
+
+# Banc d'essai d'extraction : documents clients et résultats, jamais commités
+app comptabole/benchmark/
+app comptabole/benchmark-results/

@@ -12,7 +12,12 @@ export function openrouterAvailable() {
   return Boolean(process.env.OPENROUTER_API_KEY);
 }
 
-const MODEL = "google/gemini-2.5-flash";
+/** Modèle lu via OpenRouter. Surchargeable : OPENROUTER_EXTRACT_MODEL
+ * (ex. google/gemini-2.5-flash, google/gemini-2.5-pro). */
+export const OPENROUTER_EXTRACT_MODEL = process.env.OPENROUTER_EXTRACT_MODEL || "google/gemini-2.5-flash";
+
+/** Limite de la réponse : OPENROUTER_EXTRACT_MAX_TOKENS (750 par défaut, voir plus bas). */
+const DEFAULT_MAX_TOKENS = Number(process.env.OPENROUTER_EXTRACT_MAX_TOKENS) || 750;
 
 const LigneSchema = z.object({
   designation: z.string().nullable(),
@@ -68,7 +73,14 @@ function stripCodeFence(raw) {
 /**
  * @param {{ imageDataUrl?: string|null, texte?: string, raisonSociale?: string }} p
  */
-export async function openrouterExtractPage({ imageDataUrl, texte, raisonSociale }) {
+export async function openrouterExtractPage({
+  imageDataUrl,
+  texte,
+  raisonSociale,
+  model = OPENROUTER_EXTRACT_MODEL,
+  maxTokens = DEFAULT_MAX_TOKENS,
+  usage,
+}) {
   const system = SYSTEM_PROMPT.replaceAll(
     "{{RAISON_SOCIALE}}",
     raisonSociale || "(non précisée)",
@@ -94,7 +106,7 @@ export async function openrouterExtractPage({ imageDataUrl, texte, raisonSociale
       "X-Title": "CAMCONSULT Cabinet - extraction stock",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       temperature: 0,
       // Volontairement bas (idéalement 1500, marge confortable pour une
       // longue désignation) : le compte OpenRouter n'a quasiment plus de
@@ -103,7 +115,7 @@ export async function openrouterExtractPage({ imageDataUrl, texte, raisonSociale
       // À remonter à 1500 dès que le compte est rechargé (voir
       // openrouter.ai/settings/credits) — 750 reste correct pour un document
       // simple mais peut tronquer un champ texte inhabituellement long.
-      max_tokens: 750,
+      max_tokens: maxTokens,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
@@ -118,6 +130,10 @@ export async function openrouterExtractPage({ imageDataUrl, texte, raisonSociale
   }
 
   const data = await res.json();
+  if (usage) {
+    usage.inputTokens = data?.usage?.prompt_tokens ?? 0;
+    usage.outputTokens = data?.usage?.completion_tokens ?? 0;
+  }
   const raw = data?.choices?.[0]?.message?.content;
   if (!raw) throw new Error("Réponse OpenRouter vide ou inattendue");
 

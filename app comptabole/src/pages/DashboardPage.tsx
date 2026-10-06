@@ -2,6 +2,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import "@/components/dashboard/dashboard-polish.css";
 import "@/components/dashboard/mon-bureau.css";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
+import { SocieteShortcuts } from "@/components/dashboard/SocieteShortcuts";
 import { useDashboardData } from "@/hooks/dashboard/useDashboardData";
 import { usePermissions } from "@/hooks/usePermissions";
 import { toTitleCase } from "@/lib/utils";
@@ -30,6 +31,7 @@ export function DashboardPage() {
     journalError,
     retryAdminData,
     now,
+    societeActive,
   } = useDashboardData();
   const dateLabel = toTitleCase(
     new Intl.DateTimeFormat("fr-FR", {
@@ -52,7 +54,9 @@ export function DashboardPage() {
         role={role}
         canAddSociete={canAddSociete}
         canUseMessaging={canUseMessaging}
+        societeNom={societeActive?.raisonSociale ?? null}
       />
+      {societeActive && role !== "societe_employe" && <SocieteShortcuts societe={societeActive} />}
       <DashboardTabs
         data={data}
         canUseMessaging={canUseMessaging}

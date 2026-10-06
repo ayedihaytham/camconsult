@@ -41,9 +41,11 @@ interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onSubmit: (data: FactureInput) => Promise<void> | void;
+  /** Client proposé à l'ouverture (société active). */
+  defaultSocieteId?: string;
 }
 
-export function FactureFormSheet({ open, onOpenChange, onSubmit }: Props) {
+export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteId = "" }: Props) {
   const societes = useSocietes();
   const [societeId, setSocieteId] = useState("");
   const [dateEmission, setDateEmission] = useState(aujourdhui());
@@ -57,13 +59,14 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit }: Props) {
   useEffect(() => {
     if (!open) return;
     const jour = aujourdhui();
-    setSocieteId("");
+    setSocieteId(defaultSocieteId);
     setDateEmission(jour);
     setEcheance(ajouterJours(jour, DELAI_PAIEMENT_JOURS));
     setTvaTaux(19);
     setTimbre(TIMBRE_DEFAUT);
     setNote("");
     setLignes([emptyLigne()]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const totaux = useMemo(() => calculerTotaux(lignes, tvaTaux, timbre), [lignes, tvaTaux, timbre]);

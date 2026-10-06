@@ -44,6 +44,18 @@ The backend lives in `app comptabole/server/`:
   `/grille-affectat`.
 - `*` renders the authenticated not-found page.
 
+## Active société
+
+The top bar (`SocieteActiveSelect`) sets the société the user works on
+(`store/societeActive.ts`, in memory only: every session starts on "Toutes les
+sociétés"). It is limited to the sociétés the user can see (`canSeeSociete`) and
+hidden for company-side accounts. `/stock`, `/etats-financiers`, `/honoraires`,
+`/souche-cheques` and `/suivi-devise` open on the active société's page (menu links
+rewritten by `ciblerNavigation`), a `/<module>/:societeId` URL makes that société
+active, and the Dashboard (`useDashboardData`) and Facturation are scoped to it.
+The pure rules live in `src/lib/societeContext.ts`. Bordereaux and the journal are
+not tied to a société and are left out of a scoped Dashboard.
+
 Route guards are nested around groups; page-level actions still use permission
 flags, and every protected backend route must enforce its own authorization.
 

@@ -6,6 +6,7 @@ import { useUi } from "@/store/ui";
 import { cn } from "@/lib/utils";
 import { TourProvider } from "@/components/tour/TourProvider";
 import { TourHelpButton } from "@/components/tour/TourHelpButton";
+import { useSocieteRouteSync } from "@/hooks/useSocieteActive";
 
 const EDGE_TO_EDGE_REGISTERS = new Set(["/societes", "/employes", "/collectes", "/taches", "/etats-financiers"]);
 
@@ -14,6 +15,7 @@ export function AppLayout() {
   const collapsed = useUi((state) => state.collapsed);
   const setCollapsed = useUi((state) => state.setCollapsed);
   const edgeToEdgeMobile = EDGE_TO_EDGE_REGISTERS.has(pathname);
+  useSocieteRouteSync();
 
   return (
     <TourProvider>

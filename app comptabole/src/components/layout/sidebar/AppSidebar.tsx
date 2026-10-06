@@ -14,6 +14,8 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useSocieteActive } from "@/hooks/useSocieteActive";
+import { ciblerNavigation } from "@/lib/societeContext";
 import { SidebarNavigation } from "./SidebarNavigation";
 import {
   unreadMessageCount,
@@ -65,13 +67,17 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const unreadNotifications = useNotifications().filter(
     (notification) => !notification.lu,
   );
-  const groups = visibleNavigation({
-    isAdmin,
-    lectureSeule,
-    can,
-    canManageCollaborateurs,
-    isResponsableSociete,
-  });
+  const societeActive = useSocieteActive();
+  const groups = ciblerNavigation(
+    visibleNavigation({
+      isAdmin,
+      lectureSeule,
+      can,
+      canManageCollaborateurs,
+      isResponsableSociete,
+    }),
+    societeActive?.id ?? null,
+  );
   const unreadMessages = unreadMessageCount(
     conversations,
     isAdmin,

@@ -9,6 +9,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
 import { TourHelpButton } from "@/components/tour/TourHelpButton";
+import { SocieteActiveSelect } from "./SocieteActiveSelect";
 
 import {
   DropdownMenu,
@@ -54,6 +55,7 @@ export function Topbar() {
         <AppBreadcrumbs />
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+          <SocieteActiveSelect />
           {pathname !== "/grille-affectat" && <TourHelpButton placement="topbar" />}
           <NotificationBell />
           <DropdownMenu>

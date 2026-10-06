@@ -14,9 +14,11 @@ interface DashboardHeaderProps {
   canUseMessaging: boolean;
   error?: boolean;
   now?: Date;
+  /** Société active : le Dashboard porte alors sur son dossier uniquement. */
+  societeNom?: string | null;
 }
 
-export function DashboardHeader({ salutation, dateLabel, data, loading, role, canAddSociete, canUseMessaging, error = false, now = new Date() }: DashboardHeaderProps) {
+export function DashboardHeader({ salutation, dateLabel, data, loading, role, canAddSociete, canUseMessaging, error = false, now = new Date(), societeNom = null }: DashboardHeaderProps) {
   const metrics = data.kpis;
 
   if (role !== "societe_employe") return (
@@ -29,8 +31,8 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
             </time>
             <div className="min-w-0">
               <p className="text-xs text-primary-foreground/80">{salutation}</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[1.7rem]">{role === "admin" ? "Le travail du cabinet" : "Mon espace de travail"}</h1>
-              <p className="mt-1 text-xs leading-relaxed text-primary-foreground/80">Reprendre, avancer et préparer les prochaines transmissions.</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[1.7rem]">{societeNom ?? (role === "admin" ? "Le travail du cabinet" : "Mon espace de travail")}</h1>
+              <p className="mt-1 text-xs leading-relaxed text-primary-foreground/80">{societeNom ? "Tâches, collectes et échéances de ce client." : "Reprendre, avancer et préparer les prochaines transmissions."}</p>
             </div>
           </div>
           <div className="shrink-0"><DashboardQuickActions role={role} canAddSociete={canAddSociete} canUseMessaging={canUseMessaging} inverse /></div>

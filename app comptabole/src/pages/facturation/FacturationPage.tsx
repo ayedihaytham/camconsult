@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { exportToCsv, type ExportColumn } from "@/lib/export";
 import { estEnRetard, formatTnd, imprimerFacture } from "@/lib/facturation";
+import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { cn, formatDate } from "@/lib/utils";
 import { useFacturation, type FactureInput } from "@/store/facturation";
 import { FACTURE_STATUT_LABELS } from "@/types";
@@ -58,6 +59,7 @@ export function FacturationPage() {
   const fetchList = useFacturation((s) => s.fetchList);
   const create = useFacturation((s) => s.create);
   const update = useFacturation((s) => s.update);
+  const societeActive = useSocieteActive();
   const cabinet = useFacturation((s) => s.cabinet);
   const fetchCabinet = useFacturation((s) => s.fetchCabinet);
   const saveCabinet = useFacturation((s) => s.saveCabinet);
@@ -78,17 +80,20 @@ export function FacturationPage() {
   const filtered = useMemo(() => {
     const q = recherche.trim().toLocaleLowerCase("fr");
     return list.filter((f) => {
+      if (societeActive && f.societeId !== societeActive.id) return false;
       if (statut !== "all" && f.statut !== statut) return false;
       if (retardSeul && !estEnRetard(f)) return false;
       if (q && !`${f.societeNom} ${f.numero}`.toLocaleLowerCase("fr").includes(q)) return false;
       return true;
     });
-  }, [list, statut, retardSeul, recherche]);
+  }, [list, statut, retardSeul, recherche, societeActive]);
 
-  const actives = list.filter((f) => f.statut !== "annulee");
+  // Indicateurs : ceux de la société active, ou du cabinet entier sans société active.
+  const portee = societeActive ? list.filter((f) => f.societeId === societeActive.id) : list;
+  const actives = portee.filter((f) => f.statut !== "annulee");
   const facture = actives.reduce((s, f) => s + f.netAPayer, 0);
-  const encaisse = list.filter((f) => f.statut === "payee").reduce((s, f) => s + f.netAPayer, 0);
-  const nbRetard = list.filter((f) => estEnRetard(f)).length;
+  const encaisse = portee.filter((f) => f.statut === "payee").reduce((s, f) => s + f.netAPayer, 0);
+  const nbRetard = portee.filter((f) => estEnRetard(f)).length;
 
   const toutSelectionne = filtered.length > 0 && filtered.every((f) => selection.includes(f.id));
 
@@ -122,9 +127,13 @@ export function FacturationPage() {
         icon={FileText}
         eyebrow="Comptabilité · Honoraires"
         title="Facturation"
-        description="Factures d'honoraires du cabinet : émission, échéance, paiement et signature."
+        description={
+          societeActive
+            ? `Factures de ${societeActive.raisonSociale} : émission, échéance, paiement et signature.`
+            : "Factures d'honoraires du cabinet : émission, échéance, paiement et signature."
+        }
         metrics={[
-          { label: list.length > 1 ? "Factures" : "Facture", value: list.length, loading },
+          { label: portee.length > 1 ? "Factures" : "Facture", value: portee.length, loading },
           { label: "Facturé", value: formatTnd(facture), loading },
           { label: "Encaissé", value: formatTnd(encaisse), tone: "success", loading },
           { label: "En retard", value: nbRetard, tone: nbRetard > 0 ? "warning" : "default", loading },
@@ -329,7 +338,12 @@ export function FacturationPage() {
         )}
       </div>
 
-      <FactureFormSheet open={formOpen} onOpenChange={setFormOpen} onSubmit={generer} />
+      <FactureFormSheet
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSubmit={generer}
+        defaultSocieteId={societeActive?.id ?? ""}
+      />
       <CabinetInfoDialog
         open={cabinetOpen}
         onOpenChange={setCabinetOpen}

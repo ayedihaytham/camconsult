@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildDashboardData, type DashboardRole } from "@/lib/dashboard/dashboardData";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useSocieteActive } from "@/hooks/useSocieteActive";
+import { dossierDeSociete } from "@/lib/societeContext";
 import { useAuth } from "@/store/auth";
 import { useBordereaux } from "@/store/bordereaux";
 import { useCollectes } from "@/store/collectes";
@@ -17,6 +19,8 @@ import { useJournal } from "@/store/journal";
 export function useDashboardData(selectedEmployeeId: string | null = null) {
   const { isAdmin, poste, employeId, can } = usePermissions();
   const session = useAuth((state) => state.session);
+  const societeActive = useSocieteActive();
+  const societeActiveId = societeActive?.id ?? null;
   const societes = useSocietes();
   const collaborateurs = useCollaborateurs();
   const noeuds = useNoeuds();
@@ -99,24 +103,38 @@ export function useDashboardData(selectedEmployeeId: string | null = null) {
       : "collaborateur";
   const canUseMessaging = isAdmin || can("messagerie");
 
-  const data = useMemo(
-    () => buildDashboardData({
+  const data = useMemo(() => {
+    // Société active : tout le Dashboard se recentre sur son dossier.
+    const dossier = dossierDeSociete(
+      {
+        societes,
+        taches,
+        noeuds,
+        collectes: collectesReady && !collectesError ? collectes : [],
+        conversations: canUseMessaging ? conversations : [],
+        bordereaux: isAdmin && adminDataReady && !bordereauxError ? bordereaux : [],
+        journalEntries: isAdmin && adminDataReady && !journalError ? journalEntries : [],
+      },
+      role === "societe_employe" ? null : societeActiveId,
+    );
+    return buildDashboardData({
       role,
       viewerEmployeId: employeId,
       canUseMessaging,
       now,
-      societes,
+      societes: dossier.societes,
       collaborateurs,
-      noeuds,
-      taches,
-      conversations: canUseMessaging ? conversations : [],
+      noeuds: dossier.noeuds,
+      taches: dossier.taches,
+      conversations: dossier.conversations,
       notifications,
-      collectes: collectesReady && !collectesError ? collectes : [],
-      bordereaux: isAdmin && adminDataReady && !bordereauxError ? bordereaux : [],
-      journalEntries: isAdmin && adminDataReady && !journalError ? journalEntries : [],
+      collectes: dossier.collectes,
+      bordereaux: dossier.bordereaux,
+      journalEntries: dossier.journalEntries,
       adminName: session?.cabinetNom ?? "Cabinet",
       selectedEmployeeId: isAdmin ? selectedEmployeeId : null,
-    }),
+    });
+  },
     [
       adminDataReady,
       bordereauxError,
@@ -136,6 +154,7 @@ export function useDashboardData(selectedEmployeeId: string | null = null) {
       now,
       role,
       session?.cabinetNom,
+      societeActiveId,
       selectedEmployeeId,
       societes,
       taches,
@@ -152,6 +171,7 @@ export function useDashboardData(selectedEmployeeId: string | null = null) {
     adminDataError,
     journalError: isAdmin && journalError,
     now,
+    societeActive,
     employeeOptions: isAdmin ? collaborateurs.filter((employee) => employee.role !== "societe_employe") : [],
     collectesError,
     retryCollectes: loadCollectes,

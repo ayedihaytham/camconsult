@@ -115,6 +115,9 @@ const TARIFS = [
   [/opus/, [4, 20]],
 ];
 
+/** Haiku refuse le paramètre `effort` (400 sur l'API officielle) ; Sonnet et Opus l'acceptent. */
+export const accepteEffort = (model) => !/haiku/i.test(model);
+
 export function coutEstime(model, entree, sortie) {
   const defaut = TARIFS.find(([motif]) => motif.test(model))?.[1];
   const prixEntree = Number(process.env.CLAUDE_PRICE_IN) || defaut?.[0];
@@ -162,7 +165,7 @@ ${JSON.stringify(z.toJSONSchema(ExtractionSchema))}`
     model,
     max_tokens: 4096,
     system: consigne,
-    ...(compatible ? {} : { output_config: { effort: "medium", format: zodOutputFormat(ExtractionSchema) } }),
+    ...(compatible ? {} : { output_config: { ...(accepteEffort(model) ? { effort: "medium" } : {}), format: zodOutputFormat(ExtractionSchema) } }),
     messages: [{ role: "user", content }],
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { champsByTypeFromClaude, coutEstime, extraireJson } from "./claudeExtract.js";
+import { accepteEffort, champsByTypeFromClaude, coutEstime, extraireJson } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -70,5 +70,12 @@ describe("coutEstime", () => {
   });
   it("signale un modèle sans tarif connu", () => {
     expect(coutEstime("autre-modele", 1000, 1000)).toBe("coût inconnu");
+  });
+});
+
+describe("accepteEffort", () => {
+  it("n'envoie pas effort à Haiku", () => {
+    expect(accepteEffort("claude-haiku-4-5-20251001")).toBe(false);
+    expect(accepteEffort("claude-sonnet-5-5")).toBe(true);
   });
 });

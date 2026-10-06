@@ -48,6 +48,8 @@ services:
       # Choix du modèle de lecture (voir docs/benchmark-extraction.md) : tous
       # facultatifs, les valeurs par défaut sont celles du code.
       CLAUDE_EXTRACT_MODEL: ${CLAUDE_EXTRACT_MODEL:-}
+      # true : la douane est d'abord lue par le modèle économique (voir server/ocr.js)
+      DOUANE_ECONOMIQUE: ${DOUANE_ECONOMIQUE:-}
       # Facultatif — envoi d'emails réel (SMTP) ; absent = envoi sauté
       # silencieusement (voir server/mailer.js).
       SMTP_HOST: ${SMTP_HOST:-}

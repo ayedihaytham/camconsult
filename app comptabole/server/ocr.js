@@ -223,28 +223,35 @@ async function lireZones(zones, raisonSociale, model) {
   return lectures.filter(Boolean);
 }
 
-/** Complète une lecture de douane en deux temps, du moins cher au plus fiable :
- *  1. les zones agrandies sont lues par le modèle économique (même modèle que les
- *     factures) ; si les champs clés sont là et cohérents, on s'arrête ;
- *  2. sinon, un modèle plus fort relit les mêmes zones et ses valeurs priment. */
+/** Complète une lecture de douane avec les zones agrandies de la page, lues par le
+ *  modèle plus fort (CLAUDE_FALLBACK_MODEL) : ses valeurs priment sur celles de la
+ *  première lecture. Les chiffres de la grille (taux, valeur, PTFN) sont mal lus par
+ *  le modèle économique deux fois sur trois : l'essayer d'abord coûte autant que
+ *  de passer directement au modèle fort, en plus lent.
+ *  DOUANE_ECONOMIQUE=true rétablit l'essai économique d'abord, le modèle fort
+ *  n'intervenant alors que si des champs manquent ou si les montants sont incohérents. */
 async function completerDouane(lecture, zones, raisonSociale) {
   if (zones.length === 0) return lecture;
   const avant = CHAMPS_DOUANE.filter((c) => lecture[c]).length;
   const nombre = (l) => CHAMPS_DOUANE.filter((c) => l[c]).length;
+  const montants = (l) => `ptfn ${l.ptfn || "-"} x taux ${l.tauxChange || "-"} / valeur ${l.valeurTnd || "-"}`;
+  const duree = (t0) => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
 
   const t0 = Date.now();
-  const economiques = await lireZones(zones, raisonSociale);
-  let fusion = fusionnerDouane([...economiques, lecture]);
-  if (!douaneIncomplete(fusion)) {
-    console.log(`[ocr] douane relue sur ${zones.length} zones par le modèle économique (${avant} -> ${nombre(fusion)} champs, ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
-    return fusion;
+  let economiques = [];
+  if (process.env.DOUANE_ECONOMIQUE === "true") {
+    economiques = await lireZones(zones, raisonSociale);
+    const fusion = fusionnerDouane([...economiques, lecture]);
+    if (!douaneIncomplete(fusion)) {
+      console.log(`[ocr] douane relue sur ${zones.length} zones par le modèle économique (${avant} -> ${nombre(fusion)} champs, ${duree(t0)})`);
+      return fusion;
+    }
+    console.log(`[ocr] douane : lecture économique non retenue (${montants(fusion)}), relecture par ${MODELE_RENFORT}`);
   }
 
-  const montants = (l) => `ptfn ${l.ptfn || "-"} x taux ${l.tauxChange || "-"} / valeur ${l.valeurTnd || "-"}`;
-  console.log(`[ocr] douane : lecture économique non retenue (${montants(fusion)}), relecture par ${MODELE_RENFORT}`);
   const forts = await lireZones(zones, raisonSociale, MODELE_RENFORT);
-  fusion = fusionnerDouane([...forts, ...economiques, lecture]);
-  console.log(`[ocr] douane relue par ${MODELE_RENFORT} sur ${zones.length} zones (${avant} -> ${nombre(fusion)} champs, ${montants(fusion)}${douaneCoherente(fusion) ? "" : ", montants à vérifier"}, ${((Date.now() - t0) / 1000).toFixed(1)} s au total)`);
+  const fusion = fusionnerDouane([...forts, ...economiques, lecture]);
+  console.log(`[ocr] douane relue par ${MODELE_RENFORT} sur ${zones.length} zones (${avant} -> ${nombre(fusion)} champs, ${montants(fusion)}${douaneCoherente(fusion) ? "" : ", montants à vérifier"}, ${duree(t0)})`);
   return fusion;
 }
 

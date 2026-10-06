@@ -1,31 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  Boxes,
-  Download,
-  FolderInput,
-  Paperclip,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Boxes, Download, Plus } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { cn, formatDate, formatNumber } from "@/lib/utils";
 import { useSocieteById, useNoeuds, useData } from "@/store/data";
 import { useStock, type StockMouvementInput } from "@/store/stock";
-import type { StockLigne, StockMouvement } from "@/types";
+import type { StockMouvement } from "@/types";
 import { classerDansStructuration } from "@/lib/classement";
+import { fmtQuantite, recapStock } from "@/lib/stockRecap";
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
+import { StockRecapTable } from "./StockRecapTable";
 import { DocPreviewDialog } from "./DocPreviewDialog";
-
-const fmt = (n: number) =>
-  n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-const fmtQ = (n: number) =>
-  n.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 3 });
 
 export function StockSocietePage() {
   const { societeId = "" } = useParams();
@@ -61,19 +49,7 @@ export function StockSocietePage() {
   const shown = onlyAnomalies ? list.filter((m) => m.ecart !== 0) : list;
   const nbAnomalies = list.filter((m) => m.ecart !== 0).length;
 
-  const totals = useMemo(
-    () =>
-      list.reduce(
-        (acc, m) => ({
-          achatQ: acc.achatQ + m.achatLignes.reduce((s, l) => s + l.quantite, 0),
-          venteQ: acc.venteQ + m.venteLignes.reduce((s, l) => s + l.quantite, 0),
-          achatTnd: acc.achatTnd + m.achatLignes.reduce((s, l) => s + l.montantTnd, 0),
-          venteTnd: acc.venteTnd + m.venteLignes.reduce((s, l) => s + l.montantTnd, 0),
-        }),
-        { achatQ: 0, venteQ: 0, achatTnd: 0, venteTnd: 0 },
-      ),
-    [list],
-  );
+  const recap = useMemo(() => recapStock(shown), [shown]);
 
   /** Attend la réponse du serveur : le formulaire reste ouvert (données intactes)
    * tant que le mouvement n'est pas réellement enregistré, et s'il échoue. */
@@ -193,10 +169,10 @@ export function StockSocietePage() {
           title="Gestion de stock"
           description={`${societe?.raisonSociale ?? "Société"} · ${societe?.code ?? ""}`}
           metrics={[
-            { label: "Anomalies (écart ≠ 0)", value: nbAnomalies, tone: nbAnomalies > 0 ? "destructive" : "default" },
-            { label: "Qté achetée", value: fmtQ(totals.achatQ) },
-            { label: "Qté vendue", value: fmtQ(totals.venteQ) },
-            { label: "Montant achats (TND)", value: fmt(totals.achatTnd) },
+            { label: shown.length > 1 ? "Mouvements" : "Mouvement", value: recap.mouvements, loading },
+            { label: "Anomalies (écart ≠ 0)", value: recap.anomalies, tone: recap.anomalies > 0 ? "destructive" : "default" },
+            { label: "Qté achetée", value: fmtQuantite(recap.achat.quantite) },
+            { label: "Qté vendue", value: fmtQuantite(recap.vente.quantite) },
           ]}
           actions={
             <div data-tour="stock-actions" className="flex flex-wrap items-center gap-2">
@@ -227,6 +203,20 @@ export function StockSocietePage() {
             {shown.length} mouvement{shown.length > 1 ? "s" : ""}
           </span>
         </div>
+        {shown.length > 0 && (
+          <StockRecapTable
+            mouvements={shown}
+            nouveauId={nouveauId}
+            classing={classing}
+            onEdit={(m) => {
+              setEditing(m);
+              setFormOpen(true);
+            }}
+            onDelete={setToDelete}
+            onPreview={(title, dataUrl) => setPreview({ title, dataUrl })}
+            onClasser={handleClasser}
+          />
+        )}
         {shown.length === 0 && (
           <div className="border-t border-accent/25">
             <div className="flex flex-col items-center gap-3 px-4 py-14 text-center">
@@ -247,139 +237,6 @@ export function StockSocietePage() {
           </div>
         )}
       </div>
-
-      {shown.length > 0 && (
-        <div className="mt-3 flex flex-col gap-3">
-
-          {shown.map((m) => {
-            const hasDouane = Boolean(
-              m.douaneNumDeclaration || m.douaneDate || m.douaneRegime ||
-              m.douaneTauxChange || m.douaneValeurTnd || m.douanePtfn || m.douaneExportateur ||
-              m.douaneImportateur || m.douaneDocDataUrl,
-            );
-            return (
-              <div
-                data-tour="stock-register"
-                key={m.id}
-                id={`mouvement-${m.id}`}
-                className={cn(
-                  "overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-shadow duration-700",
-                  nouveauId === m.id && "border-accent shadow-[0_0_0_3px_hsl(var(--accent)/0.35)]",
-                )}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-                  <span className="font-bold text-foreground">
-                    {m.natureMarchandise || "Mouvement sans nature"}
-                  </span>
-                  <div className="flex items-center gap-4">
-                    {/* --destructive (≈5,8:1) est autorisé en texte — voir
-                        DESIGN-SYSTEM.md §2 ; un écart à 0 reste en encre
-                        neutre, pas de vert (--success échoue le contraste en
-                        texte). */}
-                    <span className="text-sm">
-                      <span className="text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-                        Écart{" "}
-                      </span>
-                      <span
-                        className={cn(
-                          "font-bold tabular-nums",
-                          m.ecart !== 0 ? "text-destructive" : "text-foreground",
-                        )}
-                      >
-                        {fmtQ(m.ecart)}
-                      </span>
-                    </span>
-                    <div className="flex gap-0.5">
-                      <button
-                        onClick={() => {
-                          setEditing(m);
-                          setFormOpen(true);
-                        }}
-                        className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setToDelete(m)}
-                        className="flex h-[26px] w-[26px] items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Écart détaillé par produit — seulement s'il y a plus d'une
-                    désignation, sinon redondant avec l'écart total ci-dessus. */}
-                {m.ecartParDesignation.length > 1 && (
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 border-b border-border bg-secondary/20 px-4 py-2 text-xs">
-                    {m.ecartParDesignation.map((e) => (
-                      <span key={e.designation} className="text-muted-foreground">
-                        {e.designation}{" "}
-                        <span
-                          className={cn(
-                            "font-semibold",
-                            e.ecart !== 0 ? "text-destructive" : "text-foreground",
-                          )}
-                        >
-                          {fmtQ(e.ecart)}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <MouvementSection
-                  label="Achat"
-                  fields={[
-                    { label: "Date", value: m.achatDate ? formatDate(m.achatDate) : "—" },
-                    { label: "Fournisseur", value: m.fournisseur || "—" },
-                    { label: "N° Fact.", value: m.achatNumFacture || "—" },
-                  ]}
-                  lignes={m.achatLignes}
-                  docDataUrl={m.achatDocDataUrl}
-                  onPreview={() => setPreview({ title: "Facture d'achat", dataUrl: m.achatDocDataUrl })}
-                  onClasser={() => handleClasser(m, "achat")}
-                  classing={classing === `${m.id}-achat`}
-                />
-                <MouvementSection
-                  label="Vente"
-                  fields={[
-                    { label: "Date", value: m.venteDate ? formatDate(m.venteDate) : "—" },
-                    { label: "Client", value: m.client || "—" },
-                    { label: "N° Fact.", value: m.venteNumFacture || "—" },
-                  ]}
-                  lignes={m.venteLignes}
-                  docDataUrl={m.venteDocDataUrl}
-                  onPreview={() => setPreview({ title: "Document de vente", dataUrl: m.venteDocDataUrl })}
-                  onClasser={() => handleClasser(m, "vente")}
-                  classing={classing === `${m.id}-vente`}
-                />
-                {hasDouane && (
-                  <MouvementSection
-                    label="Douane"
-                    fields={[
-                      { label: "N° Décl.", value: m.douaneNumDeclaration || "—" },
-                      { label: "Date", value: m.douaneDate ? formatDate(m.douaneDate) : "—" },
-                      { label: "Régime", value: m.douaneRegime || "—" },
-                      { label: "Taux de change", value: m.douaneTauxChange ? String(m.douaneTauxChange) : "—" },
-                      { label: "Valeur douane (TND)", value: m.douaneValeurTnd ? formatNumber(m.douaneValeurTnd) : "—" },
-                      { label: "PTFN", value: m.douanePtfn ? formatNumber(m.douanePtfn) : "—" },
-                      { label: "Exportateur", value: m.douaneExportateur || "—" },
-                      { label: "Importateur", value: m.douaneImportateur || "—" },
-                    ]}
-                    lignes={[]}
-                    docDataUrl={m.douaneDocDataUrl}
-                    onPreview={() => setPreview({ title: "Document douanier", dataUrl: m.douaneDocDataUrl })}
-                    onClasser={() => handleClasser(m, "douane")}
-                    classing={classing === `${m.id}-douane`}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       <StockMouvementFormSheet
         open={formOpen}
@@ -410,85 +267,6 @@ export function StockSocietePage() {
         title={preview?.title ?? ""}
         dataUrl={preview?.dataUrl ?? null}
       />
-    </div>
-  );
-}
-
-/** Un bloc (Achat/Vente/Douane) plein-largeur dans la carte d'un mouvement —
- * jamais de colonnes côte à côte qui s'écrasent quand le client/fournisseur
- * a un nom long (voir la demande de réorganisation : chaque dossier doit
- * rester lisible même avec beaucoup de mouvements). */
-function MouvementSection({
-  label,
-  fields,
-  lignes,
-  docDataUrl,
-  onPreview,
-  onClasser,
-  classing,
-}: {
-  label: string;
-  fields: { label: string; value: string }[];
-  lignes: StockLigne[];
-  docDataUrl: string | null;
-  onPreview: () => void;
-  onClasser: () => void;
-  classing: boolean;
-}) {
-  return (
-    <div className="border-t border-border px-4 py-2.5 text-sm">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-        <span className="w-16 shrink-0 text-[0.66rem] font-bold uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <div className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-1">
-          {fields.map((f) => (
-            <span key={f.label} className="text-muted-foreground">
-              <span className="text-[0.66rem] uppercase tracking-wide">{f.label} </span>
-              <span className="font-medium text-foreground">{f.value}</span>
-            </span>
-          ))}
-        </div>
-        {docDataUrl && (
-          <div className="flex shrink-0 items-center gap-1">
-            <button
-              onClick={onPreview}
-              className="text-muted-foreground hover:text-accent"
-              title="Voir le document"
-            >
-              <Paperclip className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={onClasser}
-              disabled={classing}
-              className="text-muted-foreground hover:text-accent disabled:opacity-50"
-              title="Classer dans Structuration"
-            >
-              <FolderInput className={cn("h-3.5 w-3.5", classing && "animate-pulse")} />
-            </button>
-          </div>
-        )}
-      </div>
-      {/* Une facture peut lister plusieurs produits (voir StockLigne) —
-          jamais résumés en une seule quantité/montant. */}
-      {lignes.length > 0 && (
-        <div className="mt-1.5 space-y-0.5 pl-16">
-          {lignes.map((l, i) => (
-            <div key={l.id ?? i} className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{fmtQ(l.quantite)}</span>
-              {" × "}
-              {l.designation || "(sans désignation)"}
-              {(l.montantDevise !== 0 || l.montantTnd !== 0) && (
-                <>
-                  {" — "}
-                  {fmt(l.montantDevise)}
-                  {l.montantTnd !== 0 && ` (${fmt(l.montantTnd)} TND)`}
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

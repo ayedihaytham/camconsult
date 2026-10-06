@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod/v4";
-import { accepteEffort, champsByTypeFromClaude, ExtractionSchema, completerReponse, coutEstime, corrigerTypeEtTiers, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
+import { accepteEffort, champsByTypeFromClaude, ExtractionSchema, avecMesure, completerReponse, enregistrerMesure, coutNombre, coutEstime, corrigerTypeEtTiers, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -155,5 +155,41 @@ describe("limite de l'API sur le schéma de sortie", () => {
     const json = JSON.stringify(z.toJSONSchema(ExtractionSchema));
     expect(json).not.toContain("anyOf");
     expect(json).not.toContain('"null"');
+  });
+});
+
+describe("mesure d'un import", () => {
+  it("donne le coût en nombre, ou null sans tarif connu", () => {
+    expect(coutNombre("claude-haiku-4-5-20251001", 1_000_000, 0)).toBe(1);
+    expect(coutNombre("autre-modele", 10, 10)).toBeNull();
+  });
+
+  it("renvoie la valeur de la fonction et une mesure vide quand rien n'est appelé", async () => {
+    const { valeur, mesure } = await avecMesure(async () => 42);
+    expect(valeur).toBe(42);
+    expect(mesure).toEqual({ appels: 0, entree: 0, sortie: 0, cout: 0, coutInconnu: false });
+  });
+});
+
+describe("addition des appels d'un import", () => {
+  it("additionne des appels lancés en parallèle, sans mélanger deux imports", async () => {
+    const lire = async (entree, ms) => {
+      await new Promise((r) => setTimeout(r, ms));
+      enregistrerMesure("claude-haiku-4-5-20251001", entree, 100);
+    };
+    const [a, b] = await Promise.all([
+      avecMesure(() => Promise.all([lire(1000, 5), lire(2000, 1), lire(3000, 3)])),
+      avecMesure(() => lire(500, 2)),
+    ]);
+    expect(a.mesure.appels).toBe(3);
+    expect(a.mesure.entree).toBe(6000);
+    expect(a.mesure.sortie).toBe(300);
+    expect(a.mesure.cout).toBeCloseTo((6000 * 1 + 300 * 5) / 1e6, 8);
+    expect(b.mesure.appels).toBe(1);
+    expect(b.mesure.entree).toBe(500);
+  });
+
+  it("ignore les appels faits hors d'un import", () => {
+    expect(() => enregistrerMesure("claude-haiku-4-5-20251001", 10, 10)).not.toThrow();
   });
 });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ExtractionUnavailableError, douaneCoherente, douaneIncomplete, extractDocument, extractPages } from "./ocr.js";
+import { ExtractionUnavailableError, douaneCoherente, douaneIncomplete, extractDocument, extractPages, resumeImport } from "./ocr.js";
 
 // Petite image PNG valide (1x1) — le contenu n'a pas d'importance : sans moteur,
 // l'extraction doit refuser avant toute lecture.
@@ -67,5 +67,17 @@ describe("cohérence d'une déclaration douanière", () => {
   it("signale les champs manquants", () => {
     expect(douaneIncomplete({ ...base, ptfn: 0 })).toBe(true);
     expect(douaneIncomplete({ ...base, numDeclaration: "" })).toBe(true);
+  });
+});
+
+describe("synthèse d'un import", () => {
+  it("résume pages, durée, jetons et coût", () => {
+    const ligne = resumeImport(3, 12_345, { appels: 5, entree: 22_050, sortie: 700, cout: 0.0356, coutInconnu: false });
+    expect(ligne).toBe("[ocr] import terminé : 3 pages en 12.3 s — 5 appels, 22050 jetons entrée / 700 sortie, ≈ $0.0356");
+  });
+
+  it("signale l'absence d'appel au modèle ou un coût inconnu", () => {
+    expect(resumeImport(1, 1000, { appels: 0, entree: 0, sortie: 0, cout: 0, coutInconnu: false })).toContain("aucun appel au modèle");
+    expect(resumeImport(1, 1000, { appels: 1, entree: 1, sortie: 1, cout: 0, coutInconnu: true })).toContain("coût inconnu");
   });
 });

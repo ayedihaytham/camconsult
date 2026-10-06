@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { claudeAvailable, claudeExtractPage, champsByTypeFromClaude } from "./claudeExtract.js";
+import { avecMesure, claudeAvailable, claudeExtractPage, champsByTypeFromClaude } from "./claudeExtract.js";
 import {
   RuspinaReviewRequired,
   ruspinaApplies,
@@ -425,6 +425,19 @@ function pageIA(index, imageDataUrl, lecture) {
  * champs des différentes pièces se mélangent) et son type est déterminé.
  */
 export async function extractPages(dataUrl, raisonSociale) {
+  const debut = Date.now();
+  const { valeur: pages, mesure } = await avecMesure(() => lirePages(dataUrl, raisonSociale));
+  console.log(resumeImport(pages.length, Date.now() - debut, mesure));
+  return pages;
+}
+
+/** Ligne de synthèse d'un import : pages, durée, appels au modèle, jetons et coût estimé. */
+export function resumeImport(pages, dureeMs, mesure) {
+  const cout = mesure.appels === 0 ? "aucun appel au modèle" : mesure.coutInconnu ? "coût inconnu" : `≈ $${mesure.cout.toFixed(4)}`;
+  return `[ocr] import terminé : ${pages} page${pages > 1 ? "s" : ""} en ${(dureeMs / 1000).toFixed(1)} s — ${mesure.appels} appel${mesure.appels > 1 ? "s" : ""}, ${mesure.entree} jetons entrée / ${mesure.sortie} sortie, ${cout}`;
+}
+
+async function lirePages(dataUrl, raisonSociale) {
   const { buffer, mime } = decodeDataUrl(dataUrl);
   if (!estPriseEnCharge(mime)) {
     throw new Error("Type de fichier non pris en charge (PDF ou image attendu)");

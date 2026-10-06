@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import Anthropic from "@anthropic-ai/sdk";
 // zodOutputFormat (ci-dessous) construit son JSON schema via l'API zod/v4 en
 // interne (zod 3.25+ l'expose en sous-chemin de compat) ; lui passer un
@@ -214,12 +215,39 @@ const TARIFS = [
 /** Haiku refuse le paramètre `effort` (400 sur l'API officielle) ; Sonnet et Opus l'acceptent. */
 export const accepteEffort = (model) => !/haiku/i.test(model);
 
-export function coutEstime(model, entree, sortie) {
+/** Coût en dollars d'un appel, ou null si le modèle n'a pas de tarif connu. */
+export function coutNombre(model, entree, sortie) {
   const defaut = TARIFS.find(([motif]) => motif.test(model))?.[1];
   const prixEntree = Number(process.env.CLAUDE_PRICE_IN) || defaut?.[0];
   const prixSortie = Number(process.env.CLAUDE_PRICE_OUT) || defaut?.[1];
-  if (!prixEntree || !prixSortie) return "coût inconnu";
-  return `$${((entree * prixEntree + sortie * prixSortie) / 1e6).toFixed(4)}`;
+  if (!prixEntree || !prixSortie) return null;
+  return (entree * prixEntree + sortie * prixSortie) / 1e6;
+}
+
+export function coutEstime(model, entree, sortie) {
+  const cout = coutNombre(model, entree, sortie);
+  return cout === null ? "coût inconnu" : `$${cout.toFixed(4)}`;
+}
+
+// Mesure d'un import : tous les appels faits pendant `avecMesure` (même en parallèle)
+// sont additionnés, pour journaliser une seule ligne de synthèse par import.
+const mesureEnCours = new AsyncLocalStorage();
+
+export async function avecMesure(fn) {
+  const mesure = { appels: 0, entree: 0, sortie: 0, cout: 0, coutInconnu: false };
+  const valeur = await mesureEnCours.run(mesure, fn);
+  return { valeur, mesure };
+}
+
+export function enregistrerMesure(model, entree, sortie) {
+  const mesure = mesureEnCours.getStore();
+  if (!mesure) return;
+  mesure.appels++;
+  mesure.entree += entree;
+  mesure.sortie += sortie;
+  const cout = coutNombre(model, entree, sortie);
+  if (cout === null) mesure.coutInconnu = true;
+  else mesure.cout += cout;
 }
 
 /**
@@ -269,6 +297,7 @@ ${JSON.stringify(z.toJSONSchema(ExtractionSchema))}`
     usage.inputTokens = inputTokens;
     usage.outputTokens = outputTokens;
   }
+  enregistrerMesure(model, inputTokens, outputTokens);
   console.log(`[ocr] Claude ${model} : ${inputTokens} jetons entrée, ${outputTokens} sortie ≈ ${coutEstime(model, inputTokens, outputTokens)}`);
   const texteReponse = (response.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
   // Un service compatible peut omettre les champs vides ou les mettre à null.

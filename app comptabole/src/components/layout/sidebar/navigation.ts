@@ -6,6 +6,7 @@ import {
   CircleDollarSign,
   ClipboardList,
   FileOutput,
+  FileText,
   FolderTree,
   Landmark,
   LayoutDashboard,
@@ -105,6 +106,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Bordereaux bancaires",
         to: "/bordereaux",
         icon: Landmark,
+        adminOnly: true,
+      },
+      {
+        label: "Facturation",
+        to: "/facturation",
+        icon: FileText,
         adminOnly: true,
       },
       {

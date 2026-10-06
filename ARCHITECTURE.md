@@ -40,7 +40,7 @@ The backend lives in `app comptabole/server/`:
 - Internal team (`RequireEquipe`): `/taches`, `/stock`, `/stock/:societeId`,
   `/etats-financiers`, `/etats-financiers/:societeId`, its print route and
   balance editor route.
-- Admin (`RequireAdmin`): `/bordereaux`, `/employes`, `/parametres`, `/journal`,
+- Admin (`RequireAdmin`): `/bordereaux`, `/facturation`, `/employes`, `/parametres`, `/journal`,
   `/grille-affectat`.
 - `*` renders the authenticated not-found page.
 
@@ -96,6 +96,7 @@ details.
 - `balances.ts`: balances, AFFECTAT and financial-statement inputs.
 - `immobilisations.ts`, `notes.ts`: financial-statement supporting domains.
 - `bordereaux.ts`, `journal.ts`: admin banking registry and audit journal.
+- `facturation.ts`: admin fee invoices (totals computed server-side; no delete, invoices are cancelled).
 - `ui.ts`: persisted desktop sidebar preference only.
 
 ## Backend communication

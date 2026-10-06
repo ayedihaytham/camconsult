@@ -23,6 +23,7 @@ const STATIC_ROUTES: Record<string, string> = {
   "/etats-financiers": "États financiers",
   "/grille-affectat": "Paramétrage",
   "/bordereaux": "Bordereaux bancaires",
+  "/facturation": "Facturation",
   "/honoraires": "État client",
   "/souche-cheques": "Souche de chèques",
   "/suivi-devise": "Suivi client devise",

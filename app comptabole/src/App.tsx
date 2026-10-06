@@ -46,6 +46,11 @@ const CollecteEditorPage = lazy(() =>
     default: m.CollecteEditorPage,
   })),
 );
+const FacturationPage = lazy(() =>
+  import("@/pages/facturation/FacturationPage").then((m) => ({
+    default: m.FacturationPage,
+  })),
+);
 const BordereauxPage = lazy(() =>
   import("@/pages/bordereaux/BordereauxPage").then((m) => ({
     default: m.BordereauxPage,
@@ -417,6 +422,14 @@ export default function App() {
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <BordereauxPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/facturation"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <FacturationPage />
                     </Suspense>
                   }
                 />

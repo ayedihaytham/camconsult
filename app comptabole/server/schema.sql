@@ -927,3 +927,35 @@ create table if not exists souche_cheques (
   maj_le        timestamptz not null default now()
 );
 create index if not exists souche_cheques_societe_idx on souche_cheques(societe_id, ordre);
+
+-- Facturation : factures d'honoraires émises par le cabinet à ses sociétés
+-- clientes (comptable seul). Une facture émise n'est jamais supprimée (trou de
+-- numérotation) : elle peut être annulée. Montants en TND, 3 décimales ; les
+-- totaux (HT, TVA, net à payer) sont toujours calculés depuis les lignes.
+create table if not exists factures (
+  id            uuid primary key default gen_random_uuid(),
+  societe_id    uuid not null references societes(id) on delete restrict,
+  numero        text not null,
+  date_emission date not null default current_date,
+  echeance      date,
+  tva_taux      numeric not null default 19,
+  timbre        numeric not null default 1,
+  statut        text not null default 'emise', -- emise | payee | annulee
+  paye_le       date,
+  signee_le     timestamptz,
+  note          text not null default '',
+  cree_le       timestamptz not null default now(),
+  maj_le        timestamptz not null default now()
+);
+create unique index if not exists factures_numero_idx on factures(numero);
+create index if not exists factures_societe_idx on factures(societe_id, date_emission desc);
+
+create table if not exists facture_lignes (
+  id          uuid primary key default gen_random_uuid(),
+  facture_id  uuid not null references factures(id) on delete cascade,
+  ordre       int not null default 0,
+  description text not null default '',
+  quantite    numeric not null default 1,
+  montant_ht  numeric not null default 0
+);
+create index if not exists facture_lignes_idx on facture_lignes(facture_id, ordre);

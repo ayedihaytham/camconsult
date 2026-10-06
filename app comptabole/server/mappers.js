@@ -220,6 +220,42 @@ export const bordereauDto = (r) => ({
   majLe: isoOrNull(r.maj_le),
 });
 
+const r3 = (n) => Math.round((n + Number.EPSILON) * 1000) / 1000;
+
+export const factureLigneDto = (l) => ({
+  id: l.id,
+  ordre: l.ordre,
+  description: l.description ?? "",
+  quantite: Number(l.quantite),
+  montantHt: Number(l.montant_ht),
+});
+
+/** Facture avec ses totaux, toujours recalculés depuis les lignes (jamais stockés). */
+export const factureDto = (r, lignes = []) => {
+  const totalHt = r3(lignes.reduce((s, l) => s + l.quantite * l.montantHt, 0));
+  const tva = r3((totalHt * Number(r.tva_taux)) / 100);
+  const timbre = Number(r.timbre);
+  return {
+    id: r.id,
+    societeId: r.societe_id,
+    societeNom: r.societe_nom ?? "",
+    numero: r.numero,
+    dateEmission: dateStr(r.date_emission),
+    echeance: r.echeance ? dateStr(r.echeance) : null,
+    tvaTaux: Number(r.tva_taux),
+    timbre,
+    statut: r.statut,
+    payeLe: r.paye_le ? dateStr(r.paye_le) : null,
+    signeeLe: isoOrNull(r.signee_le),
+    note: r.note ?? "",
+    totalHt,
+    tva,
+    netAPayer: r3(totalHt + tva + timbre),
+    creeLe: isoOrNull(r.cree_le),
+    lignes,
+  };
+};
+
 const num = (v) => (v == null ? 0 : Number(v));
 
 const ligneDto = (l) => ({

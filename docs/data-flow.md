@@ -44,6 +44,7 @@ scope.
 - `immobilisations.ts`: categories and assets.
 - `notes.ts`: note models, company sheet and exercise notes.
 - `bordereaux.ts`: bank remittance registry.
+- `facturation.ts`: admin fee invoices (`/api/facturation`).
 - `journal.ts`: admin audit entries.
 - `ui.ts`: persisted desktop sidebar collapse preference, not domain data.
 

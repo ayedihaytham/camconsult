@@ -239,6 +239,44 @@ export const BORDEREAU_VOLET_LABELS: Record<BordereauVolet, string> = {
   fournisseur: "Fournisseurs (401)",
 };
 
+// ── Facturation (factures d'honoraires du cabinet) ──
+export type FactureStatut = "emise" | "payee" | "annulee";
+
+export interface FactureLigne {
+  id?: string;
+  ordre: number;
+  description: string;
+  quantite: number;
+  montantHt: number;
+}
+
+export interface Facture {
+  id: string;
+  societeId: string;
+  societeNom: string;
+  numero: string;
+  dateEmission: string;
+  echeance: string | null;
+  tvaTaux: number;
+  timbre: number;
+  statut: FactureStatut;
+  payeLe: string | null;
+  signeeLe: string | null;
+  note: string;
+  /** Totaux calculés par le serveur depuis les lignes. */
+  totalHt: number;
+  tva: number;
+  netAPayer: number;
+  creeLe: string;
+  lignes: FactureLigne[];
+}
+
+export const FACTURE_STATUT_LABELS: Record<FactureStatut, string> = {
+  emise: "Émise",
+  payee: "Payée",
+  annulee: "Annulée",
+};
+
 // ── État client (honoraires, par société) ─────────
 export type HonoraireType =
   | "mensuelle"

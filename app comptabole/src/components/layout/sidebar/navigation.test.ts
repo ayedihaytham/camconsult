@@ -45,6 +45,7 @@ describe("sidebar navigation policy", () => {
       "/etats-financiers",
       "/grille-affectat",
       "/bordereaux",
+      "/facturation",
       "/honoraires",
       "/souche-cheques",
       "/suivi-devise",

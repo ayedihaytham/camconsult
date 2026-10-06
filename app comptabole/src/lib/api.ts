@@ -52,7 +52,7 @@ async function request<T>(
     });
   } catch {
     throw new ApiError(
-      "Serveur injoignable. Démarrez l'API avec `npm run dev`.",
+      "Connexion au serveur impossible. Vérifiez votre connexion internet puis réessayez.",
       0,
     );
   }
@@ -74,7 +74,9 @@ async function request<T>(
       (payload && typeof payload === "object" && "error" in payload
         ? String((payload as { error: unknown }).error)
         : null) ||
-      (typeof payload === "string" ? payload : null) ||
+      (res.status === 413 ? "Les fichiers joints sont trop volumineux pour être envoyés." : null) ||
+      // Une page d'erreur HTML du serveur web n'est pas un message à afficher.
+      (typeof payload === "string" && !payload.trimStart().startsWith("<") ? payload : null) ||
       `Erreur ${res.status}`;
     // Session expirée : purge le jeton
     if (res.status === 401) setToken(null);

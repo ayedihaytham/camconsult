@@ -45,6 +45,9 @@ export function StockSocietePage() {
   const [classing, setClassing] = useState<string | null>(null);
 
   const [onlyAnomalies, setOnlyAnomalies] = useState(false);
+  const fetchCounts = useStock((s) => s.fetchCounts);
+  // Mouvement qui vient d'être enregistré : mis en évidence et amené à l'écran.
+  const [nouveauId, setNouveauId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<StockMouvement | null>(null);
   const [toDelete, setToDelete] = useState<StockMouvement | null>(null);
@@ -72,16 +75,31 @@ export function StockSocietePage() {
     [list],
   );
 
-  function handleSubmit(data: StockMouvementInput) {
+  /** Attend la réponse du serveur : le formulaire reste ouvert (données intactes)
+   * tant que le mouvement n'est pas réellement enregistré, et s'il échoue. */
+  async function handleSubmit(data: StockMouvementInput) {
     if (editing) {
-      update(editing.id, data);
+      await update(editing.id, data);
       toast.success("Mouvement modifié");
+      setNouveauId(editing.id);
     } else {
-      create(data);
-      toast.success("Mouvement créé");
+      const m = await create(data);
+      toast.success("Mouvement enregistré");
+      setNouveauId(m.id);
     }
+    // Un filtre « anomalies seulement » masquerait un mouvement sans écart.
+    setOnlyAnomalies(false);
     setEditing(null);
+    void fetchCounts();
   }
+
+  useEffect(() => {
+    if (!nouveauId) return;
+    const carte = document.getElementById(`mouvement-${nouveauId}`);
+    carte?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const fin = window.setTimeout(() => setNouveauId(null), 4000);
+    return () => window.clearTimeout(fin);
+  }, [nouveauId, list]);
 
   /** Classe la facture d'achat, de vente ou le document douanier d'un
    * mouvement dans Structuration (achat|vente|douane/année de la pièce,
@@ -243,7 +261,11 @@ export function StockSocietePage() {
               <div
                 data-tour="stock-register"
                 key={m.id}
-                className="overflow-hidden rounded-2xl border border-border bg-card shadow-card"
+                id={`mouvement-${m.id}`}
+                className={cn(
+                  "overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-shadow duration-700",
+                  nouveauId === m.id && "border-accent shadow-[0_0_0_3px_hsl(var(--accent)/0.35)]",
+                )}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
                   <span className="font-bold text-foreground">

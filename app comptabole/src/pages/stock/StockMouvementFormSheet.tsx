@@ -1,5 +1,6 @@
 import { cloneElement, isValidElement, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import {
   Eye,
   EyeOff,
@@ -42,7 +43,9 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   societeId: string;
   mouvement?: StockMouvement | null;
-  onSubmit: (data: StockMouvementInput) => void;
+  /** Doit se terminer une fois le mouvement enregistré, et échouer sinon : la
+   * fenêtre reste alors ouverte avec toutes les données saisies. */
+  onSubmit: (data: StockMouvementInput) => Promise<void> | void;
 }
 
 const empty = (societeId: string): StockMouvementInput => ({
@@ -150,9 +153,65 @@ export function StockMouvementFormSheet({
   // l'utilisateur : "prévisualiser vérifier avant importer").
   const [batchPreview, setBatchPreview] = useState<StockExtractPage | null>(null);
 
+  // Protection des données saisies et importées : la fenêtre ne se ferme ni par
+  // un clic à côté, ni par Échap, ni pendant une lecture ou un enregistrement.
+  const [saving, setSaving] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const initialJson = useRef("");
+  const busy = saving || importing !== null || batchImporting || batchApplying;
+  const busyRef = useRef(false);
+  busyRef.current = busy;
+  // Comparaison faite à la demande seulement : les documents joints pèsent plusieurs Mo.
+  const isDirty = () => JSON.stringify(v) !== initialJson.current;
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
+
+  function demanderFermeture() {
+    if (busy) {
+      toast.info(
+        saving
+          ? "Enregistrement en cours : patientez quelques secondes."
+          : "Lecture du document en cours : patientez la fin avant de fermer.",
+      );
+      return;
+    }
+    if (isDirty()) setConfirmClose(true);
+    else onOpenChange(false);
+  }
+
+  async function enregistrer() {
+    if (busy) return;
+    setSaving(true);
+    try {
+      await onSubmit(v);
+      initialJson.current = JSON.stringify(v);
+      onOpenChange(false);
+    } catch {
+      // Le store a déjà affiché l'erreur : la fenêtre reste ouverte, rien n'est perdu.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Fermeture ou rechargement de l'onglet pendant une opération ou avec une saisie non enregistrée.
   useEffect(() => {
     if (!open) return;
-    setV(mouvement ? { ...mouvement } : empty(societeId));
+    const avertir = (e: BeforeUnloadEvent) => {
+      if (busyRef.current || isDirtyRef.current()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", avertir);
+    return () => window.removeEventListener("beforeunload", avertir);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const depart = mouvement ? { ...mouvement } : empty(societeId);
+    setV(depart);
+    initialJson.current = JSON.stringify(depart);
+    setConfirmClose(false);
     setPreviewOpen({ achat: false, vente: false, douane: false });
     setBatchPages(null);
     setBatchAssignments({});
@@ -368,8 +427,14 @@ export function StockMouvementFormSheet({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[1600px] flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
+    <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : demanderFermeture())}>
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          demanderFermeture();
+        }}
+        className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[1600px] flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
         <div className="shrink-0 border-b border-accent/30 px-6 pb-5 pt-6 sm:px-8">
           <DialogTitle className="pr-8 font-serif text-3xl font-medium text-primary">
             {isEdit ? "Modifier le mouvement" : "Nouveau mouvement de stock"}
@@ -754,24 +819,35 @@ export function StockMouvementFormSheet({
               : "Renseignez au moins deux quantités pour contrôler l'écart."}
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button type="button" variant="outline" className="h-12 rounded-lg px-6" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" className="h-12 rounded-lg px-6" onClick={demanderFermeture}>
               Annuler
             </Button>
             <Button
               type="button"
               variant="ledger"
               className="h-12 rounded-lg px-6 text-sm uppercase tracking-[0.14em]"
-              onClick={() => {
-                onSubmit(v);
-                onOpenChange(false);
-              }}
+              disabled={busy}
+              onClick={enregistrer}
             >
-              {isEdit ? "Enregistrer" : "Enregistrer le mouvement"}
+              {saving ? "Enregistrement…" : isEdit ? "Enregistrer" : "Enregistrer le mouvement"}
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={confirmClose}
+      onOpenChange={setConfirmClose}
+      title="Abandonner ce mouvement ?"
+      description="Les informations saisies et les documents importés seront perdus."
+      confirmLabel="Abandonner"
+      cancelLabel="Continuer la saisie"
+      onConfirm={() => {
+        setConfirmClose(false);
+        onOpenChange(false);
+      }}
+    />
 
     <DocPreviewDialog
       open={Boolean(batchPreview)}

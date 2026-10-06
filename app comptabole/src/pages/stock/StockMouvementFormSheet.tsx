@@ -522,11 +522,12 @@ export function StockMouvementFormSheet({
                   d'appliquer.
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Le type Achat/Vente est deviné en recherchant le nom «{" "}
-                  {societe?.raisonSociale || "…"} » dans la page (acheteur ou
-                  vendeur selon sa position). S'il n'apparaît pas — document
-                  sans lien avec cette société, ou lecture imparfaite —
-                  choisissez le type vous-même ci-dessous.
+                  Le type Achat/Vente est déterminé d'après l'émetteur (en-tête
+                  de la facture) et le client : « Achat » si «{" "}
+                  {societe?.raisonSociale || "…"} » est le client, « Vente » si
+                  elle est l'émetteur. Si aucun des deux ne correspond —
+                  document sans lien avec cette société, ou lecture
+                  imparfaite — choisissez le type vous-même ci-dessous.
                 </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {batchPages.map((page) => {
@@ -549,7 +550,7 @@ export function StockMouvementFormSheet({
                             <img
                               src={page.imageDataUrl}
                               alt={`Page ${page.index + 1}`}
-                              className="h-28 w-full cursor-zoom-in rounded border border-border object-cover transition-opacity hover:opacity-80"
+                              className="h-44 w-full cursor-zoom-in rounded border border-border bg-white object-cover object-top transition-opacity hover:opacity-80"
                             />
                           </button>
                         ) : (

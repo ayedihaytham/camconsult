@@ -44,6 +44,9 @@ const ExtractionSchema = z.object({
   date: z.string().nullable(),
   numFacture: z.string().nullable(),
   partie: z.string().nullable(),
+  // Les deux noms qui permettent de trancher achat / vente (voir corrigerTypeEtTiers).
+  emetteur: z.string().nullable(),
+  client: z.string().nullable(),
   // Une ligne par marchandise/quantité distincte du tableau — une facture
   // liste souvent plusieurs produits, jamais un seul champ par facture.
   lignes: z.array(LigneSchema).nullable(),
@@ -74,6 +77,8 @@ Decide an invoice's type by WHO ISSUED it, never by the mere presence of a name 
 ## 2. Invoice fields (achat or vente)
 - "date": invoice date (YYYY-MM-DD), not the due date or delivery date. Dates are written DAY/MONTH/YEAR (02/01/2023 = 2 January 2023, never 1 February).
 - "numFacture": the number printed in the invoice's own "Invoice N°" / "Facture N°" box (e.g. "6608000533"), without the label. Ignore cross-reference numbers: "As per invoice", "conform to the proforma invoice", purchase order, contract number.
+- "emetteur": the full name of the company that ISSUED the document = the company of the LETTERHEAD (header logo and address block, legal footer, stamp). Copy it exactly as printed (e.g. "SOTACIB KAIROUAN").
+- "client": the full name of the CUSTOMER = the company in the "Client" / "Bill to" / "Facturé à" block. Not the "Destinataire" / "Consignee". Copy it exactly as printed.
 - "partie": the name of the OTHER company, never "{{RAISON_SOCIALE}}". For "achat" it is the ISSUER of the invoice (the company of the letterhead, e.g. the one whose logo and legal footer appear), NEVER the "Client" block and never the "Destinataire". For "vente" it is the CUSTOMER (the "Client" block).
 - "devise": ISO currency code of the invoice (EUR, USD, TND…). Deduce it from the symbol (€, $, DT) if the code is not written.
 - "lignes": ONE entry per distinct product row of the table, ALL products (not only the first). Read the table COLUMN BY COLUMN following the headers (Quantity / Unit / Designation / Unit price / Total, or Description of goods / Quantity / Unit price / Total price). Never mix columns: a quantity is not a price.
@@ -83,7 +88,7 @@ Decide an invoice's type by WHO ISSUED it, never by the mere presence of a name 
   - "montantDevise": the row amount (Total column), in the invoice currency.
   These are NEVER product rows: "HS CODE" lines, "conform to the proforma", "Total including all taxes", "Total", subtotals, VAT, stamp duty, shipping costs, amounts written in words.
   An empty or unreadable cell is null. If the quantity and the row total are readable but not the unit price, leave prixUnitaire null (do not compute it).
-- Customs fields (numDeclaration, typeDeclaration, tauxChange, valeurTnd, ptfn, exportateur, importateur): null for an invoice.
+- For a customs declaration, "emetteur" and "client" are null. Customs fields (numDeclaration, typeDeclaration, tauxChange, valeurTnd, ptfn, exportateur, importateur): null for an invoice.
 
 ## 3. Customs declaration fields
 The TTN form is a grid of numbered boxes: locate each value by the label of ITS box, not by its position.
@@ -117,6 +122,61 @@ function decodeDataUrl(dataUrl) {
 export function nomSociete(raisonSociale) {
   const nom = String(raisonSociale || "").replace(/^\s*\d+\s*[-–.:]\s*/, "").trim();
   return nom || "(non précisée)";
+}
+
+// ── Achat ou vente : décidé par le code, pas par le modèle ────────────────
+// Juger « suis-je l'acheteur ou le vendeur ? » est fragile pour un modèle économique.
+// On lui demande seulement de lire deux noms (l'émetteur de l'en-tête, le client), et on
+// les compare ici au nom de la société : sans interprétation, donc sans erreur de jugement.
+
+const MOTS_GENERIQUES = new Set([
+  "SARL", "SA", "SUARL", "STE", "SOCIETE", "SOC", "COMPANY", "CO", "LTD", "LLC", "GMBH", "INC",
+  "GROUP", "GROUPE", "IMPORT", "EXPORT", "IMP", "EXP", "ET", "DE", "DES", "DU", "LA", "LE", "THE",
+  "AND", "P", "C", "PC", "FOR", "OF", "TRADING", "SERVICES",
+]);
+
+/** Mots distinctifs d'un nom de société (sans accents, ni forme juridique ni mots génériques). */
+export function motsDistinctifs(nom) {
+  const mots = String(nom || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .split(" ")
+    .filter(Boolean);
+  const utiles = mots.filter((m) => !MOTS_GENERIQUES.has(m));
+  return utiles.length ? utiles : mots;
+}
+
+/** Le nom lu sur la pièce désigne-t-il la société ? Mots distinctifs communs, ou nom collé (« ICARGOLINE »). */
+export function designeLaSociete(nomLu, raisonSociale) {
+  const societe = motsDistinctifs(nomSociete(raisonSociale));
+  const lu = motsDistinctifs(nomLu);
+  if (societe.length === 0 || lu.length === 0) return false;
+  const communs = societe.filter((m) => lu.includes(m)).length;
+  if (communs >= Math.ceil(societe.length / 2)) return true;
+  return lu.join("").includes(societe.join(""));
+}
+
+/** "vente" si l'émetteur est la société, "achat" si le client l'est, sinon null (indécidable). */
+export function typeParEmetteur({ emetteur, client }, raisonSociale) {
+  const emet = designeLaSociete(emetteur, raisonSociale);
+  const cli = designeLaSociete(client, raisonSociale);
+  if (emet && !cli) return "vente";
+  if (cli && !emet) return "achat";
+  return null;
+}
+
+/** Applique la règle ci-dessus à une facture lue : type et tiers corrigés d'après l'émetteur et le client. */
+export function corrigerTypeEtTiers(lecture, raisonSociale) {
+  if (lecture.type === "douane") return lecture;
+  const type = typeParEmetteur(lecture, raisonSociale);
+  if (!type) return lecture;
+  const tiers = (type === "achat" ? lecture.emetteur : lecture.client) || lecture.partie;
+  if (type !== lecture.type || tiers !== lecture.partie) {
+    console.log(`[ocr] type d'après l'émetteur « ${lecture.emetteur ?? "?"} » et le client « ${lecture.client ?? "?"} » : ${type} (modèle : ${lecture.type})`);
+  }
+  return { ...lecture, type, partie: tiers, confidence: type === lecture.type ? lecture.confidence : "haute" };
 }
 
 /** Dollars par million de jetons (entrée, sortie), tarifs Anthropic. Un service
@@ -192,7 +252,7 @@ ${JSON.stringify(z.toJSONSchema(ExtractionSchema))}`
   if (brut) for (const cle of Object.keys(ExtractionSchema.shape)) brut[cle] ??= null;
   const parsed = ExtractionSchema.safeParse(brut);
   if (!parsed.success) throw new Error(`Réponse Claude non exploitable : ${parsed.error.issues[0]?.message ?? "format inattendu"}`);
-  return parsed.data;
+  return corrigerTypeEtTiers(parsed.data, raisonSociale);
 }
 
 /** JSON d'une réponse de modèle, balises ```json et texte autour tolérés. */

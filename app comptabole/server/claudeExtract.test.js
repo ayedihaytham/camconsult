@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accepteEffort, champsByTypeFromClaude, coutEstime, extraireJson, nomSociete } from "./claudeExtract.js";
+import { accepteEffort, champsByTypeFromClaude, coutEstime, corrigerTypeEtTiers, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -91,5 +91,45 @@ describe("nomSociete", () => {
     expect(nomSociete("3M Tunisie")).toBe("3M Tunisie");
     expect(nomSociete("")).toBe("(non précisée)");
     expect(nomSociete(undefined)).toBe("(non précisée)");
+  });
+});
+
+describe("achat ou vente d'après l'émetteur et le client", () => {
+  const facture = (patch) => ({ type: "vente", confidence: "moyenne", partie: "RUSPINA IMPORT EXPORT", emetteur: null, client: null, ...patch });
+
+  it("reconnaît le nom de la société malgré code, forme juridique et mots génériques", () => {
+    expect(designeLaSociete("RUSPINA IMPORT EXPORT", "01-RUSPINA")).toBe(true);
+    expect(designeLaSociete("Ruspina Import et Export SARL", "01-RUSPINA")).toBe(true);
+    expect(designeLaSociete("SOTACIB KAIROUAN", "01-RUSPINA")).toBe(false);
+    expect(designeLaSociete("ICARGOLINE SARL", "05-I CARGO LINE")).toBe(true);
+    expect(designeLaSociete("", "01-RUSPINA")).toBe(false);
+    expect(motsDistinctifs("STE DES CIMENTS D'ENFIDHA")).toEqual(["CIMENTS", "D", "ENFIDHA"]);
+  });
+
+  it("achat : l'émetteur est un fournisseur et la société est le client", () => {
+    const cas = { emetteur: "SOTACIB KAIROUAN", client: "RUSPINA IMPORT EXPORT" };
+    expect(typeParEmetteur(cas, "01-RUSPINA")).toBe("achat");
+    const r = corrigerTypeEtTiers(facture(cas), "01-RUSPINA");
+    expect(r.type).toBe("achat");
+    expect(r.partie).toBe("SOTACIB KAIROUAN");
+    expect(r.confidence).toBe("haute");
+  });
+
+  it("vente : la société est l'émetteur", () => {
+    const r = corrigerTypeEtTiers(facture({ type: "achat", partie: "RUSPINA", emetteur: "RUSPINA IMPORT EXPORT", client: "GROUP BYOUT EZZ COMPANY" }), "01-RUSPINA");
+    expect(r.type).toBe("vente");
+    expect(r.partie).toBe("GROUP BYOUT EZZ COMPANY");
+  });
+
+  it("garde l'avis du modèle quand rien ne permet de trancher", () => {
+    const sansNoms = facture({});
+    expect(corrigerTypeEtTiers(sansNoms, "01-RUSPINA")).toBe(sansNoms);
+    const tiers = facture({ emetteur: "ACME", client: "BETA" });
+    expect(corrigerTypeEtTiers(tiers, "01-RUSPINA")).toBe(tiers);
+  });
+
+  it("ne touche pas une déclaration douanière", () => {
+    const douane = facture({ type: "douane", emetteur: "RUSPINA", client: "X" });
+    expect(corrigerTypeEtTiers(douane, "01-RUSPINA")).toBe(douane);
   });
 });

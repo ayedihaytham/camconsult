@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { readFileAsDataUrl } from "@/lib/file";
+import { alleger, poidsMo } from "@/lib/image";
 import { cn } from "@/lib/utils";
 import { useStock, type StockMouvementInput } from "@/store/stock";
 import { useSocieteById } from "@/store/data";
@@ -156,6 +157,7 @@ export function StockMouvementFormSheet({
   // Protection des données saisies et importées : la fenêtre ne se ferme ni par
   // un clic à côté, ni par Échap, ni pendant une lecture ou un enregistrement.
   const [saving, setSaving] = useState(false);
+  const [envoiMo, setEnvoiMo] = useState(0);
   const [confirmClose, setConfirmClose] = useState(false);
   const initialJson = useRef("");
   const busy = saving || importing !== null || batchImporting || batchApplying;
@@ -181,6 +183,7 @@ export function StockMouvementFormSheet({
 
   async function enregistrer() {
     if (busy) return;
+    setEnvoiMo(poidsMo(JSON.stringify(v)));
     setSaving(true);
     try {
       await onSubmit(v);
@@ -230,7 +233,8 @@ export function StockMouvementFormSheet({
       const dataUrl = await readFileAsDataUrl(file);
       // On garde le document joint pour pouvoir vérifier les chiffres avant
       // d'enregistrer (et le retrouver plus tard).
-      set(DOC_FIELD[type], dataUrl);
+      // Le document joint est allégé (JPEG) ; la lecture automatique reçoit l'original, plus net.
+      set(DOC_FIELD[type], await alleger(dataUrl));
       setPreviewOpen((p) => ({ ...p, [type]: true }));
       const { champs, source } = await extract(type, dataUrl, societeId);
       applyChamps(type, champs);
@@ -321,7 +325,7 @@ export function StockMouvementFormSheet({
         // besoin de relancer quoi que ce soit même si l'utilisateur corrige
         // le type deviné.
         applyChamps(assignment, page.champsByType[assignment]);
-        if (page.imageDataUrl) set(DOC_FIELD[assignment], page.imageDataUrl);
+        if (page.imageDataUrl) set(DOC_FIELD[assignment], await alleger(page.imageDataUrl));
         setPreviewOpen((p) => ({ ...p, [assignment]: true }));
       }
       toast.success(
@@ -829,7 +833,7 @@ export function StockMouvementFormSheet({
               disabled={busy}
               onClick={enregistrer}
             >
-              {saving ? "Enregistrement…" : isEdit ? "Enregistrer" : "Enregistrer le mouvement"}
+              {saving ? `Enregistrement…${envoiMo >= 0.5 ? ` (${envoiMo.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} Mo)` : ""}` : isEdit ? "Enregistrer" : "Enregistrer le mouvement"}
             </Button>
           </div>
         </div>

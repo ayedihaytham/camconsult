@@ -11,6 +11,8 @@ import type {
 /** Délai maximal d'attente d'une extraction lancée en tâche de fond. */
 const EXTRACT_TIMEOUT_MS = 12 * 60_000;
 const EXTRACT_POLL_MS = 2_000;
+/** Enregistrer un mouvement envoie ses documents : au-delà, on rend la main avec un message clair. */
+const SAVE_TIMEOUT_MS = 180_000;
 
 /** Les extractions du moteur RUSPINA durent de quelques dizaines de secondes à
  * plusieurs minutes : le serveur répond `{ jobId }` et on interroge son état.
@@ -104,7 +106,7 @@ export const useStock = create<StockState>((set) => ({
 
   create: async (data) => {
     try {
-      const m = await api.post<StockMouvement>("/stock/mouvements", data);
+      const m = await api.post<StockMouvement>("/stock/mouvements", data, { timeoutMs: SAVE_TIMEOUT_MS });
       set((st) => ({ list: [...st.list, m] }));
       return m;
     } catch (e) {
@@ -114,7 +116,7 @@ export const useStock = create<StockState>((set) => ({
 
   update: async (id, data) => {
     try {
-      const m = await api.patch<StockMouvement>(`/stock/mouvements/${id}`, data);
+      const m = await api.patch<StockMouvement>(`/stock/mouvements/${id}`, data, { timeoutMs: SAVE_TIMEOUT_MS });
       set((st) => ({ list: st.list.map((x) => (x.id === id ? m : x)) }));
     } catch (e) {
       fail(e);

@@ -33,10 +33,16 @@ export class ApiError extends Error {
   }
 }
 
+export interface RequestOptions {
+  /** Abandonne la requête passé ce délai (envois lourds : on préfère un message clair à une attente sans fin). */
+  timeoutMs?: number;
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  options: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = {};
   const token = getToken();
@@ -44,19 +50,29 @@ async function request<T>(
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
   let res: Response;
+  const controleur = options.timeoutMs ? new AbortController() : null;
+  const minuteur = controleur ? setTimeout(() => controleur.abort(), options.timeoutMs) : null;
   try {
     res = await fetch(`${API_BASE}/api${path}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controleur?.signal,
     });
-  } catch {
+  } catch (err) {
+    if (controleur?.signal.aborted) {
+      throw new ApiError(
+        "L'envoi prend trop de temps (connexion lente ou documents trop lourds). Vos données sont conservées : réessayez.",
+        0,
+      );
+    }
     throw new ApiError(
       "Connexion au serveur impossible. Vérifiez votre connexion internet puis réessayez.",
       0,
     );
   }
 
+  if (minuteur) clearTimeout(minuteur);
   if (res.status === 204) return undefined as T;
 
   let payload: unknown = null;
@@ -88,9 +104,10 @@ async function request<T>(
 
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
-  post: <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {}),
+  post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>("POST", path, body ?? {}, options),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body ?? {}),
-  patch: <T>(path: string, body?: unknown) =>
-    request<T>("PATCH", path, body ?? {}),
+  patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>("PATCH", path, body ?? {}, options),
   del: <T>(path: string, body?: unknown) => request<T>("DELETE", path, body),
 };

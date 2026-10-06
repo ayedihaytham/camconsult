@@ -151,6 +151,7 @@ stockRouter.get("/mouvements", async (req, res) => {
 });
 
 stockRouter.post("/mouvements", async (req, res) => {
+  const debut = Date.now();
   const parsed = schema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
@@ -188,6 +189,7 @@ stockRouter.post("/mouvements", async (req, res) => {
     "stock",
     `${v.natureMarchandise || "Mouvement"} — ${soc.raison_sociale}`,
   );
+  console.log(`[stock] mouvement créé en ${Date.now() - debut} ms (${(Number(req.headers["content-length"] || 0) / 1048576).toFixed(1)} Mo reçus)`);
   res.status(201).json(stockMouvementDto(row, await lignesOf(row.id)));
 });
 

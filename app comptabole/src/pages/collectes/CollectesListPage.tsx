@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { useSocietes } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
 import { initials } from "@/lib/utils";
@@ -60,7 +61,13 @@ export function CollectesListPage() {
   const { isAdmin, isCollaborateur: canCreate, poste } = usePermissions();
   const isSocieteEmploye = poste === "societe_employe";
   const societes = useSocietes();
-  const list = useCollectes((s) => s.list);
+  const societeActive = useSocieteActive();
+  const toutes = useCollectes((s) => s.list);
+  // Société active : tout le registre (compteurs, filtres, bannière) porte sur son dossier.
+  const list = useMemo(
+    () => (societeActive ? toutes.filter((c) => c.societeId === societeActive.id) : toutes),
+    [toutes, societeActive],
+  );
   const loading = useCollectes((s) => s.loadingList);
   const fetchList = useCollectes((s) => s.fetchList);
   const create = useCollectes((s) => s.create);
@@ -78,6 +85,11 @@ export function CollectesListPage() {
   useEffect(() => {
     fetchList();
   }, [fetchList]);
+
+  // Le choix de la barre du haut remplace le filtre de société propre à la page.
+  useEffect(() => {
+    setSocieteId("all");
+  }, [societeActive?.id]);
 
   const societesById = useMemo(() => new Map(societes.map((societe) => [societe.id, societe.raisonSociale])), [societes]);
   const socNom = useCallback((id: string) => societesById.get(id) ?? "Société", [societesById]);
@@ -190,10 +202,12 @@ export function CollectesListPage() {
 
   const filters = (
     <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-      <FilterSelect label="Société" value={societeId} onValueChange={setSocieteId}>
-        <SelectItem value="all">Toutes les sociétés</SelectItem>
-        {visibleSocietes.map((societe) => <SelectItem key={societe.id} value={societe.id}>{societe.name}</SelectItem>)}
-      </FilterSelect>
+      {!societeActive && (
+        <FilterSelect label="Société" value={societeId} onValueChange={setSocieteId}>
+          <SelectItem value="all">Toutes les sociétés</SelectItem>
+          {visibleSocietes.map((societe) => <SelectItem key={societe.id} value={societe.id}>{societe.name}</SelectItem>)}
+        </FilterSelect>
+      )}
       <FilterSelect label="Période" value={periode} onValueChange={setPeriode}>
         <SelectItem value="all">Toutes les périodes</SelectItem>
         {periodes.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
@@ -305,7 +319,7 @@ export function CollectesListPage() {
       </LedgerWorkSurface>
 
       {canCreate && <OperationalFab label="Nouvelle collecte" onClick={() => setCreateOpen(true)} />}
-      {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} onCreate={async (data) => {
+      {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} defaultSocieteId={societeActive?.id} onCreate={async (data) => {
         const collecte = await create(data);
         toast.success("Collecte créée", { description: `${socNom(collecte.societeId)} — ${periodeLabel(collecte.periode)}` });
         navigate(`/collectes/${collecte.id}`);

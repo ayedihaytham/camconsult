@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -7,6 +8,8 @@ import {
   CircleDollarSign,
   ClipboardList,
   FileText,
+  FolderTree,
+  ListChecks,
   Receipt,
   X,
   type LucideIcon,
@@ -14,10 +17,16 @@ import {
 import { visibleNavigation } from "@/components/layout/sidebar/navigation";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useChoisirSociete } from "@/hooks/useSocieteActive";
+import { estEnRetard } from "@/lib/facturation";
 import { lienDeSociete } from "@/lib/societeContext";
+import { useCollectes } from "@/store/collectes";
+import { useTaches } from "@/store/data";
+import { useFacturation } from "@/store/facturation";
+import { useStock } from "@/store/stock";
 import type { Societe } from "@/types";
 
 const RACCOURCIS: { label: string; base: string; icon: LucideIcon }[] = [
+  { label: "Tâches", base: "/taches", icon: ListChecks },
   { label: "Gestion de stock", base: "/stock", icon: Boxes },
   { label: "États financiers", base: "/etats-financiers", icon: Calculator },
   { label: "Collecte de pièces", base: "/collectes", icon: ClipboardList },
@@ -25,7 +34,10 @@ const RACCOURCIS: { label: string; base: string; icon: LucideIcon }[] = [
   { label: "État client", base: "/honoraires", icon: Receipt },
   { label: "Suivi client devise", base: "/suivi-devise", icon: CircleDollarSign },
   { label: "Souche de chèques", base: "/souche-cheques", icon: BookText },
+  { label: "Structuration", base: "/structuration", icon: FolderTree },
 ];
+
+const pluriel = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`;
 
 /** Accès directs aux modules du client sélectionné : un clic suffit, sans repasser
  * par la liste des sociétés. Seuls les modules que l'utilisateur peut ouvrir sont proposés. */
@@ -39,6 +51,37 @@ export function SocieteShortcuts({ societe }: { societe: Societe }) {
     ),
   );
   const raccourcis = RACCOURCIS.filter((r) => destinations.has(r.base));
+
+  // Chiffres du dossier, tirés des données déjà en mémoire ; le stock et les
+  // factures ne sont chargés que si l'utilisateur peut ouvrir ces modules.
+  const collectes = useCollectes((s) => s.list);
+  const taches = useTaches();
+  const mouvements = useStock((s) => s.counts);
+  const fetchMouvements = useStock((s) => s.fetchCounts);
+  const factures = useFacturation((s) => s.list);
+  const fetchFactures = useFacturation((s) => s.fetchList);
+  const voitStock = destinations.has("/stock");
+  const voitFactures = destinations.has("/facturation");
+  useEffect(() => {
+    if (voitStock) void fetchMouvements().catch(() => {});
+  }, [voitStock, fetchMouvements]);
+  useEffect(() => {
+    if (voitFactures) void fetchFactures().catch(() => {});
+  }, [voitFactures, fetchFactures]);
+
+  const details: Record<string, string | null> = {};
+  const collectesActives = collectes.filter((c) => c.societeId === societe.id && c.statut !== "archive").length;
+  details["/collectes"] = collectesActives ? pluriel(collectesActives, "collecte active", "collectes actives") : null;
+  const tachesOuvertes = taches.filter((t) => t.societeId === societe.id && t.statut !== "termine").length;
+  details["/taches"] = tachesOuvertes ? pluriel(tachesOuvertes, "tâche ouverte", "tâches ouvertes") : null;
+  const nbMouvements = mouvements[societe.id] ?? 0;
+  details["/stock"] = nbMouvements ? pluriel(nbMouvements, "mouvement", "mouvements") : null;
+  const impayees = factures.filter((f) => f.societeId === societe.id && f.statut === "emise");
+  const enRetard = impayees.filter((f) => estEnRetard(f)).length;
+  details["/facturation"] = impayees.length
+    ? `${pluriel(impayees.length, "impayée", "impayées")}${enRetard ? ` · ${enRetard} en retard` : ""}`
+    : null;
+
   if (raccourcis.length === 0) return null;
 
   return (
@@ -59,7 +102,7 @@ export function SocieteShortcuts({ societe }: { societe: Societe }) {
           Toutes les sociétés
         </button>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {raccourcis.map(({ label, base, icon: Icon }) => (
           <Link
             key={base}
@@ -73,7 +116,14 @@ export function SocieteShortcuts({ societe }: { societe: Societe }) {
                 aria-hidden="true"
               />
             </span>
-            <span className="truncate text-sm font-medium text-foreground">{label}</span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-foreground">{label}</span>
+              {details[base] && (
+                <span className={`block truncate text-xs ${base === "/facturation" && details[base]?.includes("retard") ? "font-semibold text-warning" : "text-muted-foreground"}`}>
+                  {details[base]}
+                </span>
+              )}
+            </span>
           </Link>
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { TasksKanban } from "@/components/uitripled/kanban-board-shadcnui";
@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { cn } from "@/lib/utils";
 import {
   useCollaborateurs,
@@ -45,7 +46,13 @@ export function TachesPage() {
     societeIds,
     canManageCollaborateurs,
   } = usePermissions();
-  const taches = useTaches();
+  const societeActive = useSocieteActive();
+  const toutesLesTaches = useTaches();
+  // Société active : seules les tâches de ce dossier.
+  const taches = useMemo(
+    () => (societeActive ? toutesLesTaches.filter((t) => t.societeId === societeActive.id) : toutesLesTaches),
+    [toutesLesTaches, societeActive],
+  );
   const societes = useSocietes();
   const collaborateurs = useCollaborateurs();
   const employes = useEmployes();
@@ -71,6 +78,9 @@ export function TachesPage() {
   const deleteTache = useData((state) => state.deleteTache);
 
   const [societeFilter, setSocieteFilter] = useState(ALL);
+  useEffect(() => {
+    setSocieteFilter(ALL);
+  }, [societeActive?.id]);
   const [assigneFilter, setAssigneFilter] = useState(ALL);
   const [statutFilter, setStatutFilter] = useState(ALL);
   const [formOpen, setFormOpen] = useState(false);
@@ -200,6 +210,7 @@ export function TachesPage() {
         }}
         filterControls={
           <div className="grid gap-2">
+            {!societeActive && (
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Société</p>
               <Select value={societeFilter} onValueChange={setSocieteFilter}>
@@ -216,6 +227,7 @@ export function TachesPage() {
                 </SelectContent>
               </Select>
             </div>
+            )}
 
               {canManageCollaborateurs && (
                 <div className="space-y-1">
@@ -265,7 +277,7 @@ export function TachesPage() {
             if (!open) setEditing(null);
           }}
           tache={editing}
-          defaultSocieteId={societeFilter !== ALL ? societeFilter : null}
+          defaultSocieteId={societeActive?.id ?? (societeFilter !== ALL ? societeFilter : null)}
           assignees={isResponsableSociete ? delegues : undefined}
           lockedSocieteId={ownSocieteId}
           onSubmit={handleSubmit}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -42,6 +42,8 @@ import { provisionnerArborescenceSociete } from "@/lib/classement";
 import { printTable } from "@/lib/print";
 import { formatDate } from "@/lib/utils";
 import { useData, useNoeuds, useSocietes } from "@/store/data";
+import { useSocieteActive } from "@/hooks/useSocieteActive";
+import { useSocieteActiveStore } from "@/store/societeActive";
 import { usePermissions } from "@/hooks/usePermissions";
 import { logJournal } from "@/store/journal";
 import type { Noeud } from "@/types";
@@ -83,6 +85,39 @@ export function StructurationPage() {
   const [tab, setTab] = useState<"tableau" | "arbre" | "organigramme">(initialTab);
   const [search, setSearch] = useState("");
   const [societeFilter, setSocieteFilter] = useState(societeParam ?? "all");
+
+  // Société active (barre du haut) <-> filtre de la page (?societe=). À l'ouverture,
+  // une adresse ?societe= valide devient la société active ; ensuite c'est la barre
+  // du haut qui commande le filtre.
+  const societeActiveId = useSocieteActive()?.id ?? null;
+  const definirSocieteActive = useSocieteActiveStore((s) => s.setSocieteId);
+  const premierPassage = useRef(true);
+  const activePrecedente = useRef<string | null>(null);
+  useEffect(() => {
+    if (premierPassage.current) {
+      premierPassage.current = false;
+      if (societeParam && societeParam !== societeActiveId && societes.some((s) => s.id === societeParam)) {
+        definirSocieteActive(societeParam);
+        return;
+      }
+    }
+    if (societeActiveId) {
+      if (societeParam !== societeActiveId) {
+        const next = new URLSearchParams(searchParams);
+        next.set("societe", societeActiveId);
+        setSearchParams(next, { replace: true });
+      }
+      setSocieteFilter(societeActiveId);
+    } else if (activePrecedente.current) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("societe");
+      setSearchParams(next, { replace: true });
+      setSocieteFilter("all");
+    }
+    activePrecedente.current = societeActiveId;
+    // Seul un changement de société active relance la synchronisation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [societeActiveId]);
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);

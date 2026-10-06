@@ -39,6 +39,8 @@ interface Props {
   onCreate: (data: CollecteFormData) => Promise<void>;
   /** présent = mode édition (société figée) */
   initial?: CollecteFormData;
+  /** Société proposée à la création (société active). */
+  defaultSocieteId?: string;
 }
 
 export function CollecteFormDrawer({
@@ -46,6 +48,7 @@ export function CollecteFormDrawer({
   onOpenChange,
   onCreate,
   initial,
+  defaultSocieteId,
 }: Props) {
   const { canSeeSociete } = usePermissions();
   const societes = useSocietes().filter((s) => canSeeSociete(s.id));
@@ -69,7 +72,7 @@ export function CollecteFormDrawer({
 
   useEffect(() => {
     if (!open) return;
-    setSocieteId(initial?.societeId ?? "");
+    setSocieteId(initial?.societeId ?? defaultSocieteId ?? "");
     setPeriode(initial?.periode ?? "");
     setDevise(initial?.devise ?? "TND");
     setEcheance(initial?.echeance ?? "");

@@ -129,10 +129,11 @@ export function htmlFacture(f: Facture, cabinet: FactureCabinet | null, origine 
 
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Facture ${echapper(f.numero)}</title>
 <style>
-  @page{size:A4;margin:16mm 14mm}
+  /* Marge 0 : le navigateur n'imprime plus son en-tête/pied (URL, date) ; les marges sont dans .page. */
+  @page{size:A4;margin:0}
   *{box-sizing:border-box}
   body{font:13px/1.5 Inter,Arial,sans-serif;color:#1c2b3a;margin:0}
-  .page{min-height:265mm;display:flex;flex-direction:column}
+  .page{min-height:296mm;padding:16mm 14mm;display:flex;flex-direction:column}
   .tete{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:14px;border-bottom:2px solid #c8a96a}
   .tete img{height:46px;display:block;margin-bottom:8px}
   .cabinet{font-size:12px;color:#55606b}
@@ -184,18 +185,49 @@ ${f.note ? `<div class="paiement">${lignesTexte(f.note)}</div>` : ""}
 </div></body></html>`;
 }
 
-/** Ouvre la facture dans un nouvel onglet et lance l'impression (après le logo). */
+/** Imprime la facture depuis la page courante : un cadre invisible porte le
+ * modèle et ouvre directement la fenêtre d'impression (aucun onglet ni fenêtre
+ * supplémentaire). Le titre de la page devient « Facture <n°> » le temps de
+ * l'impression : c'est le nom proposé pour l'enregistrement en PDF. */
 export function imprimerFacture(f: Facture, cabinet: FactureCabinet | null): boolean {
-  const w = window.open("", "_blank");
-  if (!w) return false;
-  w.document.write(htmlFacture(f, cabinet, window.location.origin));
-  w.document.close();
-  w.focus();
-  const logo = w.document.images[0];
+  const cadre = document.createElement("iframe");
+  cadre.setAttribute("aria-hidden", "true");
+  cadre.tabIndex = -1;
+  Object.assign(cadre.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
+  document.body.appendChild(cadre);
+  const doc = cadre.contentDocument;
+  const fenetre = cadre.contentWindow;
+  if (!doc || !fenetre) {
+    cadre.remove();
+    return false;
+  }
+
+  doc.open();
+  doc.write(htmlFacture(f, cabinet, window.location.origin));
+  doc.close();
+
+  const titreInitial = document.title;
+  document.title = `Facture ${f.numero}`;
+  let nettoye = false;
+  const nettoyer = () => {
+    if (nettoye) return;
+    nettoye = true;
+    document.title = titreInitial;
+    cadre.remove();
+  };
+  fenetre.addEventListener("afterprint", nettoyer);
+  window.setTimeout(nettoyer, 5 * 60_000);
+
+  const lancer = () => {
+    fenetre.focus();
+    fenetre.print();
+  };
+  // Le logo doit être chargé avant l'ouverture de l'aperçu.
+  const logo = doc.images[0];
   if (logo && !logo.complete) {
-    logo.onload = logo.onerror = () => w.print();
+    logo.onload = logo.onerror = lancer;
   } else {
-    w.print();
+    lancer();
   }
   return true;
 }

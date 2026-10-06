@@ -138,17 +138,18 @@ async function rasterizeCrops(buffer, pageNum) {
       ["gauche", 0],
       ["droite", 1100],
     ];
-    const images = [];
-    for (const [nom, x] of zones) {
-      await execFileAsync("pdftoppm", [
-        "-png", "-scale-to-x", "2400", "-scale-to-y", "3400", "-f", String(pageNum), "-l", String(pageNum),
-        "-x", String(x), "-y", "0", "-W", "1300", "-H", "1550",
-        pdfPath, join(dir, nom),
-      ]);
-      const fichier = (await readdir(dir)).find((f) => f.startsWith(nom) && f.endsWith(".png"));
-      if (fichier) images.push(await readFile(join(dir, fichier)));
-    }
-    return images;
+    const images = await Promise.all(
+      zones.map(async ([nom, x]) => {
+        await execFileAsync("pdftoppm", [
+          "-png", "-scale-to-x", "2400", "-scale-to-y", "3400", "-f", String(pageNum), "-l", String(pageNum),
+          "-x", String(x), "-y", "0", "-W", "1300", "-H", "1550",
+          pdfPath, join(dir, nom),
+        ]);
+        const fichier = (await readdir(dir)).find((f) => f.startsWith(nom) && f.endsWith(".png"));
+        return fichier ? readFile(join(dir, fichier)) : null;
+      }),
+    );
+    return images.filter(Boolean);
   } catch (err) {
     console.error("[ocr] découpe de la page impossible", err.message);
     return [];
@@ -231,10 +232,11 @@ async function completerDouane(lecture, zones, raisonSociale) {
   const avant = CHAMPS_DOUANE.filter((c) => lecture[c]).length;
   const nombre = (l) => CHAMPS_DOUANE.filter((c) => l[c]).length;
 
+  const t0 = Date.now();
   const economiques = await lireZones(zones, raisonSociale);
   let fusion = fusionnerDouane([...economiques, lecture]);
   if (!douaneIncomplete(fusion)) {
-    console.log(`[ocr] douane relue sur ${zones.length} zones par le modèle économique (${avant} -> ${nombre(fusion)} champs)`);
+    console.log(`[ocr] douane relue sur ${zones.length} zones par le modèle économique (${avant} -> ${nombre(fusion)} champs, ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
     return fusion;
   }
 
@@ -242,7 +244,7 @@ async function completerDouane(lecture, zones, raisonSociale) {
   console.log(`[ocr] douane : lecture économique non retenue (${montants(fusion)}), relecture par ${MODELE_RENFORT}`);
   const forts = await lireZones(zones, raisonSociale, MODELE_RENFORT);
   fusion = fusionnerDouane([...forts, ...economiques, lecture]);
-  console.log(`[ocr] douane relue par ${MODELE_RENFORT} sur ${zones.length} zones (${avant} -> ${nombre(fusion)} champs, ${montants(fusion)}${douaneCoherente(fusion) ? "" : ", montants à vérifier"})`);
+  console.log(`[ocr] douane relue par ${MODELE_RENFORT} sur ${zones.length} zones (${avant} -> ${nombre(fusion)} champs, ${montants(fusion)}${douaneCoherente(fusion) ? "" : ", montants à vérifier"}, ${((Date.now() - t0) / 1000).toFixed(1)} s au total)`);
   return fusion;
 }
 
@@ -459,12 +461,17 @@ export async function extractPages(dataUrl, raisonSociale) {
 
   // PDF scanné : une image par page. Une page en échec (quota épuisé, panne…)
   // reste vide à compléter à la main ; les autres gardent leur résultat.
+  const debut = Date.now();
   const rastered = await rasterizeAllPages(buffer);
   if (rastered.length === 0) throw new Error("Aucune page lisible dans ce document");
+  const rendu = Date.now() - debut;
   let premiereErreur = null;
   const pages = await Promise.all(
     rastered.map(async ({ index, png }) => {
       const imageDataUrl = toPngUrl(png);
+      // Zones agrandies préparées pendant la lecture de la page : si c'est une
+      // douane incomplète, elles sont déjà prêtes (gain de quelques secondes).
+      const zonesPrechargees = rasterizeCrops(buffer, index + 1);
       try {
         let lecture = await aiExtractPage({ imageDataUrl, raisonSociale });
         let image = imageDataUrl;
@@ -472,7 +479,7 @@ export async function extractPages(dataUrl, raisonSociale) {
         // clés manquent : le haut de la page est relu en deux zones agrandies par
         // un modèle plus fort, et les champs trouvés complètent la première lecture.
         if (lecture.type === "douane" && douaneIncomplete(lecture)) {
-          lecture = await completerDouane(lecture, await rasterizeCrops(buffer, index + 1), raisonSociale);
+          lecture = await completerDouane(lecture, await zonesPrechargees, raisonSociale);
         }
         return pageIA(index, image, lecture);
       } catch (err) {
@@ -482,6 +489,7 @@ export async function extractPages(dataUrl, raisonSociale) {
       }
     }),
   );
+  console.log(`[ocr] dossier de ${rastered.length} pages lu en ${((Date.now() - debut) / 1000).toFixed(1)} s (rendu des pages ${(rendu / 1000).toFixed(1)} s)`);
   // Aucune page lue : on le dit plutôt que d'afficher des pages vides.
   if (premiereErreur && pages.every((p) => !p.type)) throw premiereErreur;
   return pages;

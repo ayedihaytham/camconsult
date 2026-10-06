@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { accepteEffort, champsByTypeFromClaude, coutEstime, corrigerTypeEtTiers, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
+import { z } from "zod/v4";
+import { accepteEffort, champsByTypeFromClaude, ExtractionSchema, completerReponse, coutEstime, corrigerTypeEtTiers, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -131,5 +132,28 @@ describe("achat ou vente d'après l'émetteur et le client", () => {
   it("ne touche pas une déclaration douanière", () => {
     const douane = facture({ type: "douane", emetteur: "RUSPINA", client: "X" });
     expect(corrigerTypeEtTiers(douane, "01-RUSPINA")).toBe(douane);
+  });
+});
+
+describe("schéma de sortie", () => {
+  it("complète une réponse partielle avec des valeurs vides, sans null", () => {
+    const r = completerReponse({ type: "achat", confidence: "haute", date: null, lignes: [{ designation: "CEM", quantite: 5 }] });
+    expect(r.date).toBe("");
+    expect(r.emetteur).toBe("");
+    expect(r.tauxChange).toBe(0);
+    expect(r.lignes).toEqual([{ designation: "CEM", quantite: 5, prixUnitaire: 0, montantDevise: 0 }]);
+    expect(Object.values(r).includes(null)).toBe(false);
+  });
+
+  it("ne plante pas sur une réponse absente", () => {
+    expect(completerReponse(null)).toBeNull();
+  });
+});
+
+describe("limite de l'API sur le schéma de sortie", () => {
+  it("n'utilise aucun type union (l'API en refuse plus de 16 : erreur 400 sinon)", () => {
+    const json = JSON.stringify(z.toJSONSchema(ExtractionSchema));
+    expect(json).not.toContain("anyOf");
+    expect(json).not.toContain('"null"');
   });
 });

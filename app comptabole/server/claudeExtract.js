@@ -31,35 +31,58 @@ function getClient() {
   return client;
 }
 
+// L'API limite à 16 les paramètres « nullables » (types union) d'un schéma de sortie :
+// tous les champs sont donc simples. Un champ absent ou illisible est renvoyé vide
+// ("" pour un texte, 0 pour un nombre, [] pour les lignes) — voir le prompt.
 const LigneSchema = z.object({
-  designation: z.string().nullable(),
-  quantite: z.number().nullable(),
-  prixUnitaire: z.number().nullable(),
-  montantDevise: z.number().nullable(),
+  designation: z.string(),
+  quantite: z.number(),
+  prixUnitaire: z.number(),
+  montantDevise: z.number(),
 });
 
-const ExtractionSchema = z.object({
+export const ExtractionSchema = z.object({
   type: z.enum(["achat", "vente", "douane"]),
   confidence: z.enum(["haute", "moyenne", "faible"]),
-  date: z.string().nullable(),
-  numFacture: z.string().nullable(),
-  partie: z.string().nullable(),
+  date: z.string(),
+  numFacture: z.string(),
+  partie: z.string(),
   // Les deux noms qui permettent de trancher achat / vente (voir corrigerTypeEtTiers).
-  emetteur: z.string().nullable(),
-  client: z.string().nullable(),
-  // Une ligne par marchandise/quantité distincte du tableau — une facture
-  // liste souvent plusieurs produits, jamais un seul champ par facture.
-  lignes: z.array(LigneSchema).nullable(),
-  devise: z.string().nullable(),
-  numDeclaration: z.string().nullable(),
-  typeDeclaration: z.string().nullable(),
-  // Déclaration douanière uniquement (null pour une facture).
-  tauxChange: z.number().nullable(),
-  valeurTnd: z.number().nullable(),
-  ptfn: z.number().nullable(),
-  exportateur: z.string().nullable(),
-  importateur: z.string().nullable(),
+  emetteur: z.string(),
+  client: z.string(),
+  // Une ligne par marchandise/quantité distincte du tableau — une facture liste
+  // souvent plusieurs produits, jamais un seul champ par facture.
+  lignes: z.array(LigneSchema),
+  devise: z.string(),
+  numDeclaration: z.string(),
+  typeDeclaration: z.string(),
+  // Déclaration douanière uniquement (vides pour une facture).
+  tauxChange: z.number(),
+  valeurTnd: z.number(),
+  ptfn: z.number(),
+  exportateur: z.string(),
+  importateur: z.string(),
 });
+
+/** Valeur d'un champ absent. */
+const VIDES = {
+  date: "", numFacture: "", partie: "", emetteur: "", client: "", devise: "", numDeclaration: "",
+  typeDeclaration: "", exportateur: "", importateur: "", tauxChange: 0, valeurTnd: 0, ptfn: 0, lignes: [],
+};
+
+/** Réponse d'un service compatible : champs absents ou null remplacés par leur valeur vide. */
+export function completerReponse(brut) {
+  if (!brut || typeof brut !== "object") return brut;
+  const out = { ...brut };
+  for (const [cle, vide] of Object.entries(VIDES)) out[cle] = out[cle] ?? (Array.isArray(vide) ? [] : vide);
+  out.lignes = out.lignes.map((l) => ({
+    designation: l?.designation ?? "",
+    quantite: l?.quantite ?? 0,
+    prixUnitaire: l?.prixUnitaire ?? 0,
+    montantDevise: l?.montantDevise ?? 0,
+  }));
+  return out;
+}
 
 const SYSTEM_PROMPT = `You read ONE page of a stock file for a Tunisian accounting firm: a purchase invoice, a sales invoice, or a customs declaration (TTN / TradeNet). The page may mix French, English and Arabic, and may be dense, skewed or of average scan quality. Fill exactly the fields of the schema, nothing else.
 
@@ -103,6 +126,7 @@ The TTN form is a grid of numbered boxes: locate each value by the label of ITS 
 - "numFacture", "partie", "devise": null unless the declaration clearly states them; "lignes": null.
 
 ## 4. Strict rules
+- The output format has no null: wherever these instructions say "null", return "" (empty string) for a text field, 0 for a number and [] for "lignes".
 - NEVER invent a value. An unreadable or absent field is null: empty is better than wrong.
 - Numbers use standard notation: decimal point, no thousands separator ("52 000,00 €" -> 52000, "1.234,50" -> 1234.5, "3,3412" -> 3.3412, "1 000.000" -> 1000, "53.00EUR" -> 53). A space is always a thousands separator. When a thousands separator is followed by another separator, the LAST separator is the decimal one ("1 000.000" = 1000, "170778.400" = 170778.4).
 - Read EVERY decimal digit exactly as printed, including trailing zeros and the third decimal: Tunisian dinar amounts have 3 decimals (millimes), e.g. "170778.405" -> 170778.405, never "170778.4" or "170778.41". Never round, never drop a decimal, never recompute anything. Never multiply a value by 1000 because of zeros after the decimal point.
@@ -247,10 +271,8 @@ ${JSON.stringify(z.toJSONSchema(ExtractionSchema))}`
   }
   console.log(`[ocr] Claude ${model} : ${inputTokens} jetons entrée, ${outputTokens} sortie ≈ ${coutEstime(model, inputTokens, outputTokens)}`);
   const texteReponse = (response.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
-  const brut = extraireJson(texteReponse);
-  // Un service compatible peut omettre les champs vides : absent = null.
-  if (brut) for (const cle of Object.keys(ExtractionSchema.shape)) brut[cle] ??= null;
-  const parsed = ExtractionSchema.safeParse(brut);
+  // Un service compatible peut omettre les champs vides ou les mettre à null.
+  const parsed = ExtractionSchema.safeParse(completerReponse(extraireJson(texteReponse)));
   if (!parsed.success) throw new Error(`Réponse Claude non exploitable : ${parsed.error.issues[0]?.message ?? "format inattendu"}`);
   return corrigerTypeEtTiers(parsed.data, raisonSociale);
 }

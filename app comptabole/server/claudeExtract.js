@@ -49,7 +49,7 @@ const ExtractionSchema = z.object({
   lignes: z.array(LigneSchema).nullable(),
   devise: z.string().nullable(),
   numDeclaration: z.string().nullable(),
-  regime: z.string().nullable(),
+  typeDeclaration: z.string().nullable(),
   // Déclaration douanière uniquement (null pour une facture).
   tauxChange: z.number().nullable(),
   valeurTnd: z.number().nullable(),
@@ -61,15 +61,20 @@ const ExtractionSchema = z.object({
 const SYSTEM_PROMPT = `You read ONE page of a stock file for a Tunisian accounting firm: a purchase invoice, a sales invoice, or a customs declaration (TTN / TradeNet). The page may mix French, English and Arabic, and may be dense, skewed or of average scan quality. Fill exactly the fields of the schema, nothing else.
 
 ## 1. Page type ("type") and confidence ("confidence")
-- "achat" (purchase): an invoice where the company "{{RAISON_SOCIALE}}" is the BUYER (recipient, "Bill to", "Client", "Consignee").
-- "vente" (sale): an invoice where "{{RAISON_SOCIALE}}" is the SELLER (the issuer, named in the invoice header).
-- "douane" (customs): a goods declaration (words: exportateur, importateur, déclarant, bureau de douane, régime, DUM, TTN).
+Decide an invoice's type by WHO ISSUED it, never by the mere presence of a name on the page:
+- The ISSUER (seller) is the company of the LETTERHEAD: logo, header address block ("Siège social", usine, tel/fax), the legal line in the footer (capital, RC, MF), the stamp and the signature ("Service commercial").
+- The CUSTOMER (buyer) is the company in the "Client" / "Bill to" / "Facturé à" / "Adresse" block. A "Destinataire", "Consignee" or "Notify party" is only the delivery recipient, NOT the customer.
+- "{{RAISON_SOCIALE}}" is our client company. Written names often differ a little (code prefix, legal form, extra words): match on the distinctive word (e.g. "RUSPINA IMPORT EXPORT" matches "RUSPINA").
+- "achat" (purchase): the ISSUER is ANOTHER company and "{{RAISON_SOCIALE}}" is the CUSTOMER. Typical: the letterhead of a supplier (a factory, a trader) and "Client : RUSPINA ...".
+- "vente" (sale): "{{RAISON_SOCIALE}}" is the ISSUER (its own letterhead, logo and stamp), and the customer is another company.
+- A continuation page of an invoice (table, totals, delivery notes, payment details, no letterhead): decide from the issuer named in the footer legal line, the bank details or the stamp.
+- "douane" (customs): a goods declaration (words: exportateur, importateur, déclarant, bureau de douane, DUM, TTN).
 - "confidence": "haute" if the type is obvious, otherwise "moyenne" or "faible".
 
 ## 2. Invoice fields (achat or vente)
 - "date": invoice date (YYYY-MM-DD), not the due date or delivery date. Dates are written DAY/MONTH/YEAR (02/01/2023 = 2 January 2023, never 1 February).
 - "numFacture": the number printed in the invoice's own "Invoice N°" / "Facture N°" box (e.g. "6608000533"), without the label. Ignore cross-reference numbers: "As per invoice", "conform to the proforma invoice", purchase order, contract number.
-- "partie": the name of the OTHER company (the supplier if "achat", the customer if "vente"). Never "{{RAISON_SOCIALE}}" itself.
+- "partie": the name of the OTHER company, never "{{RAISON_SOCIALE}}". For "achat" it is the ISSUER of the invoice (the company of the letterhead, e.g. the one whose logo and legal footer appear), NEVER the "Client" block and never the "Destinataire". For "vente" it is the CUSTOMER (the "Client" block).
 - "devise": ISO currency code of the invoice (EUR, USD, TND…). Deduce it from the symbol (€, $, DT) if the code is not written.
 - "lignes": ONE entry per distinct product row of the table, ALL products (not only the first). Read the table COLUMN BY COLUMN following the headers (Quantity / Unit / Designation / Unit price / Total, or Description of goods / Quantity / Unit price / Total price). Never mix columns: a quantity is not a price.
   - "designation": the product label. If it spans several lines in the same cell (product, packing, standard), join them into one text;
@@ -78,13 +83,13 @@ const SYSTEM_PROMPT = `You read ONE page of a stock file for a Tunisian accounti
   - "montantDevise": the row amount (Total column), in the invoice currency.
   These are NEVER product rows: "HS CODE" lines, "conform to the proforma", "Total including all taxes", "Total", subtotals, VAT, stamp duty, shipping costs, amounts written in words.
   An empty or unreadable cell is null. If the quantity and the row total are readable but not the unit price, leave prixUnitaire null (do not compute it).
-- Customs fields (numDeclaration, regime, tauxChange, valeurTnd, ptfn, exportateur, importateur): null for an invoice.
+- Customs fields (numDeclaration, typeDeclaration, tauxChange, valeurTnd, ptfn, exportateur, importateur): null for an invoice.
 
 ## 3. Customs declaration fields
 The TTN form is a grid of numbered boxes: locate each value by the label of ITS box, not by its position.
 - "numDeclaration": the "Numéro" of the "Déclaration" box (top right, next to its "Date"), e.g. 447898. Do not confuse it with the repertoire number, the "Titre CE" number, the liquidation number or handwritten margin notes.
 - "date": the "Date" of that same "Déclaration" box (03-01-2023 = 3 January 2023 -> 2023-01-03).
-- "regime": the customs regime CODE only (digits, e.g. 40 or 150), read in the box "Régimes douaniers" under "déclaré". Not the "Bureau", "Frontière" or "Destination" numbers, which look similar. Null if that box is empty.
+- "typeDeclaration": the letter or code printed in the box "Type déclaration" (box 5, next to "Nbre total articles"), e.g. "E". Only that short value, nothing else. Do NOT read the "Régimes douaniers" box. Null if the box is empty.
 - "tauxChange": box "Cours de conversion de la devise de facturation" (e.g. 3.2842000 -> 3.2842).
 - "valeurTnd": "Valeur douane totale (en dinars)" (e.g. 170778.400 -> 170778.4), not the FOB value of a single item.
 - "ptfn": the amount of the "PTFN" line next to "Devis" (e.g. 52000.000 -> 52000), in the invoicing currency.
@@ -105,6 +110,13 @@ function decodeDataUrl(dataUrl) {
   const m = /^data:([^;]+);base64,(.*)$/s.exec(dataUrl);
   if (!m) return null;
   return { mediaType: m[1], data: m[2] };
+}
+
+/** Nom de la société tel qu'il est écrit sur ses pièces : sans le code de classement
+ * du cabinet qui précède souvent la raison sociale (« 01-RUSPINA » -> « RUSPINA »). */
+export function nomSociete(raisonSociale) {
+  const nom = String(raisonSociale || "").replace(/^\s*\d+\s*[-–.:]\s*/, "").trim();
+  return nom || "(non précisée)";
 }
 
 /** Dollars par million de jetons (entrée, sortie), tarifs Anthropic. Un service
@@ -130,10 +142,7 @@ export function coutEstime(model, entree, sortie) {
  * @param {{ imageDataUrl?: string|null, texte?: string, raisonSociale?: string, model?: string, usage?: object }} p
  */
 export async function claudeExtractPage({ imageDataUrl, texte, raisonSociale, model = CLAUDE_EXTRACT_MODEL, usage, note }) {
-  const system = SYSTEM_PROMPT.replaceAll(
-    "{{RAISON_SOCIALE}}",
-    raisonSociale || "(non précisée)",
-  );
+  const system = SYSTEM_PROMPT.replaceAll("{{RAISON_SOCIALE}}", nomSociete(raisonSociale));
 
   const content = [];
   const image = imageDataUrl ? decodeDataUrl(imageDataUrl) : null;
@@ -239,7 +248,7 @@ export function champsByTypeFromClaude(out) {
     douane: {
       numDeclaration: out.numDeclaration || "",
       date: out.date || "",
-      regime: out.regime || "",
+      typeDeclaration: out.typeDeclaration || "",
       reference: "",
       tauxChange: out.tauxChange ?? 0,
       valeurTnd: out.valeurTnd ?? 0,
@@ -254,6 +263,6 @@ export function champsByTypeVide() {
   return {
     achat: { date: "", numFacture: "", fournisseur: "", devise: "EUR", lignes: [] },
     vente: { date: "", numFacture: "", client: "", devise: "EUR", lignes: [] },
-    douane: { numDeclaration: "", date: "", regime: "", reference: "", tauxChange: 0, valeurTnd: 0, ptfn: 0, exportateur: "", importateur: "" },
+    douane: { numDeclaration: "", date: "", typeDeclaration: "", reference: "", tauxChange: 0, valeurTnd: 0, ptfn: 0, exportateur: "", importateur: "" },
   };
 }

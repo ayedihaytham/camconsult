@@ -152,7 +152,7 @@ function champsRuspina(p) {
 
 function champsDouaneVides() {
   return {
-    numDeclaration: "", date: "", regime: "", reference: "",
+    numDeclaration: "", date: "", typeDeclaration: "", reference: "",
     tauxChange: 0, valeurTnd: 0, ptfn: 0, exportateur: "", importateur: "",
   };
 }
@@ -165,7 +165,7 @@ function champsDouane(p) {
     douane: {
       numDeclaration: text(p.declaration_number),
       date: normaliserDate(p.declaration_date),
-      regime: text(p.declaration_type),
+      typeDeclaration: text(p.declaration_type),
       reference: "",
       tauxChange: normaliserNombre(p.currency_conversion_rate),
       valeurTnd: normaliserNombre(p.customs_total_value_tnd),

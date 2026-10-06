@@ -25,7 +25,7 @@ const COMPARATEURS = {
   numDeclaration: (lu, att) => norm(lu) === norm(att),
   partie: (lu, att) => similaire(lu, att),
   devise: (lu, att) => norm(lu) === norm(att),
-  regime: (lu, att) => norm(lu) === norm(att),
+  typeDeclaration: (lu, att) => norm(lu) === norm(att),
   reference: (lu, att) => norm(lu) === norm(att),
 };
 

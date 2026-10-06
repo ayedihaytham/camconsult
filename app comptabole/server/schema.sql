@@ -967,3 +967,7 @@ alter table app_meta add column if not exists cabinet_tel      text not null def
 alter table app_meta add column if not exists cabinet_email    text not null default '';
 alter table app_meta add column if not exists cabinet_rib      text not null default '';
 alter table app_meta add column if not exists cabinet_mentions text not null default '';
+
+-- Déclaration douanière : type de déclaration (case « Type déclaration », ex. E)
+-- à la place du régime, qui n'est plus saisi (la colonne douane_regime est conservée).
+alter table stock_mouvements add column if not exists douane_type_declaration text not null default '';

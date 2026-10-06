@@ -69,6 +69,7 @@ const empty = (societeId: string): StockMouvementInput => ({
   douaneNumDeclaration: "",
   douaneDate: null,
   douaneRegime: "",
+  douaneTypeDeclaration: "",
   douaneReference: "",
   douaneTauxChange: 0,
   douaneValeurTnd: 0,
@@ -88,6 +89,25 @@ const montantTnd = (montantDevise: number, cours: number) =>
 /** Recalcule le montant en dinars de toutes les lignes avec le cours donné. */
 const avecMontantsTnd = (lignes: StockLigne[], cours: number): StockLigne[] =>
   lignes.map((l) => ({ ...l, montantTnd: montantTnd(l.montantDevise, cours) }));
+
+/** Le taux de change de la douane s'applique aux cours de l'achat et de la vente
+ * (et donc aux montants en dinars), sauf si l'un d'eux a été saisi à la main avec
+ * une autre valeur : un cours vide, ou qui suivait déjà l'ancien taux de la douane,
+ * est mis à jour. */
+export function avecTauxDouane(prev: StockMouvementInput, taux: number): StockMouvementInput {
+  if (!taux) return { ...prev, douaneTauxChange: taux };
+  const suit = (cours: number) => !cours || cours === prev.douaneTauxChange;
+  const achatCours = suit(prev.achatCours) ? taux : prev.achatCours;
+  const venteCours = suit(prev.venteCours) ? taux : prev.venteCours;
+  return {
+    ...prev,
+    douaneTauxChange: taux,
+    achatCours,
+    achatLignes: avecMontantsTnd(prev.achatLignes, achatCours),
+    venteCours,
+    venteLignes: avecMontantsTnd(prev.venteLignes, venteCours),
+  };
+}
 
 const ligneVide = (): StockLigne => ({
   designation: "",
@@ -281,18 +301,17 @@ export function StockMouvementFormSheet({
             : prev.venteLignes,
       }));
     } else {
-      setV((prev) => ({
+      setV((prev) => avecTauxDouane({
         ...prev,
         douaneNumDeclaration: champs.numDeclaration || prev.douaneNumDeclaration,
         douaneDate: champs.date || prev.douaneDate,
-        douaneRegime: champs.regime || prev.douaneRegime,
+        douaneTypeDeclaration: champs.typeDeclaration || prev.douaneTypeDeclaration,
         douaneReference: champs.reference || prev.douaneReference,
-        douaneTauxChange: champs.tauxChange || prev.douaneTauxChange,
         douaneValeurTnd: champs.valeurTnd || prev.douaneValeurTnd,
         douanePtfn: champs.ptfn || prev.douanePtfn,
         douaneExportateur: champs.exportateur || prev.douaneExportateur,
         douaneImportateur: champs.importateur || prev.douaneImportateur,
-      }));
+      }, champs.tauxChange || prev.douaneTauxChange));
     }
   }
 
@@ -756,17 +775,17 @@ export function StockMouvementFormSheet({
                     onChange={(e) => set("douaneDate", e.target.value || null)}
                   />
                 </Field>
-                <Field label="Régime">
+                <Field label="Type de déclaration">
                   <Input
-                    value={v.douaneRegime}
-                    onChange={(e) => set("douaneRegime", e.target.value)}
-                    placeholder="RS, IM4, EX1…"
+                    value={v.douaneTypeDeclaration}
+                    onChange={(e) => set("douaneTypeDeclaration", e.target.value)}
+                    placeholder="E"
                   />
                 </Field>
                 <Field label="Taux de change (TND)">
                   <AmountInput
                     value={v.douaneTauxChange}
-                    onValueChange={(n) => set("douaneTauxChange", n)}
+                    onValueChange={(n) => setV((prev) => avecTauxDouane(prev, n))}
                     decimals={4}
                   />
                 </Field>

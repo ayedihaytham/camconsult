@@ -76,7 +76,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             <th className={thNum}>Qté</th>
             <th className={thNum}>Montant</th>
             <th className={`${th} ${debutGroupe}`}>Déclaration</th>
-            <th className={th}>Régime</th>
+            <th className={th}>Type</th>
             <th className={thNum}>Taux</th>
             <th className={thNum}>Valeur TND</th>
             <th className={thNum}>PTFN</th>
@@ -152,7 +152,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     <p className="font-mono text-xs">{m.douaneNumDeclaration || "—"}</p>
                     {m.douaneDate && <p className="text-xs text-muted-foreground">{jour(m.douaneDate)}</p>}
                   </td>
-                  <td className={td}>{m.douaneRegime || "—"}</td>
+                  <td className={td}>{m.douaneTypeDeclaration || "—"}</td>
                   <td className={tdNum}>{m.douaneTauxChange ? m.douaneTauxChange.toLocaleString("fr-FR", { maximumFractionDigits: 5 }) : "—"}</td>
                   <td className={tdNum}>{montantOuTiret(m.douaneValeurTnd)}</td>
                   <td className={tdNum}>{montantOuTiret(m.douanePtfn)}</td>

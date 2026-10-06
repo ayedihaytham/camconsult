@@ -116,7 +116,7 @@ describe("ruspinaVersPages", () => {
     expect(pages[2].champsByType.douane).toEqual({
       numDeclaration: "447898",
       date: "2023-01-03",
-      regime: "E",
+      typeDeclaration: "E",
       reference: "",
       tauxChange: 3.2842,
       valeurTnd: 170778.4,

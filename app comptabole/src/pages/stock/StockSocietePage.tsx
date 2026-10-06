@@ -129,7 +129,7 @@ export function StockSocietePage() {
       "Nature", "Écart",
       "Achat: Date", "N° Facture", "Fournisseur", "Produits", "Quantité", "Montant devise", "Devise", "Cours", "Montant TND",
       "Vente: Date", "N° Facture", "Client", "Produits", "Quantité", "Montant devise", "Devise", "Cours", "Montant TND",
-      "Douane: N° Déclaration", "Date", "Régime", "Taux de change", "Valeur en douane (TND)", "PTFN", "Exportateur", "Importateur",
+      "Douane: N° Déclaration", "Date", "Type de déclaration", "Taux de change", "Valeur en douane (TND)", "PTFN", "Exportateur", "Importateur",
       "Note",
     ];
     // Une facture peut lister plusieurs produits (voir StockLigne) : le
@@ -151,7 +151,7 @@ export function StockSocietePage() {
       sumQ(m.achatLignes), sumDevise(m.achatLignes), m.achatDevise, m.achatCours, sumTnd(m.achatLignes),
       m.venteDate ?? "", m.venteNumFacture, m.client, designations(m.venteLignes),
       sumQ(m.venteLignes), sumDevise(m.venteLignes), m.venteDevise, m.venteCours, sumTnd(m.venteLignes),
-      m.douaneNumDeclaration, m.douaneDate ?? "", m.douaneRegime, m.douaneTauxChange, m.douaneValeurTnd, m.douanePtfn, m.douaneExportateur, m.douaneImportateur,
+      m.douaneNumDeclaration, m.douaneDate ?? "", m.douaneTypeDeclaration, m.douaneTauxChange, m.douaneValeurTnd, m.douanePtfn, m.douaneExportateur, m.douaneImportateur,
       m.note,
     ]);
     const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);

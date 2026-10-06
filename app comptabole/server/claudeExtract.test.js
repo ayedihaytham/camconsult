@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accepteEffort, champsByTypeFromClaude, coutEstime, extraireJson } from "./claudeExtract.js";
+import { accepteEffort, champsByTypeFromClaude, coutEstime, extraireJson, nomSociete } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -10,7 +10,7 @@ const base = {
   lignes: null,
   devise: null,
   numDeclaration: "2024123456",
-  regime: "Mise à la consommation",
+  typeDeclaration: "E",
   tauxChange: 3.3412,
   valeurTnd: 125000.5,
   ptfn: 4200,
@@ -23,7 +23,7 @@ describe("champsByTypeFromClaude", () => {
     expect(champsByTypeFromClaude(base).douane).toEqual({
       numDeclaration: "2024123456",
       date: "2024-03-12",
-      regime: "Mise à la consommation",
+      typeDeclaration: "E",
       reference: "",
       tauxChange: 3.3412,
       valeurTnd: 125000.5,
@@ -77,5 +77,19 @@ describe("accepteEffort", () => {
   it("n'envoie pas effort à Haiku", () => {
     expect(accepteEffort("claude-haiku-4-5-20251001")).toBe(false);
     expect(accepteEffort("claude-sonnet-5-5")).toBe(true);
+  });
+});
+
+describe("nomSociete", () => {
+  it("retire le code de classement qui précède la raison sociale", () => {
+    expect(nomSociete("01-RUSPINA")).toBe("RUSPINA");
+    expect(nomSociete("05-I CARGO LINE")).toBe("I CARGO LINE");
+    expect(nomSociete("12 - ACME SARL")).toBe("ACME SARL");
+  });
+  it("garde un nom sans code et gère l'absence de nom", () => {
+    expect(nomSociete("RUSPINA IMPORT EXPORT")).toBe("RUSPINA IMPORT EXPORT");
+    expect(nomSociete("3M Tunisie")).toBe("3M Tunisie");
+    expect(nomSociete("")).toBe("(non précisée)");
+    expect(nomSociete(undefined)).toBe("(non précisée)");
   });
 });

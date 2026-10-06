@@ -182,7 +182,7 @@ async function separerPages(buffer, nombre) {
 /** Modèle plus fort pour relire les déclarations douanières incomplètes
  * (CLAUDE_FALLBACK_MODEL, Sonnet 5.5 par défaut). */
 const MODELE_RENFORT = process.env.CLAUDE_FALLBACK_MODEL || "claude-sonnet-5-5";
-const CHAMPS_DOUANE = ["numDeclaration", "date", "regime", "tauxChange", "valeurTnd", "ptfn", "exportateur", "importateur"];
+const CHAMPS_DOUANE = ["numDeclaration", "date", "typeDeclaration", "tauxChange", "valeurTnd", "ptfn", "exportateur", "importateur"];
 /** Valeur en douane = PTFN (devise) x taux de change, à 0,1 % près (arrondis de
  * la déclaration). Un écart signale un chiffre mal lu ; sans l'un des trois
  * montants, on ne peut rien conclure. Quand la déclaration porte fret ou
@@ -264,7 +264,7 @@ function fusionner(lectures) {
     partie: premier("partie"),
     devise: premier("devise"),
     numDeclaration: premier("numDeclaration"),
-    regime: premier("regime"),
+    typeDeclaration: premier("typeDeclaration"),
     tauxChange: premier("tauxChange"),
     valeurTnd: premier("valeurTnd"),
     ptfn: premier("ptfn"),
@@ -399,7 +399,7 @@ const lectureVide = () => ({
   lignes: [],
   devise: null,
   numDeclaration: null,
-  regime: null,
+  typeDeclaration: null,
   tauxChange: null,
   valeurTnd: null,
   ptfn: null,

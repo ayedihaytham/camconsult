@@ -385,6 +385,8 @@ export interface StockMouvement {
   douaneNumDeclaration: string;
   douaneDate: string | null;
   douaneRegime: string;
+  /** Type de déclaration (case « Type déclaration » de la déclaration douanière, ex. E). */
+  douaneTypeDeclaration: string;
   douaneReference: string;
   /** Taux de change douanier (TND pour 1 unité de devise) et valeur en douane (TND). */
   douaneTauxChange: number;
@@ -420,7 +422,7 @@ export interface StockChamps {
   devise?: string;
   lignes?: StockLigne[];
   numDeclaration?: string;
-  regime?: string;
+  typeDeclaration?: string;
   reference?: string;
   tauxChange?: number;
   valeurTnd?: number;

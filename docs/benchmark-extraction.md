@@ -23,7 +23,7 @@ Le script (`app comptabole/server/scripts/benchmark-extraction.mjs`) ne fait que
 }
 ```
 
-Pour une déclaration douanière : `{ "type": "douane", "numDeclaration": "447898", "date": "2023-01-03", "regime": "E" }`.
+Pour une déclaration douanière : `{ "type": "douane", "numDeclaration": "447898", "date": "2023-01-03", "typeDeclaration": "E" }`.
 Seuls les champs présents dans le fichier sont notés. Sans fichier de vérité, le rapport HTML affiche les lectures côte à côte.
 
 PDF scannés : le script a besoin de poppler (`choco install poppler`) pour transformer les pages en images. Les PDF numériques et les images n'en ont pas besoin.

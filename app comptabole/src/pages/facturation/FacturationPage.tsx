@@ -8,6 +8,7 @@ import {
   PenLine,
   Plus,
   Printer,
+  Settings2,
   RotateCcw,
   Search,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import { cn, formatDate } from "@/lib/utils";
 import { useFacturation, type FactureInput } from "@/store/facturation";
 import { FACTURE_STATUT_LABELS } from "@/types";
 import type { Facture, FactureStatut } from "@/types";
+import { CabinetInfoDialog } from "./CabinetInfoDialog";
 import { FactureFormSheet } from "./FactureFormSheet";
 
 const selectTriggerClass =
@@ -56,17 +58,22 @@ export function FacturationPage() {
   const fetchList = useFacturation((s) => s.fetchList);
   const create = useFacturation((s) => s.create);
   const update = useFacturation((s) => s.update);
+  const cabinet = useFacturation((s) => s.cabinet);
+  const fetchCabinet = useFacturation((s) => s.fetchCabinet);
+  const saveCabinet = useFacturation((s) => s.saveCabinet);
 
   const [statut, setStatut] = useState<"all" | FactureStatut>("all");
   const [retardSeul, setRetardSeul] = useState(false);
   const [recherche, setRecherche] = useState("");
   const [selection, setSelection] = useState<string[]>([]);
   const [formOpen, setFormOpen] = useState(false);
+  const [cabinetOpen, setCabinetOpen] = useState(false);
   const [aAnnuler, setAAnnuler] = useState<Facture | null>(null);
 
   useEffect(() => {
     fetchList();
-  }, [fetchList]);
+    fetchCabinet();
+  }, [fetchList, fetchCabinet]);
 
   const filtered = useMemo(() => {
     const q = recherche.trim().toLocaleLowerCase("fr");
@@ -106,7 +113,7 @@ export function FacturationPage() {
   }
 
   function imprimer(f: Facture) {
-    if (!imprimerFacture(f)) toast.error("Autorisez les fenêtres pop-up pour imprimer la facture");
+    if (!imprimerFacture(f, cabinet)) toast.error("Autorisez les fenêtres pop-up pour imprimer la facture");
   }
 
   return (
@@ -124,6 +131,10 @@ export function FacturationPage() {
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" className="signature-ledger__action" onClick={() => setCabinetOpen(true)}>
+              <Settings2 className="h-4 w-4" />
+              Cabinet
+            </Button>
             <Button variant="outline" className="signature-ledger__action" onClick={exporter}>
               <Download className="h-4 w-4" />
               {selection.length ? `Exporter (${selection.length})` : "CSV"}
@@ -319,6 +330,15 @@ export function FacturationPage() {
       </div>
 
       <FactureFormSheet open={formOpen} onOpenChange={setFormOpen} onSubmit={generer} />
+      <CabinetInfoDialog
+        open={cabinetOpen}
+        onOpenChange={setCabinetOpen}
+        cabinet={cabinet}
+        onSave={async (data) => {
+          await saveCabinet(data);
+          toast.success("Informations du cabinet enregistrées");
+        }}
+      />
 
       <ConfirmDialog
         open={Boolean(aAnnuler)}

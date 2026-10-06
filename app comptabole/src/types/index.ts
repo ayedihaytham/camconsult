@@ -254,6 +254,9 @@ export interface Facture {
   id: string;
   societeId: string;
   societeNom: string;
+  clientAdresse: string;
+  clientTva: string;
+  clientRne: string;
   numero: string;
   dateEmission: string;
   echeance: string | null;
@@ -269,6 +272,17 @@ export interface Facture {
   netAPayer: number;
   creeLe: string;
   lignes: FactureLigne[];
+}
+
+/** Coordonnées du cabinet imprimées sur les factures. */
+export interface FactureCabinet {
+  nom: string;
+  adresse: string;
+  matriculeFiscal: string;
+  telephone: string;
+  email: string;
+  rib: string;
+  mentions: string;
 }
 
 export const FACTURE_STATUT_LABELS: Record<FactureStatut, string> = {

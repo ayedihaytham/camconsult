@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
-import type { Facture, FactureStatut } from "@/types";
+import type { Facture, FactureCabinet, FactureStatut } from "@/types";
 
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
@@ -20,15 +20,35 @@ export interface FactureInput {
 
 interface FacturationState {
   list: Facture[];
+  cabinet: FactureCabinet | null;
   loading: boolean;
   fetchList: () => Promise<void>;
+  fetchCabinet: () => Promise<void>;
+  saveCabinet: (data: Omit<FactureCabinet, "nom">) => Promise<void>;
   create: (data: FactureInput) => Promise<Facture>;
   update: (id: string, data: { statut?: FactureStatut; signee?: boolean }) => Promise<void>;
 }
 
 export const useFacturation = create<FacturationState>((set) => ({
   list: [],
+  cabinet: null,
   loading: false,
+
+  fetchCabinet: async () => {
+    try {
+      set({ cabinet: await api.get<FactureCabinet>("/facturation/cabinet") });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  saveCabinet: async (data) => {
+    try {
+      set({ cabinet: await api.put<FactureCabinet>("/facturation/cabinet", data) });
+    } catch (e) {
+      fail(e);
+    }
+  },
 
   fetchList: async () => {
     set({ loading: true });

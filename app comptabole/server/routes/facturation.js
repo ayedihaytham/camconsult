@@ -31,7 +31,8 @@ const patchSchema = z.object({
   signee: z.boolean().optional(),
 });
 
-const SELECT = `select f.*, s.raison_sociale as societe_nom
+const SELECT = `select f.*, s.raison_sociale as societe_nom, s.adresse as societe_adresse,
+                       s.tva as societe_tva, s.rne as societe_rne
                   from factures f join societes s on s.id = f.societe_id`;
 
 async function charger(where, params) {
@@ -46,6 +47,44 @@ async function charger(where, params) {
   for (const l of lignes) parFacture.set(l.facture_id, [...(parFacture.get(l.facture_id) ?? []), factureLigneDto(l)]);
   return rows.map((r) => factureDto(r, parFacture.get(r.id) ?? []));
 }
+
+const cabinetSchema = z.object({
+  adresse: z.string().trim().max(300).default(""),
+  matriculeFiscal: z.string().trim().max(60).default(""),
+  telephone: z.string().trim().max(60).default(""),
+  email: z.string().trim().max(120).default(""),
+  rib: z.string().trim().max(80).default(""),
+  mentions: z.string().trim().max(600).default(""),
+});
+
+const cabinetDto = (m) => ({
+  nom: m?.admin_nom ?? "",
+  adresse: m?.cabinet_adresse ?? "",
+  matriculeFiscal: m?.cabinet_mf ?? "",
+  telephone: m?.cabinet_tel ?? "",
+  email: m?.cabinet_email ?? "",
+  rib: m?.cabinet_rib ?? "",
+  mentions: m?.cabinet_mentions ?? "",
+});
+
+// Coordonnées du cabinet imprimées en en-tête et pied des factures.
+facturationRouter.get("/cabinet", async (_req, res) => {
+  res.json(cabinetDto((await query("select * from app_meta where id = 1")).rows[0]));
+});
+
+facturationRouter.put("/cabinet", async (req, res) => {
+  const parsed = cabinetSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  const v = parsed.data;
+  const { rows } = await query(
+    `update app_meta set cabinet_adresse = $1, cabinet_mf = $2, cabinet_tel = $3,
+            cabinet_email = $4, cabinet_rib = $5, cabinet_mentions = $6
+      where id = 1 returning *`,
+    [v.adresse, v.matriculeFiscal, v.telephone, v.email, v.rib, v.mentions],
+  );
+  logAction(req.session.nom, "modification", "cabinet", "Coordonnées du cabinet (factures)");
+  res.json(cabinetDto(rows[0]));
+});
 
 facturationRouter.get("/", async (_req, res) => {
   res.json(await charger("", []));

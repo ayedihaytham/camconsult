@@ -959,3 +959,11 @@ create table if not exists facture_lignes (
   montant_ht  numeric not null default 0
 );
 create index if not exists facture_lignes_idx on facture_lignes(facture_id, ordre);
+
+-- Coordonnées du cabinet imprimées sur les factures (modifiables depuis Facturation).
+alter table app_meta add column if not exists cabinet_adresse  text not null default '';
+alter table app_meta add column if not exists cabinet_mf       text not null default '';
+alter table app_meta add column if not exists cabinet_tel      text not null default '';
+alter table app_meta add column if not exists cabinet_email    text not null default '';
+alter table app_meta add column if not exists cabinet_rib      text not null default '';
+alter table app_meta add column if not exists cabinet_mentions text not null default '';

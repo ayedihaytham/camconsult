@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Facture } from "@/types";
-import { ajouterJours, calculerTotaux, estEnRetard, htmlFacture } from "./facturation";
+import { ajouterJours, calculerTotaux, estEnRetard, htmlFacture, montantEnLettres, nombreEnLettres } from "./facturation";
 
 describe("calculerTotaux", () => {
   it("calcule HT, TVA et net à payer avec timbre", () => {
@@ -49,6 +49,9 @@ describe("htmlFacture", () => {
     id: "1",
     societeId: "s",
     societeNom: "ACME <script>alert(1)</script>",
+    clientAdresse: "1 rue du Lac\nTunis",
+    clientTva: "1234567/A",
+    clientRne: "B0123",
     numero: "2026-0001",
     dateEmission: "2026-10-06",
     echeance: "2026-11-05",
@@ -66,12 +69,38 @@ describe("htmlFacture", () => {
   };
 
   it("échappe le texte saisi et affiche les montants", () => {
-    const html = htmlFacture(facture);
+    const html = htmlFacture(facture, { nom: "Cabinet X", adresse: "Tunis", matriculeFiscal: "MF1", telephone: "71", email: "a@b.tn", rib: "TN59 0000", mentions: "SARL" });
     expect(html).not.toContain("<script>alert(1)");
     expect(html).toContain("&lt;script&gt;");
     expect(html).toContain("Honoraires &amp; frais");
     expect(html).toContain("2026-0001");
     expect(html).toContain("06/10/2026");
     expect(html).toContain("120,000");
+    expect(html).toContain("Cent vingt dinars");
+    expect(html).toContain("TN59 0000");
+    expect(html).toContain("1234567/A");
+    expect(html).toContain("1 rue du Lac<br>Tunis");
+  });
+
+  it("s'imprime aussi sans coordonnées de cabinet", () => {
+    expect(htmlFacture(facture, null)).toContain("2026-0001");
+  });
+});
+
+describe("montant en lettres", () => {
+  it.each([
+    [0, "zéro"], [1, "un"], [21, "vingt et un"], [71, "soixante et onze"], [80, "quatre-vingts"],
+    [81, "quatre-vingt-un"], [91, "quatre-vingt-onze"], [100, "cent"], [200, "deux cents"],
+    [201, "deux cent un"], [1000, "mille"], [1200, "mille deux cents"], [80000, "quatre-vingt mille"],
+    [200000, "deux cent mille"], [2619, "deux mille six cent dix-neuf"], [1000000, "un million"],
+    [2500000, "deux millions cinq cent mille"],
+  ])("%d -> %s", (n, texte) => {
+    expect(nombreEnLettres(n)).toBe(texte);
+  });
+
+  it("écrit dinars et millimes avec les pluriels", () => {
+    expect(montantEnLettres(1)).toBe("Un dinar");
+    expect(montantEnLettres(2619.595)).toBe("Deux mille six cent dix-neuf dinars et cinq cent quatre-vingt-quinze millimes");
+    expect(montantEnLettres(120.001)).toBe("Cent vingt dinars et un millime");
   });
 });

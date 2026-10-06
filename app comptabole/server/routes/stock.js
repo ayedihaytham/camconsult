@@ -29,6 +29,7 @@ const ligneSchema = z.object({
   prixUnitaire: num,
   montantDevise: num,
   montantTnd: num,
+  unite: z.string().default("").transform((u) => u.trim().toUpperCase().slice(0, 8)),
 });
 
 const schema = z.object({
@@ -104,9 +105,9 @@ async function replaceLignes(client, mouvementId, categorie, lignes) {
   for (let i = 0; i < lignes.length; i++) {
     const l = lignes[i];
     await client.query(
-      `insert into stock_lignes (mouvement_id, categorie, ordre, designation, quantite, prix_unitaire, montant_devise, montant_tnd)
-       values ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [mouvementId, categorie, i, l.designation, l.quantite, l.prixUnitaire, l.montantDevise, l.montantTnd],
+      `insert into stock_lignes (mouvement_id, categorie, ordre, designation, quantite, prix_unitaire, montant_devise, montant_tnd, unite)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [mouvementId, categorie, i, l.designation, l.quantite, l.prixUnitaire, l.montantDevise, l.montantTnd, l.unite ?? ""],
     );
   }
 }

@@ -115,6 +115,7 @@ const ligneVide = (): StockLigne => ({
   prixUnitaire: 0,
   montantDevise: 0,
   montantTnd: 0,
+  unite: "",
 });
 
 const DOC_FIELD: Record<StockDocType, "achatDocDataUrl" | "venteDocDataUrl" | "douaneDocDataUrl"> = {
@@ -963,12 +964,24 @@ function LignesEditor({
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-5 gap-2">
                 <Field label="Qté">
                   <AmountInput
                       value={l.quantite}
                       onValueChange={(n) => update(i, { quantite: n })}
                     />
+                </Field>
+                <Field label="Unité">
+                  <select
+                    value={l.unite ?? ""}
+                    onChange={(e) => update(i, { unite: e.target.value })}
+                    aria-label="Unité de la quantité"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
+                  >
+                    <option value="">—</option>
+                    <option value="T">Tonnes</option>
+                    <option value="KG">Kilos</option>
+                  </select>
                 </Field>
                 <Field label="Prix unit.">
                   <AmountInput

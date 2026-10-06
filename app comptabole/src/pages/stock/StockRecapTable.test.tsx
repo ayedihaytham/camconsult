@@ -47,6 +47,7 @@ const base = (patch: Partial<StockMouvement>): StockMouvement => ({
   douaneDocDataUrl: null,
   note: "",
   ecart: 0,
+  ecartUnite: "",
   ecartParDesignation: [],
   creeLe: "",
   majLe: "",
@@ -166,5 +167,33 @@ describe("tableau récapitulatif du stock", () => {
     afficher({ nouveauId: "m2" });
     expect((document.getElementById("mouvement-m2") as HTMLElement).className).toContain("bg-accent/15");
     expect((document.getElementById("mouvement-m1") as HTMLElement).className).not.toContain("bg-accent/15");
+  });
+});
+
+describe("quantités en unités différentes", () => {
+  afterEach(cleanup);
+
+  const kilos = base({
+    id: "m3",
+    natureMarchandise: "Ciment en vrac",
+    achatLignes: [{ ...ligne("CIMENT", 370000, 40700), unite: "KG" }],
+    venteLignes: [{ ...ligne("CIMENT", 370, 40700), unite: "T" }],
+    ecart: 0,
+    ecartUnite: "T",
+  });
+
+  it("ramène les kilos en tonnes dans les totaux", () => {
+    const t = recapStock([kilos]);
+    expect(t.unite).toBe("T");
+    expect(t.achat.quantite).toBe(370);
+    expect(t.vente.quantite).toBe(370);
+    expect(t.ecart).toBe(0);
+  });
+
+  it("affiche l'unité de chaque quantité et de l'écart", () => {
+    afficher({ mouvements: [kilos] });
+    const rangee = within(document.getElementById("mouvement-m3") as HTMLElement);
+    expect(rangee.getByText("370 T", { selector: "td" }).tagName).toBe("TD");
+    expect(rangee.getByText("0 T")).toBeTruthy();
   });
 });

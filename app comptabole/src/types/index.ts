@@ -349,6 +349,8 @@ export interface StockLigne {
   prixUnitaire: number;
   montantDevise: number;
   montantTnd: number;
+  /** Unité de la quantité : "T" (tonnes), "KG" (kilos) ou vide. */
+  unite?: string;
 }
 
 /** Écart entre achat et vente pour une même désignation (produit) au sein
@@ -404,6 +406,8 @@ export interface StockMouvement {
   note: string;
   /** Somme(achatLignes.quantite) - somme(venteLignes.quantite), calculé côté serveur */
   ecart: number;
+  /** Unité dans laquelle l'écart est exprimé (tonnes si achat et vente diffèrent d'unité). */
+  ecartUnite: string;
   /** Le même écart, détaillé par désignation — voir StockEcartLigne */
   ecartParDesignation: StockEcartLigne[];
   creeLe: string;

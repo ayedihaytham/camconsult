@@ -10,7 +10,7 @@ import { useSocieteById, useNoeuds, useData } from "@/store/data";
 import { useStock, type StockMouvementInput } from "@/store/stock";
 import type { StockMouvement } from "@/types";
 import { classerDansStructuration } from "@/lib/classement";
-import { fmtQuantite, recapStock } from "@/lib/stockRecap";
+import { fmtQuantiteUnite, quantiteEn, recapStock, uniteCommune } from "@/lib/stockRecap";
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
 import { StockRecapTable } from "./StockRecapTable";
 import { DocPreviewDialog } from "./DocPreviewDialog";
@@ -126,9 +126,9 @@ export function StockSocietePage() {
   async function exportXlsx() {
     const XLSX = await import("xlsx");
     const header = [
-      "Nature", "Écart",
-      "Achat: Date", "N° Facture", "Fournisseur", "Produits", "Quantité", "Montant devise", "Devise", "Cours", "Montant TND",
-      "Vente: Date", "N° Facture", "Client", "Produits", "Quantité", "Montant devise", "Devise", "Cours", "Montant TND",
+      "Nature", "Écart", "Unité de l'écart",
+      "Achat: Date", "N° Facture", "Fournisseur", "Produits", "Quantité", "Unité", "Montant devise", "Devise", "Cours", "Montant TND",
+      "Vente: Date", "N° Facture", "Client", "Produits", "Quantité", "Unité", "Montant devise", "Devise", "Cours", "Montant TND",
       "Douane: N° Déclaration", "Date", "Type de déclaration", "Taux de change", "Valeur en douane (TND)", "PTFN", "Exportateur", "Importateur",
       "Note",
     ];
@@ -136,8 +136,10 @@ export function StockSocietePage() {
     // détail par ligne reste consultable à l'écran, l'export agrège en
     // quantité/montant totaux + une colonne "Produits" listant chaque
     // désignation, pour garder une ligne Excel = un dossier.
-    const sumQ = (lignes: typeof list[number]["achatLignes"]) =>
-      lignes.reduce((s, l) => s + l.quantite, 0);
+    const sumQ = (lignes: typeof list[number]["achatLignes"]) => {
+      const unite = uniteCommune(lignes);
+      return lignes.reduce((s, l) => s + quantiteEn(l, unite), 0);
+    };
     const sumTnd = (lignes: typeof list[number]["achatLignes"]) =>
       lignes.reduce((s, l) => s + l.montantTnd, 0);
     const sumDevise = (lignes: typeof list[number]["achatLignes"]) =>
@@ -146,11 +148,11 @@ export function StockSocietePage() {
       lignes.map((l) => l.designation).filter(Boolean).join(", ");
 
     const rows = list.map((m) => [
-      m.natureMarchandise, m.ecart,
+      m.natureMarchandise, m.ecart, m.ecartUnite,
       m.achatDate ?? "", m.achatNumFacture, m.fournisseur, designations(m.achatLignes),
-      sumQ(m.achatLignes), sumDevise(m.achatLignes), m.achatDevise, m.achatCours, sumTnd(m.achatLignes),
+      sumQ(m.achatLignes), uniteCommune(m.achatLignes), sumDevise(m.achatLignes), m.achatDevise, m.achatCours, sumTnd(m.achatLignes),
       m.venteDate ?? "", m.venteNumFacture, m.client, designations(m.venteLignes),
-      sumQ(m.venteLignes), sumDevise(m.venteLignes), m.venteDevise, m.venteCours, sumTnd(m.venteLignes),
+      sumQ(m.venteLignes), uniteCommune(m.venteLignes), sumDevise(m.venteLignes), m.venteDevise, m.venteCours, sumTnd(m.venteLignes),
       m.douaneNumDeclaration, m.douaneDate ?? "", m.douaneTypeDeclaration, m.douaneTauxChange, m.douaneValeurTnd, m.douanePtfn, m.douaneExportateur, m.douaneImportateur,
       m.note,
     ]);
@@ -171,8 +173,8 @@ export function StockSocietePage() {
           metrics={[
             { label: shown.length > 1 ? "Mouvements" : "Mouvement", value: recap.mouvements, loading },
             { label: "Anomalies (écart ≠ 0)", value: recap.anomalies, tone: recap.anomalies > 0 ? "destructive" : "default" },
-            { label: "Qté achetée", value: fmtQuantite(recap.achat.quantite) },
-            { label: "Qté vendue", value: fmtQuantite(recap.vente.quantite) },
+            { label: "Qté achetée", value: fmtQuantiteUnite(recap.achat.quantite, recap.unite) },
+            { label: "Qté vendue", value: fmtQuantiteUnite(recap.vente.quantite, recap.unite) },
           ]}
           actions={
             <div data-tour="stock-actions" className="flex flex-wrap items-center gap-2">

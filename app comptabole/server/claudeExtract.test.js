@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod/v4";
-import { accepteEffort, champsByTypeFromClaude, ExtractionSchema, avecMesure, completerReponse, enregistrerMesure, coutNombre, coutEstime, corrigerTypeEtTiers, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
+import { accepteEffort, champsByTypeFromClaude, ExtractionSchema, avecMesure, corrigerQuantiteLigne, uniteNormalisee, completerReponse, enregistrerMesure, coutNombre, coutEstime, corrigerTypeEtTiers, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -141,7 +141,7 @@ describe("schéma de sortie", () => {
     expect(r.date).toBe("");
     expect(r.emetteur).toBe("");
     expect(r.tauxChange).toBe(0);
-    expect(r.lignes).toEqual([{ designation: "CEM", quantite: 5, prixUnitaire: 0, montantDevise: 0 }]);
+    expect(r.lignes).toEqual([{ designation: "CEM", quantite: 5, prixUnitaire: 0, montantDevise: 0, unite: "" }]);
     expect(Object.values(r).includes(null)).toBe(false);
   });
 
@@ -191,5 +191,45 @@ describe("addition des appels d'un import", () => {
 
   it("ignore les appels faits hors d'un import", () => {
     expect(() => enregistrerMesure("claude-haiku-4-5-20251001", 10, 10)).not.toThrow();
+  });
+});
+
+describe("quantité vérifiée par quantité x prix = montant", () => {
+  const ligne = (quantite, prixUnitaire, montantDevise) => ({ designation: "CIMENT", quantite, prixUnitaire, montantDevise, unite: "T" });
+
+  it("laisse une ligne cohérente", () => {
+    expect(corrigerQuantiteLigne(ligne(370, 110, 40700)).quantite).toBe(370);
+    expect(corrigerQuantiteLigne(ligne(1000, 44, 44000)).quantite).toBe(1000);
+  });
+
+  it("corrige « 370.000 » lu 370000 (facteur 1000 en trop)", () => {
+    expect(corrigerQuantiteLigne(ligne(370000, 110, 40700)).quantite).toBe(370);
+  });
+
+  it("corrige « 1.000 » lu 1 (facteur 1000 manquant)", () => {
+    expect(corrigerQuantiteLigne(ligne(1, 44, 44000)).quantite).toBe(1000);
+  });
+
+  it("ne devine rien sans prix ou sans montant, ni quand aucun facteur ne convient", () => {
+    expect(corrigerQuantiteLigne(ligne(370000, 0, 40700)).quantite).toBe(370000);
+    expect(corrigerQuantiteLigne(ligne(5, 110, 40700)).quantite).toBe(5);
+  });
+});
+
+describe("unité de la quantité", () => {
+  it("normalise tonnes et kilos", () => {
+    for (const t of ["T", "To", "MT", "tonnes", "Tonne", "Ton."]) expect(uniteNormalisee(t)).toBe("T");
+    for (const k of ["KG", "kgs", "Kilos", "kilogramme"]) expect(uniteNormalisee(k)).toBe("KG");
+    for (const autre of ["", "sacs", null, undefined, "pcs"]) expect(uniteNormalisee(autre)).toBe("");
+  });
+
+  it("transmet l'unité et corrige la quantité dans les champs de la facture", () => {
+    const out = {
+      type: "vente", date: "", numFacture: "", partie: "", devise: "EUR",
+      lignes: [{ designation: "CEMENT", quantite: 370000, prixUnitaire: 110, montantDevise: 40700, unite: "To" }],
+    };
+    const [l] = champsByTypeFromClaude(out).vente.lignes;
+    expect(l.quantite).toBe(370);
+    expect(l.unite).toBe("T");
   });
 });

@@ -971,3 +971,7 @@ alter table app_meta add column if not exists cabinet_mentions text not null def
 -- Déclaration douanière : type de déclaration (case « Type déclaration », ex. E)
 -- à la place du régime, qui n'est plus saisi (la colonne douane_regime est conservée).
 alter table stock_mouvements add column if not exists douane_type_declaration text not null default '';
+
+-- Unité de la quantité d'une ligne (T = tonnes, KG = kilos, vide = autre / non précisée) :
+-- l'écart achat - vente est calculé après conversion quand les unités diffèrent.
+alter table stock_lignes add column if not exists unite text not null default '';

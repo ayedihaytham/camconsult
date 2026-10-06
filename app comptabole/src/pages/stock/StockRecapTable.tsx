@@ -1,7 +1,7 @@
 import { Fragment, useState } from "react";
 import { ChevronRight, FolderInput, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
-import { fmtMontant, fmtQuantite, recapStock, totauxCote } from "@/lib/stockRecap";
+import { fmtMontant, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
 import type { StockLigne, StockMouvement } from "@/types";
 
 type Categorie = "achat" | "vente" | "douane";
@@ -127,7 +127,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                   </td>
 
                   <td className={cn(tdNum, debutGroupe, "font-bold", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>
-                    {fmtQuantite(m.ecart)}
+                    {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
                   </td>
 
                   <TiersCell
@@ -136,7 +136,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     numero={m.achatNumFacture}
                     className={`${td} ${debutGroupe} max-w-[13rem]`}
                   />
-                  <td className={tdNum}>{a.produits ? fmtQuantite(a.quantite) : "—"}</td>
+                  <td className={tdNum}>{a.produits ? fmtQuantiteUnite(a.quantite, uniteCommune(m.achatLignes)) : "—"}</td>
                   <MontantCell cote={a} devise={m.achatDevise} />
 
                   <TiersCell
@@ -145,7 +145,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     numero={m.venteNumFacture}
                     className={`${td} ${debutGroupe} max-w-[13rem]`}
                   />
-                  <td className={tdNum}>{v.produits ? fmtQuantite(v.quantite) : "—"}</td>
+                  <td className={tdNum}>{v.produits ? fmtQuantiteUnite(v.quantite, uniteCommune(m.venteLignes)) : "—"}</td>
                   <MontantCell cote={v} devise={m.venteDevise} />
 
                   <td className={`${td} ${debutGroupe}`}>
@@ -228,12 +228,12 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             <td className={cn(td, "sticky left-0 z-[1] bg-[hsl(var(--card))]")}>
               Total · {total.mouvements} mouvement{total.mouvements > 1 ? "s" : ""}
             </td>
-            <td className={cn(tdNum, debutGroupe, total.ecart !== 0 && "text-destructive")}>{fmtQuantite(total.ecart)}</td>
+            <td className={cn(tdNum, debutGroupe, total.ecart !== 0 && "text-destructive")}>{fmtQuantiteUnite(total.ecart, total.unite)}</td>
             <td className={`${td} ${debutGroupe}`} />
-            <td className={tdNum}>{fmtQuantite(total.achat.quantite)}</td>
+            <td className={tdNum}>{fmtQuantiteUnite(total.achat.quantite, total.unite)}</td>
             <td className={tdNum}>{total.achat.montantTnd ? `${fmtMontant(total.achat.montantTnd)} TND` : ""}</td>
             <td className={`${td} ${debutGroupe}`} />
-            <td className={tdNum}>{fmtQuantite(total.vente.quantite)}</td>
+            <td className={tdNum}>{fmtQuantiteUnite(total.vente.quantite, total.unite)}</td>
             <td className={tdNum}>{total.vente.montantTnd ? `${fmtMontant(total.vente.montantTnd)} TND` : ""}</td>
             <td className={`${td} ${debutGroupe}`} colSpan={5} />
             <td className={`${td} ${debutGroupe}`} />
@@ -305,7 +305,7 @@ function LignesProduits({ titre, lignes, devise }: { titre: string; lignes: Stoc
             {lignes.map((l, i) => (
               <tr key={l.id ?? i} className="border-t border-accent/20">
                 <td className="py-1.5 pr-2 text-foreground">{l.designation || "(sans désignation)"}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{fmtQuantite(l.quantite)}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{fmtQuantiteUnite(l.quantite, l.unite ?? "")}</td>
                 <td className="px-2 py-1.5 text-right tabular-nums">{l.prixUnitaire ? fmtMontant(l.prixUnitaire) : "—"}</td>
                 <td className="px-2 py-1.5 text-right tabular-nums">{l.montantDevise ? fmtMontant(l.montantDevise) : "—"}</td>
                 <td className="py-1.5 pl-2 text-right tabular-nums">{l.montantTnd ? fmtMontant(l.montantTnd) : "—"}</td>
@@ -345,7 +345,7 @@ function DetailMouvement({
               <span key={e.designation} className="text-muted-foreground">
                 {e.designation}{" "}
                 <span className={cn("font-semibold", e.ecart !== 0 ? "text-destructive" : "text-foreground")}>
-                  {fmtQuantite(e.ecart)}
+                  {fmtQuantiteUnite(e.ecart, m.ecartUnite)}
                 </span>
               </span>
             ))}

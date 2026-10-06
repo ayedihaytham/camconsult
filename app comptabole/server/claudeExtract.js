@@ -40,6 +40,8 @@ const LigneSchema = z.object({
   quantite: z.number(),
   prixUnitaire: z.number(),
   montantDevise: z.number(),
+  // Unité de la colonne quantité : "T" (tonnes), "KG" (kilos) ou "".
+  unite: z.string(),
 });
 
 export const ExtractionSchema = z.object({
@@ -81,6 +83,7 @@ export function completerReponse(brut) {
     quantite: l?.quantite ?? 0,
     prixUnitaire: l?.prixUnitaire ?? 0,
     montantDevise: l?.montantDevise ?? 0,
+    unite: l?.unite ?? "",
   }));
   return out;
 }
@@ -110,6 +113,7 @@ Decide an invoice's type by WHO ISSUED it, never by the mere presence of a name 
   - "quantite": the number in the Quantity column (e.g. 1000 for "1000 MT"), not a number of bags or packages quoted inside the designation;
   - "prixUnitaire": the Unit price column, in the invoice currency;
   - "montantDevise": the row amount (Total column), in the invoice currency.
+  - "unite": the unit of the Quantity column, normalized: "T" for tonnes (T, To, MT, Ton, Tonne, Tonnes), "KG" for kilograms (kg, kgs, kilo, kilos), "" for anything else (bags, pieces, m3) or when no unit is printed.
   These are NEVER product rows: "HS CODE" lines, "conform to the proforma", "Total including all taxes", "Total", subtotals, VAT, stamp duty, shipping costs, amounts written in words.
   An empty or unreadable cell is null. If the quantity and the row total are readable but not the unit price, leave prixUnitaire null (do not compute it).
 - For a customs declaration, "emetteur" and "client" are null. Customs fields (numDeclaration, typeDeclaration, tauxChange, valeurTnd, ptfn, exportateur, importateur): null for an invoice.
@@ -131,6 +135,7 @@ The TTN form is a grid of numbered boxes: locate each value by the label of ITS 
 - NEVER invent a value. An unreadable or absent field is null: empty is better than wrong.
 - Numbers use standard notation: decimal point, no thousands separator ("52 000,00 €" -> 52000, "1.234,50" -> 1234.5, "3,3412" -> 3.3412, "1 000.000" -> 1000, "53.00EUR" -> 53). A space is always a thousands separator. When a thousands separator is followed by another separator, the LAST separator is the decimal one ("1 000.000" = 1000, "170778.400" = 170778.4).
 - Read EVERY decimal digit exactly as printed, including trailing zeros and the third decimal: Tunisian dinar amounts have 3 decimals (millimes), e.g. "170778.405" -> 170778.405, never "170778.4" or "170778.41". Never round, never drop a decimal, never recompute anything. Never multiply a value by 1000 because of zeros after the decimal point.
+- Quantities: never trust the separator alone ("370.000" can be 370 or 370000). Check quantite x prixUnitaire = montantDevise on the same row: if the product is 1000 times too small or too large, you misread the quantity's separator: correct the quantity.
 - Copy digits exactly as printed. Check each digit of long numbers (invoice, declaration numbers) twice.
 - Invoice company names ("partie"): copy the full company name, without address or VAT number. (Exportateur / importateur on a customs declaration are the exception: copy the whole box.)
 - Copy words letter by letter as printed, even when they look odd; "DE" and "DES" are common in Tunisian company names, never turn them into symbols.
@@ -322,14 +327,38 @@ export function extraireJson(texte) {
  * lignes totalement vides) vers le contrat attendu côté front (voir
  * StockLigne dans src/types) — jamais de null qui se propage jusqu'à
  * l'écran. */
+/** Quantité vérifiée par quantité x prix unitaire = montant de la ligne : un facteur 1000
+ * d'écart trahit un séparateur mal lu (« 370.000 » lu 370000, ou « 1.000 » lu 1). */
+export function corrigerQuantiteLigne(ligne) {
+  const { quantite: q, prixUnitaire: pu, montantDevise: m } = ligne;
+  if (!q || !pu || !m) return ligne;
+  const proche = (a, b) => Math.abs(a - b) <= Math.max(0.01, Math.abs(b) * 0.005);
+  if (proche(q * pu, m)) return ligne;
+  for (const facteur of [1000, 0.001]) {
+    if (proche(q * facteur * pu, m)) return { ...ligne, quantite: Math.round(q * facteur * 1000) / 1000 };
+  }
+  return ligne;
+}
+
+/** Code d'unité normalisé : "T", "KG" ou "". */
+export function uniteNormalisee(brut) {
+  const u = String(brut || "").trim().toUpperCase().replace(/\./g, "");
+  if (["T", "TO", "MT", "TON", "TONNE", "TONNES", "TONS"].includes(u)) return "T";
+  if (["KG", "KGS", "KILO", "KILOS", "KILOGRAMME", "KILOGRAMMES"].includes(u)) return "KG";
+  return "";
+}
+
 function normaliserLignes(lignes) {
   return (lignes || [])
-    .map((l) => ({
-      designation: l?.designation || "",
-      quantite: l?.quantite ?? 0,
-      prixUnitaire: l?.prixUnitaire ?? 0,
-      montantDevise: l?.montantDevise ?? 0,
-    }))
+    .map((l) =>
+      corrigerQuantiteLigne({
+        designation: l?.designation || "",
+        quantite: l?.quantite ?? 0,
+        prixUnitaire: l?.prixUnitaire ?? 0,
+        montantDevise: l?.montantDevise ?? 0,
+        unite: uniteNormalisee(l?.unite),
+      }),
+    )
     .filter((l) => l.designation || l.quantite || l.montantDevise);
 }
 

@@ -268,6 +268,7 @@ const ligneDto = (l) => ({
   prixUnitaire: num(l.prix_unitaire),
   montantDevise: num(l.montant_devise),
   montantTnd: num(l.montant_tnd),
+  unite: l.unite ?? "",
 });
 
 const normDesignation = (s) => (s || "").trim().toLowerCase();
@@ -276,7 +277,19 @@ const normDesignation = (s) => (s || "").trim().toLowerCase();
  * mouvement par produit (une facture peut en lister plusieurs, avec des
  * quantités différentes) — un simple total achat - total vente n'aurait pas
  * de sens si les produits ne sont pas les mêmes des deux côtés. */
-function ecartParDesignation(achatLignes, venteLignes) {
+/** Unité commune pour comparer achat et vente : si l'une est en tonnes (T) et l'autre en
+ * kilos (KG), tout est ramené en tonnes ; sinon les quantités se comparent telles quelles
+ * (une unité absente est supposée identique à celle des autres lignes). */
+export function uniteDeComparaison(...cotes) {
+  const unites = new Set(cotes.flat().map((l) => l.unite).filter(Boolean));
+  if (unites.has("T") && unites.has("KG")) return "T";
+  return unites.size === 1 ? [...unites][0] : "";
+}
+
+/** Quantité d'une ligne exprimée dans l'unité de comparaison. */
+export const quantiteComparable = (l, unite) => (unite === "T" && l.unite === "KG" ? l.quantite / 1000 : l.quantite);
+
+function ecartParDesignation(achatLignes, venteLignes, unite) {
   const byDesignation = new Map();
   for (const l of achatLignes) {
     const key = normDesignation(l.designation);
@@ -285,7 +298,7 @@ function ecartParDesignation(achatLignes, venteLignes) {
       achatQuantite: 0,
       venteQuantite: 0,
     };
-    e.achatQuantite += l.quantite;
+    e.achatQuantite += quantiteComparable(l, unite);
     byDesignation.set(key, e);
   }
   for (const l of venteLignes) {
@@ -295,7 +308,7 @@ function ecartParDesignation(achatLignes, venteLignes) {
       achatQuantite: 0,
       venteQuantite: 0,
     };
-    e.venteQuantite += l.quantite;
+    e.venteQuantite += quantiteComparable(l, unite);
     byDesignation.set(key, e);
   }
   return [...byDesignation.values()]
@@ -312,7 +325,8 @@ export const stockMouvementDto = (r, lignes = []) => {
   const venteLignes = lignes
     .filter((l) => l.categorie === "vente")
     .map(ligneDto);
-  const sumQ = (arr) => arr.reduce((s, l) => s + l.quantite, 0);
+  const unite = uniteDeComparaison(achatLignes, venteLignes);
+  const sumQ = (arr) => arr.reduce((s, l) => s + quantiteComparable(l, unite), 0);
 
   return {
     id: r.id,
@@ -353,7 +367,8 @@ export const stockMouvementDto = (r, lignes = []) => {
 
     note: r.note ?? "",
     ecart: Math.round((sumQ(achatLignes) - sumQ(venteLignes)) * 1000) / 1000,
-    ecartParDesignation: ecartParDesignation(achatLignes, venteLignes),
+    ecartUnite: unite,
+    ecartParDesignation: ecartParDesignation(achatLignes, venteLignes, unite),
     creeLe: isoOrNull(r.cree_le),
     majLe: isoOrNull(r.maj_le),
   };

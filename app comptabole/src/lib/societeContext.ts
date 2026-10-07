@@ -3,13 +3,14 @@ import type { NavGroup } from "@/components/layout/sidebar/navigation";
 /** Modules dont chaque page est celle d'UNE société : /<module>/:societeId. */
 export const MODULES_PAR_SOCIETE = [
   "/stock",
+  "/fournisseurs",
   "/etats-financiers",
   "/honoraires",
   "/souche-cheques",
   "/suivi-devise",
 ] as const;
 
-const ROUTE_SOCIETE = /^(\/(?:stock|etats-financiers|honoraires|souche-cheques|suivi-devise))(?=\/|$)(?:\/([^/]+))?/;
+const ROUTE_SOCIETE = /^(\/(?:stock|fournisseurs|etats-financiers|honoraires|souche-cheques|suivi-devise))(?=\/|$)(?:\/([^/]+))?/;
 
 /** Société portée par l'adresse courante (ex. /stock/abc -> abc), sinon null. */
 export function societeIdFromPath(pathname: string): string | null {

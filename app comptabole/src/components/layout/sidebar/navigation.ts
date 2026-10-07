@@ -13,6 +13,7 @@ import {
   ListChecks,
   MessageSquare,
   Receipt,
+  Truck,
   ScrollText,
   Settings,
   type LucideIcon,
@@ -44,6 +45,8 @@ export interface NavItem {
   responsableSocieteOk?: boolean;
   perm?: PermissionKey;
   hideForSocieteEmploye?: boolean;
+  /** Masqué pour un délégué de société seulement : l'équipe du cabinet et le responsable de société le voient. */
+  hideForDelegue?: boolean;
 }
 
 export interface NavGroup {
@@ -84,6 +87,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Boxes,
         hideForSocieteEmploye: true,
       },
+      { label: "Suivi fournisseur", to: "/fournisseurs", icon: Truck, hideForDelegue: true },
     ],
   },
   {
@@ -192,6 +196,7 @@ export function visibleNavigation({
         )
           return false;
         if (item.hideForSocieteEmploye && lectureSeule) return false;
+        if (item.hideForDelegue && lectureSeule && !isResponsableSociete) return false;
         if (item.perm && !can(item.perm)) return false;
         return true;
       })

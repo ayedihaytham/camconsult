@@ -978,3 +978,45 @@ alter table stock_lignes add column if not exists unite text not null default ''
 
 -- État client : date à laquelle le règlement d'une ligne a été reçu.
 alter table honoraires_lignes add column if not exists date_reglement date;
+
+-- Suivi fournisseur : règlements des factures d'achat du stock. Un règlement peut couvrir
+-- plusieurs factures (affectations) ; une facture peut être réglée en plusieurs fois.
+-- La facture elle-même n'est jamais copiée : c'est le côté achat de stock_mouvements.
+create table if not exists fournisseur_reglements (
+  id               uuid primary key default gen_random_uuid(),
+  societe_id       uuid not null references societes(id) on delete cascade,
+  fournisseur_cle  text not null,
+  date_reglement   date,
+  mode             text not null default 'virement',
+  reference        text not null default '',
+  banque           text not null default '',
+  devise           text not null default 'TND',
+  cours            numeric not null default 0,
+  rs_taux          numeric not null default 0,
+  rs_numero        text not null default '',
+  rs_montant       numeric not null default 0,
+  note             text not null default '',
+  cree_le          timestamptz not null default now(),
+  maj_le           timestamptz not null default now()
+);
+create index if not exists fournisseur_reglements_societe_idx on fournisseur_reglements(societe_id, fournisseur_cle);
+
+create table if not exists fournisseur_affectations (
+  reglement_id  uuid not null references fournisseur_reglements(id) on delete cascade,
+  mouvement_id  uuid not null references stock_mouvements(id) on delete cascade,
+  montant       numeric not null default 0,
+  primary key (reglement_id, mouvement_id)
+);
+create index if not exists fournisseur_affectations_mouvement_idx on fournisseur_affectations(mouvement_id);
+
+-- Informations de suivi d'une facture d'achat (proforma, titre, chargement).
+create table if not exists fournisseur_suivi (
+  mouvement_id     uuid primary key references stock_mouvements(id) on delete cascade,
+  num_proforma     text not null default '',
+  date_proforma    date,
+  montant_proforma numeric not null default 0,
+  etat_proforma    text not null default '',
+  num_titre        text not null default '',
+  etat_chargement  text not null default '',
+  vu_passe         text not null default ''
+);

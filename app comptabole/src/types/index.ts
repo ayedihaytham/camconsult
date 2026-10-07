@@ -875,3 +875,68 @@ export interface SoucheCheque {
   creeLe: string;
   majLe: string;
 }
+
+// ── Suivi fournisseur ─────────────────────────────────────────────────────
+
+/** Informations de suivi d'une facture d'achat (proforma, titre, chargement). */
+export interface FactureSuivi {
+  numProforma: string;
+  dateProforma: string | null;
+  montantProforma: number;
+  etatProforma: string;
+  numTitre: string;
+  etatChargement: string;
+  vuPasse: string;
+}
+
+/** Facture d'achat d'un fournisseur : le côté achat d'un mouvement de stock. */
+export interface FactureFournisseur {
+  /** Id du mouvement de stock. */
+  id: string;
+  fournisseur: string;
+  fournisseurCle: string;
+  numFacture: string;
+  date: string | null;
+  devise: string;
+  cours: number;
+  quantite: number;
+  designation: string;
+  prixUnitaire: number;
+  montant: number;
+  montantTnd: number;
+  venteNumFacture: string;
+  douaneNumDeclaration: string;
+  suivi: FactureSuivi;
+}
+
+export type ModeReglement = "virement" | "cheque" | "effet" | "especes" | "autre";
+
+export interface ReglementAffectation {
+  mouvementId: string;
+  montant: number;
+}
+
+export interface ReglementFournisseur {
+  id: string;
+  fournisseurCle: string;
+  date: string | null;
+  mode: ModeReglement;
+  reference: string;
+  banque: string;
+  devise: string;
+  cours: number;
+  rsTaux: number;
+  rsNumero: string;
+  rsMontant: number;
+  note: string;
+  /** Total des factures couvertes, retenue à la source comprise. */
+  brut: number;
+  /** Montant réellement viré : brut − retenue à la source. */
+  vire: number;
+  affectations: ReglementAffectation[];
+}
+
+export interface EtatFournisseurs {
+  factures: FactureFournisseur[];
+  reglements: ReglementFournisseur[];
+}

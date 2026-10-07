@@ -20,6 +20,7 @@ const STATIC_ROUTES: Record<string, string> = {
   "/taches": "Tâches",
   "/collectes": "Collecte de pièces",
   "/stock": "Gestion de stock",
+  "/fournisseurs": "Suivi fournisseur",
   "/etats-financiers": "États financiers",
   "/grille-affectat": "Paramétrage",
   "/bordereaux": "Bordereaux bancaires",
@@ -94,6 +95,14 @@ export function getAppBreadcrumbs(
     return [
       { label: "Gestion de stock", to: "/stock" },
       { label: societeName(stockParams.societeId) },
+    ];
+  }
+
+  const fournisseursParams = paramsFor("/fournisseurs/:societeId", pathname);
+  if (fournisseursParams) {
+    return [
+      { label: "Suivi fournisseur", to: "/fournisseurs" },
+      { label: societeName(fournisseursParams.societeId) },
     ];
   }
 

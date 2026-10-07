@@ -10,6 +10,7 @@ import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { RequireEquipeManager } from "@/components/auth/RequireEquipeManager";
 import { RequireEquipe } from "@/components/auth/RequireEquipe";
 import { RequireEtatClient } from "@/components/auth/RequireEtatClient";
+import { RequireSuiviFournisseur } from "@/components/auth/RequireSuiviFournisseur";
 import { useAuth } from "@/store/auth";
 import { useData } from "@/store/data";
 import { registerQuotaHandler } from "@/lib/safeStorage";
@@ -62,6 +63,16 @@ const StockPage = lazy(() =>
 const StockSocietePage = lazy(() =>
   import("@/pages/stock/StockSocietePage").then((m) => ({
     default: m.StockSocietePage,
+  })),
+);
+const FournisseursPage = lazy(() =>
+  import("@/pages/fournisseurs/FournisseursPage").then((m) => ({
+    default: m.FournisseursPage,
+  })),
+);
+const FournisseursSocietePage = lazy(() =>
+  import("@/pages/fournisseurs/FournisseursSocietePage").then((m) => ({
+    default: m.FournisseursSocietePage,
   })),
 );
 const HonorairesListPage = lazy(() =>
@@ -382,6 +393,24 @@ export default function App() {
                   </Suspense>
                 }
               />
+              <Route element={<RequireSuiviFournisseur />}>
+                <Route
+                  path="/fournisseurs"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <FournisseursPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/fournisseurs/:societeId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <FournisseursSocietePage />
+                    </Suspense>
+                  }
+                />
+              </Route>
               <Route element={<RequireEtatClient />}>
                 <Route
                   path="/honoraires"

@@ -42,6 +42,7 @@ describe("sidebar navigation policy", () => {
       "/taches",
       "/collectes",
       "/stock",
+      "/fournisseurs",
       "/etats-financiers",
       "/grille-affectat",
       "/bordereaux",
@@ -74,6 +75,7 @@ describe("sidebar navigation policy", () => {
       "/taches",
       "/collectes",
       "/stock",
+      "/fournisseurs",
       "/etats-financiers",
       "/suivi-devise",
       "/structuration",
@@ -97,6 +99,7 @@ describe("sidebar navigation policy", () => {
       "/taches",
       "/collectes",
       "/stock",
+      "/fournisseurs",
       "/etats-financiers",
       "/suivi-devise",
       "/structuration",
@@ -132,13 +135,14 @@ describe("État client pour le responsable de société", () => {
       "/",
       "/taches",
       "/collectes",
+      "/fournisseurs",
       "/honoraires",
       "/structuration",
       "/messagerie",
     ]);
-    expect(
-      destinations(visibleNavigation({ ...base, isResponsableSociete: false })),
-    ).not.toContain("/honoraires");
+    const delegue = destinations(visibleNavigation({ ...base, isResponsableSociete: false }));
+    expect(delegue).not.toContain("/honoraires");
+    expect(delegue).not.toContain("/fournisseurs");
   });
 });
 

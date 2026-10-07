@@ -66,6 +66,14 @@ operation-specific checks.
 route or navigation item is UX only; the matching API must reject unauthorized
 requests and out-of-scope society IDs.
 
+## Suivi fournisseur
+
+- Lecture : admin, collaborateurs de la société et responsable de la société cliente (jamais un
+  délégué). Écriture : admin et collaborateurs de la société — `server/routes/fournisseurs.js`
+  (`canRead` / `canWrite`). Le menu et la route (`RequireSuiviFournisseur`) ne font que refléter ces règles.
+- Un règlement ne peut couvrir que des factures de la même société, du même fournisseur et de la
+  même devise, sans dépasser le solde de chaque facture.
+
 ## État client (honoraires)
 
 - Écriture (lignes, pièces jointes, import, envoi par la messagerie) : admin

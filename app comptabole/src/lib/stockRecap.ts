@@ -82,7 +82,8 @@ export const fmtQuantite = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 3 });
 
 /** Quantité avec son unité : « 370 T ». */
-export const fmtQuantiteUnite = (n: number, unite: string) => `${fmtQuantite(n)}${unite ? ` ${unite}` : ""}`;
+/** Quantité suivie de son unité ; un zéro reste « 0 », sans unité. */
+export const fmtQuantiteUnite = (n: number, unite: string) => `${fmtQuantite(n)}${unite && n !== 0 ? ` ${unite}` : ""}`;
 
 /** Différence vente − achat des montants en devise d'un mouvement, ou null quand les deux côtés ne sont
  * pas dans la même devise (la différence n'aurait pas de sens). */

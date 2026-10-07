@@ -301,27 +301,20 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             <td className={cn(tdNum, debutGroupe, total.ecart !== 0 && "text-destructive")}>{fmtQuantiteUnite(total.ecart, total.unite)}</td>
             <td className={`${td} ${debutGroupe}`} colSpan={3} />
             <td className={tdNum}>{fmtQuantiteUnite(total.vente.quantite, total.unite)}</td>
-            <td className={td} colSpan={3} />
-            <td className={tdNum}>{montantOuTiret(total.vente.montantTnd)}</td>
+            <td className={`${td} whitespace-nowrap`} colSpan={4} title="Total vente − achat, en devise">
+              {ecarts.length > 0 && "Vente − achat : "}
+              {ecarts.map((e) => (
+                <span key={e.devise} className={cn("mr-2 tabular-nums", e.valeur !== 0 && "text-destructive")}>
+                  {fmtMontant(e.valeur)} {e.devise}
+                </span>
+              ))}
+            </td>
             <td className={`${td} ${debutGroupe}`} colSpan={3} />
             <td className={tdNum}>{fmtQuantiteUnite(total.achat.quantite, total.unite)}</td>
-            <td className={td} colSpan={3} />
-            <td className={tdNum}>{montantOuTiret(total.achat.montantTnd)}</td>
+            <td className={td} colSpan={4} />
             <td className={`${td} ${debutGroupe}`} />
             <td className={`${td} ${debutGroupe}`} />
             <td className={td} />
-          </tr>
-          <tr className="bg-accent/[0.07] font-bold text-primary">
-            <td className={td} colSpan={3}>Total vente − achat (en devise)</td>
-            <td className={`${td} ${debutGroupe}`} colSpan={NB_COLONNES - 3}>
-              {ecarts.length === 0
-                ? "—"
-                : ecarts.map((e) => (
-                    <span key={e.devise} className={cn("mr-4 tabular-nums", e.valeur !== 0 && "text-destructive")}>
-                      {fmtMontant(e.valeur)} {e.devise}
-                    </span>
-                  ))}
-            </td>
           </tr>
         </tfoot>
       </table>

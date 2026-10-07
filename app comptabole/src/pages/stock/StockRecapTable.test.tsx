@@ -140,8 +140,9 @@ describe("tableau récapitulatif du stock", () => {
   it("montre le total vente − achat en devise en bas du tableau et dans le détail", () => {
     afficher();
     const pied = within(document.querySelector("tfoot") as HTMLElement);
-    expect(pied.getByText("Total vente − achat (en devise)")).toBeTruthy();
-    // 53 000 − 52 000 EUR sur le premier mouvement.
+    // Une seule ligne de total, sans montant en dinars.
+    expect(document.querySelectorAll("tfoot tr")).toHaveLength(1);
+    expect(pied.getByText(/Vente − achat :/)).toBeTruthy();
     expect(pied.getAllByText(/EUR/).length).toBeGreaterThan(0);
     fireEvent.click(document.getElementById("mouvement-m1") as HTMLElement);
     expect(screen.getByText(/Vente − achat \(en devise\)/)).toBeTruthy();
@@ -286,6 +287,8 @@ describe("quantités en unités différentes", () => {
     afficher({ mouvements: [kilos] });
     const rangee = within(document.getElementById("mouvement-m3") as HTMLElement);
     expect(rangee.getByText("370 T", { selector: "td" }).tagName).toBe("TD");
-    expect(rangee.getByText("0 T")).toBeTruthy();
+    // Un écart nul s'écrit « 0 », sans unité.
+    expect(rangee.getByText("0")).toBeTruthy();
+    expect(rangee.queryByText("0 T")).toBeNull();
   });
 });

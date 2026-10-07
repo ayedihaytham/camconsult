@@ -223,6 +223,22 @@ describe("mouvements bancaires seulement", () => {
     ]);
   });
 
+  it("ignore le texte arabe et les mentions de bas de page, garde Date valeur", () => {
+    const page: PdfTextItem[] = [
+      t("التاريخ", 40, 740, 30), t("Date", 40, 730, 20), t("Libellé de l'opération", 120, 730, 100), t("Date de valeur", 250, 730, 60), t("Débit", 340, 730, 25), t("Crédit", 420, 730, 30),
+      t("31-12-2025", 40, 700, 50), t("Solde au: 31/12/2025", 120, 700, 100), t("29-01-2026", 250, 700, 50), t("0,000", 340, 700, 25), t("16 426,680", 410, 700, 50),
+      t("02-01-2026", 40, 680, 50), t("Commission acceptation", 120, 680, 100), t("02-01-2026", 250, 680, 50), t("150,000", 340, 680, 35), t("0,000", 420, 680, 25),
+      t("LC", 120, 668, 15), t("قسم عدد", 150, 668, 40),
+      t("En cas de contestation sur le contenu de ce relevé, nous vous prions de contacter votre agence", 40, 600, 380),
+    ];
+    const [f] = feuillesDePdf([page], { nombres: true, tableauSeul: true });
+    expect(f.rows).toEqual([
+      ["Date", "Libellé de l'opération", "Date de valeur", "Débit", "Crédit"],
+      ["31-12-2025", "Solde au: 31/12/2025", "29-01-2026", 0, 16426.68],
+      ["02-01-2026", "Commission acceptation LC", "02-01-2026", 150, 0],
+    ]);
+  });
+
   it("revient au document complet sans tableau de mouvements", () => {
     const pages = [[t("Texte", 40, 700), t("autre", 300, 700)]];
     expect(aUnTableauDeMouvements(pages)).toBe(false);

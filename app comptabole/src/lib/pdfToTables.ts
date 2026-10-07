@@ -217,6 +217,7 @@ export function reconstruireTableau(items: PdfTextItem[], options: OptionsConver
 const EN_TETES = [/date/i, /libell|op[ée]ration|d[ée]signation|description|d[ée]tail/i, /d[ée]bit|retrait/i, /cr[ée]dit|versement/i, /solde/i, /valeur/i, /montant/i, /r[ée]f/i];
 const DATE = /^\d{1,2}[/.\-]\d{1,2}([/.\-]\d{2,4})?$/;
 
+const ARABE = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]+/g;
 const nonVides = (l: string[]) => l.filter((c) => c.trim() !== "").length;
 const estEnTete = (l: string[]) => nonVides(l) >= 3 && EN_TETES.filter((re) => l.some((c) => re.test(c))).length >= 3 && !l.some((c) => DATE.test(c.trim()));
 
@@ -224,12 +225,15 @@ const estEnTete = (l: string[]) => nonVides(l) >= 3 && EN_TETES.filter((re) => l
  * Solde…) jusqu'à la dernière opération, sur toutes les pages. Les titres, adresses, pieds de page et en-têtes
  * répétés sont écartés ; une ligne sans date qui complète un libellé est rattachée à l'opération précédente.
  * Renvoie null si aucun en-tête de tableau n'est reconnu. */
-export function extraireMouvements(pages: string[][][]): string[][] | null {
+export function extraireMouvements(brutes: string[][][]): string[][] | null {
+  // Relevés bilingues : le texte arabe est retiré, on ne garde que le français et les chiffres.
+  const pages = brutes.map((rows) => rows.map((l) => l.map((c) => c.replace(ARABE, " ").replace(/\s+/g, " ").trim())));
   let entete: string[] | null = null;
   let libelle = 1;
   const lignes: string[][] = [];
   for (const rows of pages) {
     let dedans = false;
+    let colle = false; // la ligne précédente fait partie du tableau : une suite de libellé peut s'y rattacher
     for (const row of rows) {
       if (estEnTete(row)) {
         if (!entete) {
@@ -241,10 +245,17 @@ export function extraireMouvements(pages: string[][][]): string[][] | null {
         continue;
       }
       if (!dedans || !entete) continue;
+      const avant = colle;
+      colle = false;
       const r = Array.from({ length: entete.length }, (_, i) => row[i] ?? "");
       if (row.length > entete.length) r[entete.length - 1] = row.slice(entete.length - 1).filter(Boolean).join(" ");
-      if (r.some((c) => DATE.test(c.trim()))) lignes.push(r);
-      else if (nonVides(r) === 1 && r[libelle] && lignes.length) lignes[lignes.length - 1][libelle] += ` ${r[libelle]}`;
+      if (r.some((c) => DATE.test(c.trim()))) {
+        lignes.push(r);
+        colle = true;
+      } else if (avant && nonVides(r) === 1 && r[libelle] && r[libelle].length <= 40 && lignes.length) {
+        lignes[lignes.length - 1][libelle] += ` ${r[libelle]}`;
+        colle = true;
+      }
     }
   }
   return entete ? [entete, ...lignes] : null;

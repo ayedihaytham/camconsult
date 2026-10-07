@@ -1,5 +1,6 @@
 import { buildTablesPdf, type PdfCell, type PdfSheet } from "@/lib/pdfTables";
 import { round3 } from "@/lib/amount";
+import { recapSociete, type RecapGroupe } from "@/lib/honoraires/recap";
 import { HONORAIRE_TYPE_LABELS, type HonoraireLigne } from "@/types";
 
 const fmt3 = (n: number) =>
@@ -47,8 +48,45 @@ export function etatClientRows(list: HonoraireLigne[]): PdfCell[][] {
   return [header, ...body, total];
 }
 
+/** Tableau d'un détail du récapitulatif (par type ou par année), avec sa ligne de total.
+ * Le nombre de lignes est un texte : les nombres du PDF sont toujours écrits avec 3 décimales. */
+function groupesRows(libelle: string, groupes: RecapGroupe[], total: RecapGroupe): PdfCell[][] {
+  const ligne = (g: RecapGroupe): PdfCell[] => [g.libelle, String(g.nbLignes), g.declare, g.honoraires, g.total, g.reglements, g.solde];
+  return [
+    [libelle, "Lignes", "Déclaré", "Honoraires", "Total", "Règlements", "Solde"],
+    ...groupes.map(ligne),
+    ligne({ ...total, libelle: "TOTAL" }),
+  ];
+}
+
+/** Récapitulatif d'une société : chiffres clés, puis détail par type de déclaration et par année. */
+export function etatClientRecapSheets(list: HonoraireLigne[]): PdfSheet[] {
+  const r = recapSociete(list);
+  const total: RecapGroupe = { cle: "", libelle: "TOTAL", nbLignes: r.nbLignes, declare: r.declare, honoraires: r.honoraires, total: r.total, reglements: r.reglements, solde: r.solde };
+  return [
+    {
+      name: "Récapitulatif",
+      headerRow: true,
+      rows: [
+        ["Indicateur", "Montant (TND)"],
+        ["Déclarations à reverser", r.declare],
+        ["Honoraires", r.honoraires],
+        ["Total dû", r.total],
+        ["Règlements reçus", r.reglements],
+        ["Solde dû", r.solde],
+        ["Dernier règlement", r.dernierReglement ? r.dernierReglement.split("-").reverse().join("/") : "—"],
+      ],
+    },
+    { name: "Par type de déclaration", headerRow: true, totalRows: 1, rows: groupesRows("Type", r.parType, total) },
+    { name: "Par année", headerRow: true, totalRows: 1, rows: groupesRows("Année", r.parAnnee, total) },
+  ];
+}
+
 export function etatClientSheets(list: HonoraireLigne[]): PdfSheet[] {
-  return [{ name: "État client", headerRow: true, rows: etatClientRows(list) }];
+  return [
+    ...(list.length > 0 ? etatClientRecapSheets(list) : []),
+    { name: "Registre des déclarations", headerRow: true, rows: etatClientRows(list) },
+  ];
 }
 
 /** PDF de l'état client d'une société, avec le gabarit CAMCONSULT habituel. */

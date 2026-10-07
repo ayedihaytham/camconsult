@@ -121,6 +121,7 @@ export function parseRows(raw: unknown[][]): HonoraireImportLigne[] {
       montantDeclaration,
       honoraire,
       reglement,
+      dateReglement: null,
       note: text(row, "note"),
     });
   }

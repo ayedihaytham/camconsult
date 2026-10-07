@@ -6,7 +6,7 @@ import type { HonoraireLigne } from "@/types";
 
 const ligne: HonoraireLigne = {
   id: "l1", societeId: "s1", ordre: 1, type: "mensuelle", nature: "", periode: "", libelle: "DMI AOUT 2026",
-  cnss: "", numQuittance: "M064921", montantDeclaration: 888.01, honoraire: 0, reglement: 0, note: "",
+  cnss: "", numQuittance: "M064921", montantDeclaration: 888.01, honoraire: 0, reglement: 0, dateReglement: null, note: "",
   total: 888.01, solde: 888.01, aPiece: false, pieceNom: "", pieceFormat: "", pieceTaille: "", creeLe: "", majLe: "",
 };
 

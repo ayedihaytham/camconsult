@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronDown, FileText, Paperclip, Pencil, Receipt, Send, Trash2, Upload } from "lucide-react";
+import { ChevronDown, FileText, Paperclip, Pencil, Receipt, Send, Trash2, Upload, Users } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import {
   LedgerWorkSurface,
@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useChoisirSociete } from "@/hooks/useSocieteActive";
 import { downloadDataUrl } from "@/lib/file";
 import { buildEtatClientPdf } from "@/lib/honoraires/etatClientPdf";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ import { HONORAIRE_TYPE_LABELS, type HonoraireLigne } from "@/types";
 import { HonoraireImportDialog } from "./HonoraireImportDialog";
 import { HonoraireLigneFormSheet } from "./HonoraireLigneFormSheet";
 import { HonoraireMessageDialog } from "./HonoraireMessageDialog";
+import { HonoraireRecapCard } from "./HonoraireRecapCard";
 
 const fmt = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -47,6 +49,7 @@ export function HonorairesSocietePage() {
   // (télécharger les pièces jointes, rien d'autre) ; l'admin gère tout.
   const { isAdmin, isResponsableSociete, societeIds } = usePermissions();
   const readOnly = !isAdmin;
+  const choisirSociete = useChoisirSociete();
 
   const list = useHonoraires((s) => s.list);
   const loading = useHonoraires((s) => s.loading);
@@ -70,9 +73,6 @@ export function HonorairesSocietePage() {
     return () => clear();
   }, [societeId, fetchList, clear]);
 
-  const soldeActuel = list.length > 0 ? list[list.length - 1].solde : 0;
-  const totalHonoraires = list.reduce((s, l) => s + l.honoraire, 0);
-  const totalReglements = list.reduce((s, l) => s + l.reglement, 0);
   const avecSolde = list.filter((l) => l.solde > 0.01).length;
 
   const q = recherche.trim().toLowerCase();
@@ -132,22 +132,7 @@ export function HonorairesSocietePage() {
         action={readOnly ? undefined : { label: "Nouvelle ligne", onClick: () => { setEditing(null); setFormOpen(true); } }}
       />
 
-      <dl data-tour="honoraires-summary" className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-          <dt className="text-xs text-muted-foreground">Solde actuel</dt>
-          <dd className={cn("font-mono text-sm font-semibold tabular-nums", soldeActuel > 0 ? "text-warning" : "text-foreground")}>
-            {fmt(soldeActuel)} TND
-          </dd>
-        </div>
-        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-          <dt className="text-xs text-muted-foreground">Total honoraires</dt>
-          <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmt(totalHonoraires)} TND</dd>
-        </div>
-        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-          <dt className="text-xs text-muted-foreground">Total règlements reçus</dt>
-          <dd className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmt(totalReglements)} TND</dd>
-        </div>
-      </dl>
+      <HonoraireRecapCard list={list} />
 
       <LedgerWorkSurface className="mt-3">
         <OperationalLedgerToolbar
@@ -175,6 +160,9 @@ export function HonorairesSocietePage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => choisirSociete(null)}>
+                      <Users className="h-4 w-4" /> Récapitulatif de tous les clients
+                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={downloadPdf} disabled={pdfBusy || list.length === 0}>
                       <FileText className="h-4 w-4" /> {pdfBusy ? "PDF…" : "Enregistrer PDF"}
                     </DropdownMenuItem>

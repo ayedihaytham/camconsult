@@ -4,7 +4,7 @@ import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
 import { safeRouter } from "../asyncRoutes.js";
-import { honoraireLignesDto, HONORAIRE_COLONNES_LEGERES } from "../mappers.js";
+import { honoraireLignesDto, honoraireRecapDto, HONORAIRE_COLONNES_LEGERES } from "../mappers.js";
 
 /** État client (honoraires) — écriture réservée à l'admin. Lecture seule
  * (liste + téléchargement des pièces jointes) aussi pour le RESPONSABLE de la
@@ -38,6 +38,8 @@ const schema = z.object({
   montantDeclaration: z.coerce.number().default(0),
   honoraire: z.coerce.number().default(0),
   reglement: z.coerce.number().default(0),
+  // AAAA-MM-JJ ; vide ou null = pas de date (le règlement peut ne pas être encore reçu).
+  dateReglement: z.string().nullish(),
   note: z.string().default(""),
   // Pièce jointe : pieceDataUrl absent = inchangée (PATCH), null = retirée,
   // chaîne = remplacée. ~8 Mo de fichier au maximum (base64 ≈ ×1,37).
@@ -66,6 +68,30 @@ honorairesRouter.get("/", async (req, res) => {
   res.json(await lignesFor(societeId));
 });
 
+// Récapitulatif de TOUS les clients : une ligne par société (totaux déclaré, honoraires,
+// règlements et solde), calculée en une seule requête. Le responsable d'une société
+// n'obtient que la sienne ; un délégué ou un collaborateur n'a pas accès.
+honorairesRouter.get("/recap", async (req, res) => {
+  const s = req.session;
+  if (s.role !== "admin" && !isResponsableSociete(s))
+    return res.status(403).json({ error: "Accès non autorisé" });
+  const { rows } = await query(
+    `select so.id as societe_id, so.raison_sociale, so.code, so.statut,
+            count(h.id)::int as nb_lignes,
+            coalesce(sum(h.montant_declaration), 0) as declare,
+            coalesce(sum(h.honoraire), 0) as honoraires,
+            coalesce(sum(h.reglement), 0) as reglements,
+            max(h.date_reglement) as dernier_reglement
+       from societes so
+       left join honoraires_lignes h on h.societe_id = so.id
+      where ($1::uuid[] is null or so.id = any($1::uuid[]))
+      group by so.id
+      order by so.raison_sociale`,
+    [s.role === "admin" ? null : s.societeIds || []],
+  );
+  res.json(rows.map(honoraireRecapDto));
+});
+
 honorairesRouter.post("/", requireAdmin, async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success)
@@ -84,12 +110,12 @@ honorairesRouter.post("/", requireAdmin, async (req, res) => {
   await query(
     `insert into honoraires_lignes
        (societe_id, ordre, type, nature, periode, libelle, cnss, num_quittance,
-        montant_declaration, honoraire, reglement, note,
+        montant_declaration, honoraire, reglement, date_reglement, note,
         piece_nom, piece_format, piece_taille, piece_data_url)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::date,$13,$14,$15,$16,$17)`,
     [
       v.societeId, ordreRows[0].n, v.type, v.nature, v.periode, v.libelle,
-      v.cnss, v.numQuittance, v.montantDeclaration, v.honoraire, v.reglement, v.note,
+      v.cnss, v.numQuittance, v.montantDeclaration, v.honoraire, v.reglement, v.dateReglement || null, v.note,
       v.pieceDataUrl ? v.pieceNom : "", v.pieceDataUrl ? v.pieceFormat : "",
       v.pieceDataUrl ? v.pieceTaille : "", v.pieceDataUrl || null,
     ],
@@ -131,11 +157,11 @@ honorairesRouter.post("/import", requireAdmin, async (req, res) => {
       await client.query(
         `insert into honoraires_lignes
            (societe_id, ordre, type, nature, periode, libelle, cnss, num_quittance,
-            montant_declaration, honoraire, reglement, note)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+            montant_declaration, honoraire, reglement, date_reglement, note)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::date,$13)`,
         [
           societeId, ordre, v.type, v.nature, v.periode, v.libelle,
-          v.cnss, v.numQuittance, v.montantDeclaration, v.honoraire, v.reglement, v.note,
+          v.cnss, v.numQuittance, v.montantDeclaration, v.honoraire, v.reglement, v.dateReglement || null, v.note,
         ],
       );
     }
@@ -185,12 +211,14 @@ honorairesRouter.patch("/:id", requireAdmin, async (req, res) => {
        honoraire = coalesce($8, honoraire),
        reglement = coalesce($9, reglement),
        note = coalesce($10, note),
+       date_reglement = case when $11::text is null then date_reglement else nullif($11, '')::date end,
        maj_le = now()
-     where id = $11`,
+     where id = $12`,
     [
       v.type ?? null, v.nature ?? null, v.periode ?? null, v.libelle ?? null,
       v.cnss ?? null, v.numQuittance ?? null, v.montantDeclaration ?? null,
-      v.honoraire ?? null, v.reglement ?? null, v.note ?? null, req.params.id,
+      v.honoraire ?? null, v.reglement ?? null, v.note ?? null,
+      v.dateReglement === undefined ? null : (v.dateReglement ?? ""), req.params.id,
     ],
   );
   if (v.pieceDataUrl !== undefined) {

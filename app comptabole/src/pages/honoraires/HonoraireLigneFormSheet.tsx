@@ -51,6 +51,7 @@ const empty = (societeId: string): HonoraireLigneInput => ({
   montantDeclaration: 0,
   honoraire: 0,
   reglement: 0,
+  dateReglement: null,
   note: "",
 });
 
@@ -231,6 +232,15 @@ export function HonoraireLigneFormSheet({
                 value={v.reglement}
                 onValueChange={(n) => set("reglement", n)}
                 className="text-right tabular-nums"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="honoraire-date-reglement">Date du règlement</Label>
+              <Input
+                id="honoraire-date-reglement"
+                type="date"
+                value={v.dateReglement ?? ""}
+                onChange={(e) => set("dateReglement", e.target.value || null)}
               />
             </div>
           </div>

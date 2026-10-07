@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
-import type { HonoraireLigne } from "@/types";
+import type { HonoraireLigne, HonoraireRecapClient } from "@/types";
 
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
@@ -22,6 +22,10 @@ export type HonoraireLigneInput = Omit<
 interface HonorairesState {
   list: HonoraireLigne[];
   loading: boolean;
+  /** Récapitulatif de tous les clients (un seul appel). */
+  recap: HonoraireRecapClient[];
+  loadingRecap: boolean;
+  fetchRecap: () => Promise<void>;
 
   fetchList: (societeId: string) => Promise<void>;
   clear: () => void;
@@ -40,6 +44,18 @@ interface HonorairesState {
 export const useHonoraires = create<HonorairesState>((set) => ({
   list: [],
   loading: false,
+  recap: [],
+  loadingRecap: false,
+
+  fetchRecap: async () => {
+    set({ loadingRecap: true });
+    try {
+      set({ recap: await api.get<HonoraireRecapClient[]>("/honoraires/recap"), loadingRecap: false });
+    } catch (e) {
+      set({ loadingRecap: false });
+      fail(e);
+    }
+  },
 
   fetchList: async (societeId) => {
     set({ loading: true });

@@ -975,3 +975,6 @@ alter table stock_mouvements add column if not exists douane_type_declaration te
 -- Unité de la quantité d'une ligne (T = tonnes, KG = kilos, vide = autre / non précisée) :
 -- l'écart achat - vente est calculé après conversion quand les unités diffèrent.
 alter table stock_lignes add column if not exists unite text not null default '';
+
+-- État client : date à laquelle le règlement d'une ligne a été reçu.
+alter table honoraires_lignes add column if not exists date_reglement date;

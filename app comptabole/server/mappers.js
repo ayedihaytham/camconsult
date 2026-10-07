@@ -569,6 +569,7 @@ const honoraireLigneDto = (r) => ({
   montantDeclaration: num(r.montant_declaration),
   honoraire: num(r.honoraire),
   reglement: num(r.reglement),
+  dateReglement: r.date_reglement ? dateStr(r.date_reglement) : null,
   note: r.note ?? "",
   pieceNom: r.piece_nom ?? "",
   pieceFormat: r.piece_format ?? "",
@@ -582,7 +583,28 @@ const honoraireLigneDto = (r) => ({
 
 /** Colonnes d'une ligne d'état client SANS le contenu de sa pièce jointe. */
 export const HONORAIRE_COLONNES_LEGERES =
-  "id, societe_id, ordre, type, nature, periode, libelle, cnss, num_quittance, montant_declaration, honoraire, reglement, note, piece_nom, piece_format, piece_taille, (piece_data_url is not null) as a_piece, cree_le, maj_le";
+  "id, societe_id, ordre, type, nature, periode, libelle, cnss, num_quittance, montant_declaration, honoraire, reglement, date_reglement, note, piece_nom, piece_format, piece_taille, (piece_data_url is not null) as a_piece, cree_le, maj_le";
+
+/** Une ligne du récapitulatif des clients : totaux d'une société (jamais stockés). */
+export const honoraireRecapDto = (r) => {
+  const declare = r3(num(r.declare));
+  const honoraires = r3(num(r.honoraires));
+  const reglements = r3(num(r.reglements));
+  const total = r3(declare + honoraires);
+  return {
+    societeId: r.societe_id,
+    raisonSociale: r.raison_sociale ?? "",
+    code: r.code ?? "",
+    statut: r.statut ?? "actif",
+    nbLignes: Number(r.nb_lignes ?? 0),
+    declare,
+    honoraires,
+    total,
+    reglements,
+    solde: r3(total - reglements),
+    dernierReglement: r.dernier_reglement ? dateStr(r.dernier_reglement) : null,
+  };
+};
 
 /** Ajoute le total de ligne et le solde cumulé (état client) — jamais
  * stocké, recalculé à chaque lecture dans l'ordre `ordre` : un solde figé

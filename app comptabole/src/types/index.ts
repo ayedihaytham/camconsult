@@ -324,6 +324,8 @@ export interface HonoraireLigne {
   montantDeclaration: number;
   honoraire: number;
   reglement: number;
+  /** Date de réception du règlement (AAAA-MM-JJ), si connue. */
+  dateReglement: string | null;
   note: string;
   /** Pièce jointe (fichier de l'ordinateur) — le contenu ne vient jamais avec
    * la ligne : GET /honoraires/:id/piece à la demande. */
@@ -337,6 +339,22 @@ export interface HonoraireLigne {
   solde: number;
   creeLe: string;
   majLe: string;
+}
+
+/** Une ligne du récapitulatif de tous les clients (état client) : totaux d'une société. */
+export interface HonoraireRecapClient {
+  societeId: string;
+  raisonSociale: string;
+  code: string;
+  statut: Statut;
+  nbLignes: number;
+  /** Montants déclarés (à reverser), honoraires, leur somme, règlements reçus et solde dû. */
+  declare: number;
+  honoraires: number;
+  total: number;
+  reglements: number;
+  solde: number;
+  dernierReglement: string | null;
 }
 
 // ── Gestion de stock (par société) ────────────────

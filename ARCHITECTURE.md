@@ -45,6 +45,10 @@ The backend lives in `app comptabole/server/`:
   Purchase invoices are the achat side of `stock_mouvements`; only règlements
   (`fournisseur_reglements` + `fournisseur_affectations`) and proforma/chargement notes
   (`fournisseur_suivi`) are stored. API: `server/routes/fournisseurs.js`.
+- Suivi bancaire (same guard): `/banque`, `/banque/:societeId` — bank accounts and their statement
+  lines (`comptes_bancaires`, `mouvements_bancaires`; debit/credit are the bank's, the "vue société"
+  swaps them at display). A supplier payment is matched to one `fournisseur_reglements` row through
+  `mouvement_bancaire_id`. API: `server/routes/banque.js`.
 - Admin (`RequireAdmin`): `/bordereaux`, `/facturation`, `/employes`, `/parametres`, `/journal`,
   `/grille-affectat`.
 - `*` renders the authenticated not-found page.
@@ -54,7 +58,7 @@ The backend lives in `app comptabole/server/`:
 The top bar (`SocieteActiveSelect`) sets the société the user works on
 (`store/societeActive.ts`, in memory only: every session starts on "Toutes les
 sociétés"). It is limited to the sociétés the user can see (`canSeeSociete`) and
-hidden for company-side accounts. `/stock`, `/fournisseurs`, `/etats-financiers`, `/honoraires`,
+hidden for company-side accounts. `/stock`, `/fournisseurs`, `/banque`, `/etats-financiers`, `/honoraires`,
 `/souche-cheques` and `/suivi-devise` open on the active société's page (menu links
 rewritten by `ciblerNavigation`), a `/<module>/:societeId` URL makes that société
 active, and the Dashboard (`useDashboardData`) and Facturation are scoped to it.

@@ -112,6 +112,7 @@ async function etat(societeId) {
         rsNumero: r.rs_numero,
         rsMontant: Number(r.rs_montant),
         note: r.note,
+        mouvementBancaireId: r.mouvement_bancaire_id ?? null,
         brut,
         vire: r3(brut - Number(r.rs_montant)),
         affectations: affs,
@@ -141,6 +142,8 @@ const reglementSchema = z.object({
   rsNumero: z.string().default(""),
   rsMontant: z.coerce.number().min(0).default(0),
   note: z.string().default(""),
+  // Mouvement bancaire qui a payé ce règlement (rapprochement), ou rien.
+  mouvementBancaireId: z.string().uuid().nullish(),
   affectations: z
     .array(z.object({ mouvementId: z.string().uuid(), montant: z.coerce.number().positive("Montant affecté invalide") }))
     .min(1, "Choisissez au moins une facture"),
@@ -166,6 +169,15 @@ async function verifier(client, v, reglementId) {
     const a = v.affectations.find((x) => x.mouvementId === m.id);
     if (Number(m.deja) + a.montant > Number(m.montant) + 0.0015) return `Le règlement dépasse le solde de la facture ${nom}`;
   }
+  if (v.mouvementBancaireId) {
+    const { rows: mb } = await client.query(
+      `select m.id, (select r.id from fournisseur_reglements r where r.mouvement_bancaire_id = m.id and r.id is distinct from $3) as autre
+         from mouvements_bancaires m where m.id = $1 and m.societe_id = $2`,
+      [v.mouvementBancaireId, v.societeId, reglementId ?? null],
+    );
+    if (!mb[0]) return "Mouvement bancaire introuvable pour cette société";
+    if (mb[0].autre) return "Ce mouvement bancaire est déjà rapproché d'un autre règlement";
+  }
   const brut = v.affectations.reduce((s, a) => s + a.montant, 0);
   if (v.rsMontant > brut + 0.0015) return "La retenue à la source dépasse le montant réglé";
   return null;
@@ -174,8 +186,8 @@ async function verifier(client, v, reglementId) {
 async function ecrire(client, id, v) {
   await client.query(
     `update fournisseur_reglements set fournisseur_cle=$2, date_reglement=$3, mode=$4, reference=$5, banque=$6, devise=$7,
-            cours=$8, rs_taux=$9, rs_numero=$10, rs_montant=$11, note=$12, maj_le=now() where id=$1`,
-    [id, v.fournisseurCle, v.dateReglement || null, v.mode, v.reference, v.banque, v.devise, v.cours, v.rsTaux, v.rsNumero, v.rsMontant, v.note],
+            cours=$8, rs_taux=$9, rs_numero=$10, rs_montant=$11, note=$12, mouvement_bancaire_id=$13, maj_le=now() where id=$1`,
+    [id, v.fournisseurCle, v.dateReglement || null, v.mode, v.reference, v.banque, v.devise, v.cours, v.rsTaux, v.rsNumero, v.rsMontant, v.note, v.mouvementBancaireId || null],
   );
   await client.query("delete from fournisseur_affectations where reglement_id = $1", [id]);
   for (const a of v.affectations)

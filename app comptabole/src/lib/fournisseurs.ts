@@ -2,6 +2,18 @@ import type { FactureFournisseur, ModeReglement, ReglementFournisseur } from "@/
 
 const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
+/** Règlement préparé d'après un paiement du suivi bancaire (rapprochement). */
+export interface ReglementPrefill {
+  mouvementId: string;
+  date: string;
+  /** Montant sorti du compte : ce que le fournisseur a réellement reçu, retenue à la source déduite. */
+  montant: number;
+  libelle: string;
+  reference: string;
+  banque: string;
+  devise: string;
+}
+
 export const MODE_LABELS: Record<ModeReglement, string> = {
   virement: "Virement",
   cheque: "Chèque",

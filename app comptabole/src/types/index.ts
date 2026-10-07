@@ -929,6 +929,8 @@ export interface ReglementFournisseur {
   rsNumero: string;
   rsMontant: number;
   note: string;
+  /** Mouvement bancaire qui a payé ce règlement (rapprochement). */
+  mouvementBancaireId: string | null;
   /** Total des factures couvertes, retenue à la source comprise. */
   brut: number;
   /** Montant réellement viré : brut − retenue à la source. */
@@ -939,4 +941,43 @@ export interface ReglementFournisseur {
 export interface EtatFournisseurs {
   factures: FactureFournisseur[];
   reglements: ReglementFournisseur[];
+}
+
+// ── Suivi bancaire ────────────────────────────────────────────────────────
+
+export type TypeMouvementBancaire = "encaissement_client" | "paiement_fournisseur" | "frais" | "credit" | "change" | "autre";
+
+export interface CompteBancaire {
+  id: string;
+  banque: string;
+  devise: string;
+  numero: string;
+  soldeDepart: number;
+  dateDepart: string | null;
+  /** Solde indiqué par le relevé de la banque, pour contrôler le solde calculé. */
+  soldeReel: number | null;
+  dateReel: string | null;
+}
+
+/** Mouvement d'un compte : débit et crédit sont ceux de la banque (le débit sort du compte). */
+export interface MouvementBancaire {
+  id: string;
+  compteId: string;
+  dateOp: string;
+  dateValeur: string | null;
+  libelle: string;
+  details: string;
+  reference: string;
+  numPiece: string;
+  debit: number;
+  credit: number;
+  type: TypeMouvementBancaire;
+  /** Règlement fournisseur rapproché de ce mouvement. */
+  reglementId: string | null;
+  fournisseurCle: string | null;
+}
+
+export interface EtatBanque {
+  comptes: CompteBancaire[];
+  mouvements: MouvementBancaire[];
 }

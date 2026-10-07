@@ -74,6 +74,14 @@ requests and out-of-scope society IDs.
 - Un règlement ne peut couvrir que des factures de la même société, du même fournisseur et de la
   même devise, sans dépasser le solde de chaque facture.
 
+## Suivi bancaire
+
+- Mêmes règles que le suivi fournisseur : lecture pour l'admin, les collaborateurs de la société et
+  le responsable de la société cliente (jamais un délégué), écriture pour l'admin et les
+  collaborateurs — `server/routes/banque.js`.
+- Un règlement fournisseur ne peut être rapproché que d'un mouvement bancaire de sa société, et un
+  mouvement ne règle qu'un seul règlement.
+
 ## État client (honoraires)
 
 - Écriture (lignes, pièces jointes, import, envoi par la messagerie) : admin

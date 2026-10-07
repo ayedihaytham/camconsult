@@ -37,6 +37,7 @@ const reglement: ReglementFournisseur = {
   rsNumero: "20260002",
   rsMontant: 236.208,
   note: "",
+  mouvementBancaireId: null,
   brut: 47241.6,
   vire: 47005.392,
   affectations: [

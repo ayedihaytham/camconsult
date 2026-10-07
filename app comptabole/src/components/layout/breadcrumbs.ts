@@ -21,6 +21,7 @@ const STATIC_ROUTES: Record<string, string> = {
   "/collectes": "Collecte de pièces",
   "/stock": "Gestion de stock",
   "/fournisseurs": "Suivi fournisseur",
+  "/banque": "Suivi bancaire",
   "/etats-financiers": "États financiers",
   "/grille-affectat": "Paramétrage",
   "/bordereaux": "Bordereaux bancaires",
@@ -103,6 +104,14 @@ export function getAppBreadcrumbs(
     return [
       { label: "Suivi fournisseur", to: "/fournisseurs" },
       { label: societeName(fournisseursParams.societeId) },
+    ];
+  }
+
+  const banqueParams = paramsFor("/banque/:societeId", pathname);
+  if (banqueParams) {
+    return [
+      { label: "Suivi bancaire", to: "/banque" },
+      { label: societeName(banqueParams.societeId) },
     ];
   }
 

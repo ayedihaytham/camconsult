@@ -75,6 +75,14 @@ const FournisseursSocietePage = lazy(() =>
     default: m.FournisseursSocietePage,
   })),
 );
+const BanquePage = lazy(() =>
+  import("@/pages/banque/BanquePage").then((m) => ({ default: m.BanquePage })),
+);
+const BanqueSocietePage = lazy(() =>
+  import("@/pages/banque/BanqueSocietePage").then((m) => ({
+    default: m.BanqueSocietePage,
+  })),
+);
 const HonorairesListPage = lazy(() =>
   import("@/pages/honoraires/HonorairesListPage").then((m) => ({
     default: m.HonorairesListPage,
@@ -407,6 +415,22 @@ export default function App() {
                   element={
                     <Suspense fallback={<PageFallback />}>
                       <FournisseursSocietePage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/banque"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <BanquePage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/banque/:societeId"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <BanqueSocietePage />
                     </Suspense>
                   }
                 />

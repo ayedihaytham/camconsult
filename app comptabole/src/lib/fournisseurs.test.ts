@@ -36,6 +36,7 @@ const reglement = (id: string, affectations: [string, number][], patch: Partial<
     rsNumero: "",
     rsMontant: calculerRs(brut, 0.5),
     note: "",
+    mouvementBancaireId: null,
     brut,
     vire: brut - calculerRs(brut, 0.5),
     affectations: affectations.map(([mouvementId, montant]) => ({ mouvementId, montant })),

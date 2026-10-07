@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Download, Plus, Truck } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteById } from "@/store/data";
 import { useFournisseurs, type ReglementInput } from "@/store/fournisseurs";
-import { lignesEtat, recapFournisseurs, soldesFactures } from "@/lib/fournisseurs";
+import { lignesEtat, recapFournisseurs, soldesFactures, type ReglementPrefill } from "@/lib/fournisseurs";
+import { fournisseurCite } from "@/lib/banque";
 import { exporterEtatFournisseur } from "@/lib/fournisseursExport";
 import { fmtMontant } from "@/lib/stockRecap";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,10 @@ export function FournisseursSocietePage() {
   const [editing, setEditing] = useState<ReglementFournisseur | null>(null);
   const [toDelete, setToDelete] = useState<ReglementFournisseur | null>(null);
   const [suivi, setSuivi] = useState<FactureFournisseur | null>(null);
+  // Paiement bancaire à rapprocher, arrivé du suivi bancaire (« Créer le règlement »).
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [prefill, setPrefill] = useState<ReglementPrefill | null>(null);
 
   useEffect(() => {
     void fetchEtat(societeId).catch(() => undefined);
@@ -65,6 +70,22 @@ export function FournisseursSocietePage() {
   const actif = recap.find((r) => r.cle === choisi) ?? (recap.length === 1 ? recap[0] : null);
   const lignes = useMemo(() => (actif ? lignesEtat(actif.cle, factures, reglements) : []), [actif, factures, reglements]);
   const facturesActif = useMemo(() => factures.filter((f) => f.fournisseurCle === actif?.cle), [factures, actif]);
+
+  // Arrivée depuis le suivi bancaire : le fournisseur cité dans le libellé est choisi et le formulaire s'ouvre.
+  const prefillEntrant = (location.state as { prefill?: ReglementPrefill } | null)?.prefill;
+  useEffect(() => {
+    if (!prefillEntrant || loading) return;
+    const trouve = fournisseurCite(prefillEntrant.libelle, recap) ?? (recap.length === 1 ? recap[0] : null);
+    setPrefill(prefillEntrant);
+    navigate(location.pathname, { replace: true, state: null });
+    if (trouve) {
+      setChoisi(trouve.cle);
+      setEditing(null);
+      setFormOpen(true);
+    } else if (recap.length > 0) {
+      toast.info("Choisissez le fournisseur payé, puis « Nouveau règlement » : le paiement bancaire est prêt à être rapproché.");
+    }
+  }, [prefillEntrant, loading, recap, navigate, location.pathname]);
 
   const nbImpayees = factures.filter((f) => soldes.get(f.id)?.statut !== "reglee").length;
   const devises = [...new Set(factures.map((f) => f.devise))];
@@ -80,6 +101,7 @@ export function FournisseursSocietePage() {
       toast.success("Règlement enregistré");
     }
     setEditing(null);
+    setPrefill(null);
   }
 
   return (
@@ -212,7 +234,10 @@ export function FournisseursSocietePage() {
           open={formOpen}
           onOpenChange={(o) => {
             setFormOpen(o);
-            if (!o) setEditing(null);
+            if (!o) {
+              setEditing(null);
+              setPrefill(null);
+            }
           }}
           societeId={societeId}
           fournisseurCle={actif.cle}
@@ -220,6 +245,7 @@ export function FournisseursSocietePage() {
           factures={facturesActif}
           reglements={reglements}
           reglement={editing}
+          initial={prefill}
           onSubmit={handleSubmit}
         />
       )}

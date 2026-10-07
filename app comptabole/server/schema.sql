@@ -1020,3 +1020,44 @@ create table if not exists fournisseur_suivi (
   etat_chargement  text not null default '',
   vu_passe         text not null default ''
 );
+
+-- Suivi bancaire : comptes bancaires d'une société et leurs mouvements (relevé retravaillé par le
+-- cabinet). Débit et crédit sont ceux de la BANQUE : le débit sort du compte, le crédit y entre ;
+-- la vue « société » les inverse à l'affichage, rien n'est stocké en double.
+create table if not exists comptes_bancaires (
+  id           uuid primary key default gen_random_uuid(),
+  societe_id   uuid not null references societes(id) on delete cascade,
+  banque       text not null default '',
+  devise       text not null default 'TND',
+  numero       text not null default '',
+  solde_depart numeric not null default 0,
+  date_depart  date,
+  -- Solde indiqué par le relevé de la banque, pour contrôler le solde calculé.
+  solde_reel   numeric,
+  date_reel    date,
+  ordre        int not null default 0,
+  cree_le      timestamptz not null default now()
+);
+create index if not exists comptes_bancaires_societe_idx on comptes_bancaires(societe_id, ordre);
+
+create table if not exists mouvements_bancaires (
+  id           uuid primary key default gen_random_uuid(),
+  societe_id   uuid not null references societes(id) on delete cascade,
+  compte_id    uuid not null references comptes_bancaires(id) on delete cascade,
+  date_op      date not null,
+  date_valeur  date,
+  libelle      text not null default '',
+  details      text not null default '',
+  reference    text not null default '',
+  num_piece    text not null default '',
+  debit        numeric not null default 0,
+  credit       numeric not null default 0,
+  type         text not null default 'autre',
+  ordre        int not null default 0,
+  cree_le      timestamptz not null default now()
+);
+create index if not exists mouvements_bancaires_compte_idx on mouvements_bancaires(compte_id, date_op, ordre);
+
+-- Rapprochement : un règlement fournisseur correspond à un seul mouvement bancaire.
+alter table fournisseur_reglements add column if not exists mouvement_bancaire_id uuid references mouvements_bancaires(id) on delete set null;
+create unique index if not exists fournisseur_reglements_mouvement_idx on fournisseur_reglements(mouvement_bancaire_id) where mouvement_bancaire_id is not null;

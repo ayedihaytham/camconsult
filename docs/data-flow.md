@@ -40,6 +40,7 @@ scope.
 
 - `collectes.ts`: collection list/detail, notes, files, recap and reminders.
 - `stock.ts`: stock movements and extraction.
+- `banque.ts`: bank accounts and statement lines of one société (import deduplicated server-side).
 - `fournisseurs.ts`: supplier invoices (from stock), règlements and proforma notes of one société.
 - `balances.ts`: balances, AFFECTAT and manual financial inputs.
 - `immobilisations.ts`: categories and assets.

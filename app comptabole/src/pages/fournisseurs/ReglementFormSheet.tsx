@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AmountInput } from "@/components/common/AmountInput";
-import { calculerRs, MODE_LABELS, soldesFactures } from "@/lib/fournisseurs";
+import { calculerRs, MODE_LABELS, soldesFactures, type ReglementPrefill } from "@/lib/fournisseurs";
+import { facturesCitees } from "@/lib/banque";
 import { fmtMontant } from "@/lib/stockRecap";
 import { formatDate } from "@/lib/utils";
 import type { ReglementInput } from "@/store/fournisseurs";
@@ -33,6 +34,8 @@ interface Props {
   reglements: ReglementFournisseur[];
   /** Règlement à modifier, ou null pour un nouveau. */
   reglement: ReglementFournisseur | null;
+  /** Paiement bancaire d'où vient ce nouveau règlement (ignoré en modification). */
+  initial?: ReglementPrefill | null;
   /** Rejette en cas d'échec : le formulaire reste ouvert avec la saisie. */
   onSubmit: (data: ReglementInput) => Promise<void>;
 }
@@ -48,6 +51,7 @@ export function ReglementFormSheet({
   factures,
   reglements,
   reglement,
+  initial = null,
   onSubmit,
 }: Props) {
   const soldes = useMemo(() => soldesFactures(factures, reglements), [factures, reglements]);
@@ -88,8 +92,32 @@ export function ReglementFormSheet({
     setRsNumero(source?.rsNumero ?? "");
     setNote(source?.note ?? "");
     setChoix(Object.fromEntries((source?.affectations ?? []).map((a) => [a.mouvementId, a.montant])));
+
+    if (!source && initial) {
+      // Règlement préparé d'après un paiement bancaire : date, mode, référence, banque, factures citées
+      // dans le libellé, et retenue à la source = ce que le virement n'a pas couvert.
+      const devisePaiement = devises.includes(initial.devise) ? initial.devise : dev;
+      const citees = facturesCitees(
+        initial.libelle,
+        factures.filter((f) => f.devise === devisePaiement && disponible(f) > 0.0015),
+      );
+      const selection = Object.fromEntries(citees.map((id) => [id, disponible(factures.find((f) => f.id === id)!)]));
+      const total = round3(Object.values(selection).reduce((s, m) => s + m, 0));
+      const rs = total > 0 ? Math.max(0, round3(total - initial.montant)) : 0;
+      setDevise(devisePaiement);
+      setDate(initial.date);
+      setMode(/CHEQ/i.test(initial.libelle) ? "cheque" : "virement");
+      setReference(initial.reference);
+      if (initial.banque) setBanque(initial.banque);
+      setChoix(selection);
+      if (rs > 0) {
+        setRsTaux(round3((rs / total) * 100));
+        setRsMontant(rs);
+        setRsTouche(true);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, reglement?.id]);
+  }, [open, reglement?.id, initial?.mouvementId]);
 
   const candidates = factures.filter((f) => f.devise === devise && (disponible(f) > 0.0015 || f.id in choix));
   const brut = round3(Object.values(choix).reduce((s, m) => s + m, 0));
@@ -127,6 +155,7 @@ export function ReglementFormSheet({
         rsNumero: rsNumero.trim(),
         rsMontant,
         note: note.trim(),
+        mouvementBancaireId: reglement ? reglement.mouvementBancaireId : (initial?.mouvementId ?? null),
         affectations: Object.entries(choix).map(([mouvementId, montant]) => ({ mouvementId, montant })),
       });
       onOpenChange(false);
@@ -148,6 +177,17 @@ export function ReglementFormSheet({
         </SheetHeader>
 
         <SheetBody className="space-y-4">
+          {initial && !reglement && (
+            <p className="rounded-md border border-accent/30 bg-accent/[0.07] px-3 py-2 text-sm text-foreground" role="status">
+              Paiement bancaire du {formatDate(initial.date)} : <strong className="tabular-nums">{fmtMontant(initial.montant)} {initial.devise}</strong>
+              {initial.libelle && <span className="block truncate text-xs text-muted-foreground">{initial.libelle}</span>}
+              {brut > 0 && Math.abs(vire - initial.montant) > 0.0015 && (
+                <span className="block text-xs text-destructive">
+                  Écart avec le montant viré ci-dessous : {fmtMontant(round3(vire - initial.montant))} {initial.devise} — vérifiez les factures et la retenue.
+                </span>
+              )}
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="rg-date">Date</Label>

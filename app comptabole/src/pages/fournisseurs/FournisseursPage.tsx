@@ -1,66 +1,15 @@
-import { useNavigate } from "react-router-dom";
-import { ChevronRight, Truck } from "lucide-react";
-import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
-import { EmptyState } from "@/components/common/EmptyState";
-import { usePermissions } from "@/hooks/usePermissions";
-import { useData, useSocietes } from "@/store/data";
-import { initials } from "@/lib/utils";
+import { Truck } from "lucide-react";
+import { SocieteChoixPage } from "@/components/common/SocieteChoixPage";
 
 export function FournisseursPage() {
-  const navigate = useNavigate();
-  const { canSeeSociete } = usePermissions();
-  const societes = useSocietes()
-    .filter((s) => canSeeSociete(s.id))
-    .sort((a, b) => a.raisonSociale.localeCompare(b.raisonSociale, "fr", { numeric: true }));
-  const hydrated = useData((s) => s.hydrated);
-
   return (
-    <div className="flex flex-1 flex-col">
-      <SignatureLedgerBanner
-        variant="compact"
-        icon={Truck}
-        eyebrow="Clients & travail · Fournisseurs"
-        title="Suivi fournisseur"
-        description="Choisissez une société pour suivre les factures d'achat de ses fournisseurs et leurs règlements."
-        metrics={[]}
-      />
-
-      <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="fournisseurs-societes">
-        {societes.length === 0 ? (
-          <EmptyState
-            icon={Truck}
-            title={hydrated ? "Aucune société accessible" : "Chargement…"}
-            description="Créez une société ou faites-vous assigner un périmètre pour suivre ses fournisseurs."
-          />
-        ) : (
-          <ul className="divide-y divide-accent/25">
-            {societes.map((s) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/fournisseurs/${s.id}`)}
-                  aria-label={`Ouvrir le suivi fournisseur de ${s.raisonSociale}`}
-                  className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-accent/[0.06] focus-visible:bg-accent/[0.06] focus-visible:outline-none"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="grid size-[54px] shrink-0 place-items-center rounded-xl bg-accent/15 text-sm font-bold text-primary"
-                  >
-                    {initials(s.raisonSociale)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-serif text-xl font-medium leading-tight text-primary">{s.raisonSociale}</span>
-                    <span className="mt-0.5 block truncate text-sm text-muted-foreground">
-                      {s.theme} · {s.rne || "RNE non renseigné"} · {s.code}
-                    </span>
-                  </span>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+    <SocieteChoixPage
+      icon={Truck}
+      eyebrow="Clients & travail · Fournisseurs"
+      title="Suivi fournisseur"
+      description="Choisissez une société pour suivre les factures d'achat de ses fournisseurs et leurs règlements."
+      basePath="/fournisseurs"
+      tourId="fournisseurs-societes"
+    />
   );
 }

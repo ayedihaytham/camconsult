@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Receipt,
   Truck,
+  Wallet,
   ScrollText,
   Settings,
   type LucideIcon,
@@ -88,6 +89,7 @@ export const NAV_GROUPS: NavGroup[] = [
         hideForSocieteEmploye: true,
       },
       { label: "Suivi fournisseur", to: "/fournisseurs", icon: Truck, hideForDelegue: true },
+      { label: "Suivi bancaire", to: "/banque", icon: Wallet, hideForDelegue: true },
     ],
   },
   {

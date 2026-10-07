@@ -122,7 +122,7 @@ describe("tableau récapitulatif du stock", () => {
   it("reprend les attributs du tableau Excel du cabinet, achat et vente côte à côte", () => {
     afficher();
     const entetes = Array.from(document.querySelectorAll("thead th")).map((th) => th.textContent);
-    for (const colonne of ["N°", "Mouvement", "Écart", "Achat", "Vente", "Douane", "Valeur TND"]) {
+    for (const colonne of ["N°", "Mouvement", "Écart", "Achat", "Vente", "Douane", "N° déclaration"]) {
       expect(entetes).toContain(colonne);
     }
     // Les huit colonnes d'un côté : date, facture, tiers, quantité, montant en devise, devise, cours, MT TND.
@@ -131,6 +131,21 @@ describe("tableau récapitulatif du stock", () => {
     }
     expect(entetes).toContain("Fournisseur");
     expect(entetes).toContain("Client");
+    // Vente d'abord, puis achat, puis douane.
+    expect(entetes.indexOf("Vente")).toBeLessThan(entetes.indexOf("Achat"));
+    expect(entetes.indexOf("Achat")).toBeLessThan(entetes.indexOf("Douane"));
+    expect(entetes.indexOf("Client")).toBeLessThan(entetes.indexOf("Fournisseur"));
+  });
+
+  it("montre le total vente − achat en devise en bas du tableau et dans le détail", () => {
+    afficher();
+    const pied = within(document.querySelector("tfoot") as HTMLElement);
+    expect(pied.getByText("Total vente − achat (en devise)")).toBeTruthy();
+    // 53 000 − 52 000 EUR sur le premier mouvement.
+    expect(pied.getAllByText(/EUR/).length).toBeGreaterThan(0);
+    fireEvent.click(document.getElementById("mouvement-m1") as HTMLElement);
+    expect(screen.getByText(/Vente − achat \(en devise\)/)).toBeTruthy();
+    expect(screen.getAllByText("1 000,000 EUR").length).toBeGreaterThan(0);
   });
 
   it("numérote les lignes et n'écrit la nature de la marchandise qu'une fois", () => {
@@ -175,10 +190,10 @@ describe("tableau récapitulatif du stock", () => {
     expect(cellules.getByText("6608000533")).toBeTruthy();
     expect(cellules.getByText("GROUP BYOUT EZZ")).toBeTruthy();
     expect(cellules.getByText("202300001")).toBeTruthy();
-    // Le type, le n° de déclaration et le taux sont dans le détail, pas dans le tableau.
-    expect(cellules.queryByText("447898")).toBeNull();
+    // Le tableau n'affiche que le n° de déclaration ; le type, le taux et la valeur sont dans le détail.
+    expect(cellules.getByText("447898")).toBeTruthy();
     expect(cellules.queryByText("3,2842")).toBeNull();
-    expect(cellules.getByText("170 778,400")).toBeTruthy();
+    expect(cellules.queryByText("170 778,400")).toBeNull();
     expect(document.getElementById("mouvement-m2")).toBeTruthy();
   });
 

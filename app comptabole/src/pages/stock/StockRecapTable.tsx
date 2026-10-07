@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ChevronRight, FolderInput, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
-import { fmtMontant, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
+import { ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
 import type { StockLigne, StockMouvement } from "@/types";
 
 type Categorie = "achat" | "vente" | "douane";
@@ -127,7 +127,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
   const conteneur = useRef<HTMLDivElement>(null);
   const largeurVisible = useLargeurVisible(conteneur);
   const total = recapStock(mouvements);
-  const valeurDouane = Math.round(mouvements.reduce((s, m) => s + m.douaneValeurTnd, 0) * 1000) / 1000;
+  const ecarts = ecartsDeviseTotaux(mouvements);
 
   const basculer = (id: string) =>
     setOuverts((s) => {
@@ -150,8 +150,8 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             <th rowSpan={2} className={th}>N°</th>
             <th rowSpan={2} className={th}>Mouvement</th>
             <th rowSpan={2} className={`${thNum} ${debutGroupe}`}>Écart</th>
-            <th colSpan={COTE_COLONNES} className={`${th} ${debutGroupe} text-primary`}>Achat</th>
             <th colSpan={COTE_COLONNES} className={`${th} ${debutGroupe} text-primary`}>Vente</th>
+            <th colSpan={COTE_COLONNES} className={`${th} ${debutGroupe} text-primary`}>Achat</th>
             <th className={`${th} ${debutGroupe} text-primary`}>Douane</th>
             <th rowSpan={2} className={`${th} ${debutGroupe} text-center`}>Pièces</th>
             <th rowSpan={2} className={th}>
@@ -159,9 +159,9 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             </th>
           </tr>
           <tr className="border-b border-accent/25 bg-accent/[0.04]">
-            <EnTeteCote tiers="Fournisseur" />
             <EnTeteCote tiers="Client" />
-            <th className={`${thNum} ${debutGroupe}`}>Valeur TND</th>
+            <EnTeteCote tiers="Fournisseur" />
+            <th className={`${th} ${debutGroupe}`}>N° déclaration</th>
           </tr>
         </thead>
 
@@ -203,14 +203,6 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                   </td>
 
                   <CoteCellules
-                    lignes={m.achatLignes}
-                    tiers={m.fournisseur}
-                    date={m.achatDate}
-                    numero={m.achatNumFacture}
-                    devise={m.achatDevise}
-                    cours={m.achatCours}
-                  />
-                  <CoteCellules
                     lignes={m.venteLignes}
                     tiers={m.client}
                     date={m.venteDate}
@@ -218,8 +210,18 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     devise={m.venteDevise}
                     cours={m.venteCours}
                   />
+                  <CoteCellules
+                    lignes={m.achatLignes}
+                    tiers={m.fournisseur}
+                    date={m.achatDate}
+                    numero={m.achatNumFacture}
+                    devise={m.achatDevise}
+                    cours={m.achatCours}
+                  />
 
-                  <td className={`${tdNum} ${debutGroupe}`}>{montantOuTiret(m.douaneValeurTnd)}</td>
+                  <td className={`${td} ${debutGroupe} font-mono text-[0.7rem]`} title={m.douaneNumDeclaration}>
+                    {m.douaneNumDeclaration || "—"}
+                  </td>
 
                   <td className={`${td} ${debutGroupe} text-center`}>
                     <span className="inline-flex items-center gap-0.5">
@@ -298,16 +300,28 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             </td>
             <td className={cn(tdNum, debutGroupe, total.ecart !== 0 && "text-destructive")}>{fmtQuantiteUnite(total.ecart, total.unite)}</td>
             <td className={`${td} ${debutGroupe}`} colSpan={3} />
-            <td className={tdNum}>{fmtQuantiteUnite(total.achat.quantite, total.unite)}</td>
-            <td className={td} colSpan={3} />
-            <td className={tdNum}>{montantOuTiret(total.achat.montantTnd)}</td>
-            <td className={`${td} ${debutGroupe}`} colSpan={3} />
             <td className={tdNum}>{fmtQuantiteUnite(total.vente.quantite, total.unite)}</td>
             <td className={td} colSpan={3} />
             <td className={tdNum}>{montantOuTiret(total.vente.montantTnd)}</td>
-            <td className={`${tdNum} ${debutGroupe}`}>{montantOuTiret(valeurDouane)}</td>
+            <td className={`${td} ${debutGroupe}`} colSpan={3} />
+            <td className={tdNum}>{fmtQuantiteUnite(total.achat.quantite, total.unite)}</td>
+            <td className={td} colSpan={3} />
+            <td className={tdNum}>{montantOuTiret(total.achat.montantTnd)}</td>
+            <td className={`${td} ${debutGroupe}`} />
             <td className={`${td} ${debutGroupe}`} />
             <td className={td} />
+          </tr>
+          <tr className="bg-accent/[0.07] font-bold text-primary">
+            <td className={td} colSpan={3}>Total vente − achat (en devise)</td>
+            <td className={`${td} ${debutGroupe}`} colSpan={NB_COLONNES - 3}>
+              {ecarts.length === 0
+                ? "—"
+                : ecarts.map((e) => (
+                    <span key={e.devise} className={cn("mr-4 tabular-nums", e.valeur !== 0 && "text-destructive")}>
+                      {fmtMontant(e.valeur)} {e.devise}
+                    </span>
+                  ))}
+            </td>
           </tr>
         </tfoot>
       </table>
@@ -464,16 +478,6 @@ export function DetailMouvement({
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-3">
         <CarteFacture
-          titre="Achat"
-          tiersLabel="Fournisseur"
-          tiers={m.fournisseur}
-          date={m.achatDate}
-          numero={m.achatNumFacture}
-          devise={m.achatDevise}
-          cours={m.achatCours}
-          lignes={m.achatLignes}
-        />
-        <CarteFacture
           titre="Vente"
           tiersLabel="Client"
           tiers={m.client}
@@ -482,6 +486,16 @@ export function DetailMouvement({
           devise={m.venteDevise}
           cours={m.venteCours}
           lignes={m.venteLignes}
+        />
+        <CarteFacture
+          titre="Achat"
+          tiersLabel="Fournisseur"
+          tiers={m.fournisseur}
+          date={m.achatDate}
+          numero={m.achatNumFacture}
+          devise={m.achatDevise}
+          cours={m.achatCours}
+          lignes={m.achatLignes}
         />
         <CarteDouane m={m} />
       </div>
@@ -493,6 +507,14 @@ export function DetailMouvement({
             {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
           </span>
         </span>
+        {ecartDevise(m) && (
+          <span>
+            <span className={etiquette}>Vente − achat (en devise) </span>
+            <span className={cn("font-bold tabular-nums", ecartDevise(m)!.valeur !== 0 ? "text-destructive" : "text-foreground")}>
+              {fmtMontant(ecartDevise(m)!.valeur)} {ecartDevise(m)!.devise}
+            </span>
+          </span>
+        )}
         {detailParProduit &&
           m.ecartParDesignation.map((e) => (
             <span key={e.designation} className="text-xs text-muted-foreground">

@@ -83,3 +83,24 @@ export const fmtQuantite = (n: number) =>
 
 /** Quantité avec son unité : « 370 T ». */
 export const fmtQuantiteUnite = (n: number, unite: string) => `${fmtQuantite(n)}${unite ? ` ${unite}` : ""}`;
+
+/** Différence vente − achat des montants en devise d'un mouvement, ou null quand les deux côtés ne sont
+ * pas dans la même devise (la différence n'aurait pas de sens). */
+export function ecartDevise(m: Pick<StockMouvement, "achatLignes" | "venteLignes" | "achatDevise" | "venteDevise">): { devise: string; valeur: number } | null {
+  if (m.achatLignes.length === 0 && m.venteLignes.length === 0) return null;
+  const devise = m.venteLignes.length ? m.venteDevise : m.achatDevise;
+  if (m.achatLignes.length && m.venteLignes.length && m.achatDevise !== m.venteDevise) return null;
+  const vente = totauxCote(m.venteLignes).montantDevise;
+  const achat = totauxCote(m.achatLignes).montantDevise;
+  return { devise, valeur: r3(vente - achat) };
+}
+
+/** Total vente − achat en devise de tous les mouvements, par devise. */
+export function ecartsDeviseTotaux(mouvements: StockMouvement[]): { devise: string; valeur: number }[] {
+  const parDevise = new Map<string, number>();
+  for (const m of mouvements) {
+    const e = ecartDevise(m);
+    if (e) parDevise.set(e.devise, r3((parDevise.get(e.devise) ?? 0) + e.valeur));
+  }
+  return [...parDevise.entries()].map(([devise, valeur]) => ({ devise, valeur }));
+}

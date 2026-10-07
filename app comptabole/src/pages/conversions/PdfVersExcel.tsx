@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Download, FileSpreadsheet, TriangleAlert, Upload } from "lucide-react";
+import { CheckCircle2, Download, FileSpreadsheet, Save, TriangleAlert, Upload } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,8 @@ interface PdfItem {
   /** Texte positionné de chaque page : permet de recalculer le tableau quand une option change. */
   pages: PdfTextItem[][];
   pdfUrl: string | null;
+  /** Vrai une fois la conversion enregistrée : l'aperçu et le téléchargement ne sont proposés qu'ensuite. */
+  enregistre: boolean;
 }
 
 const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -55,7 +57,7 @@ export function PdfVersExcel() {
     for (const file of files) {
       const baseName = file.name.replace(/\.pdf$/i, "");
       const erreur = (detail: string): PdfItem => ({
-        id: crypto.randomUUID(), name: file.name, baseName, status: "erreur", detail, pages: [], pdfUrl: null,
+        id: crypto.randomUUID(), name: file.name, baseName, status: "erreur", detail, pages: [], pdfUrl: null, enregistre: false,
       });
       try {
         const pages = await lireFichierPdf(file);
@@ -68,27 +70,33 @@ export function PdfVersExcel() {
         results.push({
           id: crypto.randomUUID(), name: file.name, baseName, status: "ok",
           detail: `${pages.length} page${pages.length > 1 ? "s" : ""} lue${pages.length > 1 ? "s" : ""}`,
-          pages, pdfUrl,
+          pages, pdfUrl, enregistre: false,
         });
       } catch {
         results.push(erreur("Fichier illisible — PDF protégé ou endommagé"));
       }
     }
     setItems((prev) => [...results, ...prev]);
-    const premier = results.find((r) => r.status === "ok");
-    if (premier) {
-      setActiveId(premier.id);
-      setActiveSheet(0);
-    }
     setConverting(false);
     const echecs = results.filter((r) => r.status !== "ok").length;
     if (echecs > 0) toast.error(`${echecs} fichier${echecs > 1 ? "s" : ""} non converti${echecs > 1 ? "s" : ""}`);
   }
 
   const options = useMemo(() => ({ nombres, uneSeuleFeuille, tableauSeul }), [nombres, uneSeuleFeuille, tableauSeul]);
-  const active = items.find((i) => i.id === activeId) ?? null;
+  const active = items.find((i) => i.id === activeId && i.enregistre) ?? null;
   const feuilles = useMemo(() => (active ? feuillesDePdf(active.pages, options) : []), [active, options]);
   const feuille = feuilles[Math.min(activeSheet, Math.max(0, feuilles.length - 1))] ?? null;
+
+  function enregistrer(item: PdfItem) {
+    if (feuillesDePdf(item.pages, options).length === 0) {
+      toast.error("Aucun tableau à enregistrer");
+      return;
+    }
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, enregistre: true, detail: `${i.detail} · enregistré` } : i)));
+    setActiveId(item.id);
+    setActiveSheet(0);
+    toast.success("Conversion enregistrée — vérifiez l'aperçu puis téléchargez si besoin");
+  }
 
   async function telecharger(item: PdfItem) {
     const f = feuillesDePdf(item.pages, options);
@@ -113,7 +121,7 @@ export function PdfVersExcel() {
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Traitement entièrement local dans le navigateur — le fichier n'est jamais envoyé au serveur. Fonctionne avec les PDF
-            qui contiennent du texte (relevés, balances, états) ; un PDF scanné n'est pas lisible. Vérifiez l'aperçu avant de télécharger.
+            qui contiennent du texte (relevés, balances, états) ; un PDF scanné n'est pas lisible. Cliquez sur Enregistrer pour afficher l'aperçu, puis téléchargez si le résultat vous convient.
           </p>
         </div>
 
@@ -158,7 +166,7 @@ export function PdfVersExcel() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (item.status !== "ok") return;
+                    if (item.status !== "ok" || !item.enregistre) return;
                     setActiveId(item.id);
                     setActiveSheet(0);
                   }}
@@ -175,7 +183,21 @@ export function PdfVersExcel() {
                     <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
                     <p className="text-xs text-muted-foreground">{item.detail}</p>
                   </div>
-                  {item.status === "ok" && (
+                  {item.status === "ok" && !item.enregistre && (
+                    <Button
+                      type="button"
+                      variant="ledger"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        enregistrer(item);
+                      }}
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      Enregistrer
+                    </Button>
+                  )}
+                  {item.status === "ok" && item.enregistre && (
                     <Button
                       type="button"
                       variant="outline"

@@ -76,7 +76,7 @@ export function exportRows<T>(
   else exportToCsv(filename, rows, columns);
 }
 
-function download(blob: Blob, filename: string) {
+export function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

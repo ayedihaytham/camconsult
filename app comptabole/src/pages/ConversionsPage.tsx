@@ -7,6 +7,9 @@ import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { Button } from "@/components/ui/button";
 import { buildTablesPdf, type PdfSheet } from "@/lib/pdfTables";
+import { PdfVersExcel } from "./conversions/PdfVersExcel";
+
+type Sens = "excel-pdf" | "pdf-excel";
 
 interface ConvItem {
   id: string;
@@ -38,6 +41,7 @@ async function readSheets(file: File): Promise<PdfSheet[]> {
 }
 
 export function ConversionsPage() {
+  const [sens, setSens] = useState<Sens>("excel-pdf");
   const [converting, setConverting] = useState(false);
   const [items, setItems] = useState<ConvItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -117,8 +121,25 @@ export function ConversionsPage() {
     <div>
       <LedgerPageHeader
         title="Conversions"
-        description="Convertit un ou plusieurs fichiers Excel en PDF."
+        description="Convertit des fichiers Excel en PDF, ou des PDF en Excel."
       />
+
+      <div className="mt-4">
+        <LedgerSegmented<Sens>
+          value={sens}
+          onChange={setSens}
+          ariaLabel="Sens de la conversion"
+          options={[
+            { value: "excel-pdf", label: "Excel vers PDF" },
+            { value: "pdf-excel", label: "PDF vers Excel" },
+          ]}
+        />
+      </div>
+
+      {sens === "pdf-excel" ? (
+        <PdfVersExcel />
+      ) : (
+        <>
 
       <LedgerSheet className="mt-4">
         <div className="border-b border-border px-[18px] py-3.5">
@@ -255,6 +276,8 @@ export function ConversionsPage() {
             </div>
           </div>
         </LedgerSheet>
+      )}
+        </>
       )}
     </div>
   );

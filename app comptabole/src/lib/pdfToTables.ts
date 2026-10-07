@@ -214,51 +214,99 @@ export function reconstruireTableau(items: PdfTextItem[], options: OptionsConver
   );
 }
 
-const EN_TETES = [/date/i, /libell|op[ée]ration|d[ée]signation|description|d[ée]tail/i, /d[ée]bit|retrait/i, /cr[ée]dit|versement/i, /solde/i, /valeur/i, /montant/i, /r[ée]f/i];
 const DATE = /^\d{1,2}[/.\-]\d{1,2}([/.\-]\d{2,4})?$/;
-
 const ARABE = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]+/g;
-const nonVides = (l: string[]) => l.filter((c) => c.trim() !== "").length;
-const estEnTete = (l: string[]) => nonVides(l) >= 3 && EN_TETES.filter((re) => l.some((c) => re.test(c))).length >= 3 && !l.some((c) => DATE.test(c.trim()));
 
-/** Lignes du tableau des mouvements d'un relevé : de l'en-tête des colonnes (Date, Libellé, Débit, Crédit,
- * Solde…) jusqu'à la dernière opération, sur toutes les pages. Les titres, adresses, pieds de page et en-têtes
- * répétés sont écartés ; une ligne sans date qui complète un libellé est rattachée à l'opération précédente.
- * Renvoie null si aucun en-tête de tableau n'est reconnu. */
-export function extraireMouvements(brutes: string[][][]): string[][] | null {
-  // Relevés bilingues : le texte arabe est retiré, on ne garde que le français et les chiffres.
-  const pages = brutes.map((rows) => rows.map((l) => l.map((c) => c.replace(ARABE, " ").replace(/\s+/g, " ").trim())));
-  let entete: string[] | null = null;
-  let libelle = 1;
+/** Colonnes d'un relevé, reconnues par leur intitulé (le premier motif qui correspond l'emporte). */
+const COLONNES = [
+  { nom: "Date de valeur", re: /valeur|^date de$/i },
+  { nom: "Date", re: /^date( op[ée]ration)?$/i },
+  { nom: "Libellé de l'opération", re: /libell|d[ée]signation/i },
+  { nom: "Débit", re: /d[ée]bit|retrait/i },
+  { nom: "Crédit", re: /cr[ée]dit|versement/i },
+  { nom: "Solde", re: /^solde$/i },
+  { nom: "Référence", re: /^r[ée]f/i },
+];
+const DATE_COL = 1;
+const LIBELLE_COL = 2;
+
+interface Ancre {
+  nom: string;
+  centre: number;
+}
+
+const categorie = (texte: string) => COLONNES.findIndex((c) => c.re.test(texte.trim()));
+
+/** Colonnes du relevé d'après la ligne d'en-tête (Date, Libellé, Date de valeur, Débit, Crédit…), qui peut
+ * tenir sur deux lignes : on garde le centre de chaque intitulé, les valeurs étant alignées dessous. */
+function trouverEnTete(lignes: Cellule[][]): { ancres: Ancre[]; fin: number } | null {
+  const i = lignes.findIndex((l) => l.some((c) => COLONNES[LIBELLE_COL].re.test(c.texte)));
+  if (i < 0) return null;
+  const sommes = new Map<number, number[]>();
+  let fin = i;
+  for (let j = Math.max(0, i - 1); j <= Math.min(lignes.length - 1, i + 1); j++) {
+    const cellules = lignes[j];
+    if (cellules.some((c) => DATE.test(c.texte)) || !cellules.some((c) => categorie(c.texte) >= 0)) continue;
+    fin = Math.max(fin, j);
+    for (const c of cellules) {
+      const k = categorie(c.texte);
+      if (k >= 0) sommes.set(k, [...(sommes.get(k) ?? []), c.x + c.w / 2]);
+    }
+  }
+  if (sommes.size < 3) return null;
+  const ancres = [...sommes.entries()]
+    .map(([k, xs]) => ({ nom: COLONNES[k].nom, centre: xs.reduce((a, b) => a + b, 0) / xs.length }))
+    .sort((a, b) => a.centre - b.centre);
+  return { ancres, fin };
+}
+
+/** Lignes du tableau des mouvements d'un relevé : de l'en-tête des colonnes jusqu'à la dernière opération,
+ * sur toutes les pages. Chaque morceau de texte est rangé dans la colonne dont l'intitulé est le plus proche.
+ * Le texte arabe, les titres, adresses, pieds de page et en-têtes répétés sont écartés ; une ligne sans
+ * date qui complète un libellé est rattachée à l'opération précédente. Renvoie null sans en-tête reconnu. */
+export function extraireMouvements(pages: PdfTextItem[][]): string[][] | null {
+  let ancres: Ancre[] | null = null;
   const lignes: string[][] = [];
-  for (const rows of pages) {
-    let dedans = false;
-    let colle = false; // la ligne précédente fait partie du tableau : une suite de libellé peut s'y rattacher
-    for (const row of rows) {
-      if (estEnTete(row)) {
-        if (!entete) {
-          entete = row;
-          const i = row.findIndex((c) => EN_TETES[1].test(c));
-          libelle = i >= 0 ? i : 1;
-        }
-        dedans = true;
-        continue;
+  for (const items of pages) {
+    const propres = items.map((it) => ({ ...it, str: it.str.replace(ARABE, " ") })).filter((it) => it.str.trim() !== "");
+    const visuelles = grouperLignes(propres);
+    const cellules = visuelles.map(fusionnerCellules);
+    const entete = trouverEnTete(cellules);
+    if (entete && !ancres) ancres = entete.ancres;
+    if (!ancres) continue;
+    const courantes = entete?.ancres ?? ancres;
+    const dateIdx = courantes.findIndex((a) => a.nom === COLONNES[DATE_COL].nom);
+    const libelleIdx = courantes.findIndex((a) => a.nom === COLONNES[LIBELLE_COL].nom);
+    let derniereY: number | null = null; // ligne précédente du tableau : une suite de libellé doit la toucher
+    for (let n = entete ? entete.fin + 1 : 0; n < cellules.length; n++) {
+      const ligne = cellules[n];
+      const y = visuelles[n][0].y;
+      const h = Math.max(...ligne.map((c) => c.h));
+      const r = courantes.map(() => "");
+      for (const c of ligne) {
+        const centre = c.x + c.w / 2;
+        let k = 0;
+        courantes.forEach((a, i) => {
+          if (Math.abs(a.centre - centre) < Math.abs(courantes[k].centre - centre)) k = i;
+        });
+        r[k] = r[k] ? `${r[k]} ${c.texte}` : c.texte;
       }
-      if (!dedans || !entete) continue;
-      const avant = colle;
-      colle = false;
-      const r = Array.from({ length: entete.length }, (_, i) => row[i] ?? "");
-      if (row.length > entete.length) r[entete.length - 1] = row.slice(entete.length - 1).filter(Boolean).join(" ");
-      if (r.some((c) => DATE.test(c.trim()))) {
+      const daté = dateIdx >= 0 ? DATE.test(r[dateIdx]) : r.some((c) => DATE.test(c));
+      if (daté) {
         lignes.push(r);
-        colle = true;
-      } else if (avant && nonVides(r) === 1 && r[libelle] && r[libelle].length <= 40 && lignes.length) {
-        lignes[lignes.length - 1][libelle] += ` ${r[libelle]}`;
-        colle = true;
+        derniereY = y;
+      } else if (
+        derniereY !== null && lignes.length && libelleIdx >= 0 && r[libelleIdx] && r.filter(Boolean).length === 1 &&
+        r[libelleIdx].length <= 40 && derniereY - y <= 2.2 * h
+      ) {
+        lignes[lignes.length - 1][libelleIdx] += ` ${r[libelleIdx]}`;
+        derniereY = y;
+      } else {
+        derniereY = null;
       }
     }
   }
-  return entete ? [entete, ...lignes] : null;
+  return ancres ? [ancres.map((a) => a.nom), ...lignes.map((l) => l.slice(0, ancres!.length))] : null;
 }
 
 /** Une feuille par page (les pages sans texte sont ignorées), ou toutes les pages dans une seule feuille.
@@ -268,7 +316,7 @@ export function feuillesDePdf(
   options: OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean } = {},
 ): PdfSheet[] {
   if (options.tableauSeul) {
-    const mouvements = extraireMouvements(pages.map((p) => reconstruireTableau(p, { nombres: false }) as string[][]));
+    const mouvements = extraireMouvements(pages);
     if (mouvements) {
       const rows = options.nombres
         ? mouvements.map((l, i) => l.map((c) => (i === 0 ? c : (convertirNombre(c) ?? c))))
@@ -286,7 +334,7 @@ export function feuillesDePdf(
 
 /** Vrai si le PDF contient un tableau de mouvements reconnaissable. */
 export function aUnTableauDeMouvements(pages: PdfTextItem[][]): boolean {
-  return extraireMouvements(pages.map((p) => reconstruireTableau(p, { nombres: false }) as string[][])) !== null;
+  return extraireMouvements(pages) !== null;
 }
 
 /** Nombre de caractères lus dans l'ensemble des pages : 0 pour un PDF scanné (une image sans texte). */

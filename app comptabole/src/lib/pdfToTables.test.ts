@@ -216,7 +216,7 @@ describe("mouvements bancaires seulement", () => {
     const [f] = feuillesDePdf([page1, page2], { nombres: true, tableauSeul: true });
     expect(f.name).toBe("Mouvements");
     expect(f.rows.map((r) => r.slice(0, 4))).toEqual([
-      ["Date", "Libellé", "Débit", "Crédit"],
+      ["Date", "Libellé de l'opération", "Débit", "Crédit"],
       ["02/01/2025", "VIREMENT SALAIRE suite du libellé", "", 1200],
       ["05/01/2025", "RETRAIT DAB", 300, ""],
       ["09/01/2025", "PRELEVEMENT STEG", 85.5, ""],

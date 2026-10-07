@@ -119,6 +119,53 @@ describe("totaux du récapitulatif", () => {
 describe("tableau récapitulatif du stock", () => {
   afterEach(cleanup);
 
+  it("reprend les attributs du tableau Excel du cabinet, achat et vente côte à côte", () => {
+    afficher();
+    const entetes = Array.from(document.querySelectorAll("thead th")).map((th) => th.textContent);
+    for (const colonne of ["N°", "Mouvement", "Écart", "Achat", "Vente", "Douane", "Valeur TND"]) {
+      expect(entetes).toContain(colonne);
+    }
+    // Les huit colonnes d'un côté : date, facture, tiers, quantité, montant en devise, devise, cours, MT TND.
+    for (const colonne of ["Date", "N° facture", "Qté", "En devise", "Devise", "Cours", "MT TND"]) {
+      expect(entetes.filter((e) => e === colonne)).toHaveLength(2);
+    }
+    expect(entetes).toContain("Fournisseur");
+    expect(entetes).toContain("Client");
+  });
+
+  it("numérote les lignes et n'écrit la nature de la marchandise qu'une fois", () => {
+    afficher();
+    const ligneCiment = document.getElementById("mouvement-m1") as HTMLElement;
+    expect(within(ligneCiment).getAllByText("Portland Cement CEM I 42,5 N")).toHaveLength(1);
+    expect(ligneCiment.querySelector("td")?.textContent).toBe("1");
+    expect((document.getElementById("mouvement-m2") as HTMLElement).querySelector("td")?.textContent).toBe("2");
+  });
+
+  it("montre le cours, la devise et le montant en dinars de chaque côté", () => {
+    const avecCours = base({
+      id: "m5",
+      natureMarchandise: "PET FLAKES",
+      achatDate: "2025-02-07",
+      achatNumFacture: "250007",
+      fournisseur: "GREEN RECYCLING",
+      achatCours: 3.3165,
+      achatLignes: [{ ...ligne("PET FLAKES", 46.826, 44484.7, 147545.1), unite: "T" }],
+      venteDate: "2025-02-07",
+      venteNumFacture: "2500012",
+      client: "LUXPET AG",
+      venteCours: 3.3165,
+      venteLignes: [{ ...ligne("PET FLAKES", 46.826, 57127.72, 189464.083), unite: "T" }],
+    });
+    afficher({ mouvements: [avecCours] });
+    const r = within(document.getElementById("mouvement-m5") as HTMLElement);
+    expect(r.getAllByText("3,3165")).toHaveLength(2);
+    expect(r.getAllByText("EUR")).toHaveLength(2);
+    expect(r.getByText("147 545,100")).toBeTruthy();
+    expect(r.getByText("189 464,083")).toBeTruthy();
+    expect(r.getByText("GREEN RECYCLING")).toBeTruthy();
+    expect(r.getByText("250007")).toBeTruthy();
+  });
+
   it("affiche une ligne par mouvement avec achat, vente et douane côte à côte", () => {
     afficher();
     const ligneCiment = document.getElementById("mouvement-m1") as HTMLElement;
@@ -128,9 +175,9 @@ describe("tableau récapitulatif du stock", () => {
     expect(cellules.getByText("6608000533")).toBeTruthy();
     expect(cellules.getByText("GROUP BYOUT EZZ")).toBeTruthy();
     expect(cellules.getByText("202300001")).toBeTruthy();
-    expect(cellules.getByText("E", { selector: "td" })).toBeTruthy();
-    expect(cellules.getByText("3,2842")).toBeTruthy();
+    // Le type, le n° de déclaration et le taux sont dans le détail, pas dans le tableau.
     expect(cellules.queryByText("447898")).toBeNull();
+    expect(cellules.queryByText("3,2842")).toBeNull();
     expect(cellules.getByText("170 778,400")).toBeTruthy();
     expect(document.getElementById("mouvement-m2")).toBeTruthy();
   });
@@ -147,12 +194,12 @@ describe("tableau récapitulatif du stock", () => {
 
   it("déplie le détail en trois cartes : achat, vente et douane", () => {
     afficher();
-    expect(screen.queryByText("Fournisseur")).toBeNull();
+    expect(screen.queryByText("Écart achat − vente", { exact: false })).toBeNull();
     fireEvent.click(document.getElementById("mouvement-m1") as HTMLElement);
     for (const titre of ["Achat", "Vente", "Douane"]) {
       expect(screen.getAllByText(titre, { selector: "h3" })).toHaveLength(1);
     }
-    expect(screen.getByText("Fournisseur")).toBeTruthy();
+    expect(screen.getAllByText("Fournisseur")).toHaveLength(2); // en-tête du tableau + carte du détail
     expect(screen.getByText("Exportateur")).toBeTruthy();
     expect(screen.getByText("STE DES CIMENTS D'ENFIDHA")).toBeTruthy();
     expect(screen.getByText("Écart achat − vente", { exact: false })).toBeTruthy();
@@ -190,7 +237,7 @@ describe("tableau récapitulatif du stock", () => {
     expect(onEdit).toHaveBeenCalledWith(ciment);
     expect(onDelete).toHaveBeenCalledWith(ciment);
     expect(onPreview).toHaveBeenCalledWith("Document douanier", ciment.douaneDocDataUrl);
-    expect(screen.queryByText("Fournisseur")).toBeNull();
+    expect(screen.queryByText("Écart achat − vente", { exact: false })).toBeNull();
   });
 
   it("met en évidence le mouvement qui vient d'être enregistré", () => {

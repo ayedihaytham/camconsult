@@ -40,9 +40,9 @@ const TITRES: Record<Categorie, string> = {
   douane: "Document douanier",
 };
 
-const th = "overflow-hidden text-ellipsis whitespace-nowrap px-2 py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-[0.12em] text-muted-foreground";
+const th = "overflow-hidden text-ellipsis whitespace-nowrap px-1 py-2.5 text-left text-[0.6rem] font-bold uppercase tracking-[0.08em] text-muted-foreground";
 const thNum = `${th} text-right`;
-const td = "overflow-hidden text-ellipsis whitespace-nowrap px-2 py-3 align-middle";
+const td = "overflow-hidden text-ellipsis whitespace-nowrap px-1 py-2.5 align-middle";
 const tdNum = `${td} text-right tabular-nums`;
 const debutGroupe = "border-l border-accent/30";
 
@@ -53,13 +53,81 @@ function docUrl(m: StockMouvement, c: Categorie) {
   return c === "achat" ? m.achatDocDataUrl : c === "vente" ? m.venteDocDataUrl : m.douaneDocDataUrl;
 }
 
-/** Récapitulatif des opérations de stock : une ligne par mouvement, achat, vente et
- * douane côte à côte, et le détail des produits et des pièces en dépliant la ligne. */
+/** Colonnes de chaque côté (achat, vente) : les mêmes que le tableau Excel du cabinet. */
+const COTE_COLONNES = 8;
+
+/** Largeurs en pourcentage : le tableau occupe exactement la largeur de la page. */
+const LARGEURS = [
+  1.5, 6.2, 3.6, // N°, mouvement, écart
+  4.8, 4.9, 5.5, 4.7, 5.2, 3.4, 3.7, 5.6, // achat : date, facture, tiers, qté, en devise, devise, cours, MT TND
+  4.8, 4.9, 5.5, 4.7, 5.2, 3.4, 3.7, 5.6, // vente
+  5.3, // douane : valeur TND
+  4.2, 3.6, // pièces, actions
+];
+
+const NB_COLONNES = LARGEURS.length;
+
+const coursTexte = (c: number) => (c ? c.toLocaleString("fr-FR", { maximumFractionDigits: 5 }) : "—");
+
+/** Cellules d'un côté (achat ou vente) : date, n° de facture, tiers, quantité, montant en devise,
+ * devise, cours et montant en dinars. */
+function CoteCellules({
+  lignes,
+  tiers,
+  date,
+  numero,
+  devise,
+  cours,
+}: {
+  lignes: StockLigne[];
+  tiers: string;
+  date: string | null;
+  numero: string;
+  devise: string;
+  cours: number;
+}) {
+  const t = totauxCote(lignes);
+  const vide = lignes.length === 0;
+  return (
+    <>
+      <td className={`${td} ${debutGroupe}`}>{jour(date)}</td>
+      <td className={`${td} font-mono text-[0.7rem]`} title={numero}>{numero || "—"}</td>
+      <td className={`${td} font-medium text-foreground`} title={tiers}>{tiers || "—"}</td>
+      <td className={tdNum}>{vide ? "—" : fmtQuantiteUnite(t.quantite, uniteCommune(lignes))}</td>
+      <td className={tdNum}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>
+      <td className={`${td} text-muted-foreground`}>{t.montantDevise ? devise : "—"}</td>
+      <td className={tdNum}>{coursTexte(cours)}</td>
+      <td className={tdNum}>{montantOuTiret(t.montantTnd)}</td>
+    </>
+  );
+}
+
+function EnTeteCote({ tiers }: { tiers: string }) {
+  return (
+    <>
+      <th className={`${th} ${debutGroupe}`}>Date</th>
+      <th className={th}>N° facture</th>
+      <th className={th}>{tiers}</th>
+      <th className={thNum}>Qté</th>
+      <th className={thNum}>En devise</th>
+      <th className={th}>Devise</th>
+      <th className={thNum}>Cours</th>
+      <th className={thNum}>MT TND</th>
+    </>
+  );
+}
+
+/** Récapitulatif des opérations de stock : une ligne par mouvement, avec les attributs du tableau
+ * Excel du cabinet — achat et vente côte à côte (date, facture, tiers, quantité, montant en devise,
+ * devise, cours, montant en dinars), valeur en douane, écart — et le détail complet (type et n° de
+ * déclaration, taux, produits, pièces) en dépliant la ligne. La nature de la marchandise n'est
+ * écrite qu'une seule fois, dans la colonne Mouvement. */
 export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onPreview, onClasser }: Props) {
   const [ouverts, setOuverts] = useState<Set<string>>(new Set());
   const conteneur = useRef<HTMLDivElement>(null);
   const largeurVisible = useLargeurVisible(conteneur);
   const total = recapStock(mouvements);
+  const valeurDouane = Math.round(mouvements.reduce((s, m) => s + m.douaneValeurTnd, 0) * 1000) / 1000;
 
   const basculer = (id: string) =>
     setOuverts((s) => {
@@ -71,56 +139,35 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
 
   return (
     <div ref={conteneur} className="overflow-x-auto" data-tour="stock-register">
-      <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
-        {/* Largeurs en pourcentage : le tableau occupe exactement la largeur de la page. */}
+      <table className="w-full min-w-[84rem] table-fixed border-collapse text-xs">
         <colgroup>
-          <col style={{ width: "9.5%" }} />
-          <col style={{ width: "5%" }} />
-          <col style={{ width: "12%" }} />
-          <col style={{ width: "5.5%" }} />
-          <col style={{ width: "9.5%" }} />
-          <col style={{ width: "12%" }} />
-          <col style={{ width: "5.5%" }} />
-          <col style={{ width: "9.5%" }} />
-          <col style={{ width: "4%" }} />
-          <col style={{ width: "6%" }} />
-          <col style={{ width: "8.5%" }} />
-          <col style={{ width: "8%" }} />
-          <col style={{ width: "5%" }} />
+          {LARGEURS.map((l, i) => (
+            <col key={i} style={{ width: `${l}%` }} />
+          ))}
         </colgroup>
         <thead>
           <tr className="border-y border-accent/25 bg-accent/[0.07]">
-            <th rowSpan={2} className={`${th} sticky left-0 z-10 bg-[hsl(var(--card))]`}>
-              Mouvement
-            </th>
+            <th rowSpan={2} className={th}>N°</th>
+            <th rowSpan={2} className={th}>Mouvement</th>
             <th rowSpan={2} className={`${thNum} ${debutGroupe}`}>Écart</th>
-            <th colSpan={3} className={`${th} ${debutGroupe} text-primary`}>Achat</th>
-            <th colSpan={3} className={`${th} ${debutGroupe} text-primary`}>Vente</th>
-            <th colSpan={3} className={`${th} ${debutGroupe} text-primary`}>Douane</th>
+            <th colSpan={COTE_COLONNES} className={`${th} ${debutGroupe} text-primary`}>Achat</th>
+            <th colSpan={COTE_COLONNES} className={`${th} ${debutGroupe} text-primary`}>Vente</th>
+            <th className={`${th} ${debutGroupe} text-primary`}>Douane</th>
             <th rowSpan={2} className={`${th} ${debutGroupe} text-center`}>Pièces</th>
-            <th rowSpan={2} className={`${th} sticky right-0 z-10 bg-[hsl(var(--card))]`}>
+            <th rowSpan={2} className={th}>
               <span className="sr-only">Actions</span>
             </th>
           </tr>
           <tr className="border-b border-accent/25 bg-accent/[0.04]">
-            <th className={`${th} ${debutGroupe}`}>Fournisseur · facture</th>
-            <th className={thNum}>Qté</th>
-            <th className={thNum}>Montant</th>
-            <th className={`${th} ${debutGroupe}`}>Client · facture</th>
-            <th className={thNum}>Qté</th>
-            <th className={thNum}>Montant</th>
-            <th className={`${th} ${debutGroupe}`}>Type</th>
-            <th className={thNum}>Taux</th>
-            <th className={thNum}>Valeur TND</th>
+            <EnTeteCote tiers="Fournisseur" />
+            <EnTeteCote tiers="Client" />
+            <th className={`${thNum} ${debutGroupe}`}>Valeur TND</th>
           </tr>
         </thead>
 
         <tbody>
-          {mouvements.map((m) => {
-            const a = totauxCote(m.achatLignes);
-            const v = totauxCote(m.venteLignes);
+          {mouvements.map((m, index) => {
             const ouvert = ouverts.has(m.id);
-            const fond = nouveauId === m.id ? "bg-accent/15" : "bg-card";
             return (
               <Fragment key={m.id}>
                 <tr
@@ -131,8 +178,9 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     nouveauId === m.id && "bg-accent/15",
                   )}
                 >
-                  <td className={cn(td, "sticky left-0 z-[1]", fond)}>
-                    <div className="flex items-center gap-2">
+                  <td className={`${td} text-muted-foreground`}>{index + 1}</td>
+                  <td className={td}>
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
                         aria-expanded={ouvert}
@@ -141,50 +189,39 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                           e.stopPropagation();
                           basculer(m.id);
                         }}
-                        className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
                       >
-                        <ChevronRight className={cn("h-4 w-4 transition-transform", ouvert && "rotate-90")} />
+                        <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", ouvert && "rotate-90")} />
                       </button>
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-primary" title={m.natureMarchandise}>
-                          {m.natureMarchandise || "Mouvement sans nature"}
-                        </p>
-                        {(a.produits > 1 || v.produits > 1) && (
-                          <p className="text-xs text-muted-foreground">
-                            {Math.max(a.produits, v.produits)} produits
-                          </p>
-                        )}
-                      </div>
+                      <p className="min-w-0 truncate font-semibold text-primary" title={m.natureMarchandise}>
+                        {m.natureMarchandise || "Mouvement sans nature"}
+                      </p>
                     </div>
                   </td>
-
                   <td className={cn(tdNum, debutGroupe, "font-bold", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>
                     {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
                   </td>
 
-                  <TiersCell
+                  <CoteCellules
+                    lignes={m.achatLignes}
                     tiers={m.fournisseur}
                     date={m.achatDate}
                     numero={m.achatNumFacture}
-                    className={`${td} ${debutGroupe}`}
+                    devise={m.achatDevise}
+                    cours={m.achatCours}
                   />
-                  <td className={tdNum}>{a.produits ? fmtQuantiteUnite(a.quantite, uniteCommune(m.achatLignes)) : "—"}</td>
-                  <MontantCell cote={a} devise={m.achatDevise} />
-
-                  <TiersCell
+                  <CoteCellules
+                    lignes={m.venteLignes}
                     tiers={m.client}
                     date={m.venteDate}
                     numero={m.venteNumFacture}
-                    className={`${td} ${debutGroupe}`}
+                    devise={m.venteDevise}
+                    cours={m.venteCours}
                   />
-                  <td className={tdNum}>{v.produits ? fmtQuantiteUnite(v.quantite, uniteCommune(m.venteLignes)) : "—"}</td>
-                  <MontantCell cote={v} devise={m.venteDevise} />
 
-                  <td className={`${td} ${debutGroupe}`}>{m.douaneTypeDeclaration || "—"}</td>
-                  <td className={tdNum}>{m.douaneTauxChange ? m.douaneTauxChange.toLocaleString("fr-FR", { maximumFractionDigits: 5 }) : "—"}</td>
-                  <td className={tdNum}>{montantOuTiret(m.douaneValeurTnd)}</td>
+                  <td className={`${tdNum} ${debutGroupe}`}>{montantOuTiret(m.douaneValeurTnd)}</td>
 
-                  <td className={`${td} text-center`}>
+                  <td className={`${td} ${debutGroupe} text-center`}>
                     <span className="inline-flex items-center gap-0.5">
                       {(["achat", "vente", "douane"] as const).map((c) =>
                         docUrl(m, c) ? (
@@ -197,9 +234,8 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                               e.stopPropagation();
                               onPreview(TITRES[c], docUrl(m, c));
                             }}
-                            className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[0.62rem] font-bold uppercase text-muted-foreground hover:bg-accent/15 hover:text-primary"
+                            className="inline-flex size-[1.15rem] items-center justify-center rounded border border-accent/40 text-[0.62rem] font-bold uppercase text-primary hover:bg-accent/15"
                           >
-                            <Paperclip className="h-3 w-3" aria-hidden="true" />
                             {c[0]}
                           </button>
                         ) : null,
@@ -210,7 +246,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     </span>
                   </td>
 
-                  <td className={cn(td, "sticky right-0 z-[1]", fond)}>
+                  <td className={td}>
                     <div className="flex justify-end gap-0.5">
                       <button
                         type="button"
@@ -240,7 +276,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
 
                 {ouvert && (
                   <tr className="border-b border-accent/20 bg-secondary/30">
-                    <td colSpan={13} className="p-0">
+                    <td colSpan={NB_COLONNES} className="p-0">
                       <div
                         className="sticky left-0 box-border px-5 py-4"
                         style={largeurVisible ? { width: largeurVisible } : undefined}
@@ -257,62 +293,25 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
 
         <tfoot>
           <tr className="border-t-2 border-accent/40 bg-accent/[0.07] font-bold text-primary">
-            <td className={cn(td, "sticky left-0 z-[1] bg-[hsl(var(--card))]")}>
+            <td className={td} colSpan={2}>
               <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
             </td>
             <td className={cn(tdNum, debutGroupe, total.ecart !== 0 && "text-destructive")}>{fmtQuantiteUnite(total.ecart, total.unite)}</td>
-            <td className={`${td} ${debutGroupe}`} />
-            <td className={tdNum}>{fmtQuantiteUnite(total.achat.quantite, total.unite)}</td>
-            <td className={tdNum}>{total.achat.montantTnd ? `${fmtMontant(total.achat.montantTnd)} TND` : ""}</td>
-            <td className={`${td} ${debutGroupe}`} />
-            <td className={tdNum}>{fmtQuantiteUnite(total.vente.quantite, total.unite)}</td>
-            <td className={tdNum}>{total.vente.montantTnd ? `${fmtMontant(total.vente.montantTnd)} TND` : ""}</td>
             <td className={`${td} ${debutGroupe}`} colSpan={3} />
+            <td className={tdNum}>{fmtQuantiteUnite(total.achat.quantite, total.unite)}</td>
+            <td className={td} colSpan={3} />
+            <td className={tdNum}>{montantOuTiret(total.achat.montantTnd)}</td>
+            <td className={`${td} ${debutGroupe}`} colSpan={3} />
+            <td className={tdNum}>{fmtQuantiteUnite(total.vente.quantite, total.unite)}</td>
+            <td className={td} colSpan={3} />
+            <td className={tdNum}>{montantOuTiret(total.vente.montantTnd)}</td>
+            <td className={`${tdNum} ${debutGroupe}`}>{montantOuTiret(valeurDouane)}</td>
             <td className={`${td} ${debutGroupe}`} />
-            <td className={cn(td, "sticky right-0 z-[1] bg-[hsl(var(--card))]")} />
+            <td className={td} />
           </tr>
         </tfoot>
       </table>
     </div>
-  );
-}
-
-/** Tiers (fournisseur ou client) avec, dessous, la date et le n° de la facture. */
-function TiersCell({
-  tiers,
-  date,
-  numero,
-  className,
-}: {
-  tiers: string;
-  date: string | null;
-  numero: string;
-  className: string;
-}) {
-  return (
-    <td className={className}>
-      <p className="truncate font-medium text-foreground" title={tiers}>{tiers || "—"}</p>
-      {(date || numero) && (
-        <p className="text-xs text-muted-foreground">
-          {date && <span>{jour(date)}</span>}
-          {date && numero && " · "}
-          {numero && <span className="font-mono">{numero}</span>}
-        </p>
-      )}
-    </td>
-  );
-}
-
-/** Montant dans la devise de la facture et, dessous, sa contre-valeur en dinars si elle est connue. */
-function MontantCell({ cote, devise }: { cote: ReturnType<typeof totauxCote>; devise: string }) {
-  if (!cote.montantDevise) return <td className={tdNum}>—</td>;
-  return (
-    <td className={tdNum}>
-      <p>
-        {fmtMontant(cote.montantDevise)} <span className="text-xs text-muted-foreground">{devise}</span>
-      </p>
-      {cote.montantTnd ? <p className="text-xs text-muted-foreground">{fmtMontant(cote.montantTnd)} TND</p> : null}
-    </td>
   );
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classeurExcel,
   convertirNombre,
+  aUnTableauDeMouvements,
   feuillesDePdf,
   lireTextePdf,
   nombreDeCaracteres,
@@ -192,5 +193,39 @@ describe("classeur Excel", () => {
     const lignes = XLSX.utils.sheet_to_json(wb.Sheets["Page 1"], { header: 1 }) as unknown[][];
     expect(lignes).toEqual([["Compte", "Montant"], ["Clients", 1234.5]]);
     expect(typeof lignes[1][1]).toBe("number");
+  });
+});
+
+describe("mouvements bancaires seulement", () => {
+  const entete = (y: number) => [t("Date", 40, y, 20), t("Libellé", 120, y, 35), t("Débit", 300, y, 25), t("Crédit", 400, y, 30), t("Solde", 500, y, 25)];
+  const page1: PdfTextItem[] = [
+    t("BANQUE EXEMPLE", 40, 800, 90), t("Relevé de compte n° 123", 40, 780, 110), t("Tunis, avenue Habib Bourguiba", 40, 760, 140),
+    ...entete(720),
+    t("02/01/2025", 40, 700, 50), t("VIREMENT SALAIRE", 120, 700, 80), t("1 200,000", 390, 700, 45),
+    t("suite du libellé", 120, 685, 70),
+    t("05/01/2025", 40, 670, 50), t("RETRAIT DAB", 120, 670, 60), t("300,000", 290, 670, 40),
+    t("Page 1 / 2", 250, 40, 40),
+  ];
+  const page2: PdfTextItem[] = [
+    ...entete(780),
+    t("09/01/2025", 40, 760, 50), t("PRELEVEMENT STEG", 120, 760, 80), t("85,500", 290, 760, 35),
+    t("Capital 10 000 DT - RC B123", 40, 60, 130),
+  ];
+
+  it("garde l'en-tête et les opérations, sans titre, adresse ni pied de page", () => {
+    const [f] = feuillesDePdf([page1, page2], { nombres: true, tableauSeul: true });
+    expect(f.name).toBe("Mouvements");
+    expect(f.rows.map((r) => r.slice(0, 4))).toEqual([
+      ["Date", "Libellé", "Débit", "Crédit"],
+      ["02/01/2025", "VIREMENT SALAIRE suite du libellé", "", 1200],
+      ["05/01/2025", "RETRAIT DAB", 300, ""],
+      ["09/01/2025", "PRELEVEMENT STEG", 85.5, ""],
+    ]);
+  });
+
+  it("revient au document complet sans tableau de mouvements", () => {
+    const pages = [[t("Texte", 40, 700), t("autre", 300, 700)]];
+    expect(aUnTableauDeMouvements(pages)).toBe(false);
+    expect(feuillesDePdf(pages, { tableauSeul: true })[0].name).toBe("Page 1");
   });
 });

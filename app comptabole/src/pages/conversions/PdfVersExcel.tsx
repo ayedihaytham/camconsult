@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { download } from "@/lib/export";
 import {
+  aUnTableauDeMouvements,
   classeurExcel,
   feuillesDePdf,
   lireFichierPdf,
@@ -37,6 +38,7 @@ export function PdfVersExcel() {
   const [activeSheet, setActiveSheet] = useState(0);
   const [nombres, setNombres] = useState(true);
   const [uneSeuleFeuille, setUneSeuleFeuille] = useState(false);
+  const [tableauSeul, setTableauSeul] = useState(true);
   const urlsRef = useRef<string[]>([]);
 
   useEffect(() => {
@@ -83,7 +85,7 @@ export function PdfVersExcel() {
     if (echecs > 0) toast.error(`${echecs} fichier${echecs > 1 ? "s" : ""} non converti${echecs > 1 ? "s" : ""}`);
   }
 
-  const options = useMemo(() => ({ nombres, uneSeuleFeuille }), [nombres, uneSeuleFeuille]);
+  const options = useMemo(() => ({ nombres, uneSeuleFeuille, tableauSeul }), [nombres, uneSeuleFeuille, tableauSeul]);
   const active = items.find((i) => i.id === activeId) ?? null;
   const feuilles = useMemo(() => (active ? feuillesDePdf(active.pages, options) : []), [active, options]);
   const feuille = feuilles[Math.min(activeSheet, Math.max(0, feuilles.length - 1))] ?? null;
@@ -116,6 +118,10 @@ export function PdfVersExcel() {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-[18px] py-3">
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground">
+            <Checkbox checked={tableauSeul} onCheckedChange={(c) => setTableauSeul(Boolean(c))} />
+            Mouvements bancaires seulement (lignes du tableau)
+          </label>
           <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground">
             <Checkbox checked={nombres} onCheckedChange={(c) => setNombres(Boolean(c))} />
             Convertir les montants en nombres
@@ -196,6 +202,11 @@ export function PdfVersExcel() {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{active.name}</p>
               <p className="text-xs text-muted-foreground">
+                {tableauSeul && !aUnTableauDeMouvements(active.pages) && (
+                  <span className="mb-1 block font-medium text-destructive">
+                    Aucun tableau de mouvements reconnu (en-tête Date / Libellé / Débit / Crédit…) : le document complet est converti.
+                  </span>
+                )}
                 Comparez le PDF d'origine (gauche) et le tableau reconstruit (droite) : les lignes qui se répartissent sur plusieurs
                 lignes du PDF restent séparées.
               </p>

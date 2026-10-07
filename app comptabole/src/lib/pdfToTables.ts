@@ -214,17 +214,68 @@ export function reconstruireTableau(items: PdfTextItem[], options: OptionsConver
   );
 }
 
-/** Une feuille par page (les pages sans texte sont ignorées), ou toutes les pages dans une seule feuille. */
+const EN_TETES = [/date/i, /libell|op[ée]ration|d[ée]signation|description|d[ée]tail/i, /d[ée]bit|retrait/i, /cr[ée]dit|versement/i, /solde/i, /valeur/i, /montant/i, /r[ée]f/i];
+const DATE = /^\d{1,2}[/.\-]\d{1,2}([/.\-]\d{2,4})?$/;
+
+const nonVides = (l: string[]) => l.filter((c) => c.trim() !== "").length;
+const estEnTete = (l: string[]) => nonVides(l) >= 3 && EN_TETES.filter((re) => l.some((c) => re.test(c))).length >= 3 && !l.some((c) => DATE.test(c.trim()));
+
+/** Lignes du tableau des mouvements d'un relevé : de l'en-tête des colonnes (Date, Libellé, Débit, Crédit,
+ * Solde…) jusqu'à la dernière opération, sur toutes les pages. Les titres, adresses, pieds de page et en-têtes
+ * répétés sont écartés ; une ligne sans date qui complète un libellé est rattachée à l'opération précédente.
+ * Renvoie null si aucun en-tête de tableau n'est reconnu. */
+export function extraireMouvements(pages: string[][][]): string[][] | null {
+  let entete: string[] | null = null;
+  let libelle = 1;
+  const lignes: string[][] = [];
+  for (const rows of pages) {
+    let dedans = false;
+    for (const row of rows) {
+      if (estEnTete(row)) {
+        if (!entete) {
+          entete = row;
+          const i = row.findIndex((c) => EN_TETES[1].test(c));
+          libelle = i >= 0 ? i : 1;
+        }
+        dedans = true;
+        continue;
+      }
+      if (!dedans || !entete) continue;
+      const r = Array.from({ length: entete.length }, (_, i) => row[i] ?? "");
+      if (row.length > entete.length) r[entete.length - 1] = row.slice(entete.length - 1).filter(Boolean).join(" ");
+      if (r.some((c) => DATE.test(c.trim()))) lignes.push(r);
+      else if (nonVides(r) === 1 && r[libelle] && lignes.length) lignes[lignes.length - 1][libelle] += ` ${r[libelle]}`;
+    }
+  }
+  return entete ? [entete, ...lignes] : null;
+}
+
+/** Une feuille par page (les pages sans texte sont ignorées), ou toutes les pages dans une seule feuille.
+ * Avec `tableauSeul`, seules les lignes du tableau des mouvements d'un relevé sont gardées (une feuille). */
 export function feuillesDePdf(
   pages: PdfTextItem[][],
-  options: OptionsConversion & { uneSeuleFeuille?: boolean } = {},
+  options: OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean } = {},
 ): PdfSheet[] {
+  if (options.tableauSeul) {
+    const mouvements = extraireMouvements(pages.map((p) => reconstruireTableau(p, { nombres: false }) as string[][]));
+    if (mouvements) {
+      const rows = options.nombres
+        ? mouvements.map((l, i) => l.map((c) => (i === 0 ? c : (convertirNombre(c) ?? c))))
+        : mouvements;
+      return [{ name: "Mouvements", rows, headerRow: true }];
+    }
+  }
   const tableaux = pages.map((p) => reconstruireTableau(p, options));
   const feuilles = tableaux.map((rows, i) => ({ name: `Page ${i + 1}`, rows })).filter((f) => f.rows.length > 0);
   if (options.uneSeuleFeuille && feuilles.length > 1) {
     return [{ name: "Toutes les pages", rows: feuilles.flatMap((f) => f.rows) }];
   }
   return feuilles;
+}
+
+/** Vrai si le PDF contient un tableau de mouvements reconnaissable. */
+export function aUnTableauDeMouvements(pages: PdfTextItem[][]): boolean {
+  return extraireMouvements(pages.map((p) => reconstruireTableau(p, { nombres: false }) as string[][])) !== null;
 }
 
 /** Nombre de caractères lus dans l'ensemble des pages : 0 pour un PDF scanné (une image sans texte). */

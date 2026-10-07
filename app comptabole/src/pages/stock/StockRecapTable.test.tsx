@@ -143,12 +143,40 @@ describe("tableau récapitulatif du stock", () => {
     expect(ecart.className).toContain("text-destructive");
   });
 
-  it("déplie le détail des produits au clic sur la ligne", () => {
+  it("déplie le détail en trois cartes : achat, vente et douane", () => {
     afficher();
-    expect(screen.queryByText("Produits achetés")).toBeNull();
+    expect(screen.queryByText("Fournisseur")).toBeNull();
+    fireEvent.click(document.getElementById("mouvement-m1") as HTMLElement);
+    for (const titre of ["Achat", "Vente", "Douane"]) {
+      expect(screen.getAllByText(titre, { selector: "h3" })).toHaveLength(1);
+    }
+    expect(screen.getByText("Fournisseur")).toBeTruthy();
+    expect(screen.getByText("Exportateur")).toBeTruthy();
+    expect(screen.getByText("STE DES CIMENTS D'ENFIDHA")).toBeTruthy();
+    expect(screen.getByText("Écart achat − vente", { exact: false })).toBeTruthy();
+  });
+
+  it("n'affiche l'écart par produit que si une facture liste plusieurs produits", () => {
+    afficher();
     fireEvent.click(document.getElementById("mouvement-m2") as HTMLElement);
-    expect(screen.getByText("Produits achetés")).toBeTruthy();
-    expect(screen.getByText("Écart par produit")).toBeTruthy();
+    expect(screen.queryByText("CEM I 52.5 N", { exact: false, selector: "span" })).toBeNull();
+
+    cleanup();
+    const multi = base({
+      id: "m4",
+      natureMarchandise: "Deux produits",
+      achatLignes: [ligne("SABLE", 10, 100), ligne("GRAVIER", 20, 400)],
+      venteLignes: [ligne("SABLE", 10, 100), ligne("GRAVIER", 15, 300)],
+      ecart: 5,
+      ecartParDesignation: [
+        { designation: "GRAVIER", achatQuantite: 20, venteQuantite: 15, ecart: 5 },
+        { designation: "SABLE", achatQuantite: 10, venteQuantite: 10, ecart: 0 },
+      ],
+    });
+    afficher({ mouvements: [multi] });
+    fireEvent.click(document.getElementById("mouvement-m4") as HTMLElement);
+    expect(screen.getByText("GRAVIER", { selector: "span" })).toBeTruthy();
+    expect(screen.getAllByText("Total").length).toBeGreaterThan(0);
   });
 
   it("ouvre les actions sans déplier la ligne", () => {
@@ -160,7 +188,7 @@ describe("tableau récapitulatif du stock", () => {
     expect(onEdit).toHaveBeenCalledWith(ciment);
     expect(onDelete).toHaveBeenCalledWith(ciment);
     expect(onPreview).toHaveBeenCalledWith("Document douanier", ciment.douaneDocDataUrl);
-    expect(screen.queryByText("Produits achetés")).toBeNull();
+    expect(screen.queryByText("Fournisseur")).toBeNull();
   });
 
   it("met en évidence le mouvement qui vient d'être enregistré", () => {

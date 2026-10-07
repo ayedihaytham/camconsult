@@ -40,9 +40,9 @@ const TITRES: Record<Categorie, string> = {
   douane: "Document douanier",
 };
 
-const th = "whitespace-nowrap px-3 py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-[0.12em] text-muted-foreground";
+const th = "overflow-hidden text-ellipsis whitespace-nowrap px-2 py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-[0.12em] text-muted-foreground";
 const thNum = `${th} text-right`;
-const td = "whitespace-nowrap px-3 py-3 align-middle";
+const td = "overflow-hidden text-ellipsis whitespace-nowrap px-2 py-3 align-middle";
 const tdNum = `${td} text-right tabular-nums`;
 const debutGroupe = "border-l border-accent/30";
 
@@ -71,16 +71,32 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
 
   return (
     <div ref={conteneur} className="overflow-x-auto" data-tour="stock-register">
-      <table className="w-full min-w-[66rem] border-collapse text-sm">
+      <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
+        {/* Largeurs en pourcentage : le tableau occupe exactement la largeur de la page. */}
+        <colgroup>
+          <col style={{ width: "9.5%" }} />
+          <col style={{ width: "5%" }} />
+          <col style={{ width: "12%" }} />
+          <col style={{ width: "5.5%" }} />
+          <col style={{ width: "9.5%" }} />
+          <col style={{ width: "12%" }} />
+          <col style={{ width: "5.5%" }} />
+          <col style={{ width: "9.5%" }} />
+          <col style={{ width: "4%" }} />
+          <col style={{ width: "6%" }} />
+          <col style={{ width: "8.5%" }} />
+          <col style={{ width: "8%" }} />
+          <col style={{ width: "5%" }} />
+        </colgroup>
         <thead>
           <tr className="border-y border-accent/25 bg-accent/[0.07]">
-            <th rowSpan={2} className={`${th} sticky left-0 z-10 min-w-[11rem] bg-[hsl(var(--card))]`}>
+            <th rowSpan={2} className={`${th} sticky left-0 z-10 bg-[hsl(var(--card))]`}>
               Mouvement
             </th>
             <th rowSpan={2} className={`${thNum} ${debutGroupe}`}>Écart</th>
             <th colSpan={3} className={`${th} ${debutGroupe} text-primary`}>Achat</th>
             <th colSpan={3} className={`${th} ${debutGroupe} text-primary`}>Vente</th>
-            <th colSpan={5} className={`${th} ${debutGroupe} text-primary`}>Douane</th>
+            <th colSpan={3} className={`${th} ${debutGroupe} text-primary`}>Douane</th>
             <th rowSpan={2} className={`${th} ${debutGroupe} text-center`}>Pièces</th>
             <th rowSpan={2} className={`${th} sticky right-0 z-10 bg-[hsl(var(--card))]`}>
               <span className="sr-only">Actions</span>
@@ -93,11 +109,9 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             <th className={`${th} ${debutGroupe}`}>Client · facture</th>
             <th className={thNum}>Qté</th>
             <th className={thNum}>Montant</th>
-            <th className={`${th} ${debutGroupe}`}>Déclaration</th>
-            <th className={th}>Type</th>
+            <th className={`${th} ${debutGroupe}`}>Type</th>
             <th className={thNum}>Taux</th>
             <th className={thNum}>Valeur TND</th>
-            <th className={thNum}>PTFN</th>
           </tr>
         </thead>
 
@@ -117,7 +131,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     nouveauId === m.id && "bg-accent/15",
                   )}
                 >
-                  <td className={cn(td, "sticky left-0 z-[1] min-w-[11rem] max-w-[14rem]", fond)}>
+                  <td className={cn(td, "sticky left-0 z-[1]", fond)}>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -152,7 +166,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     tiers={m.fournisseur}
                     date={m.achatDate}
                     numero={m.achatNumFacture}
-                    className={`${td} ${debutGroupe} max-w-[13rem]`}
+                    className={`${td} ${debutGroupe}`}
                   />
                   <td className={tdNum}>{a.produits ? fmtQuantiteUnite(a.quantite, uniteCommune(m.achatLignes)) : "—"}</td>
                   <MontantCell cote={a} devise={m.achatDevise} />
@@ -161,22 +175,17 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     tiers={m.client}
                     date={m.venteDate}
                     numero={m.venteNumFacture}
-                    className={`${td} ${debutGroupe} max-w-[13rem]`}
+                    className={`${td} ${debutGroupe}`}
                   />
                   <td className={tdNum}>{v.produits ? fmtQuantiteUnite(v.quantite, uniteCommune(m.venteLignes)) : "—"}</td>
                   <MontantCell cote={v} devise={m.venteDevise} />
 
-                  <td className={`${td} ${debutGroupe}`}>
-                    <p className="font-mono text-xs">{m.douaneNumDeclaration || "—"}</p>
-                    {m.douaneDate && <p className="text-xs text-muted-foreground">{jour(m.douaneDate)}</p>}
-                  </td>
-                  <td className={td}>{m.douaneTypeDeclaration || "—"}</td>
+                  <td className={`${td} ${debutGroupe}`}>{m.douaneTypeDeclaration || "—"}</td>
                   <td className={tdNum}>{m.douaneTauxChange ? m.douaneTauxChange.toLocaleString("fr-FR", { maximumFractionDigits: 5 }) : "—"}</td>
                   <td className={tdNum}>{montantOuTiret(m.douaneValeurTnd)}</td>
-                  <td className={tdNum}>{montantOuTiret(m.douanePtfn)}</td>
 
                   <td className={`${td} text-center`}>
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-0.5">
                       {(["achat", "vente", "douane"] as const).map((c) =>
                         docUrl(m, c) ? (
                           <button
@@ -210,7 +219,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                           e.stopPropagation();
                           onEdit(m);
                         }}
-                        className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -221,7 +230,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                           e.stopPropagation();
                           onDelete(m);
                         }}
-                        className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -231,7 +240,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
 
                 {ouvert && (
                   <tr className="border-b border-accent/20 bg-secondary/30">
-                    <td colSpan={15} className="p-0">
+                    <td colSpan={13} className="p-0">
                       <div
                         className="sticky left-0 box-border px-5 py-4"
                         style={largeurVisible ? { width: largeurVisible } : undefined}
@@ -249,7 +258,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
         <tfoot>
           <tr className="border-t-2 border-accent/40 bg-accent/[0.07] font-bold text-primary">
             <td className={cn(td, "sticky left-0 z-[1] bg-[hsl(var(--card))]")}>
-              Total · {total.mouvements} mouvement{total.mouvements > 1 ? "s" : ""}
+              <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
             </td>
             <td className={cn(tdNum, debutGroupe, total.ecart !== 0 && "text-destructive")}>{fmtQuantiteUnite(total.ecart, total.unite)}</td>
             <td className={`${td} ${debutGroupe}`} />
@@ -258,7 +267,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             <td className={`${td} ${debutGroupe}`} />
             <td className={tdNum}>{fmtQuantiteUnite(total.vente.quantite, total.unite)}</td>
             <td className={tdNum}>{total.vente.montantTnd ? `${fmtMontant(total.vente.montantTnd)} TND` : ""}</td>
-            <td className={`${td} ${debutGroupe}`} colSpan={5} />
+            <td className={`${td} ${debutGroupe}`} colSpan={3} />
             <td className={`${td} ${debutGroupe}`} />
             <td className={cn(td, "sticky right-0 z-[1] bg-[hsl(var(--card))]")} />
           </tr>

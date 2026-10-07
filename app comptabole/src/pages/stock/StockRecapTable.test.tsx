@@ -128,14 +128,16 @@ describe("tableau récapitulatif du stock", () => {
     expect(cellules.getByText("6608000533")).toBeTruthy();
     expect(cellules.getByText("GROUP BYOUT EZZ")).toBeTruthy();
     expect(cellules.getByText("202300001")).toBeTruthy();
-    expect(cellules.getByText("447898")).toBeTruthy();
+    expect(cellules.getByText("E", { selector: "td" })).toBeTruthy();
+    expect(cellules.getByText("3,2842")).toBeTruthy();
+    expect(cellules.queryByText("447898")).toBeNull();
     expect(cellules.getByText("170 778,400")).toBeTruthy();
     expect(document.getElementById("mouvement-m2")).toBeTruthy();
   });
 
   it("met l'écart en évidence et totalise dans le pied du tableau", () => {
     afficher();
-    expect(screen.getByText("Total · 2 mouvements")).toBeTruthy();
+    expect(screen.getByText("Total (2)")).toBeTruthy();
     const pied = document.querySelector("tfoot") as HTMLElement;
     expect(within(pied).getByText("1 370")).toBeTruthy();
     expect(within(pied).getByText("371 000")).toBeTruthy();

@@ -55,7 +55,9 @@ describe("souche de chèques — totaux et PDF", () => {
 });
 
 describe("souche de chèques — délai d'attente", () => {
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  // Date locale : joursDepuis compte en jours locaux, toISOString() (UTC) décalerait d'un jour après minuit.
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const ancien = new Date();
   ancien.setDate(ancien.getDate() - 45);
   const recent = new Date();

@@ -19,7 +19,10 @@ describe("Dashboard Tâches workspace", () => {
     expect(screen.queryByRole("heading", { name: "Tâches" })).toBeNull();
     expect(screen.queryByRole("searchbox")).toBeNull();
     expect(screen.queryByRole("button", { name: "Filtrer" })).toBeNull();
-    expect(container.querySelector(".dashboard-tasks-workspace")?.firstElementChild?.getAttribute("data-tour")).toBe("dashboard-task-lens");
+    // Le sélecteur Ouvertes / Terminées ouvre l'espace de travail, dans la rangée qui porte aussi le résumé.
+    const premier = container.querySelector(".dashboard-tasks-workspace")?.firstElementChild;
+    expect(premier?.classList.contains("tasks-lens-row")).toBe(true);
+    expect(premier?.querySelector('[data-tour="dashboard-task-lens"]')).not.toBeNull();
     const dossier = container.querySelector('[data-tour="dashboard-task-resume"]') as HTMLElement;
     expect(within(dossier).getByRole("heading").textContent).toBe(data.resumeTask?.titre);
     expect(within(dossier).getByRole("link", { name: "Reprendre" }).getAttribute("href")).toBe("/taches");

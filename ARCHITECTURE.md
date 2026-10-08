@@ -49,6 +49,11 @@ The backend lives in `app comptabole/server/`:
   lines (`comptes_bancaires`, `mouvements_bancaires`; debit/credit are the bank's, the "vue société"
   swaps them at display). A supplier payment is matched to one `fournisseur_reglements` row through
   `mouvement_bancaire_id`. API: `server/routes/banque.js`.
+- Imports de fichiers (lus dans le navigateur): classeur bancaire multi-feuilles
+  (`lib/banqueClasseur.ts`, `lib/classeurExcel.ts`, dialogue `ImportReleveDialog`), état fournisseurs
+  Excel (`lib/etatFournisseursClasseur.ts` + `etatFournisseursRapprochement.ts`, serveur
+  `POST /api/fournisseurs/import`, idempotent) et grand-livre Sage 461 en PDF dans la collecte
+  (`lib/collecte/grandLivre.ts`, `ImportDocumentDialog`). Les factures d'un état doivent déjà être en stock.
 - Suivi client devise invoices can be taken from stock: a `suivi_devise_factures` row with
   `mouvement_stock_id` is the sale side of a `stock_mouvements` row (client, devise and exercice
   must match); its number, date, product, supplier, quantity (kg converted to tonnes), unit price

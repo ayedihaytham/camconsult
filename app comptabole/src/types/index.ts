@@ -922,6 +922,8 @@ export interface FactureSuivi {
   numProforma: string;
   dateProforma: string | null;
   montantProforma: number;
+  /** Quantité de la proforma (tonnes), pour suivre ce qui reste à facturer. */
+  qteProforma: number;
   etatProforma: string;
   numTitre: string;
   etatChargement: string;
@@ -1011,6 +1013,8 @@ export interface MouvementBancaire {
   debit: number;
   credit: number;
   type: TypeMouvementBancaire;
+  /** Cours d'une opération de change (TND pour 1 unité de devise), lu dans le libellé ou la pièce. */
+  cours: number | null;
   /** Règlement fournisseur rapproché de ce mouvement. */
   reglementId: string | null;
   fournisseurCle: string | null;

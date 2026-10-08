@@ -18,7 +18,7 @@ interface Props {
   onSubmit: (data: MouvementInput) => Promise<void>;
 }
 
-const vide: MouvementInput = { dateOp: "", dateValeur: null, libelle: "", details: "", reference: "", numPiece: "", debit: 0, credit: 0, type: "autre" };
+const vide: MouvementInput = { dateOp: "", dateValeur: null, libelle: "", details: "", reference: "", numPiece: "", debit: 0, credit: 0, type: "autre", cours: null };
 
 /** Mouvement d'un compte. Le sens (sortie ou entrée) est celui de la banque : débit = sortie du compte. */
 export function MouvementDialog({ open, onOpenChange, mouvement, devise, onSubmit }: Props) {
@@ -122,6 +122,18 @@ export function MouvementDialog({ open, onOpenChange, mouvement, devise, onSubmi
             <Label htmlFor="mb-montant">Montant ({devise})</Label>
             <AmountInput id="mb-montant" value={montant} allowNegative={false} onValueChange={setMontant} />
           </div>
+          {v.type === "change" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="mb-cours">Cours de change (TND)</Label>
+              <AmountInput
+                id="mb-cours"
+                decimals={5}
+                allowNegative={false}
+                value={v.cours ?? 0}
+                onValueChange={(c) => set("cours", c > 0 ? c : null)}
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -144,6 +156,7 @@ export function MouvementDialog({ open, onOpenChange, mouvement, devise, onSubmi
                   debit: sens === "debit" ? montant : 0,
                   credit: sens === "credit" ? montant : 0,
                   type: v.type,
+                  cours: v.type === "change" && v.cours ? v.cours : null,
                 });
                 onOpenChange(false);
               } catch {

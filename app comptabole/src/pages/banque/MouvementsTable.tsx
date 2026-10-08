@@ -76,6 +76,11 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                 <td className={cn(td, "min-w-[16rem]")}>
                   <span className="block font-medium text-foreground">{m.libelle || "—"}</span>
                   {m.details && <span className="block text-[0.7rem] text-muted-foreground">{m.details}</span>}
+                  {m.cours && (
+                    <span className="block text-[0.7rem] font-medium text-primary">
+                      Cours {m.cours.toLocaleString("fr-FR", { maximumFractionDigits: 5 })}
+                    </span>
+                  )}
                 </td>
                 <td className={cn(td, "whitespace-nowrap")}>{m.reference || "—"}</td>
                 <td className={cn(td, "whitespace-nowrap font-mono text-[0.7rem]", suite && "text-muted-foreground")}>

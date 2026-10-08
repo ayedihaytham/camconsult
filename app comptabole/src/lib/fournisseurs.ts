@@ -12,6 +12,8 @@ export interface ReglementPrefill {
   reference: string;
   banque: string;
   devise: string;
+  /** Cours de la dernière opération de change du compte avant ce paiement (TND pour 1 unité de devise). */
+  cours?: number;
 }
 
 export const MODE_LABELS: Record<ModeReglement, string> = {
@@ -148,4 +150,53 @@ export function anomalieReglement(r: ReglementFournisseur, factures: FactureFour
     .filter((d): d is string => Boolean(d));
   if (r.date && dates.some((d) => d > r.date!)) return "Règlement daté avant une de ses factures";
   return null;
+}
+
+export type StatutProforma = "cloturee" | "ouverte" | "depassee" | "sans-quantite";
+
+export interface ProformaSuivie {
+  fournisseurCle: string;
+  num: string;
+  date: string | null;
+  /** Quantité de la proforma, saisie sur l'une de ses factures. */
+  qte: number;
+  montant: number;
+  /** État saisi (« CLOT »…). */
+  etat: string;
+  nbFactures: number;
+  /** Quantité déjà facturée : somme des quantités des factures d'achat de cette proforma. */
+  facturee: number;
+  reste: number;
+  statut: StatutProforma;
+}
+
+/** Une proforma regroupe plusieurs factures d'achat (même n°, même fournisseur) jusqu'à ce que leurs quantités atteignent la sienne. */
+export function proformas(factures: FactureFournisseur[]): ProformaSuivie[] {
+  const groupes = new Map<string, FactureFournisseur[]>();
+  for (const f of factures) {
+    const num = f.suivi.numProforma.trim();
+    if (!num) continue;
+    const k = `${f.fournisseurCle}|${num.toLowerCase()}`;
+    groupes.set(k, [...(groupes.get(k) ?? []), f]);
+  }
+  return [...groupes.values()]
+    .map((fs) => {
+      const qte = fs.map((f) => f.suivi.qteProforma).find((q) => q > 0) ?? 0;
+      const facturee = r3(fs.reduce((s, f) => s + f.quantite, 0));
+      const reste = r3(qte - facturee);
+      const statut: StatutProforma = qte <= 0 ? "sans-quantite" : Math.abs(reste) <= 0.5 ? "cloturee" : reste < 0 ? "depassee" : "ouverte";
+      return {
+        fournisseurCle: fs[0].fournisseurCle,
+        num: fs[0].suivi.numProforma.trim(),
+        date: fs.map((f) => f.suivi.dateProforma).find(Boolean) ?? null,
+        qte,
+        montant: fs.map((f) => f.suivi.montantProforma).find((m) => m > 0) ?? 0,
+        etat: fs.map((f) => f.suivi.etatProforma).find(Boolean) ?? "",
+        nbFactures: fs.length,
+        facturee,
+        reste,
+        statut,
+      };
+    })
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || a.num.localeCompare(b.num, "fr", { numeric: true }));
 }

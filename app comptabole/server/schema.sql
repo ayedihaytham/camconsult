@@ -1021,11 +1021,13 @@ create table if not exists fournisseur_affectations (
 create index if not exists fournisseur_affectations_mouvement_idx on fournisseur_affectations(mouvement_id);
 
 -- Informations de suivi d'une facture d'achat (proforma, titre, chargement).
+-- qte_proforma : quantité de la proforma (tonnes), pour suivre ce qui reste à facturer.
 create table if not exists fournisseur_suivi (
   mouvement_id     uuid primary key references stock_mouvements(id) on delete cascade,
   num_proforma     text not null default '',
   date_proforma    date,
   montant_proforma numeric not null default 0,
+  qte_proforma     numeric not null default 0,
   etat_proforma    text not null default '',
   num_titre        text not null default '',
   etat_chargement  text not null default '',
@@ -1069,6 +1071,9 @@ create table if not exists mouvements_bancaires (
 );
 create index if not exists mouvements_bancaires_compte_idx on mouvements_bancaires(compte_id, date_op, ordre);
 
+-- Cours d'une opération de change (TND pour 1 unité de devise), lu dans le libellé ou le n° de pièce.
+alter table mouvements_bancaires add column if not exists cours numeric;
+
 -- Rapprochement : un règlement fournisseur correspond à un seul mouvement bancaire.
 alter table fournisseur_reglements add column if not exists mouvement_bancaire_id uuid references mouvements_bancaires(id) on delete set null;
 create unique index if not exists fournisseur_reglements_mouvement_idx on fournisseur_reglements(mouvement_bancaire_id) where mouvement_bancaire_id is not null;
@@ -1078,3 +1083,5 @@ create unique index if not exists fournisseur_reglements_mouvement_idx on fourni
 update collecte_lignes
    set data = (data - 'montant_bordereau') || jsonb_build_object('montant_cheque', data -> 'montant_bordereau')
  where onglet = 'bordereaux_remise_cheques' and data ? 'montant_bordereau' and not (data ? 'montant_cheque');
+
+alter table fournisseur_suivi add column if not exists qte_proforma numeric not null default 0;

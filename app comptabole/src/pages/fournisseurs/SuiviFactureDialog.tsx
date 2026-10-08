@@ -45,6 +45,10 @@ export function SuiviFactureDialog({ facture, onOpenChange, onSubmit }: Props) {
               <AmountInput id="sv-mpro" value={v.montantProforma} allowNegative={false} onValueChange={(m) => set("montantProforma", m)} />
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="sv-qpro">Quantité proforma (T)</Label>
+              <AmountInput id="sv-qpro" value={v.qteProforma} allowNegative={false} onValueChange={(m) => set("qteProforma", m)} />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="sv-epro">État proforma</Label>
               <Input id="sv-epro" value={v.etatProforma} onChange={(e) => set("etatProforma", e.target.value)} placeholder="Ex. CLOT" />
             </div>

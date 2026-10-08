@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anomalieReglement, calculerRs, lignesEtat, recapFournisseurs, soldesFactures } from "./fournisseurs";
+import { anomalieReglement, calculerRs, lignesEtat, proformas, recapFournisseurs, soldesFactures } from "./fournisseurs";
 import type { FactureFournisseur, ReglementFournisseur } from "@/types";
 
 const facture = (id: string, montant: number, patch: Partial<FactureFournisseur> = {}): FactureFournisseur => ({
@@ -17,7 +17,7 @@ const facture = (id: string, montant: number, patch: Partial<FactureFournisseur>
   montantTnd: montant,
   venteNumFacture: "",
   douaneNumDeclaration: "",
-  suivi: { numProforma: "", dateProforma: null, montantProforma: 0, etatProforma: "", numTitre: "", etatChargement: "", vuPasse: "" },
+  suivi: { numProforma: "", dateProforma: null, montantProforma: 0, qteProforma: 0, etatProforma: "", numTitre: "", etatChargement: "", vuPasse: "" },
   ...patch,
 });
 
@@ -112,5 +112,29 @@ describe("anomalies", () => {
     const f = facture("1", 100, { date: "2025-05-25" });
     expect(anomalieReglement(reglement("r", [["1", 100]], { date: "2025-05-20" }), [f])).toMatch(/avant/);
     expect(anomalieReglement(reglement("r", [["1", 100]], { date: "2025-06-01" }), [f])).toBeNull();
+  });
+});
+
+describe("suivi des proformas", () => {
+  const avecProforma = (id: string, quantite: number, patch: Partial<FactureFournisseur["suivi"]>) =>
+    facture(id, 1000, { quantite, suivi: { ...facture(id, 1).suivi, numProforma: "3200001323", qteProforma: 0, ...patch } });
+
+  it("compare la quantité de la proforma à celle de ses factures : en cours, puis clôturée", () => {
+    const fs = [avecProforma("1", 225, { qteProforma: 900, etatProforma: "CLOT", montantProforma: 182217.6 }), avecProforma("2", 240, {}), avecProforma("3", 189, {})];
+    expect(proformas(fs)).toEqual([expect.objectContaining({ num: "3200001323", qte: 900, facturee: 654, reste: 246, statut: "ouverte", nbFactures: 3, montant: 182217.6, etat: "CLOT" })]);
+    const completes = [...fs, avecProforma("4", 246, {})];
+    expect(proformas(completes)[0]).toMatchObject({ facturee: 900, reste: 0, statut: "cloturee" });
+  });
+
+  it("signale une proforma dépassée, ou sans quantité saisie", () => {
+    expect(proformas([avecProforma("1", 1000, { qteProforma: 900 })])[0]).toMatchObject({ reste: -100, statut: "depassee" });
+    expect(proformas([avecProforma("1", 100, {})])[0]).toMatchObject({ qte: 0, statut: "sans-quantite" });
+  });
+
+  it("sépare les proformas de même numéro chez deux fournisseurs, et ignore les factures sans proforma", () => {
+    const a = avecProforma("1", 10, { qteProforma: 10 });
+    const b = { ...avecProforma("2", 10, { qteProforma: 10 }), fournisseurCle: "autre" };
+    const sans = facture("3", 5);
+    expect(proformas([a, b, sans])).toHaveLength(2);
   });
 });

@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   classerMouvement,
+  coursAvant,
   controleSolde,
   dateFlexible,
   facturesCitees,
   fournisseurCite,
-  lignesVersMouvements,
   moisDesMouvements,
   numerosDansLibelle,
   soldesCourants,
 } from "./banque";
+import { lignesVersMouvements } from "./banqueClasseur";
 import type { CompteBancaire, MouvementBancaire } from "@/types";
 
 const compte: CompteBancaire = { id: "c", banque: "BTL", devise: "EUR", numero: "", soldeDepart: 213.5, dateDepart: "2026-07-31", soldeReel: null, dateReel: null };
 const mvt = (id: string, debit: number, credit: number, dateOp = "2026-08-03"): MouvementBancaire => ({
   id, compteId: "c", dateOp, dateValeur: null, libelle: "", details: "", reference: "", numPiece: "", debit, credit,
-  type: "autre", reglementId: null, fournisseurCle: null,
+  type: "autre", cours: null, reglementId: null, fournisseurCle: null,
 });
 
 describe("classement des mouvements", () => {
@@ -129,11 +130,27 @@ describe("import d'un relevé", () => {
     ]);
     expect(r?.mouvements).toHaveLength(2);
     expect(r?.mouvements[0]).toMatchObject({ reference: "VTE 05-2026", numPiece: "TF260764909717\TN1", debit: 0, credit: 34045, type: "encaissement_client" });
-    expect(r?.mouvements[1]).toMatchObject({ numPiece: "LD2620521717", debit: 20250, credit: 0, type: "paiement_fournisseur" });
+    // Une pièce « LD… » est une opération de crédit (remboursement de l'avance sur LC), pas un paiement de fournisseur.
+    expect(r?.mouvements[1]).toMatchObject({ numPiece: "LD2620521717", debit: 20250, credit: 0, type: "credit" });
     expect(r?.ignorees).toBe(1);
   });
 
   it("refuse un tableau sans en-tête de relevé", () => {
     expect(lignesVersMouvements([["a", "b"], ["1", "2"]])).toBeNull();
+  });
+});
+
+describe("cours de change proposé pour un règlement en devise", () => {
+  const change = (dateOp: string, cours: number | null, type: MouvementBancaire["type"] = "change") => ({ ...mvt("x", 0, 100, dateOp), type, cours });
+
+  it("prend le cours de la dernière opération de change qui précède le paiement", () => {
+    const l = [change("2026-04-03", 3.38), change("2026-04-15", 3.399), change("2026-04-27", 3.372)];
+    expect(coursAvant(l, "2026-04-20")).toBe(3.399);
+    expect(coursAvant(l, "2026-04-27")).toBe(3.372);
+    expect(coursAvant(l, "2026-04-02")).toBeUndefined();
+  });
+
+  it("ignore ce qui n'est pas un change ou n'a pas de cours", () => {
+    expect(coursAvant([change("2026-04-03", 3.38, "frais"), change("2026-04-04", null)], "2026-04-30")).toBeUndefined();
   });
 });

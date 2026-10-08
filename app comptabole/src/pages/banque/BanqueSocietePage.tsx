@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteById } from "@/store/data";
 import { useBanque, type CompteInput, type MouvementInput } from "@/store/banque";
-import { controleSolde, moisDesMouvements, soldesCourants, totaux } from "@/lib/banque";
+import { controleSolde, coursAvant, moisDesMouvements, soldesCourants, totaux } from "@/lib/banque";
 import { exporterCompte } from "@/lib/banqueExport";
 import { fmtMontant } from "@/lib/stockRecap";
 import { cn } from "@/lib/utils";
@@ -96,6 +96,8 @@ export function BanqueSocietePage() {
 
   /** Ouvre le suivi fournisseur avec un règlement prérempli d'après ce paiement bancaire. */
   function rapprocher(m: MouvementBancaire) {
+    // Cours de la dernière opération de change de la société avant ce paiement : proposé pour un règlement en devise.
+    const cours = coursAvant(tous, m.dateOp);
     navigate(`/fournisseurs/${societeId}`, {
       state: {
         prefill: {
@@ -106,6 +108,7 @@ export function BanqueSocietePage() {
           reference: m.details || m.numPiece,
           banque: compte?.banque ?? "",
           devise: compte?.devise ?? "TND",
+          ...(cours ? { cours } : {}),
         },
       },
     });
@@ -283,9 +286,14 @@ export function BanqueSocietePage() {
             onOpenChange={setImportOuvert}
             devise={compte.devise}
             proposerSoldeDepart={mouvements.length === 0}
-            onImport={async (liste, soldeOuverture) => {
-              if (soldeOuverture) {
-                await updateCompte(compte.id, { ...compte, soldeDepart: soldeOuverture.montant, dateDepart: soldeOuverture.date });
+            onImport={async (liste, maj) => {
+              // Solde de départ et solde réel du relevé : mis à jour avec le compte, avant l'import des mouvements.
+              if ((maj.ouverture && maj.ouverture.date) || maj.soldeReel) {
+                await updateCompte(compte.id, {
+                  ...compte,
+                  ...(maj.ouverture?.date ? { soldeDepart: maj.ouverture.montant, dateDepart: maj.ouverture.date } : {}),
+                  ...(maj.soldeReel ? { soldeReel: maj.soldeReel.montant, dateReel: maj.soldeReel.date } : {}),
+                });
               }
               const { importes, ignores } = await importMouvements(compte.id, liste);
               toast.success(`${importes} mouvement${importes > 1 ? "s" : ""} importé${importes > 1 ? "s" : ""}${ignores ? ` · ${ignores} déjà présent${ignores > 1 ? "s" : ""}` : ""}`);

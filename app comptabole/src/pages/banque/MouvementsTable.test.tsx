@@ -9,7 +9,7 @@ import { MouvementsTable } from "./MouvementsTable";
 const compte: CompteBancaire = { id: "c", banque: "BTL", devise: "EUR", numero: "", soldeDepart: 100, dateDepart: "2026-07-31", soldeReel: null, dateReel: null };
 const mvt = (patch: Partial<MouvementBancaire>): MouvementBancaire => ({
   id: "m", compteId: "c", dateOp: "2026-08-06", dateValeur: "2026-08-06", libelle: "", details: "", reference: "", numPiece: "",
-  debit: 0, credit: 0, type: "autre", reglementId: null, fournisseurCle: null, ...patch,
+  debit: 0, credit: 0, type: "autre", cours: null, reglementId: null, fournisseurCle: null, ...patch,
 });
 
 const liste = [

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
+import { FileUp, LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { CollecteLigne } from "@/types";
 import { cellNumber, repartitionGroupes, type TabDef, type TabRow } from "@/lib/collecte/tabs";
+import { TABLEAUX_GRAND_LIVRE } from "@/lib/collecte/grandLivre";
+import { ImportDocumentDialog } from "./ImportDocumentDialog";
 
 interface Props {
   def: TabDef;
@@ -166,6 +168,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setSaveError(false);
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   }
+  const [importOpen, setImportOpen] = useState(false);
   const [envoi, setEnvoi] = useState<string | null>(null);
   async function joindre(i: number, key: string, file: File) {
     if (!onJoindre) return;
@@ -178,6 +181,14 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     } finally {
       setEnvoi(null);
     }
+  }
+  /** Ajoute à la suite les lignes d'un document importé ; les lignes restées vides sont remplacées. */
+  function addRows(nouvelles: TabRow[]) {
+    if (nouvelles.length === 0) return;
+    setSaved(false);
+    setSaveError(false);
+    const vide = Object.fromEntries(def.columns.map((c) => [c.key, ""]));
+    setRows((courantes) => [...courantes.filter((r) => !ligneVide(def, r)), ...nouvelles.map((r) => ({ ...vide, ...r }))]);
   }
   function removeRow(i: number) {
     setSaved(false);
@@ -576,19 +587,22 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
       {!readOnly && (
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          {structureLocked ? (
-            <span />
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="min-h-11 lg:min-h-8"
-              onClick={() => addRow()}
-            >
-              <Plus className="h-4 w-4" />
-              Ajouter une ligne
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {structureLocked ? (
+              <span />
+            ) : (
+              <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow()}>
+                <Plus className="h-4 w-4" />
+                Ajouter une ligne
+              </Button>
+            )}
+            {!structureLocked && TABLEAUX_GRAND_LIVRE[def.key] && (
+              <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => setImportOpen(true)}>
+                <FileUp className="h-4 w-4" />
+                Importer un document
+              </Button>
+            )}
+          </div>
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:justify-end">
             {dirty && (
               <span role="status" className="w-full text-xs font-medium text-warning lg:w-auto">
@@ -624,6 +638,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </div>
       )}
 
+      {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
+        <ImportDocumentDialog open={importOpen} onOpenChange={setImportOpen} def={def} devise={devise} onAjouter={addRows} />
+      )}
     </div>
   );
 });

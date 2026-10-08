@@ -20,7 +20,7 @@ const facture = (id: string, num: string, montant: number): FactureFournisseur =
   montantTnd: montant,
   venteNumFacture: "2026001",
   douaneNumDeclaration: "405821",
-  suivi: { numProforma: "", dateProforma: null, montantProforma: 0, etatProforma: "", numTitre: "", etatChargement: "CHARGEE", vuPasse: "OUI" },
+  suivi: { numProforma: "", dateProforma: null, montantProforma: 0, qteProforma: 0, etatProforma: "", numTitre: "", etatChargement: "CHARGEE", vuPasse: "OUI" },
 });
 
 const factures = [facture("1", "902032379", 20077.68), facture("2", "902032392", 27163.92), facture("3", "902032385", 500)];

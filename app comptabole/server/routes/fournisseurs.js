@@ -45,7 +45,7 @@ async function etat(societeId) {
             coalesce(sum(l.montant_devise), 0) as montant,
             coalesce(sum(l.montant_tnd), 0) as montant_tnd,
             string_agg(l.designation, ' / ' order by l.ordre) filter (where l.designation <> '') as designation,
-            s.num_proforma, s.date_proforma, s.montant_proforma, s.etat_proforma, s.num_titre, s.etat_chargement, s.vu_passe
+            s.num_proforma, s.date_proforma, s.montant_proforma, s.qte_proforma, s.etat_proforma, s.num_titre, s.etat_chargement, s.vu_passe
        from stock_mouvements m
        left join stock_lignes l on l.mouvement_id = m.id and l.categorie = 'achat'
        left join fournisseur_suivi s on s.mouvement_id = m.id
@@ -87,6 +87,7 @@ async function etat(societeId) {
           numProforma: m.num_proforma || "",
           dateProforma: jour(m.date_proforma),
           montantProforma: Number(m.montant_proforma || 0),
+          qteProforma: Number(m.qte_proforma || 0),
           etatProforma: m.etat_proforma || "",
           numTitre: m.num_titre || "",
           etatChargement: m.etat_chargement || "",
@@ -245,6 +246,7 @@ const suiviSchema = z.object({
   numProforma: z.string().default(""),
   dateProforma: z.string().nullish(),
   montantProforma: num,
+  qteProforma: num,
   etatProforma: z.string().default(""),
   numTitre: z.string().default(""),
   etatChargement: z.string().default(""),
@@ -259,12 +261,124 @@ fournisseursRouter.put("/suivi/:mouvementId", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "Données invalides" });
   const v = parsed.data;
   await query(
-    `insert into fournisseur_suivi (mouvement_id, num_proforma, date_proforma, montant_proforma, etat_proforma, num_titre, etat_chargement, vu_passe)
-     values ($1,$2,$3,$4,$5,$6,$7,$8)
-     on conflict (mouvement_id) do update set num_proforma=$2, date_proforma=$3, montant_proforma=$4, etat_proforma=$5,
+    `insert into fournisseur_suivi (mouvement_id, num_proforma, date_proforma, montant_proforma, qte_proforma, etat_proforma, num_titre, etat_chargement, vu_passe)
+     values ($1,$2,$3,$4,$9,$5,$6,$7,$8)
+     on conflict (mouvement_id) do update set num_proforma=$2, date_proforma=$3, montant_proforma=$4, qte_proforma=$9, etat_proforma=$5,
        num_titre=$6, etat_chargement=$7, vu_passe=$8`,
-    [req.params.mouvementId, v.numProforma, v.dateProforma || null, v.montantProforma, v.etatProforma, v.numTitre, v.etatChargement, v.vuPasse],
+    [req.params.mouvementId, v.numProforma, v.dateProforma || null, v.montantProforma, v.etatProforma, v.numTitre, v.etatChargement, v.vuPasse, v.qteProforma],
   );
   logAction(req.session.nom, "modification", "suivi fournisseur", `Suivi facture ${rows[0].achat_num_facture || ""}`);
   res.json(await etat(rows[0].societe_id));
+});
+
+// ── Import d'un état fournisseur Excel : règlements et suivi de proforma, rapprochés des factures d'achat du stock ──
+const importSchema = z.object({
+  societeId: z.string().uuid(),
+  suivis: z
+    .array(
+      z.object({
+        mouvementId: z.string().uuid(),
+        numProforma: z.string().default(""),
+        dateProforma: z.string().nullish(),
+        montantProforma: num,
+        qteProforma: num,
+        etatProforma: z.string().default(""),
+        numTitre: z.string().default(""),
+        etatChargement: z.string().default(""),
+        vuPasse: z.string().default(""),
+      }),
+    )
+    .max(5000)
+    .default([]),
+  reglements: z
+    .array(
+      z.object({
+        fournisseurCle: z.string().min(1),
+        dateReglement: z.string().nullish(),
+        mode: z.enum(MODES).default("virement"),
+        reference: z.string().default(""),
+        banque: z.string().default(""),
+        devise: z.string().default("TND"),
+        rsNumero: z.string().default(""),
+        rsTaux: num,
+        rsMontant: z.coerce.number().min(0).default(0),
+        note: z.string().default(""),
+        affectations: z.array(z.object({ mouvementId: z.string().uuid(), montant: z.coerce.number().positive() })).min(1),
+      }),
+    )
+    .max(2000)
+    .default([]),
+});
+
+fournisseursRouter.post("/import", async (req, res) => {
+  const parsed = importSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Données invalides" });
+  const { societeId, suivis, reglements } = parsed.data;
+  if (!canWrite(req.session, societeId)) return res.status(403).json({ error: "Accès non autorisé" });
+
+  // Suivi : seules les valeurs renseignées dans le classeur remplacent celles de l'application.
+  let suivisMaj = 0;
+  if (suivis.length > 0) {
+    const ids = suivis.map((s) => s.mouvementId);
+    const { rows } = await query("select id from stock_mouvements where societe_id = $1 and id = any($2::uuid[])", [societeId, ids]);
+    const permis = new Set(rows.map((r) => r.id));
+    await withTransaction(async (client) => {
+      for (const s of suivis) {
+        if (!permis.has(s.mouvementId)) continue;
+        await client.query(
+          `insert into fournisseur_suivi (mouvement_id, num_proforma, date_proforma, montant_proforma, qte_proforma, etat_proforma, num_titre, etat_chargement, vu_passe)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+           on conflict (mouvement_id) do update set
+             num_proforma = coalesce(nullif($2, ''), fournisseur_suivi.num_proforma),
+             date_proforma = coalesce($3, fournisseur_suivi.date_proforma),
+             montant_proforma = case when $4 > 0 then $4 else fournisseur_suivi.montant_proforma end,
+             qte_proforma = case when $5 > 0 then $5 else fournisseur_suivi.qte_proforma end,
+             etat_proforma = coalesce(nullif($6, ''), fournisseur_suivi.etat_proforma),
+             num_titre = coalesce(nullif($7, ''), fournisseur_suivi.num_titre),
+             etat_chargement = coalesce(nullif($8, ''), fournisseur_suivi.etat_chargement),
+             vu_passe = coalesce(nullif($9, ''), fournisseur_suivi.vu_passe)`,
+          [s.mouvementId, s.numProforma, s.dateProforma || null, s.montantProforma, s.qteProforma, s.etatProforma, s.numTitre, s.etatChargement, s.vuPasse],
+        );
+        suivisMaj++;
+      }
+    });
+  }
+
+  // Règlements : chacun dans sa transaction, pour que l'un refusé n'empêche pas les autres. Un règlement déjà présent
+  // (même fournisseur, date, mode, référence, n° de RS et montant) n'est pas recréé : l'import peut être relancé.
+  let crees = 0;
+  let ignores = 0;
+  const refuses = [];
+  for (const [i, r] of reglements.entries()) {
+    const brut = r3(r.affectations.reduce((s, a) => s + a.montant, 0));
+    const v = { ...r, societeId, cours: 0, dateReglement: r.dateReglement || null, mouvementBancaireId: null };
+    v.rsMontant = Math.min(v.rsMontant, brut);
+    const { rows: deja } = await query(
+      `select r.id from fournisseur_reglements r
+        where r.societe_id = $1 and r.fournisseur_cle = $2 and r.date_reglement is not distinct from $3 and r.mode = $4
+          and r.reference = $5 and r.rs_numero = $6
+          and abs(coalesce((select sum(a.montant) from fournisseur_affectations a where a.reglement_id = r.id), 0) - $7) < 0.002`,
+      [societeId, r.fournisseurCle, v.dateReglement, r.mode, r.reference, r.rsNumero, brut],
+    );
+    if (deja.length > 0) {
+      ignores++;
+      continue;
+    }
+    try {
+      const erreur = await withTransaction(async (client) => {
+        const e = await verifier(client, v, null);
+        if (e) return e;
+        const { rows } = await client.query("insert into fournisseur_reglements (societe_id, fournisseur_cle) values ($1,$2) returning id", [societeId, r.fournisseurCle]);
+        await ecrire(client, rows[0].id, v);
+        return null;
+      });
+      if (erreur) refuses.push({ index: i, raison: erreur });
+      else crees++;
+    } catch (err) {
+      refuses.push({ index: i, raison: "Erreur lors de l'enregistrement" });
+      console.error("[fournisseurs] import", err);
+    }
+  }
+  logAction(req.session.nom, "creation", "suivi fournisseur", `Import d'un état : ${crees} règlement(s), ${suivisMaj} suivi(s)`);
+  res.json({ ...(await etat(societeId)), crees, ignores, refuses, suivisMaj });
 });

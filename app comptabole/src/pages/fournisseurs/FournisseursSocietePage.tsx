@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, Download, Plus, Truck } from "lucide-react";
+import { AlertTriangle, Download, FileUp, Plus, Truck } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteById } from "@/store/data";
 import { useFournisseurs, type ReglementInput } from "@/store/fournisseurs";
-import { lignesEtat, recapFournisseurs, soldesFactures, type ReglementPrefill } from "@/lib/fournisseurs";
+import { lignesEtat, proformas as proformasDe, recapFournisseurs, soldesFactures, type ReglementPrefill } from "@/lib/fournisseurs";
 import { fournisseurCite } from "@/lib/banque";
 import { doublonsFactures } from "@/lib/facturesDoublons";
 import { exporterEtatFournisseur } from "@/lib/fournisseursExport";
@@ -18,6 +18,8 @@ import type { FactureFournisseur, ReglementFournisseur } from "@/types";
 import { FournisseurEtatTable } from "./FournisseurEtatTable";
 import { ReglementFormSheet } from "./ReglementFormSheet";
 import { SuiviFactureDialog } from "./SuiviFactureDialog";
+import { ImportEtatFournisseursDialog } from "./ImportEtatFournisseursDialog";
+import { ProformasCard } from "./ProformasCard";
 
 const th = "px-3 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground";
 const thNum = `${th} text-right`;
@@ -49,12 +51,14 @@ export function FournisseursSocietePage() {
   const updateReglement = useFournisseurs((s) => s.updateReglement);
   const removeReglement = useFournisseurs((s) => s.removeReglement);
   const saveSuivi = useFournisseurs((s) => s.saveSuivi);
+  const importerEtat = useFournisseurs((s) => s.importerEtat);
 
   const [choisi, setChoisi] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ReglementFournisseur | null>(null);
   const [toDelete, setToDelete] = useState<ReglementFournisseur | null>(null);
   const [suivi, setSuivi] = useState<FactureFournisseur | null>(null);
+  const [importOuvert, setImportOuvert] = useState(false);
   // Paiement bancaire à rapprocher, arrivé du suivi bancaire (« Créer le règlement »).
   const navigate = useNavigate();
   const location = useLocation();
@@ -93,6 +97,7 @@ export function FournisseursSocietePage() {
     () => new Set(doublonsFactures(factures.map((f) => ({ id: f.id, numero: f.numFacture, tiers: f.fournisseurCle }))).keys()),
     [factures],
   );
+  const proformasActif = useMemo(() => proformasDe(facturesActif), [facturesActif]);
   const doublonsActif = facturesActif.filter((f) => doublons.has(f.id));
 
   const nbImpayees = factures.filter((f) => soldes.get(f.id)?.statut !== "reglee").length;
@@ -130,13 +135,21 @@ export function FournisseursSocietePage() {
             })),
           ]}
           actions={
-            actif && (
+            (actif || !lectureSeule) && (
               <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" className="signature-ledger__action" onClick={() => void exporterEtatFournisseur(actif.nom, lignes)}>
-                  <Download className="h-4 w-4" />
-                  Excel
-                </Button>
                 {!lectureSeule && (
+                  <Button variant="outline" className="signature-ledger__action" onClick={() => setImportOuvert(true)}>
+                    <FileUp className="h-4 w-4" />
+                    Importer un état
+                  </Button>
+                )}
+                {actif && (
+                  <Button variant="outline" className="signature-ledger__action" onClick={() => void exporterEtatFournisseur(actif.nom, lignes)}>
+                    <Download className="h-4 w-4" />
+                    Excel
+                  </Button>
+                )}
+                {actif && !lectureSeule && (
                   <Button
                     variant="ledger"
                     onClick={() => {
@@ -247,6 +260,7 @@ export function FournisseursSocietePage() {
             onDeleteReglement={setToDelete}
             onSuivi={setSuivi}
           />
+          <ProformasCard proformas={proformasActif} />
         </div>
       )}
 
@@ -270,6 +284,14 @@ export function FournisseursSocietePage() {
           onSubmit={handleSubmit}
         />
       )}
+
+      <ImportEtatFournisseursDialog
+        open={importOuvert}
+        onOpenChange={setImportOuvert}
+        societeId={societeId}
+        factures={factures}
+        onImporter={importerEtat}
+      />
 
       <SuiviFactureDialog
         facture={suivi}

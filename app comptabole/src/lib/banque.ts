@@ -12,21 +12,31 @@ export const TYPE_LABELS: Record<TypeMouvementBancaire, string> = {
   autre: "Autre",
 };
 
-const normaliser = (s: string) =>
+export const normaliser = (s: string) =>
   s
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toUpperCase();
 
-/** Type d'un mouvement d'après son libellé et son sens (débit = sortie du compte, crédit = entrée). */
-export function classerMouvement(libelle: string, debit: number, credit: number): TypeMouvementBancaire {
+/** Type d'un mouvement d'après son libellé, son sens (débit = sortie du compte, crédit = entrée) et son n° de pièce.
+ * Le préfixe de la pièce renseigne la banque : LD… = opération de crédit, CHG… = frais, « COURS 3.38 » = change. */
+export function classerMouvement(libelle: string, debit: number, credit: number, piece = ""): TypeMouvementBancaire {
   const l = normaliser(libelle);
-  if (/\bINTERETS?\b|DEBLOCAGE|REMBOURSEMENT (DE )?CREDIT|ECHEANCE/.test(l)) return "credit";
-  if (/\bTVA\b|COMMISSION|\bCOMM\b|FRAIS|AGIOS|TENUE DE COMPTE/.test(l)) return "frais";
-  if (/CHANGE|ACHAT DEVISE|VENTE DEVISE/.test(l)) return "change";
+  const p = normaliser(piece).trim();
+  if (/\bINTERETS?\b|DEBLOCAGE|DECAISSEMENT|REMBOURSEMENT (DE )?CREDIT|ECHEANCE/.test(l)) return "credit";
+  if (/\bTVA\b|COMMISSION|\bCOMM\b|FRAIS|AGIOS|TENUE DE COMPTE/.test(l) || /^CHG/.test(p)) return "frais";
+  if (/CHANGE|ACHAT DEVISE|VENTE DEVISE|CESSION/.test(l) || /^COURS\b/.test(p)) return "change";
+  if (/^LD\d/.test(p)) return "credit";
   if (credit > 0 && debit === 0) return "encaissement_client";
   if (debit > 0 && /LC PAYMENT|REGLEMENT|CERTIFICATION CHEQ|PAIEMENT FACTURE/.test(l)) return "paiement_fournisseur";
   return "autre";
+}
+
+/** Cours de la dernière opération de change qui précède (ou date) un paiement : proposé pour régler une facture en devise. */
+export function coursAvant(mouvements: Pick<MouvementBancaire, "type" | "cours" | "dateOp">[], date: string): number | undefined {
+  return mouvements
+    .filter((m) => m.type === "change" && m.cours && m.dateOp <= date)
+    .sort((a, b) => b.dateOp.localeCompare(a.dateOp))[0]?.cours ?? undefined;
 }
 
 /** Numéros de plus de 3 chiffres cités dans un libellé (« FAC N 263500 », « FACTURE N°2026061 »). */
@@ -96,7 +106,7 @@ export const moisDesMouvements = (mouvements: MouvementBancaire[]) =>
 
 export type MouvementImport = Pick<
   MouvementBancaire,
-  "dateOp" | "dateValeur" | "libelle" | "details" | "reference" | "numPiece" | "debit" | "credit" | "type"
+  "dateOp" | "dateValeur" | "libelle" | "details" | "reference" | "numPiece" | "debit" | "credit" | "type" | "cours"
 >;
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -121,85 +131,11 @@ export function dateFlexible(v: unknown): string | null {
   return `${annee}-${pad(mois)}-${pad(jour)}`;
 }
 
-function montantCellule(v: unknown): number {
+export function montantCellule(v: unknown): number {
   if (typeof v === "number") return Math.abs(r3(v));
   if (typeof v !== "string") return 0;
   const n = convertirNombre(v.replace(/\s*(TND|DT|EUR|USD)\s*$/i, ""));
   return n === null ? 0 : Math.abs(r3(n));
 }
 
-const texte = (v: unknown) => (v == null ? "" : typeof v === "string" ? v.trim() : String(v));
-
-type Colonne = "dateOp" | "dateValeur" | "libelle" | "details" | "reference" | "numPiece" | "debit" | "credit";
-const COLONNES: [Colonne, RegExp][] = [
-  ["dateValeur", /valeur|value/],
-  ["dateOp", /^date( op(eration)?)?$/],
-  ["libelle", /libell|description|designation/],
-  ["details", /^details?$/],
-  ["reference", /^ref/],
-  ["numPiece", /piece/],
-  ["debit", /debit/],
-  ["credit", /credit/],
-];
-
-/** Mouvements bancaires d'un tableau de cellules (relevé PDF converti, ou feuille Excel du cabinet) :
- * l'en-tête (Date, Libellé, Date de valeur, Débit, Crédit…) est cherché dans les premières lignes ; quand
- * la feuille a deux blocs débit/crédit (société puis banque), le dernier bloc, celui de la banque, est lu.
- * Renvoie null si aucun en-tête de relevé n'est reconnu. */
-export function lignesVersMouvements(
-  rows: unknown[][],
-): { mouvements: MouvementImport[]; ignorees: number; soldeOuverture: { date: string; montant: number } | null } | null {
-  let enTete = -1;
-  let colonnes: Partial<Record<Colonne, number>> = {};
-  for (let i = 0; i < Math.min(rows.length, 20) && enTete < 0; i++) {
-    const trouve: Partial<Record<Colonne, number>> = {};
-    rows[i].forEach((cell, c) => {
-      const t = normaliser(texte(cell)).toLowerCase().replace(/\s+/g, " ").trim();
-      if (!t) return;
-      const col = COLONNES.find(([, re]) => re.test(t))?.[0];
-      if (!col) return;
-      if (col === "debit" || col === "credit" || trouve[col] === undefined) trouve[col] = c;
-    });
-    if (trouve.dateOp !== undefined && trouve.debit !== undefined && trouve.credit !== undefined && trouve.libelle !== undefined) {
-      enTete = i;
-      colonnes = trouve;
-    }
-  }
-  if (enTete < 0) return null;
-
-  const mouvements: MouvementImport[] = [];
-  let ignorees = 0;
-  let soldeOuverture: { date: string; montant: number } | null = null;
-  for (const row of rows.slice(enTete + 1)) {
-    const dateOp = dateFlexible(row[colonnes.dateOp!]);
-    const libelle = texte(row[colonnes.libelle!]);
-    if (!dateOp) {
-      if (libelle || row.some((c) => texte(c))) ignorees++;
-      continue;
-    }
-    const debit = montantCellule(row[colonnes.debit!]);
-    const credit = montantCellule(row[colonnes.credit!]);
-    if (debit === 0 && credit === 0) {
-      ignorees++;
-      continue;
-    }
-    // « Solde au 31/12/2025 » est le solde de départ du relevé, pas une opération.
-    if (/^SOLDE\b/.test(normaliser(libelle).trim())) {
-      soldeOuverture ??= { date: dateOp, montant: r3(credit - debit) };
-      continue;
-    }
-    const lire = (c?: Colonne) => (c && colonnes[c] !== undefined ? texte(row[colonnes[c]!]) : "");
-    mouvements.push({
-      dateOp,
-      dateValeur: colonnes.dateValeur !== undefined ? dateFlexible(row[colonnes.dateValeur]) : null,
-      libelle,
-      details: lire("details"),
-      reference: lire("reference"),
-      numPiece: lire("numPiece"),
-      debit,
-      credit,
-      type: classerMouvement(`${libelle} ${lire("details")}`, debit, credit),
-    });
-  }
-  return { mouvements, ignorees, soldeOuverture };
-}
+export const texte = (v: unknown) => (v == null ? "" : typeof v === "string" ? v.trim() : String(v));

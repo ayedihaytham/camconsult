@@ -61,6 +61,7 @@ async function etat(societeId) {
       debit: Number(m.debit),
       credit: Number(m.credit),
       type: m.type,
+      cours: m.cours == null ? null : Number(m.cours),
       reglementId: m.reglement_id ?? null,
       fournisseurCle: m.fournisseur_cle ?? null,
     })),
@@ -137,6 +138,7 @@ const mouvementSchema = z
     debit: montant,
     credit: montant,
     type: z.enum(TYPES).default("autre"),
+    cours: z.coerce.number().positive().nullish(),
   })
   .refine((m) => !(m.debit > 0 && m.credit > 0), { message: "Un mouvement est soit un débit, soit un crédit" });
 
@@ -151,9 +153,9 @@ banqueRouter.post("/comptes/:id/mouvements", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Données invalides" });
   const v = parsed.data;
   await query(
-    `insert into mouvements_bancaires (societe_id, compte_id, date_op, date_valeur, libelle, details, reference, num_piece, debit, credit, type, ordre)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, (select coalesce(max(ordre), -1) + 1 from mouvements_bancaires where compte_id = $2))`,
-    [societeId, req.params.id, v.dateOp, v.dateValeur || null, v.libelle, v.details, v.reference, v.numPiece, v.debit, v.credit, v.type],
+    `insert into mouvements_bancaires (societe_id, compte_id, date_op, date_valeur, libelle, details, reference, num_piece, debit, credit, type, cours, ordre)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, (select coalesce(max(ordre), -1) + 1 from mouvements_bancaires where compte_id = $2))`,
+    [societeId, req.params.id, v.dateOp, v.dateValeur || null, v.libelle, v.details, v.reference, v.numPiece, v.debit, v.credit, v.type, v.cours ?? null],
   );
   logAction(req.session.nom, "creation", "suivi bancaire", v.libelle || "Mouvement");
   res.json(await etat(societeId));
@@ -194,9 +196,9 @@ banqueRouter.post("/comptes/:id/import", async (req, res) => {
         continue;
       }
       await client.query(
-        `insert into mouvements_bancaires (societe_id, compte_id, date_op, date_valeur, libelle, details, reference, num_piece, debit, credit, type, ordre)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-        [societeId, req.params.id, m.dateOp, m.dateValeur || null, m.libelle, m.details, m.reference, m.numPiece, m.debit, m.credit, m.type, prochain++],
+        `insert into mouvements_bancaires (societe_id, compte_id, date_op, date_valeur, libelle, details, reference, num_piece, debit, credit, type, cours, ordre)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [societeId, req.params.id, m.dateOp, m.dateValeur || null, m.libelle, m.details, m.reference, m.numPiece, m.debit, m.credit, m.type, m.cours ?? null, prochain++],
       );
       importes++;
     }
@@ -214,8 +216,8 @@ banqueRouter.patch("/mouvements/:id", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Données invalides" });
   const v = parsed.data;
   await query(
-    `update mouvements_bancaires set date_op=$2, date_valeur=$3, libelle=$4, details=$5, reference=$6, num_piece=$7, debit=$8, credit=$9, type=$10 where id=$1`,
-    [req.params.id, v.dateOp, v.dateValeur || null, v.libelle, v.details, v.reference, v.numPiece, v.debit, v.credit, v.type],
+    `update mouvements_bancaires set date_op=$2, date_valeur=$3, libelle=$4, details=$5, reference=$6, num_piece=$7, debit=$8, credit=$9, type=$10, cours=$11 where id=$1`,
+    [req.params.id, v.dateOp, v.dateValeur || null, v.libelle, v.details, v.reference, v.numPiece, v.debit, v.credit, v.type, v.cours ?? null],
   );
   logAction(req.session.nom, "modification", "suivi bancaire", v.libelle || "Mouvement");
   res.json(await etat(rows[0].societe_id));

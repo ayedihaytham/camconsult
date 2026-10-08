@@ -105,6 +105,7 @@ export function ReglementFormSheet({
       const total = round3(Object.values(selection).reduce((s, m) => s + m, 0));
       const rs = total > 0 ? Math.max(0, round3(total - initial.montant)) : 0;
       setDevise(devisePaiement);
+      if (devisePaiement !== "TND" && initial.cours) setCours(initial.cours);
       setDate(initial.date);
       setMode(/CHEQ/i.test(initial.libelle) ? "cheque" : "virement");
       setReference(initial.reference);

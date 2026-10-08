@@ -65,18 +65,30 @@ function memeClient(a, b) {
   return court.length >= 4 && (long === court || long.startsWith(`${court} `));
 }
 
-/** Ventes du stock que cette fiche peut reprendre : même société, client, devise et exercice, pas déjà reprises. */
-async function ventesStockDe(suivi) {
+/** Ventes de la société avec facture de vente, pas encore reprises par une fiche. */
+async function ventesStockLibres(societeId) {
   const { rows } = await query(
-    STOCK_VENTE_SQL(`m.societe_id = $1 and m.vente_devise = $2 and m.vente_num_facture <> ''
+    STOCK_VENTE_SQL(`m.societe_id = $1 and m.vente_num_facture <> ''
       and not exists (select 1 from suivi_devise_factures f where f.mouvement_stock_id = m.id)`),
-    [suivi.societe_id, suivi.devise],
+    [societeId],
   );
-  const annee = /^\d{4}$/.test(suivi.exercice) ? suivi.exercice : null;
-  return rows
-    .filter((r) => memeClient(r.client, suivi.client))
-    .filter((r) => !annee || (r.date_facture && new Date(r.date_facture).getFullYear() === Number(annee)))
-    .sort((a, b) => String(a.date_facture ?? "").localeCompare(String(b.date_facture ?? "")) || a.n_facture.localeCompare(b.n_facture));
+  return rows;
+}
+
+const anneeDe = (r) => (r.date_facture ? new Date(r.date_facture).getFullYear() : null);
+
+/** Une vente convient à une fiche : même client, même devise, et même année quand l'exercice en est une. */
+function convientA(suivi, r) {
+  if (r.devise !== suivi.devise || !memeClient(r.client, suivi.client)) return false;
+  return !/^\d{4}$/.test(suivi.exercice) || anneeDe(r) === Number(suivi.exercice);
+}
+
+const parDate = (a, b) =>
+  String(a.date_facture ?? "").localeCompare(String(b.date_facture ?? "")) || a.n_facture.localeCompare(b.n_facture);
+
+/** Ventes du stock que cette fiche peut reprendre. */
+async function ventesStockDe(suivi) {
+  return (await ventesStockLibres(suivi.societe_id)).filter((r) => convientA(suivi, r)).sort(parDate);
 }
 
 /** Date PostgreSQL (minuit local) -> AAAA-MM-JJ, sans décalage de fuseau. */
@@ -136,10 +148,16 @@ suiviDeviseRouter.get("/", async (req, res) => {
   );
   // Solde par fiche pour la liste — un aller-retour par fiche reste léger
   // (peu de fiches par société, comme les exercices de balance).
+  const libres = await ventesStockLibres(societeId);
   const withSolde = await Promise.all(
     rows.map(async (r) => {
       const full = await loadFull(r.id);
-      return { ...suiviDeviseDto(r), solde: full.solde, totalVentes: full.totalVentes };
+      return {
+        ...suiviDeviseDto(r),
+        solde: full.solde,
+        totalVentes: full.totalVentes,
+        stockAReprendre: libres.filter((v) => convientA(r, v)).length,
+      };
     }),
   );
   res.json(withSolde);
@@ -178,6 +196,39 @@ suiviDeviseRouter.post("/", async (req, res) => {
         .json({ error: "Une fiche existe déjà pour ce client, cet exercice et cette devise." });
     throw err;
   }
+});
+
+// Clients de la gestion de stock sans fiche : une ligne par client, devise et année de facture de vente.
+suiviDeviseRouter.get("/stock-clients", async (req, res) => {
+  const societeId = req.query.societeId;
+  if (!societeId) return res.status(400).json({ error: "societeId requis" });
+  if (!canAccess(req.session, societeId)) return res.status(403).json({ error: "Accès non autorisé" });
+  const { rows: fiches } = await query("select client, exercice, devise from suivi_devise where societe_id = $1", [societeId]);
+  const libres = (await ventesStockLibres(societeId)).filter((r) => r.date_facture);
+  const groupes = [];
+  for (const r of libres.sort(parDate)) {
+    if (fiches.some((f) => convientA(f, r))) continue; // une fiche existe : elle propose déjà ces ventes
+    const annee = anneeDe(r);
+    let g = groupes.find((x) => x.devise === r.devise && x.exercice === String(annee) && memeClient(x.client, r.client));
+    if (!g) {
+      g = { client: r.client, devise: r.devise, exercice: String(annee), noms: new Map(), nbFactures: 0, montantTotal: 0 };
+      groupes.push(g);
+    }
+    g.noms.set(r.client, (g.noms.get(r.client) ?? 0) + 1);
+    g.nbFactures += 1;
+    g.montantTotal = r3(g.montantTotal + Number(r.montant_total));
+  }
+  res.json(
+    groupes
+      .map((g) => ({
+        client: [...g.noms.entries()].sort((a, b) => b[1] - a[1])[0][0],
+        devise: g.devise,
+        exercice: g.exercice,
+        nbFactures: g.nbFactures,
+        montantTotal: g.montantTotal,
+      }))
+      .sort((a, b) => b.exercice.localeCompare(a.exercice) || a.client.localeCompare(b.client)),
+  );
 });
 
 suiviDeviseRouter.get("/:id", async (req, res) => {

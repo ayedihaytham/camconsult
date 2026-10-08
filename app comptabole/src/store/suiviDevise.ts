@@ -7,6 +7,7 @@ import type {
   SuiviDeviseLot,
   SuiviDeviseFacture,
   SuiviDeviseMouvement,
+  SuiviDeviseStockClient,
   SuiviDeviseStockVente,
 } from "@/types";
 
@@ -17,7 +18,7 @@ function fail(err: unknown): never {
 
 /** Ligne de la liste : la fiche + solde et total ventes déjà calculés
  * (voir GET /suivi-devise côté serveur). */
-export type SuiviDeviseResume = SuiviDevise & { solde: number; totalVentes: number };
+export type SuiviDeviseResume = SuiviDevise & { solde: number; totalVentes: number; stockAReprendre?: number };
 
 export type LotInput = Omit<SuiviDeviseLot, "id" | "suiviId" | "ordre" | "ecart">;
 export type FactureInput = Omit<SuiviDeviseFacture, "id" | "suiviId" | "ordre" | "mouvementStockId">;
@@ -62,6 +63,8 @@ interface SuiviDeviseState {
   /** Ajoute plusieurs factures en une fois (import Excel) — vient s'ajouter
    * aux factures existantes, ne les remplace jamais. */
   importFactures: (suiviId: string, data: FactureInput[]) => Promise<void>;
+  /** Clients de la gestion de stock qui n'ont pas encore de fiche. */
+  fetchStockClients: (societeId: string) => Promise<SuiviDeviseStockClient[]>;
   /** Ventes de la gestion de stock que la fiche peut encore reprendre (même client, devise et exercice). */
   fetchStockVentes: (suiviId: string) => Promise<SuiviDeviseStockVente[]>;
   /** Reprend des ventes du stock : une facture liée à chaque mouvement. */
@@ -180,6 +183,13 @@ export const useSuiviDevise = create<SuiviDeviseState>((set) => ({
       set({ current });
     } catch (e) {
       fail(e);
+    }
+  },
+  fetchStockClients: async (societeId) => {
+    try {
+      return await api.get<SuiviDeviseStockClient[]>(`/suivi-devise/stock-clients?societeId=${societeId}`);
+    } catch (e) {
+      return fail(e);
     }
   },
   fetchStockVentes: async (suiviId) => {

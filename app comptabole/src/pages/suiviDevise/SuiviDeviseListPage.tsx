@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { CircleDollarSign, Trash2 } from "lucide-react";
+import { Boxes, CircleDollarSign, Trash2 } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import {
   LedgerWorkSurface,
@@ -40,6 +40,7 @@ import { fmt } from "@/lib/etatsFinanciers/postes";
 import { useSocieteById } from "@/store/data";
 import { useSuiviDevise } from "@/store/suiviDevise";
 import type { SuiviDeviseResume } from "@/store/suiviDevise";
+import type { SuiviDeviseStockClient } from "@/types";
 
 const DEVISES = ["EUR", "USD", "TND"];
 
@@ -54,6 +55,9 @@ export function SuiviDeviseListPage() {
   const clearList = useSuiviDevise((s) => s.clearList);
   const create = useSuiviDevise((s) => s.create);
   const remove = useSuiviDevise((s) => s.remove);
+  const fetchStockClients = useSuiviDevise((s) => s.fetchStockClients);
+  const fetchStockVentes = useSuiviDevise((s) => s.fetchStockVentes);
+  const reprendreDuStock = useSuiviDevise((s) => s.reprendreDuStock);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [client, setClient] = useState("");
@@ -62,11 +66,42 @@ export function SuiviDeviseListPage() {
   const [soldeOuverture, setSoldeOuverture] = useState("0");
   const [toDelete, setToDelete] = useState<SuiviDeviseResume | null>(null);
   const [recherche, setRecherche] = useState("");
+  // Clients de la gestion de stock sans fiche, proposés comme fiches à créer.
+  const [clientsStock, setClientsStock] = useState<SuiviDeviseStockClient[]>([]);
+  const [creation, setCreation] = useState<string | null>(null);
 
   useEffect(() => {
     fetchList(societeId);
     return () => clearList();
   }, [societeId, fetchList, clearList]);
+
+  useEffect(() => {
+    let actuel = true;
+    fetchStockClients(societeId)
+      .then((c) => actuel && setClientsStock(c))
+      .catch(() => actuel && setClientsStock([]));
+    return () => {
+      actuel = false;
+    };
+  }, [societeId, list.length, fetchStockClients]);
+
+  const cleStock = (c: SuiviDeviseStockClient) => `${c.client}|${c.devise}|${c.exercice}`;
+
+  /** Crée la fiche d'un client du stock et reprend d'un coup toutes ses ventes. */
+  async function creerDepuisStock(c: SuiviDeviseStockClient) {
+    setCreation(cleStock(c));
+    try {
+      const f = await create({ societeId, client: c.client, exercice: c.exercice, devise: c.devise });
+      const ventes = await fetchStockVentes(f.id);
+      if (ventes.length > 0) await reprendreDuStock(f.id, ventes.map((v) => v.mouvementId));
+      toast.success(`Fiche créée — ${ventes.length} facture${ventes.length > 1 ? "s" : ""} reprise${ventes.length > 1 ? "s" : ""} du stock`);
+      navigate(`/suivi-devise/${societeId}/${f.id}`);
+    } catch {
+      // fail() du store affiche déjà le toast d'erreur
+    } finally {
+      setCreation(null);
+    }
+  }
 
   async function submitCreate() {
     if (!client.trim()) return;
@@ -117,6 +152,44 @@ export function SuiviDeviseListPage() {
         ]}
         action={{ label: "Nouvelle fiche", onClick: () => setCreateOpen(true) }}
       />
+
+      {clientsStock.length > 0 && (
+        <section
+          data-tour="devise-stock-clients"
+          aria-label="Clients de la gestion de stock sans fiche"
+          className="mt-3 overflow-hidden rounded-xl border border-accent/30 bg-card"
+        >
+          <header className="flex items-center gap-2 border-b border-accent/25 px-4 py-2.5">
+            <Boxes className="size-4 text-primary" aria-hidden="true" />
+            <h2 className="text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">Clients de la gestion de stock</h2>
+            <span className="text-[11px] text-muted-foreground">sans fiche — leurs ventes sont reprises automatiquement</span>
+          </header>
+          <ul className="divide-y divide-accent/20">
+            {clientsStock.map((c) => (
+              <li key={cleStock(c)} className="flex items-center gap-3 px-4 py-2.5">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-foreground">{c.client}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {c.exercice} · {c.nbFactures} facture{c.nbFactures > 1 ? "s" : ""} de vente
+                  </span>
+                </span>
+                <span className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
+                  {fmt(c.montantTotal)} {c.devise}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={creation !== null}
+                  aria-label={`Créer la fiche de ${c.client} (${c.exercice}, ${c.devise})`}
+                  onClick={() => void creerDepuisStock(c)}
+                >
+                  {creation === cleStock(c) ? "Création…" : "Créer la fiche"}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <LedgerWorkSurface className="ledger-soft-rows mt-3">
         <OperationalLedgerToolbar label="Recherche du suivi client devise" search={searchControl} />
@@ -169,6 +242,12 @@ export function SuiviDeviseListPage() {
                     <TableCell>
                       <span className="ledger-soft-name block font-semibold text-foreground">{f.client}</span>
                       {f.exercice && <span className="block text-xs text-muted-foreground">{f.exercice}</span>}
+                      {(f.stockAReprendre ?? 0) > 0 && (
+                        <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                          <Boxes className="size-3" aria-hidden="true" />
+                          {f.stockAReprendre} vente{(f.stockAReprendre ?? 0) > 1 ? "s" : ""} du stock à reprendre
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{f.devise}</TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
@@ -215,9 +294,23 @@ export function SuiviDeviseListPage() {
                 id="suivi-client"
                 autoFocus
                 value={client}
-                onChange={(e) => setClient(e.target.value)}
+                onChange={(e) => {
+                  setClient(e.target.value);
+                  // Un client du stock : l'exercice et la devise de ses ventes sont proposés.
+                  const connu = clientsStock.find((c) => c.client === e.target.value);
+                  if (connu) {
+                    setExercice(connu.exercice);
+                    setDevise(connu.devise);
+                  }
+                }}
                 placeholder="Ex. GROUP BYOUT EZZ COMPANY"
+                list="suivi-clients-stock"
               />
+              <datalist id="suivi-clients-stock">
+                {[...new Set(clientsStock.map((c) => c.client))].map((nom) => (
+                  <option key={nom} value={nom} />
+                ))}
+              </datalist>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

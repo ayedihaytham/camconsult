@@ -561,6 +561,15 @@ export interface SuiviDeviseFacture {
   mouvementStockId: string | null;
 }
 
+/** Client de la gestion de stock sans fiche : ses ventes d'une année et d'une devise, à suivre. */
+export interface SuiviDeviseStockClient {
+  client: string;
+  devise: string;
+  exercice: string;
+  nbFactures: number;
+  montantTotal: number;
+}
+
 /** Vente de la gestion de stock que la fiche peut reprendre comme facture. */
 export interface SuiviDeviseStockVente {
   mouvementId: string;

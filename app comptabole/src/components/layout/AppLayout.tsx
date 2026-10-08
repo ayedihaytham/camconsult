@@ -5,7 +5,6 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useUi } from "@/store/ui";
 import { cn } from "@/lib/utils";
 import { TourProvider } from "@/components/tour/TourProvider";
-import { TourHelpButton } from "@/components/tour/TourHelpButton";
 import { useSocieteRouteSync } from "@/hooks/useSocieteActive";
 
 const EDGE_TO_EDGE_REGISTERS = new Set(["/societes", "/employes", "/collectes", "/taches", "/etats-financiers"]);
@@ -38,16 +37,13 @@ export function AppLayout() {
               className={cn(
                 "authenticated-page-shell flex w-full min-w-0 flex-1 flex-col",
                 edgeToEdgeMobile ? "px-0 pt-0 pb-2 sm:p-4" : "p-3 sm:p-4",
-                pathname !== "/grille-affectat" && "lg:pb-20",
               )}
             >
               <Outlet />
             </div>
           </div>
         </SidebarInset>
-        {pathname !== "/grille-affectat" && (
-          <TourHelpButton placement="desktop-fab" />
-        )}
+        {/* Le bouton « Aide » est retiré pour le moment : la visite guidée sera proposée à la première visite. */}
       </SidebarProvider>
     </TourProvider>
   );

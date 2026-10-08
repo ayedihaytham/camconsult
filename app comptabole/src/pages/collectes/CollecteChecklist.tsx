@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
-import { ArrowUpRight, LoaderCircle, Pencil } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, LoaderCircle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,10 +20,17 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { StatusDot } from "@/components/ledger/StatusDot";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { ChecklistRow } from "@/lib/collecte/checklist";
+
+export interface SuiviPatch {
+  recuManuel?: boolean;
+  dateSuivi?: string | null;
+  totalSaisi?: number | null;
+}
 
 interface Props {
   rows: ChecklistRow[];
@@ -31,12 +38,14 @@ interface Props {
   editable: boolean;
   onSelectTab: (key: string) => void;
   onSaveComment: (key: string, value: string) => Promise<void>;
-}
-
-function totalLabel(total: number | null, devise: string) {
-  if (total == null) return "—";
-  const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
-  return `${total.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ${symbol}`;
+  /** Pièce cochée « reçue », date de suivi ou total saisi : enregistré tout de suite. */
+  onSaveSuivi?: (key: string, patch: SuiviPatch) => Promise<void>;
+  /** « Tout marquer comme reçu » : les pièces encore en attente passent toutes à reçues. */
+  onMarkAll?: (keys: string[]) => Promise<void>;
+  /** Exports (Excel, PDF, Imprimer) placés à côté des actions. */
+  exports?: ReactNode;
+  /** Message affiché quand la liste n'est pas modifiable (collecte validée, archivée…). */
+  notice?: string;
 }
 
 function Comment({
@@ -225,57 +234,206 @@ function Comment({
   );
 }
 
-export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveComment }: Props) {
+type Filtre = "toutes" | "attente" | "recues";
+
+const champSuivi =
+  "h-9 rounded-lg border border-border bg-background px-2 text-sm tabular-nums text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-transparent disabled:text-muted-foreground/70";
+
+interface ChampProps {
+  row: ChecklistRow;
+  editable: boolean;
+  onSaveSuivi?: Props["onSaveSuivi"];
+  compact?: boolean;
+}
+
+/** Date de suivi d'une pièce : enregistrée en quittant la case. */
+function ChampDate({ row, editable, onSaveSuivi, compact = false }: ChampProps) {
+  const [date, setDate] = useState(row.dateSuivi ?? "");
+  useEffect(() => setDate(row.dateSuivi ?? ""), [row.dateSuivi]);
+  return (
+    <input
+      type="date"
+      aria-label={`Date de suivi pour ${row.pieceLabel}`}
+      disabled={!(editable && row.recu && onSaveSuivi)}
+      value={date}
+      className={cn(champSuivi, "w-full min-w-0", compact && "w-40")}
+      onChange={(e) => setDate(e.target.value)}
+      onBlur={() => {
+        if (date !== (row.dateSuivi ?? ""))
+          void onSaveSuivi?.(row.onglet, { dateSuivi: date || null }).catch(() => setDate(row.dateSuivi ?? ""));
+      }}
+    />
+  );
+}
+
+/** Total d'une pièce : calculé d'après les lignes du tableau quand il y en a, sinon saisi ici. */
+function ChampTotal({ row, devise, editable, onSaveSuivi, compact = false }: ChampProps & { devise: string }) {
+  const [total, setTotal] = useState(row.total == null ? "" : String(row.total));
+  useEffect(() => setTotal(row.total == null ? "" : String(row.total)), [row.total]);
+  const symbole = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
+  if (row.recuAuto)
+    return (
+      <span className="whitespace-nowrap font-medium tabular-nums text-foreground" title="Calculé d'après les lignes du tableau">
+        {row.total == null ? "—" : row.total.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
+        <span className="ml-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">{symbole}</span>
+      </span>
+    );
+  return (
+    <span className="flex items-center justify-end gap-1.5">
+      <input
+        type="number"
+        inputMode="decimal"
+        step="any"
+        min="0"
+        aria-label={`Total pour ${row.pieceLabel}`}
+        disabled={!(editable && row.recu && onSaveSuivi)}
+        placeholder="0,000"
+        value={total}
+        className={cn(champSuivi, "w-full min-w-0 text-right", compact && "w-32")}
+        onChange={(e) => setTotal(e.target.value)}
+        onBlur={() => {
+          const nombre = total === "" ? null : Number(total);
+          if (nombre !== row.total && (nombre === null || Number.isFinite(nombre)))
+            void onSaveSuivi?.(row.onglet, { totalSaisi: nombre }).catch(() => setTotal(row.total == null ? "" : String(row.total)));
+        }}
+      />
+      <span className="shrink-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">{symbole}</span>
+    </span>
+  );
+}
+
+export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveComment, onSaveSuivi, onMarkAll, exports, notice }: Props) {
+  const [filtre, setFiltre] = useState<Filtre>("toutes");
+  const [marquage, setMarquage] = useState(false);
   const recus = rows.filter((row) => row.recu).length;
-  const name = (row: ChecklistRow) => (
+  const enAttente = rows.filter((row) => !row.recu);
+  const visibles = filtre === "toutes" ? rows : rows.filter((row) => (filtre === "recues" ? row.recu : !row.recu));
+
+  const lien = (row: ChecklistRow) => (
     <button
       type="button"
       onClick={() => onSelectTab(row.onglet)}
-      className="inline-flex min-h-9 items-center gap-1 text-left text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="mt-0.5 inline-flex items-center gap-1 text-left text-xs text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {row.tabLabel}<ArrowUpRight className="h-3.5 w-3.5 shrink-0" />
+      Ouvrir « {row.tabLabel} »<ArrowUpRight className="h-3 w-3 shrink-0" />
     </button>
   );
 
+  const coche = (row: ChecklistRow) => (
+    <Checkbox
+      checked={row.recu}
+      disabled={!editable || row.recuAuto || !onSaveSuivi}
+      aria-label={`Pièce reçue : ${row.pieceLabel}`}
+      title={row.recuAuto ? "Des lignes sont saisies dans le tableau : pièce reçue d'office" : undefined}
+      className="size-7 shrink-0 rounded-lg border-border data-[state=checked]:border-success data-[state=checked]:bg-success data-[state=checked]:text-white"
+      onCheckedChange={(valeur) => void onSaveSuivi?.(row.onglet, { recuManuel: valeur === true }).catch(() => undefined)}
+    />
+  );
+
+  const chips: { id: Filtre; label: string; n: number }[] = [
+    { id: "toutes", label: "Toutes", n: rows.length },
+    { id: "attente", label: "En attente", n: enAttente.length },
+    { id: "recues", label: "Reçues", n: recus },
+  ];
+
   return (
     <>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pt-3">
+        {editable && onMarkAll && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-9 gap-1.5"
+            disabled={enAttente.length === 0 || marquage}
+            onClick={() => {
+              setMarquage(true);
+              void onMarkAll(enAttente.map((row) => row.onglet))
+                .catch(() => undefined)
+                .finally(() => setMarquage(false));
+            }}
+          >
+            <CheckCircle2 className="h-4 w-4 text-success" />
+            {marquage ? "Marquage…" : "Tout marquer comme reçu"}
+          </Button>
+        )}
+        {exports}
+      </div>
+
+      {notice && <p className="mx-4 mt-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-muted-foreground">{notice}</p>}
+
+      <div role="group" aria-label="Filtrer les pièces" className="flex flex-wrap gap-2 px-4 pb-3 pt-3">
+        {chips.map((chip) => (
+          <button
+            key={chip.id}
+            type="button"
+            aria-pressed={filtre === chip.id}
+            onClick={() => setFiltre(chip.id)}
+            className={cn(
+              "inline-flex min-h-9 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              filtre === chip.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:border-accent hover:text-primary",
+            )}
+          >
+            {chip.label}
+            <span className={cn("tabular-nums", filtre === chip.id ? "text-accent" : "text-muted-foreground/70")}>{chip.n}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="hidden lg:block">
         <table className="w-full table-fixed text-sm">
-          <thead className="border-b border-border bg-secondary/65 text-[10px] font-bold uppercase tracking-[0.08em] text-primary">
+          <thead className="border-y border-border bg-secondary/65 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
             <tr>
-              <th className="w-[24%] px-4 py-2.5 text-left">Pièce à transmettre</th>
-              <th className="w-[21%] px-2 py-2.5 text-left">Onglet correspondant</th>
-              <th className="w-[12%] px-2 py-2.5 text-left">Statut</th>
-              <th className="w-[13%] px-2 py-2.5 text-left">Date de suivi</th>
-              <th className="w-[13%] px-2 py-2.5 text-right">Total ({devise})</th>
-              <th className="w-[17%] px-2 py-2.5 text-left">Commentaire</th>
+              <th className="w-[38%] px-4 py-3 text-left">Pièce à transmettre</th>
+              <th className="w-[17%] px-2 py-3 text-left">Date de suivi</th>
+              <th className="w-[18%] px-2 py-3 text-right">Total</th>
+              <th className="w-[27%] px-4 py-3 text-left">Commentaire</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {rows.map((row) => (
-              <tr key={row.onglet} className="hover:bg-muted/20">
-                <td className="px-4 py-2 font-semibold text-primary">{row.pieceLabel}</td>
-                <td className="px-2 py-2">{name(row)}</td>
-                <td className="px-2 py-2"><StatusDot tone={row.recu ? "success" : "warning"} label={row.statutLabel} className="text-xs" /></td>
-                <td className="px-2 py-2 text-xs tabular-nums text-muted-foreground">{row.dateReception ?? "—"}</td>
-                <td className="px-2 py-2 text-right text-xs font-medium tabular-nums text-foreground">{totalLabel(row.total, devise)}</td>
-                <td className="px-2 py-2"><Comment row={row} editable={editable} onSave={(value) => onSaveComment(row.onglet, value)} /></td>
+            {visibles.map((row) => {
+              return (
+                <tr key={row.onglet} className="align-middle hover:bg-muted/20">
+                  <td className="px-4 py-3">
+                    <div className="flex items-start gap-3">
+                      {coche(row)}
+                      <div className="min-w-0">
+                        <p className="font-serif text-[1.05rem] leading-snug text-primary">{row.pieceLabel}</p>
+                        {lien(row)}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-2 py-3"><ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
+                  <td className="px-2 py-3 text-right"><ChampTotal row={row} devise={devise} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
+                  <td className="px-4 py-3">
+                    <Comment row={row} editable={editable} onSave={(value) => onSaveComment(row.onglet, value)} />
+                  </td>
+                </tr>
+              );
+            })}
+            {visibles.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  Aucune pièce dans ce filtre.
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
-      <div className="divide-y divide-border lg:hidden">
-        {rows.map((row) => (
+      <div className="divide-y divide-border border-t border-border lg:hidden">
+        {visibles.map((row) => (
           <MobileChecklistRow
             key={row.onglet}
             row={row}
             devise={devise}
             editable={editable}
-            name={name}
+            coche={coche(row)}
+            lien={lien(row)}
+            onSaveSuivi={onSaveSuivi}
             onSaveComment={onSaveComment}
           />
         ))}
+        {visibles.length === 0 && <p className="px-4 py-6 text-center text-sm text-muted-foreground">Aucune pièce dans ce filtre.</p>}
       </div>
       <div className="flex items-center justify-between border-t border-border bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
         <span>Pièces reçues</span>
@@ -289,36 +447,34 @@ function MobileChecklistRow({
   row,
   devise,
   editable,
-  name,
+  coche,
+  lien,
+  onSaveSuivi,
   onSaveComment,
 }: {
   row: ChecklistRow;
   devise: string;
   editable: boolean;
-  name: (row: ChecklistRow) => ReactNode;
+  coche: ReactNode;
+  lien: ReactNode;
+  onSaveSuivi?: Props["onSaveSuivi"];
   onSaveComment: (key: string, value: string) => Promise<void>;
 }) {
   return (
     <article className="px-3 py-3">
-      <h3 className="text-sm font-semibold text-primary">{row.pieceLabel}</h3>
-      {name(row)}
-      <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <StatusDot
-          tone={row.recu ? "success" : "warning"}
-          label={row.statutLabel}
-          className="text-xs"
-        />
-        <span>Date de suivi · {row.dateReception ?? "—"}</span>
+      <div className="flex items-start gap-3">
+        {coche}
+        <div className="min-w-0">
+          <h3 className="font-serif text-base leading-snug text-primary">{row.pieceLabel}</h3>
+          {lien}
+        </div>
       </div>
-      <div className="mt-2 flex min-w-0 items-center justify-between gap-3 border-t border-border/70 pt-1 text-xs">
-        <Comment
-          row={row}
-          editable={editable}
-          onSave={(value) => onSaveComment(row.onglet, value)}
-        />
-        <span className="shrink-0 tabular-nums text-muted-foreground">
-          Total · {totalLabel(row.total, devise)}
-        </span>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3 pl-10">
+        <ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} compact />
+        <ChampTotal row={row} devise={devise} editable={editable} onSaveSuivi={onSaveSuivi} compact />
+      </div>
+      <div className="mt-2 border-t border-border/70 pl-10 pt-1 text-xs">
+        <Comment row={row} editable={editable} onSave={(value) => onSaveComment(row.onglet, value)} />
       </div>
     </article>
   );

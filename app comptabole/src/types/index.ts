@@ -130,6 +130,12 @@ export interface CollecteSection {
   /** Statut de récap de CE tableau précis — indépendant des autres, voir
    * les routes /collectes/:id/sections/:onglet/recap/*. */
   recapStatut: RecapStatut;
+  /** Pièce cochée « reçue » à la main, sans lignes saisies dans le tableau. */
+  recuManuel: boolean;
+  /** Date de suivi saisie (AAAA-MM-JJ), sinon calculée à partir du tableau. */
+  dateSuivi: string | null;
+  /** Total saisi à la main, quand le tableau n'a pas de lignes pour le calculer. */
+  totalSaisi: number | null;
 }
 
 export type CollecteNoteKind = "note" | "manque" | "reponse";

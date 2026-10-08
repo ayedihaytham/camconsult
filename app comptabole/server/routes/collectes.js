@@ -445,7 +445,8 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
   res.json({ onglet, lignes: savedLignes.map(collecteLigneDto) });
 });
 
-// ── Commentaire de checklist d'un onglet ──────────
+// ── Suivi de checklist d'un onglet : commentaire, reçu, date de suivi, total ──────────
+// Seuls les champs présents dans le corps sont modifiés.
 collectesRouter.patch("/:id/sections/:onglet", async (req, res) => {
   const c = (await query("select * from collectes where id = $1", [req.params.id]))
     .rows[0];
@@ -454,22 +455,74 @@ collectesRouter.patch("/:id/sections/:onglet", async (req, res) => {
     return res.status(403).json({ error: "Modification non autorisée" });
   if (await isOngletLocked(req.session, c, req.params.onglet))
     return res.status(400).json({ error: "Ce tableau est verrouillé" });
-  const commentaire = String(req.body?.commentaire ?? "").slice(0, 1000);
+  const body = req.body ?? {};
+  const existing = (
+    await query("select * from collecte_sections where collecte_id=$1 and onglet=$2", [req.params.id, req.params.onglet])
+  ).rows[0];
+
+  const commentaire = "commentaire" in body ? String(body.commentaire ?? "").slice(0, 1000) : (existing?.commentaire ?? "");
+  const recuManuel = typeof body.recuManuel === "boolean" ? body.recuManuel : Boolean(existing?.recu_manuel);
+  let dateSuivi = existing?.date_suivi ?? null;
+  if ("dateSuivi" in body) {
+    if (body.dateSuivi === null || body.dateSuivi === "") dateSuivi = null;
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(String(body.dateSuivi))) dateSuivi = body.dateSuivi;
+    else return res.status(400).json({ error: "Date de suivi invalide" });
+  }
+  let totalSaisi = existing?.total_saisi ?? null;
+  if ("totalSaisi" in body) {
+    if (body.totalSaisi === null || body.totalSaisi === "") totalSaisi = null;
+    else if (Number.isFinite(Number(body.totalSaisi)) && Number(body.totalSaisi) >= 0) totalSaisi = Number(body.totalSaisi);
+    else return res.status(400).json({ error: "Total invalide" });
+  }
   const { rows } = await query(
-    `insert into collecte_sections (collecte_id, onglet, commentaire)
-     values ($1,$2,$3)
-     on conflict (collecte_id, onglet) do update set commentaire = excluded.commentaire
+    `insert into collecte_sections (collecte_id, onglet, commentaire, recu_manuel, date_suivi, total_saisi)
+     values ($1,$2,$3,$4,$5,$6)
+     on conflict (collecte_id, onglet) do update set
+       commentaire = excluded.commentaire, recu_manuel = excluded.recu_manuel,
+       date_suivi = excluded.date_suivi, total_saisi = excluded.total_saisi
      returning *`,
-    [req.params.id, req.params.onglet, commentaire],
+    [req.params.id, req.params.onglet, commentaire, recuManuel, dateSuivi, totalSaisi],
   );
   logAction(
     req.session.nom,
     "modification",
     "collecte",
-    `Commentaire « ${req.params.onglet} » modifié — ${periodeLabel(c.periode)}`,
+    `Suivi « ${req.params.onglet} » modifié — ${periodeLabel(c.periode)}`,
     req.params.id,
   );
   res.json({ section: collecteSectionDto(rows[0]) });
+});
+
+// « Tout marquer comme reçu » : un seul appel pour plusieurs onglets de la collecte.
+collectesRouter.post("/:id/sections-recu", async (req, res) => {
+  const c = (await query("select * from collectes where id = $1", [req.params.id]))
+    .rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!canEdit(req.session, c.societe_id))
+    return res.status(403).json({ error: "Modification non autorisée" });
+  const recu = req.body?.recu !== false;
+  const demandes = Array.isArray(req.body?.onglets) ? req.body.onglets.map(String) : [];
+  const onglets = demandes.filter((o) => (c.onglets ?? []).includes(o));
+  if (onglets.length === 0) return res.status(400).json({ error: "Aucun tableau à marquer" });
+  for (const onglet of onglets) {
+    if (await isOngletLocked(req.session, c, onglet))
+      return res.status(400).json({ error: "Ce tableau est verrouillé" });
+  }
+  await query(
+    `insert into collecte_sections (collecte_id, onglet, recu_manuel)
+     select $1, o, $3 from unnest($2::text[]) as o
+     on conflict (collecte_id, onglet) do update set recu_manuel = excluded.recu_manuel`,
+    [req.params.id, onglets, recu],
+  );
+  logAction(
+    req.session.nom,
+    "modification",
+    "collecte",
+    `${onglets.length} pièce(s) ${recu ? "marquée(s) reçue(s)" : "remise(s) en attente"} — ${periodeLabel(c.periode)}`,
+    req.params.id,
+  );
+  const sections = (await query("select * from collecte_sections where collecte_id = $1", [req.params.id])).rows;
+  res.json({ sections: sections.map(collecteSectionDto) });
 });
 
 // ── Récap d'anomalies ─────────────────────────────

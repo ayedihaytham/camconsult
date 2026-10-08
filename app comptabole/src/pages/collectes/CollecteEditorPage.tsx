@@ -84,6 +84,8 @@ export function CollecteEditorPage() {
   const setStatut = useCollectes((s) => s.setStatut);
   const saveLignes = useCollectes((s) => s.saveLignes);
   const saveComment = useCollectes((s) => s.saveComment);
+  const saveSuivi = useCollectes((s) => s.saveSuivi);
+  const marquerRecu = useCollectes((s) => s.marquerRecu);
   const submitRecap = useCollectes((s) => s.submitRecap);
   const relanceNow = useCollectes((s) => s.relanceNow);
   const uploadFichier = useCollectes((s) => s.uploadFichier);
@@ -252,6 +254,9 @@ export function CollecteEditorPage() {
     .join("")
     .toLocaleUpperCase("fr-FR");
   const tableauKeys = collecte.onglets;
+  const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
+  const boutonBandeau =
+    "min-h-10 gap-2 border-primary-foreground/30 bg-transparent px-4 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground";
 
   function requestTab(next: string) {
     if (next === tab) return;
@@ -328,159 +333,135 @@ export function CollecteEditorPage() {
 
   return (
     <div>
-      <header data-tour="collecte-identity" className="overflow-hidden rounded-t-md bg-primary px-4 pt-4 text-primary-foreground lg:px-5">
-        <div className="flex flex-wrap items-start gap-3">
-          <span
-            aria-hidden="true"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-primary-foreground/20 bg-primary-foreground/10 text-xs font-bold"
-          >
-            {monogram}
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold leading-tight tracking-tight lg:text-xl">
-              {socNom}
-            </h1>
-            <p className="mt-1 text-xs text-primary-foreground/75">
-              {collecte.periode.trim()
-                ? `${collecte.periode.trim()} · Collecte de pièces`
-                : "Collecte de pièces"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
-            <div>
-              <span className="block text-[10px] font-semibold uppercase tracking-wider text-primary-foreground/65">
-                Statut
-              </span>
-              <span className="inline-flex items-center gap-1.5 font-semibold">
-                <span
-                  aria-hidden
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    validee
-                      ? "bg-success"
-                      : collecte.statut === "a_corriger" || enRetard
-                        ? "bg-destructive"
-                        : archivee
-                          ? "bg-primary-foreground/60"
-                          : "bg-warning",
-                  )}
-                />
-                {COLLECTE_STATUT_LABELS[collecte.statut]}
-              </span>
+      <header
+        data-tour="collecte-identity"
+        className="overflow-hidden rounded-2xl bg-primary px-5 pt-5 text-primary-foreground shadow-sm lg:px-6"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="flex min-w-0 items-start gap-4">
+            <span
+              aria-hidden="true"
+              className="grid size-14 shrink-0 place-items-center rounded-xl border border-primary-foreground/25 bg-primary-foreground/10 text-lg font-bold"
+            >
+              {monogram}
+            </span>
+            <div className="min-w-0">
+              <h1 className="font-serif text-3xl font-medium leading-tight tracking-tight">{socNom}</h1>
+              <p className="mt-1 text-sm text-primary-foreground/70">
+                {[codeSociete, collecte.periode.trim(), "Collecte de pièces"].filter(Boolean).join(" · ")}
+              </p>
             </div>
-            {collecte.echeance && (
-              <div>
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-primary-foreground/65">
-                  Échéance
-                </span>
-                <span className="font-semibold">
-                  {formatDate(collecte.echeance)}
-                  {enRetard ? " · dépassée" : ""}
-                </span>
-              </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {canSubmit && (
+              <Button
+                variant="outline"
+                className={boutonBandeau}
+                disabled={recapRestant > 0}
+                title={recapRestant > 0 ? `Encore ${recapRestant} case(s) à compléter avant de transmettre` : undefined}
+                onClick={async () => {
+                  if (recapRestant > 0) return;
+                  if (collecte.statut === "brouillon" || collecte.statut === "a_corriger") requestTab("__confirm_transmis__");
+                  else if (clientRecap) {
+                    await submitRecap(id);
+                    toast.success("Récap transmis au cabinet");
+                  }
+                }}
+              >
+                <Send className="h-4 w-4" /> Transmettre au cabinet
+              </Button>
+            )}
+            {canManageCollaborateurs && collecte.statut === "transmis" && (
+              <>
+                <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_valide__")}>
+                  <CheckCircle2 className="h-4 w-4" /> Valider
+                </Button>
+                <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}>
+                  Renvoyer pour correction
+                </Button>
+              </>
+            )}
+            {canManageCollaborateurs && validee && (
+              <>
+                <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_archive__")}>
+                  Archiver la collecte
+                </Button>
+                <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}>
+                  <RotateCcw className="h-4 w-4 text-accent" /> Rouvrir la collecte
+                </Button>
+              </>
+            )}
+            {canManageCollaborateurs && archivee && (
+              <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_reopen__")}>
+                <RotateCcw className="h-4 w-4 text-accent" /> Désarchiver
+              </Button>
             )}
           </div>
         </div>
-        <div className="relative mt-3 flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-primary-foreground/20 py-1.5 before:absolute before:-top-px before:left-0 before:h-px before:w-1/4 before:bg-accent">
-          <span className="text-xs text-primary-foreground/75">
-            {recus} / {rows.length} pièces reçues
+        <div className="relative mt-4 flex min-h-12 flex-wrap items-center gap-x-6 gap-y-2 border-t border-primary-foreground/20 py-3 text-sm before:absolute before:-top-px before:left-0 before:h-px before:w-1/4 before:bg-accent">
+          <span className="inline-flex items-center gap-2 font-semibold">
+            <span
+              aria-hidden
+              className={cn(
+                "h-2 w-2 rounded-full",
+                validee
+                  ? "bg-success"
+                  : collecte.statut === "a_corriger" || enRetard
+                    ? "bg-destructive"
+                    : archivee
+                      ? "bg-primary-foreground/60"
+                      : "bg-warning",
+              )}
+            />
+            {COLLECTE_STATUT_LABELS[collecte.statut]}
           </span>
-          {canSubmit && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-              disabled={recapRestant > 0}
-              title={
-                recapRestant > 0
-                  ? `Encore ${recapRestant} case(s) à compléter avant de transmettre`
-                  : undefined
-              }
-              onClick={async () => {
-                if (recapRestant > 0) return;
-                if (
-                  collecte.statut === "brouillon" ||
-                  collecte.statut === "a_corriger"
-                )
-                  requestTab("__confirm_transmis__");
-                else if (clientRecap) {
-                  await submitRecap(id);
-                  toast.success("Récap transmis au cabinet");
-                }
-              }}
+          <span className="inline-flex items-center gap-3">
+            <span>
+              <strong className="tabular-nums">{recus}</strong> / {rows.length}{" "}
+              <span className="text-primary-foreground/75">pièces reçues</span>
+            </span>
+            <span
+              role="progressbar"
+              aria-label="Pièces reçues"
+              aria-valuemin={0}
+              aria-valuemax={rows.length}
+              aria-valuenow={recus}
+              className="h-1.5 w-44 overflow-hidden rounded-full bg-primary-foreground/20"
             >
-              <Send className="h-4 w-4" /> Transmettre au cabinet
-            </Button>
-          )}
-          {canManageCollaborateurs && collecte.statut === "transmis" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-              onClick={() => requestTab("__confirm_valide__")}
-            >
-              <CheckCircle2 className="h-4 w-4" /> Valider
-            </Button>
-          )}
-          {canManageCollaborateurs && validee && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-              onClick={() => requestTab("__confirm_archive__")}
-            >
-              Archiver la collecte
-            </Button>
-          )}
-          {canManageCollaborateurs && archivee && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-primary-foreground/40 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-              onClick={() => requestTab("__confirm_reopen__")}
-            >
-              <RotateCcw className="h-4 w-4" /> Désarchiver
-            </Button>
-          )}
-        </div>
-      </header>
-      <div
-        className={cn(
-          "flex min-h-10 flex-wrap items-center gap-2 border border-t-0 px-3 py-2 text-xs",
-          clientRecap || collecte.statut === "a_corriger"
-            ? "border-warning/25 bg-warning/5 text-foreground"
-            : "border-border bg-card text-muted-foreground",
-        )}
-      >
-        <span className="min-w-0 flex-1">
-          {clientRecap
-            ? `Complétez les cases demandées et enregistrez chaque tableau avant transmission. ${recapRestant > 0 ? `${recapRestant} case(s) restantes.` : "Vous pouvez transmettre."}`
-            : validee
-              ? "Le client ne peut plus modifier cette collecte. Le cabinet peut encore l'ajuster avant archivage."
-              : archivee
-                ? "Collecte archivée. L'administrateur peut la désarchiver pour reprendre le dossier."
-                : collecte.statut === "a_corriger"
-                  ? "Reprenez les pièces à compléter, enregistrez vos modifications, puis transmettez au cabinet."
-                  : collecte.statut === "transmis"
-                    ? "La collecte a été transmise au cabinet pour examen."
-                    : "Préparez les tableaux et pièces avant transmission au cabinet."}
-          {canManageRecap && currentRecap === "envoye" && (
-            <span className="ml-2 font-medium">
-              Récap en attente du client.
+              <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
+            </span>
+          </span>
+          {collecte.echeance && (
+            <span className={cn("text-primary-foreground/80", enRetard && "font-semibold text-warning")}>
+              Échéance {formatDate(collecte.echeance)}
+              {enRetard ? " · dépassée" : ""}
             </span>
           )}
-        </span>
-        {canManageCollaborateurs &&
-          (collecte.statut === "transmis" || validee) && (
-            <button
-              type="button"
-              className="text-xs font-medium text-primary hover:underline"
-              onClick={() => requestTab("__confirm_a_corriger__")}
-            >
-              {validee ? "Repasser en correction" : "Renvoyer pour correction"}
-            </button>
+          <span className="text-primary-foreground/75">
+            {validee
+              ? "Validée : verrouillée pour le client"
+              : archivee
+                ? "Archivée : lecture seule"
+                : collecte.statut === "a_corriger"
+                  ? "À corriger : complétez les pièces puis transmettez"
+                  : collecte.statut === "transmis"
+                    ? "Transmise au cabinet pour examen"
+                    : "Préparez les tableaux et pièces avant transmission"}
+          </span>
+        </div>
+      </header>
+      {(clientRecap || (canManageRecap && currentRecap === "envoye")) && (
+        <div
+          className={cn(
+            "mt-3 flex min-h-10 flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs",
+            clientRecap ? "border-warning/25 bg-warning/5 text-foreground" : "border-border bg-card text-muted-foreground",
           )}
-      </div>
+        >
+          {clientRecap
+            ? `Complétez les cases demandées et enregistrez chaque tableau avant transmission. ${recapRestant > 0 ? `${recapRestant} case(s) restantes.` : "Vous pouvez transmettre."}`
+            : "Récap en attente du client."}
+        </div>
+      )}
       {preview && (
         <p className="border-x border-b border-border bg-accent/5 px-3 py-2 text-xs text-foreground">
           Aperçu client — seules les cases « ? » demandées sont modifiables.
@@ -568,13 +549,10 @@ export function CollecteEditorPage() {
             <TabsContent value="checklist" className="m-0">
               <SectionHeader
                 title="Checklist"
-                description="Pièces attendues par tableau"
-                action={
-                  <SectionExport
-                    collecte={collecte}
-                    section="checklist"
-                    societeNom={socNom}
-                  />
+                description={
+                  editable
+                    ? "Cochez la pièce reçue puis saisissez le total : tout s'enregistre automatiquement."
+                    : "Pièces attendues par tableau"
                 }
               />
               <CollecteChecklist
@@ -583,14 +561,17 @@ export function CollecteEditorPage() {
                 editable={editable}
                 onSelectTab={requestTab}
                 onSaveComment={(key, value) => saveComment(id, key, value)}
+                onSaveSuivi={(key, patch) => saveSuivi(id, key, patch)}
+                onMarkAll={(keys) => marquerRecu(id, keys, true)}
+                exports={<SectionExport collecte={collecte} section="checklist" societeNom={socNom} />}
+                notice={
+                  !editable
+                    ? archivee
+                      ? "Collecte archivée : désarchivez-la pour modifier les pièces."
+                      : `Collecte ${COLLECTE_STATUT_LABELS[collecte.statut].toLowerCase()} : le cabinet peut la renvoyer pour correction afin de modifier les pièces.`
+                    : undefined
+                }
               />
-              {!editable && poste === "societe_employe" && (
-                <p className="px-4 py-2 text-xs text-muted-foreground">
-                  Collecte{" "}
-                  {COLLECTE_STATUT_LABELS[collecte.statut].toLowerCase()} —
-                  lecture seule. Le cabinet peut la renvoyer pour correction.
-                </p>
-              )}
             </TabsContent>
 
             {/* ── Documents (pièces jointes réelles) ─── */}

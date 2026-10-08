@@ -59,6 +59,14 @@ interface CollectesState {
     lignes: { data: Record<string, unknown>; ordre?: number }[],
   ) => Promise<void>;
   saveComment: (id: string, onglet: string, commentaire: string) => Promise<void>;
+  /** Suivi de checklist d'une pièce : reçue à la main, date de suivi, total saisi (seuls les champs fournis changent). */
+  saveSuivi: (
+    id: string,
+    onglet: string,
+    patch: Partial<Pick<CollecteSection, "recuManuel" | "dateSuivi" | "totalSaisi">>,
+  ) => Promise<void>;
+  /** Marque plusieurs pièces reçues (ou en attente) en un seul appel. */
+  marquerRecu: (id: string, onglets: string[], recu: boolean) => Promise<void>;
 
   addNote: (id: string, onglet: string, texte: string) => Promise<void>;
   /** Envoie le récap d'UN tableau précis — indépendant des autres. */
@@ -167,6 +175,31 @@ export const useCollectes = create<CollectesState>((set, get) => ({
         const autres = st.current.sections.filter((s) => s.onglet !== onglet);
         return { current: { ...st.current, sections: [...autres, section] } };
       });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  saveSuivi: async (id, onglet, patch) => {
+    try {
+      const { section } = await api.patch<{ section: CollecteSection }>(
+        `/collectes/${id}/sections/${onglet}`,
+        patch,
+      );
+      set((st) => {
+        if (st.current?.id !== id) return {};
+        const autres = st.current.sections.filter((s) => s.onglet !== onglet);
+        return { current: { ...st.current, sections: [...autres, section] } };
+      });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  marquerRecu: async (id, onglets, recu) => {
+    try {
+      const { sections } = await api.post<{ sections: CollecteSection[] }>(`/collectes/${id}/sections-recu`, { onglets, recu });
+      set((st) => (st.current?.id === id ? { current: { ...st.current, sections } } : {}));
     } catch (e) {
       fail(e);
     }

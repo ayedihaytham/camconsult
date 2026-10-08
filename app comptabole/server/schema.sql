@@ -107,6 +107,11 @@ create table if not exists collecte_sections (
   unique (collecte_id, onglet)
 );
 alter table collecte_sections add column if not exists recap_statut text not null default 'none';
+-- Suivi de la checklist : pièce cochée « reçue » à la main (sans lignes saisies), date de suivi et total saisis.
+-- Une pièce dont le tableau contient des lignes est reçue d'office, avec la date et le total calculés.
+alter table collecte_sections add column if not exists recu_manuel boolean not null default false;
+alter table collecte_sections add column if not exists date_suivi date;
+alter table collecte_sections add column if not exists total_saisi numeric;
 
 -- Lignes de saisie d'un onglet (schéma des colonnes défini côté code).
 create table if not exists collecte_lignes (

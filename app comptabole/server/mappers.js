@@ -189,6 +189,9 @@ export const collecteSectionDto = (r) => ({
   onglet: r.onglet,
   commentaire: r.commentaire ?? "",
   recapStatut: r.recap_statut ?? "none",
+  recuManuel: Boolean(r.recu_manuel),
+  dateSuivi: r.date_suivi ? dateStr(r.date_suivi) : null,
+  totalSaisi: r.total_saisi == null ? null : Number(r.total_saisi),
 });
 
 export const collecteLigneDto = (r) => ({

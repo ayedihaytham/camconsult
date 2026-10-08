@@ -245,6 +245,15 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
       expect(numero(2)).toBe("2");
     });
 
+    it("l'admin voit la même numérotation : la ligne d'en-tête sans n°, puis les chèques 1, 2", () => {
+      const cheque = (n: number, id: string, ordre: number) => ({ id, onglet: "bordereaux_remise_cheques", ordre, data: { date_remise: "2026-05-22", num_bordereau: "293", montant: "", banque: "BTK", montant_cheque: n } });
+      renderGrid("bordereaux_remise_cheques", undefined, { lignes: [entete, cheque(10000, "l2", 1), cheque(310, "l3", 2)] as never });
+      const numero = (i: number) => lignes()[i].querySelector("td")?.textContent?.trim();
+      expect([numero(0), numero(1), numero(2)]).toEqual(["", "1", "2"]);
+      // Côté cabinet, rien n'est figé : la ligne d'en-tête reste modifiable.
+      expect(champs(lignes()[0]).some((c) => !c.readOnly)).toBe(true);
+    });
+
     it("permet de modifier et d'ajouter des lignes, mais pas de supprimer celles déjà enregistrées", () => {
       const chequeSaisi = { id: "l2", onglet: "bordereaux_remise_cheques", ordre: 1, data: { date_remise: "2026-05-22", num_bordereau: "293", montant: "", banque: "btk", montant_cheque: 4000 } };
       rendreClient([entete, chequeSaisi]);

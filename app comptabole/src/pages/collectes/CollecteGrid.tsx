@@ -231,11 +231,11 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
   const groupes = useMemo(() => repartitionGroupes(def, rows), [def, rows]);
 
-  /** Ligne d'en-tête de bordereau reçue du cabinet : enregistrée, avec le montant du bordereau et sans chèque. */
-  function estEntete(i: number): boolean {
+  /** Ligne d'en-tête d'un bordereau : n° et montant du bordereau, sans montant de chèque. Elle n'a pas de n° de ligne. */
+  function estEnteteBordereau(i: number): boolean {
     const g = def.groupe;
     const r = rows[i];
-    if (!ligneBordereauFigee || !g || !r || !baseline.current.includes(r)) return false;
+    if (!g || !r) return false;
     return (
       String(r[g.cle] ?? "").trim() !== "" &&
       cellNumber(r[g.totalCol]) > 0 &&
@@ -243,12 +243,18 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     );
   }
 
-  /** N° affiché d'une ligne : la ligne d'en-tête envoyée par le cabinet n'en a pas, les chèques sont numérotés 1, 2, 3… */
+  /** Cette même ligne, telle que le cabinet l'a envoyée au client : enregistrée, donc figée côté client. */
+  function estEntete(i: number): boolean {
+    const r = rows[i];
+    return ligneBordereauFigee && Boolean(r) && baseline.current.includes(r) && estEnteteBordereau(i);
+  }
+
+  /** N° affiché d'une ligne : la ligne d'en-tête d'un bordereau n'en a pas, les chèques sont numérotés 1, 2, 3… */
   function numeroLigne(i: number): number | string {
-    if (!ligneBordereauFigee) return i + 1;
-    if (estEntete(i)) return "";
+    if (!def.groupe) return i + 1;
+    if (estEnteteBordereau(i)) return "";
     let n = 0;
-    for (let k = 0; k <= i; k++) if (!estEntete(k)) n += 1;
+    for (let k = 0; k <= i; k++) if (!estEnteteBordereau(k)) n += 1;
     return n;
   }
 

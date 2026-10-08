@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Boxes, Download, Plus } from "lucide-react";
+import { AlertTriangle, Boxes, Download, Plus } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -10,6 +10,7 @@ import { useSocieteById, useNoeuds, useData } from "@/store/data";
 import { useStock, type StockMouvementInput } from "@/store/stock";
 import type { StockMouvement } from "@/types";
 import { classerDansStructuration } from "@/lib/classement";
+import { doublonsStock, resumeDoublons } from "@/lib/facturesDoublons";
 import { fmtQuantiteUnite, quantiteEn, recapStock, uniteCommune } from "@/lib/stockRecap";
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
 import { StockRecapTable } from "./StockRecapTable";
@@ -46,8 +47,16 @@ export function StockSocietePage() {
     return () => clear();
   }, [societeId, fetchList, clear]);
 
-  const shown = onlyAnomalies ? list.filter((m) => m.ecart !== 0) : list;
-  const nbAnomalies = list.filter((m) => m.ecart !== 0).length;
+  // Un n° de facture utilisé deux fois fausse les suivis fournisseur et client : il est signalé partout.
+  const doublons = useMemo(() => {
+    const d = doublonsStock(list);
+    return { vente: new Set(d.vente.keys()), achat: new Set(d.achat.keys()) };
+  }, [list]);
+  const resumeDoubles = useMemo(() => resumeDoublons(list), [list]);
+  const estAnomalie = (m: StockMouvement) => m.ecart !== 0 || doublons.vente.has(m.id) || doublons.achat.has(m.id);
+
+  const shown = onlyAnomalies ? list.filter(estAnomalie) : list;
+  const nbAnomalies = list.filter(estAnomalie).length;
 
   const recap = useMemo(() => recapStock(shown), [shown]);
 
@@ -173,6 +182,9 @@ export function StockSocietePage() {
           metrics={[
             { label: shown.length > 1 ? "Mouvements" : "Mouvement", value: recap.mouvements, loading },
             { label: "Anomalies (écart ≠ 0)", value: recap.anomalies, tone: recap.anomalies > 0 ? "destructive" : "default" },
+            ...(resumeDoubles.length > 0
+              ? [{ label: "N° de facture en doublon", value: resumeDoubles.length, tone: "destructive" as const }]
+              : []),
             { label: "Qté achetée", value: fmtQuantiteUnite(recap.achat.quantite, recap.unite) },
             { label: "Qté vendue", value: fmtQuantiteUnite(recap.vente.quantite, recap.unite) },
           ]}
@@ -205,8 +217,26 @@ export function StockSocietePage() {
             {shown.length} mouvement{shown.length > 1 ? "s" : ""}
           </span>
         </div>
+        {resumeDoubles.length > 0 && (
+          <div role="alert" className="mx-5 mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <p className="flex items-center gap-2 font-semibold">
+              <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+              {resumeDoubles.length > 1 ? "Numéros de facture en doublon" : "Numéro de facture en doublon"} — risque de compter deux fois la même facture
+            </p>
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-6">
+              {resumeDoubles.map((d) => (
+                <li key={`${d.type}-${d.numero}-${d.rangs.join("-")}`}>
+                  Facture de {d.type === "vente" ? "vente" : "d'achat"} <span className="font-mono font-bold">{d.numero}</span> : mouvements n°{" "}
+                  {d.rangs.join(", ")}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1.5 text-xs">Vérifiez le numéro, ou supprimez le mouvement saisi deux fois.</p>
+          </div>
+        )}
         {shown.length > 0 && (
           <StockRecapTable
+            doublons={doublons}
             mouvements={shown}
             nouveauId={nouveauId}
             classing={classing}

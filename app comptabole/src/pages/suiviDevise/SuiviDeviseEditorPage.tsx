@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Boxes, ChevronDown, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, Boxes, ChevronDown, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { LedgerTable } from "@/components/ledger/LedgerTable";
@@ -49,6 +49,7 @@ import { SuiviDeviseFactureFormSheet } from "./SuiviDeviseFactureFormSheet";
 import { SuiviDeviseImportDialog } from "./SuiviDeviseImportDialog";
 import { SuiviDeviseStockDialog } from "./SuiviDeviseStockDialog";
 import { margeFacture, totauxAchats } from "@/lib/suiviDeviseMarge";
+import { doublonsFactures } from "@/lib/facturesDoublons";
 import { SuiviDeviseLotFormSheet } from "./SuiviDeviseLotFormSheet";
 import { SuiviDeviseMouvementFormSheet } from "./SuiviDeviseMouvementFormSheet";
 
@@ -142,6 +143,8 @@ export function SuiviDeviseEditorPage() {
 
   const societeName = societe?.raisonSociale ?? "Société";
   const achatsLies = totauxAchats(current.factures, current.devise);
+  // Un même n° de facture de vente deux fois dans la fiche : le chiffre d'affaires serait compté deux fois.
+  const doublons = new Set(doublonsFactures(current.factures.map((f) => ({ id: f.id, numero: f.nFacture }))).keys());
   const lotById = new Map(current.lots.map((l) => [l.id, l]));
 
   const factureColumns: DataTableColumn<SuiviDeviseFacture>[] = [
@@ -151,7 +154,17 @@ export function SuiviDeviseEditorPage() {
       header: "N° facture",
       cell: (f) => (
         <span className="inline-flex items-center gap-1.5">
-          {f.nFacture || "—"}
+          {doublons.has(f.id) ? (
+            <span
+              className="inline-flex items-center gap-0.5 rounded bg-destructive/15 px-1 font-bold text-destructive"
+              title="Ce numéro de facture est déjà utilisé par une autre facture de la fiche"
+            >
+              <AlertTriangle className="size-3 shrink-0" aria-label="Numéro de facture en doublon" />
+              {f.nFacture}
+            </span>
+          ) : (
+            f.nFacture || "—"
+          )}
           {f.mouvementStockId && (
             <span title="Reprise de la gestion de stock" className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase text-primary">
               Stock
@@ -361,6 +374,15 @@ export function SuiviDeviseEditorPage() {
         action={{ label: bannerActionLabel, onClick: bannerAction }}
       />
 
+      {doublons.size > 0 && (
+        <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span>
+            Numéro de facture en doublon dans cette fiche :{" "}
+            {[...new Set(current.factures.filter((f) => doublons.has(f.id)).map((f) => f.nFacture))].join(", ")}. Vérifiez pour ne pas compter deux fois la même vente.
+          </span>
+        </p>
+      )}
       <dl className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-2 lg:grid-cols-4 sm:divide-x sm:divide-y-0">
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">
           <dt className="text-xs text-muted-foreground">
@@ -580,6 +602,7 @@ export function SuiviDeviseEditorPage() {
         onOpenChange={setStockOpen}
         ventes={ventesStock}
         devise={current.devise}
+        numerosExistants={current.factures.map((f) => f.nFacture)}
         onReprendre={(ids) => reprendreDuStock(suiviId, ids)}
       />
       <SuiviDeviseImportDialog

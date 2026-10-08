@@ -2,6 +2,7 @@ import { cloneElement, isValidElement, useEffect, useId, useRef, useState } from
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import {
+  AlertTriangle,
   Eye,
   EyeOff,
   File as FileIcon,
@@ -35,6 +36,7 @@ import { readFileAsDataUrl } from "@/lib/file";
 import { alleger, poidsMo } from "@/lib/image";
 import { cn } from "@/lib/utils";
 import { useStock, type StockMouvementInput } from "@/store/stock";
+import { mouvementsAvecNumero } from "@/lib/facturesDoublons";
 import { useSocieteById } from "@/store/data";
 import type { StockChamps, StockDocType, StockExtractPage, StockLigne, StockMouvement } from "@/types";
 import { DocPreviewDialog } from "./DocPreviewDialog";
@@ -144,6 +146,7 @@ export function StockMouvementFormSheet({
   const isEdit = Boolean(mouvement);
   const societe = useSocieteById(societeId);
   const extract = useStock((s) => s.extract);
+  const mouvements = useStock((s) => s.list);
   const extractPages = useStock((s) => s.extractPages);
   const [v, setV] = useState<StockMouvementInput>(empty(societeId));
   const [importing, setImporting] = useState<StockDocType | null>(null);
@@ -202,8 +205,19 @@ export function StockMouvementFormSheet({
     else onOpenChange(false);
   }
 
-  async function enregistrer() {
+  // N° de facture déjà saisi dans un autre mouvement de cette société : alerte, puis confirmation à l'enregistrement.
+  const exceptId = mouvement?.id ?? null;
+  const doublonAchat = mouvementsAvecNumero(mouvements, "achat", v.achatNumFacture, v.fournisseur, exceptId);
+  const doublonVente = mouvementsAvecNumero(mouvements, "vente", v.venteNumFacture, "", exceptId);
+  const rang = (id: string) => mouvements.findIndex((x) => x.id === id) + 1;
+  const [confirmDoublon, setConfirmDoublon] = useState(false);
+
+  async function enregistrer(force = false) {
     if (busy) return;
+    if (!force && (doublonAchat.length > 0 || doublonVente.length > 0)) {
+      setConfirmDoublon(true);
+      return;
+    }
     setEnvoiMo(poidsMo(JSON.stringify(v)));
     setSaving(true);
     try {
@@ -649,6 +663,14 @@ export function StockMouvementFormSheet({
               )}
             >
               <div className="space-y-3">
+                {doublonAchat.length > 0 && (
+                  <p role="alert" className="mb-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      N° de facture d'achat déjà utilisé dans le mouvement n° {doublonAchat.map((x) => rang(x.id)).join(", ")}. Une même facture comptée deux fois fausse les suivis : vérifiez le numéro.
+                    </span>
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Date">
                     <Input
@@ -708,6 +730,14 @@ export function StockMouvementFormSheet({
               )}
             >
               <div className="space-y-3">
+                {doublonVente.length > 0 && (
+                  <p role="alert" className="mb-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      N° de facture de vente déjà utilisé dans le mouvement n° {doublonVente.map((x) => rang(x.id)).join(", ")}. Une même facture comptée deux fois fausse les suivis : vérifiez le numéro.
+                    </span>
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Date">
                     <Input
@@ -852,7 +882,7 @@ export function StockMouvementFormSheet({
               variant="ledger"
               className="h-12 rounded-lg px-6 text-sm uppercase tracking-[0.14em]"
               disabled={busy}
-              onClick={enregistrer}
+              onClick={() => void enregistrer()}
             >
               {saving ? `Enregistrement…${envoiMo >= 0.5 ? ` (${envoiMo.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} Mo)` : ""}` : isEdit ? "Enregistrer" : "Enregistrer le mouvement"}
             </Button>
@@ -860,6 +890,34 @@ export function StockMouvementFormSheet({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={confirmDoublon}
+      onOpenChange={setConfirmDoublon}
+      title="Numéro de facture déjà utilisé"
+      description={
+        <>
+          {doublonAchat.length > 0 && (
+            <span className="block">
+              La facture d'achat <strong>{v.achatNumFacture}</strong> existe déjà dans le mouvement n° {doublonAchat.map((x) => rang(x.id)).join(", ")}.
+            </span>
+          )}
+          {doublonVente.length > 0 && (
+            <span className="block">
+              La facture de vente <strong>{v.venteNumFacture}</strong> existe déjà dans le mouvement n° {doublonVente.map((x) => rang(x.id)).join(", ")}.
+            </span>
+          )}
+          <span className="mt-2 block">L'enregistrer quand même comptera deux fois la même facture dans les suivis.</span>
+        </>
+      }
+      confirmLabel="Enregistrer quand même"
+      cancelLabel="Corriger le numéro"
+      destructive
+      onConfirm={() => {
+        setConfirmDoublon(false);
+        void enregistrer(true);
+      }}
+    />
 
     <ConfirmDialog
       open={confirmClose}

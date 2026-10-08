@@ -31,6 +31,18 @@ describe("ventes du stock à reprendre", () => {
     expect(screen.getAllByText(/50\s000,000 EUR/).length).toBe(2);
   });
 
+  it("signale une vente dont le n° de facture existe déjà dans la fiche, ou deux fois dans le stock", () => {
+    const deux = [vente("a", "202300003", 55000), vente("b", "2023-00003", 100), vente("c", "202300009", 5)];
+    render(<SuiviDeviseStockDialog open onOpenChange={() => undefined} ventes={deux} devise="EUR" numerosExistants={["202300009"]} onReprendre={vi.fn()} />);
+    expect(screen.getAllByLabelText("Numéro de facture en doublon")).toHaveLength(3);
+    expect(screen.getByRole("alert").textContent).toMatch(/3 factures sélectionnées portent un numéro déjà utilisé/);
+  });
+
+  it("n'alerte pas sans doublon", () => {
+    render(<SuiviDeviseStockDialog open onOpenChange={() => undefined} ventes={ventes} devise="EUR" onReprendre={vi.fn()} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("coche tout à l'ouverture et reprend toutes les factures", async () => {
     const onReprendre = vi.fn().mockResolvedValue(undefined);
     render(<SuiviDeviseStockDialog open onOpenChange={() => undefined} ventes={ventes} devise="EUR" onReprendre={onReprendre} />);

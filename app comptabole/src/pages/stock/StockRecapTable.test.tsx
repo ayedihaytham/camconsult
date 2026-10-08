@@ -119,6 +119,16 @@ describe("totaux du récapitulatif", () => {
 describe("tableau récapitulatif du stock", () => {
   afterEach(cleanup);
 
+  it("met en évidence un n° de facture déjà utilisé par un autre mouvement", () => {
+    afficher({ doublons: { vente: new Set(["m1"]), achat: new Set() } });
+    const icones = screen.getAllByLabelText("Numéro de facture en doublon");
+    expect(icones).toHaveLength(1);
+    expect((document.getElementById("mouvement-m1") as HTMLElement).contains(icones[0])).toBe(true);
+    cleanup();
+    afficher();
+    expect(screen.queryByLabelText("Numéro de facture en doublon")).toBeNull();
+  });
+
   it("reprend les attributs du tableau Excel du cabinet, achat et vente côte à côte", () => {
     afficher();
     const entetes = Array.from(document.querySelectorAll("thead th")).map((th) => th.textContent);

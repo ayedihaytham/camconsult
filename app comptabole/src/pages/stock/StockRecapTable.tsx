@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { ChevronRight, FolderInput, Paperclip, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronRight, FolderInput, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 import { ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
 import type { StockLigne, StockMouvement } from "@/types";
@@ -32,6 +32,8 @@ interface Props {
   onDelete: (m: StockMouvement) => void;
   onPreview: (title: string, dataUrl: string | null) => void;
   onClasser: (m: StockMouvement, categorie: Categorie) => void;
+  /** Mouvements dont le n° de facture de vente ou d'achat est déjà utilisé par un autre. */
+  doublons?: { vente: ReadonlySet<string>; achat: ReadonlySet<string> };
 }
 
 const TITRES: Record<Categorie, string> = {
@@ -76,6 +78,7 @@ function CoteCellules({
   tiers,
   date,
   numero,
+  doublon = false,
   devise,
   cours,
 }: {
@@ -83,6 +86,7 @@ function CoteCellules({
   tiers: string;
   date: string | null;
   numero: string;
+  doublon?: boolean;
   devise: string;
   cours: number;
 }) {
@@ -91,7 +95,19 @@ function CoteCellules({
   return (
     <>
       <td className={`${td} ${debutGroupe}`}>{jour(date)}</td>
-      <td className={`${td} font-mono text-[0.7rem]`} title={numero}>{numero || "—"}</td>
+      <td
+        className={`${td} font-mono text-[0.7rem]`}
+        title={doublon ? `${numero} : ce numéro de facture est déjà utilisé par un autre mouvement` : numero}
+      >
+        {doublon ? (
+          <span className="inline-flex items-center gap-0.5 rounded bg-destructive/15 px-1 font-bold text-destructive">
+            <AlertTriangle className="size-3 shrink-0" aria-label="Numéro de facture en doublon" />
+            {numero}
+          </span>
+        ) : (
+          numero || "—"
+        )}
+      </td>
       <td className={`${td} font-medium text-foreground`} title={tiers}>{tiers || "—"}</td>
       <td className={tdNum}>{vide ? "—" : fmtQuantiteUnite(t.quantite, uniteCommune(lignes))}</td>
       <td className={tdNum}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>
@@ -122,7 +138,7 @@ function EnTeteCote({ tiers }: { tiers: string }) {
  * devise, cours, montant en dinars), valeur en douane, écart — et le détail complet (type et n° de
  * déclaration, taux, produits, pièces) en dépliant la ligne. La nature de la marchandise n'est
  * écrite qu'une seule fois, dans la colonne Mouvement. */
-export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onPreview, onClasser }: Props) {
+export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onPreview, onClasser, doublons }: Props) {
   const [ouverts, setOuverts] = useState<Set<string>>(new Set());
   const conteneur = useRef<HTMLDivElement>(null);
   const largeurVisible = useLargeurVisible(conteneur);
@@ -207,6 +223,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     tiers={m.client}
                     date={m.venteDate}
                     numero={m.venteNumFacture}
+                    doublon={doublons?.vente.has(m.id)}
                     devise={m.venteDevise}
                     cours={m.venteCours}
                   />
@@ -215,6 +232,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     tiers={m.fournisseur}
                     date={m.achatDate}
                     numero={m.achatNumFacture}
+                    doublon={doublons?.achat.has(m.id)}
                     devise={m.achatDevise}
                     cours={m.achatCours}
                   />

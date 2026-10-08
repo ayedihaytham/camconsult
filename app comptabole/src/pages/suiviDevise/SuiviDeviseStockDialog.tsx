@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AlertTriangle } from "lucide-react";
+import { doublonsFactures } from "@/lib/facturesDoublons";
+import { cleNumero } from "@/lib/facturesDoublons";
 import { fmtMontant } from "@/lib/stockRecap";
 import { formatDate } from "@/lib/utils";
 import type { SuiviDeviseStockVente } from "@/types";
@@ -11,12 +14,14 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   ventes: SuiviDeviseStockVente[];
   devise: string;
+  /** N° des factures déjà dans la fiche : une vente du stock qui porte le même numéro est signalée. */
+  numerosExistants?: string[];
   /** Rejette en cas d'échec : la fenêtre reste ouverte. */
   onReprendre: (mouvementIds: string[]) => Promise<void>;
 }
 
 /** Ventes de la gestion de stock (même client, devise et exercice) à reprendre comme factures de la fiche. */
-export function SuiviDeviseStockDialog({ open, onOpenChange, ventes, devise, onReprendre }: Props) {
+export function SuiviDeviseStockDialog({ open, onOpenChange, ventes, devise, numerosExistants = [], onReprendre }: Props) {
   const [choix, setChoix] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
@@ -24,6 +29,11 @@ export function SuiviDeviseStockDialog({ open, onOpenChange, ventes, devise, onR
   useEffect(() => {
     if (open) setChoix(new Set(ventes.map((v) => v.mouvementId)));
   }, [open, ventes]);
+
+  const dejaLa = new Set(numerosExistants.map(cleNumero).filter(Boolean));
+  const entreElles = doublonsFactures(ventes.map((v) => ({ id: v.mouvementId, numero: v.nFacture })));
+  const enDoublon = (v: SuiviDeviseStockVente) => entreElles.has(v.mouvementId) || dejaLa.has(cleNumero(v.nFacture));
+  const nbDoublons = ventes.filter((v) => choix.has(v.mouvementId) && enDoublon(v)).length;
 
   const toutes = ventes.length > 0 && choix.size === ventes.length;
   const total = Math.round(ventes.filter((v) => choix.has(v.mouvementId)).reduce((s, v) => s + v.montantTotal, 0) * 1000) / 1000;
@@ -78,7 +88,19 @@ export function SuiviDeviseStockDialog({ open, onOpenChange, ventes, devise, onR
                     />
                   </td>
                   <td className="whitespace-nowrap px-2 py-1.5">{v.dateFacture ? formatDate(v.dateFacture) : "—"}</td>
-                  <td className="whitespace-nowrap px-2 py-1.5 font-mono">{v.nFacture}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5 font-mono">
+                    {enDoublon(v) ? (
+                      <span
+                        className="inline-flex items-center gap-0.5 rounded bg-destructive/15 px-1 font-bold text-destructive"
+                        title="Numéro déjà utilisé par une autre facture"
+                      >
+                        <AlertTriangle className="size-3 shrink-0" aria-label="Numéro de facture en doublon" />
+                        {v.nFacture}
+                      </span>
+                    ) : (
+                      v.nFacture
+                    )}
+                  </td>
                   <td className="px-2 py-1.5">{v.designationProduit || "—"}</td>
                   <td className="px-2 py-1.5">{v.fournisseur || "—"}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{fmtMontant(v.qteTonnes)}</td>
@@ -103,6 +125,12 @@ export function SuiviDeviseStockDialog({ open, onOpenChange, ventes, devise, onR
             </tbody>
           </table>
         </div>
+        {nbDoublons > 0 && (
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+            {nbDoublons} facture{nbDoublons > 1 ? "s" : ""} sélectionnée{nbDoublons > 1 ? "s" : ""} porte{nbDoublons > 1 ? "nt" : ""} un numéro déjà utilisé : la reprendre
+            compterait deux fois la même vente. Vérifiez la gestion de stock.
+          </p>
+        )}
         <p className="text-sm text-muted-foreground">
           {choix.size} facture{choix.size > 1 ? "s" : ""} sélectionnée{choix.size > 1 ? "s" : ""} — <span className="tabular-nums">{fmtMontant(total)}</span> {devise}
         </p>

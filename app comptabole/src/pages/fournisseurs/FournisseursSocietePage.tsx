@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Download, Plus, Truck } from "lucide-react";
+import { AlertTriangle, Download, Plus, Truck } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { useSocieteById } from "@/store/data";
 import { useFournisseurs, type ReglementInput } from "@/store/fournisseurs";
 import { lignesEtat, recapFournisseurs, soldesFactures, type ReglementPrefill } from "@/lib/fournisseurs";
 import { fournisseurCite } from "@/lib/banque";
+import { doublonsFactures } from "@/lib/facturesDoublons";
 import { exporterEtatFournisseur } from "@/lib/fournisseursExport";
 import { fmtMontant } from "@/lib/stockRecap";
 import { cn } from "@/lib/utils";
@@ -86,6 +87,13 @@ export function FournisseursSocietePage() {
       toast.info("Choisissez le fournisseur payé, puis « Nouveau règlement » : le paiement bancaire est prêt à être rapproché.");
     }
   }, [prefillEntrant, loading, recap, navigate, location.pathname]);
+
+  // Un n° de facture d'achat répété pour un même fournisseur : le règlement risque d'être compté deux fois.
+  const doublons = useMemo(
+    () => new Set(doublonsFactures(factures.map((f) => ({ id: f.id, numero: f.numFacture, tiers: f.fournisseurCle }))).keys()),
+    [factures],
+  );
+  const doublonsActif = facturesActif.filter((f) => doublons.has(f.id));
 
   const nbImpayees = factures.filter((f) => soldes.get(f.id)?.statut !== "reglee").length;
   const devises = [...new Set(factures.map((f) => f.devise))];
@@ -215,7 +223,20 @@ export function FournisseursSocietePage() {
               {actif.nbFactures} facture{actif.nbFactures > 1 ? "s" : ""}
             </span>
           </div>
+          {doublonsActif.length > 0 && (
+            <div role="alert" className="mx-5 my-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <p className="flex items-center gap-2 font-semibold">
+                <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+                Numéro de facture en doublon pour ce fournisseur
+              </p>
+              <p className="mt-1 text-xs">
+                {[...new Set(doublonsActif.map((f) => f.numFacture))].join(", ")} : la même facture est saisie dans plusieurs mouvements de stock. Corrigez-la
+                dans la gestion de stock avant de régler, pour ne pas payer deux fois.
+              </p>
+            </div>
+          )}
           <FournisseurEtatTable
+            doublons={doublons}
             lignes={lignes}
             factures={factures}
             lectureSeule={lectureSeule}

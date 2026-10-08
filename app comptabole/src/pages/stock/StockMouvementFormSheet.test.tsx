@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { StockMouvementInput } from "@/store/stock";
+import { useStock } from "@/store/stock";
+import type { StockMouvement } from "@/types";
 import { StockMouvementFormSheet, avecTauxDouane } from "./StockMouvementFormSheet";
 
 function ouvrir(onSubmit = vi.fn().mockResolvedValue(undefined)) {
@@ -66,6 +68,40 @@ describe("fenêtre du mouvement de stock", () => {
 
     terminer();
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+});
+
+describe("n° de facture en doublon", () => {
+  afterEach(() => {
+    cleanup();
+    useStock.setState({ list: [] });
+  });
+  const existant = { id: "m1", venteNumFacture: "202300002", achatNumFacture: "A-1", fournisseur: "SOTACIB" } as StockMouvement;
+
+  it("alerte, puis demande confirmation avant d'enregistrer un numéro déjà utilisé", async () => {
+    useStock.setState({ list: [existant] });
+    const { onSubmit } = ouvrir();
+    saisir();
+    fireEvent.change(screen.getAllByLabelText("N° Facture")[1], { target: { value: "2023-00002" } });
+    expect((await screen.findByRole("alert")).textContent).toMatch(/déjà utilisé dans le mouvement n° 1/);
+
+    fireEvent.click(screen.getByText("Enregistrer le mouvement"));
+    expect(await screen.findByText("Numéro de facture déjà utilisé")).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Enregistrer quand même"));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+  });
+
+  it("n'alerte pas pour un numéro inédit", async () => {
+    useStock.setState({ list: [existant] });
+    const { onSubmit } = ouvrir();
+    saisir();
+    fireEvent.change(screen.getAllByLabelText("N° Facture")[1], { target: { value: "202300099" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByText("Enregistrer le mouvement"));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(screen.queryByText("Numéro de facture déjà utilisé")).toBeNull();
   });
 });
 

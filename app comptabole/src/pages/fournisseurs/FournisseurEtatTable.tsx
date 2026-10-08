@@ -13,6 +13,8 @@ interface Props {
   onEditReglement: (r: ReglementFournisseur) => void;
   onDeleteReglement: (r: ReglementFournisseur) => void;
   onSuivi: (f: FactureFournisseur) => void;
+  /** Factures dont le numéro est utilisé par une autre facture du même fournisseur. */
+  doublons?: ReadonlySet<string>;
 }
 
 const th = "whitespace-nowrap px-2 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground";
@@ -25,7 +27,7 @@ const montant = (n: number) => (n ? fmtMontant(n) : "—");
 
 /** État d'un fournisseur : chaque facture d'achat du stock avec son règlement (cellules fusionnées quand un
  * règlement couvre plusieurs factures), puis la vente et la douane liées et le suivi proforma / chargement. */
-export function FournisseurEtatTable({ lignes, factures, lectureSeule, onEditReglement, onDeleteReglement, onSuivi }: Props) {
+export function FournisseurEtatTable({ lignes, factures, lectureSeule, onEditReglement, onDeleteReglement, onSuivi, doublons }: Props) {
   return (
     <div className="overflow-x-auto" data-tour="fournisseurs-etat">
       <table className="w-full min-w-[78rem] border-collapse text-xs">
@@ -71,7 +73,19 @@ export function FournisseurEtatTable({ lignes, factures, lectureSeule, onEditReg
             const s = f.suivi;
             return (
               <tr key={`${f.id}-${r?.id ?? "solde"}`} className={cn("transition-colors hover:bg-accent/[0.05]", fin && "border-b border-accent/20")}>
-                <td className={`${td} font-mono text-[0.7rem]`}>{f.numFacture || "—"}</td>
+                <td className={`${td} font-mono text-[0.7rem]`}>
+                  {doublons?.has(f.id) ? (
+                    <span
+                      className="inline-flex items-center gap-0.5 rounded bg-destructive/15 px-1 font-bold text-destructive"
+                      title="Ce numéro de facture est utilisé par une autre facture de ce fournisseur"
+                    >
+                      <AlertTriangle className="size-3 shrink-0" aria-label="Numéro de facture en doublon" />
+                      {f.numFacture}
+                    </span>
+                  ) : (
+                    f.numFacture || "—"
+                  )}
+                </td>
                 <td className={td}>{f.date ? formatDate(f.date) : "—"}</td>
                 <td className={tdNum}>{f.quantite ? fmtQuantite(f.quantite) : "—"}</td>
                 <td className={cn(td, "max-w-[14rem] truncate")} title={f.designation}>{f.designation || "—"}</td>

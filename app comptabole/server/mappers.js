@@ -192,6 +192,10 @@ export const collecteSectionDto = (r) => ({
   recuManuel: Boolean(r.recu_manuel),
   dateSuivi: r.date_suivi ? dateStr(r.date_suivi) : null,
   totalSaisi: r.total_saisi == null ? null : Number(r.total_saisi),
+  statut: r.statut ?? "brouillon",
+  transmisLe: isoOrNull(r.transmis_le),
+  valideLe: isoOrNull(r.valide_le),
+  motifRenvoi: r.motif_renvoi ?? "",
 });
 
 export const collecteLigneDto = (r) => ({

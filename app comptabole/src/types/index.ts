@@ -122,6 +122,8 @@ export type CollecteStatut =
   | "a_corriger"
   | "archive";
 export type RecapStatut = "none" | "envoye" | "repondu";
+/** Circuit d'un tableau de la collecte : à remplir, transmis au cabinet, à corriger (renvoyé), validé, archivé. */
+export type SectionStatut = "brouillon" | "transmis" | "a_corriger" | "valide" | "archive";
 
 export interface CollecteSection {
   id: string;
@@ -136,6 +138,11 @@ export interface CollecteSection {
   dateSuivi: string | null;
   /** Total saisi à la main, quand le tableau n'a pas de lignes pour le calculer. */
   totalSaisi: number | null;
+  statut: SectionStatut;
+  transmisLe: string | null;
+  valideLe: string | null;
+  /** Ce que le cabinet demande de corriger ou compléter quand il renvoie le tableau. */
+  motifRenvoi: string;
 }
 
 export type CollecteNoteKind = "note" | "manque" | "reponse";
@@ -185,6 +192,9 @@ export interface CollecteJournalEntry {
 export interface Collecte {
   id: string;
   societeId: string;
+  /** Tableaux transmis par le client et en attente d'examen, tableaux validés ou archivés (liste des collectes seulement). */
+  tableauxTransmis?: number;
+  tableauxValides?: number;
   periode: string;
   statut: CollecteStatut;
   onglets: string[];

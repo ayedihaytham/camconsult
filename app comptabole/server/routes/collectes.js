@@ -120,46 +120,77 @@ function canEdit(session, societeId) {
   return canSeeSociete(session, societeId);
 }
 
-/** Collecte verrouillée en écriture pour cette session, tous onglets
- * confondus — utilisé pour les actions non liées à un onglet précis (pièces
- * jointes générales). `sections` : lignes collecte_sections déjà chargées. */
-function isLocked(session, collecte, sections) {
-  const statut = collecte.statut;
-  // archivée : lecture seule pour tout le monde, admin compris.
-  if (statut === "archive") return true;
-  if (isCabinetManager(session)) return false;
-  // validée : lecture seule pour le client / le collaborateur (côté cabinet ok).
-  if (statut === "valide") return session.poste === "societe_employe" ? true : false;
+const SECTION_OUVERTES = ["brouillon", "a_corriger"];
+const LIBELLES_ONGLETS = {
+  souche_cheques: "Souche de chèques",
+  bordereaux_remise_cheques: "Bordereaux remise chèques",
+  virements_recus: "Virements reçus",
+  virements_emis: "Virements émis",
+  virements_salaire: "Virements salaires",
+  chiffre_affaires: "Chiffre d'affaires",
+  detail_achats: "Détail des achats",
+  etat_caisse: "État de caisse",
+  etat_clients: "État clients",
+  etat_fournisseurs: "État fournisseurs",
+};
+const libelleOnglet = (o) => LIBELLES_ONGLETS[o] ?? o;
+
+/** Statut d'un tableau : celui de sa ligne, à défaut (collecte antérieure au circuit par tableau) celui de la collecte. */
+const sectionStatutDe = (collecte, row) =>
+  row?.statut ?? (["transmis", "valide", "archive", "a_corriger"].includes(collecte.statut) ? collecte.statut : "brouillon");
+
+/** Collecte verrouillée en écriture pour cette session, tous onglets confondus (pièces jointes générales) : le cabinet
+ * n'est bloqué que par l'archivage ; le client, tant qu'aucun de ses tableaux n'est ouvert (à remplir ou à corriger). */
+async function isLocked(session, collecte) {
+  if (collecte.statut === "archive") return true;
   if (session.poste !== "societe_employe") return false;
-  // le client : bloqué après transmission, SAUF si au moins un tableau est
-  // en cours de complétion (récap envoyé sur ce tableau).
-  if (statut === "transmis") return !sections.some((s) => s.recap_statut === "envoye");
-  return false;
+  const rows = (
+    await query("select statut, recap_statut from collecte_sections where collecte_id=$1", [collecte.id])
+  ).rows;
+  return !rows.some((r) => SECTION_OUVERTES.includes(sectionStatutDe(collecte, r)) || r.recap_statut === "envoye");
 }
 
-/** Un onglet précis est-il modifiable par cette session ? Indépendant des
- * autres onglets de la même collecte — envoyer le récap d'un tableau ne
- * déverrouille QUE ce tableau côté client. Ne requête collecte_sections que
- * si c'est réellement nécessaire (jamais pour un admin/collaborateur, ni
- * hors du cas "transmis") — ce contrôle tourne à chaque sauvegarde de
- * tableau (le bouton « Enregistrer »), donc sur le chemin le plus chaud de
- * tout le module ; l'admin (le cas le plus fréquent) sortait toujours au
- * premier test sans jamais utiliser `sections`, mais l'appelant la
- * chargeait quand même avant d'appeler cette fonction. */
+/** Un tableau précis est-il modifiable par cette session ? Chaque tableau a son propre statut : transmettre, valider ou
+ * renvoyer l'un ne verrouille ni ne déverrouille les autres. Archivé : lecture seule pour tout le monde. Le client ne
+ * modifie que ses tableaux « à remplir » ou « à corriger » (ou en récap demandé par le cabinet). */
 async function isOngletLocked(session, collecte, onglet) {
-  const statut = collecte.statut;
-  if (statut === "archive") return true;
-  if (isCabinetManager(session)) return false;
-  if (statut === "valide") return session.poste === "societe_employe" ? true : false;
-  if (session.poste !== "societe_employe") return false;
-  if (statut !== "transmis") return false;
+  if (collecte.statut === "archive") return true;
   const row = (
-    await query(
-      "select recap_statut from collecte_sections where collecte_id=$1 and onglet=$2",
-      [collecte.id, onglet],
-    )
+    await query("select statut, recap_statut from collecte_sections where collecte_id=$1 and onglet=$2", [collecte.id, onglet])
   ).rows[0];
+  const statut = sectionStatutDe(collecte, row);
+  if (statut === "archive") return true;
+  if (session.poste !== "societe_employe") return false;
+  if (SECTION_OUVERTES.includes(statut)) return false;
   return (row?.recap_statut ?? "none") !== "envoye";
+}
+
+/** Recalcule le statut de la collecte d'après ses tableaux : tous validés/archivés -> validée ; au moins un transmis ->
+ * transmise (à examiner) ; au moins un à corriger -> à corriger ; sinon brouillon. Une collecte archivée n'est pas touchée. */
+async function recalculerStatut(client, collecteId) {
+  const c = (await client.query("select statut from collectes where id=$1 for update", [collecteId])).rows[0];
+  if (!c || c.statut === "archive") return c?.statut;
+  const statuts = (await client.query("select statut from collecte_sections where collecte_id=$1", [collecteId])).rows.map(
+    (r) => r.statut ?? "brouillon",
+  );
+  if (statuts.length === 0) return c.statut;
+  const next = statuts.every((x) => x === "valide" || x === "archive")
+    ? "valide"
+    : statuts.some((x) => x === "transmis")
+      ? "transmis"
+      : statuts.some((x) => x === "a_corriger")
+        ? "a_corriger"
+        : "brouillon";
+  if (next !== c.statut) {
+    await client.query(
+      `update collectes set statut=$1, maj_le=now(),
+         transmis_le = case when $1='transmis' and transmis_le is null then now() else transmis_le end,
+         valide_le   = case when $1='valide' then now() else valide_le end
+       where id=$2`,
+      [next, collecteId],
+    );
+  }
+  return next;
 }
 
 // ── Liste ─────────────────────────────────────────
@@ -174,7 +205,24 @@ collectesRouter.get("/", async (req, res) => {
   const rows = (
     await query(`select * from collectes ${where} order by cree_le desc`, params)
   ).rows.filter((r) => canSeeSociete(req.session, r.societe_id));
-  res.json(rows.map(collecteDto));
+  // Avancement par tableau, en une seule requête : tableaux à examiner par le cabinet et tableaux déjà validés.
+  const comptes = new Map(
+    (
+      await query(
+        `select collecte_id, count(*) filter (where statut = 'transmis')::int as transmis,
+                count(*) filter (where statut in ('valide','archive'))::int as valides
+           from collecte_sections where collecte_id = any($1::uuid[]) group by collecte_id`,
+        [rows.map((r) => r.id)],
+      )
+    ).rows.map((r) => [r.collecte_id, r]),
+  );
+  res.json(
+    rows.map((r) => ({
+      ...collecteDto(r),
+      tableauxTransmis: comptes.get(r.id)?.transmis ?? 0,
+      tableauxValides: comptes.get(r.id)?.valides ?? 0,
+    })),
+  );
 });
 
 // ── Détail ────────────────────────────────────────
@@ -264,12 +312,17 @@ collectesRouter.patch("/:id", async (req, res) => {
       return res
         .status(403)
         .json({ error: "Vous pouvez seulement transmettre la collecte" });
-    if (!["brouillon", "a_corriger"].includes(c.statut))
-      return res.status(400).json({ error: "Collecte déjà transmise" });
-    const { rows } = await query(
-      "update collectes set statut='transmis', transmis_le=now(), maj_le=now() where id=$1 returning *",
-      [req.params.id],
-    );
+    const aTransmettre = await withTransaction(async (client) => {
+      const { rowCount } = await client.query(
+        `update collecte_sections set statut='transmis', transmis_le=now()
+         where collecte_id=$1 and statut = any($2::text[])`,
+        [req.params.id, SECTION_OUVERTES],
+      );
+      if (rowCount === 0) return false;
+      await recalculerStatut(client, req.params.id);
+      return true;
+    });
+    if (!aTransmettre) return res.status(400).json({ error: "Collecte déjà transmise" });
     logAction(req.session.nom, "modification", "collecte", `Transmise — ${socNom} ${periodeLabel(c.periode)}`, c.id);
     notify(
       "admin",
@@ -319,6 +372,27 @@ collectesRouter.patch("/:id", async (req, res) => {
         next.echeance, next.relanceCadenceJours, echeanceChanged,
       ],
     );
+    // Un changement de statut de la collecte s'applique à ses tableaux (le circuit se joue tableau par tableau).
+    if (next.statut !== c.statut) {
+      const sync = {
+        valide: ["valide", c.statut === "archive" ? null : "archive", null],
+        archive: ["archive", null, null],
+        a_corriger: ["a_corriger", null, ["transmis", "valide"]],
+        transmis: ["transmis", null, SECTION_OUVERTES],
+      }[next.statut];
+      if (sync) {
+        const [vers, sauf, depuis] = sync;
+        await client.query(
+          `update collecte_sections set statut=$2,
+             valide_le = case when $2='valide' then now() else valide_le end,
+             transmis_le = case when $2='transmis' then now() else transmis_le end
+           where collecte_id=$1
+             and ($3::text[] is null or statut = any($3::text[]))
+             and ($4::text is null or statut <> $4)`,
+          [req.params.id, vers, depuis, sauf],
+        );
+      }
+    }
     // Synchronise les sections avec la liste d'onglets
     const current = new Set(
       (await client.query("select onglet from collecte_sections where collecte_id=$1", [req.params.id])).rows.map((r) => r.onglet),
@@ -343,6 +417,8 @@ collectesRouter.patch("/:id", async (req, res) => {
         );
       }
     }
+    // Un tableau ajouté ou retiré change l'état d'ensemble (ex. tout était validé, un nouveau tableau reste à remplir).
+    if (b.onglets !== undefined && next.statut === c.statut) await recalculerStatut(client, req.params.id);
   });
 
   logAction(req.session.nom, "modification", "collecte", `${socNom} — ${periodeLabel(next.periode)}`, req.params.id);
@@ -676,6 +752,117 @@ collectesRouter.post("/:id/sections/:onglet/recap/close", async (req, res) => {
   res.json(await loadCollecte(req.params.id));
 });
 
+// ── Circuit d'un tableau : transmettre, valider, renvoyer, archiver ───────────────────────
+/** Charge la collecte et le tableau visés ; répond lui-même en cas d'erreur (renvoie null). */
+async function chargerSection(req, res) {
+  const c = (await query("select * from collectes where id = $1", [req.params.id])).rows[0];
+  if (!c) {
+    res.status(404).json({ error: "Collecte introuvable" });
+    return null;
+  }
+  const onglet = req.params.onglet;
+  if (!(Array.isArray(c.onglets) ? c.onglets : []).includes(onglet)) {
+    res.status(400).json({ error: "Onglet non demandé dans cette collecte" });
+    return null;
+  }
+  if (c.statut === "archive") {
+    res.status(400).json({ error: "Collecte archivée : désarchivez-la d'abord" });
+    return null;
+  }
+  const row = (
+    await query("select * from collecte_sections where collecte_id=$1 and onglet=$2", [c.id, onglet])
+  ).rows[0];
+  const soc = (await query("select raison_sociale from societes where id = $1", [c.societe_id])).rows[0];
+  return { c, onglet, statut: sectionStatutDe(c, row), socNom: soc?.raison_sociale ?? "" };
+}
+
+/** Passe un tableau d'un statut à un autre (sous réserve de `depuis`), recalcule la collecte, journalise et renvoie la collecte. */
+async function changerSection(req, res, ctx, { depuis, vers, motif = "", journal }) {
+  const { c, onglet, statut } = ctx;
+  if (!depuis.includes(statut)) return res.status(400).json({ error: "Action impossible dans l'état actuel de ce tableau" });
+  await withTransaction(async (client) => {
+    await client.query(
+      `insert into collecte_sections (collecte_id, onglet, statut) values ($1,$2,$3)
+       on conflict (collecte_id, onglet) do update set statut = excluded.statut,
+         transmis_le = case when excluded.statut='transmis' then now() else collecte_sections.transmis_le end,
+         valide_le   = case when excluded.statut='valide' then now() else collecte_sections.valide_le end,
+         motif_renvoi = case when excluded.statut='a_corriger' then $4 when excluded.statut in ('valide','transmis') then '' else collecte_sections.motif_renvoi end`,
+      [c.id, onglet, vers, motif],
+    );
+    if (vers === "a_corriger") {
+      await client.query(
+        `insert into collecte_notes (collecte_id, onglet, kind, auteur, texte) values ($1,$2,'note','admin',$3)`,
+        [c.id, onglet, `Renvoyé pour correction : ${motif}`],
+      );
+    }
+    await recalculerStatut(client, c.id);
+  });
+  logAction(req.session.nom, "modification", "collecte", `${journal} « ${libelleOnglet(onglet)} » — ${ctx.socNom} ${periodeLabel(c.periode)}`, c.id);
+  return res.json(await loadCollecte(c.id));
+}
+
+/** Le client transmet UN tableau au cabinet, même incomplet : il est alors verrouillé côté client jusqu'à la décision du cabinet. */
+collectesRouter.post("/:id/sections/:onglet/transmettre", async (req, res) => {
+  const ctx = await chargerSection(req, res);
+  if (!ctx) return;
+  if (req.session.poste !== "societe_employe" || !canEdit(req.session, ctx.c.societe_id))
+    return res.status(403).json({ error: "Réservé au client de la société" });
+  if (!SECTION_OUVERTES.includes(ctx.statut)) return res.status(400).json({ error: "Ce tableau est déjà transmis" });
+  const incomplet = req.body?.incomplet === true;
+  await changerSection(req, res, ctx, { depuis: SECTION_OUVERTES, vers: "transmis", journal: incomplet ? "Transmis (incomplet)" : "Transmis" });
+  if (res.statusCode >= 400) return;
+  const titre = `Tableau transmis : ${ctx.socNom} — ${periodeLabel(ctx.c.periode)}`;
+  const detail = `« ${libelleOnglet(ctx.onglet)} »${incomplet ? " — incomplet" : ""} · par ${req.session.nom}`;
+  notify("admin", "collecte", titre, detail, `/collectes/${ctx.c.id}`);
+  const collabs = (await concernedBySociete(ctx.c.societe_id, { includeAdmin: false })).filter(
+    (k) => k !== notifKey(req.session),
+  );
+  notifyMany(collabs, "collecte", titre, detail, `/collectes/${ctx.c.id}`);
+});
+
+/** Le cabinet valide un tableau transmis. */
+collectesRouter.post("/:id/sections/:onglet/valider", async (req, res) => {
+  const ctx = await chargerSection(req, res);
+  if (!ctx) return;
+  if (!isCabinet(req.session, ctx.c.societe_id)) return res.status(403).json({ error: "Réservé au cabinet" });
+  await changerSection(req, res, ctx, { depuis: ["transmis"], vers: "valide", journal: "Validé" });
+  if (res.statusCode >= 400) return;
+  const cibles = (await concernedBySociete(ctx.c.societe_id, { includeAdmin: req.session.role !== "admin" })).filter(
+    (k) => k !== notifKey(req.session),
+  );
+  notifyMany(cibles, "collecte", `Tableau validé : ${ctx.socNom} — ${periodeLabel(ctx.c.periode)}`, `« ${libelleOnglet(ctx.onglet)} » · par ${req.session.nom}`, `/collectes/${ctx.c.id}`);
+});
+
+/** Le cabinet renvoie un tableau (transmis ou validé) au client pour correction ou ajout de lignes, avec un motif. */
+collectesRouter.post("/:id/sections/:onglet/renvoyer", async (req, res) => {
+  const ctx = await chargerSection(req, res);
+  if (!ctx) return;
+  if (!isCabinet(req.session, ctx.c.societe_id)) return res.status(403).json({ error: "Réservé au cabinet" });
+  const motif = String(req.body?.motif ?? "").trim().slice(0, 1000);
+  if (!motif) return res.status(400).json({ error: "Indiquez au client ce qu'il doit corriger ou compléter" });
+  await changerSection(req, res, ctx, { depuis: ["transmis", "valide"], vers: "a_corriger", motif, journal: "Renvoyé pour correction" });
+  if (res.statusCode >= 400) return;
+  const cibles = (await concernedBySociete(ctx.c.societe_id, { includeAdmin: req.session.role !== "admin" })).filter(
+    (k) => k !== notifKey(req.session),
+  );
+  notifyMany(cibles, "collecte", `Tableau à corriger : ${ctx.socNom} — ${periodeLabel(ctx.c.periode)}`, `« ${libelleOnglet(ctx.onglet)} » — ${motif.slice(0, 100)}`, `/collectes/${ctx.c.id}`);
+});
+
+/** Archive un tableau validé (admin ou responsable) : lecture seule pour tout le monde jusqu'au désarchivage. */
+collectesRouter.post("/:id/sections/:onglet/archiver", async (req, res) => {
+  const ctx = await chargerSection(req, res);
+  if (!ctx) return;
+  if (!isCabinetManager(req.session)) return res.status(403).json({ error: "Réservé à l'administrateur ou au responsable des collaborateurs" });
+  await changerSection(req, res, ctx, { depuis: ["valide"], vers: "archive", journal: "Archivé" });
+});
+
+collectesRouter.post("/:id/sections/:onglet/desarchiver", async (req, res) => {
+  const ctx = await chargerSection(req, res);
+  if (!ctx) return;
+  if (!isCabinetManager(req.session)) return res.status(403).json({ error: "Réservé à l'administrateur ou au responsable des collaborateurs" });
+  await changerSection(req, res, ctx, { depuis: ["archive"], vers: "valide", journal: "Désarchivé" });
+});
+
 // ── Historique (journal filtré sur cette collecte) ────
 collectesRouter.get("/:id/journal", async (req, res) => {
   const c = (await query("select * from collectes where id = $1", [req.params.id]))
@@ -737,15 +924,14 @@ collectesRouter.post("/:id/fichiers", async (req, res) => {
   if (!c) return res.status(404).json({ error: "Collecte introuvable" });
   if (!canEdit(req.session, c.societe_id))
     return res.status(403).json({ error: "Dépôt non autorisé" });
-  const fSections = (
-    await query("select onglet, recap_statut from collecte_sections where collecte_id=$1", [req.params.id])
-  ).rows;
-  if (isLocked(req.session, c, fSections))
-    return res.status(400).json({ error: "Collecte verrouillée" });
   const parsed = fichierSchema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
+  const verrouille = v.onglet && (c.onglets ?? []).includes(v.onglet)
+    ? await isOngletLocked(req.session, c, v.onglet)
+    : await isLocked(req.session, c);
+  if (verrouille) return res.status(400).json({ error: v.onglet ? "Ce tableau est verrouillé" : "Collecte verrouillée" });
   await query(
     `insert into collecte_fichiers (collecte_id, onglet, nom, format, taille, data_url, depose_par)
      values ($1,$2,$3,$4,$5,$6,$7)`,
@@ -761,11 +947,13 @@ collectesRouter.delete("/:id/fichiers/:fichierId", async (req, res) => {
   if (!c) return res.status(404).json({ error: "Collecte introuvable" });
   if (!canEdit(req.session, c.societe_id))
     return res.status(403).json({ error: "Suppression non autorisée" });
-  const dSections = (
-    await query("select onglet, recap_statut from collecte_sections where collecte_id=$1", [req.params.id])
-  ).rows;
-  if (isLocked(req.session, c, dSections))
-    return res.status(400).json({ error: "Collecte verrouillée" });
+  const cible = (
+    await query("select onglet from collecte_fichiers where id = $1 and collecte_id = $2", [req.params.fichierId, req.params.id])
+  ).rows[0];
+  const verrouille = cible?.onglet && (c.onglets ?? []).includes(cible.onglet)
+    ? await isOngletLocked(req.session, c, cible.onglet)
+    : await isLocked(req.session, c);
+  if (verrouille) return res.status(400).json({ error: "Collecte verrouillée" });
   const { rows } = await query(
     "delete from collecte_fichiers where id = $1 and collecte_id = $2 returning nom",
     [req.params.fichierId, req.params.id],

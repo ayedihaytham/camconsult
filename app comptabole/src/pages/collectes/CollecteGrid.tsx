@@ -1,7 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { FileUp, LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
+import { ChevronDown, FileUp, LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -123,14 +124,16 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
   }
   /** Ajoute une ligne à la suite, directement dans le tableau, et y place le curseur. Dans un groupe qui n'a pas
-   * encore atteint son montant (un bordereau), la ligne reprend la date, le n° et la banque du groupe. */
-  function addRow(groupeId?: string) {
+   * encore atteint son montant (un bordereau), la ligne reprend la date, le n° et la banque du groupe. `nouveau` force une ligne
+   * vierge : le début d'un autre bordereau, même si le précédent n'est pas terminé. */
+  function addRow(groupeId?: string, nouveau = false) {
     setSaved(false);
     setSaveError(false);
     const vide = Object.fromEntries(def.columns.map((c) => [c.key, ""]));
     const g = def.groupe;
     const cible =
       g &&
+      !nouveau &&
       (groupeId
         ? groupes.find((x) => x.id === groupeId)
         : (() => {
@@ -248,6 +251,48 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const largeurModele = def.columns.reduce((s, c) => s + (c.width ?? 140), 0) || 1;
   const derniereColonne = [...def.columns].reverse().find((c) => !c.computed)?.key;
   const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
+
+  /** « Ajouter une ligne » : dans un tableau à bordereaux, on choisit entre un NOUVEAU bordereau et une ligne de plus dans
+   * un bordereau existant (un chèque de plus, qui reprend sa date, son n° et sa banque). */
+  function ajoutLigne() {
+    const nom = def.groupe?.libelle.toLowerCase() ?? "groupe";
+    if (!def.groupe || groupes.length === 0) {
+      return (
+        <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow()}>
+          <Plus className="h-4 w-4" />
+          Ajouter une ligne
+        </Button>
+      );
+    }
+    return (
+      <>
+        <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow(undefined, true)}>
+          <Plus className="h-4 w-4" />
+          Nouveau {nom}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8">
+              <Plus className="h-4 w-4" />
+              Ajouter à un {nom}
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-72 overflow-auto">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Une ligne de plus dans…</DropdownMenuLabel>
+            {groupes.map((g) => (
+              <DropdownMenuItem key={g.id} onSelect={() => addRow(g.id)}>
+                <span className="font-semibold">{g.nom}</span>
+                <span className="ml-3 text-xs text-muted-foreground">
+                  {g.complet ? "complet" : g.reste > 0 ? `reste ${montantFr(g.reste)} ${symboleGroupe}` : `dépassé de ${montantFr(-g.reste)} ${symboleGroupe}`}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </>
+    );
+  }
 
   const total: number | null = def.checklistTotal
     ? def.checklistTotal(derived)
@@ -554,14 +599,32 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               <span className={cn("text-xs font-semibold", g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning")}>
                 {g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)}` : `Reste ${montantFr(g.reste)}`}
               </span>
-              {!g.complet && canAdd && (
-                <Button type="button" variant="outline" size="sm" className="min-h-8" onClick={() => addRow(g.id)}>
+              {canAdd && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-8"
+                  title={g.complet ? `Ce ${def.groupe?.libelle.toLowerCase()} a atteint son montant : une ligne de plus le fera dépasser, pensez à revoir le montant.` : undefined}
+                  onClick={() => addRow(g.id)}
+                >
                   <Plus className="h-3.5 w-3.5" />
-                  Ajouter une ligne à ce {def.groupe?.libelle.toLowerCase()}
+                  {g.complet ? `Ajouter un chèque à ce ${def.groupe?.libelle.toLowerCase()}` : `Ajouter une ligne à ce ${def.groupe?.libelle.toLowerCase()}`}
                 </Button>
               )}
             </div>
           ))}
+          {canAdd && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-2">
+              <Button type="button" variant="outline" size="sm" className="min-h-8" onClick={() => addRow(undefined, true)}>
+                <Plus className="h-3.5 w-3.5" />
+                Commencer un nouveau {def.groupe?.libelle.toLowerCase()}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Ajouter à un {def.groupe?.libelle.toLowerCase()} existant garde sa date, son n° et sa banque ; un nouveau {def.groupe?.libelle.toLowerCase()} démarre une ligne vierge.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -588,14 +651,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       {!readOnly && (
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {structureLocked ? (
-              <span />
-            ) : (
-              <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow()}>
-                <Plus className="h-4 w-4" />
-                Ajouter une ligne
-              </Button>
-            )}
+            {structureLocked ? <span /> : ajoutLigne()}
             {!structureLocked && TABLEAUX_GRAND_LIVRE[def.key] && (
               <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => setImportOpen(true)}>
                 <FileUp className="h-4 w-4" />

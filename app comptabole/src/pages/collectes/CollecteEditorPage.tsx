@@ -45,6 +45,7 @@ import { COLLECTE_STATUT_LABELS, TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
 import { aggregateRecapStatut, sectionRecapStatut } from "@/lib/collecte/recap";
+import { SECTION_STATUT_LABELS, sectionOuverte, sectionStatut } from "@/lib/collecte/sections";
 import {
   downloadCollecteSectionPdf,
   exportCollecteSectionXlsx,
@@ -59,6 +60,7 @@ import { CollecteChecklist } from "./CollecteChecklist";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
+import { SectionCircuit } from "./SectionCircuit";
 import {
   FileUploadDialog,
   type NewFichier,
@@ -92,6 +94,11 @@ export function CollecteEditorPage() {
   const saveSuivi = useCollectes((s) => s.saveSuivi);
   const marquerRecu = useCollectes((s) => s.marquerRecu);
   const submitRecap = useCollectes((s) => s.submitRecap);
+  const transmettreSection = useCollectes((s) => s.transmettreSection);
+  const validerSection = useCollectes((s) => s.validerSection);
+  const renvoyerSection = useCollectes((s) => s.renvoyerSection);
+  const archiverSection = useCollectes((s) => s.archiverSection);
+  const desarchiverSection = useCollectes((s) => s.desarchiverSection);
   const relanceNow = useCollectes((s) => s.relanceNow);
   const uploadFichier = useCollectes((s) => s.uploadFichier);
   const joindreFichier = useCollectes((s) => s.joindreFichier);
@@ -198,12 +205,15 @@ export function CollecteEditorPage() {
     collecte.echeance! < new Date().toISOString().slice(0, 10);
   // Validée : le client de société passe en lecture seule (cabinet toujours modifiable).
   // Archivée : lecture seule pour TOUT LE MONDE, admin compris.
-  const editable =
-    !archivee &&
-    (isAdmin ||
-      isStaff ||
-      (poste === "societe_employe" &&
-        (collecte.statut === "brouillon" || collecte.statut === "a_corriger")));
+  const isClient = poste === "societe_employe";
+  // Chaque tableau a son circuit (à remplir -> transmis -> validé ou renvoyé) : le client modifie ceux qui sont encore ouverts.
+  const sectionsOuvertes = collecte.onglets.some((k) => sectionOuverte(sectionStatut(collecte, k)));
+  const editable = !archivee && (isAdmin || isStaff || (isClient && sectionsOuvertes));
+  /** Tableau modifiable par cette session : jamais un tableau archivé ; le client seulement tant qu'il est ouvert. */
+  const editableTab = (key: string) => {
+    const st = sectionStatut(collecte, key);
+    return !archivee && st !== "archive" && (isAdmin || isStaff || (isClient && sectionOuverte(st)));
+  };
   // Cabinet = admin ou collaborateur : peut envoyer/clore un récap par
   // tableau et écrire des notes — pas réservé à l'admin.
   const canManageRecap = isAdmin || isStaff;
@@ -213,11 +223,7 @@ export function CollecteEditorPage() {
   // des autres — voir sectionRecapStatut plus bas, utilisé par tableau).
   const clientRecap = poste === "societe_employe" && currentRecap === "envoye";
   // Un seul bouton client : « Transmettre au cabinet » (soumet aussi le récap).
-  const canSubmit =
-    !isAdmin &&
-    (collecte.statut === "brouillon" ||
-      collecte.statut === "a_corriger" ||
-      clientRecap);
+  const canSubmit = !isAdmin && !archivee && (sectionsOuvertes || clientRecap);
 
   // Cases importantes vides détectées EN DIRECT, par onglet.
   const liveManques = computeManques(collecte);
@@ -291,6 +297,20 @@ export function CollecteEditorPage() {
     else if (next === "__confirm_a_corriger__") setConfirm("a_corriger");
     else if (next === "__confirm_reopen__") setConfirm("reopen");
     else setTab(next);
+  }
+
+  /** Avant de transférer un tableau : enregistre ce qui est en cours, puis dit ce qui manque encore (chaîne vide si complet). */
+  async function preparerTransfert(key: string): Promise<string> {
+    const grille = tab === key ? gridRef.current : null;
+    if (grille?.isDirty()) await grille.save();
+    const courant = useCollectes.getState().current;
+    if (!courant) return "";
+    const morceaux: string[] = [];
+    const manques = computeManques(courant).filter((m) => m.onglet === key);
+    if (!courant.lignes.some((l) => l.onglet === key)) morceaux.push("aucune ligne saisie");
+    else if (manques.length > 0) morceaux.push(`${manques.length} case${manques.length > 1 ? "s" : ""} importante${manques.length > 1 ? "s" : ""} vide${manques.length > 1 ? "s" : ""}`);
+    if (grille && !grille.isComplete()) morceaux.push(grille.incompleteMessage());
+    return morceaux.join(" · ");
   }
 
   function leaveAfterDraft() {
@@ -387,10 +407,10 @@ export function CollecteEditorPage() {
             {canManageCollaborateurs && collecte.statut === "transmis" && (
               <>
                 <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_valide__")}>
-                  <CheckCircle2 className="h-4 w-4" /> Valider
+                  <CheckCircle2 className="h-4 w-4" /> Tout valider
                 </Button>
                 <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}>
-                  Renvoyer pour correction
+                  Tout renvoyer
                 </Button>
               </>
             )}
@@ -689,6 +709,36 @@ export function CollecteEditorPage() {
                     dirty={tab === key && dirtyTableau}
                   />
                   <div className="space-y-4 p-3 lg:p-4">
+                    {!preview && !archivee && (
+                      <SectionCircuit
+                        label={def.label}
+                        statut={sectionStatut(collecte, key)}
+                        motifRenvoi={collecte.sections.find((x) => x.onglet === key)?.motifRenvoi ?? ""}
+                        isClient={isClient}
+                        canArchive={canManageCollaborateurs}
+                        preparerTransfert={() => preparerTransfert(key)}
+                        onTransmettre={async (incomplet) => {
+                          await transmettreSection(id, key, incomplet);
+                          toast.success(`« ${def.label} » transmis au cabinet`);
+                        }}
+                        onValider={async () => {
+                          await validerSection(id, key);
+                          toast.success(`« ${def.label} » validé`);
+                        }}
+                        onRenvoyer={async (motif) => {
+                          await renvoyerSection(id, key, motif);
+                          toast.success(`« ${def.label} » renvoyé au client`);
+                        }}
+                        onArchiver={async () => {
+                          await archiverSection(id, key);
+                          toast.success(`« ${def.label} » archivé`);
+                        }}
+                        onDesarchiver={async () => {
+                          await desarchiverSection(id, key);
+                          toast.success(`« ${def.label} » désarchivé`);
+                        }}
+                      />
+                    )}
                     {(() => {
                       const hl = flaggedByTab.get(key);
                       const whole = wholeTab.has(key);
@@ -722,7 +772,7 @@ export function CollecteEditorPage() {
                           lignes={collecte.lignes.filter(
                             (l) => l.onglet === key,
                           )}
-                          readOnly={clientRecapForTab ? !inRecap : !editable}
+                          readOnly={clientRecapForTab ? !inRecap : !editableTab(key)}
                           recapClient={inRecap}
                           highlight={hl}
                           wholeEditable={inRecap && whole}
@@ -860,6 +910,8 @@ export function CollecteEditorPage() {
                   label={TAB_BY_KEY[key]?.label ?? key}
                   badge={showFlagsFor(key) ? manqueCount.get(key) : undefined}
                   recu={rows.find((r) => r.onglet === key)?.recu}
+                  dot={DOT_SECTION[sectionStatut(collecte, key)]}
+                  dotTitle={SECTION_STATUT_LABELS[sectionStatut(collecte, key)]}
                 />
               ))}
               {(isAdmin || isStaff) && (
@@ -1125,19 +1177,31 @@ function BarreFeuilles({ tab, children }: { tab: string; children: ReactNode }) 
 
 /** Onglet de feuille, comme en bas d'un classeur Excel : la section active est « posée » sur le contenu,
  * les tableaux déjà reçus sont teintés en vert. */
+/** Pastille de la feuille d'un tableau selon son statut dans le circuit (rien tant qu'il est à remplir). */
+const DOT_SECTION: Record<string, "success" | "warning" | "destructive" | "muted" | undefined> = {
+  brouillon: undefined,
+  transmis: "warning",
+  a_corriger: "destructive",
+  valide: "success",
+  archive: "muted",
+};
+
 function FeuilleTab({
   active,
   onClick,
   label,
   badge,
   dot,
+  dotTitle,
   recu,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
   badge?: number;
-  dot?: "success" | "warning";
+  dot?: "success" | "warning" | "destructive" | "muted";
+  /** Libellé du statut du tableau, en info-bulle de la pastille. */
+  dotTitle?: string;
   /** Tableau reçu (vert) ; absent pour les sections qui ne sont pas des tableaux. */
   recu?: boolean;
 }) {
@@ -1157,7 +1221,12 @@ function FeuilleTab({
       )}
     >
       <span className="truncate">{label}</span>
-      {dot && <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot === "success" ? "bg-success" : "bg-warning")} />}
+      {dot && (
+        <span
+          title={dotTitle}
+          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot === "success" ? "bg-success" : dot === "destructive" ? "bg-destructive" : dot === "muted" ? "bg-muted-foreground/60" : "bg-warning")}
+        />
+      )}
       {badge !== undefined && (
         <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1 text-[10px] font-semibold text-warning">
           {badge}

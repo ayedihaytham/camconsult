@@ -79,6 +79,14 @@ interface CollectesState {
   sendRecapSection: (id: string, onglet: string, count: number) => Promise<void>;
   closeRecapSection: (id: string, onglet: string) => Promise<void>;
   submitRecap: (id: string) => Promise<void>;
+
+  /** Circuit d'un tableau : le client le transmet (même incomplet), le cabinet le valide ou le renvoie avec un motif, puis l'archive. */
+  actionSection: (id: string, onglet: string, action: string, body?: Record<string, unknown>) => Promise<void>;
+  transmettreSection: (id: string, onglet: string, incomplet?: boolean) => Promise<void>;
+  validerSection: (id: string, onglet: string) => Promise<void>;
+  renvoyerSection: (id: string, onglet: string, motif: string) => Promise<void>;
+  archiverSection: (id: string, onglet: string) => Promise<void>;
+  desarchiverSection: (id: string, onglet: string) => Promise<void>;
 }
 
 export const useCollectes = create<CollectesState>((set, get) => ({
@@ -252,6 +260,23 @@ export const useCollectes = create<CollectesState>((set, get) => ({
   submitRecap: async (id) => {
     try {
       const c = await api.post<CollecteFull>(`/collectes/${id}/recap/submit`);
+      set((st) => ({
+        current: st.current?.id === id ? c : st.current,
+        list: st.list.map((x) => (x.id === id ? c : x)),
+      }));
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  transmettreSection: (id, onglet, incomplet = false) => get().actionSection(id, onglet, "transmettre", { incomplet }),
+  validerSection: (id, onglet) => get().actionSection(id, onglet, "valider"),
+  renvoyerSection: (id, onglet, motif) => get().actionSection(id, onglet, "renvoyer", { motif }),
+  archiverSection: (id, onglet) => get().actionSection(id, onglet, "archiver"),
+  desarchiverSection: (id, onglet) => get().actionSection(id, onglet, "desarchiver"),
+  actionSection: async (id, onglet, action, body) => {
+    try {
+      const c = await api.post<CollecteFull>(`/collectes/${id}/sections/${onglet}/${action}`, body);
       set((st) => ({
         current: st.current?.id === id ? c : st.current,
         list: st.list.map((x) => (x.id === id ? c : x)),

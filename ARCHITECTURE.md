@@ -37,6 +37,12 @@ The backend lives in `app comptabole/server/`:
 - Public: `/login`.
 - Authenticated shell: `/`, `/societes`, `/collectes`, `/collectes/:id`,
   `/structuration`, `/messagerie`.
+- Collecte de pièces, circuit par tableau (`collecte_sections.statut`: brouillon → transmis → valide | a_corriger →
+  archive, `lib/collecte/sections.ts`, `SectionCircuit`): le client enregistre puis transfère chaque tableau (même
+  incomplet), le cabinet (admin, responsable, collaborateur du périmètre) le valide ou le renvoie avec un motif,
+  l'admin/responsable l'archive. Un tableau transmis, validé ou archivé est verrouillé pour le client (archivé : pour tous).
+  Le statut de la collecte est recalculé d'après ses tableaux (`recalculerStatut`, `server/routes/collectes.js`) ;
+  changer le statut de la collecte s'applique à tous ses tableaux.
 - Internal team (`RequireEquipe`): `/taches`, `/stock`, `/stock/:societeId`,
   `/etats-financiers`, `/etats-financiers/:societeId`, its print route and
   balance editor route.

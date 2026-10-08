@@ -158,7 +158,7 @@ export function CollectesListPage() {
       header: "Suivi",
       cell: ({ row }) => (
         <div className="min-w-0 text-[11px] leading-snug">
-          <span className="block truncate font-semibold tabular-nums text-foreground/80">{formatTableauCount(row.original.onglets.length)}</span>
+          <span className="block truncate font-semibold tabular-nums text-foreground/80">{formatTableauCount(row.original.onglets.length)}<AvancementTableaux collecte={row.original} /></span>
           <span className="block truncate text-muted-foreground">{formatCollecteUpdate(row.original.majLe)}</span>
         </div>
       ),
@@ -442,6 +442,18 @@ function formatCollecteUpdate(value: string) {
   return `Mis à jour le ${formatter.format(date)}`;
 }
 
+/** « · 2 à examiner · 1 validé » : où en est chaque tableau de la collecte, sans ouvrir le dossier. */
+function AvancementTableaux({ collecte }: { collecte: Collecte }) {
+  const transmis = collecte.tableauxTransmis ?? 0;
+  const valides = collecte.tableauxValides ?? 0;
+  return (
+    <>
+      {transmis > 0 && <span className="font-semibold text-warning"> · {transmis} à examiner</span>}
+      {valides > 0 && <span className="font-medium text-success"> · {valides} validé{valides > 1 ? "s" : ""}</span>}
+    </>
+  );
+}
+
 function formatTableauCount(count: number) {
   return `${count} tableau${count === 1 ? "" : "x"}`;
 }
@@ -478,7 +490,7 @@ function CollecteMobileRow({ collecte, socNom, isAdmin, isSocieteEmploye, onDele
         <div className="shrink-0 text-right"><CollecteDeadline collecte={collecte} /></div>
       </div>
       <div className="mt-2 flex min-w-0 items-center justify-between gap-2 border-t border-border/60 pt-2">
-        <span className="min-w-0 truncate text-[11px] text-muted-foreground">{formatTableauCount(collecte.onglets.length)} · {formatCollecteUpdate(collecte.majLe)}</span>
+        <span className="min-w-0 truncate text-[11px] text-muted-foreground">{formatTableauCount(collecte.onglets.length)}<AvancementTableaux collecte={collecte} /> · {formatCollecteUpdate(collecte.majLe)}</span>
         <Link to={`/collectes/${collecte.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {getCollecteNextAction(collecte.statut, { isAdmin, isSocieteEmploye })}<ArrowRight className="size-3.5" aria-hidden="true" />
         </Link>

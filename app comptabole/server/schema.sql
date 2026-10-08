@@ -113,6 +113,20 @@ alter table collecte_sections add column if not exists recu_manuel boolean not n
 alter table collecte_sections add column if not exists date_suivi date;
 alter table collecte_sections add column if not exists total_saisi numeric;
 
+-- Circuit par tableau : le client transmet CHAQUE tableau au cabinet (même incomplet), le cabinet le valide ou le renvoie
+-- avec un motif, un tableau validé peut être archivé. Les collectes déjà en cours reprennent le statut de la collecte.
+alter table collecte_sections add column if not exists statut text; -- brouillon | transmis | a_corriger | valide | archive
+alter table collecte_sections add column if not exists transmis_le timestamptz;
+alter table collecte_sections add column if not exists valide_le timestamptz;
+alter table collecte_sections add column if not exists motif_renvoi text not null default '';
+insert into collecte_sections (collecte_id, onglet)
+  select c.id, o from collectes c, jsonb_array_elements_text(c.onglets) o
+  where not exists (select 1 from collecte_sections s where s.collecte_id = c.id and s.onglet = o);
+update collecte_sections s set statut = case when c.statut in ('transmis','valide','archive','a_corriger') then c.statut else 'brouillon' end
+  from collectes c where c.id = s.collecte_id and s.statut is null;
+update collecte_sections set statut = 'brouillon' where statut is null;
+alter table collecte_sections alter column statut set default 'brouillon';
+
 -- Lignes de saisie d'un onglet (schéma des colonnes défini côté code).
 create table if not exists collecte_lignes (
   id          uuid primary key default gen_random_uuid(),

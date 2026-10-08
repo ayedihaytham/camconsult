@@ -211,3 +211,32 @@ describe("Collecte requested-table navigation guard", () => {
     expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
   });
 });
+
+describe("Collecte : circuit par tableau", () => {
+  const section = (onglet: string, statut: string, motifRenvoi = "") =>
+    ({ id: onglet, onglet, commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut, transmisLe: null, valideLe: null, motifRenvoi }) as never;
+  afterEach(() => {
+    collecte.sections = [];
+  });
+
+  it("le cabinet voit le statut de chaque tableau sur son onglet, et peut valider ou renvoyer celui qui est transmis", () => {
+    collecte.sections = [section("souche_cheques", "transmis"), section("bordereaux_remise_cheques", "valide")];
+    renderPage();
+    expect(sectionButton("Souche de chèques").querySelector('[title="Transmis au cabinet"]')).toBeTruthy();
+    expect(sectionButton("Bordereaux remise chèques").querySelector('[title="Validé"]')).toBeTruthy();
+    fireEvent.click(sectionButton("Souche de chèques"));
+    expect(screen.getByRole("button", { name: "Valider ce tableau" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Renvoyer au client" })).toBeTruthy();
+    fireEvent.click(sectionButton("Bordereaux remise chèques"));
+    expect(screen.queryByRole("button", { name: "Valider ce tableau" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Archiver ce tableau" })).toBeTruthy();
+  });
+
+  it("un tableau archivé n'est plus modifiable, même par l'admin", () => {
+    collecte.sections = [section("souche_cheques", "archive")];
+    renderPage();
+    fireEvent.click(sectionButton("Souche de chèques"));
+    expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Désarchiver" })).toBeTruthy();
+  });
+});

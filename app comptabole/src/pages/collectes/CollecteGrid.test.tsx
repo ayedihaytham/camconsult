@@ -177,6 +177,46 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     expect(champs(lignes()[2])[1].value).toBe("");
   });
 
+  it("après un bordereau terminé : « Nouveau bordereau » repart d'une ligne vierge, « Ajouter à un bordereau » continue le même", async () => {
+    renderGrid("bordereaux_remise_cheques");
+    // Avant tout bordereau, un seul bouton.
+    expect(screen.queryByRole("button", { name: "Nouveau bordereau" })).toBeNull();
+    ajouter();
+    const l0 = champs(lignes()[0]);
+    fireEvent.change(l0[1], { target: { value: "REM-42" } });
+    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "60000" } });
+    fireEvent.change(l0[BANQUE], { target: { value: "BNA" } });
+    fireEvent.change(l0[MONTANT], { target: { value: "60000" } });
+    expect(suivi()?.textContent).toContain("Complet");
+
+    // Bordereau complet : nouveau bordereau = ligne vierge, sans n° ni banque repris.
+    fireEvent.click(screen.getByRole("button", { name: "Nouveau bordereau" }));
+    expect(lignes()).toHaveLength(2);
+    expect(champs(lignes()[1])[1].value).toBe("");
+    expect(champs(lignes()[1])[BANQUE].value).toBe("");
+
+    // Même bordereau : la ligne reprend son n° et sa banque.
+    fireEvent.keyDown(screen.getByRole("button", { name: /Ajouter à un bordereau/ }), { key: "Enter", code: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: /REM-42/ }));
+    expect(lignes()).toHaveLength(3);
+    expect(champs(lignes()[2])[1].value).toBe("REM-42");
+    expect(champs(lignes()[2])[BANQUE].value).toBe("BNA");
+  });
+
+  it("un bordereau complet propose quand même d'y ajouter un chèque, et signale alors le dépassement", () => {
+    renderGrid("bordereaux_remise_cheques");
+    ajouter();
+    const l0 = champs(lignes()[0]);
+    fireEvent.change(l0[1], { target: { value: "REM-42" } });
+    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "1000" } });
+    fireEvent.change(l0[MONTANT], { target: { value: "1000" } });
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter un chèque à ce bordereau/ }));
+    expect(lignes()).toHaveLength(2);
+    expect(champs(lignes()[1])[1].value).toBe("REM-42");
+    fireEvent.change(champs(lignes()[1])[MONTANT], { target: { value: "200" } });
+    expect(suivi()?.textContent).toMatch(/Dépassé de 200,000/);
+  });
+
   it("n'est complet que lorsque chaque bordereau a atteint son montant", () => {
     const { ref } = renderGrid("bordereaux_remise_cheques");
     ajouter();

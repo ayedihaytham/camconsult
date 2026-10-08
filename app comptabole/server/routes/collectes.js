@@ -136,8 +136,11 @@ const LIBELLES_ONGLETS = {
 const libelleOnglet = (o) => LIBELLES_ONGLETS[o] ?? o;
 
 /** Statut d'un tableau : celui de sa ligne, à défaut (collecte antérieure au circuit par tableau) celui de la collecte. */
-const sectionStatutDe = (collecte, row) =>
-  row?.statut ?? (["transmis", "valide", "archive", "a_corriger"].includes(collecte.statut) ? collecte.statut : "brouillon");
+const sectionStatutDe = (collecte, row) => {
+  const statut = row?.statut ?? (["transmis", "valide", "archive", "a_corriger"].includes(collecte.statut) ? collecte.statut : "brouillon");
+  // Un récap en attente est une demande faite au client : le tableau est rouvert (à corriger), validé ou transmis auparavant.
+  return row?.recap_statut === "envoye" && (statut === "valide" || statut === "transmis") ? "a_corriger" : statut;
+};
 
 /** Collecte verrouillée en écriture pour cette session, tous onglets confondus (pièces jointes générales) : le cabinet
  * n'est bloqué que par l'archivage ; le client, tant qu'aucun de ses tableaux n'est ouvert (à remplir ou à corriger). */
@@ -314,8 +317,9 @@ collectesRouter.patch("/:id", async (req, res) => {
         .json({ error: "Vous pouvez seulement transmettre la collecte" });
     const aTransmettre = await withTransaction(async (client) => {
       const { rowCount } = await client.query(
-        `update collecte_sections set statut='transmis', transmis_le=now()
-         where collecte_id=$1 and statut = any($2::text[])`,
+        `update collecte_sections set statut='transmis', transmis_le=now(),
+           recap_statut = case when recap_statut = 'envoye' then 'repondu' else recap_statut end
+         where collecte_id=$1 and (statut = any($2::text[]) or recap_statut = 'envoye')`,
         [req.params.id, SECTION_OUVERTES],
       );
       if (rowCount === 0) return false;
@@ -676,9 +680,11 @@ collectesRouter.post("/:id/sections/:onglet/recap/send", async (req, res) => {
   await query(
     `insert into collecte_sections (collecte_id, onglet, recap_statut)
      values ($1,$2,'envoye')
-     on conflict (collecte_id, onglet) do update set recap_statut = 'envoye'`,
+     on conflict (collecte_id, onglet) do update set recap_statut = 'envoye',
+       statut = case when collecte_sections.statut in ('valide','transmis') then 'a_corriger' else collecte_sections.statut end`,
     [req.params.id, onglet],
   );
+  await withTransaction((client) => recalculerStatut(client, req.params.id));
 
   logAction(req.session.nom, "modification", "collecte", `Récap « ${onglet} » envoyé — ${soc?.raison_sociale ?? ""} ${periodeLabel(c.periode)}`, req.params.id);
   // L'admin est toujours tenu au courant de ce que fait l'équipe sur une
@@ -795,7 +801,9 @@ async function changerSection(req, res, ctx, { depuis, vers, motif = "", journal
        on conflict (collecte_id, onglet) do update set statut = excluded.statut,
          transmis_le = case when excluded.statut='transmis' then now() else collecte_sections.transmis_le end,
          valide_le   = case when excluded.statut='valide' then now() else collecte_sections.valide_le end,
-         recap_statut = case when excluded.statut in ('valide','archive') then 'none' else collecte_sections.recap_statut end,
+         recap_statut = case when excluded.statut in ('valide','archive') then 'none'
+                             when excluded.statut = 'transmis' and collecte_sections.recap_statut = 'envoye' then 'repondu'
+                             else collecte_sections.recap_statut end,
          motif_renvoi = case when excluded.statut='a_corriger' then $4 when excluded.statut in ('valide','transmis') then '' else collecte_sections.motif_renvoi end`,
       [c.id, onglet, vers, motif],
     );

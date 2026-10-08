@@ -10,8 +10,10 @@ export const SECTION_STATUT_LABELS: Record<SectionStatut, string> = {
 
 /** Statut d'UN tableau : chaque tableau suit son propre circuit (remplir, transmettre, valider ou renvoyer, archiver). */
 export function sectionStatut(collecte: Pick<CollecteFull, "sections" | "statut">, onglet: string): SectionStatut {
-  const s = collecte.sections.find((x) => x.onglet === onglet)?.statut;
-  if (s) return s;
+  const section = collecte.sections.find((x) => x.onglet === onglet);
+  const s = section?.statut;
+  // Un récap en attente est une demande faite au client : le tableau est rouvert, même s'il avait été transmis ou validé.
+  if (s) return section?.recapStatut === "envoye" && (s === "valide" || s === "transmis") ? "a_corriger" : s;
   return collecte.statut === "transmis" || collecte.statut === "valide" || collecte.statut === "archive" ? collecte.statut : "brouillon";
 }
 

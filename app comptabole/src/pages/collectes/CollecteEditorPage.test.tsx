@@ -236,13 +236,15 @@ describe("Collecte : circuit par tableau", () => {
     expect(screen.getByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeTruthy();
   });
 
-  it("un tableau déjà transmis dont le cabinet attend des cases précises ne laisse modifier que ces cases", () => {
+  it("un récap envoyé sur un tableau transmis ou validé le rouvre : le client peut modifier et ajouter des lignes", () => {
     client();
     collecte.sections = [{ ...(section("bordereaux_remise_cheques", "transmis") as object), recapStatut: "envoye" } as never];
     collecte.lignes = [{ id: "l1", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-05-22", num_bordereau: "293", montant: 100, banque: "btk" } }] as never;
     renderPage();
     fireEvent.click(sectionButton("Bordereaux remise chèques"));
-    expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
+    expect(screen.getByText("À corriger")).toBeTruthy();
+    expect(screen.queryByText(/uniquement les cases marquées/)).toBeNull();
+    expect(screen.getAllByRole("button", { name: /Ajouter une ligne/ }).length).toBeGreaterThan(0);
   });
 
   it("le cabinet voit le statut de chaque tableau sur son onglet, et peut valider ou renvoyer celui qui est transmis", () => {

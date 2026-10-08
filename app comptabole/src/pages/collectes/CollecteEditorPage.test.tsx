@@ -79,19 +79,19 @@ function sectionButton(name: string) {
     .getByRole("button", { name: new RegExp(`^${name}`), hidden: true });
 }
 
+/** Ajoute une ligne dans le tableau et y écrit le n° de bordereau (2ᵉ case). */
 function stageRow() {
   fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-  fireEvent.change(screen.getByLabelText("N° Bordereau"), { target: { value: "REM-42" } });
-  fireEvent.click(screen.getByRole("button", { name: "Ajouter la ligne" }));
+  const cases = document.querySelectorAll<HTMLInputElement>("tbody tr[data-row] input");
+  fireEvent.change(cases[1], { target: { value: "REM-42" } });
 }
 
 describe("Collecte requested-table navigation guard", () => {
-  it("navigates clean sections without confirmation, including after drawer cancellation", () => {
+  it("navigates clean sections without confirmation, even with an empty row added", () => {
     renderPage();
     openBordereaux();
     fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-    fireEvent.change(screen.getByLabelText("Banque"), { target: { value: "BNA" } });
-    fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(document.querySelectorAll("tbody tr[data-row]")).toHaveLength(1);
     fireEvent.click(sectionButton("Souche de chèques"));
     expect(screen.queryByText("Modifications non enregistrées")).toBeNull();
     expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page");

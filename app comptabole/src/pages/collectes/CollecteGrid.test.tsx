@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { TAB_BY_KEY } from "@/lib/collecte/tabs";
@@ -34,96 +34,97 @@ function renderGrid(key: string, onSave = vi.fn().mockResolvedValue(undefined)) 
   return { ref, onSave };
 }
 
-describe("CollecteGrid add-row drawer", () => {
-  it("opens without adding a row or dirtying the grid, then cancels cleanly", () => {
+const lignes = () => Array.from(document.querySelectorAll<HTMLTableRowElement>("tbody tr[data-row]"));
+const champs = (ligne: HTMLElement) => Array.from(ligne.querySelectorAll<HTMLInputElement>("input"));
+const ajouter = () => fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+const enregistrer = () => screen.getByRole("button", { name: "Enregistrer" });
+
+describe("CollecteGrid : ajout de lignes directement dans le tableau", () => {
+  it("ajoute une ligne vide dans le tableau, sans panneau, avec le curseur dans la première case", () => {
     const { ref } = renderGrid("bordereaux_remise_cheques");
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-
-    expect(screen.getByRole("dialog")).toBeTruthy();
     expect(screen.getByText("Aucune ligne. Cliquez sur « Ajouter une ligne ».")).toBeTruthy();
-    expect(ref.current?.isDirty()).toBe(false);
-    expect(screen.getByRole("button", { name: "Enregistrer", hidden: true }).hasAttribute("disabled")).toBe(true);
+    ajouter();
 
-    fireEvent.change(screen.getByLabelText("Banque"), { target: { value: "BNA" } });
-    fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(lignes()).toHaveLength(1);
+    expect(screen.queryByText("Aucune ligne. Cliquez sur « Ajouter une ligne ».")).toBeNull();
+    expect(document.activeElement).toBe(champs(lignes()[0])[0]);
+    // Une ligne restée vide n'est pas une modification.
     expect(ref.current?.isDirty()).toBe(false);
-    expect(screen.getByText("Aucune ligne. Cliquez sur « Ajouter une ligne ».")).toBeTruthy();
+    expect(enregistrer().hasAttribute("disabled")).toBe(true);
   });
 
-  it("keeps invalid input in the drawer and stages a completed bordereau only after submit", () => {
+  it("ajoute les lignes les unes sous les autres et ne marque une modification qu'une fois la ligne écrite", () => {
     const { ref } = renderGrid("bordereaux_remise_cheques");
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-    expect(screen.getByText("Nouvelle remise de chèques")).toBeTruthy();
-    expect(screen.getByLabelText("Date de remise")).toBeTruthy();
-    expect(screen.getByLabelText("N° Bordereau")).toBeTruthy();
-    expect(screen.getByLabelText("Banque")).toBeTruthy();
-    expect(screen.getByLabelText("N° Chèque")).toBeTruthy();
-    expect(screen.getByLabelText("Nom du client émetteur (nominatif)")).toBeTruthy();
-    expect(screen.getByLabelText("Montant (TND)")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter la ligne" }));
-    expect(within(screen.getByRole("dialog")).getByRole("alert").textContent).toContain("au moins un champ");
+    ajouter();
+    ajouter();
+    ajouter();
+    expect(lignes()).toHaveLength(3);
     expect(ref.current?.isDirty()).toBe(false);
 
-    fireEvent.change(screen.getByLabelText("N° Bordereau"), { target: { value: "REM-42" } });
-    fireEvent.change(screen.getByLabelText("Banque"), { target: { value: "BNA" } });
-    fireEvent.change(screen.getByLabelText("Montant (TND)"), { target: { value: "1250.5" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter la ligne" }));
-
+    fireEvent.change(champs(lignes()[1])[1], { target: { value: "REM-42" } });
     expect(ref.current?.isDirty()).toBe(true);
-    expect(screen.getByRole("button", { name: "Enregistrer" }).hasAttribute("disabled")).toBe(false);
+    expect(enregistrer().hasAttribute("disabled")).toBe(false);
     expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
-    expect(screen.getByDisplayValue("BNA")).toBeTruthy();
-    expect(screen.getByDisplayValue("1250.5")).toBeTruthy();
   });
 
-  it("keeps the first cash row limited to the opening balance", () => {
-    const { ref } = renderGrid("etat_caisse");
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-    const drawer = screen.getByRole("dialog");
-    expect(within(drawer).getByText("Solde initial")).toBeTruthy();
-    expect(within(drawer).queryByLabelText("Entrée (TND)")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter la ligne" }));
-    expect(ref.current?.isDirty()).toBe(false);
-    fireEvent.change(within(drawer).getByLabelText("Solde (TND)"), { target: { value: "500" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter la ligne" }));
-    expect(ref.current?.isDirty()).toBe(true);
+  it("ajoute la ligne suivante avec Entrée dans la dernière case d'une ligne remplie", () => {
+    renderGrid("bordereaux_remise_cheques");
+    ajouter();
+    const dernier = () => {
+      const cases = champs(lignes()[lignes().length - 1]);
+      return cases[cases.length - 1];
+    };
+    // Une ligne vide ne multiplie pas les lignes.
+    fireEvent.keyDown(dernier(), { key: "Enter" });
+    expect(lignes()).toHaveLength(1);
+
+    fireEvent.change(champs(lignes()[0])[1], { target: { value: "REM-1" } });
+    fireEvent.keyDown(dernier(), { key: "Enter" });
+    expect(lignes()).toHaveLength(2);
+    expect(document.activeElement).toBe(champs(lignes()[1])[0]);
   });
 
-  it("keeps staged rows until the existing save succeeds and discards only local changes", async () => {
+  it("n'enregistre pas les lignes restées vides", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const { ref } = renderGrid("bordereaux_remise_cheques", onSave);
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-    fireEvent.change(screen.getByLabelText("N° Bordereau"), { target: { value: "REM-42" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter la ligne" }));
-
-    expect(onSave).not.toHaveBeenCalled();
-    expect(ref.current?.isDirty()).toBe(true);
+    ajouter();
+    ajouter();
+    fireEvent.change(champs(lignes()[0])[1], { target: { value: "REM-42" } });
     await act(async () => ref.current?.save());
-    expect(onSave).toHaveBeenCalledWith([
-      { data: expect.objectContaining({ num_bordereau: "REM-42" }), ordre: 0 },
-    ]);
-    expect(ref.current?.isDirty()).toBe(false);
 
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-    fireEvent.change(screen.getByLabelText("N° Bordereau"), { target: { value: "REM-43" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter la ligne" }));
-    expect(ref.current?.isDirty()).toBe(true);
-    act(() => ref.current?.discard());
+    expect(onSave).toHaveBeenCalledWith([{ data: expect.objectContaining({ num_bordereau: "REM-42" }), ordre: 0 }]);
+    expect(lignes()).toHaveLength(1);
     expect(ref.current?.isDirty()).toBe(false);
-    expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
-    expect(screen.queryByDisplayValue("REM-43")).toBeNull();
   });
 
-  it("retains staged changes when the existing save fails", async () => {
+  it("garde la saisie quand l'enregistrement échoue, et l'abandonne avec discard()", async () => {
     const onSave = vi.fn().mockRejectedValue(new Error("network"));
     const { ref } = renderGrid("virements_recus", onSave);
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-    fireEvent.change(screen.getByLabelText("Émetteur du virement"), { target: { value: "Client" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter la ligne" }));
-
-    await expect(act(async () => ref.current?.save())).rejects.toThrow("network");
+    ajouter();
+    fireEvent.change(champs(lignes()[0])[1], { target: { value: "Client" } });
+    await act(async () => {
+      await expect(ref.current?.save()).rejects.toThrow("network");
+    });
     expect(ref.current?.isDirty()).toBe(true);
     expect(screen.getByDisplayValue("Client")).toBeTruthy();
+
+    act(() => ref.current?.discard());
+    expect(ref.current?.isDirty()).toBe(false);
+    expect(screen.queryByDisplayValue("Client")).toBeNull();
+  });
+
+  it("garde le solde initial saisi dans la première ligne d'un état de caisse, les suivantes calculent le leur", () => {
+    const { ref } = renderGrid("etat_caisse");
+    ajouter();
+    const solde = (i: number) => champs(lignes()[i])[4];
+    expect(solde(0).readOnly).toBe(false);
+    fireEvent.change(solde(0), { target: { value: "500" } });
+    expect(ref.current?.isDirty()).toBe(true);
+
+    ajouter();
+    expect(solde(1).readOnly).toBe(true);
+    fireEvent.change(champs(lignes()[1])[2], { target: { value: "100" } });
+    expect(solde(1).value).toBe("600");
   });
 });

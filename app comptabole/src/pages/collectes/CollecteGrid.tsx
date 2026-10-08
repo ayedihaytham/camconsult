@@ -12,7 +12,6 @@ import {
 import { cn } from "@/lib/utils";
 import type { CollecteLigne } from "@/types";
 import { cellNumber, type TabDef, type TabRow } from "@/lib/collecte/tabs";
-import { RequestedTableRowDrawer } from "./RequestedTableRowDrawer";
 
 interface Props {
   def: TabDef;
@@ -44,6 +43,11 @@ export interface CollecteGridHandle {
 const minColWidth = (c: { width?: number; type?: string }) =>
   Math.max(c.type === "date" ? 112 : 84, Math.round((c.width ?? 140) * 0.62));
 
+/** Une ligne dont aucune case saisissable n'est remplie : ajoutée pour écrire dessus, ignorée tant qu'elle reste vide. */
+function ligneVide(def: TabDef, row: TabRow) {
+  return def.columns.filter((c) => !c.computed).every((c) => String(row[c.key] ?? "").trim() === "");
+}
+
 export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function CollecteGrid({
   def,
   lignes,
@@ -65,6 +69,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     (recapClient && !wholeEditable && highlight?.has(`${i}:${key}`)) ||
     flagged?.has(`${i}:${key}`);
   const structureLocked = recapClient && !wholeEditable; // pas d'ajout/suppression de lignes
+  const sansLignesVides = (liste: TabRow[]) => JSON.stringify(liste.filter((r) => !ligneVide(def, r)));
   const initial = useMemo(
     () =>
       [...lignes]
@@ -76,20 +81,21 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [rowDrawerOpen, setRowDrawerOpen] = useState(false);
-  const addRowButtonRef = useRef<HTMLButtonElement>(null);
+  // Ligne à qui donner le curseur après l'avoir ajoutée.
+  const [focusRow, setFocusRow] = useState<number | null>(null);
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const baseline = useRef(initial);
   const latestInitial = useRef(initial);
 
   useEffect(() => {
     latestInitial.current = initial;
     // Store updates from comments/notes must not overwrite an unsaved grid draft.
-    if (JSON.stringify(rows) !== JSON.stringify(baseline.current)) return;
+    if (sansLignesVides(rows) !== sansLignesVides(baseline.current)) return;
     baseline.current = initial;
     setRows(initial);
   }, [initial]);
 
-  const dirty = JSON.stringify(rows) !== JSON.stringify(baseline.current);
+  const dirty = sansLignesVides(rows) !== sansLignesVides(baseline.current);
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
   const derived = useMemo(
     () => (def.derive ? def.derive(rows) : rows),
@@ -101,15 +107,22 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setSaveError(false);
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
   }
+  /** Ajoute une ligne vide à la suite, directement dans le tableau, et y place le curseur. */
   function addRow() {
-    setRowDrawerOpen(true);
-  }
-
-  function stageRow(row: TabRow) {
     setSaved(false);
     setSaveError(false);
-    setRows((current) => [...current, row]);
+    setRows((current) => [...current, Object.fromEntries(def.columns.map((c) => [c.key, ""]))]);
+    setFocusRow(rows.length);
   }
+
+  useEffect(() => {
+    if (focusRow === null) return;
+    const premiere = tbodyRef.current?.querySelector<HTMLElement>(
+      `tr[data-row="${focusRow}"] input:not([readonly]), tr[data-row="${focusRow}"] button[role="combobox"]:not([disabled])`,
+    );
+    premiere?.focus();
+    setFocusRow(null);
+  }, [focusRow, rows.length]);
   function removeRow(i: number) {
     setSaved(false);
     setSaveError(false);
@@ -122,11 +135,13 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setSaving(true);
     setSaveError(false);
     try {
-      const out = def.derive ? def.derive(rows) : rows;
+      // Les lignes restées vides ne sont pas enregistrées.
+      const kept = rows.filter((r) => !ligneVide(def, r));
+      const out = def.derive ? def.derive(kept) : kept;
       await onSave(out.map((data, ordre) => ({ data, ordre })));
-      baseline.current = rows;
-      latestInitial.current = rows;
-      setRows([...rows]);
+      baseline.current = kept;
+      latestInitial.current = kept;
+      setRows([...kept]);
       setSaved(true);
     } catch (error) {
       setSaveError(true);
@@ -148,6 +163,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     },
   }));
 
+  const canAdd = !readOnly && !structureLocked;
+  const derniereColonne = [...def.columns].reverse().find((c) => !c.computed)?.key;
   const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
 
   const total: number | null = def.checklistTotal
@@ -186,15 +203,15 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               {!readOnly && <th className="w-10 px-2 py-2" />}
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody ref={tbodyRef} className="divide-y divide-border">
             {rows.map((row, i) => (
-              <tr key={i} className="hover:bg-muted/20">
+              <tr key={i} data-row={i} className="hover:bg-muted/20">
                 <td className="px-2 py-1.5 text-xs text-muted-foreground">
                   {i + 1}
                 </td>
                 {def.columns.map((c) => {
                   const shown = String(derived[i]?.[c.key] ?? "");
-                  if (c.computed) {
+                  if (c.computed || (def.key === "etat_caisse" && c.key === "solde" && i > 0)) {
                     return (
                       <td key={c.key} className="px-1 py-1">
                         <Input
@@ -262,6 +279,13 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                             )
                           }
                           readOnly={ro}
+                          onKeyDown={(e) => {
+                            // Entrée dans la dernière case de la dernière ligne remplie : ligne suivante.
+                            if (e.key === "Enter" && canAdd && i === rows.length - 1 && c.key === derniereColonne && !ligneVide(def, row)) {
+                              e.preventDefault();
+                              addRow();
+                            }
+                          }}
                         />
                       )}
                     </td>
@@ -319,6 +343,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </table>
       </div>
 
+      {canAdd && (
+        <p className="text-xs text-muted-foreground">
+          Saisissez directement dans le tableau : <kbd className="rounded border border-border px-1">Entrée</kbd> dans la dernière case ajoute la ligne suivante.
+        </p>
+      )}
+
       {def.key === "etat_caisse" && !readOnly && (
         <p className="text-xs text-muted-foreground">
           1ʳᵉ ligne = solde initial : renseignez seulement la colonne « Solde ».
@@ -339,7 +369,6 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             <span />
           ) : (
             <Button
-              ref={addRowButtonRef}
               variant="outline"
               size="sm"
               className="min-h-11 lg:min-h-8"
@@ -384,17 +413,6 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </div>
       )}
 
-      {!readOnly && !structureLocked && (
-        <RequestedTableRowDrawer
-          open={rowDrawerOpen}
-          onOpenChange={setRowDrawerOpen}
-          def={def}
-          rowCount={rows.length}
-          devise={devise}
-          onAdd={stageRow}
-          triggerRef={addRowButtonRef}
-        />
-      )}
     </div>
   );
 });

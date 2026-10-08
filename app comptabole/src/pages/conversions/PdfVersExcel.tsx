@@ -119,8 +119,13 @@ export function PdfVersExcel() {
   }
 
   function telechargerEcritures(item: PdfItem) {
-    if (!ecrituresTexte) return;
-    download(new Blob([ecrituresTexte], { type: "text/plain;charset=utf-8" }), `${item.baseName}.txt`);
+    const f = feuillesDePdf(item.pages, { ...options, tableauSeul: true });
+    const lignes = f[0] ? ecrituresDepuisReleve(f[0].rows, compte.trim() || COMPTE_BANQUE) : null;
+    if (!lignes) {
+      toast.error("Aucun mouvement bancaire reconnu : le fichier .txt n'a pas pu être créé");
+      return;
+    }
+    download(new Blob([texteEcritures(lignes)], { type: "text/plain;charset=utf-8" }), `${item.baseName}.txt`);
   }
 
   return (
@@ -223,6 +228,20 @@ export function PdfVersExcel() {
                       Télécharger l'Excel
                     </Button>
                   )}
+                  {item.status === "ok" && item.enregistre && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        telechargerEcritures(item);
+                      }}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Télécharger le .txt
+                    </Button>
+                  )}
                 </button>
               </li>
             ))}
@@ -246,12 +265,10 @@ export function PdfVersExcel() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {ecrituresTexte && (
-                <Button type="button" variant="outline" size="sm" onClick={() => telechargerEcritures(active)}>
-                  <FileText className="h-4 w-4" />
-                  Télécharger le .txt
-                </Button>
-              )}
+              <Button type="button" variant="outline" size="sm" onClick={() => telechargerEcritures(active)}>
+                <FileText className="h-4 w-4" />
+                Télécharger le .txt
+              </Button>
               <Button type="button" variant="ledger" size="sm" onClick={() => void telecharger(active)}>
                 <Download className="h-4 w-4" />
                 Télécharger l'Excel

@@ -876,7 +876,7 @@ export function CollecteEditorPage() {
         }}
       >
         <DialogContent
-          className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6"
+          className="w-[calc(100vw-2rem)] max-w-xl p-4 sm:p-6"
           onEscapeKeyDown={(event) => savingDraft && event.preventDefault()}
           onPointerDownOutside={(event) =>
             savingDraft && event.preventDefault()
@@ -895,7 +895,7 @@ export function CollecteEditorPage() {
               réessayez.
             </p>
           )}
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <Button
               variant="outline"
               className="min-h-11 w-full sm:min-h-9 sm:w-auto"

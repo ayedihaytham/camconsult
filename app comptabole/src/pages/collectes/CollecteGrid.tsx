@@ -164,6 +164,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   }));
 
   const canAdd = !readOnly && !structureLocked;
+  const largeurModele = def.columns.reduce((s, c) => s + (c.width ?? 140), 0) || 1;
   const derniereColonne = [...def.columns].reverse().find((c) => !c.computed)?.key;
   const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
 
@@ -183,8 +184,17 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
+      {/* Sur grand écran le tableau occupe exactement la largeur disponible, sans défilement horizontal : les colonnes
+          se répartissent selon leur largeur de modèle. Sous 1024 px, il garde un défilement de secours. */}
+      <div className="overflow-x-auto rounded-lg border border-border lg:overflow-x-visible">
+        <table className="w-full text-sm lg:table-fixed">
+          <colgroup className="hidden lg:table-column-group">
+            <col style={{ width: 40 }} />
+            {def.columns.map((c) => (
+              <col key={c.key} style={{ width: `calc((100% - ${readOnly ? 40 : 80}px) * ${(c.width ?? 140) / largeurModele})` }} />
+            ))}
+            {!readOnly && <col style={{ width: 40 }} />}
+          </colgroup>
           <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="w-10 px-2 py-2 text-left font-medium">#</th>

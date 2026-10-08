@@ -547,7 +547,7 @@ export function CollecteEditorPage() {
       </div>
 
       <Tabs value={tab} onValueChange={requestTab}>
-        <div className="grid min-w-0 border border-border bg-card">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] border border-border bg-card">
           <div data-tour="collecte-content" className="min-w-0 bg-card">
             <TabsContent value="recap" className="m-0">
               <SectionHeader

@@ -46,9 +46,16 @@ export function computeManques(c: CollecteFull): Manque[] {
       });
       continue;
     }
+    // Lignes d'un bordereau : le montant annoncé n'est demandé que sur la première, les suivantes sont des chèques.
+    const g = def.groupe;
+    const dejaVu = new Set<string>();
     lignes.forEach((l, i) => {
+      const nom = g ? String(l.data[g.cle] ?? "").trim().toLowerCase() : "";
+      const suite = Boolean(nom) && dejaVu.has(nom);
+      if (nom) dejaVu.add(nom);
       for (const col of def.columns) {
         if (col.computed || skip.has(col.key)) continue;
+        if (g && suite && col.key === g.totalCol) continue;
         if (isEmpty(l.data[col.key])) {
           out.push({
             onglet: key,

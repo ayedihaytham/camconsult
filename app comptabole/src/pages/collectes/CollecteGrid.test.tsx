@@ -212,15 +212,20 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     expect(ref.current?.isComplete()).toBe(true);
   });
 
-  it("ne laisse saisir le montant du bordereau que sur sa première ligne", () => {
-    renderGrid("bordereaux_remise_cheques");
+  it("laisse modifier toutes les cases, y compris le montant du bordereau d'une ligne suivante, après un enregistrement", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const { ref } = renderGrid("bordereaux_remise_cheques", onSave);
     ajouter();
     const l0 = champs(lignes()[0]);
     fireEvent.change(l0[1], { target: { value: "255558" } });
     fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "60000" } });
     fireEvent.keyDown(l0[l0.length - 1], { key: "Enter" });
-    expect(champs(lignes()[0])[MONTANT_BORDEREAU].readOnly).toBe(false);
-    expect(champs(lignes()[1])[MONTANT_BORDEREAU].readOnly).toBe(true);
+    await act(async () => ref.current?.save());
+    expect(ref.current?.isDirty()).toBe(false);
+    for (const ligne of lignes()) for (const champ of champs(ligne)) expect(champ.readOnly).toBe(false);
+
+    fireEvent.change(champs(lignes()[1])[MONTANT_BORDEREAU], { target: { value: "5" } });
+    expect(ref.current?.isDirty()).toBe(true);
   });
 
   it("ne suit rien pour un tableau sans bordereau", () => {

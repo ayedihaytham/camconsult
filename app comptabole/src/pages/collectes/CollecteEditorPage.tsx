@@ -251,9 +251,13 @@ export function CollecteEditorPage() {
   // Le client ne peut renvoyer un récap au cabinet qu'une fois TOUTES les
   // cases « ? » des tableaux demandés remplies et enregistrées — le cabinet
   // ne reçoit jamais de récap à moitié complété à clôturer.
+  // Un tableau encore ouvert (à remplir ou à corriger) se transfère même incomplet : seuls comptent les tableaux
+  // déjà transmis pour lesquels le cabinet attend des cases précises.
   const recapRestant = clientRecap
     ? liveManques.filter(
-        (m) => sectionRecapStatut(collecte, m.onglet) === "envoye",
+        (m) =>
+          sectionRecapStatut(collecte, m.onglet) === "envoye" &&
+          !sectionOuverte(sectionStatut(collecte, m.onglet)),
       ).length
     : 0;
 
@@ -745,9 +749,12 @@ export function CollecteEditorPage() {
                       const hasManque = (hl && hl.size > 0) || whole;
                       // Le client complète CE tableau s'il a été envoyé indépendamment
                       // des autres (voir RecapTab) ET a au moins une case ? (ou tableau vide).
+                      // Un tableau ouvert (à remplir / à corriger) reste entièrement modifiable, lignes comprises : le mode
+                      // « seulement les cases ? » ne vaut que pour un tableau déjà transmis que le cabinet fait compléter.
                       const clientRecapForTab =
                         poste === "societe_employe" &&
-                        sectionRecapStatut(collecte, key) === "envoye";
+                        sectionRecapStatut(collecte, key) === "envoye" &&
+                        !sectionOuverte(sectionStatut(collecte, key));
                       const inRecap = clientRecapForTab && hasManque;
                       // Aperçu admin : rendu identique à la vue client, en lecture seule.
                       if (preview) {

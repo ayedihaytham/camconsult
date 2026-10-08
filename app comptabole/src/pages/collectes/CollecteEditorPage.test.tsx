@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { CollecteFull } from "@/types";
 import { CollecteEditorPage } from "./CollecteEditorPage";
 
-const { saveLignes, fetchOne, clearCurrent, collecte } = vi.hoisted(() => {
+const { saveLignes, fetchOne, clearCurrent, collecte, perms } = vi.hoisted(() => {
   const collecte = {
     id: "collecte-1",
     societeId: "soc-1",
@@ -25,8 +25,10 @@ const { saveLignes, fetchOne, clearCurrent, collecte } = vi.hoisted(() => {
     notes: [],
     fichiers: [],
   } as CollecteFull;
+  const perms = { current: { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true } as Record<string, unknown> };
   return {
     collecte,
+    perms,
     saveLignes: vi.fn().mockResolvedValue(undefined),
     fetchOne: vi.fn().mockResolvedValue(undefined),
     clearCurrent: vi.fn(),
@@ -34,7 +36,7 @@ const { saveLignes, fetchOne, clearCurrent, collecte } = vi.hoisted(() => {
 });
 
 vi.mock("@/hooks/usePermissions", () => ({
-  usePermissions: () => ({ isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true }),
+  usePermissions: () => perms.current,
 }));
 vi.mock("@/store/data", () => ({
   useSocietes: () => [{ id: "soc-1", raisonSociale: "Société test" }],
@@ -217,6 +219,30 @@ describe("Collecte : circuit par tableau", () => {
     ({ id: onglet, onglet, commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut, transmisLe: null, valideLe: null, motifRenvoi }) as never;
   afterEach(() => {
     collecte.sections = [];
+    collecte.lignes = [];
+    perms.current = { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true };
+  });
+  const client = () => {
+    perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
+  };
+
+  it("le responsable de société peut ajouter des lignes à un tableau à remplir, même si le cabinet a envoyé un récap", () => {
+    client();
+    collecte.sections = [{ ...(section("bordereaux_remise_cheques", "brouillon") as object), recapStatut: "envoye" } as never];
+    renderPage();
+    fireEvent.click(sectionButton("Bordereaux remise chèques"));
+    expect(screen.getByRole("button", { name: "Ajouter une ligne" })).toBeTruthy();
+    expect(screen.queryByText(/uniquement les cases marquées/)).toBeNull();
+    expect(screen.getByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeTruthy();
+  });
+
+  it("un tableau déjà transmis dont le cabinet attend des cases précises ne laisse modifier que ces cases", () => {
+    client();
+    collecte.sections = [{ ...(section("bordereaux_remise_cheques", "transmis") as object), recapStatut: "envoye" } as never];
+    collecte.lignes = [{ id: "l1", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-05-22", num_bordereau: "293", montant: 100, banque: "btk" } }] as never;
+    renderPage();
+    fireEvent.click(sectionButton("Bordereaux remise chèques"));
+    expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
   });
 
   it("le cabinet voit le statut de chaque tableau sur son onglet, et peut valider ou renvoyer celui qui est transmis", () => {

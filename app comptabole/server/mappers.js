@@ -667,6 +667,11 @@ export const suiviDeviseFactureDto = (r) => ({
   avoirMontant: r.avoir_montant == null ? null : num(r.avoir_montant),
   avoirDate: r.avoir_date ? dateStr(r.avoir_date) : null,
   mouvementStockId: r.mouvement_stock_id ?? null,
+  // Facture d'achat du mouvement de stock (factures reprises du stock seulement).
+  achatNumFacture: r.mouvement_stock_id ? (r.achat_num_facture ?? "") : "",
+  achatDate: r.mouvement_stock_id && r.achat_date ? dateStr(r.achat_date) : null,
+  achatDevise: r.mouvement_stock_id ? (r.achat_devise ?? "") : "",
+  achatMontant: r.mouvement_stock_id && r.achat_montant != null ? num(r.achat_montant) : null,
 });
 
 export const suiviDeviseMouvementDto = (r) => ({

@@ -48,6 +48,7 @@ import type {
 import { SuiviDeviseFactureFormSheet } from "./SuiviDeviseFactureFormSheet";
 import { SuiviDeviseImportDialog } from "./SuiviDeviseImportDialog";
 import { SuiviDeviseStockDialog } from "./SuiviDeviseStockDialog";
+import { margeFacture, totauxAchats } from "@/lib/suiviDeviseMarge";
 import { SuiviDeviseLotFormSheet } from "./SuiviDeviseLotFormSheet";
 import { SuiviDeviseMouvementFormSheet } from "./SuiviDeviseMouvementFormSheet";
 
@@ -140,6 +141,7 @@ export function SuiviDeviseEditorPage() {
   }
 
   const societeName = societe?.raisonSociale ?? "Société";
+  const achatsLies = totauxAchats(current.factures, current.devise);
   const lotById = new Map(current.lots.map((l) => [l.id, l]));
 
   const factureColumns: DataTableColumn<SuiviDeviseFacture>[] = [
@@ -160,6 +162,31 @@ export function SuiviDeviseEditorPage() {
     },
     { id: "produit", header: "Désignation", cell: (f) => f.designationProduit || "—" },
     { id: "fournisseur", header: "Fournisseur", cell: (f) => f.fournisseur || "—" },
+    {
+      id: "achat",
+      header: "Facture d'achat",
+      cell: (f) =>
+        f.achatNumFacture ? (
+          <span className="block">
+            <span className="block font-mono text-xs">{f.achatNumFacture}</span>
+            <span className="block text-[0.7rem] text-muted-foreground">
+              {f.achatDate ? `${f.achatDate} · ` : ""}
+              {f.achatMontant ? `${fmt(f.achatMontant)} ${f.achatDevise}` : ""}
+            </span>
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      id: "marge",
+      header: "Marge",
+      align: "right",
+      cell: (f) => {
+        const m = margeFacture(f, current!.devise);
+        return m === null ? "—" : <span className={m < 0 ? "text-destructive" : "text-foreground"}>{fmt(m)}</span>;
+      },
+    },
     { id: "lot", header: "Lot", cell: (f) => (f.lotId ? lotById.get(f.lotId)?.libelle || "—" : "—") },
     { id: "qte", header: "Qté (T)", align: "right", cell: (f) => fmt(f.qteTonnes) },
     { id: "pu", header: "PU", align: "right", cell: (f) => fmt(f.pu) },
@@ -324,6 +351,12 @@ export function SuiviDeviseEditorPage() {
           { label: "Factures", value: current.factures.length },
           { label: "Lots LC", value: current.lots.length },
           { label: "Mouvements", value: current.mouvements.length },
+          ...(achatsLies.nb > 0
+            ? [
+                { label: `Achats liés (${current.devise})`, value: fmt(achatsLies.achats) },
+                { label: `Marge (${current.devise})`, value: fmt(achatsLies.marge), tone: achatsLies.marge < 0 ? ("destructive" as const) : ("default" as const) },
+              ]
+            : []),
         ]}
         action={{ label: bannerActionLabel, onClick: bannerAction }}
       />

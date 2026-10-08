@@ -39,11 +39,14 @@ async function loadSuiviOrFail(id, session, res) {
 const STOCK_VENTE_SQL = (filtre) => `
   select m.id, m.societe_id, m.client, m.vente_devise as devise, m.vente_num_facture as n_facture,
          m.vente_date as date_facture, m.fournisseur,
-         coalesce(string_agg(distinct l.designation, ' / ') filter (where l.designation <> ''), '') as designation_produit,
-         coalesce(sum(case when l.unite = 'KG' then l.quantite / 1000 else l.quantite end), 0) as qte_tonnes,
-         coalesce(sum(l.montant_devise), 0) as montant_total
+         coalesce(string_agg(distinct l.designation, ' / ') filter (where l.categorie = 'vente' and l.designation <> ''), '') as designation_produit,
+         coalesce(sum(case when l.unite = 'KG' then l.quantite / 1000 else l.quantite end) filter (where l.categorie = 'vente'), 0) as qte_tonnes,
+         coalesce(sum(l.montant_devise) filter (where l.categorie = 'vente'), 0) as montant_total,
+         -- Facture d'achat du même mouvement : ce que la marchandise vendue a coûté.
+         m.achat_num_facture, m.achat_date, m.achat_devise,
+         coalesce(sum(l.montant_devise) filter (where l.categorie = 'achat'), 0) as achat_montant
     from stock_mouvements m
-    left join stock_lignes l on l.mouvement_id = m.id and l.categorie = 'vente'
+    left join stock_lignes l on l.mouvement_id = m.id
    where ${filtre}
    group by m.id`;
 
@@ -107,6 +110,7 @@ async function loadFull(suiviId) {
     query(
       `select f.id, f.suivi_id, f.lot_id, f.ordre, f.n_secondaire, f.mode_paiement, f.avoir_montant, f.avoir_date,
               f.mouvement_stock_id,
+              s.achat_num_facture, s.achat_date, s.achat_devise, s.achat_montant,
               case when s.id is null then f.n_facture else s.n_facture end as n_facture,
               case when s.id is null then f.date_facture else s.date_facture end as date_facture,
               case when s.id is null then f.designation_produit else s.designation_produit end as designation_produit,
@@ -466,6 +470,10 @@ suiviDeviseRouter.get("/:id/stock-ventes", async (req, res) => {
       qteTonnes: r3(r.qte_tonnes),
       pu: Number(r.qte_tonnes) > 0 ? r3(r.montant_total / r.qte_tonnes) : 0,
       montantTotal: r3(r.montant_total),
+      achatNumFacture: r.achat_num_facture || "",
+      achatDate: r.achat_date ? jourLocal(r.achat_date) : null,
+      achatDevise: r.achat_devise,
+      achatMontant: r3(r.achat_montant),
     })),
   );
 });

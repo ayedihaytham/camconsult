@@ -21,7 +21,10 @@ function fail(err: unknown): never {
 export type SuiviDeviseResume = SuiviDevise & { solde: number; totalVentes: number; stockAReprendre?: number };
 
 export type LotInput = Omit<SuiviDeviseLot, "id" | "suiviId" | "ordre" | "ecart">;
-export type FactureInput = Omit<SuiviDeviseFacture, "id" | "suiviId" | "ordre" | "mouvementStockId">;
+export type FactureInput = Omit<
+  SuiviDeviseFacture,
+  "id" | "suiviId" | "ordre" | "mouvementStockId" | "achatNumFacture" | "achatDate" | "achatDevise" | "achatMontant"
+>;
 export type MouvementInput = Omit<SuiviDeviseMouvement, "id" | "suiviId" | "ordre">;
 
 interface SuiviDeviseState {

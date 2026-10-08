@@ -57,6 +57,7 @@ export function SuiviDeviseStockDialog({ open, onOpenChange, ventes, devise, onR
                 <th className="px-2 py-1.5 text-right">Qté (T)</th>
                 <th className="px-2 py-1.5 text-right">PU</th>
                 <th className="px-2 py-1.5 text-right">Montant</th>
+                <th className="px-2 py-1.5">Facture d'achat</th>
               </tr>
             </thead>
             <tbody>
@@ -83,6 +84,20 @@ export function SuiviDeviseStockDialog({ open, onOpenChange, ventes, devise, onR
                   <td className="px-2 py-1.5 text-right tabular-nums">{fmtMontant(v.qteTonnes)}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{fmtMontant(v.pu)}</td>
                   <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{fmtMontant(v.montantTotal)}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5">
+                    {v.achatNumFacture ? (
+                      <>
+                        <span className="font-mono">{v.achatNumFacture}</span>
+                        {v.achatMontant > 0 && (
+                          <span className="block text-[0.7rem] text-muted-foreground tabular-nums">
+                            {fmtMontant(v.achatMontant)} {v.achatDevise}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

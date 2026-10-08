@@ -14,12 +14,22 @@ const vente = (id: string, nFacture: string, montantTotal: number): SuiviDeviseS
   qteTonnes: 500,
   pu: 110,
   montantTotal,
+  achatNumFacture: "6608001609",
+  achatDate: "2026-01-02",
+  achatDevise: "EUR",
+  achatMontant: 50000,
 });
 
 const ventes = [vente("a", "202300003", 55000), vente("b", "202300004", 3200)];
 
 describe("ventes du stock à reprendre", () => {
   afterEach(cleanup);
+
+  it("montre la facture d'achat liée à chaque vente", () => {
+    render(<SuiviDeviseStockDialog open onOpenChange={() => undefined} ventes={ventes} devise="EUR" onReprendre={vi.fn()} />);
+    expect(screen.getAllByText("6608001609")).toHaveLength(2);
+    expect(screen.getAllByText(/50\s000,000 EUR/).length).toBe(2);
+  });
 
   it("coche tout à l'ouverture et reprend toutes les factures", async () => {
     const onReprendre = vi.fn().mockResolvedValue(undefined);

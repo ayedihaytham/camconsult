@@ -312,7 +312,10 @@ export function extraireMouvements(pages: PdfTextItem[][]): string[][] | null {
       lignes.push(op.r);
     }
   }
-  return ancres ? [ancres.map((a) => a.nom), ...lignes.map((l) => l.slice(0, ancres!.length))] : null;
+  if (!ancres) return null;
+  // La date de valeur sert à ranger le texte dans la bonne colonne, mais n'est pas reprise dans le tableau.
+  const gardees = ancres.map((a, i) => ({ nom: a.nom, i })).filter((a) => a.nom !== COLONNES[0].nom);
+  return [gardees.map((a) => a.nom), ...lignes.map((l) => gardees.map((a) => l[a.i] ?? ""))];
 }
 
 /** Une feuille par page (les pages sans texte sont ignorées), ou toutes les pages dans une seule feuille.

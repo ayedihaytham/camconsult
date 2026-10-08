@@ -238,7 +238,7 @@ describe("mouvements bancaires seulement", () => {
     expect(f.rows.slice(1).map((r) => r[1])).toEqual(["Commission acceptation LC", "ACHAT VENTE DEVISE"]);
   });
 
-  it("ignore le texte arabe et les mentions de bas de page, garde Date valeur", () => {
+  it("ignore le texte arabe et les mentions de bas de page, n'en garde pas la date de valeur", () => {
     const page: PdfTextItem[] = [
       t("التاريخ", 40, 740, 30), t("Date", 40, 730, 20), t("Libellé de l'opération", 120, 730, 100), t("Date de valeur", 250, 730, 60), t("Débit", 340, 730, 25), t("Crédit", 420, 730, 30),
       t("31-12-2025", 40, 700, 50), t("Solde au: 31/12/2025", 120, 700, 100), t("29-01-2026", 250, 700, 50), t("0,000", 340, 700, 25), t("16 426,680", 410, 700, 50),
@@ -248,9 +248,9 @@ describe("mouvements bancaires seulement", () => {
     ];
     const [f] = feuillesDePdf([page], { nombres: true, tableauSeul: true });
     expect(f.rows).toEqual([
-      ["Date", "Libellé de l'opération", "Date de valeur", "Débit", "Crédit"],
-      ["31-12-2025", "Solde au: 31/12/2025", "29-01-2026", 0, 16426.68],
-      ["02-01-2026", "Commission acceptation LC", "02-01-2026", 150, 0],
+      ["Date", "Libellé de l'opération", "Débit", "Crédit"],
+      ["31-12-2025", "Solde au: 31/12/2025", 0, 16426.68],
+      ["02-01-2026", "Commission acceptation LC", 150, 0],
     ]);
   });
 

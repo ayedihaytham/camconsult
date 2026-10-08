@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   BellRing,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
   File as FileIcon,
@@ -813,11 +815,11 @@ export function CollecteEditorPage() {
             )}
           </div>
           {/* Onglets de feuille, comme dans Excel : on choisit la section en bas, le tableau s'affiche au-dessus. */}
-          <div data-tour="collecte-navigation-mobile" className="sticky bottom-0 z-10">
+          <BarreFeuilles tab={tab}>
             <nav
               data-tour="collecte-navigation-desktop"
               aria-label="Sections du dossier"
-              className="flex flex-wrap items-end gap-x-1 gap-y-1 border-t border-border bg-muted px-2 pb-1.5 pt-0"
+              className="flex w-max min-w-full items-end gap-x-1 px-2 pb-1.5 pt-0"
             >
               <FeuilleTab active={tab === "checklist"} onClick={() => requestTab("checklist")} label="Checklist" />
               <FeuilleTab
@@ -850,7 +852,7 @@ export function CollecteEditorPage() {
                 </>
               )}
             </nav>
-          </div>
+          </BarreFeuilles>
         </div>
       </Tabs>
 
@@ -1032,6 +1034,58 @@ export function CollecteEditorPage() {
   );
 }
 
+/** Barre d'onglets sur une seule ligne : elle défile horizontalement quand il y a plus d'onglets que de place,
+ * avec des flèches, et ramène toujours l'onglet actif dans la zone visible. */
+function BarreFeuilles({ tab, children }: { tab: string; children: ReactNode }) {
+  const defilement = useRef<HTMLDivElement>(null);
+  const [fleches, setFleches] = useState({ gauche: false, droite: false });
+
+  const mesurer = useCallback(() => {
+    const el = defilement.current;
+    if (!el) return;
+    setFleches({ gauche: el.scrollLeft > 1, droite: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 });
+  }, []);
+
+  useEffect(() => {
+    mesurer();
+    const el = defilement.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observateur = new ResizeObserver(mesurer);
+    observateur.observe(el);
+    if (el.firstElementChild) observateur.observe(el.firstElementChild);
+    return () => observateur.disconnect();
+  }, [mesurer]);
+
+  // L'onglet choisi (ou ouvert depuis la checklist) doit rester visible.
+  useEffect(() => {
+    defilement.current?.querySelector('[aria-current="page"]')?.scrollIntoView?.({ inline: "nearest", block: "nearest" });
+  }, [tab]);
+
+  const defiler = (sens: -1 | 1) => {
+    const el = defilement.current;
+    el?.scrollBy?.({ left: sens * el.clientWidth * 0.6, behavior: "smooth" });
+  };
+
+  const fleche = "flex h-9 w-8 shrink-0 items-center justify-center bg-muted text-muted-foreground hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+  return (
+    <div data-tour="collecte-navigation-mobile" className="sticky bottom-0 z-10 flex items-start border-t border-border bg-muted">
+      {fleches.gauche && (
+        <button type="button" aria-label="Onglets précédents" className={`${fleche} border-r border-border`} onClick={() => defiler(-1)}>
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+      )}
+      <div ref={defilement} onScroll={mesurer} className="min-w-0 flex-1 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {children}
+      </div>
+      {fleches.droite && (
+        <button type="button" aria-label="Onglets suivants" className={`${fleche} border-l border-border`} onClick={() => defiler(1)}>
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Onglet de feuille, comme en bas d'un classeur Excel : la section active est « posée » sur le contenu,
  * les tableaux déjà reçus sont teintés en vert. */
 function FeuilleTab({
@@ -1057,7 +1111,7 @@ function FeuilleTab({
       aria-current={active ? "page" : undefined}
       title={recu ? `${label} — reçu` : label}
       className={cn(
-        "relative -mt-px flex min-h-9 max-w-[16rem] items-center gap-1.5 rounded-b-md border border-t-0 px-3 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        "relative -mt-px flex min-h-9 max-w-[14rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-b-md border border-t-0 px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         active
           ? "border-border bg-card font-bold text-primary shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-accent"
           : recu

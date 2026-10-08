@@ -101,6 +101,14 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(within(nav).getAllByRole("button", { hidden: true }).filter((b) => b.getAttribute("aria-current") === "page")).toHaveLength(1);
   });
 
+  it("garde tous les onglets sur une seule ligne, avec défilement horizontal plutôt qu'un retour à la ligne", () => {
+    renderPage();
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
+    expect(nav.className).not.toContain("flex-wrap");
+    expect(nav.className).toContain("w-max");
+    expect(nav.parentElement?.className).toContain("overflow-x-auto");
+  });
+
   it("affiche directement les actions du dossier, sans menu Outils", () => {
     renderPage();
     expect(screen.queryByRole("button", { name: /^Outils/ })).toBeNull();

@@ -128,3 +128,75 @@ describe("CollecteGrid : ajout de lignes directement dans le tableau", () => {
     expect(solde(1).value).toBe("600");
   });
 });
+
+describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
+  // Colonnes du bordereau : 0 date remise, 1 n° bordereau, 2 montant bordereau, 3 banque, 4 n° chèque, 5 client, 6 montant, 7 valeur, 8 obs.
+  const MONTANT_BORDEREAU = 2;
+  const BANQUE = 3;
+  const NUM_CHEQUE = 4;
+  const MONTANT = 6;
+  const suivi = () => document.querySelector('[data-tour="collecte-repartition"]') as HTMLElement | null;
+
+  it("suit la somme des chèques contre le montant du bordereau et propose d'ajouter une ligne à ce bordereau", () => {
+    renderGrid("bordereaux_remise_cheques");
+    ajouter();
+    fireEvent.change(champs(lignes()[0])[1], { target: { value: "REM-42" } });
+    fireEvent.change(champs(lignes()[0])[MONTANT_BORDEREAU], { target: { value: "60000" } });
+    fireEvent.change(champs(lignes()[0])[MONTANT], { target: { value: "35000" } });
+
+    expect(suivi()?.textContent).toContain("Bordereau REM-42");
+    expect(suivi()?.textContent).toMatch(/35\s000,000 \/ 60\s000,000 TND/);
+    expect(suivi()?.textContent).toMatch(/Reste 25\s000,000/);
+
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter une ligne à ce bordereau/ }));
+    expect(lignes()).toHaveLength(2);
+    // La ligne reprend le n° de bordereau et le curseur va au n° de chèque, première case encore vide.
+    expect(champs(lignes()[1])[1].value).toBe("REM-42");
+    expect(document.activeElement).toBe(champs(lignes()[1])[NUM_CHEQUE]);
+  });
+
+  it("reprend la banque avec Entrée tant que la somme n'est pas atteinte, puis ouvre une ligne vierge", () => {
+    renderGrid("bordereaux_remise_cheques");
+    ajouter();
+    const l0 = champs(lignes()[0]);
+    fireEvent.change(l0[1], { target: { value: "REM-42" } });
+    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "60000" } });
+    fireEvent.change(l0[BANQUE], { target: { value: "BNA" } });
+    fireEvent.change(l0[MONTANT], { target: { value: "35000" } });
+    fireEvent.keyDown(l0[l0.length - 1], { key: "Enter" });
+    expect(lignes()).toHaveLength(2);
+    expect(champs(lignes()[1])[BANQUE].value).toBe("BNA");
+
+    fireEvent.change(champs(lignes()[1])[MONTANT], { target: { value: "25000" } });
+    expect(suivi()?.textContent).toContain("Complet");
+    expect(screen.queryByRole("button", { name: /Ajouter une ligne à ce bordereau/ })).toBeNull();
+    const l1 = champs(lignes()[1]);
+    fireEvent.keyDown(l1[l1.length - 1], { key: "Enter" });
+    expect(lignes()).toHaveLength(3);
+    expect(champs(lignes()[2])[1].value).toBe("");
+  });
+
+  it("n'est complet que lorsque chaque bordereau a atteint son montant", () => {
+    const { ref } = renderGrid("bordereaux_remise_cheques");
+    ajouter();
+    const l0 = champs(lignes()[0]);
+    expect(ref.current?.isComplete()).toBe(true);
+    fireEvent.change(l0[1], { target: { value: "REM-42" } });
+    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "60000" } });
+    fireEvent.change(l0[MONTANT], { target: { value: "35000" } });
+    expect(ref.current?.isComplete()).toBe(false);
+    expect(ref.current?.incompleteMessage()).toMatch(/Bordereau REM-42 : il reste 25\s000,000 TND à répartir/);
+    fireEvent.change(l0[MONTANT], { target: { value: "60000" } });
+    expect(ref.current?.isComplete()).toBe(true);
+    fireEvent.change(l0[MONTANT], { target: { value: "65000" } });
+    expect(ref.current?.isComplete()).toBe(false);
+    expect(ref.current?.incompleteMessage()).toMatch(/dépassé de 5\s000,000/);
+  });
+
+  it("ne suit rien pour un tableau sans bordereau", () => {
+    const { ref } = renderGrid("souche_cheques");
+    ajouter();
+    expect(suivi()).toBeNull();
+    expect(ref.current?.isComplete()).toBe(true);
+  });
+});

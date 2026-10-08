@@ -97,6 +97,57 @@ const deriveBalanceAgee = (rows: TabRow[]): TabRow[] =>
 const sumKey = (key: string) => (rows: TabRow[]) =>
   rows.reduce((s, r) => s + cellNumber(r[key]), 0);
 
+/** Regroupement de lignes dont la somme doit atteindre un montant annoncé (ex. les chèques d'un bordereau de remise). */
+export interface TabGroupe {
+  /** colonne qui identifie le groupe (ex. n° de bordereau) */
+  cle: string;
+  /** colonne du montant annoncé du groupe, saisi sur sa première ligne */
+  totalCol: string;
+  /** colonne dont la somme doit atteindre le montant annoncé */
+  montantCol: string;
+  /** colonnes recopiées sur la ligne suivante d'un groupe incomplet */
+  prefill: string[];
+  /** « Bordereau » : nom d'un groupe dans les messages */
+  libelle: string;
+}
+
+export interface RepartitionGroupe {
+  id: string;
+  /** valeur de la clé, telle que saisie (ex. « REM-42 ») */
+  nom: string;
+  total: number;
+  reparti: number;
+  /** montant restant à répartir (négatif en cas de dépassement) */
+  reste: number;
+  complet: boolean;
+  nbLignes: number;
+}
+
+const TOLERANCE_GROUPE = 0.0005;
+
+/** Avancement de chaque groupe qui a un montant annoncé : somme des lignes contre ce montant. */
+export function repartitionGroupes(def: Pick<TabDef, "groupe">, rows: TabRow[]): RepartitionGroupe[] {
+  const g = def.groupe;
+  if (!g) return [];
+  const groupes = new Map<string, RepartitionGroupe>();
+  for (const r of rows) {
+    const nom = String(r[g.cle] ?? "").trim();
+    if (!nom) continue;
+    const id = nom.toLowerCase();
+    const courant = groupes.get(id) ?? { id, nom, total: 0, reparti: 0, reste: 0, complet: false, nbLignes: 0 };
+    if (courant.total === 0) courant.total = Math.max(0, cellNumber(r[g.totalCol]));
+    courant.reparti = round2(courant.reparti + cellNumber(r[g.montantCol]));
+    courant.nbLignes += 1;
+    groupes.set(id, courant);
+  }
+  return [...groupes.values()]
+    .filter((x) => x.total > 0)
+    .map((x) => {
+      const reste = Math.round((x.total - x.reparti) * 1000) / 1000;
+      return { ...x, reste, complet: Math.abs(reste) < TOLERANCE_GROUPE };
+    });
+}
+
 export interface TabDef {
   key: string;
   /** nom de l'onglet (comme dans le fichier Excel) */
@@ -120,6 +171,8 @@ export interface TabDef {
   totalLabel?: string;
   /** true tant que les colonnes ne sont pas les colonnes définitives du client */
   provisional?: boolean;
+  /** lignes à répartir jusqu'à atteindre un montant annoncé (bordereaux de remise de chèques) */
+  groupe?: TabGroupe;
 }
 
 export const COLLECTE_TABS: TabDef[] = [
@@ -148,9 +201,19 @@ export const COLLECTE_TABS: TabDef[] = [
     label: "Bordereaux remise chèques",
     pieceLabel: "Détail des bordereaux de remise de chèques (nominatifs)",
     totalKey: "montant",
+    // Le montant du bordereau est saisi une fois ; les chèques qui le composent se saisissent ligne sous ligne
+    // jusqu'à ce que leur somme l'atteigne.
+    groupe: {
+      cle: "num_bordereau",
+      totalCol: "montant_bordereau",
+      montantCol: "montant",
+      prefill: ["date_remise", "num_bordereau", "banque", "date_valeur"],
+      libelle: "Bordereau",
+    },
     columns: [
       { key: "date_remise", label: "Date de remise", type: "date", width: 130 },
       { key: "num_bordereau", label: "N° Bordereau", type: "text", width: 140 },
+      { key: "montant_bordereau", label: "Montant du bordereau", type: "number", width: 140 },
       { key: "banque", label: "Banque", type: "text", width: 170 },
       { key: "num_cheque", label: "N° Chèque", type: "text", width: 130 },
       {

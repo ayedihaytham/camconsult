@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { CollecteLigne } from "@/types";
-import { cellNumber, type TabDef, type TabRow } from "@/lib/collecte/tabs";
+import { cellNumber, repartitionGroupes, type TabDef, type TabRow } from "@/lib/collecte/tabs";
 
 interface Props {
   def: TabDef;
@@ -34,6 +34,10 @@ export interface CollecteGridHandle {
   isDirty: () => boolean;
   save: () => Promise<void>;
   discard: () => void;
+  /** Faux tant qu'un groupe de lignes (ex. un bordereau) n'a pas atteint son montant annoncé. */
+  isComplete: () => boolean;
+  /** Ce qu'il reste à compléter, pour prévenir avant de quitter la section. */
+  incompleteMessage: () => string;
 }
 
 /** Largeur minimale d'une colonne : réduite par rapport à la largeur « confortable »
@@ -83,6 +87,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const [saved, setSaved] = useState(false);
   // Ligne à qui donner le curseur après l'avoir ajoutée.
   const [focusRow, setFocusRow] = useState<number | null>(null);
+  const [focusCol, setFocusCol] = useState<string | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const baseline = useRef(initial);
   const latestInitial = useRef(initial);
@@ -107,21 +112,45 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setSaveError(false);
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
   }
-  /** Ajoute une ligne vide à la suite, directement dans le tableau, et y place le curseur. */
-  function addRow() {
+  /** Ajoute une ligne à la suite, directement dans le tableau, et y place le curseur. Dans un groupe qui n'a pas
+   * encore atteint son montant (un bordereau), la ligne reprend la date, le n° et la banque du groupe. */
+  function addRow(groupeId?: string) {
     setSaved(false);
     setSaveError(false);
-    setRows((current) => [...current, Object.fromEntries(def.columns.map((c) => [c.key, ""]))]);
+    const vide = Object.fromEntries(def.columns.map((c) => [c.key, ""]));
+    const g = def.groupe;
+    const cible =
+      g &&
+      (groupeId
+        ? groupes.find((x) => x.id === groupeId)
+        : (() => {
+            const derniere = rows[rows.length - 1];
+            const id = derniere ? String(derniere[g.cle] ?? "").trim().toLowerCase() : "";
+            const trouve = groupes.find((x) => x.id === id);
+            return trouve && !trouve.complet ? trouve : undefined;
+          })());
+    if (g && cible) {
+      const modele = [...rows].reverse().find((r) => String(r[g.cle] ?? "").trim().toLowerCase() === cible.id);
+      for (const k of g.prefill) vide[k] = String(modele?.[k] ?? "");
+    }
+    setRows((current) => [...current, vide]);
     setFocusRow(rows.length);
+    // Ligne d'un bordereau en cours : le curseur va à la première case propre au chèque.
+    setFocusCol(g && cible ? (def.columns.find((c) => !c.computed && !g.prefill.includes(c.key) && c.key !== g.totalCol)?.key ?? null) : null);
   }
 
   useEffect(() => {
     if (focusRow === null) return;
-    const premiere = tbodyRef.current?.querySelector<HTMLElement>(
-      `tr[data-row="${focusRow}"] input:not([readonly]), tr[data-row="${focusRow}"] button[role="combobox"]:not([disabled])`,
+    const champs = Array.from(
+      tbodyRef.current?.querySelectorAll<HTMLElement>(
+        `tr[data-row="${focusRow}"] input:not([readonly]), tr[data-row="${focusRow}"] button[role="combobox"]:not([disabled])`,
+      ) ?? [],
     );
+    const voulue = focusCol ? champs.find((el) => el.dataset.col === focusCol) : undefined;
+    const premiere = voulue ?? champs.find((el) => el instanceof HTMLInputElement && el.value === "") ?? champs[0];
     premiere?.focus();
     setFocusRow(null);
+    setFocusCol(null);
   }, [focusRow, rows.length]);
   function removeRow(i: number) {
     setSaved(false);
@@ -151,7 +180,21 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     }
   }
 
+  const groupes = useMemo(() => repartitionGroupes(def, rows), [def, rows]);
+  const symboleGroupe = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
+  const montantFr = (n: number) => n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+
   useImperativeHandle(ref, () => ({
+    isComplete: () => groupes.every((g) => g.complet),
+    incompleteMessage: () =>
+      groupes
+        .filter((g) => !g.complet)
+        .map((g) =>
+          g.reste > 0
+            ? `${def.groupe?.libelle ?? "Groupe"} ${g.nom} : il reste ${montantFr(g.reste)} ${symboleGroupe} à répartir`
+            : `${def.groupe?.libelle ?? "Groupe"} ${g.nom} : dépassé de ${montantFr(-g.reste)} ${symboleGroupe}`,
+        )
+        .join(" · "),
     isDirty: () => dirty,
     save,
     discard: () => {
@@ -244,6 +287,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                           disabled={ro}
                         >
                           <SelectTrigger
+                            data-col={c.key}
                             className={cn(
                               "h-8 px-2 text-[13px]",
                               hi && "ring-1 ring-amber-400 bg-amber-50",
@@ -261,6 +305,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                         </Select>
                       ) : (
                         <Input
+                          data-col={c.key}
                           className={cn(
                             "h-8 min-w-0 px-2 text-[13px]",
                             hi && "ring-1 ring-amber-400 bg-amber-50",
@@ -353,6 +398,46 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </table>
       </div>
 
+      {groupes.length > 0 && (
+        <div data-tour="collecte-repartition" className="space-y-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Répartition par {def.groupe?.libelle.toLowerCase()} : saisissez les lignes jusqu'à atteindre le montant
+          </p>
+          {groupes.map((g) => (
+            <div key={g.id} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+              <span className="min-w-[8rem] font-semibold text-foreground">
+                {def.groupe?.libelle} {g.nom}
+              </span>
+              <span className="tabular-nums text-muted-foreground">
+                {montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe} · {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}
+              </span>
+              <span
+                role="progressbar"
+                aria-label={`${def.groupe?.libelle} ${g.nom}`}
+                aria-valuemin={0}
+                aria-valuemax={g.total}
+                aria-valuenow={Math.min(g.reparti, g.total)}
+                className="h-1.5 w-32 overflow-hidden rounded-full bg-border"
+              >
+                <span
+                  className={cn("block h-full rounded-full", g.complet ? "bg-success" : g.reste < 0 ? "bg-destructive" : "bg-warning")}
+                  style={{ width: `${Math.min(100, Math.round((g.reparti / g.total) * 100))}%` }}
+                />
+              </span>
+              <span className={cn("text-xs font-semibold", g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning")}>
+                {g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)}` : `Reste ${montantFr(g.reste)}`}
+              </span>
+              {!g.complet && canAdd && (
+                <Button type="button" variant="outline" size="sm" className="min-h-8" onClick={() => addRow(g.id)}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Ajouter une ligne à ce {def.groupe?.libelle.toLowerCase()}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {canAdd && (
         <p className="text-xs text-muted-foreground">
           Saisissez directement dans le tableau : <kbd className="rounded border border-border px-1">Entrée</kbd> dans la dernière case ajoute la ligne suivante.
@@ -382,7 +467,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               variant="outline"
               size="sm"
               className="min-h-11 lg:min-h-8"
-              onClick={addRow}
+              onClick={() => addRow()}
             >
               <Plus className="h-4 w-4" />
               Ajouter une ligne

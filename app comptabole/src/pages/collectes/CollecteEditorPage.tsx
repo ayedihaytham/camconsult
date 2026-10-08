@@ -100,6 +100,7 @@ export function CollecteEditorPage() {
   const gridRef = useRef<CollecteGridHandle>(null);
   const transmittedBeforeRecapRef = useRef(false);
   const [dirtyTableau, setDirtyTableau] = useState(false);
+  const [incomplet, setIncomplet] = useState<{ next: string; message: string } | null>(null);
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState(false);
@@ -258,8 +259,14 @@ export function CollecteEditorPage() {
   const boutonBandeau =
     "min-h-10 gap-2 border-primary-foreground/30 bg-transparent px-4 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground";
 
-  function requestTab(next: string) {
+  function requestTab(next: string, forcer = false) {
     if (next === tab) return;
+    // Un bordereau dont les chèques n'atteignent pas le montant annoncé : on prévient avant de passer à autre chose.
+    const grille = gridRef.current;
+    if (!forcer && grille && !grille.isComplete()) {
+      setIncomplet({ next, message: grille.incompleteMessage() });
+      return;
+    }
     if (gridRef.current?.isDirty()) {
       setDraftError(false);
       setPendingTab(next);
@@ -989,6 +996,26 @@ export function CollecteEditorPage() {
             toast.warning(`${skipped} fichier(s) trop volumineux, ignoré(s).`);
           }
           toast.success("Pièce(s) ajoutée(s)");
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(incomplet)}
+        onOpenChange={(o) => !o && setIncomplet(null)}
+        destructive
+        title="Répartition incomplète"
+        description={
+          <>
+            <span className="block">{incomplet?.message}.</span>
+            <span className="mt-2 block">Complétez les lignes jusqu'à atteindre le montant avant de passer à une autre action.</span>
+          </>
+        }
+        confirmLabel="Continuer quand même"
+        cancelLabel="Compléter"
+        onConfirm={() => {
+          const suite = incomplet?.next;
+          setIncomplet(null);
+          if (suite) requestTab(suite, true);
         }}
       />
 

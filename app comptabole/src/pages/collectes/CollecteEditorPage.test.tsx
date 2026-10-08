@@ -124,6 +124,46 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
   });
 });
 
+describe("Collecte : bordereau incomplet", () => {
+  function saisirBordereauIncomplet() {
+    openBordereaux();
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+    const cases = document.querySelectorAll<HTMLInputElement>("tbody tr[data-row] input");
+    fireEvent.change(cases[1], { target: { value: "REM-42" } });
+    fireEvent.change(cases[2], { target: { value: "60000" } });
+    fireEvent.change(cases[6], { target: { value: "35000" } });
+  }
+
+  it("prévient avant de quitter la section tant que les chèques n'atteignent pas le montant, et propose de compléter", () => {
+    renderPage();
+    saisirBordereauIncomplet();
+    fireEvent.click(sectionButton("Souche de chèques"));
+    const alerte = screen.getByRole("dialog", { name: "Répartition incomplète" });
+    expect(alerte.textContent).toMatch(/Bordereau REM-42 : il reste 25\s000,000 TND à répartir/);
+    fireEvent.click(within(alerte).getByRole("button", { name: "Compléter" }));
+    expect(sectionButton("Bordereaux remise chèques").getAttribute("aria-current")).toBe("page");
+  });
+
+  it("laisse passer une fois le montant atteint", () => {
+    renderPage();
+    saisirBordereauIncomplet();
+    const cases = document.querySelectorAll<HTMLInputElement>("tbody tr[data-row] input");
+    fireEvent.change(cases[6], { target: { value: "60000" } });
+    fireEvent.click(sectionButton("Souche de chèques"));
+    expect(screen.queryByRole("dialog", { name: "Répartition incomplète" })).toBeNull();
+    // Il reste la confirmation habituelle des modifications non enregistrées.
+    expect(screen.getByRole("dialog", { name: "Modifications non enregistrées" })).toBeTruthy();
+  });
+
+  it("permet de continuer quand même, après l'avertissement", () => {
+    renderPage();
+    saisirBordereauIncomplet();
+    fireEvent.click(sectionButton("Souche de chèques"));
+    fireEvent.click(screen.getByRole("button", { name: "Continuer quand même" }));
+    expect(screen.getByRole("dialog", { name: "Modifications non enregistrées" })).toBeTruthy();
+  });
+});
+
 describe("Collecte requested-table navigation guard", () => {
   it("navigates clean sections without confirmation, even with an empty row added", () => {
     renderPage();

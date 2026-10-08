@@ -384,6 +384,7 @@ collectesRouter.patch("/:id", async (req, res) => {
         const [vers, sauf, depuis] = sync;
         await client.query(
           `update collecte_sections set statut=$2,
+             recap_statut = case when $2 in ('valide','archive') then 'none' else recap_statut end,
              valide_le = case when $2='valide' then now() else valide_le end,
              transmis_le = case when $2='transmis' then now() else transmis_le end
            where collecte_id=$1
@@ -483,6 +484,14 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
   const parsed = lignesSchema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
+  // Le client complète et ajoute des lignes, il ne supprime pas celles déjà enregistrées (celles du cabinet comprises).
+  if (req.session.poste === "societe_employe") {
+    const { n } = (
+      await query("select count(*)::int as n from collecte_lignes where collecte_id=$1 and onglet=$2", [req.params.id, onglet])
+    ).rows[0];
+    if (parsed.data.lignes.length < n)
+      return res.status(400).json({ error: "Les lignes déjà enregistrées ne peuvent pas être supprimées" });
+  }
 
   // Ne renvoie que les lignes de CET onglet, pas toute la collecte : un
   // « Enregistrer » ne touche qu'un seul tableau, mais rechargeait jusque-là
@@ -786,6 +795,7 @@ async function changerSection(req, res, ctx, { depuis, vers, motif = "", journal
        on conflict (collecte_id, onglet) do update set statut = excluded.statut,
          transmis_le = case when excluded.statut='transmis' then now() else collecte_sections.transmis_le end,
          valide_le   = case when excluded.statut='valide' then now() else collecte_sections.valide_le end,
+         recap_statut = case when excluded.statut in ('valide','archive') then 'none' else collecte_sections.recap_statut end,
          motif_renvoi = case when excluded.statut='a_corriger' then $4 when excluded.statut in ('valide','transmis') then '' else collecte_sections.motif_renvoi end`,
       [c.id, onglet, vers, motif],
     );

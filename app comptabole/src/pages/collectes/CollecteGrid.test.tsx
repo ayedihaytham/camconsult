@@ -219,7 +219,7 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
 
   describe("bordereau envoyé par le cabinet au client", () => {
     const entete = { id: "l1", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-05-22", num_bordereau: "293", montant: 10310, banque: "btk", montant_cheque: "" } };
-    const rendreClient = (lignesInitiales: unknown[] = [entete]) => renderGrid("bordereaux_remise_cheques", undefined, { lignes: lignesInitiales as never, ligneBordereauFigee: true });
+    const rendreClient = (lignesInitiales: unknown[] = [entete]) => renderGrid("bordereaux_remise_cheques", undefined, { lignes: lignesInitiales as never, ligneBordereauFigee: true, sansSuppression: true });
 
     it("garde la ligne du cabinet telle quelle et propose dessous une ligne vierge du même bordereau", () => {
       const { ref } = rendreClient();
@@ -234,6 +234,31 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
       expect(l2[MONTANT].readOnly).toBe(false);
       // Ouvrir le tableau ne le rend pas « modifié ».
       expect(ref.current?.isDirty()).toBe(false);
+    });
+
+    it("n'attribue pas de n° à la ligne du cabinet : les chèques sont numérotés 1, 2…", () => {
+      rendreClient();
+      const numero = (i: number) => lignes()[i].querySelector("td")?.textContent?.trim();
+      expect([numero(0), numero(1)]).toEqual(["", "1"]);
+      fireEvent.change(champs(lignes()[1])[MONTANT], { target: { value: "5000" } });
+      fireEvent.click(screen.getByRole("button", { name: /Ajouter une ligne à ce bordereau/ }));
+      expect(numero(2)).toBe("2");
+    });
+
+    it("permet de modifier et d'ajouter des lignes, mais pas de supprimer celles déjà enregistrées", () => {
+      const chequeSaisi = { id: "l2", onglet: "bordereaux_remise_cheques", ordre: 1, data: { date_remise: "2026-05-22", num_bordereau: "293", montant: "", banque: "btk", montant_cheque: 4000 } };
+      rendreClient([entete, chequeSaisi]);
+      const supprimer = (i: number) => lignes()[i].querySelector('button[title="Supprimer la ligne"]');
+      expect(supprimer(0)).toBeNull();
+      expect(supprimer(1)).toBeNull();
+      // Une ligne ajoutée et pas encore enregistrée se retire.
+      fireEvent.click(screen.getByRole("button", { name: /Ajouter une ligne à ce bordereau/ }));
+      expect(lignes()).toHaveLength(3);
+      expect(supprimer(2)).not.toBeNull();
+      fireEvent.click(supprimer(2)!);
+      expect(lignes()).toHaveLength(2);
+      // Les cases d'une ligne enregistrée restent modifiables.
+      expect(champs(lignes()[1])[MONTANT].readOnly).toBe(false);
     });
 
     it("n'enregistre que ce que le client saisit, et suit le reste à répartir jusqu'à 0", async () => {

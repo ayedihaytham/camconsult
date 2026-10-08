@@ -781,6 +781,7 @@ export function CollecteEditorPage() {
                           )}
                           readOnly={clientRecapForTab ? !inRecap : !editableTab(key)}
                           ligneBordereauFigee={isClient}
+                          sansSuppression={isClient}
                           recapClient={inRecap}
                           highlight={hl}
                           wholeEditable={inRecap && whole}

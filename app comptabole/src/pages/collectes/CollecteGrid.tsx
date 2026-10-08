@@ -34,6 +34,8 @@ interface Props {
   /** Côté client : la ligne d'un bordereau envoyée par le cabinet (n°, montant, banque, sans chèque) reste telle quelle, et une
    * ligne vierge du même bordereau est proposée dessous pour y saisir les chèques jusqu'au montant. */
   ligneBordereauFigee?: boolean;
+  /** Côté client : on modifie les cases et on ajoute des lignes, mais une ligne déjà enregistrée ne se supprime pas. */
+  sansSuppression?: boolean;
   /** Envoie un fichier joint à une case « pièce jointe » et renvoie son id et son nom. */
   onJoindre?: (file: File) => Promise<{ id: string; nom: string }>;
   /** Ouvre l'aperçu d'une pièce jointe. */
@@ -76,6 +78,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   flagged,
   onDirtyChange,
   ligneBordereauFigee = false,
+  sansSuppression = false,
   onJoindre,
   onVoirPiece,
 }, ref) {
@@ -240,6 +243,15 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     );
   }
 
+  /** N° affiché d'une ligne : la ligne d'en-tête envoyée par le cabinet n'en a pas, les chèques sont numérotés 1, 2, 3… */
+  function numeroLigne(i: number): number | string {
+    if (!ligneBordereauFigee) return i + 1;
+    if (estEntete(i)) return "";
+    let n = 0;
+    for (let k = 0; k <= i; k++) if (!estEntete(k)) n += 1;
+    return n;
+  }
+
   // À l'ouverture, un bordereau dont seule l'en-tête existe reçoit une ligne vierge (date, n° et banque repris) pour saisir ses chèques.
   useEffect(() => {
     const g = def.groupe;
@@ -378,7 +390,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             {rows.map((row, i) => (
               <tr key={i} data-row={i} className="hover:bg-muted/20">
                 <td className="px-2 py-1.5 text-xs text-muted-foreground">
-                  {i + 1}
+                  {numeroLigne(i)}
                 </td>
                 {def.columns.map((c) => {
                   const shown = String(derived[i]?.[c.key] ?? "");
@@ -555,7 +567,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 })}
                 {!readOnly && (
                   <td className="px-1.5 py-1">
-                    {!structureLocked && !estEntete(i) && (
+                    {!structureLocked && !estEntete(i) && !(sansSuppression && i < baseline.current.length) && (
                       <button
                         onClick={() => removeRow(i)}
                         className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

@@ -142,6 +142,18 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             const trouve = groupes.find((x) => x.id === id);
             return trouve && !trouve.complet ? trouve : undefined;
           })());
+    // Ligne du bordereau envoyée par le cabinet (date, n°, montant, banque) dont le chèque n'est pas encore saisi : c'est la
+    // première ligne du bordereau, on la remplit au lieu d'en ajouter une autre ; une nouvelle ligne vient ensuite.
+    if (g && cible && groupeId) {
+      const aRemplir = rows.findIndex(
+        (r) => String(r[g.cle] ?? "").trim().toLowerCase() === cible.id && String(r[g.montantCol] ?? "").trim() === "",
+      );
+      if (aRemplir >= 0) {
+        setFocusRow(aRemplir);
+        setFocusCol(def.columns.find((c) => !c.computed && !g.prefill.includes(c.key) && c.key !== g.totalCol)?.key ?? null);
+        return;
+      }
+    }
     if (g && cible) {
       const modele = [...rows].reverse().find((r) => String(r[g.cle] ?? "").trim().toLowerCase() === cible.id);
       for (const k of g.prefill) vide[k] = String(modele?.[k] ?? "");

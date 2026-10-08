@@ -217,6 +217,23 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     expect(suivi()?.textContent).toMatch(/Dépassé de 200,000/);
   });
 
+  it("la ligne du bordereau envoyée par le cabinet sans chèque est la première ligne à remplir : aucune ligne en plus", () => {
+    const envoyee = { id: "l1", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-05-22", num_bordereau: "293", montant: 10310, banque: "btk", montant_cheque: "" } };
+    renderGrid("bordereaux_remise_cheques", undefined, { lignes: [envoyee as never] });
+    expect(lignes()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter une ligne à ce bordereau/ }));
+    // Pas de 2ᵉ ligne : le curseur va au n° de chèque de la ligne 1.
+    expect(lignes()).toHaveLength(1);
+    expect(document.activeElement).toBe(champs(lignes()[0])[NUM_CHEQUE]);
+
+    // Une fois le chèque saisi (montant partiel), la ligne suivante s'ajoute, sans montant de bordereau à ressaisir.
+    fireEvent.change(champs(lignes()[0])[MONTANT], { target: { value: "4000" } });
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter une ligne à ce bordereau/ }));
+    expect(lignes()).toHaveLength(2);
+    expect(champs(lignes()[1])[1].value).toBe("293");
+    expect(champs(lignes()[1])[MONTANT_BORDEREAU].value).toBe("");
+  });
+
   it("n'est complet que lorsque chaque bordereau a atteint son montant", () => {
     const { ref } = renderGrid("bordereaux_remise_cheques");
     ajouter();

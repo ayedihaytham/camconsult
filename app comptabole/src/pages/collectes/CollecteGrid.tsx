@@ -31,6 +31,9 @@ interface Props {
   /** clés « ordre:col » à signaler « ? » sans verrouiller le reste (vue admin) */
   flagged?: Set<string>;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Côté client : la ligne d'un bordereau envoyée par le cabinet (n°, montant, banque, sans chèque) reste telle quelle, et une
+   * ligne vierge du même bordereau est proposée dessous pour y saisir les chèques jusqu'au montant. */
+  ligneBordereauFigee?: boolean;
   /** Envoie un fichier joint à une case « pièce jointe » et renvoie son id et son nom. */
   onJoindre?: (file: File) => Promise<{ id: string; nom: string }>;
   /** Ouvre l'aperçu d'une pièce jointe. */
@@ -72,11 +75,13 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   wholeEditable = false,
   flagged,
   onDirtyChange,
+  ligneBordereauFigee = false,
   onJoindre,
   onVoirPiece,
 }, ref) {
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
+    if (estEntete(i)) return true;
     if (!recapClient || wholeEditable) return false;
     return !highlight?.has(`${i}:${key}`);
   };
@@ -142,18 +147,6 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             const trouve = groupes.find((x) => x.id === id);
             return trouve && !trouve.complet ? trouve : undefined;
           })());
-    // Ligne du bordereau envoyée par le cabinet (date, n°, montant, banque) dont le chèque n'est pas encore saisi : c'est la
-    // première ligne du bordereau, on la remplit au lieu d'en ajouter une autre ; une nouvelle ligne vient ensuite.
-    if (g && cible && groupeId) {
-      const aRemplir = rows.findIndex(
-        (r) => String(r[g.cle] ?? "").trim().toLowerCase() === cible.id && String(r[g.montantCol] ?? "").trim() === "",
-      );
-      if (aRemplir >= 0) {
-        setFocusRow(aRemplir);
-        setFocusCol(def.columns.find((c) => !c.computed && !g.prefill.includes(c.key) && c.key !== g.totalCol)?.key ?? null);
-        return;
-      }
-    }
     if (g && cible) {
       const modele = [...rows].reverse().find((r) => String(r[g.cle] ?? "").trim().toLowerCase() === cible.id);
       for (const k of g.prefill) vide[k] = String(modele?.[k] ?? "");
@@ -234,6 +227,36 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   }
 
   const groupes = useMemo(() => repartitionGroupes(def, rows), [def, rows]);
+
+  /** Ligne d'en-tête de bordereau reçue du cabinet : enregistrée, avec le montant du bordereau et sans chèque. */
+  function estEntete(i: number): boolean {
+    const g = def.groupe;
+    const r = rows[i];
+    if (!ligneBordereauFigee || !g || !r || !baseline.current.includes(r)) return false;
+    return (
+      String(r[g.cle] ?? "").trim() !== "" &&
+      cellNumber(r[g.totalCol]) > 0 &&
+      String(r[g.montantCol] ?? "").trim() === ""
+    );
+  }
+
+  // À l'ouverture, un bordereau dont seule l'en-tête existe reçoit une ligne vierge (date, n° et banque repris) pour saisir ses chèques.
+  useEffect(() => {
+    const g = def.groupe;
+    if (!ligneBordereauFigee || !g || readOnly) return;
+    if (sansLignesVides(rows) !== sansLignesVides(baseline.current)) return;
+    const manquantes = repartitionGroupes(def, rows).filter((x) => x.reparti === 0 && x.reste > 0 && x.nbLignes === 1);
+    if (manquantes.length === 0) return;
+    const ajoutees = manquantes.map((x) => {
+      const modele = rows.find((r) => String(r[g.cle] ?? "").trim().toLowerCase() === x.id);
+      const vide: TabRow = Object.fromEntries(def.columns.map((c) => [c.key, ""]));
+      for (const k of g.prefill) vide[k] = String(modele?.[k] ?? "");
+      return vide;
+    });
+    // Ces lignes font partie de l'état de départ : ouvrir le tableau ne le rend pas « modifié ».
+    baseline.current = [...baseline.current, ...ajoutees];
+    setRows((r) => [...r, ...ajoutees]);
+  }, [rows, def, ligneBordereauFigee, readOnly]);
   const symboleGroupe = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
   const montantFr = (n: number) => n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
@@ -532,7 +555,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 })}
                 {!readOnly && (
                   <td className="px-1.5 py-1">
-                    {!structureLocked && (
+                    {!structureLocked && !estEntete(i) && (
                       <button
                         onClick={() => removeRow(i)}
                         className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

@@ -780,6 +780,7 @@ export function CollecteEditorPage() {
                             (l) => l.onglet === key,
                           )}
                           readOnly={clientRecapForTab ? !inRecap : !editableTab(key)}
+                          ligneBordereauFigee={isClient}
                           recapClient={inRecap}
                           highlight={hl}
                           wholeEditable={inRecap && whole}

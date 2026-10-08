@@ -217,21 +217,52 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     expect(suivi()?.textContent).toMatch(/Dépassé de 200,000/);
   });
 
-  it("la ligne du bordereau envoyée par le cabinet sans chèque est la première ligne à remplir : aucune ligne en plus", () => {
-    const envoyee = { id: "l1", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-05-22", num_bordereau: "293", montant: 10310, banque: "btk", montant_cheque: "" } };
-    renderGrid("bordereaux_remise_cheques", undefined, { lignes: [envoyee as never] });
-    expect(lignes()).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: /Ajouter une ligne à ce bordereau/ }));
-    // Pas de 2ᵉ ligne : le curseur va au n° de chèque de la ligne 1.
-    expect(lignes()).toHaveLength(1);
-    expect(document.activeElement).toBe(champs(lignes()[0])[NUM_CHEQUE]);
+  describe("bordereau envoyé par le cabinet au client", () => {
+    const entete = { id: "l1", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-05-22", num_bordereau: "293", montant: 10310, banque: "btk", montant_cheque: "" } };
+    const rendreClient = (lignesInitiales: unknown[] = [entete]) => renderGrid("bordereaux_remise_cheques", undefined, { lignes: lignesInitiales as never, ligneBordereauFigee: true });
 
-    // Une fois le chèque saisi (montant partiel), la ligne suivante s'ajoute, sans montant de bordereau à ressaisir.
-    fireEvent.change(champs(lignes()[0])[MONTANT], { target: { value: "4000" } });
-    fireEvent.click(screen.getByRole("button", { name: /Ajouter une ligne à ce bordereau/ }));
-    expect(lignes()).toHaveLength(2);
-    expect(champs(lignes()[1])[1].value).toBe("293");
-    expect(champs(lignes()[1])[MONTANT_BORDEREAU].value).toBe("");
+    it("garde la ligne du cabinet telle quelle et propose dessous une ligne vierge du même bordereau", () => {
+      const { ref } = rendreClient();
+      expect(lignes()).toHaveLength(2);
+      // Ligne 1 : celle du cabinet, figée (aucune case modifiable, pas de suppression).
+      expect(champs(lignes()[0]).every((c) => c.readOnly)).toBe(true);
+      expect(lignes()[0].querySelector('button[title="Supprimer la ligne"]')).toBeNull();
+      // Ligne 2 : n°, date et banque repris, montant du bordereau vide, prête pour le 1er chèque.
+      const l2 = champs(lignes()[1]);
+      expect(l2[1].value).toBe("293");
+      expect(l2[MONTANT_BORDEREAU].value).toBe("");
+      expect(l2[MONTANT].readOnly).toBe(false);
+      // Ouvrir le tableau ne le rend pas « modifié ».
+      expect(ref.current?.isDirty()).toBe(false);
+    });
+
+    it("n'enregistre que ce que le client saisit, et suit le reste à répartir jusqu'à 0", async () => {
+      const { ref, onSave } = rendreClient();
+      fireEvent.change(champs(lignes()[1])[MONTANT], { target: { value: "10000" } });
+      expect(suivi()?.textContent).toMatch(/Reste 310,000/);
+      expect(ref.current?.isComplete()).toBe(false);
+      fireEvent.click(screen.getByRole("button", { name: /Ajouter une ligne à ce bordereau/ }));
+      expect(lignes()).toHaveLength(3);
+      fireEvent.change(champs(lignes()[2])[MONTANT], { target: { value: "310" } });
+      expect(suivi()?.textContent).toContain("Complet");
+      expect(ref.current?.isComplete()).toBe(true);
+      await act(async () => {
+        await ref.current?.save();
+      });
+      expect(onSave).toHaveBeenCalledTimes(1);
+      expect(onSave.mock.calls[0][0]).toHaveLength(3);
+    });
+
+    it("ne fige rien quand le cabinet a déjà saisi un chèque sur sa ligne, ni pour le cabinet lui-même", () => {
+      cleanup();
+      const avecCheque = { ...entete, data: { ...entete.data, montant_cheque: 4000 } };
+      rendreClient([avecCheque]);
+      expect(champs(lignes()[0]).some((c) => !c.readOnly)).toBe(true);
+      cleanup();
+      renderGrid("bordereaux_remise_cheques", undefined, { lignes: [entete] as never });
+      expect(lignes()).toHaveLength(1);
+      expect(champs(lignes()[0]).some((c) => !c.readOnly)).toBe(true);
+    });
   });
 
   it("n'est complet que lorsque chaque bordereau a atteint son montant", () => {

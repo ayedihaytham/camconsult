@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { TAB_BY_KEY, repartitionGroupes } from "./tabs";
 
 const def = TAB_BY_KEY.bordereaux_remise_cheques;
-const ligne = (num_bordereau: string, montant: number | string, montant_bordereau: number | string = "") => ({ num_bordereau, montant, montant_bordereau });
+/** Une ligne de chèque : n° de bordereau, montant du chèque, et le montant du bordereau (saisi sur sa première ligne seulement). */
+const ligne = (num_bordereau: string, montant_cheque: number | string, montant: number | string = "") => ({ num_bordereau, montant_cheque, montant });
 
 describe("répartition d'un bordereau de remise sur plusieurs lignes", () => {
   it("compte la somme des chèques contre le montant annoncé sur la première ligne", () => {
@@ -32,6 +33,15 @@ describe("répartition d'un bordereau de remise sur plusieurs lignes", () => {
   it("accepte un montant annoncé saisi en texte avec virgule", () => {
     const [g] = repartitionGroupes(def, [ligne("REM-3", "1 000,5", "2 000,5"), ligne("REM-3", "1 000")]);
     expect(g).toMatchObject({ total: 2000.5, reparti: 2000.5, complet: true });
+  });
+
+  it("ne contrôle pas les anciennes lignes, qui ont un montant par ligne et pas de colonne de chèques", () => {
+    expect(repartitionGroupes(def, [{ num_bordereau: "REM-1", montant: 500 }, { num_bordereau: "REM-1", montant: 300 }])).toEqual([]);
+  });
+
+  it("additionne les chèques de la capture : 30 000 + 20 000 + 10 000 = 60 000", () => {
+    const [g] = repartitionGroupes(def, [ligne("255558", 30000, 60000), ligne("255558", 20000), ligne("255558", 10000)]);
+    expect(g).toMatchObject({ total: 60000, reparti: 60000, reste: 0, complet: true, nbLignes: 3 });
   });
 
   it("n'existe que pour les bordereaux de remise", () => {

@@ -66,6 +66,11 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 }, ref) {
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
+    // Le montant d'un bordereau se saisit sur sa première ligne seulement : les suivantes sont ses chèques.
+    if (def.groupe && key === def.groupe.totalCol) {
+      const nom = String(rows[i]?.[def.groupe.cle] ?? "").trim().toLowerCase();
+      if (nom && rows.slice(0, i).some((r) => String(r[def.groupe!.cle] ?? "").trim().toLowerCase() === nom)) return true;
+    }
     if (!recapClient || wholeEditable) return false;
     return !highlight?.has(`${i}:${key}`);
   };

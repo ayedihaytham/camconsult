@@ -133,6 +133,8 @@ export function repartitionGroupes(def: Pick<TabDef, "groupe">, rows: TabRow[]):
   for (const r of rows) {
     const nom = String(r[g.cle] ?? "").trim();
     if (!nom) continue;
+    // Anciennes lignes (un montant par ligne, sans colonne des chèques) : jamais contrôlées.
+    if (!(g.montantCol in r)) continue;
     const id = nom.toLowerCase();
     const courant = groupes.get(id) ?? { id, nom, total: 0, reparti: 0, reste: 0, complet: false, nbLignes: 0 };
     if (courant.total === 0) courant.total = Math.max(0, cellNumber(r[g.totalCol]));
@@ -201,19 +203,19 @@ export const COLLECTE_TABS: TabDef[] = [
     label: "Bordereaux remise chèques",
     pieceLabel: "Détail des bordereaux de remise de chèques (nominatifs)",
     totalKey: "montant",
-    // Le montant du bordereau est saisi une fois ; les chèques qui le composent se saisissent ligne sous ligne
-    // jusqu'à ce que leur somme l'atteigne.
+    // Le montant du bordereau (60 000) se saisit une seule fois, sur sa première ligne ; les chèques qui le composent
+    // se saisissent ligne sous ligne, chacun avec son montant, jusqu'à ce que leur somme l'atteigne.
     groupe: {
       cle: "num_bordereau",
-      totalCol: "montant_bordereau",
-      montantCol: "montant",
+      totalCol: "montant",
+      montantCol: "montant_cheque",
       prefill: ["date_remise", "num_bordereau", "banque", "date_valeur"],
       libelle: "Bordereau",
     },
     columns: [
       { key: "date_remise", label: "Date de remise", type: "date", width: 130 },
       { key: "num_bordereau", label: "N° Bordereau", type: "text", width: 140 },
-      { key: "montant_bordereau", label: "Montant du bordereau", type: "number", width: 140 },
+      { key: "montant", label: "Montant du bordereau", type: "number", width: 140 },
       { key: "banque", label: "Banque", type: "text", width: 170 },
       { key: "num_cheque", label: "N° Chèque", type: "text", width: 130 },
       {
@@ -222,7 +224,7 @@ export const COLLECTE_TABS: TabDef[] = [
         type: "text",
         width: 240,
       },
-      { key: "montant", label: "Montant", type: "number", width: 130 },
+      { key: "montant_cheque", label: "Montant du chèque", type: "number", width: 130 },
       {
         key: "date_valeur",
         label: "Date de valeur",

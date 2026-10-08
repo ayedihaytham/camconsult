@@ -193,6 +193,36 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     expect(ref.current?.incompleteMessage()).toMatch(/dépassé de 5\s000,000/);
   });
 
+  it("lit toutes les lignes du bordereau, pas seulement la première (30 000 + 20 000 + 10 000 = 60 000)", () => {
+    const { ref } = renderGrid("bordereaux_remise_cheques");
+    ajouter();
+    const l0 = champs(lignes()[0]);
+    fireEvent.change(l0[1], { target: { value: "255558" } });
+    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "60000" } });
+    fireEvent.change(l0[MONTANT], { target: { value: "30000" } });
+    fireEvent.keyDown(l0[l0.length - 1], { key: "Enter" });
+    fireEvent.change(champs(lignes()[1])[MONTANT], { target: { value: "20000" } });
+    const l1 = champs(lignes()[1]);
+    fireEvent.keyDown(l1[l1.length - 1], { key: "Enter" });
+    expect(lignes()).toHaveLength(3);
+    expect(suivi()?.textContent).toMatch(/50\s000,000 \/ 60\s000,000/);
+    fireEvent.change(champs(lignes()[2])[MONTANT], { target: { value: "10000" } });
+    expect(suivi()?.textContent).toMatch(/60\s000,000 \/ 60\s000,000 TND · 3 lignes/);
+    expect(suivi()?.textContent).toContain("Complet");
+    expect(ref.current?.isComplete()).toBe(true);
+  });
+
+  it("ne laisse saisir le montant du bordereau que sur sa première ligne", () => {
+    renderGrid("bordereaux_remise_cheques");
+    ajouter();
+    const l0 = champs(lignes()[0]);
+    fireEvent.change(l0[1], { target: { value: "255558" } });
+    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "60000" } });
+    fireEvent.keyDown(l0[l0.length - 1], { key: "Enter" });
+    expect(champs(lignes()[0])[MONTANT_BORDEREAU].readOnly).toBe(false);
+    expect(champs(lignes()[1])[MONTANT_BORDEREAU].readOnly).toBe(true);
+  });
+
   it("ne suit rien pour un tableau sans bordereau", () => {
     const { ref } = renderGrid("souche_cheques");
     ajouter();

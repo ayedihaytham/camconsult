@@ -1072,3 +1072,9 @@ create index if not exists mouvements_bancaires_compte_idx on mouvements_bancair
 -- Rapprochement : un règlement fournisseur correspond à un seul mouvement bancaire.
 alter table fournisseur_reglements add column if not exists mouvement_bancaire_id uuid references mouvements_bancaires(id) on delete set null;
 create unique index if not exists fournisseur_reglements_mouvement_idx on fournisseur_reglements(mouvement_bancaire_id) where mouvement_bancaire_id is not null;
+
+-- Bordereaux de remise : la colonne des montants de chèques s'appelait « montant_bordereau » dans une première
+-- version ; elle porte désormais « montant_cheque » (« montant » est le montant du bordereau). Idempotent.
+update collecte_lignes
+   set data = (data - 'montant_bordereau') || jsonb_build_object('montant_cheque', data -> 'montant_bordereau')
+ where onglet = 'bordereaux_remise_cheques' and data ? 'montant_bordereau' and not (data ? 'montant_cheque');

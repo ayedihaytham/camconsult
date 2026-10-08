@@ -27,4 +27,11 @@ describe("cases à compléter d'un bordereau de remise", () => {
     const c = collecte([{ ...complete, montant: 100, montant_cheque: 100 }, { ...complete, num_bordereau: "255559", montant_cheque: 50 }]);
     expect(cases(c)).toEqual(["2:montant"]);
   });
+
+  it("compte une pièce jointe comme une case « observations » remplie", () => {
+    const c = collecte([{ ...complete, montant: 60000, montant_cheque: 60000, observations: "", observations_fichier: "f1" }]);
+    expect(cases(c)).toEqual([]);
+    const sans = collecte([{ ...complete, montant: 60000, montant_cheque: 60000, observations: "", observations_fichier: "" }]);
+    expect(cases(sans)).toEqual(["1:observations"]);
+  });
 });

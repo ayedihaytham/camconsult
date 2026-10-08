@@ -56,7 +56,7 @@ export function computeManques(c: CollecteFull): Manque[] {
       for (const col of def.columns) {
         if (col.computed || skip.has(col.key)) continue;
         if (g && suite && col.key === g.totalCol) continue;
-        if (isEmpty(l.data[col.key])) {
+        if (isEmpty(l.data[col.key]) && !(col.piece && !isEmpty(l.data[`${col.key}_fichier`]))) {
           out.push({
             onglet: key,
             ordre: i,

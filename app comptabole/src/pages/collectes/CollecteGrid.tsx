@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,6 +28,10 @@ interface Props {
   /** clés « ordre:col » à signaler « ? » sans verrouiller le reste (vue admin) */
   flagged?: Set<string>;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Envoie un fichier joint à une case « pièce jointe » et renvoie son id et son nom. */
+  onJoindre?: (file: File) => Promise<{ id: string; nom: string }>;
+  /** Ouvre l'aperçu d'une pièce jointe. */
+  onVoirPiece?: (fichierId: string) => void;
 }
 
 export interface CollecteGridHandle {
@@ -49,7 +53,9 @@ const minColWidth = (c: { width?: number; type?: string }) =>
 
 /** Une ligne dont aucune case saisissable n'est remplie : ajoutée pour écrire dessus, ignorée tant qu'elle reste vide. */
 function ligneVide(def: TabDef, row: TabRow) {
-  return def.columns.filter((c) => !c.computed).every((c) => String(row[c.key] ?? "").trim() === "");
+  return def.columns
+    .filter((c) => !c.computed)
+    .every((c) => String(row[c.key] ?? "").trim() === "" && !(c.piece && row[`${c.key}_fichier`]));
 }
 
 export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function CollecteGrid({
@@ -63,6 +69,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   wholeEditable = false,
   flagged,
   onDirtyChange,
+  onJoindre,
+  onVoirPiece,
 }, ref) {
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
@@ -152,6 +160,25 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setFocusRow(null);
     setFocusCol(null);
   }, [focusRow, rows.length]);
+  /** Modifie plusieurs cases d'une ligne d'un coup (ex. le fichier joint et son nom). */
+  function setCells(i: number, patch: Record<string, unknown>) {
+    setSaved(false);
+    setSaveError(false);
+    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  const [envoi, setEnvoi] = useState<string | null>(null);
+  async function joindre(i: number, key: string, file: File) {
+    if (!onJoindre) return;
+    setEnvoi(`${i}:${key}`);
+    try {
+      const { id, nom } = await onJoindre(file);
+      setCells(i, { [`${key}_fichier`]: id, [`${key}_fichier_nom`]: nom });
+    } catch {
+      // l'erreur est déjà affichée par l'appelant : la case reste inchangée
+    } finally {
+      setEnvoi(null);
+    }
+  }
   function removeRow(i: number) {
     setSaved(false);
     setSaveError(false);
@@ -303,6 +330,95 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                             ))}
                           </SelectContent>
                         </Select>
+                      ) : c.piece ? (
+                        <div className="relative">
+                          <Input
+                            data-col={c.key}
+                            className={cn(
+                              "h-8 min-w-0 px-2 pr-14 text-[13px]",
+                              hi && "ring-1 ring-amber-400 bg-amber-50",
+                              ro && !hi && "bg-muted/30",
+                            )}
+                            type={
+                              c.type === "number"
+                                ? "number"
+                                : c.type === "date"
+                                  ? "date"
+                                  : "text"
+                            }
+                            inputMode={c.type === "number" ? "decimal" : undefined}
+                            step={c.type === "number" ? "any" : undefined}
+                            placeholder={hi ? "?" : undefined}
+                            value={String(row[c.key] ?? "")}
+                            onChange={(e) =>
+                              setCell(
+                                i,
+                                c.key,
+                                c.type === "number"
+                                  ? e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                  : e.target.value,
+                              )
+                            }
+                            readOnly={ro}
+                            onKeyDown={(e) => {
+                              // Entrée dans la dernière case de la dernière ligne remplie : ligne suivante.
+                              if (e.key === "Enter" && canAdd && i === rows.length - 1 && c.key === derniereColonne && !ligneVide(def, row)) {
+                                e.preventDefault();
+                                addRow();
+                              }
+                            }}
+                          />
+                          <span className="absolute inset-y-0 right-1 flex items-center gap-0.5">
+                            {row[`${c.key}_fichier`] ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => onVoirPiece?.(String(row[`${c.key}_fichier`]))}
+                                  className="rounded p-1 text-success hover:bg-success/10"
+                                  title={`Voir la pièce jointe : ${String(row[`${c.key}_fichier_nom`] ?? "")}`}
+                                  aria-label={`Voir la pièce jointe de la ligne ${i + 1}`}
+                                >
+                                  <Paperclip className="h-4 w-4" />
+                                </button>
+                                {!ro && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setCells(i, { [`${c.key}_fichier`]: "", [`${c.key}_fichier_nom`]: "" })}
+                                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                    title="Retirer la pièce jointe de cette ligne"
+                                    aria-label={`Retirer la pièce jointe de la ligne ${i + 1}`}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              !ro &&
+                              onJoindre && (
+                                <label
+                                  className="cursor-pointer rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-within:ring-2 focus-within:ring-ring"
+                                  title="Joindre un fichier (scan, PDF)"
+                                >
+                                  {envoi === `${i}:${c.key}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                                  <input
+                                    type="file"
+                                    accept="image/*,.pdf,application/pdf"
+                                    aria-label={`Joindre un fichier à la ligne ${i + 1}`}
+                                    className="sr-only"
+                                    disabled={envoi !== null}
+                                    onChange={(e) => {
+                                      const fichier = e.target.files?.[0];
+                                      e.target.value = "";
+                                      if (fichier) void joindre(i, c.key, fichier);
+                                    }}
+                                  />
+                                </label>
+                              )
+                            )}
+                          </span>
+                        </div>
                       ) : (
                         <Input
                           data-col={c.key}

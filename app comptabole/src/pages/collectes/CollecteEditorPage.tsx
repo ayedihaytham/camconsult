@@ -64,6 +64,11 @@ import {
   type NewFichier,
 } from "../structuration/FileUploadDialog";
 import { DocPreviewDialog } from "../stock/DocPreviewDialog";
+import { fileExtension, formatFileSize, readFileAsDataUrl } from "@/lib/file";
+import { alleger, estImageDataUrl } from "@/lib/image";
+
+/** Taille maximale d'un fichier joint à une ligne de tableau (hors images, qui sont allégées). */
+const MAX_PIECE_LIGNE = 8 * 1024 * 1024;
 
 export function CollecteEditorPage() {
   const { id = "" } = useParams();
@@ -89,6 +94,7 @@ export function CollecteEditorPage() {
   const submitRecap = useCollectes((s) => s.submitRecap);
   const relanceNow = useCollectes((s) => s.relanceNow);
   const uploadFichier = useCollectes((s) => s.uploadFichier);
+  const joindreFichier = useCollectes((s) => s.joindreFichier);
   const deleteFichier = useCollectes((s) => s.deleteFichier);
   const fetchJournal = useCollectes((s) => s.fetchJournal);
 
@@ -724,6 +730,29 @@ export function CollecteEditorPage() {
                             !inRecap && showFlagsFor(key) ? hl : undefined
                           }
                           devise={collecte.devise}
+                          onJoindre={async (file) => {
+                            const image = file.type.startsWith("image/");
+                            if (!image && file.size > MAX_PIECE_LIGNE) {
+                              toast.error("Fichier trop volumineux (8 Mo maximum).");
+                              throw new Error("trop volumineux");
+                            }
+                            let dataUrl = await readFileAsDataUrl(file);
+                            if (estImageDataUrl(dataUrl)) dataUrl = await alleger(dataUrl);
+                            const cree = await joindreFichier(id, {
+                              onglet: key,
+                              nom: file.name,
+                              format: fileExtension(file.name),
+                              taille: formatFileSize(file.size),
+                              dataUrl,
+                            });
+                            toast.success("Pièce jointe ajoutée");
+                            return { id: cree.id, nom: cree.nom };
+                          }}
+                          onVoirPiece={(fichierId) => {
+                            const f = collecte.fichiers.find((x) => x.id === fichierId);
+                            if (f?.dataUrl) setPreviewFichier({ title: f.nom, dataUrl: f.dataUrl });
+                            else toast.info("Cette pièce jointe n'est plus disponible.");
+                          }}
                           onDirtyChange={setDirtyTableau}
                           onSave={async (lignes) => {
                             await saveLignes(id, key, lignes);

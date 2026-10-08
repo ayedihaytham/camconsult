@@ -25,6 +25,8 @@ export interface TabColumn {
   excelFormula?: (r: number, col: (key: string) => string) => string;
   /** Export Excel : format numérique (défaut « #,##0.000 » pour un montant). */
   excelNumFmt?: string;
+  /** La case accepte une pièce jointe (scan, PDF) en plus du texte : l'id du fichier est gardé dans `<clé>_fichier`. */
+  piece?: boolean;
 }
 
 /** Solde final dû = solde initial + facturé − réglé. */
@@ -231,7 +233,7 @@ export const COLLECTE_TABS: TabDef[] = [
         type: "date",
         width: 130,
       },
-      { key: "observations", label: "Observations", type: "text", width: 220 },
+      { key: "observations", label: "Observations / pièce jointe", type: "text", width: 220, piece: true },
     ],
   },
   {

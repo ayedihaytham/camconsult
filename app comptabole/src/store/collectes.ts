@@ -6,6 +6,7 @@ import type {
   CollecteFull,
   CollecteJournalEntry,
   CollecteLigne,
+  CollecteFichier,
   CollecteSection,
   CollecteStatut,
 } from "@/types";
@@ -51,6 +52,11 @@ interface CollectesState {
     id: string,
     fichier: { onglet?: string; nom: string; format: string; taille: string; dataUrl: string },
   ) => Promise<void>;
+  /** Comme uploadFichier, mais renvoie le fichier créé (pour le rattacher à une ligne de tableau). */
+  joindreFichier: (
+    id: string,
+    fichier: { onglet?: string; nom: string; format: string; taille: string; dataUrl: string },
+  ) => Promise<CollecteFichier>;
   deleteFichier: (id: string, fichierId: string) => Promise<void>;
 
   saveLignes: (
@@ -280,6 +286,22 @@ export const useCollectes = create<CollectesState>((set, get) => ({
       }));
     } catch (e) {
       fail(e);
+    }
+  },
+
+  joindreFichier: async (id, fichier) => {
+    try {
+      const avant = new Set(get().current?.fichiers.map((f) => f.id));
+      const c = await api.post<CollecteFull>(`/collectes/${id}/fichiers`, fichier);
+      set((st) => ({
+        current: st.current?.id === id ? c : st.current,
+        list: st.list.map((x) => (x.id === id ? c : x)),
+      }));
+      const cree = c.fichiers.find((f) => !avant.has(f.id));
+      if (!cree) throw new Error("Fichier introuvable après l'envoi");
+      return cree;
+    } catch (e) {
+      return fail(e);
     }
   },
 

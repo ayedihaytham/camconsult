@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { TAB_BY_KEY } from "@/lib/collecte/tabs";
@@ -19,7 +19,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderGrid(key: string, onSave = vi.fn().mockResolvedValue(undefined)) {
+function renderGrid(key: string, onSave = vi.fn().mockResolvedValue(undefined), extra: Partial<React.ComponentProps<typeof CollecteGrid>> = {}) {
   const ref = createRef<CollecteGridHandle>();
   render(
     <CollecteGrid
@@ -29,6 +29,7 @@ function renderGrid(key: string, onSave = vi.fn().mockResolvedValue(undefined)) 
       readOnly={false}
       devise="TND"
       onSave={onSave}
+      {...extra}
     />,
   );
   return { ref, onSave };
@@ -233,5 +234,71 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     ajouter();
     expect(suivi()).toBeNull();
     expect(ref.current?.isComplete()).toBe(true);
+  });
+});
+
+describe("CollecteGrid : pièce jointe d'une ligne de bordereau", () => {
+  const fichier = () => new File(["%PDF-1.4"], "bordereau-255558.pdf", { type: "application/pdf" });
+
+  it("joint un fichier à la ligne : le fichier est envoyé, son nom retenu, et la ligne devient modifiée", async () => {
+    const onJoindre = vi.fn().mockResolvedValue({ id: "f1", nom: "bordereau-255558.pdf" });
+    const { ref } = renderGrid("bordereaux_remise_cheques", undefined, { onJoindre, onVoirPiece: vi.fn() });
+    ajouter();
+    expect(ref.current?.isDirty()).toBe(false);
+    fireEvent.change(screen.getByLabelText("Joindre un fichier à la ligne 1"), { target: { files: [fichier()] } });
+
+    await waitFor(() => expect(onJoindre).toHaveBeenCalledTimes(1));
+    expect(onJoindre.mock.calls[0][0].name).toBe("bordereau-255558.pdf");
+    await waitFor(() => expect(screen.getByLabelText("Voir la pièce jointe de la ligne 1")).toBeTruthy());
+    // Une ligne avec seulement une pièce jointe n'est plus une ligne vide.
+    expect(ref.current?.isDirty()).toBe(true);
+  });
+
+  it("enregistre le lien vers la pièce avec la ligne, et permet de la voir ou de la retirer", async () => {
+    const onJoindre = vi.fn().mockResolvedValue({ id: "f1", nom: "bordereau-255558.pdf" });
+    const onVoirPiece = vi.fn();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const { ref } = renderGrid("bordereaux_remise_cheques", onSave, { onJoindre, onVoirPiece });
+    ajouter();
+    fireEvent.change(screen.getByLabelText("Joindre un fichier à la ligne 1"), { target: { files: [fichier()] } });
+    await waitFor(() => expect(screen.getByLabelText("Voir la pièce jointe de la ligne 1")).toBeTruthy());
+
+    fireEvent.click(screen.getByLabelText("Voir la pièce jointe de la ligne 1"));
+    expect(onVoirPiece).toHaveBeenCalledWith("f1");
+
+    await act(async () => ref.current?.save());
+    expect(onSave).toHaveBeenCalledWith([
+      { data: expect.objectContaining({ observations_fichier: "f1", observations_fichier_nom: "bordereau-255558.pdf" }), ordre: 0 },
+    ]);
+
+    fireEvent.click(screen.getByLabelText("Retirer la pièce jointe de la ligne 1"));
+    expect(screen.queryByLabelText("Voir la pièce jointe de la ligne 1")).toBeNull();
+    expect(screen.getByLabelText("Joindre un fichier à la ligne 1")).toBeTruthy();
+    expect(ref.current?.isDirty()).toBe(true);
+  });
+
+  it("laisse une note écrite à côté de la pièce jointe", () => {
+    renderGrid("bordereaux_remise_cheques", undefined, { onJoindre: vi.fn(), onVoirPiece: vi.fn() });
+    ajouter();
+    const note = champs(lignes()[0]).find((c) => c.dataset.col === "observations") as HTMLInputElement;
+    fireEvent.change(note, { target: { value: "chèque 2 à vérifier" } });
+    expect(screen.getByDisplayValue("chèque 2 à vérifier")).toBeTruthy();
+  });
+
+  it("ne propose pas de joindre un fichier en lecture seule, ni sur une colonne ordinaire", () => {
+    const ref = createRef<CollecteGridHandle>();
+    render(
+      <CollecteGrid
+        ref={ref}
+        def={TAB_BY_KEY.souche_cheques}
+        lignes={[]}
+        readOnly={false}
+        devise="TND"
+        onSave={vi.fn()}
+        onJoindre={vi.fn()}
+      />,
+    );
+    ajouter();
+    expect(screen.queryByLabelText(/Joindre un fichier/)).toBeNull();
   });
 });

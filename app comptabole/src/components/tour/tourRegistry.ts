@@ -195,7 +195,7 @@ const TOURS = {
           mobile: "collecte-navigation-mobile",
         },
         title: "Parcourir le dossier",
-        body: "Passez entre le récapitulatif, les documents et les tableaux demandés.",
+        body: "Choisissez une feuille en bas, comme dans Excel : le tableau s'affiche au-dessus. Récapitulatif, documents et tableaux demandés sont à un clic.",
       },
       {
         target: "collecte-content",
@@ -210,7 +210,7 @@ const TOURS = {
       {
         target: "collecte-tools",
         title: "Actions du dossier",
-        body: "Les commandes disponibles dépendent du statut du dossier et de vos droits.",
+        body: "Excel, aperçu client, modification et relance sont visibles ici ; leur disponibilité dépend du statut du dossier et de vos droits.",
       },
     ],
   },

@@ -29,13 +29,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -496,163 +489,63 @@ export function CollecteEditorPage() {
           Récap renvoyé au cabinet. En attente de traitement.
         </p>
       )}
-      <div className="flex min-h-10 items-center justify-between gap-2 text-xs text-muted-foreground">
+      <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 py-1 text-xs text-muted-foreground">
         <span>Travail sur le dossier · {socNom}</span>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              data-tour="collecte-tools"
-              variant="ghost"
-              size="sm"
-              className="gap-1 text-muted-foreground"
-            >
-              Outils <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
+        <div data-tour="collecte-tools" className="flex flex-wrap items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-9 gap-1.5 bg-card"
+            onClick={() => {
+              void exportCollecteXlsx(collecte, socNom).catch(() => toast.error("Export impossible"));
+            }}
+          >
+            <Download className="h-4 w-4" />
+            Tout en Excel
+          </Button>
 
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onSelect={() => {
-                void exportCollecteXlsx(collecte, socNom).catch(() =>
-                  toast.error("Export impossible"),
-                );
+          {isAdmin && !archivee && liveManques.length > 0 && (
+            <Button variant={preview ? "ledger" : "outline"} size="sm" className="min-h-9 gap-1.5 bg-card" onClick={() => requestTab("__preview__")}>
+              <Eye className="h-4 w-4" />
+              {preview ? "Quitter l'aperçu" : "Aperçu client"}
+            </Button>
+          )}
+
+          {canManageCollaborateurs && (
+            <Button variant="outline" size="sm" className="min-h-9 gap-1.5 bg-card" onClick={() => setEditOpen(true)}>
+              <SlidersHorizontal className="h-4 w-4" />
+              Modifier la collecte
+            </Button>
+          )}
+
+          {canManageCollaborateurs && enAttente && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-9 gap-1.5 bg-card"
+              disabled={relancing}
+              onClick={() => {
+                setRelancing(true);
+                void relanceNow(id)
+                  .then(() => {
+                    toast.success("Relance envoyée au client");
+                  })
+                  .catch(() => {})
+                  .finally(() => {
+                    setRelancing(false);
+                  });
               }}
             >
-              <Download className="h-4 w-4" />
-              Tout en Excel
-            </DropdownMenuItem>
-
-            {isAdmin && !archivee && liveManques.length > 0 && (
-              <DropdownMenuItem onSelect={() => requestTab("__preview__")}>
-                <Eye className="h-4 w-4" />
-                {preview ? "Quitter l'aperçu" : "Aperçu client"}
-              </DropdownMenuItem>
-            )}
-
-            {canManageCollaborateurs && (
-              <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-                <SlidersHorizontal className="h-4 w-4" />
-                Modifier la collecte
-              </DropdownMenuItem>
-            )}
-
-            {canManageCollaborateurs && enAttente && (
-              <DropdownMenuItem
-                disabled={relancing}
-                onSelect={() => {
-                  setRelancing(true);
-
-                  void relanceNow(id)
-                    .then(() => {
-                      toast.success("Relance envoyée au client");
-                    })
-                    .catch(() => {})
-                    .finally(() => {
-                      setRelancing(false);
-                    });
-                }}
-              >
-                <BellRing className="h-4 w-4" />
-                {relancing ? "Envoi…" : "Relancer maintenant"}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <BellRing className="h-4 w-4" />
+              {relancing ? "Envoi…" : "Relancer maintenant"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={requestTab}>
-        <div className="grid min-w-0 border border-border bg-card lg:grid-cols-[210px_minmax(0,1fr)]">
-          <nav
-            data-tour="collecte-navigation-desktop"
-            aria-label="Sections du dossier"
-            className="hidden border-r border-border bg-muted/20 lg:block"
-          >
-            <div className="py-3">
-              <p className="px-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Dossier
-              </p>
-              <NavItem
-                active={tab === "checklist"}
-                onClick={() => requestTab("checklist")}
-                label="Checklist"
-              />
-              <NavItem
-                active={tab === "recap"}
-                onClick={() => requestTab("recap")}
-                label="Récap"
-                dot={
-                  currentRecap !== "none"
-                    ? currentRecap === "repondu"
-                      ? "success"
-                      : "warning"
-                    : undefined
-                }
-              />
-              <NavItem
-                active={tab === "documents"}
-                onClick={() => requestTab("documents")}
-                label="Documents"
-                badge={collecte.fichiers.length || undefined}
-              />
-            </div>
-            {tableauKeys.length > 0 && (
-              <div className="border-t border-border py-3">
-                <p className="px-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Tableaux demandés
-                </p>
-                {tableauKeys.map((key) => (
-                  <NavItem
-                    key={key}
-                    active={tab === key}
-                    onClick={() => requestTab(key)}
-                    label={TAB_BY_KEY[key]?.label ?? key}
-                    badge={showFlagsFor(key) ? manqueCount.get(key) : undefined}
-                  />
-                ))}
-              </div>
-            )}
-            {(isAdmin || isStaff) && (
-              <div className="border-t border-border py-3">
-                <p className="px-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Suivi
-                </p>
-                <NavItem
-                  active={tab === "historique"}
-                  onClick={() => requestTab("historique")}
-                  label="Historique"
-                />
-              </div>
-            )}
-          </nav>
-          <div data-tour="collecte-navigation-mobile" className="border-b border-border bg-muted/20 p-2 lg:hidden">
-            <Select value={tab} onValueChange={requestTab}>
-              <SelectTrigger
-                className="min-h-11 w-full bg-card"
-                aria-label="Section active du dossier"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="checklist">Checklist</SelectItem>
-                <SelectItem value="recap">Récap</SelectItem>
-                <SelectItem value="documents">
-                  Documents
-                  {collecte.fichiers.length
-                    ? ` · ${collecte.fichiers.length}`
-                    : ""}
-                </SelectItem>
-                {tableauKeys.map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {TAB_BY_KEY[key]?.label ?? key}
-                  </SelectItem>
-                ))}
-                {(isAdmin || isStaff) && (
-                  <SelectItem value="historique">Historique</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="grid min-w-0 border border-border bg-card">
           <div data-tour="collecte-content" className="min-w-0 bg-card">
             <TabsContent value="recap" className="m-0">
               <SectionHeader
@@ -919,6 +812,45 @@ export function CollecteEditorPage() {
               </TabsContent>
             )}
           </div>
+          {/* Onglets de feuille, comme dans Excel : on choisit la section en bas, le tableau s'affiche au-dessus. */}
+          <div data-tour="collecte-navigation-mobile" className="sticky bottom-0 z-10">
+            <nav
+              data-tour="collecte-navigation-desktop"
+              aria-label="Sections du dossier"
+              className="flex flex-wrap items-end gap-x-1 gap-y-1 border-t border-border bg-muted px-2 pb-1.5 pt-0"
+            >
+              <FeuilleTab active={tab === "checklist"} onClick={() => requestTab("checklist")} label="Checklist" />
+              <FeuilleTab
+                active={tab === "recap"}
+                onClick={() => requestTab("recap")}
+                label="Récap"
+                dot={currentRecap !== "none" ? (currentRecap === "repondu" ? "success" : "warning") : undefined}
+              />
+              <FeuilleTab
+                active={tab === "documents"}
+                onClick={() => requestTab("documents")}
+                label="Documents"
+                badge={collecte.fichiers.length || undefined}
+              />
+              {tableauKeys.length > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
+              {tableauKeys.map((key) => (
+                <FeuilleTab
+                  key={key}
+                  active={tab === key}
+                  onClick={() => requestTab(key)}
+                  label={TAB_BY_KEY[key]?.label ?? key}
+                  badge={showFlagsFor(key) ? manqueCount.get(key) : undefined}
+                  recu={rows.find((r) => r.onglet === key)?.recu}
+                />
+              ))}
+              {(isAdmin || isStaff) && (
+                <>
+                  <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />
+                  <FeuilleTab active={tab === "historique"} onClick={() => requestTab("historique")} label="Historique" />
+                </>
+              )}
+            </nav>
+          </div>
         </div>
       </Tabs>
 
@@ -1100,54 +1032,43 @@ export function CollecteEditorPage() {
   );
 }
 
-/** Entrée du sidenav des sections de la collecte — remplace l'ancienne
- * barre d'onglets horizontale, illisible une fois qu'il y a plus d'une
- * dizaine de tableaux demandés. */
-function NavItem({
+/** Onglet de feuille, comme en bas d'un classeur Excel : la section active est « posée » sur le contenu,
+ * les tableaux déjà reçus sont teintés en vert. */
+function FeuilleTab({
   active,
   onClick,
   label,
   badge,
   dot,
+  recu,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
   badge?: number;
   dot?: "success" | "warning";
+  /** Tableau reçu (vert) ; absent pour les sections qui ne sont pas des tableaux. */
+  recu?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      title={recu ? `${label} — reçu` : label}
       className={cn(
-        "relative flex min-h-9 w-full items-center justify-between gap-2 px-4 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        "relative -mt-px flex min-h-9 max-w-[16rem] items-center gap-1.5 rounded-b-md border border-t-0 px-3 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         active
-          ? "bg-card font-semibold text-primary before:absolute before:inset-y-2 before:left-0 before:w-px before:bg-accent"
-          : "text-muted-foreground hover:bg-secondary hover:text-primary",
+          ? "border-border bg-card font-bold text-primary shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-accent"
+          : recu
+            ? "border-success/30 bg-success/15 text-success hover:bg-success/25"
+            : "border-border/70 bg-secondary/70 text-muted-foreground hover:bg-card hover:text-primary",
       )}
     >
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate">{label}</span>
-        {dot && (
-          <span
-            className={cn(
-              "h-1.5 w-1.5 shrink-0 rounded-full",
-              dot === "success" ? "bg-success" : "bg-warning",
-            )}
-          />
-        )}
-      </span>
+      <span className="truncate">{label}</span>
+      {dot && <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot === "success" ? "bg-success" : "bg-warning")} />}
       {badge !== undefined && (
-        <span
-          className={cn(
-            "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-semibold",
-            active
-              ? "bg-secondary text-primary"
-              : "bg-secondary text-muted-foreground",
-          )}
-        >
+        <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1 text-[10px] font-semibold text-warning">
           {badge}
         </span>
       )}

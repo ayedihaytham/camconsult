@@ -86,6 +86,36 @@ function stageRow() {
   fireEvent.change(cases[1], { target: { value: "REM-42" } });
 }
 
+describe("Collecte : onglets de feuille et actions visibles", () => {
+  it("place les sections en onglets sous le contenu, comme les feuilles d'Excel, et en marque une seule", () => {
+    renderPage();
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
+    const contenu = document.querySelector('[data-tour="collecte-content"]') as HTMLElement;
+    // L'onglet se lit après le contenu : barre en bas.
+    expect(contenu.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent);
+    expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);
+    // Le pastille de pièces manquantes s'ajoute au libellé : on compare le début.
+    expect(noms.some((n) => n?.startsWith("Bordereaux remise chèques"))).toBe(true);
+    expect(noms.some((n) => n?.startsWith("Souche de chèques"))).toBe(true);
+    expect(within(nav).getAllByRole("button", { hidden: true }).filter((b) => b.getAttribute("aria-current") === "page")).toHaveLength(1);
+  });
+
+  it("affiche directement les actions du dossier, sans menu Outils", () => {
+    renderPage();
+    expect(screen.queryByRole("button", { name: /^Outils/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Tout en Excel" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Modifier la collecte" })).toBeTruthy();
+  });
+
+  it("ouvre un tableau en un seul clic sur son onglet", () => {
+    renderPage();
+    openBordereaux();
+    expect(sectionButton("Bordereaux remise chèques").getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: "Ajouter une ligne" })).toBeTruthy();
+  });
+});
+
 describe("Collecte requested-table navigation guard", () => {
   it("navigates clean sections without confirmation, even with an empty row added", () => {
     renderPage();

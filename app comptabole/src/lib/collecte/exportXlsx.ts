@@ -1,6 +1,6 @@
 import type { CollecteFull } from "@/types";
 import { printTable } from "@/lib/print";
-import { TAB_BY_KEY, cellNumber, titreDocument, type TabColumn } from "./tabs";
+import { TAB_BY_KEY, cellNumber, titreDocument, type TabColumn, type TabGroupe, type TabRow } from "./tabs";
 import { checklistRows } from "./checklist";
 
 const deviseLabel = (c: CollecteFull) => (c.devise === "EUR" ? "€" : c.devise);
@@ -27,6 +27,34 @@ function cellule(c: TabColumn, v: unknown): string {
   if (c.type !== "number") return String(v);
   const n = cellNumber(v);
   return isPct(c) || c.excelNumFmt === "0" ? String(n).replace(".", ",") : fmtMontant(n);
+}
+
+/** Colonnes laissées de côté dans le document imprimé ou en PDF d'un tableau (l'Excel les garde). */
+const COLONNES_HORS_DOCUMENT: Record<string, string[]> = {
+  bordereaux_remise_cheques: ["date_valeur", "observations"],
+};
+
+/** Dans le document, la ligne d'en-tête d'un bordereau (n° et montant, sans chèque) disparaît : son montant passe sur le premier
+ * chèque du même bordereau, de sorte que le total reste juste. Sans chèque saisi, la ligne d'en-tête est conservée. */
+export function sansLigneEntete(g: TabGroupe, lignes: TabRow[]): TabRow[] {
+  const nom = (r: TabRow) => String(r[g.cle] ?? "").trim().toLowerCase();
+  const estEntete = (r: TabRow) => nom(r) !== "" && cellNumber(r[g.totalCol]) > 0 && String(r[g.montantCol] ?? "").trim() === "";
+  const sortie: TabRow[] = [];
+  lignes.forEach((r, i) => {
+    if (!estEntete(r)) {
+      sortie.push(r);
+      return;
+    }
+    const suivante = lignes.findIndex((x, k) => k > i && nom(x) === nom(r) && !estEntete(x));
+    if (suivante < 0) sortie.push(r);
+  });
+  return sortie.map((r) => {
+    if (cellNumber(r[g.totalCol]) > 0 || nom(r) === "" || String(r[g.montantCol] ?? "").trim() === "") return r;
+    const entete = lignes.find((x) => estEntete(x) && nom(x) === nom(r));
+    // Le montant du bordereau se reporte une seule fois, sur le premier chèque qui suit sa ligne d'en-tête.
+    const premier = sortie.find((x) => nom(x) === nom(r) && !estEntete(x));
+    return entete && premier === r ? { ...r, [g.totalCol]: entete[g.totalCol] } : r;
+  });
 }
 
 /** Section prête à imprimer ou à mettre en PDF (textes déjà formatés). */
@@ -90,15 +118,17 @@ export function sectionReport(
     .filter((l) => l.onglet === section)
     .sort((a, b) => a.ordre - b.ordre)
     .map((l) => l.data);
-  const derived = def.derive ? def.derive(data) : data;
-  const rows = derived.map((r) => def.columns.map((c) => cellule(c, r[c.key])));
+  const lignesDocument = def.groupe ? sansLigneEntete(def.groupe, data) : data;
+  const derived = def.derive ? def.derive(lignesDocument) : lignesDocument;
+  const colonnes = def.columns.filter((c) => !COLONNES_HORS_DOCUMENT[def.key]?.includes(c.key));
+  const rows = derived.map((r) => colonnes.map((c) => cellule(c, r[c.key])));
 
   // Même ligne de total que l'export Excel (ex. HT et TTC pour les achats).
   const keys = def.excelTotalKeys ?? (def.totalKey ? [def.totalKey] : []);
   const totalRow = keys.length > 0 && rows.length > 0;
   if (totalRow) {
     rows.push(
-      def.columns.map((c, i) =>
+      colonnes.map((c, i) =>
         keys.includes(c.key)
           ? fmtMontant(Math.round(derived.reduce((s, r) => s + cellNumber(r[c.key]), 0) * 1000) / 1000)
           : i === 0
@@ -110,9 +140,9 @@ export function sectionReport(
   return {
     title: titreDocument(def),
     subtitle,
-    header: def.columns.map((c) => enTete(c, devise)),
+    header: colonnes.map((c) => enTete(c, devise)),
     rows,
-    align: def.columns.map((c) => (c.type === "number" ? "right" : "left")),
+    align: colonnes.map((c) => (c.type === "number" ? "right" : "left")),
     totalRow,
     fileBase: `${safe(def.label)}_${fileSuffix}`,
   };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ecrituresDepuisReleve, montantEcriture } from "./ecrituresReleve";
+import { ecrituresDepuisReleve, montantEcriture, texteEcritures } from "./ecrituresReleve";
 
 const rows = [
   ["Date", "Libellé de l'opération", "Débit", "Crédit"],
@@ -31,5 +31,16 @@ describe("écritures d'un relevé converti", () => {
   it("écrit les montants avec espace des milliers et trois décimales", () => {
     expect(montantEcriture(3000)).toBe("3 000,000");
     expect(montantEcriture(0)).toBe("");
+  });
+
+  it("écrit le fichier texte à tabulations, une ligne par écriture", () => {
+    const t = texteEcritures(ecrituresDepuisReleve(rows)!);
+    expect(t.split("\r\n")).toEqual([
+      "05/01/2023\tBQ\t1\t0\t0\t0\t53200001\t3 000,000\t",
+      "05/01/2023\tBQ\t1\t0\t0\t0\t0\t\t3 000,000",
+      "05/01/2023\tBQ\t2\t0\t0\t0\t53200001\t\t0,760",
+      "05/01/2023\tBQ\t2\t0\t0\t0\t0\t0,760\t",
+      "",
+    ]);
   });
 });

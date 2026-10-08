@@ -64,26 +64,12 @@ export function montantEcriture(n: number): string {
   return n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }).replace(/[  ]/g, " ");
 }
 
-/** PDF des écritures, en police à chasse fixe, sans titre : une ligne par écriture. */
-export async function pdfEcritures(ecritures: LigneEcriture[]): Promise<Blob> {
-  const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-  doc.setFont("courier", "normal");
-  doc.setFontSize(10);
-  const haut = 40;
-  const pas = 14;
-  const parPage = Math.floor((doc.internal.pageSize.getHeight() - 2 * haut) / pas);
-  const x = { date: 40, journal: 120, numero: 170, zeros: [210, 235, 260], compte: 300, debit: 560, credit: 680 };
-  ecritures.forEach((e, i) => {
-    if (i > 0 && i % parPage === 0) doc.addPage();
-    const y = haut + (i % parPage) * pas;
-    doc.text(e.date, x.date, y);
-    doc.text(e.journal, x.journal, y);
-    doc.text(String(e.numero), x.numero, y);
-    x.zeros.forEach((xz) => doc.text("0", xz, y));
-    doc.text(e.compte, x.compte, y);
-    if (e.debit) doc.text(montantEcriture(e.debit), x.debit, y, { align: "right" });
-    if (e.credit) doc.text(montantEcriture(e.credit), x.credit, y, { align: "right" });
-  });
-  return doc.output("blob");
+/** Fichier texte des écritures : une ligne par écriture, champs séparés par des tabulations (date, journal, n°, 0, 0, 0, compte,
+ * débit, crédit), la case du sens sans montant restant vide. Fins de ligne Windows pour s'ouvrir tel quel dans le Bloc-notes. */
+export function texteEcritures(ecritures: LigneEcriture[]): string {
+  return (
+    ecritures
+      .map((e) => [e.date, e.journal, String(e.numero), "0", "0", "0", e.compte, montantEcriture(e.debit), montantEcriture(e.credit)].join("\t"))
+      .join("\r\n") + "\r\n"
+  );
 }

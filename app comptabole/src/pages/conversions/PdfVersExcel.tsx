@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { download } from "@/lib/export";
-import { COMPTE_BANQUE, ecrituresDepuisReleve, pdfEcritures } from "@/lib/ecrituresReleve";
+import { COMPTE_BANQUE, ecrituresDepuisReleve, texteEcritures } from "@/lib/ecrituresReleve";
 import {
   aUnTableauDeMouvements,
   classeurExcel,
@@ -44,7 +44,6 @@ export function PdfVersExcel() {
   const [uneSeuleFeuille, setUneSeuleFeuille] = useState(false);
   const [tableauSeul, setTableauSeul] = useState(true);
   const [compte, setCompte] = useState(COMPTE_BANQUE);
-  const [ecrituresUrl, setEcrituresUrl] = useState<string | null>(null);
   const urlsRef = useRef<string[]>([]);
 
   useEffect(() => {
@@ -91,25 +90,9 @@ export function PdfVersExcel() {
   const feuilles = useMemo(() => (active ? feuillesDePdf(active.pages, options) : []), [active, options]);
   const feuille = feuilles[Math.min(activeSheet, Math.max(0, feuilles.length - 1))] ?? null;
 
-  /** Version PDF du relevé converti : les écritures (deux lignes par mouvement), régénérée quand le tableau ou le compte change. */
+  /** Version texte du relevé converti : les écritures (deux lignes par mouvement), recalculée quand le tableau ou le compte change. */
   const ecritures = useMemo(() => (tableauSeul && feuilles[0] ? ecrituresDepuisReleve(feuilles[0].rows, compte.trim() || COMPTE_BANQUE) : null), [tableauSeul, feuilles, compte]);
-  useEffect(() => {
-    if (!ecritures) {
-      setEcrituresUrl(null);
-      return;
-    }
-    let url: string | null = null;
-    let annule = false;
-    void pdfEcritures(ecritures).then((blob) => {
-      if (annule) return;
-      url = URL.createObjectURL(blob);
-      setEcrituresUrl(url);
-    });
-    return () => {
-      annule = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [ecritures]);
+  const ecrituresTexte = useMemo(() => (ecritures ? texteEcritures(ecritures) : null), [ecritures]);
 
   function enregistrer(item: PdfItem) {
     if (feuillesDePdf(item.pages, options).length === 0) {
@@ -135,9 +118,9 @@ export function PdfVersExcel() {
     }
   }
 
-  async function telechargerEcritures(item: PdfItem) {
-    if (!ecritures) return;
-    download(await pdfEcritures(ecritures), `${item.baseName} - écritures.pdf`);
+  function telechargerEcritures(item: PdfItem) {
+    if (!ecrituresTexte) return;
+    download(new Blob([ecrituresTexte], { type: "text/plain;charset=utf-8" }), `${item.baseName}.txt`);
   }
 
   return (
@@ -263,10 +246,10 @@ export function PdfVersExcel() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {ecrituresUrl && (
-                <Button type="button" variant="outline" size="sm" onClick={() => void telechargerEcritures(active)}>
+              {ecrituresTexte && (
+                <Button type="button" variant="outline" size="sm" onClick={() => telechargerEcritures(active)}>
                   <FileText className="h-4 w-4" />
-                  Télécharger le PDF des écritures
+                  Télécharger le .txt
                 </Button>
               )}
               <Button type="button" variant="ledger" size="sm" onClick={() => void telecharger(active)}>
@@ -314,18 +297,20 @@ export function PdfVersExcel() {
               </div>
             </div>
           </div>
-          {ecrituresUrl && (
+          {ecrituresTexte && (
             <div className="border-t border-border p-[18px]">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  PDF des écritures — {(ecritures?.length ?? 0) / 2} mouvements, deux lignes chacun
+                  Fichier .txt des écritures — {(ecritures?.length ?? 0) / 2} mouvements, deux lignes chacun
                 </p>
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   Compte de banque
                   <Input value={compte} onChange={(e) => setCompte(e.target.value)} className="h-7 w-32 text-xs" inputMode="numeric" />
                 </label>
               </div>
-              <iframe src={ecrituresUrl} title="Aperçu du PDF des écritures" className="h-[420px] w-full rounded-lg border border-border" />
+              <pre aria-label="Aperçu du fichier texte" className="max-h-[420px] overflow-auto rounded-lg border border-border bg-secondary/30 p-3 font-mono text-xs [tab-size:12]">
+                {ecrituresTexte}
+              </pre>
             </div>
           )}
         </LedgerSheet>

@@ -888,6 +888,12 @@ create index if not exists suivi_devise_mouvements_idx on suivi_devise_mouvement
 alter table suivi_devise add column if not exists solde_ouverture numeric not null default 0;
 alter table suivi_devise_lots add column if not exists type text not null default 'aucun';
 alter table suivi_devise_lots add column if not exists valeur_reference numeric not null default 0;
+
+-- Facture reprise de la gestion de stock : la vente d'un mouvement de stock. Les champs issus du
+-- stock (n°, date, produit, fournisseur, quantité, PU, montant) se lisent en direct sur le mouvement ;
+-- le lot, le mode de paiement, le n° secondaire et l'avoir restent propres au suivi.
+alter table suivi_devise_factures add column if not exists mouvement_stock_id uuid references stock_mouvements(id) on delete set null;
+create unique index if not exists suivi_devise_factures_stock_idx on suivi_devise_factures(mouvement_stock_id) where mouvement_stock_id is not null;
 -- Une fiche par devise (voir suivi_devise ci-dessus) : remplace l'ancienne
 -- contrainte (societe_id, client, exercice) par une version qui inclut la
 -- devise, pour une table déjà créée sans elle.

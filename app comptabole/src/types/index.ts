@@ -557,6 +557,21 @@ export interface SuiviDeviseFacture {
   montantTotal: number;
   avoirMontant: number | null;
   avoirDate: string | null;
+  /** Vente du stock dont cette facture est la reprise : ses champs se lisent sur le mouvement de stock. */
+  mouvementStockId: string | null;
+}
+
+/** Vente de la gestion de stock que la fiche peut reprendre comme facture. */
+export interface SuiviDeviseStockVente {
+  mouvementId: string;
+  client: string;
+  nFacture: string;
+  dateFacture: string | null;
+  designationProduit: string;
+  fournisseur: string;
+  qteTonnes: number;
+  pu: number;
+  montantTotal: number;
 }
 
 export type SuiviDeviseMouvementType = "charge_transport" | "avoir" | "reglement";

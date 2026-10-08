@@ -35,11 +35,80 @@ async function loadSuiviOrFail(id, session, res) {
   return s;
 }
 
+/** Vente d'un mouvement de stock, au format d'une facture du suivi (quantité en tonnes : les kilos sont convertis). */
+const STOCK_VENTE_SQL = (filtre) => `
+  select m.id, m.societe_id, m.client, m.vente_devise as devise, m.vente_num_facture as n_facture,
+         m.vente_date as date_facture, m.fournisseur,
+         coalesce(string_agg(distinct l.designation, ' / ') filter (where l.designation <> ''), '') as designation_produit,
+         coalesce(sum(case when l.unite = 'KG' then l.quantite / 1000 else l.quantite end), 0) as qte_tonnes,
+         coalesce(sum(l.montant_devise), 0) as montant_total
+    from stock_mouvements m
+    left join stock_lignes l on l.mouvement_id = m.id and l.categorie = 'vente'
+   where ${filtre}
+   group by m.id`;
+
+const normaliser = (s) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+/** Même client : noms identiques, ou l'un commence par l'autre (« TAKWA » / « TAKWA CEMENT »). */
+function memeClient(a, b) {
+  const x = normaliser(a);
+  const y = normaliser(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [court, long] = x.length <= y.length ? [x, y] : [y, x];
+  return court.length >= 4 && (long === court || long.startsWith(`${court} `));
+}
+
+/** Ventes du stock que cette fiche peut reprendre : même société, client, devise et exercice, pas déjà reprises. */
+async function ventesStockDe(suivi) {
+  const { rows } = await query(
+    STOCK_VENTE_SQL(`m.societe_id = $1 and m.vente_devise = $2 and m.vente_num_facture <> ''
+      and not exists (select 1 from suivi_devise_factures f where f.mouvement_stock_id = m.id)`),
+    [suivi.societe_id, suivi.devise],
+  );
+  const annee = /^\d{4}$/.test(suivi.exercice) ? suivi.exercice : null;
+  return rows
+    .filter((r) => memeClient(r.client, suivi.client))
+    .filter((r) => !annee || (r.date_facture && new Date(r.date_facture).getFullYear() === Number(annee)))
+    .sort((a, b) => String(a.date_facture ?? "").localeCompare(String(b.date_facture ?? "")) || a.n_facture.localeCompare(b.n_facture));
+}
+
+/** Date PostgreSQL (minuit local) -> AAAA-MM-JJ, sans décalage de fuseau. */
+const jourLocal = (d) => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+};
+
+const r3 = (n) => Math.round((Number(n) + Number.EPSILON) * 1000) / 1000;
+
 async function loadFull(suiviId) {
   const [suivi, lots, factures, mouvements] = await Promise.all([
     query("select * from suivi_devise where id = $1", [suiviId]),
     query("select * from suivi_devise_lots where suivi_id = $1 order by ordre", [suiviId]),
-    query("select * from suivi_devise_factures where suivi_id = $1 order by ordre", [suiviId]),
+    // Les champs d'une facture reprise du stock se lisent en direct sur la vente du mouvement.
+    query(
+      `select f.id, f.suivi_id, f.lot_id, f.ordre, f.n_secondaire, f.mode_paiement, f.avoir_montant, f.avoir_date,
+              f.mouvement_stock_id,
+              case when s.id is null then f.n_facture else s.n_facture end as n_facture,
+              case when s.id is null then f.date_facture else s.date_facture end as date_facture,
+              case when s.id is null then f.designation_produit else s.designation_produit end as designation_produit,
+              case when s.id is null then f.fournisseur else s.fournisseur end as fournisseur,
+              case when s.id is null then f.qte_tonnes else s.qte_tonnes end as qte_tonnes,
+              case when s.id is null then f.pu else case when s.qte_tonnes > 0 then round(s.montant_total / s.qte_tonnes, 3) else 0 end end as pu,
+              case when s.id is null then f.montant_total else s.montant_total end as montant_total
+         from suivi_devise_factures f
+         left join (${STOCK_VENTE_SQL("m.id in (select mouvement_stock_id from suivi_devise_factures where suivi_id = $1)")}) s
+                on s.id = f.mouvement_stock_id
+        where f.suivi_id = $1
+        order by f.ordre`,
+      [suiviId],
+    ),
     query("select * from suivi_devise_mouvements where suivi_id = $1 order by ordre", [suiviId]),
   ]);
   return suiviDeviseFullDto(suivi.rows[0], lots.rows, factures.rows, mouvements.rows);
@@ -330,6 +399,59 @@ suiviDeviseRouter.post("/:id/factures/import", async (req, res) => {
   res.status(201).json(await loadFull(req.params.id));
 });
 
+// Ventes de la gestion de stock que cette fiche peut reprendre comme factures.
+suiviDeviseRouter.get("/:id/stock-ventes", async (req, res) => {
+  const s = await loadSuiviOrFail(req.params.id, req.session, res);
+  if (!s) return;
+  const ventes = await ventesStockDe(s);
+  res.json(
+    ventes.map((r) => ({
+      mouvementId: r.id,
+      client: r.client,
+      nFacture: r.n_facture,
+      dateFacture: r.date_facture ? jourLocal(r.date_facture) : null,
+      designationProduit: r.designation_produit,
+      fournisseur: r.fournisseur,
+      qteTonnes: r3(r.qte_tonnes),
+      pu: Number(r.qte_tonnes) > 0 ? r3(r.montant_total / r.qte_tonnes) : 0,
+      montantTotal: r3(r.montant_total),
+    })),
+  );
+});
+
+// Reprend des ventes du stock : une facture liée au mouvement par vente, rien n'est recopié à la main.
+suiviDeviseRouter.post("/:id/factures/depuis-stock", async (req, res) => {
+  const s = await loadSuiviOrFail(req.params.id, req.session, res);
+  if (!s) return;
+  const parsed = z.object({ mouvementIds: z.array(z.string().uuid()).min(1, "Choisissez au moins une vente") }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  const voulues = new Set(parsed.data.mouvementIds);
+  const ventes = (await ventesStockDe(s)).filter((r) => voulues.has(r.id));
+  if (ventes.length !== voulues.size)
+    return res.status(400).json({ error: "Une vente n'est plus disponible pour cette fiche (déjà reprise ou autre client)." });
+
+  await withTransaction(async (client) => {
+    const { rows } = await client.query(
+      "select coalesce(max(ordre), 0) as max_ordre from suivi_devise_factures where suivi_id = $1",
+      [req.params.id],
+    );
+    let ordre = rows[0].max_ordre;
+    for (const r of ventes) {
+      ordre += 1;
+      const pu = Number(r.qte_tonnes) > 0 ? r3(r.montant_total / r.qte_tonnes) : 0;
+      await client.query(
+        `insert into suivi_devise_factures
+           (suivi_id, ordre, n_facture, date_facture, designation_produit, fournisseur, qte_tonnes, pu, montant_total, mouvement_stock_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [req.params.id, ordre, r.n_facture, r.date_facture, r.designation_produit, r.fournisseur, r3(r.qte_tonnes), pu, r3(r.montant_total), r.id],
+      );
+    }
+  });
+  await query("update suivi_devise set maj_le = now() where id = $1", [req.params.id]);
+  logAction(req.session.nom, "creation", "suivi_devise", `Reprise de ${ventes.length} vente(s) du stock — ${s.client}`);
+  res.status(201).json(await loadFull(req.params.id));
+});
+
 async function loadFactureOrFail(factureId, session, res) {
   const f = (
     await query(
@@ -358,6 +480,19 @@ suiviDeviseRouter.patch("/factures/:factureId", async (req, res) => {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
   const merged = { ...suiviDeviseFactureDto(existing), ...v };
+  // Une facture reprise du stock en garde les champs : ils se corrigent dans la gestion de stock.
+  if (existing.mouvement_stock_id) {
+    const base = suiviDeviseFactureDto(existing);
+    Object.assign(merged, {
+      nFacture: base.nFacture,
+      dateFacture: base.dateFacture,
+      designationProduit: base.designationProduit,
+      fournisseur: base.fournisseur,
+      qteTonnes: base.qteTonnes,
+      pu: base.pu,
+      montantTotal: base.montantTotal,
+    });
+  }
   await query(
     `update suivi_devise_factures set
        lot_id = $2, n_facture = $3, n_secondaire = $4, date_facture = $5, mode_paiement = $6,

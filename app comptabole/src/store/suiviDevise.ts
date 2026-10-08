@@ -7,6 +7,7 @@ import type {
   SuiviDeviseLot,
   SuiviDeviseFacture,
   SuiviDeviseMouvement,
+  SuiviDeviseStockVente,
 } from "@/types";
 
 function fail(err: unknown): never {
@@ -19,7 +20,7 @@ function fail(err: unknown): never {
 export type SuiviDeviseResume = SuiviDevise & { solde: number; totalVentes: number };
 
 export type LotInput = Omit<SuiviDeviseLot, "id" | "suiviId" | "ordre" | "ecart">;
-export type FactureInput = Omit<SuiviDeviseFacture, "id" | "suiviId" | "ordre">;
+export type FactureInput = Omit<SuiviDeviseFacture, "id" | "suiviId" | "ordre" | "mouvementStockId">;
 export type MouvementInput = Omit<SuiviDeviseMouvement, "id" | "suiviId" | "ordre">;
 
 interface SuiviDeviseState {
@@ -61,6 +62,10 @@ interface SuiviDeviseState {
   /** Ajoute plusieurs factures en une fois (import Excel) — vient s'ajouter
    * aux factures existantes, ne les remplace jamais. */
   importFactures: (suiviId: string, data: FactureInput[]) => Promise<void>;
+  /** Ventes de la gestion de stock que la fiche peut encore reprendre (même client, devise et exercice). */
+  fetchStockVentes: (suiviId: string) => Promise<SuiviDeviseStockVente[]>;
+  /** Reprend des ventes du stock : une facture liée à chaque mouvement. */
+  reprendreDuStock: (suiviId: string, mouvementIds: string[]) => Promise<void>;
   updateFacture: (factureId: string, data: Partial<FactureInput>) => Promise<void>;
   removeFacture: (factureId: string) => Promise<void>;
 
@@ -172,6 +177,21 @@ export const useSuiviDevise = create<SuiviDeviseState>((set) => ({
       const current = await api.post<SuiviDeviseFull>(`/suivi-devise/${suiviId}/factures/import`, {
         factures: data,
       });
+      set({ current });
+    } catch (e) {
+      fail(e);
+    }
+  },
+  fetchStockVentes: async (suiviId) => {
+    try {
+      return await api.get<SuiviDeviseStockVente[]>(`/suivi-devise/${suiviId}/stock-ventes`);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+  reprendreDuStock: async (suiviId, mouvementIds) => {
+    try {
+      const current = await api.post<SuiviDeviseFull>(`/suivi-devise/${suiviId}/factures/depuis-stock`, { mouvementIds });
       set({ current });
     } catch (e) {
       fail(e);

@@ -666,6 +666,7 @@ export const suiviDeviseFactureDto = (r) => ({
   montantTotal: num(r.montant_total),
   avoirMontant: r.avoir_montant == null ? null : num(r.avoir_montant),
   avoirDate: r.avoir_date ? dateStr(r.avoir_date) : null,
+  mouvementStockId: r.mouvement_stock_id ?? null,
 });
 
 export const suiviDeviseMouvementDto = (r) => ({

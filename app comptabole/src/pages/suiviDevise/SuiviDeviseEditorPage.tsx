@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronDown, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Boxes, ChevronDown, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { LedgerTable } from "@/components/ledger/LedgerTable";
@@ -39,6 +39,7 @@ import { downloadTablesPdf } from "@/lib/pdfTables";
 import { exportSuiviDeviseStyled } from "@/lib/suiviDevise/exportStyled";
 import type {
   SuiviDeviseFacture,
+  SuiviDeviseStockVente,
   SuiviDeviseLot,
   SuiviDeviseLotType,
   SuiviDeviseMouvement,
@@ -46,6 +47,7 @@ import type {
 } from "@/types";
 import { SuiviDeviseFactureFormSheet } from "./SuiviDeviseFactureFormSheet";
 import { SuiviDeviseImportDialog } from "./SuiviDeviseImportDialog";
+import { SuiviDeviseStockDialog } from "./SuiviDeviseStockDialog";
 import { SuiviDeviseLotFormSheet } from "./SuiviDeviseLotFormSheet";
 import { SuiviDeviseMouvementFormSheet } from "./SuiviDeviseMouvementFormSheet";
 
@@ -84,6 +86,8 @@ export function SuiviDeviseEditorPage() {
   const addFacture = useSuiviDevise((s) => s.addFacture);
   const updateFacture = useSuiviDevise((s) => s.updateFacture);
   const removeFacture = useSuiviDevise((s) => s.removeFacture);
+  const fetchStockVentes = useSuiviDevise((s) => s.fetchStockVentes);
+  const reprendreDuStock = useSuiviDevise((s) => s.reprendreDuStock);
   const addMouvement = useSuiviDevise((s) => s.addMouvement);
   const updateMouvement = useSuiviDevise((s) => s.updateMouvement);
   const removeMouvement = useSuiviDevise((s) => s.removeMouvement);
@@ -101,6 +105,8 @@ export function SuiviDeviseEditorPage() {
   const [exporting, setExporting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [stockOpen, setStockOpen] = useState(false);
+  const [ventesStock, setVentesStock] = useState<SuiviDeviseStockVente[]>([]);
   const [editSoldeOuverture, setEditSoldeOuverture] = useState("0");
   const [recherche, setRecherche] = useState("");
 
@@ -108,6 +114,20 @@ export function SuiviDeviseEditorPage() {
     fetchOne(suiviId);
     return () => clearCurrent();
   }, [suiviId, fetchOne, clearCurrent]);
+
+  // Ventes de la gestion de stock encore à reprendre : relues quand les factures de la fiche changent.
+  const nbFactures = current?.factures.length ?? 0;
+  useEffect(() => {
+    if (!current) return;
+    let actuel = true;
+    fetchStockVentes(suiviId)
+      .then((v) => actuel && setVentesStock(v))
+      .catch(() => actuel && setVentesStock([]));
+    return () => {
+      actuel = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suiviId, nbFactures, current?.client, current?.exercice, current?.devise, fetchStockVentes]);
 
   if (!current) {
     return (
@@ -124,7 +144,20 @@ export function SuiviDeviseEditorPage() {
 
   const factureColumns: DataTableColumn<SuiviDeviseFacture>[] = [
     { id: "date", header: "Date", cell: (f) => f.dateFacture ?? "—", sortable: true, sortAccessor: (f) => f.dateFacture ?? "" },
-    { id: "nFacture", header: "N° facture", cell: (f) => f.nFacture || "—" },
+    {
+      id: "nFacture",
+      header: "N° facture",
+      cell: (f) => (
+        <span className="inline-flex items-center gap-1.5">
+          {f.nFacture || "—"}
+          {f.mouvementStockId && (
+            <span title="Reprise de la gestion de stock" className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase text-primary">
+              Stock
+            </span>
+          )}
+        </span>
+      ),
+    },
     { id: "produit", header: "Désignation", cell: (f) => f.designationProduit || "—" },
     { id: "fournisseur", header: "Fournisseur", cell: (f) => f.fournisseur || "—" },
     { id: "lot", header: "Lot", cell: (f) => (f.lotId ? lotById.get(f.lotId)?.libelle || "—" : "—") },
@@ -362,6 +395,12 @@ export function SuiviDeviseEditorPage() {
           }
           tools={
             <>
+              {vue === "ventes" && ventesStock.length > 0 && (
+                <Button variant="ledger" size="sm" onClick={() => setStockOpen(true)}>
+                  <Boxes className="h-4 w-4" />
+                  Ventes du stock ({ventesStock.length})
+                </Button>
+              )}
               {vue === "ventes" && (
                 <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
                   <Upload className="h-4 w-4" />
@@ -502,6 +541,13 @@ export function SuiviDeviseEditorPage() {
           if (editingFacture) updateFacture(editingFacture.id, v);
           else addFacture(suiviId, v);
         }}
+      />
+      <SuiviDeviseStockDialog
+        open={stockOpen}
+        onOpenChange={setStockOpen}
+        ventes={ventesStock}
+        devise={current.devise}
+        onReprendre={(ids) => reprendreDuStock(suiviId, ids)}
       />
       <SuiviDeviseImportDialog
         open={importOpen}

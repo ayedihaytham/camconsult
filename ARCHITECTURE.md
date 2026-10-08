@@ -49,6 +49,11 @@ The backend lives in `app comptabole/server/`:
   lines (`comptes_bancaires`, `mouvements_bancaires`; debit/credit are the bank's, the "vue société"
   swaps them at display). A supplier payment is matched to one `fournisseur_reglements` row through
   `mouvement_bancaire_id`. API: `server/routes/banque.js`.
+- Suivi client devise invoices can be taken from stock: a `suivi_devise_factures` row with
+  `mouvement_stock_id` is the sale side of a `stock_mouvements` row (client, devise and exercice
+  must match); its number, date, product, supplier, quantity (kg converted to tonnes), unit price
+  and amount are read live from the movement, only lot, payment mode, secondary number and credit
+  note belong to the fiche. API: `/suivi-devise/:id/stock-ventes` and `/factures/depuis-stock`.
 - Admin (`RequireAdmin`): `/bordereaux`, `/facturation`, `/employes`, `/parametres`, `/journal`,
   `/grille-affectat`.
 - `*` renders the authenticated not-found page.

@@ -68,6 +68,8 @@ interface Props {
 
 export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots, onSubmit }: Props) {
   const isEdit = Boolean(facture);
+  // Facture reprise du stock : ses champs se corrigent dans la gestion de stock.
+  const liee = Boolean(facture?.mouvementStockId);
   const {
     register,
     handleSubmit,
@@ -146,7 +148,7 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>N° facture</Label>
-                <Input {...register("nFacture")} placeholder="01-2023" />
+                <Input {...register("nFacture")} readOnly={liee} placeholder="01-2023" />
               </div>
               <div className="space-y-1.5">
                 <Label>N° secondaire</Label>
@@ -157,7 +159,7 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Date facture</Label>
-                <Input type="date" {...register("dateFacture")} />
+                <Input type="date" {...register("dateFacture")} readOnly={liee} />
               </div>
               <div className="space-y-1.5">
                 <Label>Mode de paiement</Label>
@@ -185,22 +187,22 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Désignation produit</Label>
-                <Input {...register("designationProduit")} placeholder="CEM I 42,5 N" />
+                <Input {...register("designationProduit")} readOnly={liee} placeholder="CEM I 42,5 N" />
               </div>
               <div className="space-y-1.5">
                 <Label>Fournisseur</Label>
-                <Input {...register("fournisseur")} placeholder="ENFIDHA" />
+                <Input {...register("fournisseur")} readOnly={liee} placeholder="ENFIDHA" />
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label>Qté (T)</Label>
-                <Input type="number" step="any" {...register("qteTonnes")} className="text-right tabular-nums" />
+                <Input type="number" step="any" {...register("qteTonnes")} readOnly={liee} className="text-right tabular-nums" />
               </div>
               <div className="space-y-1.5">
                 <Label>PU</Label>
-                <Input type="number" step="any" {...register("pu")} className="text-right tabular-nums" />
+                <Input type="number" step="any" {...register("pu")} readOnly={liee} className="text-right tabular-nums" />
               </div>
               <div className="space-y-1.5">
                 <Label>Montant total</Label>
@@ -208,11 +210,18 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
                   type="number"
                   step="any"
                   {...register("montantTotal", { onChange: () => setMontantTouched(true) })}
+                  readOnly={liee}
                   className="text-right font-semibold tabular-nums"
                 />
               </div>
             </div>
-            {montantTouched && (
+            {liee && (
+              <p className="rounded-md border border-accent/30 bg-accent/[0.07] px-3 py-2 text-xs text-foreground">
+                Reprise de la gestion de stock : le n°, la date, le produit, le fournisseur, la quantité, le PU et le montant se modifient
+                dans le mouvement de stock. Le lot, le mode de paiement et l'avoir se règlent ici.
+              </p>
+            )}
+            {montantTouched && !liee && (
               <button
                 type="button"
                 className="text-xs text-muted-foreground underline-offset-2 hover:underline"

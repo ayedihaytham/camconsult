@@ -263,7 +263,7 @@ function trouverEnTete(lignes: Cellule[][]): { ancres: Ancre[]; fin: number } | 
 /** Lignes du tableau des mouvements d'un relevé : de l'en-tête des colonnes jusqu'à la dernière opération,
  * sur toutes les pages. Chaque morceau de texte est rangé dans la colonne dont l'intitulé est le plus proche.
  * Le texte arabe, les titres, adresses, pieds de page et en-têtes répétés sont écartés ; une ligne sans
- * date qui complète un libellé est rattachée à l'opération précédente. Renvoie null sans en-tête reconnu. */
+ * date qui complète un libellé est rattachée à l'opération la plus proche (au-dessus ou en dessous). Renvoie null sans en-tête reconnu. */
 export function extraireMouvements(pages: PdfTextItem[][]): string[][] | null {
   let ancres: Ancre[] | null = null;
   const lignes: string[][] = [];
@@ -277,7 +277,10 @@ export function extraireMouvements(pages: PdfTextItem[][]): string[][] | null {
     const courantes = entete?.ancres ?? ancres;
     const dateIdx = courantes.findIndex((a) => a.nom === COLONNES[DATE_COL].nom);
     const libelleIdx = courantes.findIndex((a) => a.nom === COLONNES[LIBELLE_COL].nom);
-    let derniereY: number | null = null; // ligne précédente du tableau : une suite de libellé doit la toucher
+    // Une opération et les lignes de libellé sans date qui l'entourent : sur certains relevés le libellé tient sur plusieurs
+    // lignes centrées sur la ligne de la date, donc une partie se trouve au-dessus, une autre en dessous.
+    const operations: { y: number; h: number; r: string[]; suites: { y: number; texte: string }[] }[] = [];
+    const orphelines: { y: number; h: number; texte: string }[] = [];
     for (let n = entete ? entete.fin + 1 : 0; n < cellules.length; n++) {
       const ligne = cellules[n];
       const y = visuelles[n][0].y;
@@ -292,18 +295,21 @@ export function extraireMouvements(pages: PdfTextItem[][]): string[][] | null {
         r[k] = r[k] ? `${r[k]} ${c.texte}` : c.texte;
       }
       const daté = dateIdx >= 0 ? DATE.test(r[dateIdx]) : r.some((c) => DATE.test(c));
-      if (daté) {
-        lignes.push(r);
-        derniereY = y;
-      } else if (
-        derniereY !== null && lignes.length && libelleIdx >= 0 && r[libelleIdx] && r.filter(Boolean).length === 1 &&
-        r[libelleIdx].length <= 40 && derniereY - y <= 2.2 * h
-      ) {
-        lignes[lignes.length - 1][libelleIdx] += ` ${r[libelleIdx]}`;
-        derniereY = y;
-      } else {
-        derniereY = null;
+      if (daté) operations.push({ y, h, r, suites: [] });
+      else if (libelleIdx >= 0 && r[libelleIdx] && r.filter(Boolean).length === 1 && r[libelleIdx].length <= 60) {
+        orphelines.push({ y, h, texte: r[libelleIdx] });
       }
+    }
+    for (const o of orphelines) {
+      const proche = operations.reduce<(typeof operations)[number] | null>((m, op) => (!m || Math.abs(op.y - o.y) < Math.abs(m.y - o.y) ? op : m), null);
+      if (proche && Math.abs(proche.y - o.y) <= 2.2 * Math.max(o.h, proche.h)) proche.suites.push({ y: o.y, texte: o.texte });
+    }
+    for (const op of operations) {
+      if (op.suites.length && libelleIdx >= 0) {
+        const morceaux = [...op.suites, ...(op.r[libelleIdx] ? [{ y: op.y, texte: op.r[libelleIdx] }] : [])].sort((a, b) => b.y - a.y);
+        op.r[libelleIdx] = morceaux.map((m) => m.texte).join(" ");
+      }
+      lignes.push(op.r);
     }
   }
   return ancres ? [ancres.map((a) => a.nom), ...lignes.map((l) => l.slice(0, ancres!.length))] : null;

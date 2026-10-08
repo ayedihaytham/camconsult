@@ -223,6 +223,21 @@ describe("mouvements bancaires seulement", () => {
     ]);
   });
 
+  it("rattache un libellé sur plusieurs lignes centrées sur la date : une partie au-dessus, une autre en dessous", () => {
+    const [f] = feuillesDePdf(
+      [[
+        ...entete(720),
+        t("Commission acceptation", 120, 687, 90),
+        t("08/01/2025", 40, 680, 50), t("150,000", 290, 680, 40),
+        t("LC", 120, 673, 15),
+        t("ACHAT VENTE DEVISE", 120, 640, 90),
+        t("09/01/2025", 40, 633, 50), t("117 425,000", 395, 633, 45),
+      ]],
+      { nombres: true, tableauSeul: true },
+    );
+    expect(f.rows.slice(1).map((r) => r[1])).toEqual(["Commission acceptation LC", "ACHAT VENTE DEVISE"]);
+  });
+
   it("ignore le texte arabe et les mentions de bas de page, garde Date valeur", () => {
     const page: PdfTextItem[] = [
       t("التاريخ", 40, 740, 30), t("Date", 40, 730, 20), t("Libellé de l'opération", 120, 730, 100), t("Date de valeur", 250, 730, 60), t("Débit", 340, 730, 25), t("Crédit", 420, 730, 30),

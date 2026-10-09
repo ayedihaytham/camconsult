@@ -13,6 +13,7 @@ import {
   FileText,
   History,
   Paperclip,
+  Plus,
   Printer,
   RotateCcw,
   Send,
@@ -41,7 +42,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocietes } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
-import { COLLECTE_STATUT_LABELS, TAB_BY_KEY, etatDeTableau, ordonnerTableaux } from "@/lib/collecte/tabs";
+import { COLLECTE_ETATS, COLLECTE_STATUT_LABELS, TAB_BY_KEY, etatDeTableau, ordonnerTableaux } from "@/lib/collecte/tabs";
 import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
 import { aggregateRecapStatut, sectionRecapStatut } from "@/lib/collecte/recap";
@@ -273,6 +274,8 @@ export function CollecteEditorPage() {
   const tableauKeys = ordonnerTableaux(collecte.onglets);
   // Barre d'onglets : un seul onglet par état (chèques, virements, traites), qui s'ouvre sur ses tableaux ; les autres tableaux restent des onglets.
   const entreesNav: { etat?: ReturnType<typeof etatDeTableau>; keys: string[] }[] = [];
+  // Le cabinet voit toujours les trois états : les tableaux pas encore demandés s'y ajoutent depuis le menu de l'état.
+  if (canManageCollaborateurs && !archivee) for (const etat of COLLECTE_ETATS) entreesNav.push({ etat, keys: [] });
   for (const k of tableauKeys) {
     const etat = etatDeTableau(k);
     const existante = etat && entreesNav.find((e) => e.etat?.key === etat.key);
@@ -925,6 +928,11 @@ export function CollecteEditorPage() {
                     key={entree.etat.key}
                     etat={entree.etat}
                     tableaux={entree.keys}
+                    absents={canManageCollaborateurs && !archivee ? entree.etat.tableaux.filter((k) => !entree.keys.includes(k)) : []}
+                    onAjouter={async (k) => {
+                      await update(id, { onglets: ordonnerTableaux([...collecte.onglets, k]) });
+                      toast.success(`« ${TAB_BY_KEY[k]?.label ?? k} » ajouté à la collecte`);
+                    }}
                     tab={tab}
                     onSelect={requestTab}
                     statut={(k) => sectionStatut(collecte, k)}
@@ -1211,6 +1219,8 @@ function BarreFeuilles({ tab, children }: { tab: string; children: ReactNode }) 
 function FeuilleMenu({
   etat,
   tableaux,
+  absents,
+  onAjouter,
   tab,
   onSelect,
   statut,
@@ -1219,6 +1229,9 @@ function FeuilleMenu({
 }: {
   etat: NonNullable<ReturnType<typeof etatDeTableau>>;
   tableaux: string[];
+  /** Tableaux de l'état pas encore demandés dans cette collecte (le cabinet peut les ajouter). */
+  absents: string[];
+  onAjouter: (key: string) => Promise<void>;
   tab: string;
   onSelect: (key: string) => void;
   statut: (key: string) => SectionStatut;
@@ -1227,7 +1240,9 @@ function FeuilleMenu({
 }) {
   const actif = tableaux.includes(tab);
   const statuts = tableaux.map(statut);
-  const dot = statuts.includes("a_corriger")
+  const dot = statuts.length === 0
+    ? undefined
+    : statuts.includes("a_corriger")
     ? DOT_SECTION.a_corriger
     : statuts.includes("transmis")
       ? DOT_SECTION.transmis
@@ -1235,7 +1250,7 @@ function FeuilleMenu({
         ? DOT_SECTION.valide
         : undefined;
   const nbManques = tableaux.reduce((n, k) => n + (manques(k) ?? 0), 0);
-  const tousRecus = tableaux.every(recu);
+  const tousRecus = tableaux.length > 0 && tableaux.every(recu);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -1290,6 +1305,20 @@ function FeuilleMenu({
             </DropdownMenuItem>
           );
         })}
+        {absents.length > 0 && (
+          <>
+            <p className="mt-1 border-t border-border px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              {tableaux.length === 0 ? "Pas encore demandés" : "À ajouter à la collecte"}
+            </p>
+            {absents.map((k) => (
+              <DropdownMenuItem key={k} onSelect={() => void onAjouter(k).catch(() => {})} className="text-muted-foreground">
+                <Plus aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate">{TAB_BY_KEY[k]?.label ?? k}</span>
+                <span className="text-[11px]">Ajouter</span>
+              </DropdownMenuItem>
+            ))}
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

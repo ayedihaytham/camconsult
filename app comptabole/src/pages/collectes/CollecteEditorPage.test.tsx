@@ -6,7 +6,7 @@ import type { CollecteFull } from "@/types";
 import { COLLECTE_ETATS, TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { CollecteEditorPage } from "./CollecteEditorPage";
 
-const { saveLignes, fetchOne, clearCurrent, collecte, perms } = vi.hoisted(() => {
+const { saveLignes, fetchOne, clearCurrent, collecte, perms, update } = vi.hoisted(() => {
   const collecte = {
     id: "collecte-1",
     societeId: "soc-1",
@@ -30,6 +30,7 @@ const { saveLignes, fetchOne, clearCurrent, collecte, perms } = vi.hoisted(() =>
   return {
     collecte,
     perms,
+    update: vi.fn().mockResolvedValue(undefined),
     saveLignes: vi.fn().mockResolvedValue(undefined),
     fetchOne: vi.fn().mockResolvedValue(undefined),
     clearCurrent: vi.fn(),
@@ -44,7 +45,7 @@ vi.mock("@/store/data", () => ({
 }));
 vi.mock("@/store/collectes", () => ({
   useCollectes: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({ current: collecte, loadingOne: false, fetchOne, clearCurrent, saveLignes }),
+    selector({ current: collecte, loadingOne: false, fetchOne, clearCurrent, saveLignes, update }),
 }));
 
 beforeEach(() => {
@@ -127,6 +128,21 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(onglet.getAttribute("aria-current")).toBe("page");
     expect(onglet.textContent).toContain("État des chèques émis");
     expect(screen.getByRole("heading", { name: "État des chèques émis" })).toBeTruthy();
+  });
+
+  it("le cabinet voit l'état des traites même sans traites dans la collecte, et peut y ajouter ses trois tableaux", async () => {
+    renderPage();
+    const tr = sectionButton("Traites escomptées");
+    expect(tr.textContent).toContain("État des traites");
+    fireEvent.keyDown(tr, { key: "Enter", code: "Enter" });
+    expect(screen.getByText("Pas encore demandés")).toBeTruthy();
+    expect(screen.getAllByRole("menuitem").map((i) => i.textContent?.replace(/Ajouter$/, ""))).toEqual([
+      "Bordereaux traites reçues",
+      "État des traites émises",
+      "Traites escomptées",
+    ]);
+    fireEvent.click(screen.getByRole("menuitem", { name: /Traites escomptées/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "souche_cheques", "traites_escomptees"] }));
   });
 
   it("garde tous les onglets sur une seule ligne, avec défilement horizontal plutôt qu'un retour à la ligne", () => {

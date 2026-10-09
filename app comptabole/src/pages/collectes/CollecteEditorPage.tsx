@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -54,7 +54,7 @@ import {
 } from "@/lib/collecte/exportXlsx";
 import { downloadDataUrl } from "@/lib/file";
 import { cn, formatDate, formatRelative } from "@/lib/utils";
-import type { CollecteJournalEntry, CollecteStatut } from "@/types";
+import type { CollecteJournalEntry, CollecteStatut, SectionStatut } from "@/types";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { CollecteChecklist } from "./CollecteChecklist";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
@@ -271,6 +271,14 @@ export function CollecteEditorPage() {
     .join("")
     .toLocaleUpperCase("fr-FR");
   const tableauKeys = ordonnerTableaux(collecte.onglets);
+  // Barre d'onglets : un seul onglet par état (chèques, virements, traites), qui s'ouvre sur ses tableaux ; les autres tableaux restent des onglets.
+  const entreesNav: { etat?: ReturnType<typeof etatDeTableau>; keys: string[] }[] = [];
+  for (const k of tableauKeys) {
+    const etat = etatDeTableau(k);
+    const existante = etat && entreesNav.find((e) => e.etat?.key === etat.key);
+    if (existante) existante.keys.push(k);
+    else entreesNav.push({ etat, keys: [k] });
+  }
   const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
   const boutonBandeau =
     "min-h-10 gap-2 border-primary-foreground/30 bg-transparent px-4 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground";
@@ -911,36 +919,31 @@ export function CollecteEditorPage() {
                 badge={collecte.fichiers.length || undefined}
               />
               {tableauKeys.length > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
-              {tableauKeys.map((key, i) => {
-                const etat = etatDeTableau(key);
-                const debutEtat = etat && etatDeTableau(tableauKeys[i - 1] ?? "")?.key !== etat.key;
-                const finEtat = !etat && i > 0 && etatDeTableau(tableauKeys[i - 1]);
-                return (
-                  <Fragment key={key}>
-                    {debutEtat && (
-                      <>
-                        {i > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
-                        <span
-                          title={etat.label}
-                          className="self-center rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-accent-foreground"
-                        >
-                          {etat.code}
-                        </span>
-                      </>
-                    )}
-                    {finEtat && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
-                <FeuilleTab
-                  active={tab === key}
-                  onClick={() => requestTab(key)}
-                  label={TAB_BY_KEY[key]?.label ?? key}
-                  badge={showFlagsFor(key) ? manqueCount.get(key) : undefined}
-                  recu={rows.find((r) => r.onglet === key)?.recu}
-                  dot={DOT_SECTION[sectionStatut(collecte, key)]}
-                  dotTitle={SECTION_STATUT_LABELS[sectionStatut(collecte, key)]}
-                />
-                  </Fragment>
-                );
-              })}
+              {entreesNav.map((entree) =>
+                entree.etat ? (
+                  <FeuilleMenu
+                    key={entree.etat.key}
+                    etat={entree.etat}
+                    tableaux={entree.keys}
+                    tab={tab}
+                    onSelect={requestTab}
+                    statut={(k) => sectionStatut(collecte, k)}
+                    manques={(k) => (showFlagsFor(k) ? manqueCount.get(k) : undefined)}
+                    recu={(k) => rows.find((r) => r.onglet === k)?.recu ?? false}
+                  />
+                ) : (
+                  <FeuilleTab
+                    key={entree.keys[0]}
+                    active={tab === entree.keys[0]}
+                    onClick={() => requestTab(entree.keys[0])}
+                    label={TAB_BY_KEY[entree.keys[0]]?.label ?? entree.keys[0]}
+                    badge={showFlagsFor(entree.keys[0]) ? manqueCount.get(entree.keys[0]) : undefined}
+                    recu={rows.find((r) => r.onglet === entree.keys[0])?.recu}
+                    dot={DOT_SECTION[sectionStatut(collecte, entree.keys[0])]}
+                    dotTitle={SECTION_STATUT_LABELS[sectionStatut(collecte, entree.keys[0])]}
+                  />
+                ),
+              )}
               {(isAdmin || isStaff) && (
                 <>
                   <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />
@@ -1204,6 +1207,94 @@ function BarreFeuilles({ tab, children }: { tab: string; children: ReactNode }) 
 
 /** Onglet de feuille, comme en bas d'un classeur Excel : la section active est « posée » sur le contenu,
  * les tableaux déjà reçus sont teintés en vert. */
+/** Onglet d'un état (chèques, virements, traites) : s'ouvre sur ses tableaux, au choix, pour garder une barre courte et sans défilement. */
+function FeuilleMenu({
+  etat,
+  tableaux,
+  tab,
+  onSelect,
+  statut,
+  manques,
+  recu,
+}: {
+  etat: NonNullable<ReturnType<typeof etatDeTableau>>;
+  tableaux: string[];
+  tab: string;
+  onSelect: (key: string) => void;
+  statut: (key: string) => SectionStatut;
+  manques: (key: string) => number | undefined;
+  recu: (key: string) => boolean;
+}) {
+  const actif = tableaux.includes(tab);
+  const statuts = tableaux.map(statut);
+  const dot = statuts.includes("a_corriger")
+    ? DOT_SECTION.a_corriger
+    : statuts.includes("transmis")
+      ? DOT_SECTION.transmis
+      : statuts.every((x) => x === "valide" || x === "archive")
+        ? DOT_SECTION.valide
+        : undefined;
+  const nbManques = tableaux.reduce((n, k) => n + (manques(k) ?? 0), 0);
+  const tousRecus = tableaux.every(recu);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-current={actif ? "page" : undefined}
+          aria-haspopup="menu"
+          title={`${etat.label} : choisir un tableau`}
+          className={cn(
+            "relative -mt-px flex min-h-9 max-w-[22rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-b-md border border-t-0 px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            actif
+              ? "border-border bg-card font-bold text-primary shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-accent"
+              : tousRecus
+                ? "border-success/30 bg-success/15 text-success hover:bg-success/25"
+                : "border-border/70 bg-secondary/70 text-muted-foreground hover:bg-card hover:text-primary",
+          )}
+        >
+          <span className="rounded bg-accent/15 px-1 py-0.5 text-[10px] font-bold tracking-wide text-accent-foreground">{etat.code}</span>
+          <span className="truncate">{etat.label}</span>
+          {actif && <span className="truncate font-normal text-muted-foreground">· {TAB_BY_KEY[tab]?.label}</span>}
+          {dot && (
+            <span
+              className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot === "success" ? "bg-success" : dot === "destructive" ? "bg-destructive" : dot === "muted" ? "bg-muted-foreground/60" : "bg-warning")}
+            />
+          )}
+          {nbManques > 0 && (
+            <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1 text-[10px] font-semibold text-warning">
+              {nbManques}
+            </span>
+          )}
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" className="min-w-[16rem]">
+        <p className="px-2.5 pb-1 pt-0.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{etat.label}</p>
+        {tableaux.map((k) => {
+          const st = statut(k);
+          const n = manques(k);
+          return (
+            <DropdownMenuItem key={k} onSelect={() => onSelect(k)} className={cn(tab === k && "bg-secondary font-semibold")}>
+              <span className="min-w-0 flex-1 truncate">{TAB_BY_KEY[k]?.label ?? k}</span>
+              {recu(k) && <CheckCircle2 className="text-success" aria-label="Pièce reçue" />}
+              {DOT_SECTION[st] && (
+                <span
+                  title={SECTION_STATUT_LABELS[st]}
+                  className={cn("h-1.5 w-1.5 shrink-0 rounded-full", DOT_SECTION[st] === "success" ? "bg-success" : DOT_SECTION[st] === "destructive" ? "bg-destructive" : DOT_SECTION[st] === "muted" ? "bg-muted-foreground/60" : "bg-warning")}
+                />
+              )}
+              {n !== undefined && n > 0 && (
+                <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1 text-[10px] font-semibold text-warning">{n}</span>
+              )}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** Pastille de la feuille d'un tableau selon son statut dans le circuit (rien tant qu'il est à remplir). */
 const DOT_SECTION: Record<string, "success" | "warning" | "destructive" | "muted" | undefined> = {
   brouillon: undefined,

@@ -173,8 +173,10 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     expect(screen.queryByRole("button", { name: /Ajouter une ligne à ce bordereau/ })).toBeNull();
     const l1 = champs(lignes()[1]);
     fireEvent.keyDown(l1[l1.length - 1], { key: "Enter" });
-    expect(lignes()).toHaveLength(3);
-    expect(champs(lignes()[2])[1].value).toBe("");
+    // Le bordereau terminé se replie sur une seule ligne ; seule la ligne vierge du bordereau suivant reste à l'écran.
+    expect(lignes()).toHaveLength(1);
+    expect(champs(lignes()[0])[1].value).toBe("");
+    expect(document.querySelector('[data-bordereau="rem-42"]')?.textContent).toContain("2 lignes");
   });
 
   it("après un bordereau terminé : « Nouveau bordereau » repart d'une ligne vierge, « Ajouter à un bordereau » continue le même", async () => {
@@ -191,13 +193,14 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
 
     // Bordereau complet : nouveau bordereau = ligne vierge, sans n° ni banque repris.
     fireEvent.click(screen.getByRole("button", { name: "Nouveau bordereau" }));
-    expect(lignes()).toHaveLength(2);
-    expect(champs(lignes()[1])[1].value).toBe("");
-    expect(champs(lignes()[1])[BANQUE].value).toBe("");
+    expect(lignes()).toHaveLength(1); // le bordereau terminé est replié
+    expect(champs(lignes()[0])[1].value).toBe("");
+    expect(champs(lignes()[0])[BANQUE].value).toBe("");
 
     // Même bordereau : la ligne reprend son n° et sa banque.
     fireEvent.keyDown(screen.getByRole("button", { name: /Ajouter à un bordereau/ }), { key: "Enter", code: "Enter" });
     fireEvent.click(await screen.findByRole("menuitem", { name: /REM-42/ }));
+    // Ajouter à un bordereau replié le déplie : la nouvelle ligne est visible.
     expect(lignes()).toHaveLength(3);
     expect(champs(lignes()[2])[1].value).toBe("REM-42");
     expect(champs(lignes()[2])[BANQUE].value).toBe("BNA");
@@ -465,5 +468,77 @@ describe("CollecteGrid : souche de chèques ouverte par une plage de numéros", 
     renderGrid("virements_recus");
     expect(screen.queryByText("Avant de saisir : les numéros de votre souche")).toBeNull();
     expect(screen.getByRole("button", { name: "Ajouter une ligne" })).toBeTruthy();
+  });
+});
+
+describe("CollecteGrid : bordereaux terminés repliés sur une ligne", () => {
+  const MONTANT_BORDEREAU = 2;
+  const MONTANT = 6;
+  const NUM_CHEQUE = 4;
+  const resume = (id: string) => document.querySelector<HTMLElement>(`[data-bordereau="${id}"]`);
+
+  /** Saisit un bordereau terminé de deux chèques sur les lignes `debut` et `debut + 1`. */
+  function bordereau(num: string, total: number, debut: number) {
+    const l0 = champs(lignes()[debut]);
+    fireEvent.change(l0[1], { target: { value: num } });
+    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: String(total) } });
+    fireEvent.change(l0[MONTANT], { target: { value: String(total / 2) } });
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter une ligne à ce bordereau/ }));
+    fireEvent.change(champs(lignes()[debut + 1])[MONTANT], { target: { value: String(total / 2) } });
+  }
+
+  it("reste déplié tant qu'il est seul et terminé", () => {
+    renderGrid("bordereaux_remise_cheques");
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+    bordereau("REM-1", 1000, 0);
+    expect(resume("rem-1")).toBeNull();
+    expect(lignes()).toHaveLength(2);
+  });
+
+  it("se replie sur une ligne dès qu'on commence un autre bordereau, et se déplie pour voir le détail", () => {
+    renderGrid("bordereaux_remise_cheques");
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+    bordereau("REM-1", 1000, 0);
+    fireEvent.click(screen.getByRole("button", { name: "Nouveau bordereau" }));
+    const r = resume("rem-1")!;
+    expect(r.textContent).toMatch(/Bordereau REM-1/);
+    expect(r.textContent).toMatch(/2 lignes · 1\s000,000 TND/);
+    expect(r.textContent).toContain("Complet");
+    expect(lignes()).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /Détail du bordereau REM-1/ }));
+    expect(lignes()).toHaveLength(3);
+    expect(champs(lignes()[0])[NUM_CHEQUE]).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Replier bordereau REM-1/ }));
+    expect(lignes()).toHaveLength(1);
+  });
+
+  it("permet de passer d'un bordereau à l'autre : deux bordereaux terminés sont repliés tous les deux", () => {
+    renderGrid("bordereaux_remise_cheques");
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+    bordereau("REM-1", 1000, 0);
+    fireEvent.click(screen.getByRole("button", { name: "Nouveau bordereau" }));
+    // La ligne vierge est la 3ᵉ ligne du tableau (les deux premières sont repliées).
+    const ordre = lignes()[0].getAttribute("data-row");
+    expect(ordre).toBe("2");
+    const l = champs(lignes()[0]);
+    fireEvent.change(l[1], { target: { value: "REM-2" } });
+    fireEvent.change(l[MONTANT_BORDEREAU], { target: { value: "500" } });
+    fireEvent.change(l[MONTANT], { target: { value: "500" } });
+    expect(resume("rem-1")).not.toBeNull();
+    expect(resume("rem-2")).not.toBeNull();
+    expect(lignes()).toHaveLength(0);
+    expect(screen.getAllByRole("button", { name: /Détail du bordereau/ })).toHaveLength(2);
+  });
+
+  it("redéplie un bordereau dont le montant n'est plus atteint", () => {
+    renderGrid("bordereaux_remise_cheques");
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+    bordereau("REM-1", 1000, 0);
+    fireEvent.click(screen.getByRole("button", { name: "Nouveau bordereau" }));
+    fireEvent.click(screen.getByRole("button", { name: /Détail du bordereau REM-1/ }));
+    fireEvent.change(champs(lignes()[1])[MONTANT], { target: { value: "100" } });
+    expect(resume("rem-1")).toBeNull();
+    expect(lignes()).toHaveLength(3);
   });
 });

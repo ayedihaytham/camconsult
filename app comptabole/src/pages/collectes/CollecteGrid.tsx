@@ -1,5 +1,5 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { ChevronDown, FileUp, LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, FileUp, LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -154,6 +154,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             return trouve && !trouve.complet ? trouve : undefined;
           })());
     if (g && cible) {
+      // Une ligne ajoutée à un bordereau terminé (replié) le déplie, pour qu'on la voie et qu'on y saisisse le chèque.
+      if (cible.complet) setOuverts((o) => new Set(o).add(cible.id));
       const modele = [...rows].reverse().find((r) => String(r[g.cle] ?? "").trim().toLowerCase() === cible.id);
       for (const k of g.prefill) vide[k] = String(modele?.[k] ?? "");
     }
@@ -183,6 +185,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   }
   const [importOpen, setImportOpen] = useState(false);
+  // Bordereaux terminés dont les lignes sont dépliées par l'utilisateur (les autres sont repliés sur une seule ligne).
+  const [ouverts, setOuverts] = useState<Set<string>>(new Set());
   const [plageDebut, setPlageDebut] = useState("");
   const [plageFin, setPlageFin] = useState("");
   const [envoi, setEnvoi] = useState<string | null>(null);
@@ -252,6 +256,23 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   function estEntete(i: number): boolean {
     const r = rows[i];
     return ligneBordereauFigee && Boolean(r) && baseline.current.includes(r) && estEnteteBordereau(i);
+  }
+
+  /** Bordereaux terminés : repliés sur une seule ligne dès qu'on passe à un autre bordereau (ou qu'il y en a plusieurs), dépliables en détail. */
+  const idLigne = (r: TabRow) => (def.groupe ? String(r[def.groupe.cle] ?? "").trim().toLowerCase() : "");
+  const terminesIds = new Set(groupes.filter((x) => x.complet).map((x) => x.id));
+  const repliables = groupes.length >= 2 || rows.some((r) => !terminesIds.has(idLigne(r))) ? terminesIds : new Set<string>();
+  function replie(i: number): { id: string; premier: boolean; ouvert: boolean } | null {
+    const id = idLigne(rows[i]);
+    if (!id || !repliables.has(id)) return null;
+    return { id, premier: rows.findIndex((r) => idLigne(r) === id) === i, ouvert: ouverts.has(id) };
+  }
+  function basculer(id: string) {
+    setOuverts((s) => {
+      const suite = new Set(s);
+      if (!suite.delete(id)) suite.add(id);
+      return suite;
+    });
   }
 
   /** N° affiché d'une ligne : la ligne d'en-tête d'un bordereau n'en a pas, les chèques sont numérotés 1, 2, 3… */
@@ -399,8 +420,37 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             </tr>
           </thead>
           <tbody ref={tbodyRef} className="divide-y divide-border">
-            {rows.map((row, i) => (
-              <tr key={i} data-row={i} className="hover:bg-muted/20">
+            {rows.map((row, i) => {
+              const repli = replie(i);
+              if (repli && !repli.ouvert && !repli.premier) return null;
+              const resume = repli?.premier ? groupes.find((x) => x.id === repli.id) : undefined;
+              return (
+              <Fragment key={i}>
+              {repli?.premier && resume && (
+                <tr data-bordereau={repli.id} className="bg-secondary/40">
+                  <td colSpan={def.columns.length + (readOnly ? 1 : 2)} className="px-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => basculer(repli.id)}
+                      aria-expanded={repli.ouvert}
+                      aria-label={`${repli.ouvert ? "Replier" : "Détail du"} ${def.groupe?.libelle.toLowerCase()} ${resume.nom}`}
+                      className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-md px-1 py-1 text-left text-sm hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition-transform", repli.ouvert && "rotate-90")} aria-hidden="true" />
+                      <span className="min-w-[8rem] font-semibold text-foreground">
+                        {def.groupe?.libelle} {resume.nom}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {resume.nbLignes} ligne{resume.nbLignes > 1 ? "s" : ""} · {montantFr(resume.reparti)} {symboleGroupe}
+                      </span>
+                      <span className="text-xs font-semibold text-success">Complet</span>
+                      <span className="ml-auto text-xs font-medium text-primary underline underline-offset-2">{repli.ouvert ? "Replier" : "Voir le détail"}</span>
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {(!repli || repli.ouvert) && (
+              <tr data-row={i} className="hover:bg-muted/20">
                 <td className="px-2 py-1.5 text-xs text-muted-foreground">
                   {numeroLigne(i)}
                 </td>
@@ -591,7 +641,10 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                   </td>
                 )}
               </tr>
-            ))}
+              )}
+              </Fragment>
+              );
+            })}
             {rows.length === 0 && (
               <tr>
                 <td

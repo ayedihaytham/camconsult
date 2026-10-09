@@ -85,6 +85,13 @@ function sectionButton(name: string) {
     .getByRole("button", { name: new RegExp(`^${etat ? `(${etat.code} )?${etat.label}` : name}`), hidden: true });
 }
 
+/** Ouvre un tableau archivé depuis le menu « Archives » de la barre du bas. */
+function ouvrirArchive(name: string) {
+  const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
+  fireEvent.keyDown(within(nav).getByRole("button", { name: /Archives/, hidden: true }), { key: "Enter", code: "Enter" });
+  fireEvent.click(screen.getByRole("menuitem", { name: new RegExp(`^${name}`) }));
+}
+
 /** Ouvre un tableau : le menu de son état s'ouvre, puis on choisit le tableau. */
 function ouvrirSection(name: string) {
   const etat = COLLECTE_ETATS.find((e) => e.tableaux.some((k) => TAB_BY_KEY[k].label === name));
@@ -339,10 +346,31 @@ describe("Collecte : circuit par tableau", () => {
     expect(screen.queryByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeNull();
   });
 
+  it("un tableau archivé quitte les onglets de travail et se retrouve dans l'onglet Archives", () => {
+    collecte.sections = [section("souche_cheques", "archive"), section("bordereaux_remise_cheques", "archive")];
+    renderPage();
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
+    const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent ?? "");
+    // Plus d'onglet « Souche de chèques » : elle est archivée.
+    expect(noms.some((n) => n.startsWith("Souche de chèques"))).toBe(false);
+    expect(noms.some((n) => n.startsWith("ARCHArchives"))).toBe(true);
+    // L'état des chèques n'a plus que son tableau actif, et ne propose pas d'« ajouter » un tableau archivé.
+    fireEvent.keyDown(sectionButton("État des chèques émis"), { key: "Enter", code: "Enter" });
+    expect(screen.getAllByRole("menuitem").map((i) => i.textContent ?? "").join("|")).not.toMatch(/Bordereaux remise de chèques/);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    // Les tableaux archivés s'ouvrent depuis le menu Archives.
+    fireEvent.keyDown(within(nav).getByRole("button", { name: /Archives/, hidden: true }), { key: "Enter", code: "Enter" });
+    const items = screen.getAllByRole("menuitem").map((i) => i.textContent ?? "");
+    expect(items).toHaveLength(2);
+    fireEvent.click(screen.getByRole("menuitem", { name: /Souche de chèques/ }));
+    expect(screen.getByRole("heading", { name: "Souche de chèques" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Désarchiver" })).toBeTruthy();
+  });
+
   it("un tableau archivé n'est plus modifiable, même par l'admin", () => {
     collecte.sections = [section("souche_cheques", "archive")];
     renderPage();
-    ouvrirSection("Souche de chèques");
+    ouvrirArchive("Souche de chèques");
     expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
     expect(screen.getByRole("button", { name: "Désarchiver" })).toBeTruthy();
   });

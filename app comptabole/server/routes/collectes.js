@@ -179,7 +179,8 @@ async function isOngletLocked(session, collecte, onglet) {
   return (row?.recap_statut ?? "none") !== "envoye";
 }
 
-/** Recalcule le statut de la collecte d'après ses tableaux : tous validés/archivés -> validée ; au moins un transmis ->
+/** Recalcule le statut de la collecte d'après ses tableaux : tous archivés -> archivée (elle passe d'elle-même dans les archives) ;
+ * tous validés/archivés -> validée ; au moins un transmis ->
  * transmise (à examiner) ; au moins un à corriger -> à corriger ; sinon brouillon. Une collecte archivée n'est pas touchée. */
 async function recalculerStatut(client, collecteId) {
   const c = (await client.query("select statut from collectes where id=$1 for update", [collecteId])).rows[0];
@@ -190,7 +191,9 @@ async function recalculerStatut(client, collecteId) {
     (r) => r.statut ?? "brouillon",
   );
   if (statuts.length === 0) return c.statut;
-  const next = statuts.every((x) => x === "valide" || x === "archive")
+  const next = statuts.every((x) => x === "archive")
+    ? "archive"
+    : statuts.every((x) => x === "valide" || x === "archive")
     ? "valide"
     : statuts.some((x) => x === "transmis")
       ? "transmis"
@@ -226,7 +229,8 @@ collectesRouter.get("/", async (req, res) => {
     (
       await query(
         `select collecte_id, count(*) filter (where statut = 'transmis')::int as transmis,
-                count(*) filter (where statut in ('valide','archive'))::int as valides
+                count(*) filter (where statut in ('valide','archive'))::int as valides,
+                count(*) filter (where statut = 'archive')::int as archives
            from collecte_sections where collecte_id = any($1::uuid[]) group by collecte_id`,
         [rows.map((r) => r.id)],
       )
@@ -237,6 +241,7 @@ collectesRouter.get("/", async (req, res) => {
       ...collecteDto(r),
       tableauxTransmis: comptes.get(r.id)?.transmis ?? 0,
       tableauxValides: comptes.get(r.id)?.valides ?? 0,
+      tableauxArchives: comptes.get(r.id)?.archives ?? 0,
     })),
   );
 });
@@ -782,7 +787,7 @@ collectesRouter.post("/:id/sections/:onglet/recap/close", async (req, res) => {
 
 // ── Circuit d'un tableau : transmettre, valider, renvoyer, archiver ───────────────────────
 /** Charge la collecte et le tableau visés ; répond lui-même en cas d'erreur (renvoie null). */
-async function chargerSection(req, res) {
+async function chargerSection(req, res, { accepterArchivee = false } = {}) {
   const c = (await query("select * from collectes where id = $1", [req.params.id])).rows[0];
   if (!c) {
     res.status(404).json({ error: "Collecte introuvable" });
@@ -793,7 +798,7 @@ async function chargerSection(req, res) {
     res.status(400).json({ error: "Onglet non demandé dans cette collecte" });
     return null;
   }
-  if (c.statut === "archive") {
+  if (c.statut === "archive" && !accepterArchivee) {
     res.status(400).json({ error: "Collecte archivée : désarchivez-la d'abord" });
     return null;
   }
@@ -889,9 +894,14 @@ collectesRouter.post("/:id/sections/:onglet/archiver", async (req, res) => {
 });
 
 collectesRouter.post("/:id/sections/:onglet/desarchiver", async (req, res) => {
-  const ctx = await chargerSection(req, res);
+  // Une collecte archivée d'elle-même (tous ses tableaux archivés) accepte qu'on en désarchive un seul : elle redevient validée.
+  const ctx = await chargerSection(req, res, { accepterArchivee: true });
   if (!ctx) return;
   if (!isCabinetManager(req.session)) return res.status(403).json({ error: "Réservé à l'administrateur ou au responsable des collaborateurs" });
+  if (ctx.c.statut === "archive") {
+    await query("update collectes set statut = 'valide', maj_le = now() where id = $1", [ctx.c.id]);
+    ctx.c.statut = "valide";
+  }
   await changerSection(req, res, ctx, { depuis: ["archive"], vers: "valide", journal: "Désarchivé" });
 });
 

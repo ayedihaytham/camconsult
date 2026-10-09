@@ -446,10 +446,12 @@ function formatCollecteUpdate(value: string) {
 function AvancementTableaux({ collecte }: { collecte: Collecte }) {
   const transmis = collecte.tableauxTransmis ?? 0;
   const valides = collecte.tableauxValides ?? 0;
+  const archives = collecte.tableauxArchives ?? 0;
   return (
     <>
       {transmis > 0 && <span className="font-semibold text-warning"> · {transmis} à examiner</span>}
-      {valides > 0 && <span className="font-medium text-success"> · {valides} validé{valides > 1 ? "s" : ""}</span>}
+      {valides - archives > 0 && <span className="font-medium text-success"> · {valides - archives} validé{valides - archives > 1 ? "s" : ""}</span>}
+      {archives > 0 && <span className="text-muted-foreground"> · {archives} archivé{archives > 1 ? "s" : ""}</span>}
     </>
   );
 }

@@ -195,6 +195,7 @@ export interface Collecte {
   /** Tableaux transmis par le client et en attente d'examen, tableaux validés ou archivés (liste des collectes seulement). */
   tableauxTransmis?: number;
   tableauxValides?: number;
+  tableauxArchives?: number;
   periode: string;
   statut: CollecteStatut;
   onglets: string[];

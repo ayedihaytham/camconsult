@@ -274,11 +274,14 @@ export function CollecteEditorPage() {
     .join("")
     .toLocaleUpperCase("fr-FR");
   const tableauKeys = ordonnerTableaux(collecte.onglets);
+  // Un tableau archivé quitte les onglets de travail et se retrouve dans l'onglet « Archives ».
+  const archives = tableauKeys.filter((k) => sectionStatut(collecte, k) === "archive");
+  const actifs = tableauKeys.filter((k) => !archives.includes(k));
   // Barre d'onglets : un seul onglet par état (chèques, virements, traites), qui s'ouvre sur ses tableaux ; les autres tableaux restent des onglets.
   const entreesNav: { etat?: ReturnType<typeof etatDeTableau>; keys: string[] }[] = [];
   // Le cabinet voit toujours les trois états : les tableaux pas encore demandés s'y ajoutent depuis le menu de l'état.
   if (canManageCollaborateurs && !archivee) for (const etat of COLLECTE_ETATS) entreesNav.push({ etat, keys: [] });
-  for (const k of tableauKeys) {
+  for (const k of actifs) {
     const etat = etatDeTableau(k);
     const existante = etat && entreesNav.find((e) => e.etat?.key === etat.key);
     if (existante) existante.keys.push(k);
@@ -765,7 +768,7 @@ export function CollecteEditorPage() {
                         )}
                       </div>
                     )}
-                    {!preview && !archivee && !def.cabinetSeul && (
+                    {!preview && (!archivee || sectionStatut(collecte, key) === "archive") && !def.cabinetSeul && (
                       <SectionCircuit
                         label={def.label}
                         statut={sectionStatut(collecte, key)}
@@ -969,7 +972,7 @@ export function CollecteEditorPage() {
                     key={entree.etat.key}
                     etat={entree.etat}
                     tableaux={entree.keys}
-                    absents={canManageCollaborateurs && !archivee ? entree.etat.tableaux.filter((k) => !entree.keys.includes(k)) : []}
+                    absents={canManageCollaborateurs && !archivee ? entree.etat.tableaux.filter((k) => !collecte.onglets.includes(k)) : []}
                     onAjouter={async (k) => {
                       await update(id, { onglets: ordonnerTableaux([...collecte.onglets, k]) });
                       toast.success(`« ${TAB_BY_KEY[k]?.label ?? k} » ajouté à la collecte`);
@@ -992,6 +995,19 @@ export function CollecteEditorPage() {
                     dotTitle={SECTION_STATUT_LABELS[sectionStatut(collecte, entree.keys[0])]}
                   />
                 ),
+              )}
+              {archives.length > 0 && (
+                <FeuilleMenu
+                  etat={{ code: "ARCH", label: "Archives" }}
+                  tableaux={archives}
+                  absents={[]}
+                  onAjouter={async () => {}}
+                  tab={tab}
+                  onSelect={requestTab}
+                  statut={(k) => sectionStatut(collecte, k)}
+                  manques={() => undefined}
+                  recu={(k) => rows.find((r) => r.onglet === k)?.recu ?? false}
+                />
               )}
               {(isAdmin || isStaff) && (
                 <>
@@ -1268,7 +1284,7 @@ function FeuilleMenu({
   manques,
   recu,
 }: {
-  etat: NonNullable<ReturnType<typeof etatDeTableau>>;
+  etat: { code: string; label: string };
   tableaux: string[];
   /** Tableaux de l'état pas encore demandés dans cette collecte (le cabinet peut les ajouter). */
   absents: string[];
@@ -1283,6 +1299,8 @@ function FeuilleMenu({
   const statuts = tableaux.map(statut);
   const dot = statuts.length === 0
     ? undefined
+    : statuts.every((x) => x === "archive")
+    ? DOT_SECTION.archive
     : statuts.includes("a_corriger")
     ? DOT_SECTION.a_corriger
     : statuts.includes("transmis")

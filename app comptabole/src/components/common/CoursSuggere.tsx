@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useInRouterContext } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MOIS, anneeMois, coursDuMois, coursParUnite } from "@/lib/coursChange";
 import { useCoursChange } from "@/store/coursChange";
@@ -25,6 +25,7 @@ export function CoursSuggere({ devise, date, courant, onAppliquer }: Props) {
   useEffect(() => {
     void fetchCours();
   }, [fetchCours]);
+  const dansRouteur = useInRouterContext();
 
   const code = devise.trim().toUpperCase();
   if (!code || code === "TND" || !charge) return null;
@@ -37,9 +38,15 @@ export function CoursSuggere({ devise, date, courant, onAppliquer }: Props) {
     return (
       <p className={classe}>
         Aucun cours {code} pour {mois}.{" "}
-        <Link to="/cours-change" className="font-medium text-primary underline underline-offset-2">
-          Cours de change
-        </Link>
+        {dansRouteur ? (
+          <Link to="/cours-change" className="font-medium text-primary underline underline-offset-2">
+            Cours de change
+          </Link>
+        ) : (
+          <a href="/cours-change" className="font-medium text-primary underline underline-offset-2">
+            Cours de change
+          </a>
+        )}
       </p>
     );
   }

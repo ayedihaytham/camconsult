@@ -27,13 +27,13 @@ export function AmountInput({
   onBlur,
   ...props
 }: Props) {
-  const [text, setText] = useState(() => formatAmountInput(value));
+  const [text, setText] = useState(() => formatAmountInput(value, decimals));
 
   // Valeur modifiée depuis l'extérieur (reset du formulaire, calcul auto) :
   // on ne réécrit le texte que si elle diffère de ce qui est déjà saisi.
   useEffect(() => {
-    setText((current) => (parseAmount(current) === value ? current : formatAmountInput(value)));
-  }, [value]);
+    setText((current) => (parseAmount(current) === value ? current : formatAmountInput(value, decimals)));
+  }, [value, decimals]);
 
   return (
     <Input
@@ -53,7 +53,7 @@ export function AmountInput({
         onValueChange(parseAmount(next));
       }}
       onBlur={(e) => {
-        setText(formatAmountInput(parseAmount(text)));
+        setText(formatAmountInput(parseAmount(text), decimals));
         onBlur?.(e);
       }}
     />

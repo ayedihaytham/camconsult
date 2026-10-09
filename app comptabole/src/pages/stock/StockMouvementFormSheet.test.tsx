@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import type { StockMouvementInput } from "@/store/stock";
 import { useStock } from "@/store/stock";
 import type { StockMouvement } from "@/types";
+import { useCoursChange } from "@/store/coursChange";
 import { StockMouvementFormSheet, avecTauxDouane } from "./StockMouvementFormSheet";
 
 function ouvrir(onSubmit = vi.fn().mockResolvedValue(undefined)) {
@@ -143,5 +144,68 @@ describe("taux de change de la douane", () => {
     expect(r.douaneTauxChange).toBe(0);
     expect(r.achatCours).toBe(3.2);
     expect(r.venteCours).toBe(3.2);
+  });
+});
+
+describe("cours moyen du mois dans les factures du stock", () => {
+  afterEach(() => {
+    cleanup();
+    useCoursChange.setState({ cours: [], devises: [], charge: false });
+  });
+
+  const amorcer = () =>
+    useCoursChange.setState({
+      charge: true,
+      devises: [{ code: "EUR", libelle: "Euro", unite: 1, ordre: 1 }, { code: "USD", libelle: "Dollar", unite: 1, ordre: 2 }],
+      cours: [
+        { devise: "EUR", annee: 2023, mois: 1, cours: 3.3167 },
+        { devise: "EUR", annee: 2023, mois: 2, cours: 3.3128 },
+        { devise: "USD", annee: 2023, mois: 1, cours: 3.2 },
+      ],
+    });
+  const coursAchat = () => (screen.getAllByLabelText("Cours (taux de change)")[0] as HTMLInputElement).value;
+  const coursVente = () => (screen.getAllByLabelText("Cours (taux de change)")[1] as HTMLInputElement).value;
+  const changer = (index: number, valeur: string, label: string) => fireEvent.change(screen.getAllByLabelText(label)[index], { target: { value: valeur } });
+
+  it("applique le cours du mois dès que la date et la devise de l'achat sont renseignées", () => {
+    amorcer();
+    ouvrir();
+    changer(0, "EUR", "Devise");
+    expect(coursAchat()).toBe("0");
+    fireEvent.change(document.querySelectorAll('input[type="date"]')[0], { target: { value: "2023-01-04" } });
+    expect(coursAchat().replace(/\s/g, "")).toMatch(/^3[,.]3167/);
+    // Un autre mois, un autre cours.
+    fireEvent.change(document.querySelectorAll('input[type="date"]')[0], { target: { value: "2023-02-10" } });
+    expect(coursAchat().replace(/\s/g, "")).toMatch(/^3[,.]3128/);
+  });
+
+  it("fait de même pour la vente, indépendamment de l'achat", () => {
+    amorcer();
+    ouvrir();
+    changer(1, "USD", "Devise");
+    const dates = document.querySelectorAll('input[type="date"]');
+    fireEvent.change(dates[1], { target: { value: "2023-01-15" } });
+    expect(coursVente().replace(/\s/g, "")).toMatch(/^3[,.]2/);
+    expect(coursAchat()).toBe("0");
+  });
+
+  it("ne change rien sans cours pour ce mois, ni pour le dinar", () => {
+    amorcer();
+    ouvrir();
+    changer(0, "EUR", "Devise");
+    fireEvent.change(document.querySelectorAll('input[type="date"]')[0], { target: { value: "2023-06-01" } });
+    expect(coursAchat()).toBe("0");
+    expect(screen.getByText(/Aucun cours EUR pour Juin 2023/)).toBeTruthy();
+    // Le dinar n'a pas de cours de change : rien n'est appliqué.
+    changer(0, "TND", "Devise");
+    fireEvent.change(document.querySelectorAll('input[type="date"]')[0], { target: { value: "2023-01-04" } });
+    expect(screen.queryByText(/Cours moyen/)).toBeNull();
+  });
+
+  it("n'écrase pas le cours d'une facture déjà enregistrée quand on l'ouvre", () => {
+    amorcer();
+    const existant = { id: "m1", societeId: "s1", natureMarchandise: "", achatDate: "2023-01-04", achatNumFacture: "", fournisseur: "", achatDevise: "EUR", achatCours: 3.268, achatLignes: [], venteDate: null, venteNumFacture: "", client: "", venteDevise: "TND", venteCours: 0, venteLignes: [] } as unknown as StockMouvement;
+    render(<StockMouvementFormSheet open onOpenChange={vi.fn()} societeId="s1" mouvement={existant} onSubmit={vi.fn()} />);
+    expect(coursAchat().replace(/\s/g, "")).toMatch(/^3[,.]268/);
   });
 });

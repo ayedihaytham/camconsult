@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { CardField } from "@/components/common/CardField";
 import { CoursSuggere } from "@/components/common/CoursSuggere";
+import { coursDuMois, coursParUnite } from "@/lib/coursChange";
+import { useCoursChange } from "@/store/coursChange";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/common/AmountInput";
 import { Input } from "@/components/ui/input";
@@ -92,6 +94,22 @@ const montantTnd = (montantDevise: number, cours: number) =>
 /** Recalcule le montant en dinars de toutes les lignes avec le cours donné. */
 const avecMontantsTnd = (lignes: StockLigne[], cours: number): StockLigne[] =>
   lignes.map((l) => ({ ...l, montantTnd: montantTnd(l.montantDevise, cours) }));
+
+/** Facture d'achat ou de vente en devise : son cours devient le cours moyen du mois de sa date pour sa devise (page « Cours de change »),
+ * dès que la date ou la devise change — sans effet pour le dinar ni quand aucun cours n'est enregistré pour ce mois. Le cours reste
+ * modifiable à la main ensuite ; ouvrir une facture déjà enregistrée ne le change pas. */
+function avecCoursMoyen(prev: StockMouvementInput, type: "achat" | "vente"): StockMouvementInput {
+  const { cours, devises } = useCoursChange.getState();
+  const date = type === "achat" ? prev.achatDate : prev.venteDate;
+  const devise = (type === "achat" ? prev.achatDevise : prev.venteDevise).trim().toUpperCase();
+  if (!devise || devise === "TND") return prev;
+  const trouve = coursDuMois(cours, devise, date);
+  if (!trouve) return prev;
+  const n = coursParUnite(trouve, devises);
+  return type === "achat"
+    ? { ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }
+    : { ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) };
+}
 
 /** Le taux de change de la douane s'applique aux cours de l'achat et de la vente
  * (et donc aux montants en dinars), sauf si l'un d'eux a été saisi à la main avec
@@ -288,7 +306,7 @@ export function StockMouvementFormSheet({
 
   function applyChamps(type: StockDocType, champs: StockChamps) {
     if (type === "achat") {
-      setV((prev) => ({
+      setV((prev) => avecCoursMoyen({
         ...prev,
         achatDate: champs.date || prev.achatDate,
         achatNumFacture: champs.numFacture || prev.achatNumFacture,
@@ -302,9 +320,9 @@ export function StockMouvementFormSheet({
           champs.lignes && champs.lignes.length > 0
             ? avecMontantsTnd(champs.lignes, prev.achatCours)
             : prev.achatLignes,
-      }));
+      }, "achat"));
     } else if (type === "vente") {
-      setV((prev) => ({
+      setV((prev) => avecCoursMoyen({
         ...prev,
         venteDate: champs.date || prev.venteDate,
         venteNumFacture: champs.numFacture || prev.venteNumFacture,
@@ -315,7 +333,7 @@ export function StockMouvementFormSheet({
           champs.lignes && champs.lignes.length > 0
             ? avecMontantsTnd(champs.lignes, prev.venteCours)
             : prev.venteLignes,
-      }));
+      }, "vente"));
     } else {
       setV((prev) => avecTauxDouane({
         ...prev,
@@ -677,7 +695,7 @@ export function StockMouvementFormSheet({
                     <Input
                       type="date"
                       value={v.achatDate ?? ""}
-                      onChange={(e) => set("achatDate", e.target.value || null)}
+                      onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDate: e.target.value || null }, "achat"))}
                     />
                   </Field>
                   <Field label="N° Facture">
@@ -695,22 +713,26 @@ export function StockMouvementFormSheet({
                   <Field label="Devise">
                     <Input
                       value={v.achatDevise}
-                      onChange={(e) => set("achatDevise", e.target.value)}
+                      onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDevise: e.target.value }, "achat"))}
                     />
                   </Field>
-                  <Field label="Cours (taux de change)">
+                  <Field
+                    label="Cours (taux de change)"
+                    aide={
+                      <CoursSuggere
+                        devise={v.achatDevise}
+                        date={v.achatDate}
+                        courant={v.achatCours}
+                        onAppliquer={(n) => setV((prev) => ({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }))}
+                      />
+                    }
+                  >
                     <AmountInput
                       value={v.achatCours}
                       decimals={4}
                       onValueChange={(n) =>
                         setV((prev) => ({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }))
                       }
-                    />
-                    <CoursSuggere
-                      devise={v.achatDevise}
-                      date={v.achatDate}
-                      courant={v.achatCours}
-                      onAppliquer={(n) => setV((prev) => ({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }))}
                     />
                   </Field>
                 </div>
@@ -750,7 +772,7 @@ export function StockMouvementFormSheet({
                     <Input
                       type="date"
                       value={v.venteDate ?? ""}
-                      onChange={(e) => set("venteDate", e.target.value || null)}
+                      onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDate: e.target.value || null }, "vente"))}
                     />
                   </Field>
                   <Field label="N° Facture">
@@ -765,22 +787,26 @@ export function StockMouvementFormSheet({
                   <Field label="Devise">
                     <Input
                       value={v.venteDevise}
-                      onChange={(e) => set("venteDevise", e.target.value)}
+                      onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDevise: e.target.value }, "vente"))}
                     />
                   </Field>
-                  <Field label="Cours (taux de change)">
+                  <Field
+                    label="Cours (taux de change)"
+                    aide={
+                      <CoursSuggere
+                        devise={v.venteDevise}
+                        date={v.venteDate}
+                        courant={v.venteCours}
+                        onAppliquer={(n) => setV((prev) => ({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }))}
+                      />
+                    }
+                  >
                     <AmountInput
                       value={v.venteCours}
                       decimals={4}
                       onValueChange={(n) =>
                         setV((prev) => ({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }))
                       }
-                    />
-                    <CoursSuggere
-                      devise={v.venteDevise}
-                      date={v.venteDate}
-                      courant={v.venteCours}
-                      onAppliquer={(n) => setV((prev) => ({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }))}
                     />
                   </Field>
                 </div>
@@ -955,7 +981,7 @@ export function StockMouvementFormSheet({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, aide }: { label: string; children: React.ReactNode; /** Texte ou bouton d'aide sous le champ (ex. cours moyen du mois). */ aide?: React.ReactNode }) {
   const generated = useId();
   const child =
     isValidElement<{ id?: string }>(children) && (children.type === Input || children.type === Textarea || children.type === AmountInput)
@@ -965,6 +991,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <CardField id={id} label={label}>
       {child}
+      {aide}
     </CardField>
   );
 }

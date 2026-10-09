@@ -36,7 +36,8 @@ export function toNumber(cell: unknown): number {
   return Number.isFinite(n) ? round3(n) : 0;
 }
 
-/** Nombre → texte de saisie avec virgule décimale, sans zéros inutiles. */
-export function formatAmountInput(n: number): string {
-  return String(round3(n)).replace(".", ",");
+/** Nombre → texte de saisie avec virgule décimale, sans zéros inutiles ; `decimals` décimales au plus (3 par défaut, 4 pour un cours). */
+export function formatAmountInput(n: number, decimals = AMOUNT_DECIMALS): string {
+  const k = 10 ** decimals;
+  return String(Math.round(n * k) / k).replace(".", ",");
 }

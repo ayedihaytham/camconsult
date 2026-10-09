@@ -11,7 +11,7 @@ const collecte = (lignes: Record<string, unknown>[]) =>
 const cases = (c: CollecteFull) => computeManques(c).map((m) => `${(m.ordre ?? 0) + 1}:${m.col}`);
 
 describe("cases à compléter d'un bordereau de remise", () => {
-  const complete = { date_remise: "2026-10-08", num_bordereau: "255558", banque: "BNK", num_cheque: "1", client_emetteur: "X", date_valeur: "2026-10-09", observations: "ok" };
+  const complete = { date_remise: "2026-10-08", num_bordereau: "255558", banque: "BNK", num_cheque: "1", client_emetteur: "X", date_echeance: "2026-10-09", observations: "ok" };
 
   it("demande le montant du bordereau sur la première ligne seulement", () => {
     const c = collecte([{ ...complete, montant_cheque: 30000 }, { ...complete, montant_cheque: 20000 }, { ...complete, montant_cheque: 10000 }]);

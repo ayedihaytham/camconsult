@@ -112,7 +112,8 @@ export function lireGrandLivre(pages: string[][][]): GrandLivre | null {
 /** Tableaux de la collecte qu'un grand-livre peut alimenter, et la nature d'écriture de chacun. */
 export const TABLEAUX_GRAND_LIVRE: Record<string, { natures: NatureEcriture[]; titre: string }> = {
   souche_cheques: { natures: ["cheque_emis"], titre: "Chèques émis" },
-  bordereaux_remise_cheques: { natures: ["cheque_recu", "effet_recu"], titre: "Chèques et effets encaissés" },
+  bordereaux_remise_cheques: { natures: ["cheque_recu"], titre: "Chèques encaissés" },
+  bordereaux_traites_recues: { natures: ["effet_recu"], titre: "Traites encaissées" },
   virements_recus: { natures: ["virement_recu"], titre: "Virements reçus" },
   virements_emis: { natures: ["virement_emis"], titre: "Virements émis" },
 };
@@ -141,7 +142,9 @@ export function lignesPourTableau(onglet: string, ecritures: EcritureLivre[]): T
         case "souche_cheques":
           return { date: e.date, num_cheque: numero, beneficiaire: reste, motif: MOTIFS[maj(base)] ?? base, montant: e.debit, compte_bancaire: e.journal, observations: "" };
         case "bordereaux_remise_cheques":
-          return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_cheque: numero, client_emetteur: reste, montant_cheque: e.credit, date_valeur: "", observations: "" };
+          return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_cheque: numero, client_emetteur: reste, montant_cheque: e.credit, date_echeance: "", observations: "" };
+        case "bordereaux_traites_recues":
+          return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_traite: numero, client_emetteur: reste, montant_traite: e.credit, date_echeance: "", observations: "" };
         case "virements_recus":
           return { date: e.date, emetteur: reste, reference: base, montant: e.credit, compte_bancaire: e.journal, observations: "" };
         default:

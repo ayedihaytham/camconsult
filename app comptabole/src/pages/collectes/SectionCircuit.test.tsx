@@ -15,7 +15,7 @@ function rendre(statut: SectionStatut, over: Partial<React.ComponentProps<typeof
     onArchiver: vi.fn().mockResolvedValue(undefined),
     onDesarchiver: vi.fn().mockResolvedValue(undefined),
   };
-  render(<SectionCircuit label="Souche de chèques" statut={statut} motifRenvoi="" isClient={false} canArchive={false} {...actions} {...over} />);
+  render(<SectionCircuit label="État des chèques émis" statut={statut} motifRenvoi="" isClient={false} canArchive={false} {...actions} {...over} />);
   return actions;
 }
 

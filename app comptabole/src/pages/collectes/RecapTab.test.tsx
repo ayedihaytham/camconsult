@@ -38,11 +38,11 @@ describe("Récap : détail d'un tableau avant l'envoi", () => {
     rendre();
     expect(screen.queryByRole("button", { name: /Envoyer/ })).toBeNull();
     fireEvent.click(detailBoutons()[0]);
-    const detail = screen.getAllByRole("region", { name: /Détail de « Souche de chèques »/ })[0];
+    const detail = screen.getAllByRole("region", { name: /Détail de « État des chèques émis »/ })[0];
     expect(within(detail).getByText("Ligne 1")).toBeTruthy();
     expect(within(detail).getByText("N° Chèque")).toBeTruthy();
     expect(within(detail).getByText("Motif / Objet")).toBeTruthy();
-    expect(within(detail).getByText(/Ce que le client devra compléter dans « Souche de chèques » \(3 cases\)/)).toBeTruthy();
+    expect(within(detail).getByText(/Ce que le client devra compléter dans « État des chèques émis » \(3 cases\)/)).toBeTruthy();
   });
 
   it("envoie depuis le détail, avec le nombre de cases lues", async () => {

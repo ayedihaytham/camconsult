@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useSocietes } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
-import { COLLECTE_TABS } from "@/lib/collecte/tabs";
+import { COLLECTE_ETATS, COLLECTE_TABS, TAB_BY_KEY, etatDeTableau } from "@/lib/collecte/tabs";
 
 interface CollecteFormData {
   societeId: string;
@@ -86,6 +86,13 @@ export function CollecteFormDrawer({
       o.includes(key) ? o.filter((k) => k !== key) : [...o, key],
     );
   }
+
+  const ligneTableau = (key: string) => (
+    <label key={key} className="flex min-h-10 cursor-pointer items-center gap-2.5 px-2 py-1.5 hover:bg-secondary/70">
+      <Checkbox checked={onglets.includes(key)} disabled={submitting} onCheckedChange={() => toggle(key)} />
+      <span className="text-sm text-foreground">{TAB_BY_KEY[key].label}</span>
+    </label>
+  );
 
   async function submit() {
     if (submitting) return;
@@ -277,19 +284,36 @@ export function CollecteFormDrawer({
               }
               aria-invalid={error === "Sélectionnez au moins un tableau."}
             >
-              {COLLECTE_TABS.map((t) => (
-                <label
-                  key={t.key}
-                  className="flex min-h-10 cursor-pointer items-center gap-2.5 px-2 py-1.5 hover:bg-secondary/70"
-                >
-                  <Checkbox
-                    checked={onglets.includes(t.key)}
-                    disabled={submitting}
-                    onCheckedChange={() => toggle(t.key)}
-                  />
-                  <span className="text-sm text-foreground">{t.label}</span>
-                </label>
-              ))}
+              {COLLECTE_ETATS.map((etat) => {
+                const tous = etat.tableaux.every((k) => onglets.includes(k));
+                return (
+                  <div key={etat.key} role="group" aria-label={etat.label} className="py-1">
+                    <div className="flex items-center justify-between px-2 pb-0.5 pt-1.5">
+                      <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-primary">
+                        <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] text-accent-foreground">{etat.code}</span>
+                        {etat.label}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                        disabled={submitting}
+                        onClick={() =>
+                          setOnglets((o) =>
+                            tous ? o.filter((k) => !etat.tableaux.includes(k)) : [...new Set([...o, ...etat.tableaux])],
+                          )
+                        }
+                        aria-label={`${tous ? "Tout décocher" : "Tout cocher"} : ${etat.label}`}
+                      >
+                        {tous ? "Tout décocher" : "Tout cocher"}
+                      </button>
+                    </div>
+                    {etat.tableaux.map((key) => ligneTableau(key))}
+                  </div>
+                );
+              })}
+              <div role="group" aria-label="Autres tableaux" className="py-1">
+                {COLLECTE_TABS.filter((t) => !etatDeTableau(t.key)).map((t) => ligneTableau(t.key))}
+              </div>
             </div>
             {error === "Sélectionnez au moins un tableau." && (
               <p id="collecte-tableaux-error" role="alert" className="text-xs text-destructive">

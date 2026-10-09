@@ -52,12 +52,19 @@ describe.skipIf(!existsSync(PDF))("grand-livre Sage du compte 461 (PDF réel)", 
     expect(souche.find((r) => r.num_cheque === "173746")).toMatchObject({ beneficiaire: "SPLENDID", montant: 804.5 });
   });
 
-  it("remplit les bordereaux de remise avec les chèques et effets encaissés, sans inventer le bordereau", async () => {
+  it("remplit les bordereaux de remise de chèques avec les chèques encaissés, et ceux des traites avec les effets, sans inventer le bordereau", async () => {
     const l = (await livre())!;
     const rem = lignesPourTableau("bordereaux_remise_cheques", l.ecritures);
-    expect(rem).toHaveLength(12);
-    expect(rem[0]).toEqual({ date_remise: "2026-01-30", num_bordereau: "", montant: "", banque: "BTK", num_cheque: "8431", client_emetteur: "", montant_cheque: 2680.089, date_valeur: "", observations: "" });
-    expect(rem.reduce((s, r) => s + (r.montant_cheque as number), 0)).toBeCloseTo(69566.458, 2);
+    expect(rem).toHaveLength(10);
+    expect(rem[0]).toEqual({ date_remise: "2026-01-30", num_bordereau: "", montant: "", banque: "BTK", num_cheque: "8431", client_emetteur: "", montant_cheque: 2680.089, date_echeance: "", observations: "" });
+    const traites = lignesPourTableau("bordereaux_traites_recues", l.ecritures);
+    expect(traites).toHaveLength(2);
+    expect(traites[0]).toMatchObject({ num_bordereau: "", montant: "", date_echeance: "" });
+    expect(traites[0]).toHaveProperty("num_traite");
+    expect(traites[0]).toHaveProperty("montant_traite");
+    // Chèques et effets ensemble : les 12 écritures encaissées, soit le même total qu'avant la séparation.
+    const total = (lignes: Record<string, unknown>[], col: string) => lignes.reduce((s, r) => s + (r[col] as number), 0);
+    expect(total(rem, "montant_cheque") + total(traites, "montant_traite")).toBeCloseTo(69566.458, 2);
   });
 
   it("remplit les virements reçus (émetteur lu après le motif) et émis", async () => {

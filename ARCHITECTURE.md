@@ -43,6 +43,11 @@ The backend lives in `app comptabole/server/`:
   l'admin/responsable l'archive. Un tableau transmis, validé ou archivé est verrouillé pour le client (archivé : pour tous).
   Le statut de la collecte est recalculé d'après ses tableaux (`recalculerStatut`, `server/routes/collectes.js`) ;
   changer le statut de la collecte s'applique à tous ses tableaux.
+- Collecte de pièces, états : `COLLECTE_ETATS` (`lib/collecte/tabs.ts`) regroupe des tableaux en états — CHQ (bordereaux
+  remise de chèques, chèques émis), VRT (virements reçus, émis, multiple/salaires), TR (bordereaux traites reçues, traites
+  émises, traites escomptées). Chaque tableau reste un onglet à part entière (saisie, circuit, export) ; l'état n'est qu'un
+  regroupement d'affichage (onglets, liste des tableaux, checklist). Date de valeur = date d'échéance (`date_echeance`).
+  PDF, impression et Excel d'un tableau partagent `colonnesDocument` / `lignesDocument` (`lib/collecte/exportXlsx.ts`).
 - Internal team (`RequireEquipe`): `/taches`, `/stock`, `/stock/:societeId`,
   `/etats-financiers`, `/etats-financiers/:societeId`, its print route and
   balance editor route.

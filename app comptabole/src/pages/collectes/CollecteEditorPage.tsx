@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -41,7 +41,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocietes } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
-import { COLLECTE_STATUT_LABELS, TAB_BY_KEY } from "@/lib/collecte/tabs";
+import { COLLECTE_STATUT_LABELS, TAB_BY_KEY, etatDeTableau, ordonnerTableaux } from "@/lib/collecte/tabs";
 import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
 import { aggregateRecapStatut, sectionRecapStatut } from "@/lib/collecte/recap";
@@ -270,7 +270,7 @@ export function CollecteEditorPage() {
     .map((part) => part[0])
     .join("")
     .toLocaleUpperCase("fr-FR");
-  const tableauKeys = collecte.onglets;
+  const tableauKeys = ordonnerTableaux(collecte.onglets);
   const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
   const boutonBandeau =
     "min-h-10 gap-2 border-primary-foreground/30 bg-transparent px-4 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground";
@@ -911,9 +911,25 @@ export function CollecteEditorPage() {
                 badge={collecte.fichiers.length || undefined}
               />
               {tableauKeys.length > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
-              {tableauKeys.map((key) => (
+              {tableauKeys.map((key, i) => {
+                const etat = etatDeTableau(key);
+                const debutEtat = etat && etatDeTableau(tableauKeys[i - 1] ?? "")?.key !== etat.key;
+                const finEtat = !etat && i > 0 && etatDeTableau(tableauKeys[i - 1]);
+                return (
+                  <Fragment key={key}>
+                    {debutEtat && (
+                      <>
+                        {i > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
+                        <span
+                          title={etat.label}
+                          className="self-center rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-accent-foreground"
+                        >
+                          {etat.code}
+                        </span>
+                      </>
+                    )}
+                    {finEtat && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
                 <FeuilleTab
-                  key={key}
                   active={tab === key}
                   onClick={() => requestTab(key)}
                   label={TAB_BY_KEY[key]?.label ?? key}
@@ -922,7 +938,9 @@ export function CollecteEditorPage() {
                   dot={DOT_SECTION[sectionStatut(collecte, key)]}
                   dotTitle={SECTION_STATUT_LABELS[sectionStatut(collecte, key)]}
                 />
-              ))}
+                  </Fragment>
+                );
+              })}
               {(isAdmin || isStaff) && (
                 <>
                   <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />

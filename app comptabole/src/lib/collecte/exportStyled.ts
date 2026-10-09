@@ -6,6 +6,7 @@ import type { Workbook, Worksheet } from "exceljs";
 import type { CollecteFull } from "@/types";
 import { TAB_BY_KEY, cellNumber, titreDocument } from "./tabs";
 import { checklistRows } from "./checklist";
+import { colonnesDocument, lignesDocument } from "./exportXlsx";
 
 const BLEU = "FF1F4E79";
 const JAUNE = "FFFFFF00";
@@ -72,22 +73,28 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
   const ws = wb.addWorksheet(def.label.slice(0, 31), { views: [{ state: "frozen", ySplit: 4 }] });
   titre(ws, titreDocument(def), SOUS_TITRE);
   const devise = deviseLabel(collecte);
+  // Mêmes colonnes et mêmes lignes que le PDF (voir sectionReport) : sans les colonnes laissées de côté, sans la ligne d'en-tête
+  // des bordereaux.
+  const colonnes = colonnesDocument(def);
   // Montants : « Montant HT (€) » ; jamais pour un pourcentage (« TVA % »).
   const isPct = (c: { label: string }) => c.label.includes("%");
   enTetes(
     ws,
     4,
-    def.columns.map((c) =>
+    colonnes.map((c) =>
       c.type === "number" && !isPct(c) && !/\(.+\)$/.test(c.label) ? `${c.label} (${devise})` : c.label,
     ),
   );
-  const lettreDe = (key: string) => colLetter(def.columns.findIndex((c) => c.key === key) + 1);
-  ws.columns = def.columns.map((c) => ({ width: Math.max(12, Math.round((c.width ?? 140) / 7)) }));
+  const lettreDe = (key: string) => colLetter(colonnes.findIndex((c) => c.key === key) + 1);
+  ws.columns = colonnes.map((c) => ({ width: Math.max(12, Math.round((c.width ?? 140) / 7)) }));
 
-  const data = collecte.lignes
-    .filter((l) => l.onglet === key)
-    .sort((a, b) => a.ordre - b.ordre)
-    .map((l) => l.data);
+  const data = lignesDocument(
+    def,
+    collecte.lignes
+      .filter((l) => l.onglet === key)
+      .sort((a, b) => a.ordre - b.ordre)
+      .map((l) => l.data),
+  );
   const derived = def.derive ? def.derive(data) : data;
   const nb = Math.max(LIGNES_MIN, derived.length);
   const first = 5;
@@ -96,7 +103,7 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
   for (let i = 0; i < nb; i++) {
     const r = ws.getRow(first + i);
     const src = derived[i];
-    def.columns.forEach((col, j) => {
+    colonnes.forEach((col, j) => {
       const c = r.getCell(j + 1);
       const v = src?.[col.key];
       if (col.excelFormula) {
@@ -126,7 +133,7 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
   // Ligne TOTAL (formules : suivent les modifications faites dans Excel).
   // Libellé dans la colonne juste avant le premier total, comme le modèle.
   const totaux = (def.excelTotalKeys ?? (def.totalKey ? [def.totalKey] : []))
-    .map((key) => ({ key, idx: def.columns.findIndex((c) => c.key === key) }))
+    .map((key) => ({ key, idx: colonnes.findIndex((c) => c.key === key) }))
     .filter((t) => t.idx >= 0);
   if (totaux.length > 0) {
     const r = ws.getRow(last + 2);

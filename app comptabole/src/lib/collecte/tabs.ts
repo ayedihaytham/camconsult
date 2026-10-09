@@ -96,6 +96,13 @@ const deriveBalanceAgee = (rows: TabRow[]): TabRow[] =>
     anciennete: joursDepuis(r.date_dernier_reglement),
   }));
 
+/** Net crédité d'une traite escomptée = montant de la traite − agios. */
+const deriveNetEscompte = (rows: TabRow[]): TabRow[] =>
+  rows.map((r) => ({ ...r, net_credite: round2(cellNumber(r.montant) - cellNumber(r.agios)) }));
+
+const netEscompteFormula: TabColumn["excelFormula"] = (r, col) =>
+  `IF(AND(${col("montant")}${r}="",${col("agios")}${r}=""),"",ROUND(N(${col("montant")}${r})-N(${col("agios")}${r}),3))`;
+
 const sumKey = (key: string) => (rows: TabRow[]) =>
   rows.reduce((s, r) => s + cellNumber(r[key]), 0);
 
@@ -179,11 +186,11 @@ export interface TabDef {
   groupe?: TabGroupe;
 }
 
-export const COLLECTE_TABS: TabDef[] = [
+const TABLEAUX_DEFINIS: TabDef[] = [
   {
     key: "souche_cheques",
-    label: "Souche de chèques",
-    pieceLabel: "Détail de la souche de chèques (chèques émis)",
+    label: "État des chèques émis",
+    pieceLabel: "État des chèques émis",
     totalKey: "montant",
     columns: [
       { key: "date", label: "Date", type: "date", width: 130 },
@@ -202,7 +209,7 @@ export const COLLECTE_TABS: TabDef[] = [
   },
   {
     key: "bordereaux_remise_cheques",
-    label: "Bordereaux remise chèques",
+    label: "Bordereaux remise de chèques",
     pieceLabel: "Détail des bordereaux de remise de chèques (nominatifs)",
     totalKey: "montant",
     // Le montant du bordereau (60 000) se saisit une seule fois, sur sa première ligne ; les chèques qui le composent
@@ -211,7 +218,7 @@ export const COLLECTE_TABS: TabDef[] = [
       cle: "num_bordereau",
       totalCol: "montant",
       montantCol: "montant_cheque",
-      prefill: ["date_remise", "num_bordereau", "banque", "date_valeur"],
+      prefill: ["date_remise", "num_bordereau", "banque"],
       libelle: "Bordereau",
     },
     columns: [
@@ -227,12 +234,7 @@ export const COLLECTE_TABS: TabDef[] = [
         width: 240,
       },
       { key: "montant_cheque", label: "Montant du chèque", type: "number", width: 130 },
-      {
-        key: "date_valeur",
-        label: "Date de valeur",
-        type: "date",
-        width: 130,
-      },
+      { key: "date_echeance", label: "Date d'échéance", type: "date", width: 130 },
       { key: "observations", label: "Observations / pièce jointe", type: "text", width: 220, piece: true },
     ],
   },
@@ -286,8 +288,8 @@ export const COLLECTE_TABS: TabDef[] = [
   },
   {
     key: "virements_salaire",
-    label: "Virements de salaire",
-    pieceLabel: "Détail des virements de salaire",
+    label: "Virement multiple (salaires)",
+    pieceLabel: "Détail des virements multiples (salaires)",
     totalKey: "montant_net",
     columns: [
       {
@@ -309,6 +311,74 @@ export const COLLECTE_TABS: TabDef[] = [
         label: "Compte bancaire",
         type: "text",
         width: 170,
+      },
+      { key: "observations", label: "Observations", type: "text", width: 220 },
+    ],
+  },
+  {
+    key: "bordereaux_traites_recues",
+    label: "Bordereaux traites reçues",
+    pieceLabel: "Détail des bordereaux de remise de traites (nominatifs)",
+    totalKey: "montant",
+    // Comme les bordereaux de remise de chèques : le montant du bordereau se saisit sur sa première ligne, puis chaque
+    // traite sur sa ligne jusqu'à atteindre ce montant.
+    groupe: {
+      cle: "num_bordereau",
+      totalCol: "montant",
+      montantCol: "montant_traite",
+      prefill: ["date_remise", "num_bordereau", "banque"],
+      libelle: "Bordereau",
+    },
+    columns: [
+      { key: "date_remise", label: "Date de remise", type: "date", width: 130 },
+      { key: "num_bordereau", label: "N° Bordereau", type: "text", width: 140 },
+      { key: "montant", label: "Montant du bordereau", type: "number", width: 140 },
+      { key: "banque", label: "Banque", type: "text", width: 170 },
+      { key: "num_traite", label: "N° Traite", type: "text", width: 130 },
+      { key: "client_emetteur", label: "Nom du client tiré (nominatif)", type: "text", width: 240 },
+      { key: "montant_traite", label: "Montant de la traite", type: "number", width: 130 },
+      { key: "date_echeance", label: "Date d'échéance", type: "date", width: 130 },
+      { key: "observations", label: "Observations / pièce jointe", type: "text", width: 220, piece: true },
+    ],
+  },
+  {
+    key: "traites_emises",
+    label: "État des traites émises",
+    pieceLabel: "État des traites émises",
+    totalKey: "montant",
+    columns: [
+      { key: "date", label: "Date", type: "date", width: 130 },
+      { key: "num_traite", label: "N° Traite", type: "text", width: 130 },
+      { key: "beneficiaire", label: "Bénéficiaire", type: "text", width: 220 },
+      { key: "motif", label: "Motif / Objet", type: "text", width: 240 },
+      { key: "montant", label: "Montant", type: "number", width: 130 },
+      { key: "date_echeance", label: "Date d'échéance", type: "date", width: 130 },
+      { key: "compte_bancaire", label: "Compte bancaire", type: "text", width: 170 },
+      { key: "observations", label: "Observations", type: "text", width: 220 },
+    ],
+  },
+  {
+    key: "traites_escomptees",
+    label: "Traites escomptées",
+    pieceLabel: "Détail des traites escomptées",
+    totalKey: "montant",
+    excelTotalKeys: ["montant", "agios", "net_credite"],
+    derive: deriveNetEscompte,
+    columns: [
+      { key: "date_escompte", label: "Date d'escompte", type: "date", width: 130 },
+      { key: "banque", label: "Banque", type: "text", width: 170 },
+      { key: "num_traite", label: "N° Traite", type: "text", width: 130 },
+      { key: "client_emetteur", label: "Nom du client tiré", type: "text", width: 220 },
+      { key: "date_echeance", label: "Date d'échéance", type: "date", width: 130 },
+      { key: "montant", label: "Montant de la traite", type: "number", width: 130 },
+      { key: "agios", label: "Agios / frais d'escompte", type: "number", width: 140 },
+      {
+        key: "net_credite",
+        label: "Net crédité",
+        type: "number",
+        width: 130,
+        computed: true,
+        excelFormula: netEscompteFormula,
       },
       { key: "observations", label: "Observations", type: "text", width: 220 },
     ],
@@ -564,6 +634,39 @@ export function titreDocument(def: TabDef): string {
     ? def.pieceLabel.toUpperCase()
     : def.pieceLabel.slice(0, i).toUpperCase() + def.pieceLabel.slice(i);
 }
+
+/** Un « état » regroupe plusieurs tableaux de la collecte : chaque tableau garde sa propre saisie, son circuit et son export. */
+export interface EtatCollecte {
+  key: "cheques" | "virements" | "traites";
+  /** Sigle affiché sur les onglets et les listes. */
+  code: "CHQ" | "VRT" | "TR";
+  label: string;
+  tableaux: string[];
+}
+
+export const COLLECTE_ETATS: EtatCollecte[] = [
+  { key: "cheques", code: "CHQ", label: "État des chèques", tableaux: ["bordereaux_remise_cheques", "souche_cheques"] },
+  { key: "virements", code: "VRT", label: "État des virements", tableaux: ["virements_recus", "virements_emis", "virements_salaire"] },
+  { key: "traites", code: "TR", label: "État des traites", tableaux: ["bordereaux_traites_recues", "traites_emises", "traites_escomptees"] },
+];
+
+/** L'état auquel appartient un tableau (undefined pour les tableaux qui n'en font pas partie). */
+export const etatDeTableau = (key: string): EtatCollecte | undefined => COLLECTE_ETATS.find((e) => e.tableaux.includes(key));
+
+/** Tableaux dans l'ordre d'affichage : les états d'abord (chèques, virements, traites), puis les autres tableaux. */
+export const COLLECTE_TABS: TabDef[] = [
+  ...COLLECTE_ETATS.flatMap((e) => e.tableaux.map((k) => TABLEAUX_DEFINIS.find((t) => t.key === k)!)),
+  ...TABLEAUX_DEFINIS.filter((t) => !etatDeTableau(t.key)),
+];
+
+/** Trie des clés de tableaux dans l'ordre d'affichage (états regroupés). */
+export const ordonnerTableaux = (keys: string[]): string[] => {
+  const rang = (k: string) => {
+    const i = COLLECTE_TABS.findIndex((t) => t.key === k);
+    return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  return [...keys].sort((a, b) => rang(a) - rang(b));
+};
 
 export const TAB_BY_KEY: Record<string, TabDef> = Object.fromEntries(
   COLLECTE_TABS.map((t) => [t.key, t]),

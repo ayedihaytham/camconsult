@@ -28,6 +28,9 @@ const TAB_KEYS = new Set([
   "virements_recus",
   "virements_emis",
   "virements_salaire",
+  "bordereaux_traites_recues",
+  "traites_emises",
+  "traites_escomptees",
   "chiffre_affaires",
   "detail_achats",
   "etat_caisse",
@@ -122,11 +125,14 @@ function canEdit(session, societeId) {
 
 const SECTION_OUVERTES = ["brouillon", "a_corriger"];
 const LIBELLES_ONGLETS = {
-  souche_cheques: "Souche de chèques",
-  bordereaux_remise_cheques: "Bordereaux remise chèques",
+  souche_cheques: "État des chèques émis",
+  bordereaux_remise_cheques: "Bordereaux remise de chèques",
   virements_recus: "Virements reçus",
   virements_emis: "Virements émis",
-  virements_salaire: "Virements salaires",
+  virements_salaire: "Virement multiple (salaires)",
+  bordereaux_traites_recues: "Bordereaux traites reçues",
+  traites_emises: "État des traites émises",
+  traites_escomptees: "Traites escomptées",
   chiffre_affaires: "Chiffre d'affaires",
   detail_achats: "Détail des achats",
   etat_caisse: "État de caisse",

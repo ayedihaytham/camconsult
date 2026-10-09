@@ -1,8 +1,10 @@
 import type { CollecteFull } from "@/types";
-import { TAB_BY_KEY, cellNumber } from "./tabs";
+import { TAB_BY_KEY, cellNumber, etatDeTableau, ordonnerTableaux } from "./tabs";
 
 export interface ChecklistRow {
   onglet: string;
+  /** Sigle de l'état qui regroupe ce tableau (CHQ, VRT, TR), absent pour les autres tableaux. */
+  etat?: string;
   pieceLabel: string;
   tabLabel: string;
   recu: boolean;
@@ -34,7 +36,7 @@ function isoJour(iso: string | null): string | null {
 
 /** Lignes calculées de l'onglet Checklist à partir de l'état de la collecte. */
 export function checklistRows(c: CollecteFull): ChecklistRow[] {
-  return c.onglets.map((key) => {
+  return ordonnerTableaux(c.onglets).map((key) => {
     const def = TAB_BY_KEY[key];
     const lignes = c.lignes
       .filter((l) => l.onglet === key)
@@ -59,6 +61,7 @@ export function checklistRows(c: CollecteFull): ChecklistRow[] {
 
     return {
       onglet: key,
+      etat: etatDeTableau(key)?.code,
       pieceLabel: def?.pieceLabel ?? key,
       tabLabel: def?.label ?? key,
       recu,

@@ -1098,4 +1098,10 @@ update collecte_lignes
    set data = (data - 'montant_bordereau') || jsonb_build_object('montant_cheque', data -> 'montant_bordereau')
  where onglet = 'bordereaux_remise_cheques' and data ? 'montant_bordereau' and not (data ? 'montant_cheque');
 
+-- Bordereaux de remise : « Date de valeur » devient « Date d'échéance » (clé date_echeance). Idempotent.
+update collecte_lignes
+   set data = (data - 'date_valeur') || jsonb_build_object('date_echeance', data -> 'date_valeur')
+ where onglet = 'bordereaux_remise_cheques' and data ? 'date_valeur' and not (data ? 'date_echeance');
+update collecte_lignes set data = data - 'date_valeur' where onglet = 'bordereaux_remise_cheques' and data ? 'date_valeur';
+
 alter table fournisseur_suivi add column if not exists qte_proforma numeric not null default 0;

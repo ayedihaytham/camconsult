@@ -397,7 +397,10 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
                     <div className="flex items-start gap-3">
                       {coche(row)}
                       <div className="min-w-0">
-                        <p className="font-serif text-[1.05rem] leading-snug text-primary">{row.pieceLabel}</p>
+                        <p className="font-serif text-[1.05rem] leading-snug text-primary">
+                          {row.etat && <CodeEtat code={row.etat} />}
+                          {row.pieceLabel}
+                        </p>
                         {lien(row)}
                       </div>
                     </div>
@@ -465,7 +468,10 @@ function MobileChecklistRow({
       <div className="flex items-start gap-3">
         {coche}
         <div className="min-w-0">
-          <h3 className="font-serif text-base leading-snug text-primary">{row.pieceLabel}</h3>
+          <h3 className="font-serif text-base leading-snug text-primary">
+            {row.etat && <CodeEtat code={row.etat} />}
+            {row.pieceLabel}
+          </h3>
           {lien}
         </div>
       </div>
@@ -477,5 +483,14 @@ function MobileChecklistRow({
         <Comment row={row} editable={editable} onSave={(value) => onSaveComment(row.onglet, value)} />
       </div>
     </article>
+  );
+}
+
+/** Sigle de l'état (CHQ, VRT, TR) qui regroupe le tableau, avant le libellé de la pièce. */
+function CodeEtat({ code }: { code: string }) {
+  return (
+    <span className="mr-2 inline-block rounded bg-accent/15 px-1.5 py-0.5 align-middle font-sans text-[10px] font-bold tracking-wide text-accent-foreground">
+      {code}
+    </span>
   );
 }

@@ -1,6 +1,6 @@
 import type { CollecteFull } from "@/types";
 import { printTable } from "@/lib/print";
-import { TAB_BY_KEY, cellNumber, titreDocument, type TabColumn, type TabGroupe, type TabRow } from "./tabs";
+import { TAB_BY_KEY, cellNumber, titreDocument, type TabColumn, type TabDef, type TabGroupe, type TabRow } from "./tabs";
 import { checklistRows } from "./checklist";
 
 const deviseLabel = (c: CollecteFull) => (c.devise === "EUR" ? "€" : c.devise);
@@ -31,8 +31,16 @@ function cellule(c: TabColumn, v: unknown): string {
 
 /** Colonnes laissées de côté dans le document imprimé ou en PDF d'un tableau (l'Excel les garde). */
 const COLONNES_HORS_DOCUMENT: Record<string, string[]> = {
-  bordereaux_remise_cheques: ["date_valeur", "observations"],
+  bordereaux_remise_cheques: ["observations"],
+  bordereaux_traites_recues: ["observations"],
 };
+
+/** Colonnes du document (PDF, impression et Excel) d'un tableau : celles de la saisie, moins celles laissées de côté. */
+export const colonnesDocument = (def: TabDef): TabColumn[] =>
+  def.columns.filter((c) => !COLONNES_HORS_DOCUMENT[def.key]?.includes(c.key));
+
+/** Lignes du document d'un tableau : sans la ligne d'en-tête des bordereaux, dont le montant passe sur le premier chèque. */
+export const lignesDocument = (def: TabDef, data: TabRow[]): TabRow[] => (def.groupe ? sansLigneEntete(def.groupe, data) : data);
 
 /** Dans le document, la ligne d'en-tête d'un bordereau (n° et montant, sans chèque) disparaît : son montant passe sur le premier
  * chèque du même bordereau, de sorte que le total reste juste. Sans chèque saisi, la ligne d'en-tête est conservée. */
@@ -118,9 +126,9 @@ export function sectionReport(
     .filter((l) => l.onglet === section)
     .sort((a, b) => a.ordre - b.ordre)
     .map((l) => l.data);
-  const lignesDocument = def.groupe ? sansLigneEntete(def.groupe, data) : data;
-  const derived = def.derive ? def.derive(lignesDocument) : lignesDocument;
-  const colonnes = def.columns.filter((c) => !COLONNES_HORS_DOCUMENT[def.key]?.includes(c.key));
+  const lignes = lignesDocument(def, data);
+  const derived = def.derive ? def.derive(lignes) : lignes;
+  const colonnes = colonnesDocument(def);
   const rows = derived.map((r) => colonnes.map((c) => cellule(c, r[c.key])));
 
   // Même ligne de total que l'export Excel (ex. HT et TTC pour les achats).

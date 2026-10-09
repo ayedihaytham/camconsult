@@ -107,7 +107,7 @@ export function sectionReport(
       ],
       rows: rows.map((r) => [
         r.pieceLabel,
-        r.tabLabel,
+        r.etat ? `${r.etat} · ${r.tabLabel}` : r.tabLabel,
         collecte.periode,
         r.statutLabel,
         frDate(r.dateReception),

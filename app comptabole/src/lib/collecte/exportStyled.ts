@@ -10,7 +10,6 @@ import { colonnesDocument, lignesDocument } from "./exportXlsx";
 
 const BLEU = "FF1F4E79";
 const JAUNE = "FFFFFF00";
-const ORANGE_CLAIR = "FFFFE699";
 const GRIS_BORD = "FFC8C8C8";
 /** Lignes en alternance et ligne TOTAL, comme le PDF. */
 const GRIS_LIGNE = "FFF7F8FA";
@@ -251,64 +250,63 @@ function feuilleCaisse(wb: Workbook, collecte: CollecteFull) {
   }
 }
 
-/** Feuille Checklist (pièces à transmettre, statut, total par tableau). */
-function feuilleChecklist(wb: Workbook, collecte: CollecteFull, societeNom: string) {
+/** Feuille Checklist (pièces à transmettre, statut, total par tableau) : même présentation que les tableaux et le PDF — en-têtes
+ * et valeurs dans les mêmes colonnes, lignes blanches et grises en alternance, statut en couleur, résumé en bas. */
+export function feuilleChecklist(wb: Workbook, collecte: CollecteFull, societeNom: string) {
   const ws = wb.addWorksheet("Checklist", { views: [{ state: "frozen", ySplit: 4 }] });
+  const devise = deviseLabel(collecte);
   titre(
     ws,
     "CHECKLIST DES PIÈCES À TRANSMETTRE",
-    [societeNom, collecte.periode.trim()].filter(Boolean).join(" · ") ||
-      "Cellules jaunes = à saisir par le client · le reste se calcule automatiquement",
+    [societeNom, collecte.periode.trim() && `Période : ${collecte.periode}`, `Devise : ${devise}`].filter(Boolean).join(" · "),
   );
-  enTetes(ws, 4, [
-    "Pièce à transmettre",
-    "Onglet correspondant",
-    "Période concernée",
-    "Statut",
-    "Date de réception",
-    `Total (${deviseLabel(collecte)})`,
-    "Commentaire",
-  ]);
-  ws.columns = [{ width: 46 }, { width: 28 }, { width: 22 }, { width: 18 }, { width: 18 }, { width: 16 }, { width: 34 }];
+  const entetes = ["Pièce à transmettre", "Onglet correspondant", "Période concernée", "Statut", "Date de réception", `Total (${devise})`, "Commentaire"];
+  enTetes(ws, 4, entetes);
+  ws.columns = [{ width: 48 }, { width: 32 }, { width: 20 }, { width: 16 }, { width: 18 }, { width: 18 }, { width: 40 }];
 
   const rows = checklistRows(collecte);
   rows.forEach((row, i) => {
     const r = ws.getRow(5 + i);
-    const cells = [
+    const periode = collecte.periode.trim();
+    const cells: (string | number | Date | null)[] = [
       row.pieceLabel,
-      row.tabLabel,
-      collecte.periode.trim() || null,
+      row.etat ? `${row.etat} · ${row.tabLabel}` : row.tabLabel,
+      periode || null,
       row.statutLabel,
-      row.dateReception ? toDate(row.dateReception) : null,
+      row.dateReception ? (toDate(row.dateReception) as Date | string) : null,
       row.total,
       row.commentaire || null,
     ];
     cells.forEach((v, j) => {
       const c = r.getCell(j + 1);
-      if (v !== null && v !== undefined && v !== "") c.value = v as string | number | Date;
+      if (v !== null && v !== undefined && v !== "") c.value = v;
       c.border = border;
+      c.fill = fill(i % 2 === 1 ? GRIS_LIGNE : "FFFFFFFF");
+      c.alignment = { vertical: "middle", horizontal: j === 5 ? "right" : j === 3 || j === 4 ? "center" : "left", wrapText: j === 0 || j === 6 };
     });
-    // mêmes couleurs que le modèle : jaune = saisie, orange clair = statut
-    for (const j of [3, 5, 7]) r.getCell(j).fill = fill(JAUNE);
-    r.getCell(4).fill = fill(ORANGE_CLAIR);
+    // Statut en couleur : vert si reçu, orange tant que la pièce est attendue.
+    r.getCell(4).font = { bold: true, color: { argb: row.recu ? "FF1E7B4D" : "FFB45F06" } };
     r.getCell(5).numFmt = "dd/mm/yyyy";
-    const tot = r.getCell(6);
-    tot.numFmt = MONTANT;
-    tot.font = { bold: true };
-    tot.alignment = { horizontal: "right" };
+    r.getCell(6).numFmt = MONTANT;
+    r.getCell(6).font = { bold: true };
   });
 
-  const after = 5 + rows.length + 1;
+  // Résumé : mêmes colonnes que le tableau, sur fond bleu pâle comme la ligne TOTAL des autres feuilles.
   const recus = rows.filter((r) => r.recu).length;
   [
     ["Nb de pièces reçues", recus],
     ["Nb de pièces en attente", rows.length - recus],
   ].forEach(([label, n], k) => {
-    const r = ws.getRow(after + k);
-    r.getCell(1).value = label;
-    r.getCell(1).font = { bold: true };
-    r.getCell(3).value = n;
-    r.getCell(3).font = { bold: true };
+    const r = ws.getRow(5 + rows.length + k);
+    for (let j = 1; j <= entetes.length; j++) {
+      const c = r.getCell(j);
+      c.fill = fill(FOND_TOTAL);
+      c.border = border;
+      c.font = { bold: true };
+    }
+    r.getCell(1).value = label as string;
+    r.getCell(2).value = n as number;
+    r.getCell(2).alignment = { horizontal: "left" };
   });
 }
 

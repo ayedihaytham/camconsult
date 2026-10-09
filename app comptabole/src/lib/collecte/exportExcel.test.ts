@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
 import type { CollecteFull } from "@/types";
-import { feuilleOnglet } from "./exportStyled";
+import { feuilleChecklist, feuilleOnglet } from "./exportStyled";
+import { sectionReport } from "./exportXlsx";
 
 const collecte = (onglet: string, lignes: Record<string, unknown>[]) =>
   ({
@@ -89,5 +90,50 @@ describe("Excel : colonne calculée", () => {
     expect(net.formula).toContain("ROUND(N(F5)-N(G5),3)");
     expect(net.result).toBe(9874.5);
     expect(ws.getCell("H6").value).toMatchObject({ formula: "SUM(H5:H5)" });
+  });
+});
+
+describe("Excel de la checklist : en-têtes et valeurs dans les mêmes colonnes", () => {
+  const c = {
+    ...collecte("souche_cheques", [{ date: "2026-10-03", montant: 350 }]),
+    onglets: ["etat_caisse", "traites_escomptees", "souche_cheques"],
+    majLe: "2026-10-08T10:00:00.000Z",
+  } as CollecteFull;
+  const wb = new ExcelJS.Workbook();
+  feuilleChecklist(wb, c, "I CARGO LINE");
+  const ws = wb.worksheets[0];
+
+  it("place chaque valeur sous son en-tête, à partir de la colonne A", () => {
+    expect(texte(ws, 4)).toEqual(["Pièce à transmettre", "Onglet correspondant", "Période concernée", "Statut", "Date de réception", "Total (TND)", "Commentaire"]);
+    // Ligne du tableau reçu : pièce en A, onglet en B, période en C, statut en D, date en E, total en F.
+    expect(ws.getCell("A5").value).toBe("État des chèques émis");
+    expect(ws.getCell("B5").value).toBe("CHQ · État des chèques émis");
+    expect(ws.getCell("C5").value).toBe("Octobre 2026");
+    expect(ws.getCell("D5").value).toBe("Reçu");
+    expect(ws.getCell("E5").numFmt).toBe("dd/mm/yyyy");
+    expect(ws.getCell("F5").value).toBe(350);
+    expect(ws.getCell("F5").numFmt).toBe("#,##0.000");
+    // Ni colonne A vide ni décalage : rien dans la colonne H.
+    expect(ws.getCell("H5").value).toBeNull();
+  });
+
+  it("suit l'ordre des états, sans cases jaunes, avec le statut en couleur", () => {
+    expect([ws.getCell("B5").value, ws.getCell("B6").value, ws.getCell("B7").value]).toEqual([
+      "CHQ · État des chèques émis", "TR · Traites escomptées", "État de caisse",
+    ]);
+    for (let r = 5; r <= 7; r++) for (const col of "ABCDEFG") expect(couleur(ws.getCell(`${col}${r}`))).not.toBe("FFFFFF00");
+    expect(ws.getCell("D5").font?.color?.argb).toBe("FF1E7B4D");
+    expect(ws.getCell("D6").font?.color?.argb).toBe("FFB45F06");
+  });
+
+  it("met le résumé sous le tableau, dans les mêmes colonnes", () => {
+    expect([ws.getCell("A8").value, ws.getCell("B8").value]).toEqual(["Nb de pièces reçues", 1]);
+    expect([ws.getCell("A9").value, ws.getCell("B9").value]).toEqual(["Nb de pièces en attente", 2]);
+    expect(couleur(ws.getCell("A8"))).toBe("FFE8EEF5");
+  });
+
+  it("le PDF de la checklist a les mêmes libellés", () => {
+    const rep = sectionReport(c, "checklist", "I CARGO LINE")!;
+    expect(rep.rows[0].slice(0, 2)).toEqual(["État des chèques émis", "CHQ · État des chèques émis"]);
   });
 });

@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CardField } from "@/components/common/CardField";
+import { CoursSuggere } from "@/components/common/CoursSuggere";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/common/AmountInput";
 import { Input } from "@/components/ui/input";
@@ -705,6 +706,12 @@ export function StockMouvementFormSheet({
                         setV((prev) => ({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }))
                       }
                     />
+                    <CoursSuggere
+                      devise={v.achatDevise}
+                      date={v.achatDate}
+                      courant={v.achatCours}
+                      onAppliquer={(n) => setV((prev) => ({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }))}
+                    />
                   </Field>
                 </div>
                 <LignesEditor
@@ -768,6 +775,12 @@ export function StockMouvementFormSheet({
                       onValueChange={(n) =>
                         setV((prev) => ({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }))
                       }
+                    />
+                    <CoursSuggere
+                      devise={v.venteDevise}
+                      date={v.venteDate}
+                      courant={v.venteCours}
+                      onAppliquer={(n) => setV((prev) => ({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }))}
                     />
                   </Field>
                 </div>

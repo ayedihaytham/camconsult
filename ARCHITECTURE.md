@@ -62,6 +62,10 @@ The backend lives in `app comptabole/server/`:
   lines (`comptes_bancaires`, `mouvements_bancaires`; debit/credit are the bank's, the "vue société"
   swaps them at display). A supplier payment is matched to one `fournisseur_reglements` row through
   `mouvement_bancaire_id`. API: `server/routes/banque.js`.
+- Cours de change (`/cours-change`, `server/routes/coursChange.js`, `store/coursChange.ts`, `lib/coursChange.ts`): moyenne mensuelle
+  du marché interbancaire par devise (`devises_change`, libres : USD, GBP, EUR au départ) et par année/mois (`cours_change`).
+  Lecture : équipe du cabinet ; écriture et devises : admin et responsable des collaborateurs. `CoursSuggere` propose, sous le champ
+  « cours » des factures du stock (achat, vente) et des règlements fournisseurs, le cours du mois de la date, à appliquer d'un clic.
 - Imports de fichiers (lus dans le navigateur): classeur bancaire multi-feuilles
   (`lib/banqueClasseur.ts`, `lib/classeurExcel.ts`, dialogue `ImportReleveDialog`), état fournisseurs
   Excel (`lib/etatFournisseursClasseur.ts` + `etatFournisseursRapprochement.ts`, serveur

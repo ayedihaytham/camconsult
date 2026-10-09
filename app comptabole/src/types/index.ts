@@ -1034,3 +1034,21 @@ export interface EtatBanque {
   comptes: CompteBancaire[];
   mouvements: MouvementBancaire[];
 }
+
+// ── Cours de change (moyenne mensuelle du marché interbancaire) ──
+export interface DeviseChange {
+  code: string;
+  libelle: string;
+  /** Nombre d'unités de devise pour lesquelles le cours est donné (1 pour l'USD, 1000 pour le JPY). */
+  unite: number;
+  ordre: number;
+}
+
+export interface CoursChange {
+  devise: string;
+  annee: number;
+  /** 1 à 12 */
+  mois: number;
+  /** TND pour `unite` unités de la devise. */
+  cours: number;
+}

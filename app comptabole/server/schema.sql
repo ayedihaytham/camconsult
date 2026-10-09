@@ -1105,3 +1105,23 @@ update collecte_lignes
 update collecte_lignes set data = data - 'date_valeur' where onglet = 'bordereaux_remise_cheques' and data ? 'date_valeur';
 
 alter table fournisseur_suivi add column if not exists qte_proforma numeric not null default 0;
+
+-- Cours de change : moyenne mensuelle du marché interbancaire (TND pour `unite` unités de devise), par devise, année et mois.
+-- Les devises sont libres (USD, GBP, EUR au départ, d'autres s'ajoutent) ; supprimer une devise supprime ses cours.
+create table if not exists devises_change (
+  code    text primary key,
+  libelle text not null default '',
+  unite   int  not null default 1,   -- ex. JPY : cours pour 1000 unités
+  ordre   int  not null default 0
+);
+insert into devises_change (code, libelle, unite, ordre)
+  select * from (values ('USD', 'Dollar des USA', 1, 1), ('GBP', 'Livre Sterling', 1, 2), ('EUR', 'Euro', 1, 3)) as d(code, libelle, unite, ordre)
+  where not exists (select 1 from devises_change);
+create table if not exists cours_change (
+  devise text not null references devises_change(code) on delete cascade on update cascade,
+  annee  int  not null,
+  mois   int  not null check (mois between 1 and 12),
+  cours  numeric not null check (cours > 0),
+  maj_le timestamptz not null default now(),
+  primary key (devise, annee, mois)
+);

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Boxes, ChevronRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Boxes, ChevronRight, Coins } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -32,6 +32,15 @@ export function StockPage() {
         title="Gestion de stock"
         description="Choisissez une société pour consulter et enregistrer ses mouvements de stock."
         metrics={[]}
+        actions={
+          <Link
+            to="/cours-change"
+            className="inline-flex min-h-10 items-center gap-2 rounded-md border border-primary-foreground/30 px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-foreground/10"
+          >
+            <Coins className="size-4" aria-hidden="true" />
+            Cours de change
+          </Link>
+        }
       />
 
       <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="stock-societes">

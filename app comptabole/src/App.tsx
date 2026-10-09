@@ -57,6 +57,9 @@ const BordereauxPage = lazy(() =>
     default: m.BordereauxPage,
   })),
 );
+const CoursChangePage = lazy(() =>
+  import("@/pages/coursChange/CoursChangePage").then((m) => ({ default: m.CoursChangePage })),
+);
 const StockPage = lazy(() =>
   import("@/pages/stock/StockPage").then((m) => ({ default: m.StockPage })),
 );
@@ -280,6 +283,14 @@ export default function App() {
                 }
               />
               <Route element={<RequireEquipe />}>
+                <Route
+                  path="/cours-change"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <CoursChangePage />
+                    </Suspense>
+                  }
+                />
                 <Route
                   path="/stock"
                   element={

@@ -1,3 +1,4 @@
+import { CoursSuggere } from "@/components/common/CoursSuggere";
 import { useEffect, useMemo, useState } from "react";
 import {
   Sheet,
@@ -318,6 +319,7 @@ export function ReglementFormSheet({
             <div className="space-y-1.5">
               <Label htmlFor="rg-cours">Cours du jour (TND pour 1 {devise})</Label>
               <AmountInput id="rg-cours" decimals={5} allowNegative={false} value={cours} onValueChange={setCours} />
+              <CoursSuggere devise={devise} date={date} courant={cours} onAppliquer={setCours} />
             </div>
           )}
 

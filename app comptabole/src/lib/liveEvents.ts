@@ -1,4 +1,4 @@
-import { getToken } from "./api";
+import { getToken, setToken, signalSessionExpired } from "./api";
 
 interface LiveEventHandlers {
   onMessage?: () => void;
@@ -32,13 +32,21 @@ export function startLiveEvents(handlers: LiveEventHandlers): () => void {
     const token = getToken();
     if (!token) return;
     controller = new AbortController();
+    let ouvertDepuis = 0;
     try {
       const res = await fetch("/api/events", {
         headers: { Authorization: `Bearer ${token}` },
         signal: controller.signal,
       });
+      // Jeton refusé : inutile de réessayer en boucle, la session est à rouvrir.
+      if (res.status === 401 || res.status === 403) {
+        stopped = true;
+        setToken(null);
+        signalSessionExpired();
+        return;
+      }
       if (!res.ok || !res.body) throw new Error(`live-events ${res.status}`);
-      retryDelay = 1000;
+      ouvertDepuis = Date.now();
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -57,7 +65,11 @@ export function startLiveEvents(handlers: LiveEventHandlers): () => void {
       // connexion coupée/refusée — on retente ci-dessous
     }
     if (!stopped && myGeneration === generation) {
-      retryTimer = setTimeout(() => connect(generation), retryDelay);
+      // Une connexion qui a tenu plus de 10 s repart d'un délai court ; une connexion coupée aussitôt (proxy, redéploiement)
+      // double son délai pour ne pas marteler le serveur, avec un peu d'aléa pour que les onglets ne se synchronisent pas.
+      if (ouvertDepuis && Date.now() - ouvertDepuis > 10_000) retryDelay = 1000;
+      const delai = retryDelay + Math.floor(Math.random() * 500);
+      retryTimer = setTimeout(() => connect(generation), delai);
       retryDelay = Math.min(retryDelay * 2, 30_000);
     }
   }

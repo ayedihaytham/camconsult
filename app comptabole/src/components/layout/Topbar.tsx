@@ -108,15 +108,17 @@ function NotificationBell() {
   const refresh = useData((s) => s.refreshNotifications);
   const markRead = useData((s) => s.markNotificationsRead);
 
-  useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      "Notification" in window &&
-      Notification.permission === "default"
-    ) {
-      Notification.requestPermission().catch(() => {});
+  // Les notifications du navigateur se demandent à un clic de l'utilisateur (à l'ouverture de la cloche), jamais au chargement de la
+  // page : les navigateurs ignorent la demande sans geste et la signalent dans la console.
+  function demanderPermissionNotifications() {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      try {
+        void Notification.requestPermission().catch(() => {});
+      } catch {
+        /* navigateur sans cette API */
+      }
     }
-  }, []);
+  }
 
   useEffect(() => {
     // Poll en continu (même onglet en arrière-plan, où le navigateur ralentit
@@ -140,6 +142,7 @@ function NotificationBell() {
       <DropdownMenuTrigger asChild>
         <button
           className="relative flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:h-9 lg:w-9"
+          onClick={demanderPermissionNotifications}
           aria-label="Notifications"
         >
           <Bell className="h-[18px] w-[18px]" />

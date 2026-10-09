@@ -17,12 +17,31 @@ export function getToken(): string | null {
   }
 }
 export function setToken(token: string | null) {
+  // Un nouveau jeton (connexion) ré-arme le signal « session expirée ».
+  if (token) sessionExpiredSignaled = false;
   try {
     if (token) localStorage.setItem(TOKEN_KEY, token);
     else localStorage.removeItem(TOKEN_KEY);
   } catch {
     /* ignore */
   }
+}
+
+let sessionExpiredHandler: (() => void) | null = null;
+let sessionExpiredSignaled = false;
+
+/** Appelé quand le serveur refuse le jeton (session expirée après 12 h, serveur redéployé avec un autre secret…) : l'application
+ * repasse alors à la connexion au lieu de redemander, toutes les 20 s, des notifications qui échouent. */
+export function registerSessionExpiredHandler(fn: (() => void) | null) {
+  sessionExpiredHandler = fn;
+  sessionExpiredSignaled = false;
+}
+
+/** Signale une session expirée, une seule fois par connexion (plusieurs requêtes en vol échouent en même temps). */
+export function signalSessionExpired() {
+  if (sessionExpiredSignaled) return;
+  sessionExpiredSignaled = true;
+  sessionExpiredHandler?.();
 }
 
 export class ApiError extends Error {
@@ -95,7 +114,11 @@ async function request<T>(
       (typeof payload === "string" && !payload.trimStart().startsWith("<") ? payload : null) ||
       `Erreur ${res.status}`;
     // Session expirée : purge le jeton
-    if (res.status === 401) setToken(null);
+    if (res.status === 401) {
+      setToken(null);
+      // Seulement si un jeton avait été envoyé : un mauvais mot de passe à la connexion n'est pas une session expirée.
+      if (token) signalSessionExpired();
+    }
     throw new ApiError(message, res.status);
   }
 

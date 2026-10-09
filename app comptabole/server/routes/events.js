@@ -25,6 +25,8 @@ eventsRouter.get("/", (req, res) => {
   });
   res.write(": ok\n\n");
   addClient(userKey, res);
+  // Un client qui part brutalement (réseau coupé, onglet fermé) ne doit jamais produire d'erreur non gérée côté serveur.
+  res.on("error", () => {});
 
   const heartbeat = setInterval(() => {
     try {

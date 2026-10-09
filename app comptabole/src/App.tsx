@@ -14,6 +14,7 @@ import { RequireSuiviFournisseur } from "@/components/auth/RequireSuiviFournisse
 import { useAuth } from "@/store/auth";
 import { useData } from "@/store/data";
 import { registerQuotaHandler } from "@/lib/safeStorage";
+import { registerSessionExpiredHandler } from "@/lib/api";
 import { startLiveEvents } from "@/lib/liveEvents";
 
 const LoginPage = lazy(() =>
@@ -234,6 +235,12 @@ export default function App() {
 
   useEffect(() => {
     restore();
+    // Session expirée (jeton refusé par le serveur) : retour à la connexion, sans requêtes qui échouent en boucle.
+    registerSessionExpiredHandler(() => {
+      if (useAuth.getState().status !== "authed") return;
+      useAuth.setState({ status: "anon", session: null });
+      toast.info("Votre session a expiré : reconnectez-vous.");
+    });
     registerQuotaHandler(() =>
       toast.error("Stockage local saturé", {
         description: "Videz le cache du navigateur si le problème persiste.",

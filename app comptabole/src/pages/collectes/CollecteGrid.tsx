@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import type { CollecteLigne } from "@/types";
 import { cellNumber, repartitionGroupes, type TabDef, type TabRow } from "@/lib/collecte/tabs";
 import { TABLEAUX_GRAND_LIVRE } from "@/lib/collecte/grandLivre";
+import { plageNumeros } from "@/lib/collecte/souche";
 import { ImportDocumentDialog } from "./ImportDocumentDialog";
 
 interface Props {
@@ -182,6 +183,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   }
   const [importOpen, setImportOpen] = useState(false);
+  const [plageDebut, setPlageDebut] = useState("");
+  const [plageFin, setPlageFin] = useState("");
   const [envoi, setEnvoi] = useState<string | null>(null);
   async function joindre(i: number, key: string, file: File) {
     if (!onJoindre) return;
@@ -597,7 +600,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 >
                   {readOnly
                     ? "Aucune ligne saisie."
-                    : "Aucune ligne. Cliquez sur « Ajouter une ligne »."}
+                    : def.plageNumeros && canAdd
+                      ? `Indiquez ci-dessous les numéros de la souche : une ligne sera créée par ${def.plageNumeros.libelle}.`
+                      : "Aucune ligne. Cliquez sur « Ajouter une ligne »."}
                 </td>
               </tr>
             )}
@@ -684,6 +689,49 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </div>
       )}
 
+      {canAdd && def.plageNumeros && rows.length === 0 && (() => {
+        const plage = plageNumeros(plageDebut, plageFin);
+        const saisi = plageDebut.trim() !== "" && plageFin.trim() !== "";
+        const nom = def.plageNumeros.libelle;
+        return (
+          <div data-tour="collecte-plage" className="space-y-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-3">
+            <p className="text-sm font-semibold text-foreground">Avant de saisir : les numéros de votre souche</p>
+            <p className="text-xs text-muted-foreground">
+              Indiquez le premier et le dernier numéro de {nom} à remplir : une ligne est créée pour chaque numéro, vous n'avez plus qu'à compléter les autres cases.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="space-y-1 text-xs font-medium text-foreground">
+                N° du premier {nom}
+                <Input className="h-10 w-44" value={plageDebut} onChange={(e) => setPlageDebut(e.target.value)} placeholder="ex. 4001001" inputMode="text" />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-foreground">
+                N° du dernier {nom}
+                <Input className="h-10 w-44" value={plageFin} onChange={(e) => setPlageFin(e.target.value)} placeholder="ex. 4001025" inputMode="text" />
+              </label>
+              <Button
+                type="button"
+                variant="ledger"
+                className="min-h-10"
+                disabled={!plage.ok}
+                onClick={() => {
+                  if (!plage.ok) return;
+                  const col = def.plageNumeros!.col;
+                  addRows(plage.numeros.map((n) => ({ [col]: n })));
+                  setFocusRow(0);
+                }}
+              >
+                {plage.ok ? `Créer ${plage.numeros.length} ligne${plage.numeros.length > 1 ? "s" : ""}` : "Créer les lignes"}
+              </Button>
+            </div>
+            {saisi && !plage.ok && (
+              <p role="alert" className="text-xs text-destructive">
+                {plage.erreur}
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
       {canAdd && (
         <p className="text-xs text-muted-foreground">
           Saisissez directement dans le tableau : <kbd className="rounded border border-border px-1">Entrée</kbd> dans la dernière case ajoute la ligne suivante.
@@ -707,7 +755,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       {!readOnly && (
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {structureLocked ? <span /> : ajoutLigne()}
+            {structureLocked ? <span /> : def.plageNumeros && rows.length === 0 ? null : ajoutLigne()}
             {!structureLocked && TABLEAUX_GRAND_LIVRE[def.key] && (
               <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => setImportOpen(true)}>
                 <FileUp className="h-4 w-4" />

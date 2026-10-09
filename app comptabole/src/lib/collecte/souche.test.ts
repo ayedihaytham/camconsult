@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lignesSouchePourEtat } from "./souche";
+import { lignesSouchePourEtat, plageNumeros } from "./souche";
 
 const ligne = (onglet: string, ordre: number, data: Record<string, unknown>) => ({ id: `${onglet}${ordre}`, onglet, ordre, data });
 
@@ -28,5 +28,29 @@ describe("reprise de la souche de chèques dans l'état des chèques émis", () 
     const reprise = lignesSouchePourEtat({ lignes: souche });
     reprise[0].beneficiaire = "modifié";
     expect(souche[0].data.beneficiaire).toBe("A");
+  });
+});
+
+describe("plage de numéros d'une souche", () => {
+  it("crée un numéro par chèque, du premier au dernier inclus", () => {
+    expect(plageNumeros("4001001", "4001005")).toEqual({ ok: true, numeros: ["4001001", "4001002", "4001003", "4001004", "4001005"] });
+    expect(plageNumeros(" 12 ", "12")).toEqual({ ok: true, numeros: ["12"] });
+  });
+
+  it("garde les zéros de tête et un préfixe commun", () => {
+    expect(plageNumeros("0098", "0101")).toEqual({ ok: true, numeros: ["0098", "0099", "0100", "0101"] });
+    expect(plageNumeros("CH12", "CH14")).toEqual({ ok: true, numeros: ["CH12", "CH13", "CH14"] });
+  });
+
+  it("refuse une plage vide, inversée, sans chiffres, de préfixes différents ou trop grande", () => {
+    const erreur = (d: string, f: string) => {
+      const r = plageNumeros(d, f);
+      return r.ok ? null : r.erreur;
+    };
+    expect(erreur("", "5")).toMatch(/premier et le dernier/);
+    expect(erreur("10", "9")).toMatch(/supérieur ou égal/);
+    expect(erreur("abc", "abd")).toMatch(/chiffres/);
+    expect(erreur("A1", "B3")).toMatch(/même début/);
+    expect(erreur("1", "100000")).toMatch(/Au plus 500/);
   });
 });

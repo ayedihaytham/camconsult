@@ -186,6 +186,8 @@ export interface TabDef {
   groupe?: TabGroupe;
   /** Tableau tenu par le cabinet : le client le consulte sans pouvoir le modifier ni le transmettre, et il n'est ni dans sa checklist ni dans le récap. */
   cabinetSeul?: boolean;
+  /** Tableau qui s'ouvre en demandant la plage de numéros à remplir (de tel n° à tel n°) : une ligne est créée par numéro de la plage. */
+  plageNumeros?: { col: string; libelle: string };
 }
 
 const COLONNES_CHEQUES_EMIS: TabColumn[] = [
@@ -208,6 +210,8 @@ const TABLEAUX_DEFINIS: TabDef[] = [
     key: "souche_cheques",
     label: "Souche de chèques",
     pieceLabel: "Détail de la souche de chèques (chèques émis)",
+    // Le client indique d'abord les numéros de sa souche (du premier au dernier chèque) : une ligne est créée par chèque à remplir.
+    plageNumeros: { col: "num_cheque", libelle: "chèque" },
     totalKey: "montant",
     columns: COLONNES_CHEQUES_EMIS,
   },

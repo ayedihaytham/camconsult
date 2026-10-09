@@ -22,3 +22,28 @@ export function lignesSouchePourEtat(c: Pick<CollecteFull, "lignes">): TabRow[] 
   }
   return reprises;
 }
+
+/** Nombre maximal de lignes créées d'un coup à partir d'une plage de numéros (une souche compte rarement plus de 100 chèques). */
+export const PLAGE_MAX = 500;
+
+export type Plage = { ok: true; numeros: string[] } | { ok: false; erreur: string };
+
+/** Numéros de « début » à « fin » inclus : « 4001 » à « 4005 » donne 4001…4005. Les zéros de tête sont gardés (« 0098 » à « 0101 »)
+ * et un préfixe commun reste devant (« CH12 » à « CH14 »). */
+export function plageNumeros(debut: string, fin: string, max = PLAGE_MAX): Plage {
+  const d = debut.trim();
+  const f = fin.trim();
+  if (!d || !f) return { ok: false, erreur: "Indiquez le premier et le dernier numéro." };
+  const md = /^(.*?)(\d+)$/.exec(d);
+  const mf = /^(.*?)(\d+)$/.exec(f);
+  if (!md || !mf) return { ok: false, erreur: "Les numéros doivent se terminer par des chiffres." };
+  if (md[1] !== mf[1]) return { ok: false, erreur: "Les deux numéros doivent avoir le même début." };
+  const a = BigInt(md[2]);
+  const b = BigInt(mf[2]);
+  if (b < a) return { ok: false, erreur: "Le dernier numéro doit être supérieur ou égal au premier." };
+  if (b - a + 1n > BigInt(max)) return { ok: false, erreur: `Au plus ${max} numéros à la fois.` };
+  const largeur = md[2].startsWith("0") ? md[2].length : 0;
+  const numeros: string[] = [];
+  for (let n = a; n <= b; n++) numeros.push(md[1] + String(n).padStart(largeur, "0"));
+  return { ok: true, numeros };
+}

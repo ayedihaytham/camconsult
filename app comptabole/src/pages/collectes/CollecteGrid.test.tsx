@@ -352,7 +352,7 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
   });
 
   it("ne suit rien pour un tableau sans bordereau", () => {
-    const { ref } = renderGrid("souche_cheques");
+    const { ref } = renderGrid("virements_recus");
     ajouter();
     expect(suivi()).toBeNull();
     expect(ref.current?.isComplete()).toBe(true);
@@ -412,7 +412,7 @@ describe("CollecteGrid : pièce jointe d'une ligne de bordereau", () => {
     render(
       <CollecteGrid
         ref={ref}
-        def={TAB_BY_KEY.souche_cheques}
+        def={TAB_BY_KEY.virements_recus}
         lignes={[]}
         readOnly={false}
         devise="TND"
@@ -422,5 +422,48 @@ describe("CollecteGrid : pièce jointe d'une ligne de bordereau", () => {
     );
     ajouter();
     expect(screen.queryByLabelText(/Joindre un fichier/)).toBeNull();
+  });
+});
+
+describe("CollecteGrid : souche de chèques ouverte par une plage de numéros", () => {
+  const NUM = 1; // colonnes : 0 date, 1 n° chèque, 2 bénéficiaire…
+
+  it("demande d'abord le premier et le dernier numéro, sans proposer d'ajouter une ligne à la main", () => {
+    renderGrid("souche_cheques");
+    expect(screen.getByText("Avant de saisir : les numéros de votre souche")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
+    expect((screen.getByRole("button", { name: "Créer les lignes" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("crée une ligne par numéro de chèque, numéro déjà rempli, puis laisse ajouter des lignes", () => {
+    const { ref } = renderGrid("souche_cheques");
+    fireEvent.change(screen.getByLabelText(/N° du premier chèque/), { target: { value: "4001001" } });
+    fireEvent.change(screen.getByLabelText(/N° du dernier chèque/), { target: { value: "4001004" } });
+    fireEvent.click(screen.getByRole("button", { name: "Créer 4 lignes" }));
+    expect(lignes()).toHaveLength(4);
+    expect(lignes().map((l) => champs(l)[NUM].value)).toEqual(["4001001", "4001002", "4001003", "4001004"]);
+    expect(ref.current?.isDirty()).toBe(true);
+    // La plage a été saisie : le panneau disparaît et l'ajout de ligne est de nouveau proposé.
+    expect(screen.queryByText("Avant de saisir : les numéros de votre souche")).toBeNull();
+    expect(screen.getByRole("button", { name: "Ajouter une ligne" })).toBeTruthy();
+  });
+
+  it("signale une plage incorrecte et ne crée rien", () => {
+    renderGrid("souche_cheques");
+    fireEvent.change(screen.getByLabelText(/N° du premier chèque/), { target: { value: "20" } });
+    fireEvent.change(screen.getByLabelText(/N° du dernier chèque/), { target: { value: "10" } });
+    expect(screen.getByRole("alert").textContent).toMatch(/supérieur ou égal/);
+    expect((screen.getByRole("button", { name: "Créer les lignes" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(lignes()).toHaveLength(0);
+  });
+
+  it("ne demande rien en lecture seule, ni pour un autre tableau", () => {
+    cleanup();
+    renderGrid("souche_cheques", undefined, { readOnly: true });
+    expect(screen.queryByText("Avant de saisir : les numéros de votre souche")).toBeNull();
+    cleanup();
+    renderGrid("virements_recus");
+    expect(screen.queryByText("Avant de saisir : les numéros de votre souche")).toBeNull();
+    expect(screen.getByRole("button", { name: "Ajouter une ligne" })).toBeTruthy();
   });
 });

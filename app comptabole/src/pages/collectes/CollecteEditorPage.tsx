@@ -62,6 +62,7 @@ import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
 import { SectionCircuit } from "./SectionCircuit";
+import { TableauxNonDemandes } from "./TableauxNonDemandes";
 import {
   FileUploadDialog,
   type NewFichier,
@@ -620,6 +621,15 @@ export function CollecteEditorPage() {
                     : undefined
                 }
               />
+              {canManageCollaborateurs && !archivee && (
+                <TableauxNonDemandes
+                  demandes={collecte.onglets}
+                  onAjouter={async (k) => {
+                    await update(id, { onglets: ordonnerTableaux([...collecte.onglets, k]) });
+                    toast.success(`« ${TAB_BY_KEY[k]?.label ?? k} » ajouté à la collecte`);
+                  }}
+                />
+              )}
             </TabsContent>
 
             {/* ── Documents (pièces jointes réelles) ─── */}

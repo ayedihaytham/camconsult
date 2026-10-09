@@ -145,6 +145,16 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "souche_cheques", "traites_escomptees"] }));
   });
 
+  it("la checklist propose au cabinet d'ajouter les tableaux pas encore demandés, états compris", async () => {
+    renderPage();
+    const zone = screen.getByRole("region", { name: "Tableaux non demandés" });
+    // Les deux tableaux de l'état des chèques sont déjà demandés : ils ne sont pas proposés.
+    expect(within(zone).queryByRole("button", { name: /Bordereaux remise de chèques/ })).toBeNull();
+    expect(within(zone).getByRole("button", { name: /Ajouter « Virements émis »/ })).toBeTruthy();
+    fireEvent.click(within(zone).getByRole("button", { name: /Ajouter « Traites escomptées »/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "souche_cheques", "traites_escomptees"] }));
+  });
+
   it("garde tous les onglets sur une seule ligne, avec défilement horizontal plutôt qu'un retour à la ligne", () => {
     renderPage();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });

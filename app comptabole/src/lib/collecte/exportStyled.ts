@@ -4,14 +4,17 @@
 // demande (lourd), uniquement au moment de l'export.
 import type { Workbook, Worksheet } from "exceljs";
 import type { CollecteFull } from "@/types";
-import { TAB_BY_KEY, cellNumber, titreDocument } from "./tabs";
+import { TAB_BY_KEY, cellNumber, ordonnerTableaux, titreDocument } from "./tabs";
 import { checklistRows } from "./checklist";
 import { colonnesDocument, lignesDocument } from "./exportXlsx";
 
 const BLEU = "FF1F4E79";
 const JAUNE = "FFFFFF00";
 const ORANGE_CLAIR = "FFFFE699";
-const GRIS_BORD = "FFBFBFBF";
+const GRIS_BORD = "FFC8C8C8";
+/** Lignes en alternance et ligne TOTAL, comme le PDF. */
+const GRIS_LIGNE = "FFF7F8FA";
+const FOND_TOTAL = "FFE8EEF5";
 const MONTANT = "#,##0.000";
 /** Lignes de saisie proposées même si le client en a rempli moins (comme le modèle). */
 const LIGNES_MIN = 25;
@@ -65,16 +68,17 @@ function titre(ws: Worksheet, texte: string, sousTitre: string) {
   s.font = { italic: true, size: 10, color: { argb: "FF7F7F7F" } };
 }
 
-/** Feuille d'un tableau de saisie (souche de chèques, bordereaux…). */
-function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
+/** Feuille d'un tableau de saisie : même présentation que le PDF du tableau (voir exportPdf) — titre et sous-titre, bandeau
+ * d'en-têtes bleu foncé, lignes saisies à fond blanc et gris clair en alternance, ligne TOTAL en gras sur fond bleu pâle.
+ * Mêmes colonnes et mêmes lignes que le PDF (voir colonnesDocument / lignesDocument). */
+export function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string, societeNom = "") {
   const def = TAB_BY_KEY[key];
   if (!def) return;
   if (key === "etat_caisse") return feuilleCaisse(wb, collecte);
   const ws = wb.addWorksheet(def.label.slice(0, 31), { views: [{ state: "frozen", ySplit: 4 }] });
-  titre(ws, titreDocument(def), SOUS_TITRE);
   const devise = deviseLabel(collecte);
-  // Mêmes colonnes et mêmes lignes que le PDF (voir sectionReport) : sans les colonnes laissées de côté, sans la ligne d'en-tête
-  // des bordereaux.
+  const sousTitre = [societeNom, collecte.periode.trim() && `Période : ${collecte.periode}`, `Devise : ${devise}`].filter(Boolean).join(" · ");
+  titre(ws, titreDocument(def), sousTitre);
   const colonnes = colonnesDocument(def);
   // Montants : « Montant HT (€) » ; jamais pour un pourcentage (« TVA % »).
   const isPct = (c: { label: string }) => c.label.includes("%");
@@ -85,7 +89,7 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
       c.type === "number" && !isPct(c) && !/\(.+\)$/.test(c.label) ? `${c.label} (${devise})` : c.label,
     ),
   );
-  const lettreDe = (key: string) => colLetter(colonnes.findIndex((c) => c.key === key) + 1);
+  const lettreDe = (k: string) => colLetter(colonnes.findIndex((c) => c.key === k) + 1);
   ws.columns = colonnes.map((c) => ({ width: Math.max(12, Math.round((c.width ?? 140) / 7)) }));
 
   const data = lignesDocument(
@@ -96,59 +100,65 @@ function feuilleOnglet(wb: Workbook, collecte: CollecteFull, key: string) {
       .map((l) => l.data),
   );
   const derived = def.derive ? def.derive(data) : data;
-  const nb = Math.max(LIGNES_MIN, derived.length);
   const first = 5;
-  const last = first + nb - 1;
+  const last = first + derived.length - 1;
 
-  for (let i = 0; i < nb; i++) {
+  if (derived.length === 0) {
+    ws.mergeCells(first, 1, first, colonnes.length);
+    const vide = ws.getCell(first, 1);
+    vide.value = "Aucune ligne saisie.";
+    vide.font = { italic: true, color: { argb: "FF6E6E6E" } };
+    vide.alignment = { horizontal: "center" };
+    vide.border = border;
+  }
+
+  derived.forEach((src, i) => {
     const r = ws.getRow(first + i);
-    const src = derived[i];
     colonnes.forEach((col, j) => {
       const c = r.getCell(j + 1);
-      const v = src?.[col.key];
+      const v = src[col.key];
       if (col.excelFormula) {
-        // Colonne calculée : vraie formule, sur TOUTES les lignes de saisie
-        // (y compris vides), pour qu'elle suive ce que le client tape dans Excel.
-        c.value = {
-          formula: col.excelFormula(first + i, lettreDe),
-          result: v != null && v !== "" && src ? cellNumber(v) : "",
-        };
+        // Colonne calculée : vraie formule, pour qu'elle suive ce qu'on modifie dans Excel.
+        c.value = { formula: col.excelFormula(first + i, lettreDe), result: v != null && v !== "" ? cellNumber(v) : "" };
       } else if (v != null && v !== "") {
         c.value = col.type === "number" ? cellNumber(v) : col.type === "date" ? toDate(v) : String(v);
       }
       if (col.excelNumFmt) c.numFmt = col.excelNumFmt;
       else if (col.type === "number" && !isPct(col)) c.numFmt = MONTANT;
       if (col.type === "date") c.numFmt = "dd/mm/yyyy";
-      // jaune = saisie client ; blanc = calculé (dans l'app ou dans Excel)
-      if (!col.computed && !col.excelFormula) c.fill = fill(JAUNE);
+      c.alignment = { horizontal: col.type === "number" ? "right" : "left", vertical: "middle" };
       c.border = border;
+      c.fill = fill(i % 2 === 1 ? GRIS_LIGNE : "FFFFFFFF");
       if (col.type === "select" && col.options?.length) {
         const liste = col.options.join(",");
         if (!col.options.some((o) => o.includes(",")) && liste.length < 250)
           c.dataValidation = { type: "list", allowBlank: true, formulae: [`"${liste}"`] };
       }
     });
-  }
+  });
 
-  // Ligne TOTAL (formules : suivent les modifications faites dans Excel).
-  // Libellé dans la colonne juste avant le premier total, comme le modèle.
+  // Ligne TOTAL juste sous les lignes (formules : suivent les modifications faites dans Excel), comme le PDF.
   const totaux = (def.excelTotalKeys ?? (def.totalKey ? [def.totalKey] : []))
-    .map((key) => ({ key, idx: colonnes.findIndex((c) => c.key === key) }))
+    .map((k) => ({ key: k, idx: colonnes.findIndex((c) => c.key === k) }))
     .filter((t) => t.idx >= 0);
-  if (totaux.length > 0) {
-    const r = ws.getRow(last + 2);
-    const lab = r.getCell(Math.max(1, Math.min(...totaux.map((t) => t.idx))));
-    lab.value = def.excelTotalLabel ?? (def.totalLabel ?? "Total").toUpperCase();
-    lab.font = { bold: true };
-    for (const { key, idx } of totaux) {
+  if (totaux.length > 0 && derived.length > 0) {
+    const r = ws.getRow(last + 1);
+    colonnes.forEach((_, j) => {
+      const c = r.getCell(j + 1);
+      c.fill = fill(FOND_TOTAL);
+      c.border = border;
+      c.font = { bold: true };
+    });
+    r.getCell(1).value = def.excelTotalLabel ?? (def.totalLabel ?? "Total").toUpperCase();
+    for (const { key: k, idx } of totaux) {
       const lettre = colLetter(idx + 1);
       const tot = r.getCell(idx + 1);
       tot.value = {
         formula: `SUM(${lettre}${first}:${lettre}${last})`,
-        result: Math.round(derived.reduce((s, x) => s + cellNumber(x[key]), 0) * 1000) / 1000,
+        result: Math.round(derived.reduce((sum, x) => sum + cellNumber(x[k]), 0) * 1000) / 1000,
       };
       tot.numFmt = MONTANT;
-      tot.font = { bold: true };
+      tot.alignment = { horizontal: "right" };
     }
   }
 }
@@ -332,7 +342,7 @@ async function nouveauClasseur() {
 export async function exportCollecteStyled(collecte: CollecteFull, societeNom: string) {
   const wb = await nouveauClasseur();
   feuilleChecklist(wb, collecte, societeNom);
-  for (const key of collecte.onglets) feuilleOnglet(wb, collecte, key);
+  for (const key of ordonnerTableaux(collecte.onglets)) feuilleOnglet(wb, collecte, key, societeNom);
   await telecharger(wb, `Collecte_${safe(`${societeNom}-${collecte.periode}`)}.xlsx`);
 }
 
@@ -342,6 +352,6 @@ export async function exportSectionStyled(collecte: CollecteFull, section: strin
   const nom =
     section === "checklist" ? "Checklist" : (TAB_BY_KEY[section]?.label ?? section);
   if (section === "checklist") feuilleChecklist(wb, collecte, societeNom);
-  else feuilleOnglet(wb, collecte, section);
+  else feuilleOnglet(wb, collecte, section, societeNom);
   await telecharger(wb, `${safe(nom)}_${safe(`${societeNom}-${collecte.periode}`)}.xlsx`);
 }

@@ -118,6 +118,8 @@ export interface TabGroupe {
   prefill: string[];
   /** « Bordereau » : nom d'un groupe dans les messages */
   libelle: string;
+  /** Texte du bouton qui ajoute une ligne à un groupe : « Ajouter un chèque ». */
+  ajout: string;
 }
 
 export interface RepartitionGroupe {
@@ -237,6 +239,7 @@ const TABLEAUX_DEFINIS: TabDef[] = [
       montantCol: "montant_cheque",
       prefill: ["date_remise", "num_bordereau", "banque"],
       libelle: "Bordereau",
+      ajout: "Ajouter un chèque",
     },
     columns: [
       { key: "date_remise", label: "Date de remise", type: "date", width: 130 },
@@ -345,6 +348,7 @@ const TABLEAUX_DEFINIS: TabDef[] = [
       montantCol: "montant_traite",
       prefill: ["date_remise", "num_bordereau", "banque"],
       libelle: "Bordereau",
+      ajout: "Ajouter une traite",
     },
     columns: [
       { key: "date_remise", label: "Date de remise", type: "date", width: 130 },

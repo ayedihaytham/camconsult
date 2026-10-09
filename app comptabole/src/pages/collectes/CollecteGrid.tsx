@@ -138,6 +138,31 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
    * encore atteint son montant (un bordereau), la ligne reprend la date, le n° et la banque du groupe. `nouveau` force une ligne
    * vierge : le début d'un autre bordereau, même si le précédent n'est pas terminé. */
   function addRow(groupeId?: string, nouveau = false) {
+    // Une ligne vierge est déjà en bas du tableau : on y place le curseur au lieu d'en empiler d'autres.
+    const derniere = rows[rows.length - 1];
+    if (!groupeId && derniere && ligneVide(def, derniere)) {
+      setFocusRow(rows.length - 1);
+      setFocusCol(null);
+      return;
+    }
+    // Même chose dans un bordereau : sa dernière ligne attend encore son chèque, c'est elle qu'on remplit.
+    const gr = def.groupe;
+    if (gr && groupeId && !nouveau) {
+      const idx = rows.map((r) => idLigne(r)).lastIndexOf(groupeId);
+      const r = idx >= 0 ? rows[idx] : null;
+      const attend =
+        r !== null &&
+        !estEnteteBordereau(idx) &&
+        def.columns
+          .filter((c) => !c.computed && !gr.prefill.includes(c.key) && c.key !== gr.totalCol)
+          .every((c) => String(r[c.key] ?? "").trim() === "" && !(c.piece && r[`${c.key}_fichier`]));
+      if (attend) {
+        setOuverts((o) => new Set(o).add(groupeId));
+        setFocusRow(idx);
+        setFocusCol(def.columns.find((c) => !c.computed && !gr.prefill.includes(c.key) && c.key !== gr.totalCol)?.key ?? null);
+        return;
+      }
+    }
     setSaved(false);
     setSaveError(false);
     const vide = Object.fromEntries(def.columns.map((c) => [c.key, ""]));
@@ -335,8 +360,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   /** « Ajouter une ligne » : dans un tableau à bordereaux, on choisit entre un NOUVEAU bordereau et une ligne de plus dans
    * un bordereau existant (un chèque de plus, qui reprend sa date, son n° et sa banque). */
   function ajoutLigne() {
-    const nom = def.groupe?.libelle.toLowerCase() ?? "groupe";
-    if (!def.groupe || groupes.length === 0) {
+    const g = def.groupe;
+    const nom = g?.libelle.toLowerCase() ?? "groupe";
+    if (!g || groupes.length === 0) {
       return (
         <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow()}>
           <Plus className="h-4 w-4" />
@@ -344,32 +370,41 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </Button>
       );
     }
+    // Deux actions seulement : « Nouveau bordereau » (une ligne vierge, autre bordereau) et « Ajouter un chèque » (une ligne de plus dans
+    // un bordereau existant : même date, même n°, même banque).
     return (
       <>
         <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow(undefined, true)}>
           <Plus className="h-4 w-4" />
           Nouveau {nom}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8">
-              <Plus className="h-4 w-4" />
-              Ajouter à un {nom}
-              <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-72 overflow-auto">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Une ligne de plus dans…</DropdownMenuLabel>
-            {groupes.map((g) => (
-              <DropdownMenuItem key={g.id} onSelect={() => addRow(g.id)}>
-                <span className="font-semibold">{g.nom}</span>
-                <span className="ml-3 text-xs text-muted-foreground">
-                  {g.complet ? "complet" : g.reste > 0 ? `reste ${montantFr(g.reste)} ${symboleGroupe}` : `dépassé de ${montantFr(-g.reste)} ${symboleGroupe}`}
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {groupes.length === 1 ? (
+          <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow(groupes[0].id)}>
+            <Plus className="h-4 w-4" />
+            {g.ajout}
+          </Button>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8">
+                <Plus className="h-4 w-4" />
+                {g.ajout}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-72 overflow-auto">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Dans quel {nom} ?</DropdownMenuLabel>
+              {groupes.map((x) => (
+                <DropdownMenuItem key={x.id} onSelect={() => addRow(x.id)}>
+                  <span className="font-semibold">{x.nom}</span>
+                  <span className="ml-3 text-xs text-muted-foreground">
+                    {x.complet ? "complet" : x.reste > 0 ? `reste ${montantFr(x.reste)} ${symboleGroupe}` : `dépassé de ${montantFr(-x.reste)} ${symboleGroupe}`}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </>
     );
   }
@@ -723,22 +758,11 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                   onClick={() => addRow(g.id)}
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  {g.complet ? `Ajouter un chèque à ce ${def.groupe?.libelle.toLowerCase()}` : `Ajouter une ligne à ce ${def.groupe?.libelle.toLowerCase()}`}
+                  {def.groupe?.ajout} à ce {def.groupe?.libelle.toLowerCase()}
                 </Button>
               )}
             </div>
           ))}
-          {canAdd && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-2">
-              <Button type="button" variant="outline" size="sm" className="min-h-8" onClick={() => addRow(undefined, true)}>
-                <Plus className="h-3.5 w-3.5" />
-                Commencer un nouveau {def.groupe?.libelle.toLowerCase()}
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Ajouter à un {def.groupe?.libelle.toLowerCase()} existant garde sa date, son n° et sa banque ; un nouveau {def.groupe?.libelle.toLowerCase()} démarre une ligne vierge.
-              </span>
-            </div>
-          )}
         </div>
       )}
 

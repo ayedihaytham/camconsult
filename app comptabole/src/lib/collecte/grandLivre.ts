@@ -112,6 +112,7 @@ export function lireGrandLivre(pages: string[][][]): GrandLivre | null {
 /** Tableaux de la collecte qu'un grand-livre peut alimenter, et la nature d'écriture de chacun. */
 export const TABLEAUX_GRAND_LIVRE: Record<string, { natures: NatureEcriture[]; titre: string }> = {
   souche_cheques: { natures: ["cheque_emis"], titre: "Chèques émis" },
+  etat_cheques_emis: { natures: ["cheque_emis"], titre: "Chèques émis" },
   bordereaux_remise_cheques: { natures: ["cheque_recu"], titre: "Chèques encaissés" },
   bordereaux_traites_recues: { natures: ["effet_recu"], titre: "Traites encaissées" },
   virements_recus: { natures: ["virement_recu"], titre: "Virements reçus" },
@@ -140,6 +141,7 @@ export function lignesPourTableau(onglet: string, ecritures: EcritureLivre[]): T
       const { base, numero, reste } = decouperLibelle(e.libelle);
       switch (onglet) {
         case "souche_cheques":
+        case "etat_cheques_emis":
           return { date: e.date, num_cheque: numero, beneficiaire: reste, motif: MOTIFS[maj(base)] ?? base, montant: e.debit, compte_bancaire: e.journal, observations: "" };
         case "bordereaux_remise_cheques":
           return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_cheque: numero, client_emetteur: reste, montant_cheque: e.credit, date_echeance: "", observations: "" };

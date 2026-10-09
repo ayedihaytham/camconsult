@@ -46,7 +46,9 @@ The backend lives in `app comptabole/server/`:
 - Collecte de pièces, états : `COLLECTE_ETATS` (`lib/collecte/tabs.ts`) regroupe des tableaux en états — CHQ (bordereaux
   remise de chèques, chèques émis), VRT (virements reçus, émis, multiple/salaires), TR (bordereaux traites reçues, traites
   émises, traites escomptées). Chaque tableau reste un onglet à part entière (saisie, circuit, export) ; l'état n'est qu'un
-  regroupement d'affichage (onglets, liste des tableaux, checklist). Date de valeur = date d'échéance (`date_echeance`).
+  regroupement d'affichage (onglets, liste des tableaux, checklist). « Souche de chèques » (`souche_cheques`) reste un tableau
+  à part, rempli par le client ; « État des chèques émis » (`etat_cheques_emis`, mêmes colonnes) est dans l'état CHQ et tenu par le
+  cabinet seul (`cabinetSeul`, `CABINET_SEUL` côté serveur : lecture seule pour le client, hors checklist, récap et calcul du statut). Date de valeur = date d'échéance (`date_echeance`).
   PDF, impression et Excel d'un tableau partagent `colonnesDocument` / `lignesDocument` (`lib/collecte/exportXlsx.ts`).
 - Internal team (`RequireEquipe`): `/taches`, `/stock`, `/stock/:societeId`,
   `/etats-financiers`, `/etats-financiers/:societeId`, its print route and

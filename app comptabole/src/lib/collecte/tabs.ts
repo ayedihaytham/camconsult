@@ -184,15 +184,11 @@ export interface TabDef {
   provisional?: boolean;
   /** lignes à répartir jusqu'à atteindre un montant annoncé (bordereaux de remise de chèques) */
   groupe?: TabGroupe;
+  /** Tableau tenu par le cabinet : le client le consulte sans pouvoir le modifier ni le transmettre, et il n'est ni dans sa checklist ni dans le récap. */
+  cabinetSeul?: boolean;
 }
 
-const TABLEAUX_DEFINIS: TabDef[] = [
-  {
-    key: "souche_cheques",
-    label: "État des chèques émis",
-    pieceLabel: "État des chèques émis",
-    totalKey: "montant",
-    columns: [
+const COLONNES_CHEQUES_EMIS: TabColumn[] = [
       { key: "date", label: "Date", type: "date", width: 130 },
       { key: "num_cheque", label: "N° Chèque", type: "text", width: 130 },
       { key: "beneficiaire", label: "Bénéficiaire", type: "text", width: 220 },
@@ -205,7 +201,24 @@ const TABLEAUX_DEFINIS: TabDef[] = [
         width: 170,
       },
       { key: "observations", label: "Observations", type: "text", width: 220 },
-    ],
+    ];
+
+const TABLEAUX_DEFINIS: TabDef[] = [
+  {
+    key: "souche_cheques",
+    label: "Souche de chèques",
+    pieceLabel: "Détail de la souche de chèques (chèques émis)",
+    totalKey: "montant",
+    columns: COLONNES_CHEQUES_EMIS,
+  },
+  {
+    key: "etat_cheques_emis",
+    label: "État des chèques émis",
+    pieceLabel: "État des chèques émis",
+    // Tableau tenu par le comptable : il reprend la souche remplie par le client, la vérifie et ajoute le nécessaire.
+    cabinetSeul: true,
+    totalKey: "montant",
+    columns: COLONNES_CHEQUES_EMIS,
   },
   {
     key: "bordereaux_remise_cheques",
@@ -645,7 +658,7 @@ export interface EtatCollecte {
 }
 
 export const COLLECTE_ETATS: EtatCollecte[] = [
-  { key: "cheques", code: "CHQ", label: "État des chèques", tableaux: ["bordereaux_remise_cheques", "souche_cheques"] },
+  { key: "cheques", code: "CHQ", label: "État des chèques", tableaux: ["bordereaux_remise_cheques", "etat_cheques_emis"] },
   { key: "virements", code: "VRT", label: "État des virements", tableaux: ["virements_recus", "virements_emis", "virements_salaire"] },
   { key: "traites", code: "TR", label: "État des traites", tableaux: ["bordereaux_traites_recues", "traites_emises", "traites_escomptees"] },
 ];
@@ -681,3 +694,6 @@ export const COLLECTE_STATUT_LABELS: Record<CollecteStatut, string> = {
   a_corriger: "À corriger",
   archive: "Archivée",
 };
+
+/** Clés des tableaux tenus par le cabinet seul. */
+export const TABLEAUX_CABINET_SEUL = COLLECTE_TABS.filter((t) => t.cabinetSeul).map((t) => t.key);

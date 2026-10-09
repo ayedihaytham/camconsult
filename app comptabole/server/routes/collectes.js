@@ -24,6 +24,7 @@ collectesRouter.use(requireAuth);
 // Clés d'onglets valides — miroir de src/lib/collecte/tabs.ts
 const TAB_KEYS = new Set([
   "souche_cheques",
+  "etat_cheques_emis",
   "bordereaux_remise_cheques",
   "virements_recus",
   "virements_emis",
@@ -124,8 +125,11 @@ function canEdit(session, societeId) {
 }
 
 const SECTION_OUVERTES = ["brouillon", "a_corriger"];
+/** Tableaux tenus par le cabinet seul (miroir de TABLEAUX_CABINET_SEUL, src/lib/collecte/tabs.ts) : le client les consulte seulement. */
+const CABINET_SEUL = ["etat_cheques_emis"];
 const LIBELLES_ONGLETS = {
-  souche_cheques: "État des chèques émis",
+  souche_cheques: "Souche de chèques",
+  etat_cheques_emis: "État des chèques émis",
   bordereaux_remise_cheques: "Bordereaux remise de chèques",
   virements_recus: "Virements reçus",
   virements_emis: "Virements émis",
@@ -154,7 +158,7 @@ async function isLocked(session, collecte) {
   if (collecte.statut === "archive") return true;
   if (session.poste !== "societe_employe") return false;
   const rows = (
-    await query("select statut, recap_statut from collecte_sections where collecte_id=$1", [collecte.id])
+    await query("select statut, recap_statut from collecte_sections where collecte_id=$1 and onglet <> all($2::text[])", [collecte.id, CABINET_SEUL])
   ).rows;
   return !rows.some((r) => SECTION_OUVERTES.includes(sectionStatutDe(collecte, r)) || r.recap_statut === "envoye");
 }
@@ -164,6 +168,7 @@ async function isLocked(session, collecte) {
  * modifie que ses tableaux « à remplir » ou « à corriger » (ou en récap demandé par le cabinet). */
 async function isOngletLocked(session, collecte, onglet) {
   if (collecte.statut === "archive") return true;
+  if (session.poste === "societe_employe" && CABINET_SEUL.includes(onglet)) return true;
   const row = (
     await query("select statut, recap_statut from collecte_sections where collecte_id=$1 and onglet=$2", [collecte.id, onglet])
   ).rows[0];
@@ -179,7 +184,9 @@ async function isOngletLocked(session, collecte, onglet) {
 async function recalculerStatut(client, collecteId) {
   const c = (await client.query("select statut from collectes where id=$1 for update", [collecteId])).rows[0];
   if (!c || c.statut === "archive") return c?.statut;
-  const statuts = (await client.query("select statut from collecte_sections where collecte_id=$1", [collecteId])).rows.map(
+  const statuts = (
+    await client.query("select statut from collecte_sections where collecte_id=$1 and onglet <> all($2::text[])", [collecteId, CABINET_SEUL])
+  ).rows.map(
     (r) => r.statut ?? "brouillon",
   );
   if (statuts.length === 0) return c.statut;
@@ -325,8 +332,8 @@ collectesRouter.patch("/:id", async (req, res) => {
       const { rowCount } = await client.query(
         `update collecte_sections set statut='transmis', transmis_le=now(),
            recap_statut = case when recap_statut = 'envoye' then 'repondu' else recap_statut end
-         where collecte_id=$1 and (statut = any($2::text[]) or recap_statut = 'envoye')`,
-        [req.params.id, SECTION_OUVERTES],
+         where collecte_id=$1 and onglet <> all($3::text[]) and (statut = any($2::text[]) or recap_statut = 'envoye')`,
+        [req.params.id, SECTION_OUVERTES, CABINET_SEUL],
       );
       if (rowCount === 0) return false;
       await recalculerStatut(client, req.params.id);
@@ -831,6 +838,7 @@ collectesRouter.post("/:id/sections/:onglet/transmettre", async (req, res) => {
   if (!ctx) return;
   if (req.session.poste !== "societe_employe" || !canEdit(req.session, ctx.c.societe_id))
     return res.status(403).json({ error: "Réservé au client de la société" });
+  if (CABINET_SEUL.includes(ctx.onglet)) return res.status(400).json({ error: "Ce tableau est tenu par le cabinet" });
   if (!SECTION_OUVERTES.includes(ctx.statut)) return res.status(400).json({ error: "Ce tableau est déjà transmis" });
   const incomplet = req.body?.incomplet === true;
   await changerSection(req, res, ctx, { depuis: SECTION_OUVERTES, vers: "transmis", journal: incomplet ? "Transmis (incomplet)" : "Transmis" });

@@ -99,7 +99,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   // des autres, jamais un envoi global pour toute la collecte.
   const rows = useMemo(
     () =>
-      collecte.onglets.map((onglet) => ({
+      collecte.onglets.filter((onglet) => !TAB_BY_KEY[onglet]?.cabinetSeul).map((onglet) => ({
         onglet,
         count: live.filter((m) => m.onglet === onglet).length,
         statut: sectionRecapStatut(collecte, onglet),

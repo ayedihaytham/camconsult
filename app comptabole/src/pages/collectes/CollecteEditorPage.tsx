@@ -62,6 +62,7 @@ import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
 import { SectionCircuit } from "./SectionCircuit";
+import { lignesSouchePourEtat } from "@/lib/collecte/souche";
 import { TableauxNonDemandes } from "./TableauxNonDemandes";
 import {
   FileUploadDialog,
@@ -214,7 +215,7 @@ export function CollecteEditorPage() {
   /** Tableau modifiable par cette session : jamais un tableau archivé ; le client seulement tant qu'il est ouvert. */
   const editableTab = (key: string) => {
     const st = sectionStatut(collecte, key);
-    return !archivee && st !== "archive" && (isAdmin || isStaff || (isClient && sectionOuverte(st)));
+    return !archivee && st !== "archive" && (isAdmin || isStaff || (isClient && sectionOuverte(st) && !TAB_BY_KEY[key]?.cabinetSeul));
   };
   // Cabinet = admin ou collaborateur : peut envoyer/clore un récap par
   // tableau et écrire des notes — pas réservé à l'admin.
@@ -734,7 +735,37 @@ export function CollecteEditorPage() {
                     dirty={tab === key && dirtyTableau}
                   />
                   <div className="space-y-4 p-3 lg:p-4">
-                    {!preview && !archivee && (
+                    {!preview && !archivee && def.cabinetSeul && (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-muted/20 px-3 py-2">
+                        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-muted-foreground">Tenu par le cabinet</span>
+                        <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+                          {isClient
+                            ? "Le comptable tient ce tableau : vous pouvez le consulter, pas le modifier."
+                            : "Reprenez la souche de chèques remplie par le client, vérifiez-la et ajoutez le nécessaire. Le client ne voit ce tableau qu'en consultation."}
+                        </p>
+                        {!isClient && editableTab(key) && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="min-h-9 gap-1.5"
+                            onClick={() => {
+                              const nouvelles = lignesSouchePourEtat(collecte);
+                              if (nouvelles.length === 0) {
+                                toast.info("Rien de nouveau à reprendre de la souche de chèques.");
+                                return;
+                              }
+                              gridRef.current?.ajouterLignes(nouvelles);
+                              toast.success(`${nouvelles.length} ligne${nouvelles.length > 1 ? "s" : ""} reprise${nouvelles.length > 1 ? "s" : ""} de la souche — pensez à enregistrer`);
+                            }}
+                          >
+                            <Download className="h-4 w-4" />
+                            Reprendre la souche de chèques
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    {!preview && !archivee && !def.cabinetSeul && (
                       <SectionCircuit
                         label={def.label}
                         statut={sectionStatut(collecte, key)}

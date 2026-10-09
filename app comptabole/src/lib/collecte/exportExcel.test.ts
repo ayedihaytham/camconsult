@@ -95,8 +95,8 @@ describe("Excel : colonne calculée", () => {
 
 describe("Excel de la checklist : en-têtes et valeurs dans les mêmes colonnes", () => {
   const c = {
-    ...collecte("souche_cheques", [{ date: "2026-10-03", montant: 350 }]),
-    onglets: ["etat_caisse", "traites_escomptees", "souche_cheques"],
+    ...collecte("bordereaux_remise_cheques", [{ date_remise: "2026-10-03", num_bordereau: "1", montant: 350, montant_cheque: 350 }]),
+    onglets: ["etat_caisse", "traites_escomptees", "bordereaux_remise_cheques"],
     majLe: "2026-10-08T10:00:00.000Z",
   } as CollecteFull;
   const wb = new ExcelJS.Workbook();
@@ -106,8 +106,8 @@ describe("Excel de la checklist : en-têtes et valeurs dans les mêmes colonnes"
   it("place chaque valeur sous son en-tête, à partir de la colonne A", () => {
     expect(texte(ws, 4)).toEqual(["Pièce à transmettre", "Onglet correspondant", "Période concernée", "Statut", "Date de réception", "Total (TND)", "Commentaire"]);
     // Ligne du tableau reçu : pièce en A, onglet en B, période en C, statut en D, date en E, total en F.
-    expect(ws.getCell("A5").value).toBe("État des chèques émis");
-    expect(ws.getCell("B5").value).toBe("CHQ · État des chèques émis");
+    expect(ws.getCell("A5").value).toBe("Détail des bordereaux de remise de chèques (nominatifs)");
+    expect(ws.getCell("B5").value).toBe("CHQ · Bordereaux remise de chèques");
     expect(ws.getCell("C5").value).toBe("Octobre 2026");
     expect(ws.getCell("D5").value).toBe("Reçu");
     expect(ws.getCell("E5").numFmt).toBe("dd/mm/yyyy");
@@ -119,7 +119,7 @@ describe("Excel de la checklist : en-têtes et valeurs dans les mêmes colonnes"
 
   it("suit l'ordre des états, sans cases jaunes, avec le statut en couleur", () => {
     expect([ws.getCell("B5").value, ws.getCell("B6").value, ws.getCell("B7").value]).toEqual([
-      "CHQ · État des chèques émis", "TR · Traites escomptées", "État de caisse",
+      "CHQ · Bordereaux remise de chèques", "TR · Traites escomptées", "État de caisse",
     ]);
     for (let r = 5; r <= 7; r++) for (const col of "ABCDEFG") expect(couleur(ws.getCell(`${col}${r}`))).not.toBe("FFFFFF00");
     expect(ws.getCell("D5").font?.color?.argb).toBe("FF1E7B4D");
@@ -134,6 +134,6 @@ describe("Excel de la checklist : en-têtes et valeurs dans les mêmes colonnes"
 
   it("le PDF de la checklist a les mêmes libellés", () => {
     const rep = sectionReport(c, "checklist", "I CARGO LINE")!;
-    expect(rep.rows[0].slice(0, 2)).toEqual(["État des chèques émis", "CHQ · État des chèques émis"]);
+    expect(rep.rows[0].slice(0, 2)).toEqual(["Détail des bordereaux de remise de chèques (nominatifs)", "CHQ · Bordereaux remise de chèques"]);
   });
 });

@@ -38,11 +38,11 @@ describe("Récap : détail d'un tableau avant l'envoi", () => {
     rendre();
     expect(screen.queryByRole("button", { name: /Envoyer/ })).toBeNull();
     fireEvent.click(detailBoutons()[0]);
-    const detail = screen.getAllByRole("region", { name: /Détail de « État des chèques émis »/ })[0];
+    const detail = screen.getAllByRole("region", { name: /Détail de « Souche de chèques »/ })[0];
     expect(within(detail).getByText("Ligne 1")).toBeTruthy();
     expect(within(detail).getByText("N° Chèque")).toBeTruthy();
     expect(within(detail).getByText("Motif / Objet")).toBeTruthy();
-    expect(within(detail).getByText(/Ce que le client devra compléter dans « État des chèques émis » \(3 cases\)/)).toBeTruthy();
+    expect(within(detail).getByText(/Ce que le client devra compléter dans « Souche de chèques » \(3 cases\)/)).toBeTruthy();
   });
 
   it("envoie depuis le détail, avec le nombre de cases lues", async () => {
@@ -54,9 +54,9 @@ describe("Récap : détail d'un tableau avant l'envoi", () => {
 
   it("ne liste pas un tableau vide : le cabinet n'envoie que le nécessaire", () => {
     rendre();
-    // Seul « État des chèques émis » a des lignes ; « Virements reçus » est vide.
+    // Seul « Souche de chèques » a des lignes ; « Virements reçus » est vide.
     expect(screen.queryAllByText("Virements reçus")).toHaveLength(0);
-    expect(screen.getAllByText("État des chèques émis").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Souche de chèques").length).toBeGreaterThan(0);
     expect(screen.getByText(/1 tableau vide non listé/)).toBeTruthy();
     expect(screen.getByText(/3 cases importantes à compléter, réparties sur 1 tableau/)).toBeTruthy();
   });

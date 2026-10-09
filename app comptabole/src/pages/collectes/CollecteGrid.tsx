@@ -50,6 +50,8 @@ export interface CollecteGridHandle {
   isComplete: () => boolean;
   /** Ce qu'il reste à compléter, pour prévenir avant de quitter la section. */
   incompleteMessage: () => string;
+  /** Ajoute des lignes au tableau (à enregistrer ensuite), comme si on les avait saisies. */
+  ajouterLignes: (lignes: TabRow[]) => void;
 }
 
 /** Largeur minimale d'une colonne : réduite par rapport à la largeur « confortable »
@@ -290,6 +292,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         )
         .join(" · "),
     isDirty: () => dirty,
+    ajouterLignes: addRows,
     save,
     discard: () => {
       baseline.current = latestInitial.current;

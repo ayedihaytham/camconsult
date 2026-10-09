@@ -7,7 +7,7 @@ import { COLLECTE_ETATS, COLLECTE_TABS, TAB_BY_KEY, etatDeTableau, ordonnerTable
 describe("états de la collecte : chèques, virements, traites", () => {
   it("regroupe les tableaux de chaque état", () => {
     expect(COLLECTE_ETATS.map((e) => [e.code, e.tableaux])).toEqual([
-      ["CHQ", ["bordereaux_remise_cheques", "souche_cheques"]],
+      ["CHQ", ["bordereaux_remise_cheques", "etat_cheques_emis"]],
       ["VRT", ["virements_recus", "virements_emis", "virements_salaire"]],
       ["TR", ["bordereaux_traites_recues", "traites_emises", "traites_escomptees"]],
     ]);
@@ -16,19 +16,25 @@ describe("états de la collecte : chèques, virements, traites", () => {
   });
 
   it("nomme les tableaux comme demandé", () => {
-    expect(TAB_BY_KEY.souche_cheques.label).toBe("État des chèques émis");
+    // La souche de chèques (remplie par le client) et l'état des chèques émis (tenu par le comptable) sont deux tableaux distincts.
+    expect(TAB_BY_KEY.souche_cheques.label).toBe("Souche de chèques");
+    expect(TAB_BY_KEY.etat_cheques_emis.label).toBe("État des chèques émis");
+    expect(etatDeTableau("souche_cheques")).toBeUndefined();
+    expect(TAB_BY_KEY.etat_cheques_emis.columns).toEqual(TAB_BY_KEY.souche_cheques.columns);
+    expect(TAB_BY_KEY.etat_cheques_emis.cabinetSeul).toBe(true);
+    expect(TAB_BY_KEY.souche_cheques.cabinetSeul).toBeUndefined();
     expect(TAB_BY_KEY.virements_salaire.label).toBe("Virement multiple (salaires)");
     expect(TAB_BY_KEY.traites_emises.label).toBe("État des traites émises");
     expect(TAB_BY_KEY.traites_escomptees.label).toBe("Traites escomptées");
   });
 
   it("range les états d'abord, dans l'ordre chèques, virements, traites, puis les autres tableaux", () => {
-    expect(COLLECTE_TABS.slice(0, 8).map((t) => t.key)).toEqual([
-      "bordereaux_remise_cheques", "souche_cheques", "virements_recus", "virements_emis", "virements_salaire",
-      "bordereaux_traites_recues", "traites_emises", "traites_escomptees",
+    expect(COLLECTE_TABS.slice(0, 9).map((t) => t.key)).toEqual([
+      "bordereaux_remise_cheques", "etat_cheques_emis", "virements_recus", "virements_emis", "virements_salaire",
+      "bordereaux_traites_recues", "traites_emises", "traites_escomptees", "souche_cheques",
     ]);
     expect(ordonnerTableaux(["etat_caisse", "traites_emises", "souche_cheques", "virements_recus"])).toEqual([
-      "souche_cheques", "virements_recus", "traites_emises", "etat_caisse",
+      "virements_recus", "traites_emises", "souche_cheques", "etat_caisse",
     ]);
   });
 
@@ -65,10 +71,21 @@ describe("états de la collecte : chèques, virements, traites", () => {
   });
 
   it("la checklist suit l'ordre des états et porte leur sigle", () => {
-    const c = { onglets: ["etat_caisse", "traites_escomptees", "souche_cheques"], lignes: [], sections: [], statut: "brouillon" } as unknown as CollecteFull;
+    const c = { onglets: ["etat_caisse", "traites_escomptees", "bordereaux_remise_cheques", "souche_cheques"], lignes: [], sections: [], statut: "brouillon" } as unknown as CollecteFull;
     expect(checklistRows(c).map((r) => [r.onglet, r.etat])).toEqual([
-      ["souche_cheques", "CHQ"], ["traites_escomptees", "TR"], ["etat_caisse", undefined],
+      ["bordereaux_remise_cheques", "CHQ"], ["traites_escomptees", "TR"], ["souche_cheques", undefined], ["etat_caisse", undefined],
     ]);
+  });
+
+  it("l'état des chèques émis, tenu par le cabinet, n'est ni dans la checklist ni dans le récap du client", () => {
+    const c = {
+      onglets: ["souche_cheques", "etat_cheques_emis"],
+      sections: [],
+      statut: "brouillon",
+      lignes: [{ id: "1", onglet: "etat_cheques_emis", ordre: 0, data: { date: "2026-01-01", montant: 5 } }],
+    } as unknown as CollecteFull;
+    expect(checklistRows(c).map((r) => r.onglet)).toEqual(["souche_cheques"]);
+    expect(computeManques(c).every((m) => m.onglet === "souche_cheques")).toBe(true);
   });
 
   it("ne demande pas le montant du bordereau sur les traites suivantes, mais le montant de chaque traite", () => {

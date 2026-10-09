@@ -12,7 +12,7 @@ const { saveLignes, fetchOne, clearCurrent, collecte, perms, update } = vi.hoist
     societeId: "soc-1",
     periode: "2026-09",
     statut: "brouillon",
-    onglets: ["bordereaux_remise_cheques", "souche_cheques"],
+    onglets: ["bordereaux_remise_cheques", "souche_cheques", "etat_cheques_emis"],
     devise: "TND",
     echeance: null,
     derniereRelanceLe: null,
@@ -112,6 +112,8 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     // Un seul onglet par état (le pastille de pièces manquantes s'ajoute au libellé : on compare le début) ; ses tableaux sont dans son menu.
     expect(noms.some((n) => n?.startsWith("CHQÉtat des chèques"))).toBe(true);
     expect(noms.some((n) => n?.startsWith("Bordereaux remise de chèques"))).toBe(false);
+    // La souche de chèques reste un onglet à part ; l'état des chèques émis est dans le menu de l'état.
+    expect(noms.some((n) => n?.startsWith("Souche de chèques"))).toBe(true);
     expect(noms.some((n) => n?.startsWith("État des chèques émis"))).toBe(false);
     expect(within(nav).getAllByRole("button", { hidden: true }).filter((b) => b.getAttribute("aria-current") === "page")).toHaveLength(1);
   });
@@ -130,6 +132,18 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(screen.getByRole("heading", { name: "État des chèques émis" })).toBeTruthy();
   });
 
+  it("la souche de chèques est un onglet à part, remplie par le client ; l'état des chèques émis est tenu par le cabinet", () => {
+    renderPage();
+    fireEvent.click(sectionButton("Souche de chèques"));
+    expect(screen.getByRole("heading", { name: "Souche de chèques" })).toBeTruthy();
+    // Elle suit le circuit du client (il la transfère, le cabinet la valide).
+    expect(screen.getByText(/Le client n'a pas encore transféré ce tableau/)).toBeTruthy();
+    ouvrirSection("État des chèques émis");
+    expect(screen.getByText("Tenu par le cabinet")).toBeTruthy();
+    expect(screen.queryByText(/Le client n'a pas encore transféré/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Reprendre la souche de chèques" })).toBeTruthy();
+  });
+
   it("le cabinet voit l'état des traites même sans traites dans la collecte, et peut y ajouter ses trois tableaux", async () => {
     renderPage();
     const tr = sectionButton("Traites escomptées");
@@ -142,7 +156,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
       "Traites escomptées",
     ]);
     fireEvent.click(screen.getByRole("menuitem", { name: /Traites escomptées/ }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "souche_cheques", "traites_escomptees"] }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "etat_cheques_emis", "traites_escomptees", "souche_cheques"] }));
   });
 
   it("la checklist propose au cabinet d'ajouter les tableaux pas encore demandés, états compris", async () => {
@@ -152,7 +166,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(within(zone).queryByRole("button", { name: /Bordereaux remise de chèques/ })).toBeNull();
     expect(within(zone).getByRole("button", { name: /Ajouter « Virements émis »/ })).toBeTruthy();
     fireEvent.click(within(zone).getByRole("button", { name: /Ajouter « Traites escomptées »/ }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "souche_cheques", "traites_escomptees"] }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "etat_cheques_emis", "traites_escomptees", "souche_cheques"] }));
   });
 
   it("garde tous les onglets sur une seule ligne, avec défilement horizontal plutôt qu'un retour à la ligne", () => {
@@ -191,7 +205,7 @@ describe("Collecte : bordereau incomplet", () => {
   it("prévient avant de quitter la section tant que les chèques n'atteignent pas le montant, et propose de compléter", () => {
     renderPage();
     saisirBordereauIncomplet();
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     const alerte = screen.getByRole("dialog", { name: "Répartition incomplète" });
     expect(alerte.textContent).toMatch(/Bordereau REM-42 : il reste 25\s000,000 TND à répartir/);
     fireEvent.click(within(alerte).getByRole("button", { name: "Compléter" }));
@@ -203,7 +217,7 @@ describe("Collecte : bordereau incomplet", () => {
     saisirBordereauIncomplet();
     const cases = document.querySelectorAll<HTMLInputElement>("tbody tr[data-row] input");
     fireEvent.change(cases[6], { target: { value: "60000" } });
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     expect(screen.queryByRole("dialog", { name: "Répartition incomplète" })).toBeNull();
     // Il reste la confirmation habituelle des modifications non enregistrées.
     expect(screen.getByRole("dialog", { name: "Modifications non enregistrées" })).toBeTruthy();
@@ -212,7 +226,7 @@ describe("Collecte : bordereau incomplet", () => {
   it("permet de continuer quand même, après l'avertissement", () => {
     renderPage();
     saisirBordereauIncomplet();
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     fireEvent.click(screen.getByRole("button", { name: "Continuer quand même" }));
     expect(screen.getByRole("dialog", { name: "Modifications non enregistrées" })).toBeTruthy();
   });
@@ -224,33 +238,33 @@ describe("Collecte requested-table navigation guard", () => {
     openBordereaux();
     fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
     expect(document.querySelectorAll("tbody tr[data-row]")).toHaveLength(1);
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     expect(screen.queryByText("Modifications non enregistrées")).toBeNull();
-    expect(sectionButton("État des chèques émis").getAttribute("aria-current")).toBe("page");
+    expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page");
   });
 
   it("keeps staged data on Rester, then discards it before switching sections", () => {
     renderPage();
     openBordereaux();
     stageRow();
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     expect(screen.getByRole("dialog", { name: "Modifications non enregistrées" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Rester" }));
     expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     fireEvent.click(screen.getByRole("button", { name: "Quitter sans enregistrer" }));
     expect(saveLignes).not.toHaveBeenCalled();
-    expect(sectionButton("État des chèques émis").getAttribute("aria-current")).toBe("page");
+    expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page");
   });
 
   it("waits for the existing save before switching sections", async () => {
     renderPage();
     openBordereaux();
     stageRow();
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer et changer" }));
     await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
-    await waitFor(() => expect(sectionButton("État des chèques émis").getAttribute("aria-current")).toBe("page"));
+    await waitFor(() => expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page"));
   });
 
   it("retains the current section and staged row when saving fails", async () => {
@@ -258,7 +272,7 @@ describe("Collecte requested-table navigation guard", () => {
     renderPage();
     openBordereaux();
     stageRow();
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer et changer" }));
     await waitFor(() => expect(within(screen.getByRole("dialog", { name: "Modifications non enregistrées" })).getByText(/Enregistrement impossible/).textContent).toContain("Vos modifications sont conservées"));
     expect(sectionButton("Bordereaux remise de chèques").getAttribute("aria-current")).toBe("page");
@@ -303,11 +317,12 @@ describe("Collecte : circuit par tableau", () => {
     collecte.sections = [section("souche_cheques", "transmis"), section("bordereaux_remise_cheques", "valide")];
     renderPage();
     // Le menu de l'état montre le statut de chacun de ses tableaux.
-    fireEvent.keyDown(sectionButton("État des chèques émis"), { key: "Enter", code: "Enter" });
-    expect(screen.getByRole("menuitem", { name: /État des chèques émis/ }).querySelector('[title="Transmis au cabinet"]')).toBeTruthy();
+    fireEvent.keyDown(sectionButton("Bordereaux remise de chèques"), { key: "Enter", code: "Enter" });
     expect(screen.getByRole("menuitem", { name: /Bordereaux remise de chèques/ }).querySelector('[title="Validé"]')).toBeTruthy();
+    // Un tableau hors état garde sa pastille sur son propre onglet.
+    expect(sectionButton("Souche de chèques").querySelector('[title="Transmis au cabinet"]')).toBeTruthy();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     expect(screen.getByRole("button", { name: "Valider ce tableau" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Renvoyer au client" })).toBeTruthy();
     ouvrirSection("Bordereaux remise de chèques");
@@ -315,10 +330,19 @@ describe("Collecte : circuit par tableau", () => {
     expect(screen.getByRole("button", { name: "Archiver ce tableau" })).toBeTruthy();
   });
 
+  it("le client consulte l'état des chèques émis sans pouvoir le modifier", () => {
+    client();
+    renderPage();
+    ouvrirSection("État des chèques émis");
+    expect(screen.getByText(/vous pouvez le consulter, pas le modifier/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeNull();
+  });
+
   it("un tableau archivé n'est plus modifiable, même par l'admin", () => {
     collecte.sections = [section("souche_cheques", "archive")];
     renderPage();
-    ouvrirSection("État des chèques émis");
+    ouvrirSection("Souche de chèques");
     expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
     expect(screen.getByRole("button", { name: "Désarchiver" })).toBeTruthy();
   });

@@ -93,6 +93,7 @@ const taskTitles = [
 
 const collecteOnglets = [
   "souche_cheques",
+  "etat_cheques_emis",
   "bordereaux_remise_cheques",
   "virements_recus",
   "virements_emis",

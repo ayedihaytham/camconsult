@@ -36,7 +36,7 @@ function isoJour(iso: string | null): string | null {
 
 /** Lignes calculées de l'onglet Checklist à partir de l'état de la collecte. */
 export function checklistRows(c: CollecteFull): ChecklistRow[] {
-  return ordonnerTableaux(c.onglets).map((key) => {
+  return ordonnerTableaux(c.onglets).filter((key) => !TAB_BY_KEY[key]?.cabinetSeul).map((key) => {
     const def = TAB_BY_KEY[key];
     const lignes = c.lignes
       .filter((l) => l.onglet === key)

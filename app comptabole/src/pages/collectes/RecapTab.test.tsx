@@ -52,14 +52,34 @@ describe("Récap : détail d'un tableau avant l'envoi", () => {
     await waitFor(() => expect(sendRecapSection).toHaveBeenCalledWith("c1", "souche_cheques", 3));
   });
 
-  it("dit qu'un tableau sans ligne est à remplir en entier", () => {
+  it("ne liste pas un tableau vide : le cabinet n'envoie que le nécessaire", () => {
     rendre();
-    fireEvent.click(detailBoutons()[1]);
-    expect(screen.getAllByText(/Aucune ligne n'est saisie dans ce tableau/).length).toBeGreaterThan(0);
+    // Seul « État des chèques émis » a des lignes ; « Virements reçus » est vide.
+    expect(screen.queryAllByText("Virements reçus")).toHaveLength(0);
+    expect(screen.getAllByText("État des chèques émis").length).toBeGreaterThan(0);
+    expect(screen.getByText(/1 tableau vide non listé/)).toBeTruthy();
+    expect(screen.getByText(/3 cases importantes à compléter, réparties sur 1 tableau/)).toBeTruthy();
+  });
+
+  it("garde un tableau vide dont une demande a déjà été envoyée, pour pouvoir la clore", () => {
+    const envoye = { ...collecte, sections: [{ onglet: "virements_recus", recapStatut: "envoye" }] } as unknown as CollecteFull;
+    rendre(envoye);
+    expect(screen.getAllByText("Virements reçus").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Clore/ }).length).toBeGreaterThan(0);
+  });
+
+  it("dit qu'il n'y a rien à envoyer quand tous les tableaux sont vides", () => {
+    rendre({ ...collecte, lignes: [] } as unknown as CollecteFull);
+    expect(screen.getByText("Aucun tableau à envoyer pour le moment.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Voir le détail/ })).toBeNull();
   });
 
   it("ouvre et referme un seul détail à la fois", () => {
-    rendre();
+    const deux = {
+      ...collecte,
+      lignes: [...collecte.lignes, { id: "l9", onglet: "virements_recus", ordre: 0, data: { date: "2026-01-06", emetteur: "", reference: "", montant: 5, compte_bancaire: "" } }],
+    } as unknown as CollecteFull;
+    rendre(deux);
     fireEvent.click(detailBoutons()[0]);
     fireEvent.click(detailBoutons()[1]);
     const noms = new Set(screen.getAllByRole("region", { name: /Détail de/ }).map((r) => r.getAttribute("aria-label")));

@@ -103,6 +103,8 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         onglet,
         count: live.filter((m) => m.onglet === onglet).length,
         statut: sectionRecapStatut(collecte, onglet),
+        /** Aucune ligne saisie : tableau entièrement vide. */
+        vide: !collecte.lignes.some((l) => l.onglet === onglet),
       })),
     [collecte, live],
   );
@@ -143,7 +145,10 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   // envoyés — jamais la liste complète des tableaux de la collecte, qui
   // laisserait croire qu'on lui demande des choses non encore transmises.
   // L'admin voit tout (pour choisir quoi envoyer ensuite).
-  const visibleRows = isClient ? rows.filter((r) => r.statut !== "none") : rows;
+  // Pour le cabinet, un tableau vide n'est pas listé (rien de précis à demander : le client le remplira de toute façon) tant qu'aucune demande n'y a
+  // été envoyée ; ainsi il n'envoie que le nécessaire. Une demande déjà envoyée reste visible pour pouvoir être close.
+  const visibleRows = isClient ? rows.filter((r) => r.statut !== "none") : rows.filter((r) => !(r.vide && r.statut === "none"));
+  const nbVides = rows.filter((r) => r.vide && r.statut === "none").length;
   const totalCount = visibleRows.reduce((s, r) => s + r.count, 0);
   const tableauCount = visibleRows.filter((r) => r.count > 0).length;
   const anyPending = rows.some((r) => r.statut === "envoye");
@@ -183,6 +188,15 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         <p className="text-sm text-muted-foreground">
           Récap renvoyé au cabinet. En attente de traitement.
         </p>
+      )}
+
+      {!isClient && nbVides > 0 && (
+        <p className="px-3 text-xs text-muted-foreground">
+          {nbVides} tableau{nbVides > 1 ? "x" : ""} vide{nbVides > 1 ? "s" : ""} non listé{nbVides > 1 ? "s" : ""} : il{nbVides > 1 ? "s" : ""} n'a{nbVides > 1 ? "nt" : ""} aucune ligne saisie.
+        </p>
+      )}
+      {!isClient && visibleRows.length === 0 && (
+        <p className="px-3 text-sm text-muted-foreground">Aucun tableau à envoyer pour le moment.</p>
       )}
 
       <div className="hidden overflow-x-auto border-y border-border lg:block">

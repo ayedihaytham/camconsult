@@ -7,7 +7,7 @@ import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState"
 import type { DashboardMessageActivity } from "@/lib/dashboard/dashboardData";
 import { avatarColor, cn, formatRelative } from "@/lib/utils";
 
-/** Messages du responsable de société : un contact, des sujets rapides, et seulement les échanges non lus. */
+/** Messages du responsable de société : un contact et seulement les échanges non lus. */
 export function ClientMessagesTab({ messages }: { messages: DashboardMessageActivity[] }) {
   const navigate = useNavigate();
   const contact = messages[0] ?? null;

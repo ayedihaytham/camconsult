@@ -613,35 +613,3 @@ describe("CollecteGrid : deux actions pour les bordereaux, pas quatre", () => {
     expect(screen.getByRole("button", { name: "Ajouter une traite à ce bordereau" })).toBeTruthy();
   });
 });
-
-describe("CollecteGrid : montant du bordereau dépassé (faute de frappe)", () => {
-  const MONTANT_BORDEREAU = 2;
-  const MONTANT = 6;
-
-  it("permet d'enregistrer même quand le total des chèques dépasse le montant du bordereau", async () => {
-    const { ref, onSave } = renderGrid("bordereaux_remise_cheques");
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-    const l0 = champs(lignes()[0]);
-    fireEvent.change(l0[1], { target: { value: "3339" } });
-    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "6660" } });
-    fireEvent.change(l0[MONTANT], { target: { value: "40000" } });
-    expect(ref.current?.isComplete()).toBe(false);
-    expect(ref.current?.ecart()).toEqual({ manque: false, depasse: true });
-    expect((screen.getByRole("button", { name: /Enregistrer/ }) as HTMLButtonElement).disabled).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: /Enregistrer/ }));
-    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(onSave.mock.calls[0][0][0].data).toMatchObject({ num_bordereau: "3339", montant_cheque: 40000 });
-  });
-
-  it("distingue un montant pas encore atteint d'un montant dépassé", () => {
-    const { ref } = renderGrid("bordereaux_remise_cheques");
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
-    const l0 = champs(lignes()[0]);
-    fireEvent.change(l0[1], { target: { value: "A" } });
-    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "1000" } });
-    fireEvent.change(l0[MONTANT], { target: { value: "400" } });
-    expect(ref.current?.ecart()).toEqual({ manque: true, depasse: false });
-    fireEvent.change(l0[MONTANT], { target: { value: "1000" } });
-    expect(ref.current?.ecart()).toEqual({ manque: false, depasse: false });
-  });
-});

@@ -3,10 +3,6 @@ import { getToken, setToken, signalSessionExpired } from "./api";
 interface LiveEventHandlers {
   onMessage?: () => void;
   onNotification?: () => void;
-  /** Une collecte de pièces a changé chez quelqu'un d'autre (lignes saisies, tableau transmis, validé, renvoyé…). */
-  onCollecte?: (id: string) => void;
-  /** Retour sur l'onglet ou filet de sécurité : tout ce qui est affiché peut avoir changé pendant l'absence. */
-  onResync?: () => void;
 }
 
 /**
@@ -97,7 +93,6 @@ export function startLiveEvents(handlers: LiveEventHandlers): () => void {
     reconnectNow();
     handlers.onMessage?.();
     handlers.onNotification?.();
-    handlers.onResync?.();
   };
   document.addEventListener("visibilitychange", onVisible);
 
@@ -107,10 +102,6 @@ export function startLiveEvents(handlers: LiveEventHandlers): () => void {
   const fallbackInterval = setInterval(() => {
     if (document.visibilityState === "visible") handlers.onMessage?.();
   }, 20_000);
-  // Même filet pour la collecte ouverte : si le flux en direct est mort sans que le navigateur le signale, elle se met à jour quand même.
-  const resyncInterval = setInterval(() => {
-    if (document.visibilityState === "visible") handlers.onResync?.();
-  }, 30_000);
 
   return () => {
     stopped = true;
@@ -118,7 +109,6 @@ export function startLiveEvents(handlers: LiveEventHandlers): () => void {
     controller?.abort();
     document.removeEventListener("visibilitychange", onVisible);
     clearInterval(fallbackInterval);
-    clearInterval(resyncInterval);
   };
 }
 
@@ -129,7 +119,6 @@ function handleFrame(frame: string, handlers: LiveEventHandlers) {
     const payload = JSON.parse(dataLine.slice(6));
     if (payload.type === "message") handlers.onMessage?.();
     else if (payload.type === "notification") handlers.onNotification?.();
-    else if (payload.type === "collecte" && typeof payload.id === "string") handlers.onCollecte?.(payload.id);
   } catch {
     // trame malformée — ignorée
   }

@@ -11,12 +11,6 @@ import type {
   CollecteStatut,
 } from "@/types";
 
-const enSynchro = new Set<string>();
-/** Dernier filtre de société de la liste, pour la relire en silence à l'identique. */
-let listeSocieteId: string | undefined;
-let listeEnSynchro = false;
-const resynchroniser = new Set<string>();
-
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
   throw err;
@@ -30,8 +24,6 @@ interface CollectesState {
 
   fetchList: (societeId?: string) => Promise<void>;
   fetchOne: (id: string) => Promise<void>;
-  /** Relit en silence la collecte ouverte (changement fait par quelqu'un d'autre) ; sans effet si ce n'est pas elle. `id` absent : la collecte ouverte, quelle qu'elle soit. */
-  synchroniser: (id?: string) => Promise<void>;
   clearCurrent: () => void;
 
   create: (data: {
@@ -105,7 +97,6 @@ export const useCollectes = create<CollectesState>((set, get) => ({
 
   fetchList: async (societeId) => {
     set({ loadingList: true });
-    listeSocieteId = societeId;
     try {
       const q = societeId ? `?societeId=${societeId}` : "";
       const list = await api.get<Collecte[]>(`/collectes${q}`);
@@ -124,45 +115,6 @@ export const useCollectes = create<CollectesState>((set, get) => ({
     } catch (e) {
       set({ loadingOne: false });
       fail(e);
-    }
-  },
-
-  synchroniser: async (id) => {
-    const ouverte = get().current;
-    if (!ouverte || (id && ouverte.id !== id)) {
-      // Pas la collecte ouverte : si une liste est affichée, ses statuts et compteurs ont peut-être changé.
-      if (id && get().list.length > 0 && !listeEnSynchro) {
-        listeEnSynchro = true;
-        try {
-          const liste = await api.get<Collecte[]>(`/collectes${listeSocieteId ? `?societeId=${listeSocieteId}` : ""}`);
-          set({ list: liste });
-        } catch {
-          // silencieux
-        } finally {
-          listeEnSynchro = false;
-        }
-      }
-      return;
-    }
-    // Plusieurs signaux d'affilée (une saisie de plusieurs lignes) : une seule relecture à la fois.
-    if (enSynchro.has(ouverte.id)) {
-      resynchroniser.add(ouverte.id);
-      return;
-    }
-    enSynchro.add(ouverte.id);
-    try {
-      do {
-        resynchroniser.delete(ouverte.id);
-        const c = await api.get<CollecteFull>(`/collectes/${ouverte.id}`);
-        // L'utilisateur a pu changer de collecte pendant la relecture.
-        if (get().current?.id === c.id) {
-          set((st) => ({ current: c, list: st.list.map((x) => (x.id === c.id ? { ...x, ...c, tableauxTransmis: x.tableauxTransmis, tableauxValides: x.tableauxValides, tableauxArchives: x.tableauxArchives } : x)) }));
-        }
-      } while (resynchroniser.has(ouverte.id));
-    } catch {
-      // relecture d'arrière-plan : silencieuse, la suivante réessaiera
-    } finally {
-      enSynchro.delete(ouverte.id);
     }
   },
 

@@ -38,9 +38,8 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
   const tabRailRef = useRef<HTMLDivElement>(null);
   const wide = useMediaQuery("(min-width: 1280px)");
   const isClient = data.role === "societe_employe";
-  // Pour le moment, l'espace du compte de société se limite à la Collecte de pièces : ni Documents (Structuration), ni Messages.
   const tabs = isClient
-    ? ["overview", "collections"]
+    ? ["overview", "collections", "documents", ...(canUseMessaging ? ["messages"] : [])]
     : ["overview", "tasks", "attention", "deadlines", ...(data.role === "admin" ? ["team"] : []), "activity"];
   const requested = searchParams.get("tab") ?? "overview";
   const value = tabs.includes(requested) ? requested : "overview";
@@ -77,6 +76,8 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
           {isClient ? (
             <>
               <TabsTrigger value="collections" className={DASHBOARD_TAB_TRIGGER_CLASS}>Collectes</TabsTrigger>
+              <TabsTrigger value="documents" className={DASHBOARD_TAB_TRIGGER_CLASS}>Documents</TabsTrigger>
+              {canUseMessaging && <TabsTrigger value="messages" className={DASHBOARD_TAB_TRIGGER_CLASS}>Messages</TabsTrigger>}
             </>
           ) : (
             <>

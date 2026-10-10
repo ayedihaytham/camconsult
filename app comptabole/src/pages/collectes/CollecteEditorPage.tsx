@@ -116,7 +116,7 @@ export function CollecteEditorPage() {
   const gridRef = useRef<CollecteGridHandle>(null);
   const transmittedBeforeRecapRef = useRef(false);
   const [dirtyTableau, setDirtyTableau] = useState(false);
-  const [incomplet, setIncomplet] = useState<{ next: string; message: string } | null>(null);
+  const [incomplet, setIncomplet] = useState<{ next: string; message: string; manque: boolean } | null>(null);
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState(false);
@@ -295,8 +295,9 @@ export function CollecteEditorPage() {
     if (next === tab) return;
     // Un bordereau dont les chèques n'atteignent pas le montant annoncé : on prévient avant de passer à autre chose.
     const grille = gridRef.current;
-    if (!forcer && grille && !grille.isComplete()) {
-      setIncomplet({ next, message: grille.incompleteMessage() });
+    // Seul le client est interrompu : le cabinet quitte et enregistre librement, et signale ce qui reste à compléter par le Récap.
+    if (!forcer && isClient && grille && !grille.isComplete()) {
+      setIncomplet({ next, message: grille.incompleteMessage(), manque: grille.ecart().manque });
       return;
     }
     if (gridRef.current?.isDirty()) {
@@ -1178,16 +1179,20 @@ export function CollecteEditorPage() {
       <ConfirmDialog
         open={Boolean(incomplet)}
         onOpenChange={(o) => !o && setIncomplet(null)}
-        destructive
-        title="Répartition incomplète"
+        destructive={incomplet?.manque ?? true}
+        title={incomplet?.manque === false ? "Montants à vérifier" : "Répartition incomplète"}
         description={
           <>
             <span className="block">{incomplet?.message}.</span>
-            <span className="mt-2 block">Complétez les lignes jusqu'à atteindre le montant avant de passer à une autre action.</span>
+            <span className="mt-2 block">
+              {incomplet?.manque === false
+                ? "Le total des chèques dépasse le montant du bordereau : une faute de frappe ? Vous pouvez corriger, ou continuer et enregistrer tel quel."
+                : "Complétez les lignes jusqu'à atteindre le montant avant de passer à une autre action."}
+            </span>
           </>
         }
         confirmLabel="Continuer quand même"
-        cancelLabel="Compléter"
+        cancelLabel={incomplet?.manque === false ? "Vérifier" : "Compléter"}
         onConfirm={() => {
           const suite = incomplet?.next;
           setIncomplet(null);

@@ -6,7 +6,7 @@ import { StatusDot } from "@/components/ledger/StatusDot";
 import { Input } from "@/components/ui/input";
 import { cn, formatRelative } from "@/lib/utils";
 import { TAB_BY_KEY } from "@/lib/collecte/tabs";
-import { computeManques, type Manque } from "@/lib/collecte/manques";
+import { computeManques, ecartsDeRepartition, type Manque } from "@/lib/collecte/manques";
 import { sectionRecapStatut } from "@/lib/collecte/recap";
 import { useCollectes } from "@/store/collectes";
 import type { CollecteFull } from "@/types";
@@ -80,6 +80,20 @@ function DetailManques({
   );
 }
 
+/** Bordereaux dont le montant n'est pas atteint ou est dépassé : le cabinet le voit ici (il le demande au client par le Récap) au lieu d'être interrompu pendant sa saisie. */
+function EcartsRepartition({ ecarts }: { ecarts: string[] }) {
+  if (ecarts.length === 0) return null;
+  return (
+    <ul className="mt-0.5 space-y-0.5">
+      {ecarts.map((e) => (
+        <li key={e} className="text-xs font-normal text-warning">
+          {e}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Props) {
   const sendRecapSection = useCollectes((s) => s.sendRecapSection);
   const closeRecapSection = useCollectes((s) => s.closeRecapSection);
@@ -105,6 +119,8 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         statut: sectionRecapStatut(collecte, onglet),
         /** Aucune ligne saisie : tableau entièrement vide. */
         vide: !collecte.lignes.some((l) => l.onglet === onglet),
+        /** Bordereaux dont le montant n'est pas atteint ou est dépassé : à signaler au client avec le reste. */
+        ecarts: ecartsDeRepartition(collecte, onglet, collecte.devise),
       })),
     [collecte, live],
   );
@@ -217,6 +233,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
               <tr className="hover:bg-muted/20">
                 <td className="px-3 py-2 font-medium text-foreground">
                   {label(r.onglet)}
+                  {!isClient && <EcartsRepartition ecarts={r.ecarts} />}
                 </td>
                 <td className="px-3 py-2 text-right text-xs tabular-nums text-muted-foreground">
                   {r.count}
@@ -307,6 +324,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
                 <h3 className="break-words text-sm font-semibold text-foreground">
                   {rowLabel}
                 </h3>
+                {!isClient && <EcartsRepartition ecarts={r.ecarts} />}
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {r.count} {r.count === 1 ? "case" : "cases"} à compléter
                 </p>

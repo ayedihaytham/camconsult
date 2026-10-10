@@ -40,8 +40,8 @@ export function CollecteClientVerification({
   const blocked = recapPending && recapRemaining > 0;
 
   return (
-    <section aria-labelledby="client-review-title" className="mx-auto max-w-4xl px-4 py-5 sm:px-6 sm:py-7">
-      <div className="max-w-2xl">
+    <section aria-labelledby="client-review-title" className="w-full px-4 py-5 sm:px-6 sm:py-7">
+      <div className="max-w-3xl">
         <h2 id="client-review-title" className="text-xl font-semibold tracking-tight text-primary sm:text-2xl">
           Vérifiez votre collecte
         </h2>

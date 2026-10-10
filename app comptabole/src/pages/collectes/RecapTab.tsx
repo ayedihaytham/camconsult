@@ -202,24 +202,21 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
     );
   }
 
+  // Le client qui a tout transmis n'a plus de demande à suivre ici : le récapitulatif de sa vérification suffit.
+  const showRequests = !isClient || anyPending;
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/20 px-3 py-2">
+      {showRequests && <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/20 px-3 py-2">
         <span className="text-sm font-medium text-foreground">
           {totalCount === 0
             ? "Toutes les cases importantes sont remplies ✓"
             : `${totalCount} case${totalCount === 1 ? "" : "s"} importante${totalCount === 1 ? "" : "s"} à compléter, répartie${totalCount === 1 ? "" : "s"} sur ${tableauCount} tableau${tableauCount === 1 ? "" : "x"}`}
         </span>
-      </div>
+      </div>}
 
       {isClient && anyPending && (
         <p className="border-b border-warning/20 bg-warning/5 px-3 py-2 text-sm text-foreground">
           Choisissez une case demandée ci-dessous pour y accéder directement, complétez-la, puis transmettez vos réponses.
-        </p>
-      )}
-      {isClient && !anyPending && anyRepondu && (
-        <p className="text-sm text-muted-foreground">
-          Récap renvoyé au cabinet. En attente de traitement.
         </p>
       )}
 
@@ -239,7 +236,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         <p className="px-3 text-sm text-muted-foreground">Aucun tableau à envoyer pour le moment.</p>
       )}
 
-      <div className="hidden overflow-x-auto border-y border-border lg:block">
+      {showRequests && <div className="hidden overflow-x-auto border-y border-border lg:block">
         <table className="w-full text-sm">
           <thead className="bg-secondary/65 text-xs uppercase tracking-wide text-primary">
             <tr>
@@ -323,9 +320,9 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
 
-      <div className="divide-y divide-border border-y border-border lg:hidden">
+      {showRequests && <div className="divide-y divide-border border-y border-border lg:hidden">
         {visibleRows.map((r) => {
           const rowLabel = label(r.onglet);
           const statusLabel =
@@ -393,7 +390,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
             </div>
           );
         })}
-      </div>
+      </div>}
 
       {/* Notes générales */}
       <div>

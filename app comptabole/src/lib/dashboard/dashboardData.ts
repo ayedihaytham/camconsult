@@ -97,6 +97,8 @@ export interface DashboardCollectionCounts {
 export interface DashboardCollectionActivity {
   id: string;
   periode: string;
+  /** Nom affiché : la période saisie, sinon la date de création de la collecte. */
+  libelle: string;
   statut: CollecteStatut;
   echeance: string | null;
   updatedAt: string;
@@ -206,6 +208,12 @@ function plural(count: number, singular: string, pluralValue = `${singular}s`) {
 
 export function isOpenTask(task: Pick<Tache, "statut">): boolean {
   return task.statut === "a_faire" || task.statut === "en_cours";
+}
+
+export function collectionLabel(collecte: Pick<Collecte, "periode" | "creeLe">): string {
+  const periode = collecte.periode?.trim();
+  if (periode) return periode;
+  return `Collecte du ${new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(collecte.creeLe))}`;
 }
 
 /** Part des tableaux demandés au client qui sont transmis ou validés, en pourcentage. */
@@ -605,6 +613,7 @@ export function buildDashboardData(source: DashboardDataInput): DashboardViewMod
       .sort((left, right) => right.majLe.localeCompare(left.majLe))
       .map((collecte) => ({
         progress: collectionProgress(collecte),
+        libelle: collectionLabel(collecte),
         id: collecte.id,
         periode: collecte.periode,
         statut: collecte.statut,

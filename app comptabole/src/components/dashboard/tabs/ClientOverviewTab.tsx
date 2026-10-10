@@ -29,7 +29,7 @@ function CollectionCard({ collection, onOpen }: { collection: DashboardCollectio
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[0.67rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Collecte</p>
-          <h3 className="mt-0.5 font-serif text-lg font-semibold leading-tight">{collection.periode}</h3>
+          <h3 className="mt-0.5 font-serif text-lg font-semibold leading-tight">{collection.libelle}</h3>
           <Badge variant={collection.statut === "a_corriger" || collection.statut === "brouillon" ? "warning" : collection.statut === "valide" ? "success" : "outline"} className="mt-2">
             {collection.statut === "brouillon" ? "À compléter" : COLLECTE_STATUT_LABELS[collection.statut]}
           </Badge>
@@ -37,7 +37,7 @@ function CollectionCard({ collection, onOpen }: { collection: DashboardCollectio
         {progress !== null && <ProgressRing value={progress} />}
       </div>
       <p className="text-xs text-muted-foreground">{collection.echeance ? `Échéance ${formatDate(collection.echeance)}` : `Mis à jour ${formatRelative(collection.updatedAt)}`}</p>
-      <Button variant={aCompleter ? "default" : "outline"} className="mt-auto min-h-11 w-full" onClick={onOpen} aria-label={`${aCompleter ? "Compléter" : "Voir le détail de"} la collecte ${collection.periode}`}>
+      <Button variant={aCompleter ? "default" : "outline"} className="mt-auto min-h-11 w-full" onClick={onOpen} aria-label={`${aCompleter ? "Compléter" : "Voir le détail de"} la collecte ${collection.libelle}`}>
         {aCompleter ? "Compléter" : "Voir le détail"}
       </Button>
     </li>

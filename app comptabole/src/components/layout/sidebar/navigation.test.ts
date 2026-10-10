@@ -263,11 +263,11 @@ describe("sidebar indicators", () => {
 });
 
 describe("espace du compte de société cliente", () => {
-  it("ne garde que le Dashboard, la Collecte de pièces, la Structuration et la Messagerie", () => {
+  it("ne garde que le Dashboard et la Collecte de pièces", () => {
     const routes = destinations(
       visibleNavigation({ isAdmin: false, lectureSeule: true, can: allowAll, isResponsableSociete: true, espaceCollecteSeul: true }),
     );
-    expect(routes).toEqual(["/", "/collectes", "/structuration", "/messagerie"]);
+    expect(routes).toEqual(["/", "/collectes"]);
   });
 
   it("n'y change rien pour le cabinet", () => {
@@ -276,9 +276,9 @@ describe("espace du compte de société cliente", () => {
     expect(routes).toContain("/messagerie");
   });
 
-  it("n'autorise que ces quatre espaces comme adresses", () => {
-    for (const ok of ["/", "/collectes", "/collectes/abc-123", "/structuration", "/messagerie"]) expect(cheminAutoriseClient(ok)).toBe(true);
-    for (const non of ["/taches", "/fournisseurs", "/banque/s1", "/honoraires", "/parametres", "/collectes-autre"]) {
+  it("n'autorise que le Dashboard et les collectes comme adresses", () => {
+    for (const ok of ["/", "/collectes", "/collectes/abc-123"]) expect(cheminAutoriseClient(ok)).toBe(true);
+    for (const non of ["/taches", "/fournisseurs", "/banque/s1", "/honoraires", "/structuration", "/messagerie", "/parametres", "/collectes-autre"]) {
       expect(cheminAutoriseClient(non)).toBe(false);
     }
   });

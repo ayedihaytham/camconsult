@@ -145,9 +145,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
   }
   /** Ajoute une ligne à la suite, directement dans le tableau, et y place le curseur. Dans un groupe qui n'a pas
-   * encore atteint son montant (un bordereau), la ligne reprend la date, le n° et la banque du groupe. `nouveau` force une ligne
-   * vierge : le début d'un autre bordereau, même si le précédent n'est pas terminé. */
-  function addRow(groupeId?: string, nouveau = false) {
+   * encore atteint son montant (un bordereau), la ligne reprend la date, le n° et la banque du groupe.
+   * La création explicite d'un nouveau bordereau n'est pas proposée dans cette interface. */
+  function addRow(groupeId?: string) {
     // Une ligne vierge est déjà en bas du tableau : on y place le curseur au lieu d'en empiler d'autres.
     const derniere = rows[rows.length - 1];
     if (!groupeId && derniere && ligneVide(def, derniere)) {
@@ -157,7 +157,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     }
     // Même chose dans un bordereau : sa dernière ligne attend encore son chèque, c'est elle qu'on remplit.
     const gr = def.groupe;
-    if (gr && groupeId && !nouveau) {
+    if (gr && groupeId) {
       const idx = rows.map((r) => idLigne(r)).lastIndexOf(groupeId);
       const r = idx >= 0 ? rows[idx] : null;
       const attend =
@@ -179,25 +179,26 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     const g = def.groupe;
     const cible =
       g &&
-      !nouveau &&
       (groupeId
         ? groupes.find((x) => x.id === groupeId)
         : (() => {
             const derniere = rows[rows.length - 1];
             const id = derniere ? String(derniere[g.cle] ?? "").trim().toLowerCase() : "";
             const trouve = groupes.find((x) => x.id === id);
-            return trouve && !trouve.complet ? trouve : undefined;
+            return trouve;
           })());
-    if (g && cible) {
-      // Une ligne ajoutée à un bordereau terminé (replié) le déplie, pour qu'on la voie et qu'on y saisisse le chèque.
-      if (cible.complet) setOuverts((o) => new Set(o).add(cible.id));
-      const modele = [...rows].reverse().find((r) => String(r[g.cle] ?? "").trim().toLowerCase() === cible.id);
+    const idDuBordereau = groupeId || cible?.id;
+    if (g && idDuBordereau) {
+      // Même sans montant annoncé, Entrée continue le groupe saisi et ne crée pas de bordereau vide.
+      // Une ligne ajoutée à un bordereau terminé (replié) le déplie.
+      if (cible?.complet) setOuverts((o) => new Set(o).add(cible.id));
+      const modele = [...rows].reverse().find((r) => String(r[g.cle] ?? "").trim().toLowerCase() === idDuBordereau);
       for (const k of g.prefill) vide[k] = String(modele?.[k] ?? "");
     }
     setRows((current) => [...current, vide]);
     setFocusRow(rows.length);
-    // Ligne d'un bordereau en cours : le curseur va à la première case propre au chèque.
-    setFocusCol(g && cible ? (def.columns.find((c) => !c.computed && !g.prefill.includes(c.key) && c.key !== g.totalCol)?.key ?? null) : null);
+    // Ligne d'un groupe en cours : le curseur va à la première case propre au chèque / à la traite.
+    setFocusCol(g && idDuBordereau ? (def.columns.find((c) => !c.computed && !g.prefill.includes(c.key) && c.key !== g.totalCol)?.key ?? null) : null);
   }
 
   useEffect(() => {
@@ -399,9 +400,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const derniereColonne = [...def.columns].reverse().find((c) => !c.computed)?.key;
   const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
 
-  /** Un seul point d'entrée pour les tableaux sans groupe ou sans bordereau existant.
-   * Dès qu'un bordereau existe, la création d'un nouveau groupe est placée près de son récapitulatif,
-   * et l'ajout de chèques demeure contextuel à CHAQUE bordereau. */
+  /** Dans les tableaux groupés, l'action générale sert uniquement au premier bordereau ;
+   * les chèques/traites suivants sont ajoutés dans le groupe concerné depuis la barre de suivi. */
   function ajoutLigne() {
     return (
       <Button type="button" variant="outline" size="sm" className="min-h-9 gap-1.5" onClick={() => addRow()}>
@@ -426,30 +426,64 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </p>
       )}
 
-      {/* Le panneau compact reste visible durant la saisie. Toutes les commandes sont ici,
-          sans doubles boutons en dessous du tableau et sans menus qui masquent les exports. */}
+      {/* Le suivi et les actions sont réunis dans une seule barre sticky. La création
+          d'un nouveau bordereau n'est pas exposée : on continue les groupes existants. */}
       {(groupes.length > 0 || !readOnly || exportActions) && (
-        <div
+        <section
           data-tour="collecte-sticky-tools"
-          role="region"
           aria-label="Suivi et actions du tableau"
-          className="sticky top-0 z-20 space-y-2 rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm"
+          className="sticky top-0 z-30 overflow-hidden rounded-xl border border-border bg-card shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)]"
         >
           {groupes.length > 0 && (
-            <div data-tour="collecte-repartition" className="flex min-w-0 flex-col gap-2 border-b border-border pb-2 md:flex-row md:items-stretch">
-              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-0.5" aria-label="Avancement des bordereaux">
-                {groupes.map((g) => (
-                  <div key={g.id} className="flex min-w-[270px] flex-1 items-center justify-between gap-3 rounded-md border border-border bg-muted/25 px-3 py-2">
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                        <span className="text-xs font-semibold text-foreground">{def.groupe?.libelle} {g.nom}</span>
-                        <span className={cn("text-xs font-semibold", g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning")}>{g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)}` : `Reste ${montantFr(g.reste)}`}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">{montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe} · {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}</span>
-                        <span role="progressbar" aria-label={`Montant réparti : ${def.groupe?.libelle} ${g.nom}`} aria-valuemin={0} aria-valuemax={Math.max(0, g.total)} aria-valuenow={Math.min(Math.max(0, g.reparti), Math.max(0, g.total))} className="h-1.5 min-w-10 flex-1 overflow-hidden rounded-full bg-border">
-                          <span className={cn("block h-full rounded-full", g.complet ? "bg-success" : g.reste < 0 ? "bg-destructive" : "bg-warning")} style={{ width: `${g.total > 0 ? Math.min(100, Math.max(0, Math.round((g.reparti / g.total) * 100))) : 0}%` }} />
+            <div
+              data-tour="collecte-repartition"
+              aria-label="Avancement des bordereaux"
+              className="flex min-w-0 gap-2 overflow-x-auto border-b border-border bg-muted/30 px-3 py-2.5 md:px-4"
+            >
+              {groupes.map((g) => {
+                const pourcentage = g.total > 0 ? Math.min(100, Math.max(0, (g.reparti / g.total) * 100)) : 0;
+                return (
+                  <div
+                    key={g.id}
+                    className={cn(
+                      "flex items-center gap-3",
+                      groupes.length === 1
+                        ? "min-w-0 w-full flex-1 flex-wrap px-0.5 py-0.5 sm:flex-nowrap"
+                        : "min-w-[320px] flex-1 rounded-lg border border-border/80 bg-card px-3 py-2 lg:max-w-[540px]",
+                    )}
+                  >
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
+                        <span className="truncate text-sm font-semibold text-foreground">
+                          {def.groupe?.libelle} {g.nom}
                         </span>
+                        <span
+                          className={cn(
+                            "shrink-0 text-xs font-semibold",
+                            g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning",
+                          )}
+                        >
+                          {g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)} ${symboleGroupe}` : `Reste ${montantFr(g.reste)} ${symboleGroupe}`}
+                        </span>
+                      </div>
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                          {montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe}
+                          <span className="ml-2 text-muted-foreground/70">· {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}</span>
+                        </span>
+                        <div
+                          role="progressbar"
+                          aria-label={`Montant réparti : ${def.groupe?.libelle} ${g.nom}`}
+                          aria-valuemin={0}
+                          aria-valuemax={Math.max(0, g.total)}
+                          aria-valuenow={Math.min(Math.max(0, g.reparti), Math.max(0, g.total))}
+                          className="h-1.5 min-w-[64px] flex-1 overflow-hidden rounded-full bg-border"
+                        >
+                          <div
+                            className={cn("h-full rounded-full transition-[width] duration-200", g.complet ? "bg-success" : g.reste < 0 ? "bg-destructive" : "bg-warning")}
+                            style={{ width: `${pourcentage}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                     {canAdd && (
@@ -457,62 +491,55 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="min-h-9 shrink-0 gap-1 bg-card px-2.5"
+                        className="h-9 shrink-0 gap-1.5 whitespace-nowrap border-primary/20 bg-card px-3 text-primary hover:bg-secondary"
                         onClick={() => addRow(g.id)}
                         aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${g.nom}`}
-                        title={g.complet ? "Ajouter une ligne dépassera le montant annoncé" : undefined}
+                        title={g.complet ? "Ce bordereau est complet : vérifiez son montant après l'ajout" : undefined}
                       >
-                        <Plus className="size-3.5" /> {def.groupe?.ajout}
+                        <Plus className="size-4" aria-hidden="true" /> {def.groupe?.ajout}
                       </Button>
                     )}
                   </div>
-                ))}
-              </div>
-              {canAdd && def.groupe && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="min-h-9 shrink-0 gap-1.5 self-start whitespace-nowrap md:self-center"
-                  onClick={() => addRow(undefined, true)}
-                >
-                  <Plus className="size-4" /> Nouveau {def.groupe.libelle.toLowerCase()}
-                </Button>
-              )}
+                );
+              })}
             </div>
           )}
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 md:px-4">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {canAdd && (def.plageNumeros && rows.length === 0 ? null : groupes.length === 0 ? ajoutLigne() : null)}
               {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
-                <Button type="button" variant="outline" size="sm" className="min-h-9 gap-1.5" onClick={() => setImportOpen(true)}>
-                  <FileUp className="size-4" /> Importer un document
+                <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
+                  <FileUp className="size-4" aria-hidden="true" /> Importer un document
                 </Button>
               )}
             </div>
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-2">
-              {exportActions && <div className="flex items-center gap-1 border-r border-border pr-2" data-tour="collecte-export-sticky">{exportActions}</div>}
+              {exportActions && (
+                <div data-tour="collecte-export-sticky" aria-label="Exporter le tableau" className="flex flex-wrap items-center gap-0.5 sm:gap-1">
+                  {exportActions}
+                </div>
+              )}
               {!readOnly && (
-                <>
-                  {saveError && <span role="alert" className="text-xs text-destructive">Enregistrement impossible · réessayez</span>}
+                <div className="flex flex-wrap items-center gap-2 border-l border-border pl-3">
+                  {saveError && <span role="alert" className="text-xs font-medium text-destructive">Échec de l'enregistrement</span>}
                   {!saveError && dirty && <span role="status" className="text-xs font-medium text-warning">Non enregistré</span>}
                   {!dirty && saved && !saveError && <span role="status" className="text-xs text-success">Enregistré</span>}
                   <Button
                     data-tour="collecte-save"
                     variant="ledger"
                     size="sm"
-                    className={cn("min-h-9 gap-1.5", !dirty && !saveAndContinue && "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
+                    className={cn("h-9 gap-1.5 whitespace-nowrap px-4", !dirty && !saveAndContinue && "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
                     onClick={() => { void (saveAndContinue ? saveAndContinue() : save()).catch(() => {}); }}
                     disabled={saving || (!dirty && !saveAndContinue)}
                   >
-                    {saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+                    {saving ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
                     {saving ? "Enregistrement…" : saveAndContinue ? "Enregistrer et vérifier" : "Enregistrer"}
                   </Button>
-                </>
+                </div>
               )}
             </div>
           </div>
-        </div>
+        </section>
       )}
       {canAdd && def.plageNumeros && rows.length === 0 && (() => {
         const plage = plageNumeros(plageDebut, plageFin);
@@ -720,7 +747,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                               // Entrée dans la dernière case de la dernière ligne remplie : ligne suivante.
                               if (e.key === "Enter" && canAdd && i === rows.length - 1 && c.key === derniereColonne && !ligneVide(def, row)) {
                                 e.preventDefault();
-                                addRow();
+                                addRow(def.groupe ? idLigne(row) || undefined : undefined);
                               }
                             }}
                           />
@@ -808,7 +835,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                             // Entrée dans la dernière case de la dernière ligne remplie : ligne suivante.
                             if (e.key === "Enter" && canAdd && i === rows.length - 1 && c.key === derniereColonne && !ligneVide(def, row)) {
                               e.preventDefault();
-                              addRow();
+                              addRow(def.groupe ? idLigne(row) || undefined : undefined);
                             }
                           }}
                         />

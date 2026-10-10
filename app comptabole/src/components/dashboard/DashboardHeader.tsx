@@ -60,7 +60,7 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
       <div className="mx-4 border-t border-accent/60 sm:mx-5" />
       <dl className="grid grid-cols-2 px-4 py-3 sm:px-5 md:flex md:divide-x md:divide-primary-foreground/15">
         {metrics.map((metric, index) => {
-          const collectionDependent = metric.id === "deadline" || metric.id === "collectes" || metric.id === "toComplete" || metric.id === "validated";
+          const collectionDependent = metric.id === "deadline" || metric.id === "collectes";
           return (
             <div
               key={metric.id}

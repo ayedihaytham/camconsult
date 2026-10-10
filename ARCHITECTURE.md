@@ -43,6 +43,10 @@ The backend lives in `app comptabole/server/`:
   l'admin/responsable l'archive. Un tableau transmis, validé ou archivé est verrouillé pour le client (archivé : pour tous).
   Le statut de la collecte est recalculé d'après ses tableaux (`recalculerStatut`, `server/routes/collectes.js`) ;
   changer le statut de la collecte s'applique à tous ses tableaux.
+- Collecte de pièces, temps réel : toute modification réussie d'une collecte (`server/routes/collectes.js`, middleware `diffuserCollecte`)
+  envoie un signal `collecte` (id seulement) par le flux `/api/events` à admin, responsables, collaborateurs et employés de la société, sauf
+  à l'auteur ; `liveEvents.ts` appelle alors `useCollectes.synchroniser(id)`, qui relit en silence la collecte ouverte (la saisie en cours
+  d'une grille n'est jamais écrasée). Retour sur l'onglet et filet de 30 s : `onResync`.
 - Collecte de pièces, états : `COLLECTE_ETATS` (`lib/collecte/tabs.ts`) regroupe des tableaux en états — CHQ (bordereaux
   remise de chèques, chèques émis), VRT (virements reçus, émis, multiple/salaires), TR (bordereaux traites reçues, traites
   émises, traites escomptées). Chaque tableau reste un onglet à part entière (saisie, circuit, export) ; l'état n'est qu'un

@@ -51,6 +51,8 @@ export interface CollecteGridHandle {
   isComplete: () => boolean;
   /** Ce qu'il reste à compléter, pour prévenir avant de quitter la section. */
   incompleteMessage: () => string;
+  /** Nature de l'écart : montant pas encore atteint (`manque`) et/ou dépassé (`depasse`, souvent une faute de frappe). */
+  ecart: () => { manque: boolean; depasse: boolean };
   /** Ajoute des lignes au tableau (à enregistrer ensuite), comme si on les avait saisies. */
   ajouterLignes: (lignes: TabRow[]) => void;
 }
@@ -340,6 +342,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             : `${def.groupe?.libelle ?? "Groupe"} ${g.nom} : dépassé de ${montantFr(-g.reste)} ${symboleGroupe}`,
         )
         .join(" · "),
+    ecart: () => ({ manque: groupes.some((g) => g.reste > 0), depasse: groupes.some((g) => g.reste < 0) }),
     isDirty: () => dirty,
     ajouterLignes: addRows,
     save,

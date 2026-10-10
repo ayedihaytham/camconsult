@@ -102,7 +102,7 @@ export function CollecteEditorPage() {
   const focusRevision = useRef(0);
   const gridRef = useRef<CollecteGridHandle>(null);
   const transmittedBeforeRecapRef = useRef(false);
-  const [dirtyTableau, setDirtyTableau] = useState(false);
+  const [, setDirtyTableau] = useState(false);
   const [incomplet, setIncomplet] = useState<{ next: string; message: string; manque: boolean; target?: { ordre: number | null; col: string | null } } | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState(false);
@@ -689,16 +689,6 @@ export function CollecteEditorPage() {
                   <SectionHeader
                     title={def.label}
                     description={isClient ? (def.aide ?? "Tableau à compléter") : "Tableau de saisie · chiffres et justificatifs"}
-                    action={
-                      isClient ? undefined : (
-                        <SectionExport
-                          collecte={collecte}
-                          section={key}
-                          societeNom={socNom}
-                        />
-                      )
-                    }
-                    dirty={tab === key && dirtyTableau}
                   />
                   <div className="space-y-4 p-3 lg:p-4">
                     {!preview && !archivee && def.cabinetSeul && (
@@ -811,6 +801,7 @@ export function CollecteEditorPage() {
                           wholeEditable={inRecap && whole}
                           focusTarget={focusTarget?.table === key ? focusTarget : undefined}
                           saveAndContinue={isClient && (editableTab(key) || inRecap) ? saveAndVerifyTable : undefined}
+                          exportActions={isClient ? undefined : <SectionExport collecte={collecte} section={key} societeNom={socNom} />}
                           flagged={
                             !inRecap && showFlagsFor(key) ? hl : undefined
                           }
@@ -1069,12 +1060,10 @@ function SectionHeader({
   title,
   description,
   action,
-  dirty = false,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
-  dirty?: boolean;
 }) {
   return (
     <div className="relative flex min-h-14 flex-wrap items-center gap-2 border-b border-border px-4 py-2 before:absolute before:inset-y-4 before:left-0 before:w-px before:bg-primary after:absolute after:bottom-0 after:left-0 after:h-px after:w-8 after:bg-accent">
@@ -1084,11 +1073,6 @@ function SectionHeader({
           <p className="max-w-3xl text-xs leading-snug text-muted-foreground">{description}</p>
         )}
       </div>
-      {dirty && (
-        <span role="status" className="text-xs font-medium text-warning">
-          Modifications non enregistrées
-        </span>
-      )}
       {action}
     </div>
   );
@@ -1151,14 +1135,14 @@ function SectionExport({
   const print = () => printCollecteSection(collecte, section, societeNom);
 
   return (
-    <div className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto" aria-label="Exporter ce tableau">
-      <Button variant="ghost" size="sm" onClick={exportExcel} className="min-h-9 gap-1.5">
+    <div className="flex flex-wrap items-center justify-end gap-0.5" aria-label="Exporter ce tableau">
+      <Button variant="ghost" size="sm" onClick={exportExcel} className="min-h-9 gap-1 px-2">
         <Download className="size-4" /> Excel
       </Button>
-      <Button variant="ghost" size="sm" onClick={exportPdf} className="min-h-9 gap-1.5">
+      <Button variant="ghost" size="sm" onClick={exportPdf} className="min-h-9 gap-1 px-2">
         <FileText className="size-4" /> PDF
       </Button>
-      <Button variant="ghost" size="sm" onClick={print} className="min-h-9 gap-1.5">
+      <Button variant="ghost" size="sm" onClick={print} className="min-h-9 gap-1 px-2">
         <Printer className="size-4" /> Imprimer
       </Button>
     </div>

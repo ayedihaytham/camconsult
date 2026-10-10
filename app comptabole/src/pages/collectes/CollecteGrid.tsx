@@ -1,8 +1,7 @@
-import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, FileUp, LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
+import { ChevronRight, FileUp, LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -45,6 +44,8 @@ interface Props {
   focusTarget?: { ordre: number | null; col: string | null; revision: number };
   /** Action principale du client : enregistrer puis ouvrir la vérification finale. */
   saveAndContinue?: () => Promise<void>;
+  /** Exports de ce tableau fournis par la page (aucune logique de téléchargement dupliquée ici). */
+  exportActions?: ReactNode;
 }
 
 export interface CollecteGridHandle {
@@ -92,6 +93,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   onVoirPiece,
   focusTarget,
   saveAndContinue,
+  exportActions,
 }, ref) {
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
@@ -397,55 +399,14 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const derniereColonne = [...def.columns].reverse().find((c) => !c.computed)?.key;
   const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
 
-  /** « Ajouter une ligne » : dans un tableau à bordereaux, on choisit entre un NOUVEAU bordereau et une ligne de plus dans
-   * un bordereau existant (un chèque de plus, qui reprend sa date, son n° et sa banque). */
+  /** Un seul point d'entrée pour les tableaux sans groupe ou sans bordereau existant.
+   * Dès qu'un bordereau existe, la création d'un nouveau groupe est placée près de son récapitulatif,
+   * et l'ajout de chèques demeure contextuel à CHAQUE bordereau. */
   function ajoutLigne() {
-    const g = def.groupe;
-    const nom = g?.libelle.toLowerCase() ?? "groupe";
-    if (!g || groupes.length === 0) {
-      return (
-        <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow()}>
-          <Plus className="h-4 w-4" />
-          Ajouter une ligne
-        </Button>
-      );
-    }
-    // Deux actions seulement : « Nouveau bordereau » (une ligne vierge, autre bordereau) et « Ajouter un chèque » (une ligne de plus dans
-    // un bordereau existant : même date, même n°, même banque).
     return (
-      <>
-        <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow(undefined, true)}>
-          <Plus className="h-4 w-4" />
-          Nouveau {nom}
-        </Button>
-        {groupes.length === 1 ? (
-          <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => addRow(groupes[0].id)}>
-            <Plus className="h-4 w-4" />
-            {g.ajout}
-          </Button>
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8">
-                <Plus className="h-4 w-4" />
-                {g.ajout}
-                <ChevronDown className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-72 overflow-auto">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Dans quel {nom} ?</DropdownMenuLabel>
-              {groupes.map((x) => (
-                <DropdownMenuItem key={x.id} onSelect={() => addRow(x.id)}>
-                  <span className="font-semibold">{x.nom}</span>
-                  <span className="ml-3 text-xs text-muted-foreground">
-                    {x.complet ? "complet" : x.reste > 0 ? `reste ${montantFr(x.reste)} ${symboleGroupe}` : `dépassé de ${montantFr(-x.reste)} ${symboleGroupe}`}
-                  </span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </>
+      <Button type="button" variant="outline" size="sm" className="min-h-9 gap-1.5" onClick={() => addRow()}>
+        <Plus className="size-4" /> Ajouter une ligne
+      </Button>
     );
   }
 
@@ -465,77 +426,94 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </p>
       )}
 
-      {/* Toujours visible pendant le défilement du tableau : état des bordereaux et actions de saisie. */}
-      <div data-tour="collecte-sticky-tools" className="sticky top-0 z-20 space-y-2 rounded-lg border border-border bg-card/95 px-3 py-2.5 shadow-sm supports-[backdrop-filter]:backdrop-blur-md">
-      {groupes.length > 0 && (
-        <div data-tour="collecte-repartition" className="space-y-2 border-b border-border pb-2.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Répartition des bordereaux — montants suivis en temps réel</p>
-          <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
-            {groupes.map((g) => (
-              <div key={g.id} className="flex min-w-fit shrink-0 items-center gap-2.5 rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs">
-                <span className="font-semibold text-foreground">{def.groupe?.libelle} {g.nom}</span>
-                <span className="whitespace-nowrap tabular-nums text-muted-foreground">{montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe}</span>
-                <span role="progressbar" aria-label={`${def.groupe?.libelle} ${g.nom}`} aria-valuemin={0} aria-valuemax={g.total} aria-valuenow={Math.min(g.reparti, g.total)} className="h-1.5 w-16 overflow-hidden rounded-full bg-border sm:w-20">
-                  <span className={cn("block h-full rounded-full", g.complet ? "bg-success" : g.reste < 0 ? "bg-destructive" : "bg-warning")} style={{ width: `${Math.min(100, Math.round((g.reparti / g.total) * 100))}%` }} />
-                </span>
-                <span className={cn("whitespace-nowrap font-semibold", g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning")}>{g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)}` : `Reste ${montantFr(g.reste)}`}</span>
-                {canAdd && (
-                  <Button type="button" variant="outline" size="sm" className="min-h-9 shrink-0 gap-1.5 bg-card" onClick={() => addRow(g.id)} title={g.complet ? "Ajouter une ligne dépassera le montant annoncé" : undefined}>
-                    <Plus className="size-3.5" /> {def.groupe?.ajout} à ce {def.groupe?.libelle.toLowerCase()}
-                  </Button>
-                )}
+      {/* Le panneau compact reste visible durant la saisie. Toutes les commandes sont ici,
+          sans doubles boutons en dessous du tableau et sans menus qui masquent les exports. */}
+      {(groupes.length > 0 || !readOnly || exportActions) && (
+        <div
+          data-tour="collecte-sticky-tools"
+          role="region"
+          aria-label="Suivi et actions du tableau"
+          className="sticky top-0 z-20 space-y-2 rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm"
+        >
+          {groupes.length > 0 && (
+            <div data-tour="collecte-repartition" className="flex min-w-0 flex-col gap-2 border-b border-border pb-2 md:flex-row md:items-stretch">
+              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-0.5" aria-label="Avancement des bordereaux">
+                {groupes.map((g) => (
+                  <div key={g.id} className="flex min-w-[270px] flex-1 items-center justify-between gap-3 rounded-md border border-border bg-muted/25 px-3 py-2">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                        <span className="text-xs font-semibold text-foreground">{def.groupe?.libelle} {g.nom}</span>
+                        <span className={cn("text-xs font-semibold", g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning")}>{g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)}` : `Reste ${montantFr(g.reste)}`}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">{montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe} · {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}</span>
+                        <span role="progressbar" aria-label={`Montant réparti : ${def.groupe?.libelle} ${g.nom}`} aria-valuemin={0} aria-valuemax={Math.max(0, g.total)} aria-valuenow={Math.min(Math.max(0, g.reparti), Math.max(0, g.total))} className="h-1.5 min-w-10 flex-1 overflow-hidden rounded-full bg-border">
+                          <span className={cn("block h-full rounded-full", g.complet ? "bg-success" : g.reste < 0 ? "bg-destructive" : "bg-warning")} style={{ width: `${g.total > 0 ? Math.min(100, Math.max(0, Math.round((g.reparti / g.total) * 100))) : 0}%` }} />
+                        </span>
+                      </div>
+                    </div>
+                    {canAdd && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="min-h-9 shrink-0 gap-1 bg-card px-2.5"
+                        onClick={() => addRow(g.id)}
+                        aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${g.nom}`}
+                        title={g.complet ? "Ajouter une ligne dépassera le montant annoncé" : undefined}
+                      >
+                        <Plus className="size-3.5" /> {def.groupe?.ajout}
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {!readOnly && (
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            {structureLocked ? <span /> : def.plageNumeros && rows.length === 0 ? null : ajoutLigne()}
-            {!structureLocked && TABLEAUX_GRAND_LIVRE[def.key] && (
-              <Button variant="outline" size="sm" className="min-h-10 bg-card" onClick={() => setImportOpen(true)}>
-                <FileUp className="h-4 w-4" />
-                Importer un document
-              </Button>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:justify-end">
-            {dirty && (
-              <span role="status" className="w-full text-xs font-medium text-warning lg:w-auto">
-                Modifications non enregistrées
-              </span>
-            )}
-            {saveError && (
-              <span role="alert" className="w-full text-xs text-destructive lg:w-auto">
-                Enregistrement impossible · réessayez
-              </span>
-            )}
-            {saved && !dirty && (
-              <span role="status" className="w-full text-xs text-success lg:w-auto">
-                Enregistré
-              </span>
-            )}
-            <Button
-              data-tour="collecte-save"
-              variant="ledger"
-              size="sm"
-              onClick={() => { void (saveAndContinue ? saveAndContinue() : save()).catch(() => {}); }}
-              disabled={saving || (!dirty && !saveAndContinue)}
-              className={cn(
-                "min-h-10",
-                !dirty && !saveAndContinue &&
-                  "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
+              {canAdd && def.groupe && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-9 shrink-0 gap-1.5 self-start whitespace-nowrap md:self-center"
+                  onClick={() => addRow(undefined, true)}
+                >
+                  <Plus className="size-4" /> Nouveau {def.groupe.libelle.toLowerCase()}
+                </Button>
               )}
-            >
-              <Save className="h-4 w-4" />
-              {saving ? "Enregistrement…" : saveAndContinue ? "Enregistrer et vérifier" : "Enregistrer"}
-            </Button>
+            </div>
+          )}
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {canAdd && (def.plageNumeros && rows.length === 0 ? null : groupes.length === 0 ? ajoutLigne() : null)}
+              {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
+                <Button type="button" variant="outline" size="sm" className="min-h-9 gap-1.5" onClick={() => setImportOpen(true)}>
+                  <FileUp className="size-4" /> Importer un document
+                </Button>
+              )}
+            </div>
+            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-2">
+              {exportActions && <div className="flex items-center gap-1 border-r border-border pr-2" data-tour="collecte-export-sticky">{exportActions}</div>}
+              {!readOnly && (
+                <>
+                  {saveError && <span role="alert" className="text-xs text-destructive">Enregistrement impossible · réessayez</span>}
+                  {!saveError && dirty && <span role="status" className="text-xs font-medium text-warning">Non enregistré</span>}
+                  {!dirty && saved && !saveError && <span role="status" className="text-xs text-success">Enregistré</span>}
+                  <Button
+                    data-tour="collecte-save"
+                    variant="ledger"
+                    size="sm"
+                    className={cn("min-h-9 gap-1.5", !dirty && !saveAndContinue && "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
+                    onClick={() => { void (saveAndContinue ? saveAndContinue() : save()).catch(() => {}); }}
+                    disabled={saving || (!dirty && !saveAndContinue)}
+                  >
+                    {saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+                    {saving ? "Enregistrement…" : saveAndContinue ? "Enregistrer et vérifier" : "Enregistrer"}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
-
-      </div>
       {canAdd && def.plageNumeros && rows.length === 0 && (() => {
         const plage = plageNumeros(plageDebut, plageFin);
         const saisi = plageDebut.trim() !== "" && plageFin.trim() !== "";

@@ -61,4 +61,10 @@ describe("CollecteNextStep", () => {
     fireEvent.click(screen.getByRole("button", { name: /Examiner ce tableau/ }));
     expect(onNavigate).toHaveBeenCalledWith("virements_recus");
   });
+
+  it("does not ask for a click when the recommended table is already open", () => {
+    render(<CollecteNextStep collecte={collecte()} isClient isCabinet={false} recapPending={false} currentTab="virements_recus" onNavigate={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Continuer la saisie/ })).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe("Tableau ouvert");
+  });
 });

@@ -10,11 +10,12 @@ interface Props {
   isClient: boolean;
   isCabinet: boolean;
   recapPending: boolean;
+  currentTab?: string;
   onNavigate: (tab: string) => void;
 }
 
 /** Role-aware action cue derived from the existing section and recap states. */
-export function CollecteNextStep({ collecte, isClient, isCabinet, recapPending, onNavigate }: Props) {
+export function CollecteNextStep({ collecte, isClient, isCabinet, recapPending, currentTab, onNavigate }: Props) {
   const counts = resumeSections(collecte);
   const keys = ordonnerTableaux(collecte.onglets);
   const awaitingReview = keys.find((key) => sectionStatut(collecte, key) === "transmis");
@@ -99,10 +100,15 @@ export function CollecteNextStep({ collecte, isClient, isCabinet, recapPending, 
             <p className="mt-0.5 max-w-3xl text-sm leading-snug text-muted-foreground">{description}</p>
           </div>
         </div>
-        {action && (
+        {action && action.tab !== currentTab && (
           <Button type="button" variant="ledger" className="min-h-10 shrink-0 gap-2 sm:self-center" onClick={() => onNavigate(action!.tab)}>
             {action.label}<ArrowRight className="size-4" aria-hidden="true" />
           </Button>
+        )}
+        {action && action.tab === currentTab && (
+          <span role="status" className="shrink-0 rounded-full bg-primary/8 px-2.5 py-1.5 text-xs font-medium text-primary">
+            Tableau ouvert
+          </span>
         )}
       </div>
       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-border/70 pt-2.5 text-xs text-muted-foreground" aria-label="Avancement des tableaux">

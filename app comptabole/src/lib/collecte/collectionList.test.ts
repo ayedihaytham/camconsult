@@ -49,7 +49,7 @@ describe("Collecte Process Ledger list", () => {
       collecte({ id: "collecte-3", statut: "archive" }),
     ];
 
-    expect(getCollecteLensCounts(items)).toEqual({ actives: 2, archivees: 1, toutes: 3 });
+    expect(getCollecteLensCounts(items)).toEqual({ aExaminer: 0, actives: 2, archivees: 1, toutes: 3 });
     expect(filterCollectes(items, { ...baseFilters, lens: "actives" }, names, now)).toHaveLength(2);
     expect(filterCollectes(items, { ...baseFilters, lens: "archivees" }, names, now)).toHaveLength(1);
     expect(filterCollectes(items, { ...baseFilters, lens: "toutes" }, names, now)).toHaveLength(3);
@@ -69,6 +69,18 @@ describe("Collecte Process Ledger list", () => {
       .toEqual(["collecte-2"]);
     expect(filterCollectes(items, { ...baseFilters, periode: "T3 2026", statut: "transmis" }, names, now))
       .toEqual([items[1]]);
+  });
+
+  it("prioritizes collections with submitted tables for cabinet review", () => {
+    const items = [
+      collecte({ id: "review", statut: "transmis", tableauxTransmis: 2 }),
+      collecte({ id: "legacy-review", statut: "transmis" }),
+      collecte({ id: "client-wait", statut: "a_corriger", tableauxTransmis: 0 }),
+    ];
+    expect(getCollecteLensCounts(items).aExaminer).toBe(2);
+    expect(filterCollectes(items, { ...baseFilters, lens: "a_examiner" }, names, now).map((item) => item.id))
+      .toEqual(["review", "legacy-review"]);
+    expect(getCollecteNextAction("transmis", { isAdmin: false, isCabinet: true, isSocieteEmploye: false })).toBe("Examiner");
   });
 
   it("filters by échéance using the existing register overdue helper", () => {

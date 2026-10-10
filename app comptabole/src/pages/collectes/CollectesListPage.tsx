@@ -59,6 +59,7 @@ import { CollecteFormDrawer } from "./CollecteFormDrawer";
 export function CollectesListPage() {
   const navigate = useNavigate();
   const { isAdmin, isCollaborateur: canCreate, poste } = usePermissions();
+  const isCabinet = isAdmin || canCreate;
   const isSocieteEmploye = poste === "societe_employe";
   const societes = useSocietes();
   const societeActive = useSocieteActive();
@@ -75,7 +76,7 @@ export function CollectesListPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Collecte | null>(null);
-  const [vue, setVue] = useState<CollecteLens>("actives");
+  const [vue, setVue] = useState<CollecteLens>(isCabinet ? "a_examiner" : "actives");
   const [query, setQuery] = useState("");
   const [societeId, setSocieteId] = useState("all");
   const [periode, setPeriode] = useState("all");
@@ -99,6 +100,7 @@ export function CollectesListPage() {
     const now = new Date();
     return {
       enCours: list.filter((c) => c.statut === "brouillon" || c.statut === "transmis" || c.statut === "a_corriger").length,
+      aExaminer: list.filter((c) => c.statut !== "archive" && (c.tableauxTransmis ?? Number(c.statut === "transmis")) > 0).length,
       enRetard: list.filter((c) => isOverdueCollection(c, now)).length,
       aCorriger: list.filter((c) => c.statut === "a_corriger").length,
     };
@@ -175,7 +177,7 @@ export function CollectesListPage() {
           onClick={(event) => event.stopPropagation()}
           className="inline-flex min-h-9 items-center gap-1 whitespace-nowrap text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {getCollecteNextAction(row.original.statut, { isAdmin, isSocieteEmploye })}
+          {getCollecteNextAction(row.original.statut, { isAdmin, isCabinet, isSocieteEmploye })}
           <ArrowRight className="size-3.5" aria-hidden="true" />
         </Link>
       ),
@@ -189,7 +191,7 @@ export function CollectesListPage() {
       cell: ({ row }) => <CollecteActions collecte={row.original} socNom={socNom} onDelete={setToDelete} onOpen={() => navigate(`/collectes/${row.original.id}`)} />,
       meta: { label: "Actions", headerClassName: "w-[6%]", cellClassName: "w-[6%]" },
     } satisfies ColumnDef<Collecte, unknown>] : []),
-  ], [socNom, isAdmin, isSocieteEmploye, navigate]);
+  ], [socNom, isAdmin, isCabinet, isSocieteEmploye, navigate]);
 
   const table = useDataTable({
     columns,
@@ -245,13 +247,14 @@ export function CollectesListPage() {
       value={vue}
       onChange={setVue}
       options={[
+        ...(isCabinet ? [{ value: "a_examiner" as const, label: `À examiner (${counts.aExaminer})` }] : []),
         { value: "actives", label: `Actives (${counts.actives})` },
         { value: "archivees", label: `Archivées (${counts.archivees})` },
         { value: "toutes", label: `Toutes (${counts.toutes})` },
       ]}
     />
   );
-  const emptyMessage = loading ? "Chargement…" : "Aucune collecte.";
+  const emptyMessage = loading ? "Chargement…" : vue === "a_examiner" ? "Aucun tableau transmis à examiner." : "Aucune collecte.";
 
   return (
     <div className={`flex min-w-0 flex-1 flex-col ${canCreate ? "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0" : ""}`}>
@@ -263,6 +266,7 @@ export function CollectesListPage() {
         title="Collecte de pièces"
         description={canCreate ? "Classeurs confiés aux clients pour saisie et retour au cabinet." : "Classeurs à remplir et transmettre à votre cabinet."}
         metrics={[
+          ...(isCabinet ? [{ label: "À examiner", value: collectionSummary.aExaminer, tone: "warning" as const, loading }] : []),
           { label: "En cours", value: collectionSummary.enCours, loading },
           { label: "En retard", value: collectionSummary.enRetard, tone: "destructive", loading },
           { label: "À corriger", value: collectionSummary.aCorriger, tone: "warning", loading },
@@ -295,9 +299,11 @@ export function CollectesListPage() {
                 ? "Aucune collecte ne correspond à ces critères."
                 : list.length === 0
                   ? "Aucune collecte."
-                  : vue === "archivees"
-                    ? "Aucune collecte archivée."
-                    : "Aucune collecte active."}
+                  : vue === "a_examiner"
+                    ? "Aucun tableau transmis à examiner."
+                    : vue === "archivees"
+                      ? "Aucune collecte archivée."
+                      : "Aucune collecte active."}
             </p>
             {(query || activeFilterCount > 0) && <Button type="button" variant="link" className="h-auto px-0 pt-1" onClick={() => { setQuery(""); resetFilters(); }}>Effacer la recherche et les filtres</Button>}
           </div>
@@ -313,7 +319,7 @@ export function CollectesListPage() {
             getRowClassName={(row) => row.original.statut === "archive" ? "collectes-archived-row" : undefined}
             footer={<OperationalLedgerFooter table={table} itemLabel="collectes" />}
             mobileFooter={<OperationalMobilePagination table={table} itemLabel="collectes" />}
-            mobileRow={(row) => <CollecteMobileRow collecte={row.original} socNom={socNom} isAdmin={isAdmin} isSocieteEmploye={isSocieteEmploye} onDelete={setToDelete} onOpen={() => navigate(`/collectes/${row.original.id}`)} />}
+            mobileRow={(row) => <CollecteMobileRow collecte={row.original} socNom={socNom} isAdmin={isAdmin} isCabinet={isCabinet} isSocieteEmploye={isSocieteEmploye} onDelete={setToDelete} onOpen={() => navigate(`/collectes/${row.original.id}`)} />}
           />
         )}
       </LedgerWorkSurface>
@@ -473,10 +479,11 @@ function CollecteDeadline({ collecte }: { collecte: Collecte }) {
   );
 }
 
-function CollecteMobileRow({ collecte, socNom, isAdmin, isSocieteEmploye, onDelete, onOpen }: {
+function CollecteMobileRow({ collecte, socNom, isAdmin, isCabinet, isSocieteEmploye, onDelete, onOpen }: {
   collecte: Collecte;
   socNom: (id: string) => string;
   isAdmin: boolean;
+  isCabinet: boolean;
   isSocieteEmploye: boolean;
   onDelete: (collecte: Collecte) => void;
   onOpen: () => void;
@@ -494,7 +501,7 @@ function CollecteMobileRow({ collecte, socNom, isAdmin, isSocieteEmploye, onDele
       <div className="mt-2 flex min-w-0 items-center justify-between gap-2 border-t border-border/60 pt-2">
         <span className="min-w-0 truncate text-[11px] text-muted-foreground">{formatTableauCount(collecte.onglets.length)}<AvancementTableaux collecte={collecte} /> · {formatCollecteUpdate(collecte.majLe)}</span>
         <Link to={`/collectes/${collecte.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {getCollecteNextAction(collecte.statut, { isAdmin, isSocieteEmploye })}<ArrowRight className="size-3.5" aria-hidden="true" />
+          {getCollecteNextAction(collecte.statut, { isAdmin, isCabinet, isSocieteEmploye })}<ArrowRight className="size-3.5" aria-hidden="true" />
         </Link>
       </div>
     </article>

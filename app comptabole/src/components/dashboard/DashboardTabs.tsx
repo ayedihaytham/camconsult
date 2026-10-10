@@ -3,9 +3,9 @@ import { Activity, Bell, CalendarDays, LayoutGrid, ListChecks, Users } from "luc
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilesActivity } from "@/components/dashboard/activity/FilesActivity";
-import { MessagesActivity } from "@/components/dashboard/activity/MessagesActivity";
 import { ActivityTab } from "@/components/dashboard/tabs/ActivityTab";
 import { AttentionTab } from "@/components/dashboard/tabs/AttentionTab";
+import { ClientMessagesTab } from "@/components/dashboard/tabs/ClientMessagesTab";
 import { ClientCollectionsTab } from "@/components/dashboard/tabs/ClientCollectionsTab";
 import { ClientOverviewTab } from "@/components/dashboard/tabs/ClientOverviewTab";
 import { DeadlinesTab } from "@/components/dashboard/tabs/DeadlinesTab";
@@ -107,7 +107,7 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
         <>
           <TabsContent value="collections" className="mt-4">{!collectesError && <ClientCollectionsTab collections={data.collections} loading={collectesLoading} />}</TabsContent>
           <TabsContent value="documents" className="mt-4"><ActivitySection title="Documents récents" description="Derniers fichiers accessibles dans votre dossier"><FilesActivity files={data.recentFiles} onOpen={() => navigate("/structuration")} /></ActivitySection></TabsContent>
-          {canUseMessaging && <TabsContent value="messages" className="mt-4"><ActivitySection title="Messages récents" description="Derniers échanges avec le cabinet"><MessagesActivity messages={data.recentMessages} onOpen={() => navigate("/messagerie")} /></ActivitySection></TabsContent>}
+          {canUseMessaging && <TabsContent value="messages" className="mt-4"><ClientMessagesTab messages={data.recentMessages} /></TabsContent>}
         </>
       ) : (
         <>

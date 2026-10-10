@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquare } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -102,6 +103,7 @@ export function MessageriePage() {
       );
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
@@ -149,6 +151,17 @@ export function MessageriePage() {
     const employee = empById(authorId);
     return employee ? employeNomComplet(employee) : "—";
   };
+
+  // Lien du Dashboard : ouvre la conversation demandée avec un message déjà préparé, une seule fois.
+  useEffect(() => {
+    const target = searchParams.get("conversation");
+    if (!target || !conversations.some((conversation) => conversation.id === target)) return;
+    setActiveId(target);
+    setMobileView("chat");
+    const brouillon = searchParams.get("brouillon");
+    if (brouillon) setDraft(brouillon);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, conversations, setSearchParams]);
 
   useEffect(() => {
     // Pas de sélection automatique au chargement : on affiche la liste et on

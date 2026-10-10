@@ -174,12 +174,9 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-/** Espace du compte de société cliente : son Dashboard, la Collecte de pièces, la Structuration et la Messagerie, rien d'autre. */
+/** Espace du compte de société cliente, pour le moment : son Dashboard et la Collecte de pièces, rien d'autre. */
 export function cheminAutoriseClient(pathname: string): boolean {
-  return (
-    pathname === "/" ||
-    ["/collectes", "/structuration", "/messagerie"].some((base) => pathname === base || pathname.startsWith(`${base}/`))
-  );
+  return pathname === "/" || pathname === "/collectes" || pathname.startsWith("/collectes/");
 }
 
 export function visibleNavigation({
@@ -195,14 +192,14 @@ export function visibleNavigation({
   can: (permission: PermissionKey) => boolean;
   canManageCollaborateurs?: boolean;
   isResponsableSociete?: boolean;
-  /** Compte de société cliente : Dashboard, Collecte de pièces, Structuration et Messagerie. */
+  /** Compte de société cliente : seulement le Dashboard et la Collecte de pièces. */
   espaceCollecteSeul?: boolean;
 }): NavGroup[] {
   return NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items
       .filter((item) => {
-        if (espaceCollecteSeul) return Boolean(item.to) && cheminAutoriseClient(item.to!) && !item.adminOnly && (!item.perm || can(item.perm));
+        if (espaceCollecteSeul) return Boolean(item.to) && cheminAutoriseClient(item.to!) && !item.adminOnly;
         if (
           item.adminOnly &&
           !isAdmin &&

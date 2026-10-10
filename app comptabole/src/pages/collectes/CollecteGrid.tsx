@@ -163,6 +163,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       const attend =
         r !== null &&
         !estEnteteBordereau(idx) &&
+        // La première ligne d'un bordereau porte son numéro : Entrée y ajoute le chèque suivant au lieu de la rouvrir.
+        rows.findIndex((x) => idLigne(x) === groupeId) !== idx &&
         def.columns
           .filter((c) => !c.computed && !gr.prefill.includes(c.key) && c.key !== gr.totalCol)
           .every((c) => String(r[c.key] ?? "").trim() === "" && !(c.piece && r[`${c.key}_fichier`]));

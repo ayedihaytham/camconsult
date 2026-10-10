@@ -159,6 +159,8 @@ describe("CollecteGrid : barre d'actions épurée", () => {
     renderGrid("bordereaux_remise_cheques");
     ajouter();
     fireEvent.change(champs(lignes()[0])[1], { target: { value: "BRD-9" } });
+    // Le suivi d'un bordereau n'apparaît dans la barre qu'une fois son montant annoncé.
+    fireEvent.change(champs(lignes()[0])[2], { target: { value: "1000" } });
     const barre = document.querySelector('[data-tour="collecte-sticky-tools"]') as HTMLElement;
     expect(within(barre).getByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ })).toBeTruthy();
     expect(within(barre).queryByRole("button", { name: "Nouveau bordereau" })).toBeNull();
@@ -359,7 +361,7 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     expect(lignes()).toHaveLength(3);
     expect(suivi()?.textContent).toMatch(/50\s000,000 \/ 60\s000,000/);
     fireEvent.change(champs(lignes()[2])[MONTANT], { target: { value: "10000" } });
-    expect(suivi()?.textContent).toMatch(/60\s000,000 \/ 60\s000,000 TND · 3 lignes/);
+    expect(suivi()?.textContent).toMatch(/60\s000,000 \/ 60\s000,000 TND\s?· 3 lignes/);
     expect(suivi()?.textContent).toContain("Complet");
     expect(ref.current?.isComplete()).toBe(true);
   });

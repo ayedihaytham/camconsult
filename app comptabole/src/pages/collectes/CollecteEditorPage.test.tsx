@@ -305,6 +305,16 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
 });
 
 describe("Collecte : bordereau incomplet", () => {
+  // L'avertissement est réservé au responsable de société (le cabinet passe par le Récap).
+  beforeEach(() => {
+    perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
+    collecte.sections = [{ id: "s", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" } as never];
+  });
+  afterEach(() => {
+    perms.current = { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true };
+    collecte.sections = [];
+  });
+
   function saisirBordereauIncomplet() {
     openBordereaux();
     fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
@@ -461,5 +471,107 @@ describe("Collecte : circuit par tableau", () => {
     ouvrirArchive("Souche de chèques");
     expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
     expect(screen.getByRole("button", { name: "Désarchiver" })).toBeTruthy();
+  });
+});
+
+describe("Collecte : avertissement de répartition réservé au responsable de société", () => {
+  const entete = { id: "l1", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-10-10", num_bordereau: "3339", montant: 6660, banque: "", montant_cheque: "" } };
+  const section = { id: "s", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" };
+  afterEach(() => {
+    collecte.sections = [];
+    collecte.lignes = [];
+    perms.current = { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true };
+  });
+
+  it("n'interrompt pas l'admin qui quitte un bordereau incomplet : il passe par le Récap", () => {
+    collecte.sections = [section as never];
+    collecte.lignes = [entete] as never;
+    renderPage();
+    ouvrirSection("Bordereaux remise de chèques");
+    fireEvent.click(sectionButton("Souche de chèques"));
+    expect(screen.queryByText("Répartition incomplète")).toBeNull();
+    expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page");
+  });
+
+  it("interrompt le responsable de société, avec un texte adapté à un dépassement", () => {
+    perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
+    collecte.sections = [section as never];
+    collecte.lignes = [entete, { id: "l2", onglet: "bordereaux_remise_cheques", ordre: 1, data: { ...entete.data, montant: "", montant_cheque: 40000 } }] as never;
+    renderPage();
+    ouvrirSection("Bordereaux remise de chèques");
+    fireEvent.click(sectionButton("Souche de chèques"));
+    expect(screen.getByText("Montants à vérifier")).toBeTruthy();
+    expect(screen.getByText(/une faute de frappe/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Vérifier" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Continuer quand même" }));
+    expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page");
+  });
+});
+
+describe("Collecte : espace limité du responsable de société", () => {
+  const sectionOuverte = { id: "s", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" };
+  const devenirClient = () => {
+    perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
+  };
+  afterEach(() => {
+    collecte.sections = [];
+    collecte.lignes = [];
+    perms.current = { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true };
+  });
+
+  it("n'a que le Récap et les tableaux à compléter dans la barre : ni Checklist, ni Documents, ni Historique", () => {
+    devenirClient();
+    collecte.sections = [sectionOuverte as never];
+    renderPage();
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
+    const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent ?? "");
+    expect(noms.some((n) => n.startsWith("Checklist"))).toBe(false);
+    expect(noms.some((n) => n.startsWith("Documents"))).toBe(false);
+    expect(noms.some((n) => n.startsWith("Historique"))).toBe(false);
+    expect(noms.some((n) => n.startsWith("Récap"))).toBe(true);
+    expect(noms.some((n) => n.startsWith("Bordereaux remise de chèques"))).toBe(true);
+  });
+
+  it("arrive directement sur le premier tableau à compléter, sans exports ni outils du cabinet", () => {
+    devenirClient();
+    collecte.sections = [sectionOuverte as never];
+    renderPage();
+    expect(screen.getByRole("heading", { name: "Bordereaux remise de chèques" })).toBeTruthy();
+    expect(screen.queryByText("Checklist")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Tout en Excel/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Modifier la collecte/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Relancer/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Excel$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^PDF$/ })).toBeNull();
+    expect(screen.queryByText(/pièces reçues/)).toBeNull();
+    expect(screen.getByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeTruthy();
+  });
+
+  it("propose Quitter, qui ramène à la liste des collectes", () => {
+    devenirClient();
+    collecte.sections = [sectionOuverte as never];
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /Quitter/ }));
+    expect(screen.getByText("Liste des collectes")).toBeTruthy();
+  });
+
+  it("enregistre la saisie en cours avant de quitter, sans rien perdre", async () => {
+    devenirClient();
+    collecte.sections = [sectionOuverte as never];
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+    fireEvent.change(document.querySelectorAll<HTMLInputElement>("tbody tr[data-row] input")[1], { target: { value: "REM-1" } });
+    fireEvent.click(screen.getByRole("button", { name: /Quitter/ }));
+    await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
+    expect(await screen.findByText("Liste des collectes")).toBeTruthy();
+  });
+
+  it("le cabinet garde tous ses outils", () => {
+    renderPage();
+    expect(screen.getByRole("button", { name: /Tout en Excel/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Quitter/ })).toBeNull();
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
+    const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent ?? "");
+    expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);
   });
 });

@@ -15,6 +15,7 @@ import { useAuth } from "@/store/auth";
 import { useData } from "@/store/data";
 import { registerQuotaHandler } from "@/lib/safeStorage";
 import { registerSessionExpiredHandler } from "@/lib/api";
+import { useCollectes } from "@/store/collectes";
 import { startLiveEvents } from "@/lib/liveEvents";
 
 const LoginPage = lazy(() =>
@@ -213,6 +214,9 @@ function DataBoundary({ children }: { children: React.ReactNode }) {
     const stopLiveEvents = startLiveEvents({
       onMessage: () => void refreshMessages(),
       onNotification: () => void refreshNotifications(),
+      // Collecte de pièces ouverte : mise à jour en direct quand l'autre partie (client ou cabinet) la modifie, sans rechargement.
+      onCollecte: (id) => void useCollectes.getState().synchroniser(id),
+      onResync: () => void useCollectes.getState().synchroniser(),
     });
     // recharge quand on change de compte
     return stopLiveEvents;

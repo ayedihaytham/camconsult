@@ -101,3 +101,26 @@ describe("Récap : détail d'un tableau avant l'envoi", () => {
     expect(screen.queryByRole("region", { name: /Détail de/ })).toBeNull();
   });
 });
+
+describe("Récap : bordereaux à compléter", () => {
+  it("signale au cabinet un bordereau dont le montant n'est pas atteint ou est dépassé", () => {
+    const ligne = (ordre: number, data: Record<string, unknown>) => ({ id: `b${ordre}`, onglet: "bordereaux_remise_cheques", ordre, data });
+    const base = { date_remise: "2026-10-10", num_bordereau: "3339", banque: "BIAT", num_cheque: "1", client_emetteur: "X", date_echeance: "2026-11-01", observations: "ok" };
+    const c = {
+      ...collecte,
+      onglets: ["bordereaux_remise_cheques"],
+      lignes: [ligne(0, { ...base, montant: 6660, montant_cheque: 40000 })],
+    } as unknown as CollecteFull;
+    rendre(c);
+    expect(screen.getAllByText(/Bordereau 3339 : dépassé de 33\s340,000 TND/).length).toBeGreaterThan(0);
+    cleanup();
+    rendre({ ...c, lignes: [ligne(0, { ...base, montant: 6660, montant_cheque: 1000 })] } as unknown as CollecteFull);
+    expect(screen.getAllByText(/Bordereau 3339 : il reste 5\s660,000 TND à répartir/).length).toBeGreaterThan(0);
+  });
+
+  it("ne dit rien d'un bordereau complet", () => {
+    const ligne = { id: "b0", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-10-10", num_bordereau: "1", montant: 100, montant_cheque: 100 } };
+    rendre({ ...collecte, onglets: ["bordereaux_remise_cheques"], lignes: [ligne] } as unknown as CollecteFull);
+    expect(screen.queryByText(/il reste|dépassé/)).toBeNull();
+  });
+});

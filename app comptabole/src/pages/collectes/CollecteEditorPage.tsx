@@ -14,6 +14,8 @@ import {
   Paperclip,
   Printer,
   RotateCcw,
+  Send,
+  LogOut,
   SlidersHorizontal,
   Trash2,
   UploadCloud,
@@ -49,6 +51,7 @@ import type { CollecteFull, CollecteJournalEntry, CollecteStatut } from "@/types
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { CollecteChecklist } from "./CollecteChecklist";
 import { CollecteClientVerification } from "./CollecteClientVerification";
+import { CollecteNextStep } from "./CollecteNextStep";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
@@ -111,7 +114,12 @@ export function CollecteEditorPage() {
   const gridRef = useRef<CollecteGridHandle>(null);
   const transmittedBeforeRecapRef = useRef(false);
   const [dirtyTableau, setDirtyTableau] = useState(false);
-  const [incomplet, setIncomplet] = useState<{ next: string; message: string } | null>(null);
+  const [incomplet, setIncomplet] = useState<{
+    next: string;
+    message: string;
+    manque: boolean;
+    target?: { ordre: number | null; col: string | null };
+  } | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState(false);
   const [preview, setPreview] = useState(false); // admin : aperçu de la vue client
@@ -167,7 +175,9 @@ export function CollecteEditorPage() {
     const nextTarget = poste === "societe_employe"
       ? recapTarget ?? ordered.find((key) => !TAB_BY_KEY[key]?.cabinetSeul && sectionOuverte(sectionStatut(collecte, key)))
       : ordered.find((key) => sectionStatut(collecte, key) === "transmis") ?? ordered.find((key) => sectionStatut(collecte, key) === "a_corriger");
-    const next = validRequested ? requested! : (poste === "societe_employe" ? recapTarget ?? nextTarget : nextTarget) ?? "checklist";
+    const next = validRequested && !(poste === "societe_employe" && ["checklist", "documents", "historique"].includes(requested!))
+      ? requested!
+      : (poste === "societe_employe" ? recapTarget ?? nextTarget ?? "recap" : nextTarget ?? "checklist");
     setTab(next);
     if (!validRequested && poste === "societe_employe" && !["checklist", "recap", "documents", "verification", "historique"].includes(next)) {
       const manque = computeManques(collecte).find((item) => item.onglet === next);
@@ -303,8 +313,8 @@ export function CollecteEditorPage() {
     if (savingDraft) return;
     // Un bordereau dont les chèques n'atteignent pas le montant annoncé : on prévient avant de passer à autre chose.
     const grille = gridRef.current;
-    if (!forcer && grille && !grille.isComplete()) {
-      setIncomplet({ next, message: grille.incompleteMessage() });
+    if (!forcer && isClient && next !== "__back__" && grille && !grille.isComplete()) {
+      setIncomplet({ next, message: grille.incompleteMessage(), manque: grille.ecart().manque, target });
       return;
     }
     if (gridRef.current?.isDirty()) {
@@ -370,7 +380,7 @@ export function CollecteEditorPage() {
     const grille = gridRef.current;
     if (!grille) return;
     if (!grille.isComplete()) {
-      setIncomplet({ next: "verification", message: grille.incompleteMessage() });
+      setIncomplet({ next: "verification", message: grille.incompleteMessage(), manque: grille.ecart().manque });
       return;
     }
     try {
@@ -437,33 +447,74 @@ export function CollecteEditorPage() {
             <span aria-hidden className={cn("size-2 rounded-full", validee ? "bg-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning" : archivee ? "bg-muted-foreground/50" : "bg-primary")} />
             {COLLECTE_STATUT_LABELS[collecte.statut]}
           </span>
-          <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-            <strong className="font-semibold tabular-nums text-foreground">{recus}/{rows.length}</strong> pièces reçues
-            <span role="progressbar" aria-label="Pièces reçues" aria-valuemin={0} aria-valuemax={rows.length} aria-valuenow={recus} className="h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:w-28">
-              <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
+          {!isClient && (
+            <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <strong className="font-semibold tabular-nums text-foreground">{recus}/{rows.length}</strong> pièces reçues
+              <span role="progressbar" aria-label="Pièces reçues" aria-valuemin={0} aria-valuemax={rows.length} aria-valuenow={recus} className="h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:w-28">
+                <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
+              </span>
             </span>
-          </span>
+          )}
           {collecte.echeance && (
             <span className={cn("text-xs", enRetard ? "font-semibold text-warning-foreground" : "text-muted-foreground")}>
               Échéance {formatDate(collecte.echeance)}
               {enRetard ? " · dépassée" : ""}
             </span>
           )}
+          {isClient && (
+            <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__back__")}>
+              <LogOut className="size-4" /> Quitter
+            </Button>
+          )}
+          {isClient && canSubmit && tab !== "verification" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={boutonBandeau}
+              disabled={recapRestant > 0}
+              title={recapRestant > 0 ? `Encore ${recapRestant} case(s) à compléter avant de transmettre` : undefined}
+              onClick={() => {
+                if (recapRestant > 0) return;
+                if (collecte.statut === "brouillon" || collecte.statut === "a_corriger") {
+                  requestTab("__confirm_transmis__");
+                } else if (clientRecap) {
+                  void submitRecap(id)
+                    .then(() => toast.success("Récap transmis au cabinet"))
+                    .catch(() => {});
+                }
+              }}
+            >
+              <Send className="size-4" /> Transmettre au cabinet
+            </Button>
+          )}
           {canManageCollaborateurs && collecte.statut === "transmis" && (
             <>
-              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_valide__")}><CheckCircle2 className="size-4" /> Valider</Button>
-              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}>Renvoyer</Button>
+              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_valide__")}><CheckCircle2 className="size-4" /> Tout valider</Button>
+              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}>Tout renvoyer</Button>
             </>
           )}
           {canManageCollaborateurs && validee && (
             <>
-              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_archive__")}>Archiver</Button>
-              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}><RotateCcw className="size-4" /> Rouvrir</Button>
+              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_archive__")}>Archiver la collecte</Button>
+              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}><RotateCcw className="size-4" /> Rouvrir la collecte</Button>
             </>
           )}
           {canManageCollaborateurs && archivee && <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_reopen__")}><RotateCcw className="size-4" /> Désarchiver</Button>}
         </div>
       </header>
+      <CollecteNextStep
+        collecte={collecte}
+        isClient={isClient}
+        isCabinet={isAdmin || isStaff}
+        recapPending={currentRecap === "envoye"}
+        currentTab={tab}
+        onNavigate={requestTab}
+      />
+      {isClient && currentRecap === "repondu" && (
+        <p className="mt-2 border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Récap renvoyé au cabinet. En attente de traitement.
+        </p>
+      )}
       {(savingDraft || draftError) && (
         <p role={draftError ? "alert" : "status"} aria-live="polite" className={cn("mt-2 rounded-lg border px-3 py-2 text-xs", draftError ? "border-destructive/25 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary")}>
           {draftError ? "Le brouillon n’a pas été enregistré. Restez sur ce tableau et réessayez." : "Enregistrement du brouillon avant le changement de section…"}
@@ -474,7 +525,7 @@ export function CollecteEditorPage() {
           Aperçu client — seules les cases « ? » demandées sont modifiables.
         </p>
       )}
-      <div data-tour="collecte-tools" className="flex justify-end py-1">
+      {!isClient && <div data-tour="collecte-tools" className="flex justify-end py-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="min-h-9 gap-1.5 bg-card"><MoreHorizontal className="size-4" /> Actions</Button>
@@ -490,7 +541,7 @@ export function CollecteEditorPage() {
             }}><BellRing className="mr-2 size-4" /> {relancing ? "Envoi…" : "Relancer maintenant"}</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+      </div>}
 
       <Tabs value={tab} onValueChange={requestTab}>
         <div className="mt-1 min-w-0 overflow-hidden rounded-xl border border-border bg-card">
@@ -996,20 +1047,25 @@ export function CollecteEditorPage() {
       <ConfirmDialog
         open={Boolean(incomplet)}
         onOpenChange={(o) => !o && setIncomplet(null)}
-        destructive
-        title="Répartition incomplète"
+        destructive={incomplet?.manque ?? true}
+        title={incomplet?.manque === false ? "Montants à vérifier" : "Répartition incomplète"}
         description={
           <>
             <span className="block">{incomplet?.message}.</span>
-            <span className="mt-2 block">Complétez les lignes jusqu'à atteindre le montant avant de passer à une autre action.</span>
+            <span className="mt-2 block">
+              {incomplet?.manque === false
+                ? "Le total des chèques dépasse le montant du bordereau : une faute de frappe ? Vous pouvez corriger, ou continuer et enregistrer tel quel."
+                : "Complétez les lignes jusqu'à atteindre le montant avant de passer à une autre action."}
+            </span>
           </>
         }
         confirmLabel="Continuer quand même"
-        cancelLabel="Compléter"
+        cancelLabel={incomplet?.manque === false ? "Vérifier" : "Compléter"}
         onConfirm={() => {
           const suite = incomplet?.next;
+          const target = incomplet?.target;
           setIncomplet(null);
-          if (suite) requestTab(suite, true);
+          if (suite) requestTab(suite, true, target);
         }}
       />
 

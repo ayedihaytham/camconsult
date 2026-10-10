@@ -75,6 +75,7 @@ export function CollecteWorkNavigation({
   const tableActive = requested.has(active);
   const selectedTable = COLLECTE_TABS.find((item) => item.key === active);
   const tableMissing = selectedTable && visibleMissing(active) ? missingByTable.get(active) ?? 0 : 0;
+  const archivee = collecte.statut === "archive";
 
   const navButton = (key: string, label: string, Icon: typeof ClipboardList, badge?: number) => (
     <Button
@@ -97,46 +98,93 @@ export function CollecteWorkNavigation({
     </Button>
   );
 
+  const tableButton = (item: (typeof COLLECTE_TABS)[number]) => {
+    const status = sectionStatut(collecte, item.key);
+    const hint = tableHint(collecte, item.key, isClient);
+    const missing = visibleMissing(item.key) ? missingByTable.get(item.key) ?? 0 : 0;
+    const attention = hint === "À examiner" || hint === "À reprendre" || hint === "À préciser" || hint === "À compléter";
+    const statusLabel = isClient && TAB_BY_KEY[item.key]?.cabinetSeul ? "Tenu par le cabinet" : SECTION_STATUT_LABELS[status];
+
+    return (
+      <Button
+        key={item.key}
+        type="button"
+        variant="ghost"
+        size="sm"
+        aria-current={active === item.key ? "page" : undefined}
+        onClick={() => onSelect(item.key)}
+        className={cn(
+          "min-h-10 shrink-0 gap-2 rounded-lg px-2.5 text-sm",
+          active === item.key ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "text-foreground hover:bg-muted",
+          attention && active !== item.key && "text-warning-foreground",
+        )}
+      >
+        <span className={cn("size-2 shrink-0 rounded-full", DOT[status])} aria-label={statusLabel} title={statusLabel} />
+        <span className="max-w-56 truncate">{item.label}</span>
+        {(missing > 0 || hint) && (
+          <span className={cn("hidden pl-1 text-[10px] sm:inline", attention && active !== item.key ? "text-warning-foreground" : "text-muted-foreground")}>
+            {missing > 0 ? `${missing} à compléter` : hint}
+          </span>
+        )}
+      </Button>
+    );
+  };
+
   return (
     <nav
       aria-label="Sections du dossier"
-      className="flex min-w-0 flex-wrap items-center gap-1 border-b border-border bg-card px-2 py-2"
+      className="flex min-w-0 flex-col gap-1 border-b border-border bg-card px-2 py-2"
     >
-      {navButton("checklist", "Checklist", ClipboardList)}
-      {navButton("recap", "Récap", MessageSquareText, recapCount)}
-      {navButton("documents", "Documents", Paperclip, collecte.fichiers.length)}
-      {canVerify && navButton("verification", "Vérification", CheckCircle2)}
-      {canSeeHistory && navButton("historique", "Historique", History)}
-      <div className="ml-auto flex min-w-0 items-center gap-2 px-1">
-        {tableMissing > 0 && <span className="hidden text-xs text-warning-foreground sm:inline">{tableMissing} case(s) à compléter</span>}
-        <Select value={tableActive ? active : ""} onValueChange={onSelect}>
-          <SelectTrigger className="min-h-10 w-[min(19rem,calc(100vw-2rem))] gap-2" aria-label="Choisir un tableau" aria-current={tableActive ? "page" : undefined}>
-            <Table2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <SelectValue placeholder="Choisir un tableau…" />
-          </SelectTrigger>
-          <SelectContent align="end" className="max-h-[70dvh]">
-            {groups.map((group) => (
-              <SelectGroup key={group.label}>
-                <SelectLabel>{group.label}</SelectLabel>
-                {group.keys.map((item) => {
-                  const status = sectionStatut(collecte, item.key);
-                  const hint = tableHint(collecte, item.key, isClient);
-                  const missing = visibleMissing(item.key) ? missingByTable.get(item.key) ?? 0 : 0;
-                  const attention = hint === "À examiner" || hint === "À reprendre" || hint === "À préciser" || hint === "À compléter";
-                  return (
-                    <SelectItem key={item.key} value={item.key} aria-current={active === item.key ? "page" : undefined}>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className={cn("size-2 shrink-0 rounded-full", DOT[status])} aria-label={SECTION_STATUT_LABELS[status]} title={SECTION_STATUT_LABELS[status]} />
-                        <span className="truncate">{item.label}</span>
-                        <span className={cn("ml-auto pl-2 text-xs", attention ? "text-warning-foreground" : "text-muted-foreground")}>{missing > 0 ? `${missing} à compléter` : hint}</span>
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex min-w-0 flex-wrap items-center gap-1">
+        {!isClient && navButton("checklist", "Checklist", ClipboardList)}
+        {navButton("recap", "Récap", MessageSquareText, recapCount)}
+        {!isClient && navButton("documents", "Documents", Paperclip, collecte.fichiers.length)}
+        {canVerify && !isClient && navButton("verification", "Vérification", CheckCircle2)}
+        {canSeeHistory && !isClient && navButton("historique", "Historique", History)}
+        <div className="ml-auto flex min-w-0 items-center gap-2 px-1">
+          {tableMissing > 0 && <span className="hidden text-xs text-warning-foreground sm:inline">{tableMissing} case(s) à compléter</span>}
+          <div className="sm:hidden">
+            <Select value={tableActive ? active : ""} onValueChange={onSelect}>
+              <SelectTrigger className="min-h-10 w-[min(19rem,calc(100vw-2rem))] gap-2" aria-label="Choisir un tableau" aria-current={tableActive ? "page" : undefined}>
+                <Table2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <SelectValue placeholder="Choisir un tableau…" />
+              </SelectTrigger>
+              <SelectContent align="end" className="max-h-[70dvh]">
+                {groups.map((group) => (
+                  <SelectGroup key={group.label}>
+                    <SelectLabel>{group.label}</SelectLabel>
+                    {group.keys.map((item) => {
+                      const status = sectionStatut(collecte, item.key);
+                      const hint = tableHint(collecte, item.key, isClient);
+                      const missing = visibleMissing(item.key) ? missingByTable.get(item.key) ?? 0 : 0;
+                      const attention = hint === "À examiner" || hint === "À reprendre" || hint === "À préciser" || hint === "À compléter";
+                      return (
+                        <SelectItem key={item.key} value={item.key} aria-current={active === item.key ? "page" : undefined}>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className={cn("size-2 shrink-0 rounded-full", DOT[status])} aria-label={SECTION_STATUT_LABELS[status]} title={SECTION_STATUT_LABELS[status]} />
+                            <span className="truncate">{item.label}</span>
+                            <span className={cn("ml-auto pl-2 text-xs", attention ? "text-warning-foreground" : "text-muted-foreground")}>{missing > 0 ? `${missing} à compléter` : hint}</span>
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+      <div className="hidden min-w-0 flex-wrap items-center gap-1 sm:flex">
+        {groups.map((group) => (
+          <div key={group.label} className="flex min-w-0 flex-wrap items-center gap-1">
+            <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</span>
+            {group.keys.map(tableButton)}
+          </div>
+        ))}
+        {collecte.onglets.length === 0 && !archivee && (
+          <p className="px-2.5 py-2 text-xs text-muted-foreground">Aucun tableau n’est encore demandé.</p>
+        )}
       </div>
     </nav>
   );

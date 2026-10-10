@@ -17,9 +17,37 @@ import {
   collecteFichierDto,
 } from "../mappers.js";
 import { sendRelance } from "../relances.js";
+import { pushToUser } from "../sse.js";
 
 export const collectesRouter = Router();
 collectesRouter.use(requireAuth);
+
+/** Signal temps réel : « cette collecte a changé » (jamais son contenu : le client refait la lecture habituelle). Envoyé à tous ceux qui la
+ * voient — admin, responsables des collaborateurs, collaborateurs de la société, employés de la société — sauf à l'auteur du changement, dont
+ * l'écran est déjà à jour. Les autres écrans ouverts sur la collecte se mettent alors à jour sans rechargement de page. */
+async function diffuserCollecte(collecteId, session) {
+  const c = (await query("select societe_id from collectes where id = $1", [collecteId])).rows[0];
+  if (!c) return;
+  const [concernes, responsables] = await Promise.all([
+    concernedBySociete(c.societe_id, { includeAdmin: true }),
+    query("select id from employes where role = 'responsable_collaborateurs' and statut = 'actif'"),
+  ]);
+  const auteur = notifKey(session);
+  const cibles = new Set([...concernes, ...responsables.rows.map((r) => r.id)]);
+  cibles.delete(auteur);
+  for (const cle of cibles) pushToUser(cle, "collecte", { id: collecteId });
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Toute modification réussie d'une collecte (lignes, tableau transmis/validé/renvoyé, notes, pièces, récap, statut) est signalée aux autres écrans.
+collectesRouter.use("/:id", (req, res, next) => {
+  if (req.method !== "GET" && UUID.test(req.params.id)) {
+    res.on("finish", () => {
+      if (res.statusCode < 400) diffuserCollecte(req.params.id, req.session).catch(() => {});
+    });
+  }
+  next();
+});
 
 // Clés d'onglets valides — miroir de src/lib/collecte/tabs.ts
 const TAB_KEYS = new Set([

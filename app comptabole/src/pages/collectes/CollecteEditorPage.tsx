@@ -59,6 +59,7 @@ import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { CollecteJournalEntry, CollecteStatut, SectionStatut } from "@/types";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { CollecteChecklist } from "./CollecteChecklist";
+import { CollecteNextStep } from "./CollecteNextStep";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
@@ -520,6 +521,13 @@ export function CollecteEditorPage() {
           </span>
         </div>
       </header>
+      <CollecteNextStep
+        collecte={collecte}
+        isClient={isClient}
+        isCabinet={isAdmin || isStaff}
+        recapPending={currentRecap === "envoye"}
+        onNavigate={requestTab}
+      />
       {(clientRecap || (canManageRecap && currentRecap === "envoye")) && (
         <div
           className={cn(
@@ -598,7 +606,81 @@ export function CollecteEditorPage() {
       </div>}
 
       <Tabs value={tab} onValueChange={requestTab}>
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] border border-border bg-card">
+        <div className="flex min-w-0 flex-col border border-border bg-card">
+          {/* Onglets de feuille, comme dans Excel : on choisit la section en bas, le tableau s'affiche au-dessus. */}
+          <BarreFeuilles tab={tab}>
+            <nav
+              data-tour="collecte-navigation-desktop"
+              aria-label="Sections du dossier"
+              className="flex w-max min-w-full items-center gap-x-1 px-2 py-2"
+            >
+              {!isClient && <FeuilleTab active={tab === "checklist"} onClick={() => requestTab("checklist")} label="Checklist" />}
+              <FeuilleTab
+                active={tab === "recap"}
+                onClick={() => requestTab("recap")}
+                label="Récap"
+                dot={currentRecap !== "none" ? (currentRecap === "repondu" ? "success" : "warning") : undefined}
+              />
+              {!isClient && (
+                <FeuilleTab
+                  active={tab === "documents"}
+                  onClick={() => requestTab("documents")}
+                  label="Documents"
+                  badge={collecte.fichiers.length || undefined}
+                />
+              )}
+              {tableauKeys.length > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
+              {entreesNav.map((entree) =>
+                entree.etat ? (
+                  <FeuilleMenu
+                    key={entree.etat.key}
+                    etat={entree.etat}
+                    tableaux={entree.keys}
+                    absents={canManageCollaborateurs && !archivee ? entree.etat.tableaux.filter((k) => !collecte.onglets.includes(k)) : []}
+                    onAjouter={async (k) => {
+                      await update(id, { onglets: ordonnerTableaux([...collecte.onglets, k]) });
+                      toast.success(`« ${TAB_BY_KEY[k]?.label ?? k} » ajouté à la collecte`);
+                    }}
+                    tab={tab}
+                    onSelect={requestTab}
+                    statut={(k) => sectionStatut(collecte, k)}
+                    manques={(k) => (showFlagsFor(k) ? manqueCount.get(k) : undefined)}
+                    recu={(k) => rows.find((r) => r.onglet === k)?.recu ?? false}
+                  />
+                ) : (
+                  <FeuilleTab
+                    key={entree.keys[0]}
+                    active={tab === entree.keys[0]}
+                    onClick={() => requestTab(entree.keys[0])}
+                    label={TAB_BY_KEY[entree.keys[0]]?.label ?? entree.keys[0]}
+                    badge={showFlagsFor(entree.keys[0]) ? manqueCount.get(entree.keys[0]) : undefined}
+                    recu={rows.find((r) => r.onglet === entree.keys[0])?.recu}
+                    dot={DOT_SECTION[sectionStatut(collecte, entree.keys[0])]}
+                    dotTitle={SECTION_STATUT_LABELS[sectionStatut(collecte, entree.keys[0])]}
+                  />
+                ),
+              )}
+              {archives.length > 0 && (
+                <FeuilleMenu
+                  etat={{ code: "ARCH", label: "Archives" }}
+                  tableaux={archives}
+                  absents={[]}
+                  onAjouter={async () => {}}
+                  tab={tab}
+                  onSelect={requestTab}
+                  statut={(k) => sectionStatut(collecte, k)}
+                  manques={() => undefined}
+                  recu={(k) => rows.find((r) => r.onglet === k)?.recu ?? false}
+                />
+              )}
+              {(isAdmin || isStaff) && (
+                <>
+                  <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />
+                  <FeuilleTab active={tab === "historique"} onClick={() => requestTab("historique")} label="Historique" />
+                </>
+              )}
+            </nav>
+          </BarreFeuilles>
           <div data-tour="collecte-content" className="min-w-0 bg-card">
             <TabsContent value="recap" className="m-0">
               <SectionHeader
@@ -964,80 +1046,7 @@ export function CollecteEditorPage() {
               </TabsContent>
             )}
           </div>
-          {/* Onglets de feuille, comme dans Excel : on choisit la section en bas, le tableau s'affiche au-dessus. */}
-          <BarreFeuilles tab={tab}>
-            <nav
-              data-tour="collecte-navigation-desktop"
-              aria-label="Sections du dossier"
-              className="flex w-max min-w-full items-end gap-x-1 px-2 pb-1.5 pt-0"
-            >
-              {!isClient && <FeuilleTab active={tab === "checklist"} onClick={() => requestTab("checklist")} label="Checklist" />}
-              <FeuilleTab
-                active={tab === "recap"}
-                onClick={() => requestTab("recap")}
-                label="Récap"
-                dot={currentRecap !== "none" ? (currentRecap === "repondu" ? "success" : "warning") : undefined}
-              />
-              {!isClient && (
-                <FeuilleTab
-                  active={tab === "documents"}
-                  onClick={() => requestTab("documents")}
-                  label="Documents"
-                  badge={collecte.fichiers.length || undefined}
-                />
-              )}
-              {tableauKeys.length > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
-              {entreesNav.map((entree) =>
-                entree.etat ? (
-                  <FeuilleMenu
-                    key={entree.etat.key}
-                    etat={entree.etat}
-                    tableaux={entree.keys}
-                    absents={canManageCollaborateurs && !archivee ? entree.etat.tableaux.filter((k) => !collecte.onglets.includes(k)) : []}
-                    onAjouter={async (k) => {
-                      await update(id, { onglets: ordonnerTableaux([...collecte.onglets, k]) });
-                      toast.success(`« ${TAB_BY_KEY[k]?.label ?? k} » ajouté à la collecte`);
-                    }}
-                    tab={tab}
-                    onSelect={requestTab}
-                    statut={(k) => sectionStatut(collecte, k)}
-                    manques={(k) => (showFlagsFor(k) ? manqueCount.get(k) : undefined)}
-                    recu={(k) => rows.find((r) => r.onglet === k)?.recu ?? false}
-                  />
-                ) : (
-                  <FeuilleTab
-                    key={entree.keys[0]}
-                    active={tab === entree.keys[0]}
-                    onClick={() => requestTab(entree.keys[0])}
-                    label={TAB_BY_KEY[entree.keys[0]]?.label ?? entree.keys[0]}
-                    badge={showFlagsFor(entree.keys[0]) ? manqueCount.get(entree.keys[0]) : undefined}
-                    recu={rows.find((r) => r.onglet === entree.keys[0])?.recu}
-                    dot={DOT_SECTION[sectionStatut(collecte, entree.keys[0])]}
-                    dotTitle={SECTION_STATUT_LABELS[sectionStatut(collecte, entree.keys[0])]}
-                  />
-                ),
-              )}
-              {archives.length > 0 && (
-                <FeuilleMenu
-                  etat={{ code: "ARCH", label: "Archives" }}
-                  tableaux={archives}
-                  absents={[]}
-                  onAjouter={async () => {}}
-                  tab={tab}
-                  onSelect={requestTab}
-                  statut={(k) => sectionStatut(collecte, k)}
-                  manques={() => undefined}
-                  recu={(k) => rows.find((r) => r.onglet === k)?.recu ?? false}
-                />
-              )}
-              {(isAdmin || isStaff) && (
-                <>
-                  <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />
-                  <FeuilleTab active={tab === "historique"} onClick={() => requestTab("historique")} label="Historique" />
-                </>
-              )}
-            </nav>
-          </BarreFeuilles>
+
         </div>
       </Tabs>
 
@@ -1275,9 +1284,9 @@ function BarreFeuilles({ tab, children }: { tab: string; children: ReactNode }) 
     el?.scrollBy?.({ left: sens * el.clientWidth * 0.6, behavior: "smooth" });
   };
 
-  const fleche = "flex h-9 w-8 shrink-0 items-center justify-center bg-muted text-muted-foreground hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+  const fleche = "flex h-10 w-8 shrink-0 items-center justify-center bg-muted/70 text-muted-foreground hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
   return (
-    <div data-tour="collecte-navigation-mobile" className="sticky bottom-0 z-10 flex items-start border-t border-border bg-muted">
+    <div data-tour="collecte-navigation-mobile" className="flex min-w-0 items-center border-b border-border bg-muted/70">
       {fleches.gauche && (
         <button type="button" aria-label="Onglets précédents" className={`${fleche} border-r border-border`} onClick={() => defiler(-1)}>
           <ChevronLeft className="h-4 w-4" />
@@ -1344,9 +1353,9 @@ function FeuilleMenu({
           aria-haspopup="menu"
           title={`${etat.label} : choisir un tableau`}
           className={cn(
-            "relative -mt-px flex min-h-9 max-w-[22rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-b-md border border-t-0 px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            "relative flex min-h-10 max-w-[22rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             actif
-              ? "border-border bg-card font-bold text-primary shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-accent"
+              ? "border-border bg-card font-semibold text-primary shadow-sm"
               : tousRecus
                 ? "border-success/30 bg-success/15 text-success hover:bg-success/25"
                 : "border-border/70 bg-secondary/70 text-muted-foreground hover:bg-card hover:text-primary",
@@ -1368,7 +1377,7 @@ function FeuilleMenu({
           <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="min-w-[16rem]">
+      <DropdownMenuContent side="bottom" align="start" className="min-w-[16rem]">
         <p className="px-2.5 pb-1 pt-0.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{etat.label}</p>
         {tableaux.map((k) => {
           const st = statut(k);
@@ -1443,9 +1452,9 @@ function FeuilleTab({
       aria-current={active ? "page" : undefined}
       title={recu ? `${label} — reçu` : label}
       className={cn(
-        "relative -mt-px flex min-h-9 max-w-[14rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-b-md border border-t-0 px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        "relative flex min-h-10 max-w-[14rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "border-border bg-card font-bold text-primary shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-accent"
+          ? "border-border bg-card font-semibold text-primary shadow-sm"
           : recu
             ? "border-success/30 bg-success/15 text-success hover:bg-success/25"
             : "border-border/70 bg-secondary/70 text-muted-foreground hover:bg-card hover:text-primary",

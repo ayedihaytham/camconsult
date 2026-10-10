@@ -22,13 +22,18 @@ export interface ChecklistRow {
 
 function frDate(iso: string | null): string | null {
   if (!iso) return null;
-  const d = new Date(iso);
+  const jour = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  const d = jour
+    ? new Date(Number(jour[1]), Number(jour[2]) - 1, Number(jour[3]))
+    : new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString("fr-FR");
 }
 
 function isoJour(iso: string | null): string | null {
   if (!iso) return null;
+  const jour = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (jour) return iso;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

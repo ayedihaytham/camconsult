@@ -108,12 +108,12 @@ function stageRow() {
 }
 
 describe("Collecte : onglets de feuille et actions visibles", () => {
-  it("place les sections en onglets sous le contenu, comme les feuilles d'Excel, et en marque une seule", () => {
+  it("place la navigation avant le contenu et garde une seule section active", () => {
     renderPage();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
     const contenu = document.querySelector('[data-tour="collecte-content"]') as HTMLElement;
-    // L'onglet se lit après le contenu : barre en bas.
-    expect(contenu.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // La navigation reste visible avant la longue zone de saisie.
+    expect(nav.compareDocumentPosition(contenu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent);
     expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);
     // Un seul onglet par état (le pastille de pièces manquantes s'ajoute au libellé : on compare le début) ; ses tableaux sont dans son menu.

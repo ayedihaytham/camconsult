@@ -6,7 +6,7 @@ import type { CollecteFull } from "@/types";
 import { COLLECTE_TAB_KEYS, TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { CollecteEditorPage } from "./CollecteEditorPage";
 
-const { saveLignes, fetchOne, clearCurrent, collecte, perms, update } = vi.hoisted(() => {
+const { saveLignes, fetchOne, clearCurrent, collecte, perms, update, setStatut, submitRecap } = vi.hoisted(() => {
   const collecte = {
     id: "collecte-1",
     societeId: "soc-1",
@@ -31,6 +31,8 @@ const { saveLignes, fetchOne, clearCurrent, collecte, perms, update } = vi.hoist
     collecte,
     perms,
     update: vi.fn().mockResolvedValue(undefined),
+    setStatut: vi.fn().mockResolvedValue(undefined),
+    submitRecap: vi.fn().mockResolvedValue(undefined),
     saveLignes: vi.fn().mockResolvedValue(undefined),
     fetchOne: vi.fn().mockResolvedValue(undefined),
     clearCurrent: vi.fn(),
@@ -45,10 +47,11 @@ vi.mock("@/store/data", () => ({
 }));
 vi.mock("@/store/collectes", () => ({
   useCollectes: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({ current: collecte, loadingOne: false, fetchOne, clearCurrent, saveLignes, update }),
+    selector({ current: collecte, loadingOne: false, fetchOne, clearCurrent, saveLignes, update, setStatut, submitRecap }),
 }));
 
 beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: false,
     media: query,
@@ -56,10 +59,13 @@ beforeEach(() => {
     removeEventListener: vi.fn(),
   }));
   saveLignes.mockReset().mockResolvedValue(undefined);
+  setStatut.mockReset().mockResolvedValue(undefined);
+  submitRecap.mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(() => {
   cleanup();
+  Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
   collecte.statut = "brouillon";
   collecte.onglets = ["bordereaux_remise_cheques", "souche_cheques", "etat_cheques_emis"];
   collecte.sections = [];
@@ -85,16 +91,53 @@ function openBordereaux() {
 }
 
 function sectionButton(name: string) {
-  return within(screen.getByRole("navigation", { name: "Sections du dossier", hidden: true }))
-    .getAllByRole("button", { hidden: true }).find((button) => button.textContent?.includes(name))!;
+  const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
+  const direct = within(nav).queryAllByRole("button", { hidden: true }).find((button) => button.textContent?.includes(name));
+  return direct ?? within(nav).getByRole("combobox", { name: "Choisir un tableau", hidden: true });
+}
+
+function ouvrirSelecteurTableaux() {
+  if (screen.queryByRole("listbox")) {
+    return within(screen.getByRole("navigation", { name: "Sections du dossier", hidden: true }))
+      .getByRole("combobox", { name: "Choisir un tableau", hidden: true });
+  }
+  const trigger = screen.getByRole("combobox", { name: "Choisir un tableau" });
+  if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.keyDown(trigger, { key: "ArrowDown" });
+  return trigger;
+}
+
+function optionTableau(name: string) {
+  ouvrirSelecteurTableaux();
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return screen.getByRole("option", { name: new RegExp(escaped) });
+}
+
+function fermerSelecteurTableaux() {
+  const listbox = screen.queryByRole("listbox");
+  if (listbox) fireEvent.keyDown(listbox, { key: "Escape" });
+}
+
+function choisirTableau(name: string) {
+  const option = optionTableau(name);
+  fireEvent.click(option);
+  return sectionButton("Choisir un tableau");
+}
+
+function ajouterTableau(name: string) {
+  fireEvent.click(screen.getByRole("button", { name: /Ajouter un tableau/ }));
+  const dialog = screen.getByRole("dialog", { name: "Ajouter un tableau" });
+  fireEvent.click(within(dialog).getByRole("button", { name }));
 }
 
 function ouvrirArchive(name: string) {
-  fireEvent.click(sectionButton(name));
+  ouvrirSection(name);
 }
 
 function ouvrirSection(name: string) {
-  fireEvent.click(sectionButton(name));
+  const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
+  const direct = within(nav).queryAllByRole("button", { hidden: true }).find((button) => button.textContent?.includes(name));
+  if (direct) fireEvent.click(direct);
+  else choisirTableau(name);
 }
 
 /** Ajoute une ligne dans le tableau et y écrit le n° de bordereau (2ᵉ case). */
@@ -113,16 +156,17 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(nav.compareDocumentPosition(contenu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent);
     expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);
-    // Chaque table demandée est directement sélectionnable dans le panneau de travail.
-    expect(noms.some((n) => n?.includes("Bordereaux remise de chèques"))).toBe(true);
-    expect(noms.some((n) => n?.includes("Souche de chèques"))).toBe(true);
-    expect(noms.some((n) => n?.includes("État des chèques émis"))).toBe(true);
+    // Les 14 tableaux sont accessibles dans un sélecteur groupé sans seconde barre latérale.
+    optionTableau("Bordereaux remise de chèques");
+    expect(screen.getByRole("option", { name: /Souche de chèques/ })).toBeTruthy();
+    expect(screen.getByRole("option", { name: /État des chèques émis/ })).toBeTruthy();
+    fermerSelecteurTableaux();
     expect(within(nav).getAllByRole("button", { hidden: true }).filter((b) => b.getAttribute("aria-current") === "page")).toHaveLength(1);
   });
 
   it("ouvre une table de famille en un clic et garde la destination active", () => {
     renderPage();
-    fireEvent.click(sectionButton("État des chèques émis"));
+    ouvrirSection("État des chèques émis");
     const onglet = sectionButton("État des chèques émis");
     expect(onglet.getAttribute("aria-current")).toBe("page");
     expect(onglet.textContent).toContain("État des chèques émis");
@@ -131,7 +175,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
 
   it("la souche de chèques est un onglet à part, remplie par le client ; l'état des chèques émis est tenu par le cabinet", () => {
     renderPage();
-    fireEvent.click(sectionButton("Souche de chèques"));
+    ouvrirSection("Souche de chèques");
     expect(screen.getByRole("heading", { name: "Souche de chèques" })).toBeTruthy();
     // Elle suit le circuit du client (il la transfère, le cabinet la valide).
     expect(screen.getByText(/Le client n'a pas encore transféré ce tableau/)).toBeTruthy();
@@ -143,43 +187,62 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
 
   it("le cabinet voit l'état des traites même sans traites dans la collecte, et peut y ajouter ses trois tableaux", async () => {
     renderPage();
-    const zone = screen.getByRole("region", { name: "Tableaux non demandés" });
-    fireEvent.click(within(zone).getByRole("button", { name: /Ajouter « Traites escomptées »/ }));
+    ajouterTableau("Traites escomptées");
     await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "etat_cheques_emis", "traites_escomptees", "souche_cheques"] }));
   });
 
   it("la checklist propose au cabinet d'ajouter les tableaux pas encore demandés, états compris", async () => {
     renderPage();
-    const zone = screen.getByRole("region", { name: "Tableaux non demandés" });
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter un tableau/ }));
+    const zone = screen.getByRole("dialog", { name: "Ajouter un tableau" });
     // Les deux tableaux de l'état des chèques sont déjà demandés : ils ne sont pas proposés.
-    expect(within(zone).queryByRole("button", { name: /Bordereaux remise de chèques/ })).toBeNull();
-    expect(within(zone).getByRole("button", { name: /Ajouter « Virements émis »/ })).toBeTruthy();
-    fireEvent.click(within(zone).getByRole("button", { name: /Ajouter « Traites escomptées »/ }));
+    expect(within(zone).queryByRole("button", { name: "Bordereaux remise de chèques" })).toBeNull();
+    expect(within(zone).getByRole("button", { name: "Virements émis" })).toBeTruthy();
+    fireEvent.click(within(zone).getByRole("button", { name: "Traites escomptées" }));
     await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "etat_cheques_emis", "traites_escomptees", "souche_cheques"] }));
   });
 
-  it("garde une navigation horizontale sur mobile et une liste verticale sur grand écran", () => {
+  it("garde une navigation horizontale et repliable sur toutes les tailles", () => {
     renderPage();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
-    expect(nav.className).not.toContain("flex-wrap");
-    expect(nav.className).toContain("overflow-x-auto");
-    expect(nav.className).toContain("xl:flex-col");
+    expect(nav.className).toContain("flex-wrap");
+    expect(nav.className).toContain("border-b");
+    expect(nav.className).not.toContain("xl:flex-col");
   });
 
-  it("keeps all 14 accounting tables directly reachable when the collection includes them", () => {
+  it("keeps all 14 accounting tables reachable in the grouped selector", () => {
     collecte.onglets = [...COLLECTE_TAB_KEYS];
     renderPage();
-    const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
+    ouvrirSelecteurTableaux();
     for (const key of COLLECTE_TAB_KEYS) {
-      expect(within(nav).getAllByRole("button", { hidden: true }).some((button) => button.textContent?.includes(TAB_BY_KEY[key].label))).toBe(true);
+      const escaped = TAB_BY_KEY[key].label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      expect(screen.getByRole("option", { name: new RegExp(escaped) })).toBeTruthy();
     }
+    fermerSelecteurTableaux();
   });
 
-  it("affiche directement les actions du dossier, sans menu Outils", () => {
+  it("regroupe les actions secondaires dans un menu compact", () => {
     renderPage();
-    expect(screen.queryByRole("button", { name: /^Outils/ })).toBeNull();
-    expect(screen.getByRole("button", { name: "Tout en Excel" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Modifier la collecte" })).toBeTruthy();
+    const trigger = screen.getByRole("button", { name: "Actions" });
+    fireEvent.keyDown(trigger, { key: "Enter", code: "Enter" });
+    expect(screen.getByRole("menuitem", { name: /Tout en Excel/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Modifier la collecte/ })).toBeTruthy();
+  });
+
+  it("sépare l'enregistrement de la transmission finale côté client", async () => {
+    perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
+    collecte.onglets = ["virements_recus"];
+    renderPage("/collectes/collecte-1?tab=virements_recus");
+
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer et vérifier" }));
+    expect(await screen.findByRole("heading", { name: "Vérifiez votre collecte" })).toBeTruthy();
+    expect(setStatut).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Transmettre au cabinet" }));
+    const confirm = await screen.findByRole("dialog", { name: "Transmettre la collecte au cabinet ?" });
+    expect(setStatut).not.toHaveBeenCalled();
+    fireEvent.click(within(confirm).getByRole("button", { name: "Transmettre" }));
+    await waitFor(() => expect(setStatut).toHaveBeenCalledWith("collecte-1", "transmis"));
   });
 
   it("ouvre un tableau en un seul clic sur son onglet", () => {
@@ -343,7 +406,7 @@ describe("Collecte : circuit par tableau", () => {
     ouvrirSection("Bordereaux remise de chèques");
     expect(screen.getByRole("button", { name: "Ajouter une ligne" })).toBeTruthy();
     expect(screen.queryByText(/uniquement les cases marquées/)).toBeNull();
-    expect(screen.getByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Enregistrer et vérifier" })).toBeTruthy();
   });
 
   it("un récap envoyé sur un tableau transmis ou validé le rouvre : le client peut modifier et ajouter des lignes", () => {
@@ -360,8 +423,10 @@ describe("Collecte : circuit par tableau", () => {
   it("le cabinet voit les statuts de chaque table et peut traiter celle qui est transmise", () => {
     collecte.sections = [section("souche_cheques", "transmis"), section("bordereaux_remise_cheques", "valide")];
     renderPage();
-    expect(sectionButton("Bordereaux remise de chèques").querySelector('[title="Validé"]')).toBeTruthy();
-    expect(sectionButton("Souche de chèques").querySelector('[title="Transmis au cabinet"]')).toBeTruthy();
+    const options = [optionTableau("Bordereaux remise de chèques"), optionTableau("Souche de chèques")];
+    expect(options[0].querySelector('[title="Validé"]')).toBeTruthy();
+    expect(options[1].querySelector('[title="Transmis au cabinet"]')).toBeTruthy();
+    fermerSelecteurTableaux();
     ouvrirSection("Souche de chèques");
     expect(screen.getByRole("button", { name: "Valider ce tableau" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Renvoyer au client" })).toBeTruthy();
@@ -376,17 +441,16 @@ describe("Collecte : circuit par tableau", () => {
     ouvrirSection("État des chèques émis");
     expect(screen.getByText(/vous pouvez le consulter, pas le modifier/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Enregistrer et vérifier" })).toBeNull();
   });
 
   it("un tableau archivé reste directement accessible dans son groupe Archives", () => {
     collecte.sections = [section("souche_cheques", "archive"), section("bordereaux_remise_cheques", "archive")];
     renderPage();
-    const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
-    const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent ?? "");
-    expect(noms.some((n) => n.includes("Souche de chèques"))).toBe(true);
-    expect(within(nav).getByText("Archives", { selector: "p" })).toBeTruthy();
-    fireEvent.click(sectionButton("Souche de chèques"));
+    optionTableau("Souche de chèques");
+    expect(screen.getByText("Archives")).toBeTruthy();
+    fermerSelecteurTableaux();
+    ouvrirSection("Souche de chèques");
     expect(screen.getByRole("heading", { name: "Souche de chèques" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Désarchiver" })).toBeTruthy();
   });

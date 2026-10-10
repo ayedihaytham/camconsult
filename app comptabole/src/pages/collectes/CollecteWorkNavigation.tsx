@@ -1,9 +1,21 @@
 import {
+  CheckCircle2,
   ClipboardList,
   History,
   MessageSquareText,
   Paperclip,
+  Table2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { COLLECTE_TABS, etatDeTableau, TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { SECTION_STATUT_LABELS, sectionStatut } from "@/lib/collecte/sections";
@@ -14,6 +26,7 @@ interface Props {
   collecte: CollecteFull;
   active: string;
   isClient: boolean;
+  canVerify: boolean;
   canSeeHistory: boolean;
   missingByTable: Map<string, number>;
   visibleMissing: (key: string) => boolean;
@@ -29,137 +42,102 @@ const DOT: Record<SectionStatut, string> = {
   archive: "bg-muted-foreground/30",
 };
 
-function Item({
-  label,
-  active,
-  badge,
-  hint,
-  onClick,
-  icon,
-  tone = "default",
-}: {
-  label: string;
-  active: boolean;
-  badge?: string | number;
-  hint?: string;
-  onClick: () => void;
-  icon?: React.ReactNode;
-  tone?: "default" | "warning";
-}) {
-  return (
-    <button
-      type="button"
-      aria-current={active ? "page" : undefined}
-      onClick={onClick}
-      className={cn(
-        "flex min-h-10 min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        "xl:w-full xl:justify-between",
-        active
-          ? "bg-primary text-primary-foreground shadow-sm"
-          : "text-foreground hover:bg-muted/70",
-        tone === "warning" && !active && "text-warning-foreground",
-      )}
-    >
-      {icon}
-      <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
-      {hint && !active && <span className="hidden truncate text-[10px] text-muted-foreground xl:block">{hint}</span>}
-      {badge !== undefined && badge !== 0 && badge !== "" && (
-        <span
-          className={cn(
-            "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
-            active ? "bg-primary-foreground/15 text-primary-foreground" : tone === "warning" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground",
-          )}
-        >
-          {badge}
-        </span>
-      )}
-    </button>
-  );
-}
-
-function tableHint(
-  collecte: CollecteFull,
-  key: string,
-  isClient: boolean,
-): { label: string; priority: boolean } {
+function tableHint(collecte: CollecteFull, key: string, isClient: boolean): string {
   const recap = sectionRecapStatut(collecte, key);
   const status = sectionStatut(collecte, key);
-  if (isClient && TAB_BY_KEY[key]?.cabinetSeul) return { label: "Tenu par le cabinet", priority: false };
-  if (recap === "envoye") return { label: isClient ? "À préciser" : "Récap envoyé", priority: isClient };
-  if (isClient && status === "a_corriger") return { label: "À reprendre", priority: true };
-  if (isClient && status === "brouillon") return { label: "À compléter", priority: true };
-  if (!isClient && status === "transmis") return { label: "À examiner", priority: true };
-  return { label: SECTION_STATUT_LABELS[status], priority: false };
+  if (isClient && TAB_BY_KEY[key]?.cabinetSeul) return "Tenu par le cabinet";
+  if (recap === "envoye") return isClient ? "À préciser" : "Récap envoyé";
+  if (isClient && status === "a_corriger") return "À reprendre";
+  if (isClient && status === "brouillon") return "À compléter";
+  if (!isClient && status === "transmis") return "À examiner";
+  return SECTION_STATUT_LABELS[status];
 }
 
 export function CollecteWorkNavigation({
   collecte,
   active,
   isClient,
+  canVerify,
   canSeeHistory,
   missingByTable,
   visibleMissing,
   recapCount,
   onSelect,
 }: Props) {
-  const archivee = collecte.statut === "archive";
-  const tableKeys = new Set(collecte.onglets);
+  const requested = new Set(collecte.onglets);
   const groups = [
-    { label: "Chèques", keys: COLLECTE_TABS.filter((tab) => etatDeTableau(tab.key)?.key === "cheques" && tableKeys.has(tab.key) && sectionStatut(collecte, tab.key) !== "archive").map((tab) => tab.key) },
-    { label: "Virements", keys: COLLECTE_TABS.filter((tab) => etatDeTableau(tab.key)?.key === "virements" && tableKeys.has(tab.key) && sectionStatut(collecte, tab.key) !== "archive").map((tab) => tab.key) },
-    { label: "Traites", keys: COLLECTE_TABS.filter((tab) => etatDeTableau(tab.key)?.key === "traites" && tableKeys.has(tab.key) && sectionStatut(collecte, tab.key) !== "archive").map((tab) => tab.key) },
-    { label: "Autres tableaux", keys: COLLECTE_TABS.filter((tab) => !etatDeTableau(tab.key) && tableKeys.has(tab.key) && sectionStatut(collecte, tab.key) !== "archive").map((tab) => tab.key) },
-    { label: "Archives", keys: COLLECTE_TABS.filter((tab) => tableKeys.has(tab.key) && sectionStatut(collecte, tab.key) === "archive").map((tab) => tab.key) },
+    { label: "Chèques", keys: COLLECTE_TABS.filter((item) => etatDeTableau(item.key)?.key === "cheques" && requested.has(item.key) && sectionStatut(collecte, item.key) !== "archive") },
+    { label: "Virements", keys: COLLECTE_TABS.filter((item) => etatDeTableau(item.key)?.key === "virements" && requested.has(item.key) && sectionStatut(collecte, item.key) !== "archive") },
+    { label: "Traites", keys: COLLECTE_TABS.filter((item) => etatDeTableau(item.key)?.key === "traites" && requested.has(item.key) && sectionStatut(collecte, item.key) !== "archive") },
+    { label: "Autres tableaux", keys: COLLECTE_TABS.filter((item) => !etatDeTableau(item.key) && requested.has(item.key) && sectionStatut(collecte, item.key) !== "archive") },
+    { label: "Archives", keys: COLLECTE_TABS.filter((item) => requested.has(item.key) && sectionStatut(collecte, item.key) === "archive") },
   ].filter((group) => group.keys.length > 0);
+  const tableActive = requested.has(active);
+  const selectedTable = COLLECTE_TABS.find((item) => item.key === active);
+  const tableMissing = selectedTable && visibleMissing(active) ? missingByTable.get(active) ?? 0 : 0;
+
+  const navButton = (key: string, label: string, Icon: typeof ClipboardList, badge?: number) => (
+    <Button
+      key={key}
+      type="button"
+      variant="ghost"
+      size="sm"
+      aria-current={active === key ? "page" : undefined}
+      onClick={() => onSelect(key)}
+      className={cn(
+        "min-h-10 shrink-0 gap-2 rounded-lg px-3 text-sm",
+        active === key ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "text-foreground hover:bg-muted",
+      )}
+    >
+      <Icon className="size-4" aria-hidden="true" />
+      <span>{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className={cn("min-w-5 rounded-full px-1.5 text-[10px] tabular-nums", active === key ? "bg-primary-foreground/15" : "bg-warning/15 text-warning-foreground")}>{badge}</span>
+      )}
+    </Button>
+  );
 
   return (
-    <aside className="min-w-0 rounded-xl border border-border bg-card xl:sticky xl:top-3">
-      <div className="hidden border-b border-border px-3 py-3 xl:block">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dossier de travail</p>
-        <p className="mt-0.5 truncate text-sm font-semibold text-foreground">{collecte.periode}</p>
+    <nav
+      aria-label="Sections du dossier"
+      className="flex min-w-0 flex-wrap items-center gap-1 border-b border-border bg-card px-2 py-2"
+    >
+      {navButton("checklist", "Checklist", ClipboardList)}
+      {navButton("recap", "Récap", MessageSquareText, recapCount)}
+      {navButton("documents", "Documents", Paperclip, collecte.fichiers.length)}
+      {canVerify && navButton("verification", "Vérification", CheckCircle2)}
+      {canSeeHistory && navButton("historique", "Historique", History)}
+      <div className="ml-auto flex min-w-0 items-center gap-2 px-1">
+        {tableMissing > 0 && <span className="hidden text-xs text-warning-foreground sm:inline">{tableMissing} case(s) à compléter</span>}
+        <Select value={tableActive ? active : ""} onValueChange={onSelect}>
+          <SelectTrigger className="min-h-10 w-[min(19rem,calc(100vw-2rem))] gap-2" aria-label="Choisir un tableau" aria-current={tableActive ? "page" : undefined}>
+            <Table2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <SelectValue placeholder="Choisir un tableau…" />
+          </SelectTrigger>
+          <SelectContent align="end" className="max-h-[70dvh]">
+            {groups.map((group) => (
+              <SelectGroup key={group.label}>
+                <SelectLabel>{group.label}</SelectLabel>
+                {group.keys.map((item) => {
+                  const status = sectionStatut(collecte, item.key);
+                  const hint = tableHint(collecte, item.key, isClient);
+                  const missing = visibleMissing(item.key) ? missingByTable.get(item.key) ?? 0 : 0;
+                  const attention = hint === "À examiner" || hint === "À reprendre" || hint === "À préciser" || hint === "À compléter";
+                  return (
+                    <SelectItem key={item.key} value={item.key} aria-current={active === item.key ? "page" : undefined}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className={cn("size-2 shrink-0 rounded-full", DOT[status])} aria-label={SECTION_STATUT_LABELS[status]} title={SECTION_STATUT_LABELS[status]} />
+                        <span className="truncate">{item.label}</span>
+                        <span className={cn("ml-auto pl-2 text-xs", attention ? "text-warning-foreground" : "text-muted-foreground")}>{missing > 0 ? `${missing} à compléter` : hint}</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <nav
-        aria-label="Sections du dossier"
-        className="flex min-w-0 gap-3 overflow-x-auto p-2 xl:max-h-[calc(100vh-13rem)] xl:flex-col xl:gap-1 xl:overflow-y-auto"
-      >
-        <div className="flex shrink-0 gap-1 xl:flex-col">
-          <Item label="Checklist" active={active === "checklist"} onClick={() => onSelect("checklist")} icon={<ClipboardList className="size-4 shrink-0" aria-hidden="true" />} />
-          <Item label="Récap" active={active === "recap"} onClick={() => onSelect("recap")} badge={recapCount} tone={recapCount > 0 ? "warning" : "default"} icon={<MessageSquareText className="size-4 shrink-0" aria-hidden="true" />} />
-          <Item label="Documents" active={active === "documents"} onClick={() => onSelect("documents")} badge={collecte.fichiers.length} icon={<Paperclip className="size-4 shrink-0" aria-hidden="true" />} />
-          {canSeeHistory && <Item label="Historique" active={active === "historique"} onClick={() => onSelect("historique")} icon={<History className="size-4 shrink-0" aria-hidden="true" />} />}
-        </div>
-
-        <div className="hidden h-px shrink-0 bg-border xl:block" />
-        <div className="flex shrink-0 gap-1 xl:flex-col xl:gap-3">
-          {groups.map((group) => (
-            <div key={group.label} className="flex shrink-0 gap-1 xl:flex-col xl:gap-0.5">
-              <p className="hidden px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground xl:block">{group.label}</p>
-              {group.keys.map((key) => {
-                const status = sectionStatut(collecte, key);
-                const hint = tableHint(collecte, key, isClient);
-                const statusText = isClient && TAB_BY_KEY[key]?.cabinetSeul ? "Tenu par le cabinet" : SECTION_STATUT_LABELS[status];
-                const missing = visibleMissing(key) ? missingByTable.get(key) : undefined;
-                return (
-                  <Item
-                    key={key}
-                    label={TAB_BY_KEY[key]?.label ?? key}
-                    active={active === key}
-                    onClick={() => onSelect(key)}
-                    hint={hint.label}
-                    tone={hint.priority ? "warning" : "default"}
-                    badge={missing && missing > 0 ? missing : undefined}
-                    icon={<span className={cn("size-2 shrink-0 rounded-full", DOT[status])} aria-label={statusText} title={statusText} />}
-                  />
-                );
-              })}
-            </div>
-          ))}
-          {collecte.onglets.length === 0 && !archivee && (
-            <p className="hidden px-2.5 py-2 text-xs text-muted-foreground xl:block">Aucun tableau n’est encore demandé.</p>
-          )}
-        </div>
-      </nav>
-    </aside>
+    </nav>
   );
 }

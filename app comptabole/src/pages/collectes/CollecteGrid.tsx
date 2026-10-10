@@ -43,6 +43,8 @@ interface Props {
   onVoirPiece?: (fichierId: string) => void;
   /** Case précise à reprendre depuis le récap; un tableau vide ouvre sa première ligne de saisie. */
   focusTarget?: { ordre: number | null; col: string | null; revision: number };
+  /** Action principale du client : enregistrer puis ouvrir la vérification finale. */
+  saveAndContinue?: () => Promise<void>;
 }
 
 export interface CollecteGridHandle {
@@ -87,6 +89,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   onJoindre,
   onVoirPiece,
   focusTarget,
+  saveAndContinue,
 }, ref) {
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
@@ -894,16 +897,16 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               data-tour="collecte-save"
               variant="ledger"
               size="sm"
-              onClick={() => { void save().catch(() => {}); }}
-              disabled={!dirty || saving}
+              onClick={() => { void (saveAndContinue ? saveAndContinue() : save()).catch(() => {}); }}
+              disabled={saving || (!dirty && !saveAndContinue)}
               className={cn(
                 "min-h-10 lg:min-h-8",
-                !dirty &&
+                !dirty && !saveAndContinue &&
                   "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
               )}
             >
               <Save className="h-4 w-4" />
-              {saving ? "Enregistrement…" : "Enregistrer"}
+              {saving ? "Enregistrement…" : saveAndContinue ? "Enregistrer et vérifier" : "Enregistrer"}
             </Button>
           </div>
         </div>

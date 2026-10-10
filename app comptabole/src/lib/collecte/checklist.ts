@@ -1,5 +1,6 @@
 import type { CollecteFull } from "@/types";
 import { TAB_BY_KEY, cellNumber, etatDeTableau, ordonnerTableaux } from "./tabs";
+import { SECTION_STATUT_LABELS, sectionStatut } from "./sections";
 
 export interface ChecklistRow {
   onglet: string;
@@ -9,6 +10,8 @@ export interface ChecklistRow {
   tabLabel: string;
   recu: boolean;
   statutLabel: string;
+  /** État du circuit cabinet/client, distinct du simple suivi « pièce reçue ». */
+  circuitLabel: string;
   /** JJ/MM/AAAA ou null */
   dateReception: string | null;
   /** AAAA-MM-JJ de la date de suivi, pour un champ date. */
@@ -71,6 +74,7 @@ export function checklistRows(c: CollecteFull): ChecklistRow[] {
       tabLabel: def?.label ?? key,
       recu,
       statutLabel: recu ? "Reçu" : "En attente",
+      circuitLabel: SECTION_STATUT_LABELS[sectionStatut(c, key)],
       dateReception: recu ? frDate(section?.dateSuivi ?? (recuAuto ? (c.transmisLe ?? c.majLe) : null)) : null,
       dateSuivi: recu ? (section?.dateSuivi ?? (recuAuto ? isoJour(c.transmisLe ?? c.majLe) : null)) : null,
       recuAuto,

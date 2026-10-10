@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import {
-  Sheet,
-  SheetBody,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -121,16 +119,15 @@ export function CollecteFormDrawer({
   }
 
   return (
-    <Sheet
+    <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
         if (submitting && !nextOpen) return;
         onOpenChange(nextOpen);
       }}
     >
-      <SheetContent
-        side="right"
-        className="h-dvh w-full max-w-[580px] gap-0 overflow-hidden rounded-none p-0 sm:max-w-[580px]"
+      <DialogContent
+        className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-3xl gap-0 overflow-hidden rounded-xl p-0"
         onOpenAutoFocus={() => {
           const activeElement = document.activeElement;
           returnFocusRef.current =
@@ -145,20 +142,19 @@ export function CollecteFormDrawer({
           }
         }}
       >
-        <SheetHeader className="shrink-0 pr-12">
-          <SheetTitle>
+        <DialogHeader className="shrink-0 border-b border-border px-5 py-4 pr-12 sm:px-6">
+          <DialogTitle>
             {isEdit ? "Modifier la collecte" : "Nouvelle collecte de pièces"}
-          </SheetTitle>
-          <SheetDescription>
+          </DialogTitle>
+          <DialogDescription>
             {isEdit
               ? "Modifiez les paramètres de cette collecte."
               : "Choisissez le client, la période et les tableaux qu'il devra remplir."}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
-        <SheetBody className="space-y-5 px-5 py-5 sm:px-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="min-w-0 space-y-1.5">
+        <div className="max-h-[calc(90dvh-10rem)] min-h-0 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="min-w-0 space-y-1.5">
               <Label htmlFor="collecte-societe">Société cliente</Label>
               <Select
                 value={societeId}
@@ -189,23 +185,14 @@ export function CollecteFormDrawer({
                   {error}
                 </p>
               )}
-            </div>
-            <div className="min-w-0 space-y-1.5">
-              <Label htmlFor="collecte-devise">Devise</Label>
-              <Select value={devise} onValueChange={setDevise} disabled={submitting}>
-                <SelectTrigger id="collecte-devise">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TND">DT (dinar tunisien)</SelectItem>
-                  <SelectItem value="EUR">€ (euro)</SelectItem>
-                  <SelectItem value="USD">$ (dollar américain)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <section className="space-y-3 rounded-lg border border-border bg-muted/10 p-3.5">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Paramètres facultatifs</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">Les valeurs par défaut conviennent à la plupart des collectes.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="collecte-periode">Période concernée (optionnel)</Label>
               <Input
@@ -215,6 +202,17 @@ export function CollecteFormDrawer({
                 disabled={submitting}
                 placeholder="Ex. Janvier 2026, T1 2026, Exercice 2025…"
               />
+            </div>
+            <div className="min-w-0 space-y-1.5">
+              <Label htmlFor="collecte-devise">Devise</Label>
+              <Select value={devise} onValueChange={setDevise} disabled={submitting}>
+                <SelectTrigger id="collecte-devise"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TND">DT (dinar tunisien)</SelectItem>
+                  <SelectItem value="EUR">€ (euro)</SelectItem>
+                  <SelectItem value="USD">$ (dollar américain)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="collecte-echeance">Échéance (optionnel)</Label>
@@ -226,7 +224,6 @@ export function CollecteFormDrawer({
                 disabled={submitting}
               />
             </div>
-          </div>
 
           {echeance && (
             <div className="space-y-1.5">
@@ -252,6 +249,8 @@ export function CollecteFormDrawer({
               </div>
             </div>
           )}
+            </div>
+          </section>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -322,9 +321,9 @@ export function CollecteFormDrawer({
             )}
           </div>
 
-        </SheetBody>
+        </div>
 
-        <SheetFooter className="shrink-0 flex-col items-stretch gap-2 px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:px-6">
+        <div className="shrink-0 flex-col items-stretch gap-2 border-t border-border px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:px-6">
           {submissionError && (
             <p role="alert" className="text-xs text-destructive">
               {submissionError}
@@ -356,8 +355,8 @@ export function CollecteFormDrawer({
                   : "Créer la collecte"}
             </Button>
           </div>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

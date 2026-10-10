@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { CollecteChecklist } from "./CollecteChecklist";
 import type { ChecklistRow } from "@/lib/collecte/checklist";
 
@@ -19,9 +19,9 @@ afterEach(() => {
 });
 
 const rows: ChecklistRow[] = [
-  { onglet: "virements_recus", pieceLabel: "Détail des virements reçus", tabLabel: "Virements reçus", recu: true, recuAuto: true, statutLabel: "Reçu", dateReception: "18/09/2026", dateSuivi: "2026-09-18", total: 4250, nbLignes: 1, commentaire: "Vérifié" },
-  { onglet: "achats", pieceLabel: "Détail des achats", tabLabel: "Détail des achats", recu: false, recuAuto: false, statutLabel: "En attente", dateReception: null, dateSuivi: null, total: null, nbLignes: 0, commentaire: "" },
-  { onglet: "etat_caisse", pieceLabel: "État de caisse", tabLabel: "État de caisse", recu: true, recuAuto: false, statutLabel: "Reçu", dateReception: "01/10/2026", dateSuivi: "2026-10-01", total: 80, nbLignes: 0, commentaire: "" },
+  { onglet: "virements_recus", pieceLabel: "Détail des virements reçus", tabLabel: "Virements reçus", recu: true, recuAuto: true, statutLabel: "Reçu", circuitLabel: "À remplir", dateReception: "18/09/2026", dateSuivi: "2026-09-18", total: 4250, nbLignes: 1, commentaire: "Vérifié" },
+  { onglet: "achats", pieceLabel: "Détail des achats", tabLabel: "Détail des achats", recu: false, recuAuto: false, statutLabel: "En attente", circuitLabel: "À remplir", dateReception: null, dateSuivi: null, total: null, nbLignes: 0, commentaire: "" },
+  { onglet: "etat_caisse", pieceLabel: "État de caisse", tabLabel: "État de caisse", recu: true, recuAuto: false, statutLabel: "Reçu", circuitLabel: "À remplir", dateReception: "01/10/2026", dateSuivi: "2026-10-01", total: 80, nbLignes: 0, commentaire: "" },
 ];
 
 function monter(props: Partial<React.ComponentProps<typeof CollecteChecklist>> = {}) {
@@ -44,16 +44,16 @@ describe("CollecteChecklist", () => {
     expect(screen.getAllByText(/Ouvrir « Virements reçus »/).length).toBeGreaterThan(0);
   });
 
-  it("filtre les pièces par statut avec leur effectif", () => {
+  it("filtre les pièces par statut avec leur effectif dans un sélecteur compact", () => {
     monter();
-    const groupe = screen.getByRole("group", { name: "Filtrer les pièces" });
-    expect(groupe.textContent).toContain("Toutes3");
-    expect(groupe.textContent).toContain("En attente1");
-    expect(groupe.textContent).toContain("Reçues2");
-    fireEvent.click(within(groupe).getByRole("button", { name: /En attente/ }));
+    const filtre = screen.getByRole("combobox", { name: "Filtrer les pièces" });
+    expect(filtre.textContent).toContain("Toutes (3)");
+    fireEvent.click(filtre);
+    fireEvent.click(screen.getByRole("option", { name: "En attente (1)" }));
     expect(screen.queryByText("Détail des virements reçus")).toBeNull();
     expect(screen.getAllByText("Détail des achats").length).toBeGreaterThan(0);
-    fireEvent.click(within(groupe).getByRole("button", { name: /Reçues/ }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Filtrer les pièces" }));
+    fireEvent.click(screen.getByRole("option", { name: "Reçues (2)" }));
     expect(screen.queryByText("Détail des achats")).toBeNull();
   });
 

@@ -3,6 +3,7 @@ import {
   Building2,
   ChevronDown,
   ClipboardCheck,
+  FileText,
   Landmark,
   ListChecks,
   MessageCircle,
@@ -48,6 +49,8 @@ export function DashboardQuickActions({ role, canAddSociete, canUseMessaging, in
         ]
       : [
           { label: "Mes collectes", route: "/collectes", icon: ClipboardCheck },
+          { label: "Mes documents", route: "/structuration", icon: FileText },
+          ...(canUseMessaging ? [{ label: "Messagerie", route: "/messagerie", icon: MessageCircle }] : []),
         ];
 
   return (

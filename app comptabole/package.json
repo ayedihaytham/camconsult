@@ -12,7 +12,7 @@
     "db:init": "node server/migrate.js",
     "db:seed": "node server/seed.js",
     "db:seed:finance": "node server/seedFinance.js",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit -p tsconfig.build.json && vite build",
     "build:prod": "vite build",
     "deploy:build": "npm install --include=dev && npm run build:prod",
     "preview": "vite preview",

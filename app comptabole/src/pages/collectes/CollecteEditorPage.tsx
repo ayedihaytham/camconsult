@@ -10,11 +10,11 @@ import {
   File as FileIcon,
   FileText,
   History,
+  LogOut,
+  MoreHorizontal,
   Paperclip,
   Printer,
   RotateCcw,
-  Send,
-  LogOut,
   SlidersHorizontal,
   Trash2,
   UploadCloud,
@@ -27,6 +27,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -48,7 +49,7 @@ import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { CollecteFull, CollecteJournalEntry, CollecteStatut } from "@/types";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { CollecteChecklist } from "./CollecteChecklist";
-import { CollecteNextStep } from "./CollecteNextStep";
+import { CollecteClientVerification } from "./CollecteClientVerification";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
@@ -159,6 +160,7 @@ export function CollecteEditorPage() {
     initializedFor.current = collecte.id;
     const requested = searchParams.get("tab");
     const validRequested = requested === "checklist" || requested === "recap" || requested === "documents" ||
+      (requested === "verification" && !isAdmin) ||
       (requested === "historique" && (isAdmin || isStaff)) ||
       (requested ? collecte.onglets.includes(requested) : false);
     const ordered = ordonnerTableaux(collecte.onglets);
@@ -166,12 +168,12 @@ export function CollecteEditorPage() {
     const nextTarget = poste === "societe_employe"
       ? recapTarget ?? ordered.find((key) => estDemande(collecte, key))
       : ordered.find((key) => sectionStatut(collecte, key) === "transmis") ?? ordered.find((key) => sectionStatut(collecte, key) === "a_corriger");
-    // Le responsable de société n'a ni checklist ni documents : sans tableau ouvert, il arrive sur le Récap.
+    // Le responsable de société n'a ni checklist ni documents : sans tableau demandé, il arrive sur le Récap.
     const next = validRequested && !(poste === "societe_employe" && ["checklist", "documents", "historique"].includes(requested!))
       ? requested!
       : (poste === "societe_employe" ? recapTarget ?? nextTarget ?? "recap" : nextTarget ?? "checklist");
     setTab(next);
-    if (!validRequested && poste === "societe_employe" && !["checklist", "recap", "documents", "historique"].includes(next)) {
+    if (!validRequested && poste === "societe_employe" && !["checklist", "recap", "documents", "verification", "historique"].includes(next)) {
       const manque = computeManques(collecte).find((item) => item.onglet === next);
       if (manque) focusTableCell(next, { ordre: manque.ordre, col: manque.col });
     }
@@ -247,9 +249,10 @@ export function CollecteEditorPage() {
   // envoyé par le cabinet (chaque tableau se déverrouille indépendamment
   // des autres — voir sectionRecapStatut plus bas, utilisé par tableau).
   const clientRecap = poste === "societe_employe" && currentRecap === "envoye";
-  // Un seul bouton client : « Transmettre au cabinet » (soumet aussi le récap).
-  // Le client transmet tableau par tableau (barre de chaque tableau) : un bouton global transmettrait aussi des tableaux qu'on ne lui a pas demandés.
-  const canSubmit = !isAdmin && !isClient && !archivee && (sectionsOuvertes || clientRecap);
+  // L'envoi final se fait depuis l'écran de vérification, après l'enregistrement du tableau.
+  // Une réponse de récap reste distincte et garde son propre workflow.
+  const canSubmit = !isAdmin && !archivee && (sectionsOuvertes || clientRecap);
+  const canTransmitCollecte = canSubmit && (collecte.statut === "brouillon" || collecte.statut === "a_corriger");
 
   // Cases importantes vides détectées EN DIRECT, par onglet.
   const liveManques = computeManques(collecte);
@@ -297,8 +300,7 @@ export function CollecteEditorPage() {
     .join("")
     .toLocaleUpperCase("fr-FR");
   const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
-  const boutonBandeau =
-    "min-h-10 gap-2 border-primary-foreground/30 bg-transparent px-4 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground";
+  const boutonBandeau = "min-h-9 gap-1.5 px-3";
 
   function requestTab(next: string, forcer = false, target?: { ordre: number | null; col: string | null }) {
     if (next === tab) return;
@@ -369,6 +371,22 @@ export function CollecteEditorPage() {
     }
   }
 
+  async function saveAndVerifyTable() {
+    const grille = gridRef.current;
+    if (!grille) return;
+    if (!grille.isComplete()) {
+      setIncomplet({ next: "verification", message: grille.incompleteMessage(), manque: grille.ecart().manque });
+      return;
+    }
+    try {
+      await grille.save();
+      setDirtyTableau(false);
+      completeNavigation("verification");
+    } catch {
+      toast.error("Enregistrement impossible. Corrigez le problème puis réessayez.");
+    }
+  }
+
   async function applyStatut(s: CollecteStatut) {
     if (!transmittedBeforeRecapRef.current) {
       await setStatut(id, s);
@@ -403,229 +421,101 @@ export function CollecteEditorPage() {
     <div>
       <header
         data-tour="collecte-identity"
-        className="overflow-hidden rounded-2xl bg-primary px-5 pt-5 text-primary-foreground shadow-sm lg:px-6"
+        className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 border-b border-border pb-3"
       >
-        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-          <div className="flex min-w-0 items-start gap-4">
-            <span
-              aria-hidden="true"
-              className="grid size-14 shrink-0 place-items-center rounded-xl border border-primary-foreground/25 bg-primary-foreground/10 text-lg font-bold"
-            >
-              {monogram}
-            </span>
-            <div className="min-w-0">
-              <h1 className="font-serif text-3xl font-medium leading-tight tracking-tight">{socNom}</h1>
-              <p className="mt-1 text-sm text-primary-foreground/70">
-                {[codeSociete, collecte.periode.trim(), "Collecte de pièces"].filter(Boolean).join(" · ")}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {isClient && (
-              <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__back__")}>
-                <LogOut className="h-4 w-4" /> Quitter
-              </Button>
-            )}
-            {canSubmit && (
-              <Button
-                variant="outline"
-                className={boutonBandeau}
-                disabled={recapRestant > 0}
-                title={recapRestant > 0 ? `Encore ${recapRestant} case(s) à compléter avant de transmettre` : undefined}
-                onClick={async () => {
-                  if (recapRestant > 0) return;
-                  if (collecte.statut === "brouillon" || collecte.statut === "a_corriger") requestTab("__confirm_transmis__");
-                  else if (clientRecap) {
-                    await submitRecap(id);
-                    toast.success("Récap transmis au cabinet");
-                  }
-                }}
-              >
-                <Send className="h-4 w-4" /> Transmettre au cabinet
-              </Button>
-            )}
-            {canManageCollaborateurs && collecte.statut === "transmis" && (
-              <>
-                <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_valide__")}>
-                  <CheckCircle2 className="h-4 w-4" /> Tout valider
-                </Button>
-                <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}>
-                  Tout renvoyer
-                </Button>
-              </>
-            )}
-            {canManageCollaborateurs && validee && (
-              <>
-                <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_archive__")}>
-                  Archiver la collecte
-                </Button>
-                <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}>
-                  <RotateCcw className="h-4 w-4 text-accent" /> Rouvrir la collecte
-                </Button>
-              </>
-            )}
-            {canManageCollaborateurs && archivee && (
-              <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__confirm_reopen__")}>
-                <RotateCcw className="h-4 w-4 text-accent" /> Désarchiver
-              </Button>
-            )}
+        <div className="flex min-w-0 items-center gap-3">
+          <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/8 text-sm font-bold text-primary">
+            {monogram}
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate font-serif text-2xl font-medium leading-tight tracking-tight text-primary">{socNom}</h1>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {[codeSociete, collecte.periode.trim(), "Collecte de pièces"].filter(Boolean).join(" · ")}
+            </p>
           </div>
         </div>
-        <div className="relative mt-4 flex min-h-12 flex-wrap items-center gap-x-6 gap-y-2 border-t border-primary-foreground/20 py-3 text-sm before:absolute before:-top-px before:left-0 before:h-px before:w-1/4 before:bg-accent">
-          <span className="inline-flex items-center gap-2 font-semibold">
-            <span
-              aria-hidden
-              className={cn(
-                "h-2 w-2 rounded-full",
-                validee
-                  ? "bg-success"
-                  : collecte.statut === "a_corriger" || enRetard
-                    ? "bg-destructive"
-                    : archivee
-                      ? "bg-primary-foreground/60"
-                      : "bg-warning",
-              )}
-            />
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <span className={cn(
+            "inline-flex min-h-8 items-center gap-2 rounded-full px-3 text-xs font-semibold",
+            validee ? "bg-success/10 text-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning/15 text-warning-foreground" : archivee ? "bg-muted text-muted-foreground" : "bg-primary/8 text-primary",
+          )}>
+            <span aria-hidden className={cn("size-2 rounded-full", validee ? "bg-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning" : archivee ? "bg-muted-foreground/50" : "bg-primary")} />
             {COLLECTE_STATUT_LABELS[collecte.statut]}
           </span>
-          {!isClient && <span className="inline-flex items-center gap-3">
-            <span>
-              <strong className="tabular-nums">{recus}</strong> / {rows.length}{" "}
-              <span className="text-primary-foreground/75">pièces reçues</span>
-            </span>
-            <span
-              role="progressbar"
-              aria-label="Pièces reçues"
-              aria-valuemin={0}
-              aria-valuemax={rows.length}
-              aria-valuenow={recus}
-              className="h-1.5 w-44 overflow-hidden rounded-full bg-primary-foreground/20"
-            >
+          {isClient && (
+            <Button variant="outline" size="sm" className="min-h-9 gap-1.5" onClick={() => requestTab("__back__")}>
+              <LogOut className="size-4" /> Quitter
+            </Button>
+          )}
+          {!isClient && <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <strong className="font-semibold tabular-nums text-foreground">{recus}/{rows.length}</strong> pièces reçues
+            <span role="progressbar" aria-label="Pièces reçues" aria-valuemin={0} aria-valuemax={rows.length} aria-valuenow={recus} className="h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:w-28">
               <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
             </span>
           </span>}
           {collecte.echeance && (
-            <span className={cn("text-primary-foreground/80", enRetard && "font-semibold text-warning")}>
+            <span className={cn("text-xs", enRetard ? "font-semibold text-warning-foreground" : "text-muted-foreground")}>
               Échéance {formatDate(collecte.echeance)}
               {enRetard ? " · dépassée" : ""}
             </span>
           )}
-          <span className="text-primary-foreground/75">
-            {validee
-              ? "Validée : verrouillée pour le client"
-              : archivee
-                ? "Archivée : lecture seule"
-                : collecte.statut === "a_corriger"
-                  ? "À corriger : complétez les pièces puis transmettez"
-                  : collecte.statut === "transmis"
-                    ? "Transmise au cabinet pour examen"
-                    : "Préparez les tableaux et pièces avant transmission"}
-          </span>
+          {canManageCollaborateurs && collecte.statut === "transmis" && (
+            <>
+              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_valide__")}><CheckCircle2 className="size-4" /> Valider</Button>
+              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}>Renvoyer</Button>
+            </>
+          )}
+          {canManageCollaborateurs && validee && (
+            <>
+              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_archive__")}>Archiver</Button>
+              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}><RotateCcw className="size-4" /> Rouvrir</Button>
+            </>
+          )}
+          {canManageCollaborateurs && archivee && <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_reopen__")}><RotateCcw className="size-4" /> Désarchiver</Button>}
         </div>
       </header>
-      <CollecteNextStep
-        collecte={collecte}
-        isClient={isClient}
-        isCabinet={isAdmin || isStaff}
-        recapPending={currentRecap === "envoye"}
-        currentTab={tab}
-        onNavigate={requestTab}
-      />
       {(savingDraft || draftError) && (
         <p role={draftError ? "alert" : "status"} aria-live="polite" className={cn("mt-2 rounded-lg border px-3 py-2 text-xs", draftError ? "border-destructive/25 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary")}>
           {draftError ? "Le brouillon n’a pas été enregistré. Restez sur ce tableau et réessayez." : "Enregistrement du brouillon avant le changement de section…"}
         </p>
-      )}
-      {(clientRecap || (canManageRecap && currentRecap === "envoye")) && (
-        <div
-          className={cn(
-            "mt-3 flex min-h-10 flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs",
-            clientRecap ? "border-warning/25 bg-warning/5 text-foreground" : "border-border bg-card text-muted-foreground",
-          )}
-        >
-          {clientRecap
-            ? `Complétez les cases demandées et enregistrez chaque tableau avant transmission. ${recapRestant > 0 ? `${recapRestant} case(s) restantes.` : "Vous pouvez transmettre."}`
-            : "Récap en attente du client."}
-        </div>
       )}
       {preview && (
         <p className="border-x border-b border-border bg-accent/5 px-3 py-2 text-xs text-foreground">
           Aperçu client — seules les cases « ? » demandées sont modifiables.
         </p>
       )}
-      {poste === "societe_employe" && currentRecap === "repondu" && (
-        <p className="border-x border-b border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          Récap renvoyé au cabinet. En attente de traitement.
-        </p>
-      )}
-      {!isClient && <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 py-1 text-xs text-muted-foreground">
-        <span>Travail sur le dossier · {socNom}</span>
-
-        <div data-tour="collecte-tools" className="flex flex-wrap items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="sm"
-            className="min-h-9 gap-1.5 bg-card"
-            onClick={() => {
-              void exportCollecteXlsx(collecte, socNom).catch(() => toast.error("Export impossible"));
-            }}
-          >
-            <Download className="h-4 w-4" />
-            Tout en Excel
-          </Button>
-
-          {isAdmin && !archivee && liveManques.length > 0 && (
-            <Button variant={preview ? "ledger" : "outline"} size="sm" className="min-h-9 gap-1.5 bg-card" onClick={() => requestTab("__preview__")}>
-              <Eye className="h-4 w-4" />
-              {preview ? "Quitter l'aperçu" : "Aperçu client"}
-            </Button>
-          )}
-
-          {canManageCollaborateurs && (
-            <Button variant="outline" size="sm" className="min-h-9 gap-1.5 bg-card" onClick={() => setEditOpen(true)}>
-              <SlidersHorizontal className="h-4 w-4" />
-              Modifier la collecte
-            </Button>
-          )}
-
-          {canManageCollaborateurs && enAttente && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="min-h-9 gap-1.5 bg-card"
-              disabled={relancing}
-              onClick={() => {
-                setRelancing(true);
-                void relanceNow(id)
-                  .then(() => {
-                    toast.success("Relance envoyée au client");
-                  })
-                  .catch(() => {})
-                  .finally(() => {
-                    setRelancing(false);
-                  });
-              }}
-            >
-              <BellRing className="h-4 w-4" />
-              {relancing ? "Envoi…" : "Relancer maintenant"}
-            </Button>
-          )}
-        </div>
+      {!isClient && <div data-tour="collecte-tools" className="flex justify-end py-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="min-h-9 gap-1.5 bg-card"><MoreHorizontal className="size-4" /> Actions</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Actions sur la collecte</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => void exportCollecteXlsx(collecte, socNom).catch(() => toast.error("Export impossible"))}><Download className="mr-2 size-4" /> Tout en Excel</DropdownMenuItem>
+            {isAdmin && !archivee && liveManques.length > 0 && <DropdownMenuItem onSelect={() => requestTab("__preview__")}><Eye className="mr-2 size-4" /> {preview ? "Quitter l'aperçu client" : "Aperçu client"}</DropdownMenuItem>}
+            {canManageCollaborateurs && <DropdownMenuItem onSelect={() => setEditOpen(true)}><SlidersHorizontal className="mr-2 size-4" /> Modifier la collecte</DropdownMenuItem>}
+            {canManageCollaborateurs && enAttente && <DropdownMenuItem disabled={relancing} onSelect={() => {
+              setRelancing(true);
+              void relanceNow(id).then(() => toast.success("Relance envoyée au client")).catch(() => {}).finally(() => setRelancing(false));
+            }}><BellRing className="mr-2 size-4" /> {relancing ? "Envoi…" : "Relancer maintenant"}</DropdownMenuItem>}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>}
 
       <Tabs value={tab} onValueChange={requestTab}>
-        <div className="mt-3 grid min-w-0 items-start gap-3 xl:grid-cols-[16rem_minmax(0,1fr)]">
+        <div className="mt-1 min-w-0 overflow-hidden rounded-xl border border-border bg-card">
           <CollecteWorkNavigation
             collecte={collecte}
             active={tab}
             isClient={isClient}
+            canVerify={!isAdmin}
             canSeeHistory={isAdmin || isStaff}
             missingByTable={manqueCount}
             visibleMissing={showFlagsFor}
             recapCount={collecte.sections.filter((section) => section.recapStatut === "envoye").length}
             onSelect={requestTab}
           />
-          <main data-tour="collecte-content" className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
+          <main data-tour="collecte-content" className="min-w-0">
             <TabsContent value="recap" className="m-0">
               <SectionHeader
                 title="Récap"
@@ -639,6 +529,22 @@ export function CollecteEditorPage() {
                   onNavigate={(key, target) => requestTab(key, false, target)}
                 />
               </div>
+            </TabsContent>
+
+            <TabsContent value="verification" className="m-0">
+              <CollecteClientVerification
+                collecte={collecte}
+                rows={rows}
+                canTransmit={canTransmitCollecte}
+                canSubmitRecap={clientRecap && !archivee && !isAdmin}
+                recapPending={clientRecap}
+                recapRemaining={recapRestant}
+                onTransmit={() => requestTab("__confirm_transmis__")}
+                onSubmitRecap={() => {
+                  void submitRecap(id).then(() => toast.success("Précisions transmises au cabinet")).catch(() => {});
+                }}
+                onOpenTable={(key) => requestTab(key)}
+              />
             </TabsContent>
 
             {/* ── Checklist ─────────────────────────── */}
@@ -697,12 +603,12 @@ export function CollecteEditorPage() {
                 }
               />
               {collecte.fichiers.length === 0 ? (
-                <div className="p-4">
-                  <EmptyState
-                    icon={Paperclip}
-                    title="Aucune pièce déposée"
-                    description="Ajoutez un scan ou un PDF en complément des tableaux chiffrés."
-                  />
+                <div className="flex items-start gap-3 px-4 py-5">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><Paperclip className="size-4" aria-hidden="true" /></span>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Aucun document déposé</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Ajoutez un scan ou un PDF en complément des tableaux chiffrés.</p>
+                  </div>
                 </div>
               ) : (
                 <ul className="divide-y divide-border">
@@ -892,6 +798,7 @@ export function CollecteEditorPage() {
                           highlight={hl}
                           wholeEditable={inRecap && whole}
                           focusTarget={focusTarget?.table === key ? focusTarget : undefined}
+                          saveAndContinue={isClient && (editableTab(key) || inRecap) ? saveAndVerifyTable : undefined}
                           flagged={
                             !inRecap && showFlagsFor(key) ? hl : undefined
                           }

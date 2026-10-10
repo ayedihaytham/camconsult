@@ -21,6 +21,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -330,15 +337,11 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
     />
   );
 
-  const chips: { id: Filtre; label: string; n: number }[] = [
-    { id: "toutes", label: "Toutes", n: rows.length },
-    { id: "attente", label: "En attente", n: enAttente.length },
-    { id: "recues", label: "Reçues", n: recus },
-  ];
-
   return (
     <>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+        <span className="text-xs text-muted-foreground">{recus} / {rows.length} pièces reçues</span>
+        <div className="flex flex-wrap items-center gap-2">
         {editable && onMarkAll && (
           <Button
             variant="outline"
@@ -357,27 +360,20 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
           </Button>
         )}
         {exports}
+          <Select value={filtre} onValueChange={(value) => setFiltre(value as Filtre)}>
+            <SelectTrigger aria-label="Filtrer les pièces" className="min-h-9 w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="toutes">Toutes ({rows.length})</SelectItem>
+              <SelectItem value="attente">En attente ({enAttente.length})</SelectItem>
+              <SelectItem value="recues">Reçues ({recus})</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {notice && <p className="mx-4 mt-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-muted-foreground">{notice}</p>}
-
-      <div role="group" aria-label="Filtrer les pièces" className="flex flex-wrap gap-2 px-4 pb-3 pt-3">
-        {chips.map((chip) => (
-          <button
-            key={chip.id}
-            type="button"
-            aria-pressed={filtre === chip.id}
-            onClick={() => setFiltre(chip.id)}
-            className={cn(
-              "inline-flex min-h-9 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              filtre === chip.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:border-accent hover:text-primary",
-            )}
-          >
-            {chip.label}
-            <span className={cn("tabular-nums", filtre === chip.id ? "text-accent" : "text-muted-foreground/70")}>{chip.n}</span>
-          </button>
-        ))}
-      </div>
 
       <div className="hidden lg:block">
         <table className="w-full table-fixed text-sm">
@@ -401,6 +397,7 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
                           {row.etat && <CodeEtat code={row.etat} />}
                           {row.pieceLabel}
                         </p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">Circuit du tableau · {row.circuitLabel}</p>
                         {lien(row)}
                       </div>
                     </div>
@@ -472,6 +469,7 @@ function MobileChecklistRow({
             {row.etat && <CodeEtat code={row.etat} />}
             {row.pieceLabel}
           </h3>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">Circuit du tableau · {row.circuitLabel}</p>
           {lien}
         </div>
       </div>

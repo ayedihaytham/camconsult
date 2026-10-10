@@ -1,0 +1,16 @@
+# Collecte de pièces — comparaison des parcours
+
+Comptage estimatif des commandes visibles dans l’interface source et dans la refonte. Le point de départ est la liste des collectes; la saisie des valeurs au clavier, le défilement et les appels réseau ne sont pas comptés comme clics. Les parcours ci-dessous décrivent les chemins courts et précisent quand ils dépendent d’un tableau regroupé ou d’une liste de plusieurs dossiers. Aucun suivi de télémétrie utilisateur n’est disponible.
+
+| Parcours | Interface source | Interface reconstruite | Clics / commandes | Fenêtres ou menus | Changements de vue |
+| --- | --- | --- | ---: | ---: | ---: |
+| Trouver un dossier avec une revue en attente, quand plusieurs statuts sont présents | Ouvrir les filtres, choisir « Transmis », ouvrir le dossier, puis demander l’examen du prochain tableau | La liste s’ouvre sur « À examiner »; ouvrir le dossier ouvre déjà le premier tableau transmis | 4 → 1 | filtre 1 → 0 | 1 → 1 |
+| Client remplit puis transmet un tableau CHQ/VRT/TR vide | Ouvrir le dossier, ouvrir la famille, choisir la table, ajouter une ligne, transmettre, confirmer | Ouvrir le dossier; la table et sa première ligne s’ouvrent avec le curseur prêt; transmettre, confirmer | 6 → 3 | confirmation 1 → 1 | 1 → 1 |
+| Client répond au premier champ d’un récap | Ouvrir le dossier, puis ouvrir la table depuis le récap; compléter et transmettre | Ouvrir le dossier; la table demandée et la première case manquante sont sélectionnées; compléter et transmettre | 3 → 2 | 0 → 0 sur le chemin de transmission globale | 1 → 1 |
+| Cabinet examine et valide le premier tableau transmis | Ouvrir le dossier, cliquer « Examiner ce tableau », valider | Ouvrir le dossier; le tableau transmis et sa validation sont dans l’espace actif | 3 → 2 | 0 → 0 | 1 → 1 |
+| Cabinet demande une correction avec motif | Ouvrir le dossier, ouvrir le tableau suivant, choisir « Renvoyer », saisir le motif et confirmer | Ouvrir le dossier, choisir « Renvoyer », saisir le motif et confirmer | 4 → 3 | dialogue de motif 1 → 1 | 1 → 1 |
+| Cabinet consulte une pièce jointe liée au tableau actif | Ouvrir le dossier, choisir Documents, ouvrir l’aperçu | Ouvrir le dossier; l’aperçu de la pièce liée est au-dessus du tableau | 3 → 2 | aperçu 1 → 1 | 1 → 1 |
+| Passer à une autre table après une saisie non enregistrée, depuis une famille | Ouvrir la famille, choisir la table, puis confirmer « Enregistrer et changer » | Cliquer une fois sur la table; le brouillon s’enregistre avec retour d’état visible | 3 → 1 | confirmation d’enregistrement 1 → 0 | 0 → 0 |
+| Créer et configurer une collecte | Ouvrir le formulaire, renseigner la société/période/tables puis enregistrer | Même formulaire métier et même enregistrement | 2 → 2 | tiroir de création 1 → 1 | 1 → 1 |
+
+Les réductions mesurables se concentrent sur les tâches quotidiennes : ouverture directe du premier travail, suppression des menus de famille, mise au point dans la case demandée, pièces consultables dans le tableau, et sauvegarde du brouillon pendant un changement volontaire de section. Les avertissements de répartition et confirmations de transmission, validation, suppression et renvoi restent en place. La création conserve son formulaire et ses étapes de configuration.

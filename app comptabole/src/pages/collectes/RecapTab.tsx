@@ -6,7 +6,7 @@ import { StatusDot } from "@/components/ledger/StatusDot";
 import { Input } from "@/components/ui/input";
 import { cn, formatRelative } from "@/lib/utils";
 import { TAB_BY_KEY } from "@/lib/collecte/tabs";
-import { computeManques, ecartsDeRepartition, type Manque } from "@/lib/collecte/manques";
+import { computeManques, type Manque } from "@/lib/collecte/manques";
 import { sectionRecapStatut } from "@/lib/collecte/recap";
 import { useCollectes } from "@/store/collectes";
 import type { CollecteFull } from "@/types";
@@ -17,7 +17,7 @@ interface Props {
    * récap par tableau, pas seulement l'admin. */
   canManageRecap: boolean;
   isClient: boolean;
-  onNavigate: (onglet: string) => void;
+  onNavigate: (onglet: string, target?: { ordre: number | null; col: string | null }) => void;
 }
 
 /** Détail des cases à compléter d'un tableau, ligne par ligne, tel que le client le recevra ; l'envoi se fait d'ici, après lecture. */
@@ -80,20 +80,6 @@ function DetailManques({
   );
 }
 
-/** Bordereaux dont le montant n'est pas atteint ou est dépassé : le cabinet le voit ici (il le demande au client par le Récap) au lieu d'être interrompu pendant sa saisie. */
-function EcartsRepartition({ ecarts }: { ecarts: string[] }) {
-  if (ecarts.length === 0) return null;
-  return (
-    <ul className="mt-0.5 space-y-0.5">
-      {ecarts.map((e) => (
-        <li key={e} className="text-xs font-normal text-warning">
-          {e}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Props) {
   const sendRecapSection = useCollectes((s) => s.sendRecapSection);
   const closeRecapSection = useCollectes((s) => s.closeRecapSection);
@@ -108,6 +94,24 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
 
   const live = useMemo(() => computeManques(collecte), [collecte]);
   const label = (k: string) => TAB_BY_KEY[k]?.label ?? (k || "Général");
+  const fieldActions = (onglet: string) => live.filter((manque) => manque.onglet === onglet).map((manque) => {
+    const description = manque.ordre === null
+      ? "Remplir ce tableau"
+      : `Ligne ${manque.ordre + 1} · ${manque.ref.split(" · ")[1] ?? manque.col ?? "Champ à compléter"}`;
+    return (
+      <Button
+        key={`${onglet}:${manque.ordre}:${manque.col}`}
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-8 gap-1 px-2 text-[11px]"
+        aria-label={`Aller à ${description} dans ${label(onglet)}`}
+        onClick={() => onNavigate(onglet, { ordre: manque.ordre, col: manque.col })}
+      >
+        {description}<ChevronRight className="size-3" aria-hidden="true" />
+      </Button>
+    );
+  });
 
   // Une ligne par tableau demandé — chaque tableau s'envoie indépendamment
   // des autres, jamais un envoi global pour toute la collecte.
@@ -119,8 +123,6 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
         statut: sectionRecapStatut(collecte, onglet),
         /** Aucune ligne saisie : tableau entièrement vide. */
         vide: !collecte.lignes.some((l) => l.onglet === onglet),
-        /** Bordereaux dont le montant n'est pas atteint ou est dépassé : à signaler au client avec le reste. */
-        ecarts: ecartsDeRepartition(collecte, onglet, collecte.devise),
       })),
     [collecte, live],
   );
@@ -195,9 +197,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
 
       {isClient && anyPending && (
         <p className="border-b border-warning/20 bg-warning/5 px-3 py-2 text-sm text-foreground">
-          Cliquez « Ouvrir l'onglet » sur un tableau envoyé, remplissez les cases{" "}
-          <span className="font-semibold">?</span>, enregistrez, puis
-          «&nbsp;Transmettre au cabinet&nbsp;» (bouton en haut à droite).
+          Choisissez une case demandée ci-dessous pour y accéder directement, complétez-la, puis transmettez vos réponses.
         </p>
       )}
       {isClient && !anyPending && anyRepondu && (
@@ -233,7 +233,6 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
               <tr className="hover:bg-muted/20">
                 <td className="px-3 py-2 font-medium text-foreground">
                   {label(r.onglet)}
-                  {!isClient && <EcartsRepartition ecarts={r.ecarts} />}
                 </td>
                 <td className="px-3 py-2 text-right text-xs tabular-nums text-muted-foreground">
                   {r.count}
@@ -282,13 +281,9 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
                     </Button>
                   )}
                   {isClient && r.statut === "envoye" && (
-                    <button
-                      onClick={() => onNavigate(r.onglet)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-foreground hover:text-accent"
-                    >
-                      Ouvrir l'onglet
-                      <ChevronRight className="h-3.5 w-3.5 text-accent" />
-                    </button>
+                    r.count > 0
+                      ? <span className="inline-flex max-w-[30rem] flex-wrap justify-end gap-1">{fieldActions(r.onglet)}</span>
+                      : <button type="button" onClick={() => onNavigate(r.onglet)} className="inline-flex items-center gap-1 text-xs font-semibold text-foreground hover:text-accent">Ouvrir le tableau<ChevronRight className="size-3.5 text-accent" /></button>
                   )}
                 </td>
               </tr>
@@ -324,7 +319,6 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
                 <h3 className="break-words text-sm font-semibold text-foreground">
                   {rowLabel}
                 </h3>
-                {!isClient && <EcartsRepartition ecarts={r.ecarts} />}
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {r.count} {r.count === 1 ? "case" : "cases"} à compléter
                 </p>
@@ -363,15 +357,9 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
                   </Button>
                 )}
                 {isClient && r.statut === "envoye" && (
-                  <button
-                    type="button"
-                    aria-label={`Ouvrir le tableau ${rowLabel}`}
-                    onClick={() => onNavigate(r.onglet)}
-                    className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-foreground hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    Ouvrir
-                    <ChevronRight className="h-3.5 w-3.5 text-accent" />
-                  </button>
+                  r.count > 0
+                    ? <span className="mt-2 flex flex-wrap gap-1">{fieldActions(r.onglet)}</span>
+                    : <button type="button" aria-label={`Ouvrir le tableau ${rowLabel}`} onClick={() => onNavigate(r.onglet)} className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-foreground hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ouvrir le tableau<ChevronRight className="size-3.5 text-accent" /></button>
                 )}
               </div>
             </article>

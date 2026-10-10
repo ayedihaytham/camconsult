@@ -1,19 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   BellRing,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Eye,
   File as FileIcon,
   FileText,
   History,
   Paperclip,
-  Plus,
   Printer,
   RotateCcw,
   Send,
@@ -31,22 +28,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocietes } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
-import { COLLECTE_ETATS, COLLECTE_STATUT_LABELS, TAB_BY_KEY, etatDeTableau, ordonnerTableaux } from "@/lib/collecte/tabs";
+import { COLLECTE_STATUT_LABELS, TAB_BY_KEY, ordonnerTableaux } from "@/lib/collecte/tabs";
 import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
 import { aggregateRecapStatut, sectionRecapStatut } from "@/lib/collecte/recap";
-import { SECTION_STATUT_LABELS, sectionOuverte, sectionStatut } from "@/lib/collecte/sections";
+import { sectionOuverte, sectionStatut } from "@/lib/collecte/sections";
 import {
   downloadCollecteSectionPdf,
   exportCollecteSectionXlsx,
@@ -55,7 +44,7 @@ import {
 } from "@/lib/collecte/exportXlsx";
 import { downloadDataUrl } from "@/lib/file";
 import { cn, formatDate, formatRelative } from "@/lib/utils";
-import type { CollecteJournalEntry, CollecteStatut, SectionStatut } from "@/types";
+import type { CollecteFull, CollecteJournalEntry, CollecteStatut } from "@/types";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { CollecteChecklist } from "./CollecteChecklist";
 import { CollecteNextStep } from "./CollecteNextStep";
@@ -65,6 +54,7 @@ import { OngletNotes } from "./OngletNotes";
 import { SectionCircuit } from "./SectionCircuit";
 import { lignesSouchePourEtat } from "@/lib/collecte/souche";
 import { TableauxNonDemandes } from "./TableauxNonDemandes";
+import { CollecteWorkNavigation } from "./CollecteWorkNavigation";
 import {
   FileUploadDialog,
   type NewFichier,
@@ -79,6 +69,7 @@ const MAX_PIECE_LIGNE = 8 * 1024 * 1024;
 export function CollecteEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     isAdmin,
     poste,
@@ -114,11 +105,12 @@ export function CollecteEditorPage() {
   >(null);
   const [editOpen, setEditOpen] = useState(false);
   const [tab, setTab] = useState("checklist");
+  const [focusTarget, setFocusTarget] = useState<{ table: string; ordre: number | null; col: string | null; revision: number } | undefined>();
+  const focusRevision = useRef(0);
   const gridRef = useRef<CollecteGridHandle>(null);
   const transmittedBeforeRecapRef = useRef(false);
   const [dirtyTableau, setDirtyTableau] = useState(false);
-  const [incomplet, setIncomplet] = useState<{ next: string; message: string; manque: boolean } | null>(null);
-  const [pendingTab, setPendingTab] = useState<string | null>(null);
+  const [incomplet, setIncomplet] = useState<{ next: string; message: string } | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState(false);
   const [preview, setPreview] = useState(false); // admin : aperçu de la vue client
@@ -156,10 +148,35 @@ export function CollecteEditorPage() {
   }, [tab, id, fetchJournal]);
 
   const currentRecap = collecte ? aggregateRecapStatut(collecte) : "none";
+  const initializedFor = useRef("");
+  function focusTableCell(table: string, target: { ordre: number | null; col: string | null }) {
+    focusRevision.current += 1;
+    setFocusTarget({ table, ...target, revision: focusRevision.current });
+  }
   useEffect(() => {
-    if (poste === "societe_employe" && currentRecap === "envoye")
-      requestTab("recap");
-  }, [poste, currentRecap, id]);
+    if (!collecte || initializedFor.current === collecte.id) return;
+    initializedFor.current = collecte.id;
+    const requested = searchParams.get("tab");
+    const validRequested = requested === "checklist" || requested === "recap" || requested === "documents" ||
+      (requested === "historique" && (isAdmin || isStaff)) ||
+      (requested ? collecte.onglets.includes(requested) : false);
+    const ordered = ordonnerTableaux(collecte.onglets);
+    const recapTarget = ordered.find((key) => sectionRecapStatut(collecte, key) === "envoye");
+    const nextTarget = poste === "societe_employe"
+      ? recapTarget ?? ordered.find((key) => !TAB_BY_KEY[key]?.cabinetSeul && sectionOuverte(sectionStatut(collecte, key)))
+      : ordered.find((key) => sectionStatut(collecte, key) === "transmis") ?? ordered.find((key) => sectionStatut(collecte, key) === "a_corriger");
+    const next = validRequested ? requested! : (poste === "societe_employe" ? recapTarget ?? nextTarget : nextTarget) ?? "checklist";
+    setTab(next);
+    if (!validRequested && poste === "societe_employe" && !["checklist", "recap", "documents", "historique"].includes(next)) {
+      const manque = computeManques(collecte).find((item) => item.onglet === next);
+      if (manque) focusTableCell(next, { ordre: manque.ordre, col: manque.col });
+    }
+    setSearchParams((params) => {
+      const updated = new URLSearchParams(params);
+      updated.set("tab", next);
+      return updated;
+    }, { replace: true });
+  }, [collecte?.id, searchParams, setSearchParams, isAdmin, isStaff, poste]);
 
   if (!collecte) {
     return (
@@ -274,43 +291,29 @@ export function CollecteEditorPage() {
     .map((part) => part[0])
     .join("")
     .toLocaleUpperCase("fr-FR");
-  const tableauKeys = ordonnerTableaux(collecte.onglets);
-  // Un tableau archivé quitte les onglets de travail et se retrouve dans l'onglet « Archives ».
-  const archives = tableauKeys.filter((k) => sectionStatut(collecte, k) === "archive");
-  const actifs = tableauKeys.filter((k) => !archives.includes(k));
-  // Barre d'onglets : un seul onglet par état (chèques, virements, traites), qui s'ouvre sur ses tableaux ; les autres tableaux restent des onglets.
-  const entreesNav: { etat?: ReturnType<typeof etatDeTableau>; keys: string[] }[] = [];
-  // Le cabinet voit toujours les trois états : les tableaux pas encore demandés s'y ajoutent depuis le menu de l'état.
-  if (canManageCollaborateurs && !archivee) for (const etat of COLLECTE_ETATS) entreesNav.push({ etat, keys: [] });
-  for (const k of actifs) {
-    const etat = etatDeTableau(k);
-    const existante = etat && entreesNav.find((e) => e.etat?.key === etat.key);
-    if (existante) existante.keys.push(k);
-    else entreesNav.push({ etat, keys: [k] });
-  }
   const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
   const boutonBandeau =
     "min-h-10 gap-2 border-primary-foreground/30 bg-transparent px-4 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground";
 
-  function requestTab(next: string, forcer = false) {
+  function requestTab(next: string, forcer = false, target?: { ordre: number | null; col: string | null }) {
     if (next === tab) return;
+    if (savingDraft) return;
     // Un bordereau dont les chèques n'atteignent pas le montant annoncé : on prévient avant de passer à autre chose.
     const grille = gridRef.current;
-    // Seul le client est interrompu : le cabinet quitte et enregistre librement, et signale ce qui reste à compléter par le Récap.
-    if (!forcer && isClient && grille && !grille.isComplete()) {
-      setIncomplet({ next, message: grille.incompleteMessage(), manque: grille.ecart().manque });
+    if (!forcer && grille && !grille.isComplete()) {
+      setIncomplet({ next, message: grille.incompleteMessage() });
       return;
     }
     if (gridRef.current?.isDirty()) {
       setDraftError(false);
-      setPendingTab(next);
+      void saveDraftAndLeave(next, target);
       return;
     }
     setDirtyTableau(false);
-    completeNavigation(next);
+    completeNavigation(next, target);
   }
 
-  function completeNavigation(next: string) {
+  function completeNavigation(next: string, target?: { ordre: number | null; col: string | null }) {
     if (next === "__back__") navigate("/collectes");
     else if (next === "__preview__") setPreview((value) => !value);
     else if (next === "__confirm_transmis__") setConfirm("transmis");
@@ -318,7 +321,15 @@ export function CollecteEditorPage() {
     else if (next === "__confirm_archive__") setConfirm("archive");
     else if (next === "__confirm_a_corriger__") setConfirm("a_corriger");
     else if (next === "__confirm_reopen__") setConfirm("reopen");
-    else setTab(next);
+    else {
+      if (target) focusTableCell(next, target);
+      setTab(next);
+      setSearchParams((params) => {
+        const updated = new URLSearchParams(params);
+        updated.set("tab", next);
+        return updated;
+      }, { replace: true });
+    }
   }
 
   /** Avant de transférer un tableau : enregistre ce qui est en cours, puis dit ce qui manque encore (chaîne vide si complet). */
@@ -335,22 +346,18 @@ export function CollecteEditorPage() {
     return morceaux.join(" · ");
   }
 
-  function leaveAfterDraft() {
-    setDirtyTableau(false);
-    if (pendingTab) completeNavigation(pendingTab);
-    setPendingTab(null);
-  }
-
-  async function saveDraftAndLeave() {
+  async function saveDraftAndLeave(next: string, target?: { ordre: number | null; col: string | null }) {
     setSavingDraft(true);
     setDraftError(false);
     try {
       const grid = gridRef.current;
       if (!grid) throw new Error("Tableau indisponible");
       await grid.save();
-      leaveAfterDraft();
+      setDirtyTableau(false);
+      completeNavigation(next, target);
     } catch {
       setDraftError(true);
+      toast.error("Brouillon non enregistré. Restez sur ce tableau et réessayez.");
     } finally {
       setSavingDraft(false);
     }
@@ -510,8 +517,14 @@ export function CollecteEditorPage() {
         isClient={isClient}
         isCabinet={isAdmin || isStaff}
         recapPending={currentRecap === "envoye"}
+        currentTab={tab}
         onNavigate={requestTab}
       />
+      {(savingDraft || draftError) && (
+        <p role={draftError ? "alert" : "status"} aria-live="polite" className={cn("mt-2 rounded-lg border px-3 py-2 text-xs", draftError ? "border-destructive/25 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary")}>
+          {draftError ? "Le brouillon n’a pas été enregistré. Restez sur ce tableau et réessayez." : "Enregistrement du brouillon avant le changement de section…"}
+        </p>
+      )}
       {(clientRecap || (canManageRecap && currentRecap === "envoye")) && (
         <div
           className={cn(
@@ -590,80 +603,18 @@ export function CollecteEditorPage() {
       </div>
 
       <Tabs value={tab} onValueChange={requestTab}>
-        <div className="flex min-w-0 flex-col border border-border bg-card">
-          {/* Onglets de feuille, comme dans Excel : on choisit la section en bas, le tableau s'affiche au-dessus. */}
-          <BarreFeuilles tab={tab}>
-            <nav
-              data-tour="collecte-navigation-desktop"
-              aria-label="Sections du dossier"
-              className="flex w-max min-w-full items-center gap-x-1 px-2 py-2"
-            >
-              <FeuilleTab active={tab === "checklist"} onClick={() => requestTab("checklist")} label="Checklist" />
-              <FeuilleTab
-                active={tab === "recap"}
-                onClick={() => requestTab("recap")}
-                label="Récap"
-                dot={currentRecap !== "none" ? (currentRecap === "repondu" ? "success" : "warning") : undefined}
-              />
-              <FeuilleTab
-                active={tab === "documents"}
-                onClick={() => requestTab("documents")}
-                label="Documents"
-                badge={collecte.fichiers.length || undefined}
-              />
-              {tableauKeys.length > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
-              {entreesNav.map((entree) =>
-                entree.etat ? (
-                  <FeuilleMenu
-                    key={entree.etat.key}
-                    etat={entree.etat}
-                    tableaux={entree.keys}
-                    absents={canManageCollaborateurs && !archivee ? entree.etat.tableaux.filter((k) => !collecte.onglets.includes(k)) : []}
-                    onAjouter={async (k) => {
-                      await update(id, { onglets: ordonnerTableaux([...collecte.onglets, k]) });
-                      toast.success(`« ${TAB_BY_KEY[k]?.label ?? k} » ajouté à la collecte`);
-                    }}
-                    tab={tab}
-                    onSelect={requestTab}
-                    statut={(k) => sectionStatut(collecte, k)}
-                    manques={(k) => (showFlagsFor(k) ? manqueCount.get(k) : undefined)}
-                    recu={(k) => rows.find((r) => r.onglet === k)?.recu ?? false}
-                  />
-                ) : (
-                  <FeuilleTab
-                    key={entree.keys[0]}
-                    active={tab === entree.keys[0]}
-                    onClick={() => requestTab(entree.keys[0])}
-                    label={TAB_BY_KEY[entree.keys[0]]?.label ?? entree.keys[0]}
-                    badge={showFlagsFor(entree.keys[0]) ? manqueCount.get(entree.keys[0]) : undefined}
-                    recu={rows.find((r) => r.onglet === entree.keys[0])?.recu}
-                    dot={DOT_SECTION[sectionStatut(collecte, entree.keys[0])]}
-                    dotTitle={SECTION_STATUT_LABELS[sectionStatut(collecte, entree.keys[0])]}
-                  />
-                ),
-              )}
-              {archives.length > 0 && (
-                <FeuilleMenu
-                  etat={{ code: "ARCH", label: "Archives" }}
-                  tableaux={archives}
-                  absents={[]}
-                  onAjouter={async () => {}}
-                  tab={tab}
-                  onSelect={requestTab}
-                  statut={(k) => sectionStatut(collecte, k)}
-                  manques={() => undefined}
-                  recu={(k) => rows.find((r) => r.onglet === k)?.recu ?? false}
-                />
-              )}
-              {(isAdmin || isStaff) && (
-                <>
-                  <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />
-                  <FeuilleTab active={tab === "historique"} onClick={() => requestTab("historique")} label="Historique" />
-                </>
-              )}
-            </nav>
-          </BarreFeuilles>
-          <div data-tour="collecte-content" className="min-w-0 bg-card">
+        <div className="mt-3 grid min-w-0 items-start gap-3 xl:grid-cols-[16rem_minmax(0,1fr)]">
+          <CollecteWorkNavigation
+            collecte={collecte}
+            active={tab}
+            isClient={isClient}
+            canSeeHistory={isAdmin || isStaff}
+            missingByTable={manqueCount}
+            visibleMissing={showFlagsFor}
+            recapCount={collecte.sections.filter((section) => section.recapStatut === "envoye").length}
+            onSelect={requestTab}
+          />
+          <main data-tour="collecte-content" className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
             <TabsContent value="recap" className="m-0">
               <SectionHeader
                 title="Récap"
@@ -674,7 +625,7 @@ export function CollecteEditorPage() {
                   collecte={collecte}
                   canManageRecap={canManageRecap}
                   isClient={poste === "societe_employe"}
-                  onNavigate={requestTab}
+                  onNavigate={(key, target) => requestTab(key, false, target)}
                 />
               </div>
             </TabsContent>
@@ -879,6 +830,12 @@ export function CollecteEditorPage() {
                         }}
                       />
                     )}
+                    {!preview && collecte.fichiers.some((fichier) => !fichier.onglet || fichier.onglet === key) && (
+                      <DocumentsDuTableau
+                        fichiers={collecte.fichiers.filter((fichier) => !fichier.onglet || fichier.onglet === key)}
+                        onPreview={(fichier) => setPreviewFichier({ title: fichier.nom, dataUrl: fichier.dataUrl ?? null })}
+                      />
+                    )}
                     {(() => {
                       const hl = flaggedByTab.get(key);
                       const whole = wholeTab.has(key);
@@ -921,6 +878,7 @@ export function CollecteEditorPage() {
                           recapClient={inRecap}
                           highlight={hl}
                           wholeEditable={inRecap && whole}
+                          focusTarget={focusTarget?.table === key ? focusTarget : undefined}
                           flagged={
                             !inRecap && showFlagsFor(key) ? hl : undefined
                           }
@@ -1025,8 +983,7 @@ export function CollecteEditorPage() {
                 )}
               </TabsContent>
             )}
-          </div>
-
+          </main>
         </div>
       </Tabs>
 
@@ -1054,63 +1011,6 @@ export function CollecteEditorPage() {
           }}
         />
       )}
-
-      <Dialog
-        open={pendingTab !== null}
-        onOpenChange={(open) => {
-          if (!open && !savingDraft) setPendingTab(null);
-        }}
-      >
-        <DialogContent
-          className="w-[calc(100vw-2rem)] max-w-xl p-4 sm:p-6"
-          onEscapeKeyDown={(event) => savingDraft && event.preventDefault()}
-          onPointerDownOutside={(event) =>
-            savingDraft && event.preventDefault()
-          }
-        >
-          <DialogHeader>
-            <DialogTitle>Modifications non enregistrées</DialogTitle>
-            <DialogDescription>
-              Enregistrez ce tableau avant de changer de section, ou quittez
-              sans conserver vos modifications.
-            </DialogDescription>
-          </DialogHeader>
-          {draftError && (
-            <p role="alert" className="text-sm text-destructive">
-              Enregistrement impossible. Vos modifications sont conservées ;
-              réessayez.
-            </p>
-          )}
-          <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-            <Button
-              variant="outline"
-              className="min-h-11 w-full sm:min-h-9 sm:w-auto"
-              disabled={savingDraft}
-              onClick={() => setPendingTab(null)}
-            >
-              Rester
-            </Button>
-            <Button
-              variant="outline"
-              className="min-h-11 w-full sm:min-h-9 sm:w-auto"
-              disabled={savingDraft}
-              onClick={() => {
-                gridRef.current?.discard();
-                leaveAfterDraft();
-              }}
-            >
-              Quitter sans enregistrer
-            </Button>
-            <Button
-              className="min-h-11 w-full sm:min-h-9 sm:w-auto"
-              disabled={savingDraft}
-              onClick={() => void saveDraftAndLeave()}
-            >
-              {savingDraft ? "Enregistrement…" : "Enregistrer et changer"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={confirm !== null}
@@ -1188,20 +1088,16 @@ export function CollecteEditorPage() {
       <ConfirmDialog
         open={Boolean(incomplet)}
         onOpenChange={(o) => !o && setIncomplet(null)}
-        destructive={incomplet?.manque ?? true}
-        title={incomplet?.manque === false ? "Montants à vérifier" : "Répartition incomplète"}
+        destructive
+        title="Répartition incomplète"
         description={
           <>
             <span className="block">{incomplet?.message}.</span>
-            <span className="mt-2 block">
-              {incomplet?.manque === false
-                ? "Le total des chèques dépasse le montant du bordereau : une faute de frappe ? Vous pouvez corriger, ou continuer et enregistrer tel quel."
-                : "Complétez les lignes jusqu'à atteindre le montant avant de passer à une autre action."}
-            </span>
+            <span className="mt-2 block">Complétez les lignes jusqu'à atteindre le montant avant de passer à une autre action.</span>
           </>
         }
         confirmLabel="Continuer quand même"
-        cancelLabel={incomplet?.manque === false ? "Vérifier" : "Compléter"}
+        cancelLabel="Compléter"
         onConfirm={() => {
           const suite = incomplet?.next;
           setIncomplet(null);
@@ -1232,230 +1128,6 @@ export function CollecteEditorPage() {
   );
 }
 
-/** Barre d'onglets sur une seule ligne : elle défile horizontalement quand il y a plus d'onglets que de place,
- * avec des flèches, et ramène toujours l'onglet actif dans la zone visible. */
-function BarreFeuilles({ tab, children }: { tab: string; children: ReactNode }) {
-  const defilement = useRef<HTMLDivElement>(null);
-  const [fleches, setFleches] = useState({ gauche: false, droite: false });
-
-  const mesurer = useCallback(() => {
-    const el = defilement.current;
-    if (!el) return;
-    setFleches({ gauche: el.scrollLeft > 1, droite: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 });
-  }, []);
-
-  useEffect(() => {
-    mesurer();
-    const el = defilement.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observateur = new ResizeObserver(mesurer);
-    observateur.observe(el);
-    if (el.firstElementChild) observateur.observe(el.firstElementChild);
-    return () => observateur.disconnect();
-  }, [mesurer]);
-
-  // L'onglet choisi (ou ouvert depuis la checklist) doit rester visible.
-  useEffect(() => {
-    defilement.current?.querySelector('[aria-current="page"]')?.scrollIntoView?.({ inline: "nearest", block: "nearest" });
-  }, [tab]);
-
-  const defiler = (sens: -1 | 1) => {
-    const el = defilement.current;
-    el?.scrollBy?.({ left: sens * el.clientWidth * 0.6, behavior: "smooth" });
-  };
-
-  const fleche = "flex h-10 w-8 shrink-0 items-center justify-center bg-muted/70 text-muted-foreground hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
-  return (
-    <div data-tour="collecte-navigation-mobile" className="flex min-w-0 items-center border-b border-border bg-muted/70">
-      {fleches.gauche && (
-        <button type="button" aria-label="Onglets précédents" className={`${fleche} border-r border-border`} onClick={() => defiler(-1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-      )}
-      <div ref={defilement} onScroll={mesurer} className="min-w-0 flex-1 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {children}
-      </div>
-      {fleches.droite && (
-        <button type="button" aria-label="Onglets suivants" className={`${fleche} border-l border-border`} onClick={() => defiler(1)}>
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-/** Onglet de feuille, comme en bas d'un classeur Excel : la section active est « posée » sur le contenu,
- * les tableaux déjà reçus sont teintés en vert. */
-/** Onglet d'un état (chèques, virements, traites) : s'ouvre sur ses tableaux, au choix, pour garder une barre courte et sans défilement. */
-function FeuilleMenu({
-  etat,
-  tableaux,
-  absents,
-  onAjouter,
-  tab,
-  onSelect,
-  statut,
-  manques,
-  recu,
-}: {
-  etat: { code: string; label: string };
-  tableaux: string[];
-  /** Tableaux de l'état pas encore demandés dans cette collecte (le cabinet peut les ajouter). */
-  absents: string[];
-  onAjouter: (key: string) => Promise<void>;
-  tab: string;
-  onSelect: (key: string) => void;
-  statut: (key: string) => SectionStatut;
-  manques: (key: string) => number | undefined;
-  recu: (key: string) => boolean;
-}) {
-  const actif = tableaux.includes(tab);
-  const statuts = tableaux.map(statut);
-  const dot = statuts.length === 0
-    ? undefined
-    : statuts.every((x) => x === "archive")
-    ? DOT_SECTION.archive
-    : statuts.includes("a_corriger")
-    ? DOT_SECTION.a_corriger
-    : statuts.includes("transmis")
-      ? DOT_SECTION.transmis
-      : statuts.every((x) => x === "valide" || x === "archive")
-        ? DOT_SECTION.valide
-        : undefined;
-  const nbManques = tableaux.reduce((n, k) => n + (manques(k) ?? 0), 0);
-  const tousRecus = tableaux.length > 0 && tableaux.every(recu);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-current={actif ? "page" : undefined}
-          aria-haspopup="menu"
-          title={`${etat.label} : choisir un tableau`}
-          className={cn(
-            "relative flex min-h-10 max-w-[22rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            actif
-              ? "border-border bg-card font-semibold text-primary shadow-sm"
-              : tousRecus
-                ? "border-success/30 bg-success/15 text-success hover:bg-success/25"
-                : "border-border/70 bg-secondary/70 text-muted-foreground hover:bg-card hover:text-primary",
-          )}
-        >
-          <span className="rounded bg-accent/15 px-1 py-0.5 text-[10px] font-bold tracking-wide text-accent-foreground">{etat.code}</span>
-          <span className="truncate">{etat.label}</span>
-          {actif && <span className="truncate font-normal text-muted-foreground">· {TAB_BY_KEY[tab]?.label}</span>}
-          {dot && (
-            <span
-              className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot === "success" ? "bg-success" : dot === "destructive" ? "bg-destructive" : dot === "muted" ? "bg-muted-foreground/60" : "bg-warning")}
-            />
-          )}
-          {nbManques > 0 && (
-            <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1 text-[10px] font-semibold text-warning">
-              {nbManques}
-            </span>
-          )}
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="bottom" align="start" className="min-w-[16rem]">
-        <p className="px-2.5 pb-1 pt-0.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{etat.label}</p>
-        {tableaux.map((k) => {
-          const st = statut(k);
-          const n = manques(k);
-          return (
-            <DropdownMenuItem key={k} onSelect={() => onSelect(k)} className={cn(tab === k && "bg-secondary font-semibold")}>
-              <span className="min-w-0 flex-1 truncate">{TAB_BY_KEY[k]?.label ?? k}</span>
-              {recu(k) && <CheckCircle2 className="text-success" aria-label="Pièce reçue" />}
-              {DOT_SECTION[st] && (
-                <span
-                  title={SECTION_STATUT_LABELS[st]}
-                  className={cn("h-1.5 w-1.5 shrink-0 rounded-full", DOT_SECTION[st] === "success" ? "bg-success" : DOT_SECTION[st] === "destructive" ? "bg-destructive" : DOT_SECTION[st] === "muted" ? "bg-muted-foreground/60" : "bg-warning")}
-                />
-              )}
-              {n !== undefined && n > 0 && (
-                <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1 text-[10px] font-semibold text-warning">{n}</span>
-              )}
-            </DropdownMenuItem>
-          );
-        })}
-        {absents.length > 0 && (
-          <>
-            <p className="mt-1 border-t border-border px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              {tableaux.length === 0 ? "Pas encore demandés" : "À ajouter à la collecte"}
-            </p>
-            {absents.map((k) => (
-              <DropdownMenuItem key={k} onSelect={() => void onAjouter(k).catch(() => {})} className="text-muted-foreground">
-                <Plus aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate">{TAB_BY_KEY[k]?.label ?? k}</span>
-                <span className="text-[11px]">Ajouter</span>
-              </DropdownMenuItem>
-            ))}
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/** Pastille de la feuille d'un tableau selon son statut dans le circuit (rien tant qu'il est à remplir). */
-const DOT_SECTION: Record<string, "success" | "warning" | "destructive" | "muted" | undefined> = {
-  brouillon: undefined,
-  transmis: "warning",
-  a_corriger: "destructive",
-  valide: "success",
-  archive: "muted",
-};
-
-function FeuilleTab({
-  active,
-  onClick,
-  label,
-  badge,
-  dot,
-  dotTitle,
-  recu,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  badge?: number;
-  dot?: "success" | "warning" | "destructive" | "muted";
-  /** Libellé du statut du tableau, en info-bulle de la pastille. */
-  dotTitle?: string;
-  /** Tableau reçu (vert) ; absent pour les sections qui ne sont pas des tableaux. */
-  recu?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      title={recu ? `${label} — reçu` : label}
-      className={cn(
-        "relative flex min-h-10 max-w-[14rem] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active
-          ? "border-border bg-card font-semibold text-primary shadow-sm"
-          : recu
-            ? "border-success/30 bg-success/15 text-success hover:bg-success/25"
-            : "border-border/70 bg-secondary/70 text-muted-foreground hover:bg-card hover:text-primary",
-      )}
-    >
-      <span className="truncate">{label}</span>
-      {dot && (
-        <span
-          title={dotTitle}
-          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot === "success" ? "bg-success" : dot === "destructive" ? "bg-destructive" : dot === "muted" ? "bg-muted-foreground/60" : "bg-warning")}
-        />
-      )}
-      {badge !== undefined && (
-        <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-warning/20 px-1 text-[10px] font-semibold text-warning">
-          {badge}
-        </span>
-      )}
-    </button>
-  );
-}
-
 function SectionHeader({
   title,
   description,
@@ -1482,6 +1154,42 @@ function SectionHeader({
       )}
       {action}
     </div>
+  );
+}
+
+function DocumentsDuTableau({
+  fichiers,
+  onPreview,
+}: {
+  fichiers: CollecteFull["fichiers"];
+  onPreview: (fichier: CollecteFull["fichiers"][number]) => void;
+}) {
+  return (
+    <section aria-label="Pièces liées au tableau" className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+      <div className="mb-2 flex items-center gap-2">
+        <Paperclip className="size-4 text-primary" aria-hidden="true" />
+        <h3 className="text-xs font-semibold text-foreground">Pièces liées à ce tableau</h3>
+        <span className="text-[11px] tabular-nums text-muted-foreground">{fichiers.length}</span>
+      </div>
+      <ul className="flex flex-wrap gap-2">
+        {fichiers.map((fichier) => (
+          <li key={fichier.id} className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5">
+            <FileIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="max-w-56 truncate text-xs font-medium" title={fichier.nom}>{fichier.nom}</span>
+            {fichier.dataUrl && (
+              <>
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => onPreview(fichier)}>
+                  Aperçu
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={() => downloadDataUrl(fichier.dataUrl!, fichier.nom)}>
+                  Télécharger
+                </Button>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

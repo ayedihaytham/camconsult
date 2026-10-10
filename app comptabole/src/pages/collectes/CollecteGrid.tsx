@@ -41,6 +41,8 @@ interface Props {
   onJoindre?: (file: File) => Promise<{ id: string; nom: string }>;
   /** Ouvre l'aperçu d'une pièce jointe. */
   onVoirPiece?: (fichierId: string) => void;
+  /** Case précise à reprendre depuis le récap; un tableau vide ouvre sa première ligne de saisie. */
+  focusTarget?: { ordre: number | null; col: string | null; revision: number };
 }
 
 export interface CollecteGridHandle {
@@ -51,8 +53,6 @@ export interface CollecteGridHandle {
   isComplete: () => boolean;
   /** Ce qu'il reste à compléter, pour prévenir avant de quitter la section. */
   incompleteMessage: () => string;
-  /** Nature de l'écart : montant pas encore atteint (`manque`) et/ou dépassé (`depasse`, souvent une faute de frappe). */
-  ecart: () => { manque: boolean; depasse: boolean };
   /** Ajoute des lignes au tableau (à enregistrer ensuite), comme si on les avait saisies. */
   ajouterLignes: (lignes: TabRow[]) => void;
 }
@@ -86,6 +86,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   sansSuppression = false,
   onJoindre,
   onVoirPiece,
+  focusTarget,
 }, ref) {
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
@@ -302,6 +303,37 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     });
   }
 
+  useEffect(() => {
+    if (!focusTarget) return;
+    if (focusTarget.ordre === null) {
+      if (!readOnly && !structureLocked && rows.length === 0) addRow();
+      return;
+    }
+    const groupId = rows[focusTarget.ordre] ? idLigne(rows[focusTarget.ordre]) : "";
+    if (groupId && repliables.has(groupId)) {
+      setOuverts((current) => current.has(groupId) ? current : new Set(current).add(groupId));
+    }
+  // A revision allows the same requested cell to be focused again after the user returns to the recap.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTarget?.revision]);
+
+  useEffect(() => {
+    if (!focusTarget) return;
+    const timer = window.setTimeout(() => {
+      const row = focusTarget.ordre ?? 0;
+      const column = focusTarget.col?.replace(/["\\]/g, "\\$&");
+      const selector = column
+        ? `tr[data-row="${row}"] [data-col="${column}"]`
+        : `tr[data-row="${row}"] input:not([readonly]), tr[data-row="${row}"] button[role="combobox"]`;
+      const field = tbodyRef.current?.querySelector<HTMLElement>(selector) ??
+        tbodyRef.current?.querySelector<HTMLElement>("input:not([readonly]), button[role=combobox]:not([disabled])");
+      if (!field) return;
+      field.focus();
+      field.scrollIntoView?.({ block: "center", inline: "nearest" });
+    });
+    return () => window.clearTimeout(timer);
+  }, [focusTarget, ouverts, rows.length]);
+
   /** N° affiché d'une ligne : la ligne d'en-tête d'un bordereau n'en a pas, les chèques sont numérotés 1, 2, 3… */
   function numeroLigne(i: number): number | string {
     if (!def.groupe) return i + 1;
@@ -342,7 +374,6 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             : `${def.groupe?.libelle ?? "Groupe"} ${g.nom} : dépassé de ${montantFr(-g.reste)} ${symboleGroupe}`,
         )
         .join(" · "),
-    ecart: () => ({ manque: groupes.some((g) => g.reste > 0), depasse: groupes.some((g) => g.reste < 0) }),
     isDirty: () => dirty,
     ajouterLignes: addRows,
     save,

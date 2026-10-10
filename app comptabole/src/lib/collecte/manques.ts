@@ -1,5 +1,5 @@
 import type { CollecteFull } from "@/types";
-import { TAB_BY_KEY, repartitionGroupes } from "./tabs";
+import { TAB_BY_KEY } from "./tabs";
 
 /** Colonnes jamais signalées comme manquantes (en plus des colonnes calculées). */
 const SKIP: Record<string, string[]> = {
@@ -69,21 +69,4 @@ export function computeManques(c: CollecteFull): Manque[] {
     });
   }
   return out;
-}
-
-const montantFr = (n: number) => n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-
-/** Bordereaux d'un tableau dont les chèques n'atteignent pas (ou dépassent) le montant annoncé, d'après les lignes enregistrées :
- * « Bordereau 3339 : il reste 6 660,000 à répartir ». Information pour le cabinet (Récap) : ce n'est pas une case vide. */
-export function ecartsDeRepartition(c: Pick<CollecteFull, "lignes">, onglet: string, devise = "TND"): string[] {
-  const def = TAB_BY_KEY[onglet];
-  if (!def?.groupe) return [];
-  const rows = c.lignes.filter((l) => l.onglet === onglet).sort((a, b) => a.ordre - b.ordre).map((l) => l.data);
-  return repartitionGroupes(def, rows)
-    .filter((g) => !g.complet)
-    .map((g) =>
-      g.reste > 0
-        ? `${def.groupe!.libelle} ${g.nom} : il reste ${montantFr(g.reste)} ${devise} à répartir`
-        : `${def.groupe!.libelle} ${g.nom} : dépassé de ${montantFr(-g.reste)} ${devise}`,
-    );
 }

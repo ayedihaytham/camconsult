@@ -35,7 +35,7 @@ export function formatCollecteDeadline(collecte: Collecte, now: Date): string {
   return formatted;
 }
 
-export type CollecteLens = "actives" | "archivees" | "toutes";
+export type CollecteLens = "a_examiner" | "actives" | "archivees" | "toutes";
 export type CollecteDeadlineFilter = "all" | "late" | "today" | "upcoming" | "none";
 
 export interface CollecteListFilters {
@@ -49,7 +49,11 @@ export interface CollecteListFilters {
 
 export function getCollecteLensCounts(collectes: Collecte[]) {
   const archivees = collectes.filter((collecte) => collecte.statut === "archive").length;
+  const aExaminer = collectes.filter((collecte) =>
+    collecte.statut !== "archive" && (collecte.tableauxTransmis ?? Number(collecte.statut === "transmis")) > 0,
+  ).length;
   return {
+    aExaminer,
     actives: collectes.length - archivees,
     archivees,
     toutes: collectes.length,
@@ -65,8 +69,10 @@ export function filterCollectes(
   const query = filters.query.trim().toLocaleLowerCase("fr");
 
   return collectes.filter((collecte) => {
+    if (filters.lens === "a_examiner" &&
+      (collecte.tableauxTransmis ?? Number(collecte.statut === "transmis")) <= 0) return false;
     if (filters.lens === "archivees" && collecte.statut !== "archive") return false;
-    if (filters.lens === "actives" && collecte.statut === "archive") return false;
+    if ((filters.lens === "actives" || filters.lens === "a_examiner") && collecte.statut === "archive") return false;
     if (filters.societeId && collecte.societeId !== filters.societeId) return false;
     if (filters.periode && collecte.periode.trim() !== filters.periode) return false;
     if (filters.statut !== "all" && collecte.statut !== filters.statut) return false;
@@ -92,13 +98,13 @@ export function filterCollectes(
 
 export function getCollecteNextAction(
   statut: CollecteStatut,
-  { isAdmin, isSocieteEmploye }: { isAdmin: boolean; isSocieteEmploye: boolean },
+  { isAdmin, isSocieteEmploye, isCabinet = isAdmin }: { isAdmin: boolean; isSocieteEmploye: boolean; isCabinet?: boolean },
 ): string {
   if (statut === "valide" || statut === "archive") return "Consulter";
-  if (statut === "transmis") return isAdmin ? "Examiner" : "Ouvrir";
+  if (statut === "transmis") return isCabinet ? "Examiner" : "Ouvrir";
   if (statut === "a_corriger") {
     if (isSocieteEmploye) return "Reprendre";
-    return isAdmin ? "Examiner" : "Ouvrir";
+    return isCabinet ? "Examiner" : "Ouvrir";
   }
   return isSocieteEmploye ? "Remplir" : "Ouvrir";
 }

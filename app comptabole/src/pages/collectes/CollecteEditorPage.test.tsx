@@ -380,13 +380,13 @@ describe("Collecte : circuit par tableau", () => {
     expect(screen.getByRole("button", { name: "Archiver ce tableau" })).toBeTruthy();
   });
 
-  it("le client consulte l'état des chèques émis sans pouvoir le modifier", () => {
+  it("l'état des chèques émis, tenu par le cabinet, n'apparaît pas dans l'espace du client", () => {
     client();
+    collecte.sections = [{ ...(section("bordereaux_remise_cheques", "brouillon") as object) } as never];
     renderPage();
-    ouvrirSection("État des chèques émis");
-    expect(screen.getByText(/vous pouvez le consulter, pas le modifier/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeNull();
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier" });
+    expect(within(nav).queryByRole("button", { name: /État des chèques émis/ })).toBeNull();
+    expect(within(nav).getByRole("button", { name: /Bordereaux remise de chèques/ })).toBeTruthy();
   });
 
   it("un tableau archivé reste directement accessible dans son groupe Archives", () => {

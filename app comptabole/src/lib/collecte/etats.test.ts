@@ -99,4 +99,11 @@ describe("états de la collecte : chèques, virements, traites", () => {
     } as unknown as CollecteFull;
     expect(computeManques(c).map((m) => m.col)).toEqual(["montant_traite"]);
   });
+
+  it("donne une consigne claire au client pour chaque tableau", () => {
+    for (const t of COLLECTE_TABS) {
+      expect(t.aide, t.key).toBeTruthy();
+      expect(t.aide!.length, t.key).toBeGreaterThan(30);
+    }
+  });
 });

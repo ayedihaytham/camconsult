@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTE_TABS, etatDeTableau, TAB_BY_KEY } from "@/lib/collecte/tabs";
-import { SECTION_STATUT_LABELS, sectionStatut } from "@/lib/collecte/sections";
+import { SECTION_STATUT_LABELS, sectionOuverte, sectionStatut } from "@/lib/collecte/sections";
 import { sectionRecapStatut } from "@/lib/collecte/recap";
 import type { CollecteFull, SectionStatut } from "@/types";
 
@@ -58,7 +58,7 @@ function Item({
         active
           ? "bg-primary text-primary-foreground shadow-sm"
           : "text-foreground hover:bg-muted/70",
-        tone === "warning" && !active && "text-warning-foreground",
+        tone === "warning" && !active && "font-semibold",
       )}
     >
       {icon}
@@ -105,7 +105,22 @@ export function CollecteWorkNavigation({
 }: Props) {
   const archivee = collecte.statut === "archive";
   const tableKeys = new Set(collecte.onglets);
-  const groups = [
+  // Espace du client : son Récap, puis les seuls tableaux qu'il a à compléter ou à corriger (rangés par famille), puis, en retrait,
+  // ceux déjà transmis au cabinet. Ni les tableaux tenus par le cabinet, ni les archives.
+  const aCompleter = (key: string) => !TAB_BY_KEY[key]?.cabinetSeul && (sectionOuverte(sectionStatut(collecte, key)) || sectionRecapStatut(collecte, key) === "envoye");
+  const dejaTransmis = (key: string) => !TAB_BY_KEY[key]?.cabinetSeul && ["transmis", "valide"].includes(sectionStatut(collecte, key)) && !aCompleter(key);
+  const famille = (tab: { key: string }) => etatDeTableau(tab.key)?.key ?? "autres";
+  const dansCollecte = COLLECTE_TABS.filter((tab) => tableKeys.has(tab.key));
+  const groupesClient = [
+    { label: "Chèques", cle: "cheques" },
+    { label: "Virements", cle: "virements" },
+    { label: "Traites", cle: "traites" },
+    { label: "Autres tableaux", cle: "autres" },
+  ]
+    .map((g) => ({ label: g.label, keys: dansCollecte.filter((tab) => famille(tab) === g.cle && aCompleter(tab.key)).map((tab) => tab.key) }))
+    .concat([{ label: "Déjà transmis au cabinet", keys: dansCollecte.filter((tab) => dejaTransmis(tab.key)).map((tab) => tab.key) }])
+    .filter((group) => group.keys.length > 0);
+  const groups = isClient ? groupesClient : [
     { label: "Chèques", keys: COLLECTE_TABS.filter((tab) => etatDeTableau(tab.key)?.key === "cheques" && tableKeys.has(tab.key) && sectionStatut(collecte, tab.key) !== "archive").map((tab) => tab.key) },
     { label: "Virements", keys: COLLECTE_TABS.filter((tab) => etatDeTableau(tab.key)?.key === "virements" && tableKeys.has(tab.key) && sectionStatut(collecte, tab.key) !== "archive").map((tab) => tab.key) },
     { label: "Traites", keys: COLLECTE_TABS.filter((tab) => etatDeTableau(tab.key)?.key === "traites" && tableKeys.has(tab.key) && sectionStatut(collecte, tab.key) !== "archive").map((tab) => tab.key) },
@@ -157,6 +172,9 @@ export function CollecteWorkNavigation({
           ))}
           {collecte.onglets.length === 0 && !archivee && (
             <p className="hidden px-2.5 py-2 text-xs text-muted-foreground xl:block">Aucun tableau n’est encore demandé.</p>
+          )}
+          {isClient && groups.every((g) => g.label === "Déjà transmis au cabinet") && collecte.onglets.length > 0 && (
+            <p className="hidden px-2.5 py-2 text-xs text-muted-foreground xl:block">Rien à compléter pour le moment.</p>
           )}
         </div>
       </nav>

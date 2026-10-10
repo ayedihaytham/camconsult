@@ -1,4 +1,5 @@
 import type { CollecteFull, SectionStatut } from "@/types";
+import { TAB_BY_KEY } from "./tabs";
 
 export const SECTION_STATUT_LABELS: Record<SectionStatut, string> = {
   brouillon: "À remplir",
@@ -23,6 +24,7 @@ export const sectionOuverte = (statut: SectionStatut) => statut === "brouillon" 
 /** Comptes par statut sur les tableaux d'une collecte (pour les résumés). */
 export function resumeSections(collecte: Pick<CollecteFull, "sections" | "statut" | "onglets">): Record<SectionStatut, number> {
   const r: Record<SectionStatut, number> = { brouillon: 0, transmis: 0, a_corriger: 0, valide: 0, archive: 0 };
-  for (const o of collecte.onglets) r[sectionStatut(collecte, o)] += 1;
+  // Un tableau tenu par le cabinet seul n'est pas du travail du client : il ne compte pas dans l'avancement.
+  for (const o of collecte.onglets) if (!TAB_BY_KEY[o]?.cabinetSeul) r[sectionStatut(collecte, o)] += 1;
   return r;
 }

@@ -769,7 +769,7 @@ export function CollecteEditorPage() {
                 <TabsContent key={key} value={key} className="m-0">
                   <SectionHeader
                     title={def.label}
-                    description="Tableau de saisie · chiffres et justificatifs"
+                    description={isClient ? (def.aide ?? "Tableau à compléter") : "Tableau de saisie · chiffres et justificatifs"}
                     action={
                       isClient ? undefined : (
                         <SectionExport
@@ -1161,7 +1161,7 @@ function SectionHeader({
       <div className="min-w-0 flex-1">
         <h2 className="text-base font-bold text-primary">{title}</h2>
         {description && (
-          <p className="text-[11px] text-muted-foreground">{description}</p>
+          <p className="max-w-3xl text-xs leading-snug text-muted-foreground">{description}</p>
         )}
       </div>
       {dirty && (

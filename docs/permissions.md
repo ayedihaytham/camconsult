@@ -30,6 +30,13 @@
 
 ### `societe_employe`
 
+- Product scope, for now: the sidebar only offers Dashboard and Collecte de pièces
+  (`visibleNavigation({ espaceCollecteSeul })`), and `DataBoundary` redirects any
+  other address to `/collectes` (`cheminAutoriseClient`). This is a UI scope; backend
+  authorization is unchanged. Inside a collecte the client sees only the Récap and the
+  tables left to complete or already transmitted (no Checklist, Documents, history,
+  exports or cabinet-only tables).
+
 - Company-side employee with `poste === "societe_employe"`.
 - `lectureSeule` is true and `isCollaborateur` is false.
 - `societeIds` contains its company ID when assigned.

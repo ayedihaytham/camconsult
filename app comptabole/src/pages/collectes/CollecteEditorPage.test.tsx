@@ -445,10 +445,15 @@ describe("Collecte : circuit par tableau", () => {
     expect(screen.getByRole("button", { name: "Archiver ce tableau" })).toBeTruthy();
   });
 
-  it("le client consulte l'état des chèques émis sans pouvoir le modifier", () => {
+  it("masque les chèques émis dans la navigation client tout en gardant la consultation directe", () => {
     client();
     renderPage();
-    ouvrirSection("État des chèques émis");
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier" });
+    expect(within(nav).queryByRole("button", { name: /État des chèques émis/ })).toBeNull();
+    expect(within(nav).getByRole("button", { name: /Bordereaux remise de chèques/ })).toBeTruthy();
+
+    cleanup();
+    renderPage("/collectes/collecte-1?tab=etat_cheques_emis");
     expect(screen.getByText(/vous pouvez le consulter, pas le modifier/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Enregistrer et vérifier" })).toBeNull();

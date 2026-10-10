@@ -86,8 +86,9 @@ attention view retains its existing presentation.
 Admin/collaborator tabs: `Mon bureau`, `Tâches`, `À traiter`, `Échéances`, optional
 admin `Équipe`, and `Activité`. `overview` remains the default URL tab key.
 
-Company employee tabs: `Vue d'ensemble`, `Collectes`, `Documents`, and
-`Messages` when messaging is permitted.
+Company employee tabs: `Vue d'ensemble` and `Collectes`. For now the company-side
+account is limited to its Dashboard and the Collecte de pièces (no Documents or
+Messages tab, no link to other modules).
 
 ## Dedicated Tâches view
 

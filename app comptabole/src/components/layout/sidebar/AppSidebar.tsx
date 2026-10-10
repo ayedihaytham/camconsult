@@ -58,6 +58,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
     lectureSeule,
     canManageCollaborateurs,
     isResponsableSociete,
+    poste,
   } = usePermissions();
   const { pathname } = useLocation();
   const markNotificationsRead = useData((s) => s.markNotificationsRead);
@@ -75,6 +76,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
       can,
       canManageCollaborateurs,
       isResponsableSociete,
+      espaceCollecteSeul: poste === "societe_employe",
     }),
     societeActive?.id ?? null,
   );

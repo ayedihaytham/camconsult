@@ -188,6 +188,8 @@ export interface TabDef {
   groupe?: TabGroupe;
   /** Tableau tenu par le cabinet : le client le consulte sans pouvoir le modifier ni le transmettre, et il n'est ni dans sa checklist ni dans le récap. */
   cabinetSeul?: boolean;
+  /** Consigne courte pour le client : ce qu'il doit saisir dans ce tableau, en une ou deux phrases. */
+  aide?: string;
   /** Tableau qui s'ouvre en demandant la plage de numéros à remplir (de tel n° à tel n°) : une ligne est créée par numéro de la plage. */
   plageNumeros?: { col: string; libelle: string };
 }
@@ -674,11 +676,33 @@ export const COLLECTE_ETATS: EtatCollecte[] = [
 /** L'état auquel appartient un tableau (undefined pour les tableaux qui n'en font pas partie). */
 export const etatDeTableau = (key: string): EtatCollecte | undefined => COLLECTE_ETATS.find((e) => e.tableaux.includes(key));
 
+/** Consigne affichée au client sous le titre de chaque tableau : quoi saisir, dans quel ordre. */
+const AIDES: Record<string, string> = {
+  souche_cheques:
+    "Indiquez d'abord les numéros de votre souche : une ligne est créée par chèque. Complétez ensuite, pour chaque chèque émis, la date, le bénéficiaire, le motif et le montant.",
+  etat_cheques_emis: "Ce tableau est tenu par le cabinet : vous pouvez le consulter, pas le modifier.",
+  bordereaux_remise_cheques:
+    "Un bordereau regroupe des chèques remis ensemble à la banque. Saisissez son numéro et son montant total sur la première ligne, puis chaque chèque (n°, client, montant) jusqu'à atteindre le total.",
+  virements_recus: "Listez les virements reçus sur vos comptes : date, qui vous a payé, motif, montant et compte crédité.",
+  virements_emis: "Listez les virements que vous avez émis : date, bénéficiaire, motif, montant et compte débité.",
+  virements_salaire: "Un virement multiple regroupe les salaires payés en une fois : date, salarié, mois concerné, montant net versé et compte.",
+  bordereaux_traites_recues:
+    "Un bordereau regroupe des traites remises ensemble à la banque. Saisissez son numéro et son montant total sur la première ligne, puis chaque traite (n°, client, montant, échéance) jusqu'à atteindre le total.",
+  traites_emises: "Listez les traites que vous avez émises : date, n° de traite, bénéficiaire, motif, montant, échéance et compte.",
+  traites_escomptees:
+    "Traites remises à la banque avant leur échéance : date d'escompte, banque, n° de traite, client, échéance, montant et agios. Le net crédité se calcule seul.",
+  chiffre_affaires: "Une ligne par vente ou par facture : date, n° de facture ou de ticket, client, nature, montant HT et TVA. Le TTC se calcule seul.",
+  detail_achats: "Une ligne par achat : date, n° de facture, fournisseur, nature, montant HT et TVA. Le TTC se calcule seul.",
+  etat_caisse: "Première ligne : le solde de départ de la caisse. Ensuite, chaque entrée et chaque sortie ; le solde se calcule seul.",
+  etat_clients: "Une ligne par client : solde de départ, ce qui a été facturé et ce qui a été réglé sur la période. Le solde final se calcule seul.",
+  etat_fournisseurs: "Une ligne par fournisseur : solde de départ, ce qui a été facturé et ce qui a été réglé sur la période. Le solde final se calcule seul.",
+};
+
 /** Tableaux dans l'ordre d'affichage : les états d'abord (chèques, virements, traites), puis les autres tableaux. */
 export const COLLECTE_TABS: TabDef[] = [
   ...COLLECTE_ETATS.flatMap((e) => e.tableaux.map((k) => TABLEAUX_DEFINIS.find((t) => t.key === k)!)),
   ...TABLEAUX_DEFINIS.filter((t) => !etatDeTableau(t.key)),
-];
+].map((t) => ({ ...t, aide: AIDES[t.key] }));
 
 /** Trie des clés de tableaux dans l'ordre d'affichage (états regroupés). */
 export const ordonnerTableaux = (keys: string[]): string[] => {

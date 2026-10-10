@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -17,6 +17,7 @@ import { registerQuotaHandler } from "@/lib/safeStorage";
 import { registerSessionExpiredHandler } from "@/lib/api";
 import { useCollectes } from "@/store/collectes";
 import { startLiveEvents } from "@/lib/liveEvents";
+import { cheminAutoriseClient } from "@/components/layout/sidebar/navigation";
 
 const LoginPage = lazy(() =>
   import("@/pages/LoginPage").then((m) => ({ default: m.LoginPage })),
@@ -229,6 +230,9 @@ function DataBoundary({ children }: { children: React.ReactNode }) {
     refreshNotifications,
   ]);
 
+  const { pathname } = useLocation();
+  // Compte de société cliente : seulement le Dashboard et la Collecte de pièces ; toute autre adresse l'y ramène.
+  if (session?.poste === "societe_employe" && !cheminAutoriseClient(pathname)) return <Navigate to="/collectes" replace />;
   if (!hydrated) return <FullScreenLoader label="Chargement des données…" />;
   return <>{children}</>;
 }

@@ -86,9 +86,13 @@ attention view retains its existing presentation.
 Admin/collaborator tabs: `Mon bureau`, `Tâches`, `À traiter`, `Échéances`, optional
 admin `Équipe`, and `Activité`. `overview` remains the default URL tab key.
 
-Company employee tabs: `Vue d'ensemble` and `Collectes`. For now the company-side
-account is limited to its Dashboard and the Collecte de pièces (no Documents or
-Messages tab, no link to other modules).
+Company employee: the banner shows `Collectes ouvertes`, `À compléter` and
+`Validées`. `Vue d'ensemble` is one card per non-archived collecte (period,
+status badge, progress ring, deadline or last update, `Compléter` / `Voir le
+détail`). Progress is `collectionProgress`: tables transmitted or validated over
+the tables the cabinet requested (`tableauxDemandes`, from the collectes list
+endpoint; cabinet-only tables excluded). The company-side account reaches its
+Dashboard, Collecte de pièces, Structuration and Messagerie (`cheminAutoriseClient`).
 
 ## Dedicated Tâches view
 

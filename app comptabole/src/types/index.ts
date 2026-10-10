@@ -195,6 +195,8 @@ export interface Collecte {
   /** Tableaux transmis par le client et en attente d'examen, tableaux validés ou archivés (liste des collectes seulement). */
   tableauxTransmis?: number;
   tableauxValides?: number;
+  /** Tableaux que le cabinet a envoyés au client (Récap) ou que le client a déjà transmis, hors tableaux tenus par le cabinet. */
+  tableauxDemandes?: number;
   tableauxArchives?: number;
   periode: string;
   statut: CollecteStatut;

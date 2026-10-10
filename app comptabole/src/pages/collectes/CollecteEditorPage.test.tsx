@@ -221,12 +221,13 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     fermerSelecteurTableaux();
   });
 
-  it("regroupe les actions secondaires dans un menu compact", () => {
+  it("affiche directement les actions de collecte dans l'en-tête bleu", () => {
     renderPage();
-    const trigger = screen.getByRole("button", { name: "Actions" });
-    fireEvent.keyDown(trigger, { key: "Enter", code: "Enter" });
-    expect(screen.getByRole("menuitem", { name: /Tout en Excel/ })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: /Modifier la collecte/ })).toBeTruthy();
+    const bandeau = document.querySelector('[data-tour="collecte-identity"]') as HTMLElement;
+    expect(bandeau.className).toContain("bg-primary");
+    expect(within(bandeau).getByRole("button", { name: /Tout en Excel/ })).toBeTruthy();
+    expect(within(bandeau).getByRole("button", { name: /Modifier la collecte/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Actions" })).toBeNull();
   });
 
   it("sépare l'enregistrement de la transmission finale côté client", async () => {
@@ -250,6 +251,10 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     openBordereaux();
     expect(sectionButton("Bordereaux remise de chèques").getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("button", { name: "Ajouter une ligne" })).toBeTruthy();
+    const outils = document.querySelector('[data-tour="collecte-sticky-tools"]') as HTMLElement;
+    const tableau = document.querySelector("table") as HTMLElement;
+    expect(outils.className).toContain("sticky");
+    expect(outils.compareDocumentPosition(tableau) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("ouvre directement une table prioritaire pour le rôle et respecte un lien partagé vers une section", async () => {
@@ -582,9 +587,8 @@ describe("Collecte : espace limité du responsable de société", () => {
 
   it("le cabinet garde tous ses outils", () => {
     renderPage();
-    fireEvent.keyDown(screen.getByRole("button", { name: /Actions/ }), { key: "Enter", code: "Enter" });
-    expect(screen.getByRole("menuitem", { name: /Tout en Excel/ })).toBeTruthy();
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    const bandeau = document.querySelector('[data-tour="collecte-identity"]') as HTMLElement;
+    expect(within(bandeau).getByRole("button", { name: /Tout en Excel/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Quitter/ })).toBeNull();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
     const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent ?? "");

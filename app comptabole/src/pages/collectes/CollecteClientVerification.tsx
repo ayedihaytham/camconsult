@@ -46,8 +46,34 @@ export function CollecteClientVerification({
           Vérifiez votre collecte
         </h2>
         <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
-          Les modifications sont enregistrées. Vérifiez les pièces et les tableaux avant de les transmettre au cabinet.
+          Vérifiez les pièces et les tableaux avant de transmettre votre collecte au cabinet.
         </p>
+      </div>
+
+      <div className="mt-5 flex flex-col items-start gap-3 rounded-lg bg-primary px-4 py-4 text-primary-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="max-w-xl">
+          <p className="font-semibold">{showRecapOnly ? "Envoyer les précisions au cabinet" : "Prêt à transmettre ?"}</p>
+          <p className="mt-1 text-sm text-primary-foreground/80">
+            {showRecapOnly
+              ? "Cette action répond aux questions ciblées du cabinet et ne modifie pas le statut général de la collecte."
+              : canTransmit
+                ? "Les tableaux seront transmis pour examen. Le cabinet pourra ensuite les valider ou demander une correction."
+                : "Votre collecte a déjà été transmise. Le cabinet doit maintenant l’examiner."}
+          </p>
+        </div>
+        {showRecapOnly ? (
+          <Button type="button" variant="ledger" className="min-h-11 shrink-0 gap-2" disabled={blocked} onClick={onSubmitRecap}>
+            <Send className="size-4" aria-hidden="true" /> Envoyer les précisions
+          </Button>
+        ) : canTransmit ? (
+          <Button type="button" variant="ledger" className="min-h-11 shrink-0 gap-2" disabled={blocked} onClick={onTransmit}>
+            <Send className="size-4" aria-hidden="true" /> Transmettre au cabinet
+          </Button>
+        ) : (
+          <span className="inline-flex min-h-10 items-center gap-2 rounded-md border border-primary-foreground/25 px-3 text-sm font-medium">
+            <Check className="size-4" aria-hidden="true" /> {collecte.statut === "valide" ? "Collecte validée" : collecte.statut === "archive" ? "Collecte archivée" : "En attente du cabinet"}
+          </span>
+        )}
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -98,31 +124,6 @@ export function CollecteClientVerification({
         </ul>
       </div>
 
-      <div className="mt-5 flex flex-col items-start gap-3 rounded-lg bg-primary px-4 py-4 text-primary-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <div className="max-w-xl">
-          <p className="font-semibold">{showRecapOnly ? "Envoyer les précisions au cabinet" : "Prêt à transmettre ?"}</p>
-          <p className="mt-1 text-sm text-primary-foreground/80">
-            {showRecapOnly
-              ? "Cette action répond aux questions ciblées du cabinet et ne modifie pas le statut général de la collecte."
-              : canTransmit
-                ? "Les tableaux seront transmis pour examen. Le cabinet pourra ensuite les valider ou demander une correction."
-                : "Votre collecte a déjà été transmise. Le cabinet doit maintenant l’examiner."}
-          </p>
-        </div>
-        {showRecapOnly ? (
-          <Button type="button" variant="ledger" className="min-h-11 shrink-0 gap-2" disabled={blocked} onClick={onSubmitRecap}>
-            <Send className="size-4" aria-hidden="true" /> Envoyer les précisions
-          </Button>
-        ) : canTransmit ? (
-          <Button type="button" variant="ledger" className="min-h-11 shrink-0 gap-2" disabled={blocked} onClick={onTransmit}>
-            <Send className="size-4" aria-hidden="true" /> Transmettre au cabinet
-          </Button>
-        ) : (
-          <span className="inline-flex min-h-10 items-center gap-2 rounded-md border border-primary-foreground/25 px-3 text-sm font-medium">
-            <Check className="size-4" aria-hidden="true" /> {collecte.statut === "valide" ? "Collecte validée" : collecte.statut === "archive" ? "Collecte archivée" : "En attente du cabinet"}
-          </span>
-        )}
-      </div>
     </section>
   );
 }

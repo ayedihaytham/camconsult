@@ -465,6 +465,142 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </p>
       )}
 
+      {/* Toujours visible pendant le défilement du tableau : état des bordereaux et actions de saisie. */}
+      <div data-tour="collecte-sticky-tools" className="sticky top-0 z-20 space-y-2 rounded-lg border border-border bg-card/95 px-3 py-2.5 shadow-sm supports-[backdrop-filter]:backdrop-blur-md">
+      {groupes.length > 0 && (
+        <div data-tour="collecte-repartition" className="space-y-2 border-b border-border pb-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Répartition des bordereaux — montants suivis en temps réel</p>
+          <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+            {groupes.map((g) => (
+              <div key={g.id} className="flex min-w-fit shrink-0 items-center gap-2.5 rounded-lg border border-border bg-muted/20 px-3 py-1.5 text-xs">
+                <span className="font-semibold text-foreground">{def.groupe?.libelle} {g.nom}</span>
+                <span className="whitespace-nowrap tabular-nums text-muted-foreground">{montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe}</span>
+                <span role="progressbar" aria-label={`${def.groupe?.libelle} ${g.nom}`} aria-valuemin={0} aria-valuemax={g.total} aria-valuenow={Math.min(g.reparti, g.total)} className="h-1.5 w-16 overflow-hidden rounded-full bg-border sm:w-20">
+                  <span className={cn("block h-full rounded-full", g.complet ? "bg-success" : g.reste < 0 ? "bg-destructive" : "bg-warning")} style={{ width: `${Math.min(100, Math.round((g.reparti / g.total) * 100))}%` }} />
+                </span>
+                <span className={cn("whitespace-nowrap font-semibold", g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning")}>{g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)}` : `Reste ${montantFr(g.reste)}`}</span>
+                {canAdd && (
+                  <Button type="button" variant="outline" size="sm" className="min-h-9 shrink-0 gap-1.5 bg-card" onClick={() => addRow(g.id)} title={g.complet ? "Ajouter une ligne dépassera le montant annoncé" : undefined}>
+                    <Plus className="size-3.5" /> {def.groupe?.ajout} à ce {def.groupe?.libelle.toLowerCase()}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {!readOnly && (
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {structureLocked ? <span /> : def.plageNumeros && rows.length === 0 ? null : ajoutLigne()}
+            {!structureLocked && TABLEAUX_GRAND_LIVRE[def.key] && (
+              <Button variant="outline" size="sm" className="min-h-10 bg-card" onClick={() => setImportOpen(true)}>
+                <FileUp className="h-4 w-4" />
+                Importer un document
+              </Button>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:justify-end">
+            {dirty && (
+              <span role="status" className="w-full text-xs font-medium text-warning lg:w-auto">
+                Modifications non enregistrées
+              </span>
+            )}
+            {saveError && (
+              <span role="alert" className="w-full text-xs text-destructive lg:w-auto">
+                Enregistrement impossible · réessayez
+              </span>
+            )}
+            {saved && !dirty && (
+              <span role="status" className="w-full text-xs text-success lg:w-auto">
+                Enregistré
+              </span>
+            )}
+            <Button
+              data-tour="collecte-save"
+              variant="ledger"
+              size="sm"
+              onClick={() => { void (saveAndContinue ? saveAndContinue() : save()).catch(() => {}); }}
+              disabled={saving || (!dirty && !saveAndContinue)}
+              className={cn(
+                "min-h-10",
+                !dirty && !saveAndContinue &&
+                  "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
+              )}
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Enregistrement…" : saveAndContinue ? "Enregistrer et vérifier" : "Enregistrer"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      </div>
+      {canAdd && def.plageNumeros && rows.length === 0 && (() => {
+        const plage = plageNumeros(plageDebut, plageFin);
+        const saisi = plageDebut.trim() !== "" && plageFin.trim() !== "";
+        const nom = def.plageNumeros.libelle;
+        return (
+          <div data-tour="collecte-plage" className="space-y-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-3">
+            <p className="text-sm font-semibold text-foreground">Avant de saisir : les numéros de votre souche</p>
+            <p className="text-xs text-muted-foreground">
+              Indiquez le premier et le dernier numéro de {nom} à remplir : une ligne est créée pour chaque numéro, vous n'avez plus qu'à compléter les autres cases.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="space-y-1 text-xs font-medium text-foreground">
+                N° du premier {nom}
+                <Input className="h-10 w-44" value={plageDebut} onChange={(e) => setPlageDebut(e.target.value)} placeholder="ex. 4001001" inputMode="text" />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-foreground">
+                N° du dernier {nom}
+                <Input className="h-10 w-44" value={plageFin} onChange={(e) => setPlageFin(e.target.value)} placeholder="ex. 4001025" inputMode="text" />
+              </label>
+              <Button
+                type="button"
+                variant="ledger"
+                className="min-h-10"
+                disabled={!plage.ok}
+                onClick={() => {
+                  if (!plage.ok) return;
+                  const col = def.plageNumeros!.col;
+                  addRows(plage.numeros.map((n) => ({ [col]: n })));
+                  setFocusRow(0);
+                }}
+              >
+                {plage.ok ? `Créer ${plage.numeros.length} ligne${plage.numeros.length > 1 ? "s" : ""}` : "Créer les lignes"}
+              </Button>
+            </div>
+            {saisi && !plage.ok && (
+              <p role="alert" className="text-xs text-destructive">
+                {plage.erreur}
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
+      {canAdd && (
+        <p className="text-xs text-muted-foreground">
+          Saisissez directement dans le tableau : <kbd className="rounded border border-border px-1">Entrée</kbd> dans la dernière case ajoute la ligne suivante.
+        </p>
+      )}
+
+      {def.key === "etat_caisse" && !readOnly && (
+        <p className="text-xs text-muted-foreground">
+          1ʳᵉ ligne = solde initial : renseignez seulement la colonne « Solde ».
+          Les lignes suivantes calculent le solde automatiquement.
+        </p>
+      )}
+
+      {recapClient && !wholeEditable && (
+        <p className="text-xs text-amber-700">
+          Le cabinet vous demande de compléter uniquement les cases marquées{" "}
+          <span className="font-semibold">?</span>. Les autres sont verrouillées.
+        </p>
+      )}
+
+
+
       {/* Sur grand écran le tableau occupe exactement la largeur disponible, sans défilement horizontal : les colonnes
           se répartissent selon leur largeur de modèle. Sous 1024 px, il garde un défilement de secours. */}
       <div className="overflow-x-auto rounded-lg border border-border lg:overflow-x-visible">
@@ -729,7 +865,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                   {readOnly
                     ? "Aucune ligne saisie."
                     : def.plageNumeros && canAdd
-                      ? `Indiquez ci-dessous les numéros de la souche : une ligne sera créée par ${def.plageNumeros.libelle}.`
+                      ? `Indiquez ci-dessus les numéros de la souche : une ligne sera créée par ${def.plageNumeros.libelle}.`
                       : "Aucune ligne. Cliquez sur « Ajouter une ligne »."}
                 </td>
               </tr>
@@ -759,161 +895,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </table>
       </div>
 
-      {groupes.length > 0 && (
-        <div data-tour="collecte-repartition" className="space-y-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Répartition par {def.groupe?.libelle.toLowerCase()} : saisissez les lignes jusqu'à atteindre le montant
-          </p>
-          {groupes.map((g) => (
-            <div key={g.id} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
-              <span className="min-w-[8rem] font-semibold text-foreground">
-                {def.groupe?.libelle} {g.nom}
-              </span>
-              <span className="tabular-nums text-muted-foreground">
-                {montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe} · {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}
-              </span>
-              <span
-                role="progressbar"
-                aria-label={`${def.groupe?.libelle} ${g.nom}`}
-                aria-valuemin={0}
-                aria-valuemax={g.total}
-                aria-valuenow={Math.min(g.reparti, g.total)}
-                className="h-1.5 w-32 overflow-hidden rounded-full bg-border"
-              >
-                <span
-                  className={cn("block h-full rounded-full", g.complet ? "bg-success" : g.reste < 0 ? "bg-destructive" : "bg-warning")}
-                  style={{ width: `${Math.min(100, Math.round((g.reparti / g.total) * 100))}%` }}
-                />
-              </span>
-              <span className={cn("text-xs font-semibold", g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning")}>
-                {g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)}` : `Reste ${montantFr(g.reste)}`}
-              </span>
-              {canAdd && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="min-h-8"
-                  title={g.complet ? `Ce ${def.groupe?.libelle.toLowerCase()} a atteint son montant : une ligne de plus le fera dépasser, pensez à revoir le montant.` : undefined}
-                  onClick={() => addRow(g.id)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {def.groupe?.ajout} à ce {def.groupe?.libelle.toLowerCase()}
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
-      {canAdd && def.plageNumeros && rows.length === 0 && (() => {
-        const plage = plageNumeros(plageDebut, plageFin);
-        const saisi = plageDebut.trim() !== "" && plageFin.trim() !== "";
-        const nom = def.plageNumeros.libelle;
-        return (
-          <div data-tour="collecte-plage" className="space-y-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-3">
-            <p className="text-sm font-semibold text-foreground">Avant de saisir : les numéros de votre souche</p>
-            <p className="text-xs text-muted-foreground">
-              Indiquez le premier et le dernier numéro de {nom} à remplir : une ligne est créée pour chaque numéro, vous n'avez plus qu'à compléter les autres cases.
-            </p>
-            <div className="flex flex-wrap items-end gap-3">
-              <label className="space-y-1 text-xs font-medium text-foreground">
-                N° du premier {nom}
-                <Input className="h-10 w-44" value={plageDebut} onChange={(e) => setPlageDebut(e.target.value)} placeholder="ex. 4001001" inputMode="text" />
-              </label>
-              <label className="space-y-1 text-xs font-medium text-foreground">
-                N° du dernier {nom}
-                <Input className="h-10 w-44" value={plageFin} onChange={(e) => setPlageFin(e.target.value)} placeholder="ex. 4001025" inputMode="text" />
-              </label>
-              <Button
-                type="button"
-                variant="ledger"
-                className="min-h-10"
-                disabled={!plage.ok}
-                onClick={() => {
-                  if (!plage.ok) return;
-                  const col = def.plageNumeros!.col;
-                  addRows(plage.numeros.map((n) => ({ [col]: n })));
-                  setFocusRow(0);
-                }}
-              >
-                {plage.ok ? `Créer ${plage.numeros.length} ligne${plage.numeros.length > 1 ? "s" : ""}` : "Créer les lignes"}
-              </Button>
-            </div>
-            {saisi && !plage.ok && (
-              <p role="alert" className="text-xs text-destructive">
-                {plage.erreur}
-              </p>
-            )}
-          </div>
-        );
-      })()}
-
-      {canAdd && (
-        <p className="text-xs text-muted-foreground">
-          Saisissez directement dans le tableau : <kbd className="rounded border border-border px-1">Entrée</kbd> dans la dernière case ajoute la ligne suivante.
-        </p>
-      )}
-
-      {def.key === "etat_caisse" && !readOnly && (
-        <p className="text-xs text-muted-foreground">
-          1ʳᵉ ligne = solde initial : renseignez seulement la colonne « Solde ».
-          Les lignes suivantes calculent le solde automatiquement.
-        </p>
-      )}
-
-      {recapClient && !wholeEditable && (
-        <p className="text-xs text-amber-700">
-          Le cabinet vous demande de compléter uniquement les cases marquées{" "}
-          <span className="font-semibold">?</span>. Les autres sont verrouillées.
-        </p>
-      )}
-
-      {!readOnly && (
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            {structureLocked ? <span /> : def.plageNumeros && rows.length === 0 ? null : ajoutLigne()}
-            {!structureLocked && TABLEAUX_GRAND_LIVRE[def.key] && (
-              <Button variant="outline" size="sm" className="min-h-11 lg:min-h-8" onClick={() => setImportOpen(true)}>
-                <FileUp className="h-4 w-4" />
-                Importer un document
-              </Button>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 lg:justify-end">
-            {dirty && (
-              <span role="status" className="w-full text-xs font-medium text-warning lg:w-auto">
-                Modifications non enregistrées
-              </span>
-            )}
-            {saveError && (
-              <span role="alert" className="w-full text-xs text-destructive lg:w-auto">
-                Enregistrement impossible · réessayez
-              </span>
-            )}
-            {saved && !dirty && (
-              <span role="status" className="w-full text-xs text-success lg:w-auto">
-                Enregistré
-              </span>
-            )}
-            <Button
-              data-tour="collecte-save"
-              variant="ledger"
-              size="sm"
-              onClick={() => { void (saveAndContinue ? saveAndContinue() : save()).catch(() => {}); }}
-              disabled={saving || (!dirty && !saveAndContinue)}
-              className={cn(
-                "min-h-10 lg:min-h-8",
-                !dirty && !saveAndContinue &&
-                  "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
-              )}
-            >
-              <Save className="h-4 w-4" />
-              {saving ? "Enregistrement…" : saveAndContinue ? "Enregistrer et vérifier" : "Enregistrer"}
-            </Button>
-          </div>
-        </div>
-      )}
 
       {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
         <ImportDocumentDialog open={importOpen} onOpenChange={setImportOpen} def={def} devise={devise} onAjouter={addRows} />

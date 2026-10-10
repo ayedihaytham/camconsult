@@ -4,14 +4,12 @@ import { toast } from "sonner";
 import {
   BellRing,
   CheckCircle2,
-  ChevronDown,
   Download,
   Eye,
   File as FileIcon,
   FileText,
   History,
   LogOut,
-  MoreHorizontal,
   Paperclip,
   Printer,
   RotateCcw,
@@ -23,13 +21,6 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocietes } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
@@ -300,7 +291,6 @@ export function CollecteEditorPage() {
     .join("")
     .toLocaleUpperCase("fr-FR");
   const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
-  const boutonBandeau = "min-h-9 gap-1.5 px-3";
 
   function requestTab(next: string, forcer = false, target?: { ordre: number | null; col: string | null }) {
     if (next === tab) return;
@@ -375,13 +365,13 @@ export function CollecteEditorPage() {
     const grille = gridRef.current;
     if (!grille) return;
     if (!grille.isComplete()) {
-      setIncomplet({ next: "verification", message: grille.incompleteMessage(), manque: grille.ecart().manque });
+      setIncomplet({ next: "recap", message: grille.incompleteMessage(), manque: grille.ecart().manque });
       return;
     }
     try {
       await grille.save();
       setDirtyTableau(false);
-      completeNavigation("verification");
+      completeNavigation("recap");
     } catch {
       toast.error("Enregistrement impossible. Corrigez le problème puis réessayez.");
     }
@@ -421,58 +411,84 @@ export function CollecteEditorPage() {
     <div>
       <header
         data-tour="collecte-identity"
-        className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 border-b border-border pb-3"
+        className="rounded-xl bg-primary px-4 py-3.5 text-primary-foreground shadow-sm sm:px-5"
       >
-        <div className="flex min-w-0 items-center gap-3">
-          <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/8 text-sm font-bold text-primary">
-            {monogram}
-          </span>
-          <div className="min-w-0">
-            <h1 className="truncate font-serif text-2xl font-medium leading-tight tracking-tight text-primary">{socNom}</h1>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {[codeSociete, collecte.periode.trim(), "Collecte de pièces"].filter(Boolean).join(" · ")}
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-lg border border-primary-foreground/20 bg-primary-foreground/10 text-sm font-bold text-primary-foreground">
+              {monogram}
+            </span>
+            <div className="min-w-0">
+              <h1 className="truncate font-serif text-2xl font-medium leading-tight tracking-tight text-primary-foreground">{socNom}</h1>
+              <p className="mt-0.5 truncate text-xs text-primary-foreground/75">
+                {[codeSociete, collecte.periode.trim(), "Collecte de pièces"].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold">
+              <span aria-hidden="true" className={cn("size-2 rounded-full", validee ? "bg-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning" : archivee ? "bg-primary-foreground/50" : "bg-accent")} />
+              {COLLECTE_STATUT_LABELS[collecte.statut]}
+            </span>
+            {!isClient && (
+              <span className="inline-flex items-center gap-2 text-xs text-primary-foreground/85">
+                <strong className="font-semibold tabular-nums text-primary-foreground">{recus}/{rows.length}</strong> pièces reçues
+                <span role="progressbar" aria-label="Pièces reçues" aria-valuemin={0} aria-valuemax={rows.length} aria-valuenow={recus} className="h-1.5 w-20 overflow-hidden rounded-full bg-primary-foreground/20 sm:w-24">
+                  <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
+                </span>
+              </span>
+            )}
+            {collecte.echeance && (
+              <span className="text-xs text-primary-foreground/85">Échéance {formatDate(collecte.echeance)}{enRetard ? " · dépassée" : ""}</span>
+            )}
+            {isClient && (
+              <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => requestTab("__back__")}>
+                <LogOut className="size-4" /> Quitter
+              </Button>
+            )}
           </div>
         </div>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-          <span className={cn(
-            "inline-flex min-h-8 items-center gap-2 rounded-full px-3 text-xs font-semibold",
-            validee ? "bg-success/10 text-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning/15 text-warning-foreground" : archivee ? "bg-muted text-muted-foreground" : "bg-primary/8 text-primary",
-          )}>
-            <span aria-hidden className={cn("size-2 rounded-full", validee ? "bg-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning" : archivee ? "bg-muted-foreground/50" : "bg-primary")} />
-            {COLLECTE_STATUT_LABELS[collecte.statut]}
-          </span>
-          {isClient && (
-            <Button variant="outline" size="sm" className="min-h-9 gap-1.5" onClick={() => requestTab("__back__")}>
-              <LogOut className="size-4" /> Quitter
+        {!isClient && (
+          <div data-tour="collecte-tools" className="mt-3 flex flex-wrap items-center gap-2 border-t border-primary-foreground/20 pt-3">
+            {/* Les actions sont toutes visibles : aucune action de collecte n'est dissimulée dans un menu. */}
+            <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => void exportCollecteXlsx(collecte, socNom).catch(() => toast.error("Export impossible"))}>
+              <Download className="size-4" /> Tout en Excel
             </Button>
-          )}
-          {!isClient && <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-            <strong className="font-semibold tabular-nums text-foreground">{recus}/{rows.length}</strong> pièces reçues
-            <span role="progressbar" aria-label="Pièces reçues" aria-valuemin={0} aria-valuemax={rows.length} aria-valuenow={recus} className="h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:w-28">
-              <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
-            </span>
-          </span>}
-          {collecte.echeance && (
-            <span className={cn("text-xs", enRetard ? "font-semibold text-warning-foreground" : "text-muted-foreground")}>
-              Échéance {formatDate(collecte.echeance)}
-              {enRetard ? " · dépassée" : ""}
-            </span>
-          )}
-          {canManageCollaborateurs && collecte.statut === "transmis" && (
-            <>
-              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_valide__")}><CheckCircle2 className="size-4" /> Valider</Button>
-              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}>Renvoyer</Button>
-            </>
-          )}
-          {canManageCollaborateurs && validee && (
-            <>
-              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_archive__")}>Archiver</Button>
-              <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_a_corriger__")}><RotateCcw className="size-4" /> Rouvrir</Button>
-            </>
-          )}
-          {canManageCollaborateurs && archivee && <Button variant="outline" size="sm" className={boutonBandeau} onClick={() => requestTab("__confirm_reopen__")}><RotateCcw className="size-4" /> Désarchiver</Button>}
-        </div>
+            {isAdmin && !archivee && liveManques.length > 0 && (
+              <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => requestTab("__preview__")}>
+                <Eye className="size-4" /> {preview ? "Quitter l'aperçu client" : "Aperçu client"}
+              </Button>
+            )}
+            {canManageCollaborateurs && (
+              <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setEditOpen(true)}>
+                <SlidersHorizontal className="size-4" /> Modifier la collecte
+              </Button>
+            )}
+            {canManageCollaborateurs && enAttente && (
+              <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" disabled={relancing} onClick={() => {
+                setRelancing(true);
+                void relanceNow(id).then(() => toast.success("Relance envoyée au client")).catch(() => {}).finally(() => setRelancing(false));
+              }}>
+                <BellRing className="size-4" /> {relancing ? "Envoi…" : "Relancer maintenant"}
+              </Button>
+            )}
+            {canManageCollaborateurs && collecte.statut === "transmis" && (
+              <>
+                <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-primary-foreground text-primary hover:bg-primary-foreground/90" onClick={() => requestTab("__confirm_valide__")}><CheckCircle2 className="size-4" /> Valider la collecte</Button>
+                <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => requestTab("__confirm_a_corriger__")}>Renvoyer la collecte</Button>
+              </>
+            )}
+            {canManageCollaborateurs && validee && (
+              <>
+                <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => requestTab("__confirm_archive__")}>Archiver</Button>
+                <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => requestTab("__confirm_a_corriger__")}><RotateCcw className="size-4" /> Rouvrir</Button>
+              </>
+            )}
+            {canManageCollaborateurs && archivee && (
+              <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => requestTab("__confirm_reopen__")}><RotateCcw className="size-4" /> Désarchiver</Button>
+            )}
+          </div>
+        )}
       </header>
       {(savingDraft || draftError) && (
         <p role={draftError ? "alert" : "status"} aria-live="polite" className={cn("mt-2 rounded-lg border px-3 py-2 text-xs", draftError ? "border-destructive/25 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary")}>
@@ -484,31 +500,14 @@ export function CollecteEditorPage() {
           Aperçu client — seules les cases « ? » demandées sont modifiables.
         </p>
       )}
-      {!isClient && <div data-tour="collecte-tools" className="flex justify-end py-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="min-h-9 gap-1.5 bg-card"><MoreHorizontal className="size-4" /> Actions</Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Actions sur la collecte</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => void exportCollecteXlsx(collecte, socNom).catch(() => toast.error("Export impossible"))}><Download className="mr-2 size-4" /> Tout en Excel</DropdownMenuItem>
-            {isAdmin && !archivee && liveManques.length > 0 && <DropdownMenuItem onSelect={() => requestTab("__preview__")}><Eye className="mr-2 size-4" /> {preview ? "Quitter l'aperçu client" : "Aperçu client"}</DropdownMenuItem>}
-            {canManageCollaborateurs && <DropdownMenuItem onSelect={() => setEditOpen(true)}><SlidersHorizontal className="mr-2 size-4" /> Modifier la collecte</DropdownMenuItem>}
-            {canManageCollaborateurs && enAttente && <DropdownMenuItem disabled={relancing} onSelect={() => {
-              setRelancing(true);
-              void relanceNow(id).then(() => toast.success("Relance envoyée au client")).catch(() => {}).finally(() => setRelancing(false));
-            }}><BellRing className="mr-2 size-4" /> {relancing ? "Envoi…" : "Relancer maintenant"}</DropdownMenuItem>}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>}
 
       <Tabs value={tab} onValueChange={requestTab}>
-        <div className="mt-1 min-w-0 overflow-hidden rounded-xl border border-border bg-card">
+        <div className="mt-3 min-w-0 rounded-xl border border-border bg-card">
           <CollecteWorkNavigation
             collecte={collecte}
             active={tab}
             isClient={isClient}
-            canVerify={!isAdmin}
+            canVerify={false}
             canSeeHistory={isAdmin || isStaff}
             missingByTable={manqueCount}
             visibleMissing={showFlagsFor}
@@ -521,7 +520,20 @@ export function CollecteEditorPage() {
                 title="Récap"
                 description="Demandes ciblées par tableau"
               />
-              <div className="p-3 lg:p-4">
+              <div className="space-y-4 p-3 lg:p-4">
+                {isClient && (
+                  <CollecteClientVerification
+                    collecte={collecte}
+                    rows={rows}
+                    canTransmit={canTransmitCollecte}
+                    canSubmitRecap={clientRecap && !archivee && !isAdmin}
+                    recapPending={clientRecap}
+                    recapRemaining={recapRestant}
+                    onTransmit={() => requestTab("__confirm_transmis__")}
+                    onSubmitRecap={() => { void submitRecap(id).then(() => toast.success("Précisions transmises au cabinet")).catch(() => {}); }}
+                    onOpenTable={(key) => requestTab(key)}
+                  />
+                )}
                 <RecapTab
                   collecte={collecte}
                   canManageRecap={canManageRecap}
@@ -1139,41 +1151,16 @@ function SectionExport({
   const print = () => printCollecteSection(collecte, section, societeNom);
 
   return (
-    <div className="flex w-full justify-end lg:w-auto">
-      <div className="hidden flex-wrap items-center justify-end gap-0.5 lg:flex">
-        <Button variant="ghost" size="sm" onClick={exportExcel}>
-          <Download className="h-4 w-4" />
-          Excel
-        </Button>
-        <Button variant="ghost" size="sm" onClick={exportPdf}>
-          <FileText className="h-4 w-4" />
-          PDF
-        </Button>
-        <Button variant="ghost" size="sm" onClick={print}>
-          <Printer className="h-4 w-4" />
-          Imprimer
-        </Button>
-      </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="min-h-10 lg:hidden">
-            <Download className="h-4 w-4" />
-            Exporter
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={exportExcel}>
-            <Download className="h-4 w-4" /> Excel
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={exportPdf}>
-            <FileText className="h-4 w-4" /> PDF
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={print}>
-            <Printer className="h-4 w-4" /> Imprimer
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <div className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto" aria-label="Exporter ce tableau">
+      <Button variant="ghost" size="sm" onClick={exportExcel} className="min-h-9 gap-1.5">
+        <Download className="size-4" /> Excel
+      </Button>
+      <Button variant="ghost" size="sm" onClick={exportPdf} className="min-h-9 gap-1.5">
+        <FileText className="size-4" /> PDF
+      </Button>
+      <Button variant="ghost" size="sm" onClick={print} className="min-h-9 gap-1.5">
+        <Printer className="size-4" /> Imprimer
+      </Button>
     </div>
   );
 }

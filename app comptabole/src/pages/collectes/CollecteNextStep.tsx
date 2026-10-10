@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle2, Clock3, FileCheck2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { resumeSections, sectionOuverte, sectionStatut } from "@/lib/collecte/sections";
+import { resumeSections, sectionOuverte, sectionStatut, tableauxVisiblesClient } from "@/lib/collecte/sections";
 import { sectionRecapStatut } from "@/lib/collecte/recap";
 import { TAB_BY_KEY, ordonnerTableaux } from "@/lib/collecte/tabs";
 import type { CollecteFull } from "@/types";
@@ -15,7 +15,9 @@ interface Props {
 }
 
 /** Role-aware action cue derived from the existing section and recap states. */
-export function CollecteNextStep({ collecte, isClient, isCabinet, recapPending, currentTab, onNavigate }: Props) {
+export function CollecteNextStep({ collecte: collecteComplete, isClient, isCabinet, recapPending, currentTab, onNavigate }: Props) {
+  // Le client ne connaît que les tableaux que le cabinet lui a demandés (ou qu'il a déjà transmis).
+  const collecte = isClient ? { ...collecteComplete, onglets: tableauxVisiblesClient(collecteComplete) } : collecteComplete;
   const counts = resumeSections(collecte);
   const keys = ordonnerTableaux(collecte.onglets);
   const awaitingReview = keys.find((key) => sectionStatut(collecte, key) === "transmis");

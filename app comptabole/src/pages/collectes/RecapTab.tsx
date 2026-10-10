@@ -105,6 +105,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   const [newNote, setNewNote] = useState("");
   const [sending, setSending] = useState<string | null>(null);
   const [ouvert, setOuvert] = useState<string | null>(null);
+  const [afficherVides, setAfficherVides] = useState(false);
 
   const live = useMemo(() => computeManques(collecte), [collecte]);
   const label = (k: string) => TAB_BY_KEY[k]?.label ?? (k || "Général");
@@ -181,7 +182,7 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
   // L'admin voit tout (pour choisir quoi envoyer ensuite).
   // Pour le cabinet, un tableau vide n'est pas listé (rien de précis à demander : le client le remplira de toute façon) tant qu'aucune demande n'y a
   // été envoyée ; ainsi il n'envoie que le nécessaire. Une demande déjà envoyée reste visible pour pouvoir être close.
-  const visibleRows = isClient ? rows.filter((r) => r.statut !== "none") : rows.filter((r) => !(r.vide && r.statut === "none"));
+  const visibleRows = isClient ? rows.filter((r) => r.statut !== "none") : rows.filter((r) => afficherVides || !(r.vide && r.statut === "none"));
   const nbVides = rows.filter((r) => r.vide && r.statut === "none").length;
   const totalCount = visibleRows.reduce((s, r) => s + r.count, 0);
   const tableauCount = visibleRows.filter((r) => r.count > 0).length;
@@ -223,8 +224,15 @@ export function RecapTab({ collecte, canManageRecap, isClient, onNavigate }: Pro
       )}
 
       {!isClient && nbVides > 0 && (
-        <p className="px-3 text-xs text-muted-foreground">
-          {nbVides} tableau{nbVides > 1 ? "x" : ""} vide{nbVides > 1 ? "s" : ""} non listé{nbVides > 1 ? "s" : ""} : il{nbVides > 1 ? "s" : ""} n'a{nbVides > 1 ? "nt" : ""} aucune ligne saisie.
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 text-xs text-muted-foreground">
+          <span>
+            {afficherVides
+              ? `${nbVides} tableau${nbVides > 1 ? "x" : ""} vide${nbVides > 1 ? "s" : ""} affiché${nbVides > 1 ? "s" : ""} : envoyez-les pour que le client les remplisse.`
+              : `${nbVides} tableau${nbVides > 1 ? "x" : ""} vide${nbVides > 1 ? "s" : ""} non listé${nbVides > 1 ? "s" : ""} : il${nbVides > 1 ? "s" : ""} n'a${nbVides > 1 ? "nt" : ""} aucune ligne saisie.`}
+          </span>
+          <button type="button" onClick={() => setAfficherVides((v) => !v)} className="font-semibold text-primary underline underline-offset-2">
+            {afficherVides ? "Masquer les tableaux vides" : "Afficher pour les envoyer"}
+          </button>
         </p>
       )}
       {!isClient && visibleRows.length === 0 && (

@@ -245,7 +245,8 @@ describe("Collecte : bordereau incomplet", () => {
   // L'avertissement est réservé au responsable de société (le cabinet passe par le Récap).
   beforeEach(() => {
     perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
-    collecte.sections = [{ id: "s", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" } as never];
+    const demandee = (onglet: string, id: string) => ({ id, onglet, commentaire: "", recapStatut: "envoye", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" }) as never;
+    collecte.sections = [demandee("bordereaux_remise_cheques", "s"), demandee("souche_cheques", "s2")];
   });
   afterEach(() => {
     perms.current = { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true };
@@ -382,7 +383,7 @@ describe("Collecte : circuit par tableau", () => {
 
   it("l'état des chèques émis, tenu par le cabinet, n'apparaît pas dans l'espace du client", () => {
     client();
-    collecte.sections = [{ ...(section("bordereaux_remise_cheques", "brouillon") as object) } as never];
+    collecte.sections = [{ ...(section("bordereaux_remise_cheques", "brouillon") as object), recapStatut: "envoye" } as never];
     renderPage();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier" });
     expect(within(nav).queryByRole("button", { name: /État des chèques émis/ })).toBeNull();
@@ -412,7 +413,7 @@ describe("Collecte : circuit par tableau", () => {
 
 describe("Collecte : avertissement de répartition réservé au responsable de société", () => {
   const entete = { id: "l1", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-10-10", num_bordereau: "3339", montant: 6660, banque: "", montant_cheque: "" } };
-  const section = { id: "s", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" };
+  const section = { id: "s", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "envoye", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" };
   afterEach(() => {
     collecte.sections = [];
     collecte.lignes = [];
@@ -431,7 +432,7 @@ describe("Collecte : avertissement de répartition réservé au responsable de s
 
   it("interrompt le responsable de société, avec un texte adapté à un dépassement", () => {
     perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
-    collecte.sections = [section as never];
+    collecte.sections = [section as never, { ...section, id: "s2", onglet: "souche_cheques" } as never];
     collecte.lignes = [entete, { id: "l2", onglet: "bordereaux_remise_cheques", ordre: 1, data: { ...entete.data, montant: "", montant_cheque: 40000 } }] as never;
     renderPage();
     ouvrirSection("Bordereaux remise de chèques");
@@ -445,7 +446,7 @@ describe("Collecte : avertissement de répartition réservé au responsable de s
 });
 
 describe("Collecte : espace limité du responsable de société", () => {
-  const sectionOuverte = { id: "s", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" };
+  const sectionOuverte = { id: "s", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "envoye", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" };
   const devenirClient = () => {
     perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
   };

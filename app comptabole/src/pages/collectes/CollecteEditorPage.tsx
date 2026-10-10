@@ -36,7 +36,7 @@ import { COLLECTE_STATUT_LABELS, TAB_BY_KEY, ordonnerTableaux } from "@/lib/coll
 import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
 import { aggregateRecapStatut, sectionRecapStatut } from "@/lib/collecte/recap";
-import { sectionOuverte, sectionStatut } from "@/lib/collecte/sections";
+import { estDemande, sectionOuverte, sectionStatut } from "@/lib/collecte/sections";
 import {
   downloadCollecteSectionPdf,
   exportCollecteSectionXlsx,
@@ -164,7 +164,7 @@ export function CollecteEditorPage() {
     const ordered = ordonnerTableaux(collecte.onglets);
     const recapTarget = ordered.find((key) => sectionRecapStatut(collecte, key) === "envoye");
     const nextTarget = poste === "societe_employe"
-      ? recapTarget ?? ordered.find((key) => !TAB_BY_KEY[key]?.cabinetSeul && sectionOuverte(sectionStatut(collecte, key)))
+      ? recapTarget ?? ordered.find((key) => estDemande(collecte, key))
       : ordered.find((key) => sectionStatut(collecte, key) === "transmis") ?? ordered.find((key) => sectionStatut(collecte, key) === "a_corriger");
     // Le responsable de société n'a ni checklist ni documents : sans tableau ouvert, il arrive sur le Récap.
     const next = validRequested && !(poste === "societe_employe" && ["checklist", "documents", "historique"].includes(requested!))
@@ -248,7 +248,8 @@ export function CollecteEditorPage() {
   // des autres — voir sectionRecapStatut plus bas, utilisé par tableau).
   const clientRecap = poste === "societe_employe" && currentRecap === "envoye";
   // Un seul bouton client : « Transmettre au cabinet » (soumet aussi le récap).
-  const canSubmit = !isAdmin && !archivee && (sectionsOuvertes || clientRecap);
+  // Le client transmet tableau par tableau (barre de chaque tableau) : un bouton global transmettrait aussi des tableaux qu'on ne lui a pas demandés.
+  const canSubmit = !isAdmin && !isClient && !archivee && (sectionsOuvertes || clientRecap);
 
   // Cases importantes vides détectées EN DIRECT, par onglet.
   const liveManques = computeManques(collecte);

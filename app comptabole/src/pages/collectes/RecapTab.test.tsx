@@ -61,6 +61,16 @@ describe("Récap : détail d'un tableau avant l'envoi", () => {
     expect(screen.getByText(/3 cases importantes à compléter, réparties sur 1 tableau/)).toBeTruthy();
   });
 
+  it("permet d'afficher les tableaux vides pour les envoyer au client, puis de les masquer", () => {
+    rendre();
+    expect(screen.queryAllByText("Virements reçus")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Afficher pour les envoyer" }));
+    expect(screen.getAllByText("Virements reçus").length).toBeGreaterThan(0);
+    expect(screen.getByText(/1 tableau vide affiché : envoyez-le/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Masquer les tableaux vides" }));
+    expect(screen.queryAllByText("Virements reçus")).toHaveLength(0);
+  });
+
   it("garde un tableau vide dont une demande a déjà été envoyée, pour pouvoir la clore", () => {
     const envoye = { ...collecte, sections: [{ onglet: "virements_recus", recapStatut: "envoye" }] } as unknown as CollecteFull;
     rendre(envoye);

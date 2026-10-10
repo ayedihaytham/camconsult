@@ -39,22 +39,27 @@ function rendre(c: CollecteFull, isClient: boolean, active = "recap") {
 const noms = (nav: HTMLElement) => within(nav).getAllByRole("button").map((b) => b.textContent ?? "");
 
 describe("navigation de la collecte pour le responsable de société", () => {
-  const c = collecte({
-    bordereaux_remise_cheques: "brouillon",
-    etat_cheques_emis: "brouillon",
-    virements_recus: "a_corriger",
-    traites_emises: "transmis",
-    chiffre_affaires: "valide",
-    etat_caisse: "archive",
-  });
+  const c = collecte(
+    {
+      bordereaux_remise_cheques: "brouillon",
+      etat_cheques_emis: "brouillon",
+      virements_recus: "a_corriger",
+      virements_emis: "brouillon",
+      traites_emises: "transmis",
+      chiffre_affaires: "valide",
+      etat_caisse: "archive",
+    },
+    ["bordereaux_remise_cheques"],
+  );
 
-  it("n'offre que le Récap et ce qu'il a à compléter ou à corriger", () => {
+  it("n'offre que le Récap et ce que le cabinet lui a demandé (envoyé ou renvoyé)", () => {
     const { nav } = rendre(c, true);
     const liste = noms(nav);
     expect(liste.some((n) => n.startsWith("Récap"))).toBe(true);
     expect(liste.some((n) => n.startsWith("Bordereaux remise de chèques"))).toBe(true);
     expect(liste.some((n) => n.startsWith("Virements reçus"))).toBe(true);
-    for (const absent of ["Checklist", "Documents", "Historique", "État des chèques émis", "État de caisse"]) {
+    // « Virements émis » est dans la collecte, mais le cabinet ne l'a pas envoyé : le client ne le voit pas.
+    for (const absent of ["Checklist", "Documents", "Historique", "État des chèques émis", "État de caisse", "Virements émis"]) {
       expect(liste.some((n) => n.startsWith(absent))).toBe(false);
     }
   });
@@ -74,7 +79,7 @@ describe("navigation de la collecte pour le responsable de société", () => {
       expect(bouton.className).not.toContain("text-warning-foreground");
       expect(within(bouton).getByText(nom).textContent).toBe(nom);
     }
-    expect(within(nav).getByRole("button", { name: /Bordereaux remise de chèques/ }).textContent).toContain("À compléter");
+    expect(within(nav).getByRole("button", { name: /Bordereaux remise de chèques/ }).textContent).toContain("À préciser");
     expect(within(nav).getByRole("button", { name: /Virements reçus/ }).textContent).toContain("À reprendre");
   });
 
@@ -82,6 +87,13 @@ describe("navigation de la collecte pour le responsable de société", () => {
     const { nav } = rendre(collecte({ virements_recus: "transmis" }, ["virements_recus"]), true);
     expect(within(nav).queryByText("Déjà transmis au cabinet")).toBeNull();
     expect(noms(nav).some((n) => n.startsWith("Virements reçus"))).toBe(true);
+  });
+
+  it("ne montre qu'un seul tableau quand le cabinet n'en a envoyé qu'un", () => {
+    const { nav } = rendre(collecte({ souche_cheques: "brouillon", virements_recus: "brouillon", traites_emises: "brouillon" }, ["virements_recus"]), true);
+    const tableaux = noms(nav).filter((n) => !n.startsWith("Récap"));
+    expect(tableaux).toHaveLength(1);
+    expect(tableaux[0]).toMatch(/^Virements reçus/);
   });
 
   it("dit qu'il n'y a rien à compléter quand tout est parti", () => {

@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTE_TABS, etatDeTableau, TAB_BY_KEY } from "@/lib/collecte/tabs";
-import { SECTION_STATUT_LABELS, sectionOuverte, sectionStatut } from "@/lib/collecte/sections";
+import { SECTION_STATUT_LABELS, estDemande, sectionStatut } from "@/lib/collecte/sections";
 import { sectionRecapStatut } from "@/lib/collecte/recap";
 import type { CollecteFull, SectionStatut } from "@/types";
 
@@ -105,9 +105,10 @@ export function CollecteWorkNavigation({
 }: Props) {
   const archivee = collecte.statut === "archive";
   const tableKeys = new Set(collecte.onglets);
-  // Espace du client : son Récap, puis les seuls tableaux qu'il a à compléter ou à corriger (rangés par famille), puis, en retrait,
-  // ceux déjà transmis au cabinet. Ni les tableaux tenus par le cabinet, ni les archives.
-  const aCompleter = (key: string) => !TAB_BY_KEY[key]?.cabinetSeul && (sectionOuverte(sectionStatut(collecte, key)) || sectionRecapStatut(collecte, key) === "envoye");
+  // Espace du client : son Récap, puis les seuls tableaux que le cabinet lui a demandés (envoyés par le Récap ou renvoyés pour
+  // correction, rangés par famille), puis, en retrait, ceux déjà transmis au cabinet. Ni les tableaux que le cabinet n'a pas
+  // envoyés, ni ceux qu'il tient seul, ni les archives.
+  const aCompleter = (key: string) => estDemande(collecte, key);
   const dejaTransmis = (key: string) => !TAB_BY_KEY[key]?.cabinetSeul && ["transmis", "valide"].includes(sectionStatut(collecte, key)) && !aCompleter(key);
   const famille = (tab: { key: string }) => etatDeTableau(tab.key)?.key ?? "autres";
   const dansCollecte = COLLECTE_TABS.filter((tab) => tableKeys.has(tab.key));

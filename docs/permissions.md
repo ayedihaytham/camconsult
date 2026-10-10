@@ -34,8 +34,11 @@
   (`visibleNavigation({ espaceCollecteSeul })`), and `DataBoundary` redirects any
   other address to `/collectes` (`cheminAutoriseClient`). This is a UI scope; backend
   authorization is unchanged. Inside a collecte the client sees only the Récap and the
-  tables left to complete or already transmitted (no Checklist, Documents, history,
-  exports or cabinet-only tables).
+  tables the cabinet asked for (sent through the Récap, or returned for correction —
+  `estDemande`) plus those already transmitted or validated (consultation). A table
+  of the collecte that the cabinet has not sent is invisible to the client; there is no
+  global « Transmettre » button for the client, each table is transferred on its own.
+  No Checklist, Documents, history, exports or cabinet-only tables.
 
 - Company-side employee with `poste === "societe_employe"`.
 - `lectureSeule` is true and `isCollaborateur` is false.

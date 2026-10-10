@@ -28,3 +28,20 @@ export function resumeSections(collecte: Pick<CollecteFull, "sections" | "statut
   for (const o of collecte.onglets) if (!TAB_BY_KEY[o]?.cabinetSeul) r[sectionStatut(collecte, o)] += 1;
   return r;
 }
+
+/** Tableau demandé au client : le cabinet le lui a envoyé (Récap) ou renvoyé pour correction. Un tableau de la collecte que le cabinet
+ * n'a pas encore envoyé n'existe pas, pour le client. Les tableaux tenus par le cabinet ne sont jamais demandés. */
+export function estDemande(collecte: Pick<CollecteFull, "sections" | "statut">, onglet: string): boolean {
+  if (TAB_BY_KEY[onglet]?.cabinetSeul) return false;
+  const section = collecte.sections.find((x) => x.onglet === onglet);
+  return section?.recapStatut === "envoye" || sectionStatut(collecte, onglet) === "a_corriger";
+}
+
+/** Ce que voit le client dans sa collecte : les tableaux demandés, puis ceux déjà transmis ou validés (consultation). */
+export function tableauxVisiblesClient(collecte: Pick<CollecteFull, "sections" | "statut" | "onglets">): string[] {
+  return collecte.onglets.filter((k) => {
+    if (TAB_BY_KEY[k]?.cabinetSeul) return false;
+    const st = sectionStatut(collecte, k);
+    return estDemande(collecte, k) || st === "transmis" || st === "valide";
+  });
+}

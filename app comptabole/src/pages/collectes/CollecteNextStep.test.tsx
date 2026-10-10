@@ -40,10 +40,16 @@ function collecte(statut: "brouillon" | "transmis" | "valide" = "brouillon", rec
   };
 }
 
+/** Collecte dont l'unique tableau a été envoyé au client par le cabinet (récap), donc à compléter. */
+const demandee = (): CollecteFull => {
+  const c = collecte();
+  return { ...c, sections: [{ ...c.sections[0], recapStatut: "envoye", statut: "brouillon" }] };
+};
+
 describe("CollecteNextStep", () => {
   it("guide le client vers la saisie ouverte", () => {
     const onNavigate = vi.fn();
-    render(<CollecteNextStep collecte={collecte()} isClient isCabinet={false} recapPending={false} onNavigate={onNavigate} />);
+    render(<CollecteNextStep collecte={demandee()} isClient isCabinet={false} recapPending={false} onNavigate={onNavigate} />);
     fireEvent.click(screen.getByRole("button", { name: /Continuer la saisie/ }));
     expect(onNavigate).toHaveBeenCalledWith("virements_recus");
   });
@@ -63,8 +69,14 @@ describe("CollecteNextStep", () => {
   });
 
   it("does not ask for a click when the recommended table is already open", () => {
-    render(<CollecteNextStep collecte={collecte()} isClient isCabinet={false} recapPending={false} currentTab="virements_recus" onNavigate={vi.fn()} />);
+    render(<CollecteNextStep collecte={demandee()} isClient isCabinet={false} recapPending={false} currentTab="virements_recus" onNavigate={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /Continuer la saisie/ })).toBeNull();
     expect(screen.getByRole("status").textContent).toBe("Tableau ouvert");
+  });
+
+  it("ne parle au client que des tableaux demandés : un tableau non envoyé ne compte pas", () => {
+    render(<CollecteNextStep collecte={collecte()} isClient isCabinet={false} recapPending={false} onNavigate={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Continuer la saisie/ })).toBeNull();
+    expect(screen.getByLabelText("Avancement des tableaux").textContent).toMatch(/0 à compléter/);
   });
 });

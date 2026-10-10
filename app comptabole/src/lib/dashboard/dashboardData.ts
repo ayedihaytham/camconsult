@@ -16,7 +16,7 @@ export type DashboardRole = "admin" | "collaborateur" | "societe_employe";
 export type DashboardTone = "neutral" | "primary" | "warning" | "destructive" | "success";
 
 export interface DashboardKpi {
-  id: "clients" | "collectes" | "tasks" | "messages" | "deadline" | "documents";
+  id: "clients" | "collectes" | "tasks" | "messages" | "deadline" | "documents" | "toComplete" | "validated";
   label: string;
   value: number | string;
   supportingText: string;
@@ -101,6 +101,8 @@ export interface DashboardCollectionActivity {
   echeance: string | null;
   updatedAt: string;
   route: string;
+  /** Avancement côté client : tableaux transmis ou validés sur les tableaux demandés par le cabinet (null si rien n'est demandé). */
+  progress: number | null;
 }
 
 export interface DashboardTaskCounts {
@@ -204,6 +206,15 @@ function plural(count: number, singular: string, pluralValue = `${singular}s`) {
 
 export function isOpenTask(task: Pick<Tache, "statut">): boolean {
   return task.statut === "a_faire" || task.statut === "en_cours";
+}
+
+/** Part des tableaux demandés au client qui sont transmis ou validés, en pourcentage. */
+export function collectionProgress(collecte: Pick<Collecte, "statut" | "tableauxDemandes" | "tableauxTransmis" | "tableauxValides">): number | null {
+  if (collecte.statut === "valide") return 100;
+  const demandes = collecte.tableauxDemandes ?? 0;
+  if (demandes <= 0) return null;
+  const faits = (collecte.tableauxTransmis ?? 0) + (collecte.tableauxValides ?? 0);
+  return Math.min(100, Math.round((faits / demandes) * 100));
 }
 
 export function isClosedCollection(collecte: Pick<Collecte, "statut">): boolean {
@@ -471,27 +482,18 @@ export function buildDashboardData(source: DashboardDataInput): DashboardViewMod
           tone: overdueCollections.length > 0 ? "destructive" : "neutral",
         },
         {
-          id: "deadline",
-          label: "Prochaine échéance",
-          value: nextDeadline
-            ? new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short" }).format(parseDateOnly(nextDeadline.echeance))
-            : "—",
-          supportingText: nextDeadline?.periode ?? "Aucune échéance à venir",
-          tone: nextDeadline?.daysFromToday !== undefined && nextDeadline.daysFromToday <= 0 ? "warning" : "neutral",
+          id: "toComplete",
+          label: "À compléter",
+          value: openCollections.filter((item) => item.statut === "brouillon" || item.statut === "a_corriger").length,
+          supportingText: "Collectes à remplir ou à corriger",
+          tone: openCollections.some((item) => item.statut === "a_corriger") ? "warning" : "neutral",
         },
         {
-          id: "documents",
-          label: "Documents récents",
-          value: files.length,
-          supportingText: `${files.filter((file) => isCurrentMonth(file.creeLe, input.now)).length} ajoutés ce mois`,
+          id: "validated",
+          label: "Validées",
+          value: input.collectes.filter((item) => item.statut === "valide").length,
+          supportingText: "Collectes validées par le cabinet",
         },
-        ...(input.canUseMessaging ? [{
-          id: "messages" as const,
-          label: "Messages non lus",
-          value: unreadMessages,
-          supportingText: unreadThreads > 0 ? plural(unreadThreads, "conversation") : "Aucun message non lu",
-          tone: unreadMessages > 0 ? "primary" as const : "neutral" as const,
-        }] : []),
       ]
     : [
         {
@@ -599,9 +601,10 @@ export function buildDashboardData(source: DashboardDataInput): DashboardViewMod
     recentFiles,
     recentMessages: recentMessages.slice(0, 8),
     unreadMessages: recentMessages.filter((message) => message.unread > 0).slice(0, 3),
-    collections: [...openCollections]
+    collections: [...(input.role === "societe_employe" ? input.collectes.filter((item) => item.statut !== "archive") : openCollections)]
       .sort((left, right) => right.majLe.localeCompare(left.majLe))
       .map((collecte) => ({
+        progress: collectionProgress(collecte),
         id: collecte.id,
         periode: collecte.periode,
         statut: collecte.statut,

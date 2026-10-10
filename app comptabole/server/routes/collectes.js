@@ -230,9 +230,10 @@ collectesRouter.get("/", async (req, res) => {
       await query(
         `select collecte_id, count(*) filter (where statut = 'transmis')::int as transmis,
                 count(*) filter (where statut in ('valide','archive'))::int as valides,
-                count(*) filter (where statut = 'archive')::int as archives
-           from collecte_sections where collecte_id = any($1::uuid[]) group by collecte_id`,
-        [rows.map((r) => r.id)],
+                count(*) filter (where statut = 'archive')::int as archives,
+                count(*) filter (where recap_statut <> 'none' or statut <> 'brouillon')::int as demandes
+           from collecte_sections where collecte_id = any($1::uuid[]) and onglet <> all($2::text[]) group by collecte_id`,
+        [rows.map((r) => r.id), CABINET_SEUL],
       )
     ).rows.map((r) => [r.collecte_id, r]),
   );
@@ -242,6 +243,7 @@ collectesRouter.get("/", async (req, res) => {
       tableauxTransmis: comptes.get(r.id)?.transmis ?? 0,
       tableauxValides: comptes.get(r.id)?.valides ?? 0,
       tableauxArchives: comptes.get(r.id)?.archives ?? 0,
+      tableauxDemandes: comptes.get(r.id)?.demandes ?? 0,
     })),
   );
 });

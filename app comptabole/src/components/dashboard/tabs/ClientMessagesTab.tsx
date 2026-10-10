@@ -7,27 +7,15 @@ import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState"
 import type { DashboardMessageActivity } from "@/lib/dashboard/dashboardData";
 import { avatarColor, cn, formatRelative } from "@/lib/utils";
 
-const SUJETS = [
-  { titre: "Question sur une collecte", detail: "Un tableau, un montant, un bordereau", brouillon: "Bonjour, j'ai une question sur ma collecte : " },
-  { titre: "Document manquant ou à envoyer", detail: "Facture, relevé, justificatif", brouillon: "Bonjour, concernant un document manquant ou à envoyer : " },
-  { titre: "Demande de prolongation", detail: "Plus de temps pour une échéance", brouillon: "Bonjour, je souhaite demander un délai supplémentaire pour : " },
-  { titre: "Autre question", detail: "Écrire librement", brouillon: "" },
-];
-
 /** Messages du responsable de société : un contact, des sujets rapides, et seulement les échanges non lus. */
 export function ClientMessagesTab({ messages }: { messages: DashboardMessageActivity[] }) {
   const navigate = useNavigate();
   const contact = messages[0] ?? null;
   const unread = messages.filter((message) => message.unread > 0);
-  const ouvrir = (conversationId: string | null, brouillon = "") => {
-    const params = new URLSearchParams();
-    if (conversationId) params.set("conversation", conversationId);
-    if (brouillon) params.set("brouillon", brouillon);
-    navigate(params.size ? `/messagerie?${params}` : "/messagerie");
-  };
+  const ouvrir = (conversationId: string | null) => navigate(conversationId ? `/messagerie?conversation=${encodeURIComponent(conversationId)}` : "/messagerie");
   return (
     <section className="min-w-0 border-t-2 border-primary">
-      <header className="py-3"><h2 className="text-base font-semibold text-primary">Messages</h2><p className="mt-0.5 text-xs text-muted-foreground">Une question ? Choisissez un sujet, le message est déjà préparé.</p></header>
+      <header className="py-3"><h2 className="text-base font-semibold text-primary">Messages</h2><p className="mt-0.5 text-xs text-muted-foreground">Vos échanges avec le cabinet</p></header>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-accent bg-accent/10 p-4">
         <div className="flex min-w-0 items-center gap-3">
           <span className="relative shrink-0">
@@ -38,15 +26,6 @@ export function ClientMessagesTab({ messages }: { messages: DashboardMessageActi
         </div>
         <Button className="min-h-11" onClick={() => ouvrir(contact?.id ?? null)}>Écrire au cabinet</Button>
       </div>
-      <ul className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {SUJETS.map((sujet) => (
-          <li key={sujet.titre}>
-            <button type="button" onClick={() => ouvrir(contact?.id ?? null, sujet.brouillon)} className="flex min-h-16 w-full flex-col justify-center rounded-md border border-border bg-card px-3.5 py-2.5 text-left hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <span className="text-sm font-semibold">{sujet.titre}</span><span className="text-xs text-muted-foreground">{sujet.detail}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
       <h3 className="mb-2 mt-5 text-sm font-semibold">Messages non lus</h3>
       {unread.length === 0 ? <DashboardEmptyState icon={MessageCircle} title="Aucun message non lu" description="Vous êtes à jour avec le cabinet." /> : (
         <ul className="overflow-hidden rounded-md border border-border bg-card">

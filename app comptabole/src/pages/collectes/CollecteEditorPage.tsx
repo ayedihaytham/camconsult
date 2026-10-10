@@ -17,6 +17,7 @@ import {
   Printer,
   RotateCcw,
   Send,
+  LogOut,
   SlidersHorizontal,
   Trash2,
   UploadCloud,
@@ -155,6 +156,16 @@ export function CollecteEditorPage() {
   }, [tab, id, fetchJournal]);
 
   const currentRecap = collecte ? aggregateRecapStatut(collecte) : "none";
+  // Le responsable de société n'a que les tableaux à compléter et le Récap : il arrive sur le premier tableau ouvert (jamais sur la
+  // checklist, les documents ou l'historique, qui ne sont pas pour lui).
+  useEffect(() => {
+    if (!collecte || poste !== "societe_employe" || !["checklist", "documents", "historique"].includes(tab)) return;
+    const premier = ordonnerTableaux(collecte.onglets).find((k) => {
+      const st = sectionStatut(collecte, k);
+      return st !== "archive" && !TAB_BY_KEY[k]?.cabinetSeul;
+    });
+    setTab(premier ?? "recap");
+  }, [collecte?.id, poste, tab]);
   useEffect(() => {
     if (poste === "societe_employe" && currentRecap === "envoye")
       requestTab("recap");
@@ -407,6 +418,11 @@ export function CollecteEditorPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {isClient && (
+              <Button variant="outline" className={boutonBandeau} onClick={() => requestTab("__back__")}>
+                <LogOut className="h-4 w-4" /> Quitter
+              </Button>
+            )}
             {canSubmit && (
               <Button
                 variant="outline"
@@ -469,7 +485,7 @@ export function CollecteEditorPage() {
             />
             {COLLECTE_STATUT_LABELS[collecte.statut]}
           </span>
-          <span className="inline-flex items-center gap-3">
+          {!isClient && <span className="inline-flex items-center gap-3">
             <span>
               <strong className="tabular-nums">{recus}</strong> / {rows.length}{" "}
               <span className="text-primary-foreground/75">pièces reçues</span>
@@ -484,7 +500,7 @@ export function CollecteEditorPage() {
             >
               <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
             </span>
-          </span>
+          </span>}
           {collecte.echeance && (
             <span className={cn("text-primary-foreground/80", enRetard && "font-semibold text-warning")}>
               Échéance {formatDate(collecte.echeance)}
@@ -526,7 +542,7 @@ export function CollecteEditorPage() {
           Récap renvoyé au cabinet. En attente de traitement.
         </p>
       )}
-      <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 py-1 text-xs text-muted-foreground">
+      {!isClient && <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 py-1 text-xs text-muted-foreground">
         <span>Travail sur le dossier · {socNom}</span>
 
         <div data-tour="collecte-tools" className="flex flex-wrap items-center gap-1.5">
@@ -579,7 +595,7 @@ export function CollecteEditorPage() {
             </Button>
           )}
         </div>
-      </div>
+      </div>}
 
       <Tabs value={tab} onValueChange={requestTab}>
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] border border-border bg-card">
@@ -730,11 +746,13 @@ export function CollecteEditorPage() {
                     title={def.label}
                     description="Tableau de saisie · chiffres et justificatifs"
                     action={
-                      <SectionExport
-                        collecte={collecte}
-                        section={key}
-                        societeNom={socNom}
-                      />
+                      isClient ? undefined : (
+                        <SectionExport
+                          collecte={collecte}
+                          section={key}
+                          societeNom={socNom}
+                        />
+                      )
                     }
                     dirty={tab === key && dirtyTableau}
                   />
@@ -953,19 +971,21 @@ export function CollecteEditorPage() {
               aria-label="Sections du dossier"
               className="flex w-max min-w-full items-end gap-x-1 px-2 pb-1.5 pt-0"
             >
-              <FeuilleTab active={tab === "checklist"} onClick={() => requestTab("checklist")} label="Checklist" />
+              {!isClient && <FeuilleTab active={tab === "checklist"} onClick={() => requestTab("checklist")} label="Checklist" />}
               <FeuilleTab
                 active={tab === "recap"}
                 onClick={() => requestTab("recap")}
                 label="Récap"
                 dot={currentRecap !== "none" ? (currentRecap === "repondu" ? "success" : "warning") : undefined}
               />
-              <FeuilleTab
-                active={tab === "documents"}
-                onClick={() => requestTab("documents")}
-                label="Documents"
-                badge={collecte.fichiers.length || undefined}
-              />
+              {!isClient && (
+                <FeuilleTab
+                  active={tab === "documents"}
+                  onClick={() => requestTab("documents")}
+                  label="Documents"
+                  badge={collecte.fichiers.length || undefined}
+                />
+              )}
               {tableauKeys.length > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-border" />}
               {entreesNav.map((entree) =>
                 entree.etat ? (

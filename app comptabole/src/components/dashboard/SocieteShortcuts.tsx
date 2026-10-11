@@ -87,7 +87,7 @@ export function SocieteShortcuts({ societe }: { societe: Societe }) {
   return (
     <section
       aria-label={`Accès rapides au dossier ${societe.raisonSociale}`}
-      className="rounded-xl border border-accent/30 bg-card p-4"
+      className="min-w-0 rounded-xl border border-accent/30 bg-card p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-muted-foreground">
@@ -102,31 +102,31 @@ export function SocieteShortcuts({ societe }: { societe: Societe }) {
           Toutes les sociétés
         </button>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <nav aria-label="Modules du dossier" className="mt-2 grid min-w-0 grid-flow-col auto-cols-[minmax(128px,1fr)] gap-2 overflow-x-auto pb-1">
         {raccourcis.map(({ label, base, icon: Icon }) => (
           <Link
             key={base}
             to={lienDeSociete(base, societe.id)}
-            className="group flex min-w-0 flex-col gap-2 rounded-lg border border-accent/25 bg-secondary/40 p-3 transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="group flex min-h-16 min-w-0 flex-col gap-1 rounded-lg border border-accent/25 bg-secondary/40 p-2 transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
             <span className="flex items-center justify-between">
-              <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
+              <Icon className="size-4 text-primary" aria-hidden="true" />
               <ArrowUpRight
-                className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
                 aria-hidden="true"
               />
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-medium text-foreground">{label}</span>
+              <span className="block truncate text-xs font-medium text-foreground" title={label}>{label}</span>
               {details[base] && (
-                <span className={`block truncate text-xs ${base === "/facturation" && details[base]?.includes("retard") ? "font-semibold text-warning" : "text-muted-foreground"}`}>
+                <span title={details[base]} className={`block truncate text-[10px] leading-4 ${base === "/facturation" && details[base]?.includes("retard") ? "font-semibold text-warning" : "text-muted-foreground"}`}>
                   {details[base]}
                 </span>
               )}
             </span>
           </Link>
         ))}
-      </div>
+      </nav>
     </section>
   );
 }

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import type { SectionStatut } from "@/types";
 
 interface Props {
+  compact?: boolean;
   label: string;
   statut: SectionStatut;
   /** Ce que le cabinet a demandé de corriger quand il a renvoyé le tableau. */
@@ -44,6 +45,7 @@ const STYLES: Record<SectionStatut, string> = {
 /** Barre du circuit d'UN tableau : le client l'enregistre puis le transfère au cabinet (même incomplet), le cabinet le consulte,
  * le valide ou le renvoie avec un motif ; un tableau validé reste en lecture seule et peut être archivé. */
 export function SectionCircuit({
+  compact = false,
   label, statut, motifRenvoi, isClient, canArchive, preparerTransfert, onTransmettre, onValider, onRenvoyer, onArchiver, onDesarchiver,
 }: Props) {
   const [manque, setManque] = useState<string | null>(null);
@@ -72,8 +74,8 @@ export function SectionCircuit({
   let aide = "";
   if (isClient) {
     aide = {
-      brouillon: "Enregistrez puis transférez ce tableau au cabinet, même s'il n'est pas complet : vous pourrez le compléter si le cabinet vous le renvoie.",
-      a_corriger: "Complétez ou ajoutez des lignes, enregistrez, puis transférez à nouveau au cabinet.",
+      brouillon: "Saisissez les informations, puis transférez. L'enregistrement se fait avant l'envoi.",
+      a_corriger: "Complétez les informations demandées, puis transférez à nouveau au cabinet.",
       transmis: "Le cabinet examine ce tableau : il ne peut plus être modifié tant qu'il n'est pas validé ou renvoyé.",
       valide: "Validé par le cabinet : lecture seule.",
       archive: "Archivé : lecture seule.",
@@ -90,25 +92,25 @@ export function SectionCircuit({
 
   return (
     <div className="space-y-2">
-      {statut === "a_corriger" && motifRenvoi && (
+      {!compact && statut === "a_corriger" && motifRenvoi && (
         <div role="note" className="rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-foreground">
           <p className="text-[11px] font-bold uppercase tracking-wide text-destructive">Renvoyé par le cabinet</p>
           <p className="mt-0.5 whitespace-pre-wrap">{motifRenvoi}</p>
         </div>
       )}
 
-      <div data-tour="collecte-circuit" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-muted/20 px-3 py-2">
-        <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", STYLES[statut])}>
+      <div data-tour="collecte-circuit" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 bg-muted/20 px-3 py-2", !compact && "rounded-lg border border-border")}>
+        <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold", STYLES[statut])}>
           {statut === "valide" ? <CheckCircle2 className="size-3.5" /> : statut === "transmis" ? <Clock className="size-3.5" /> : statut === "archive" ? <Archive className="size-3.5" /> : statut === "a_corriger" ? <CornerUpLeft className="size-3.5" /> : null}
           {SECTION_STATUT_LABELS[statut]}
         </span>
-        <p className="min-w-0 flex-1 text-xs text-muted-foreground">{aide}</p>
+        <p className={cn("min-w-0 flex-1 text-xs text-muted-foreground", compact && "hidden sm:block")}>{aide}</p>
 
         <div className="flex flex-wrap items-center gap-2">
           {isClient && ouverte && (
-            <Button type="button" variant="ledger" size="sm" className={bouton} disabled={occupe} onClick={() => void demanderTransfert()}>
+            <Button type="button" variant="ledger" size="sm" className={bouton} aria-label="Enregistrer et transférer au cabinet" title="Le tableau sera enregistré avant le transfert" disabled={occupe} onClick={() => void demanderTransfert()}>
               <Send className="size-4" />
-              {occupe ? "Enregistrement…" : "Enregistrer et transférer au cabinet"}
+              {occupe ? "Enregistrement…" : compact ? "Transférer au cabinet" : "Enregistrer et transférer au cabinet"}
             </Button>
           )}
           {isClient && !ouverte && <Lock className="size-4 text-muted-foreground" aria-hidden="true" />}

@@ -1,126 +1,192 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { CollecteFull } from "@/types";
 import { RecapTab } from "./RecapTab";
 
-const { sendRecapSection } = vi.hoisted(() => ({ sendRecapSection: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("@/store/collectes", () => ({
-  useCollectes: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ sendRecapSection, closeRecapSection: vi.fn(), addNote: vi.fn() }),
+const { sendRecapSection, closeRecapSection, addNote, success } = vi.hoisted(() => ({
+  sendRecapSection: vi.fn(), closeRecapSection: vi.fn(), addNote: vi.fn(), success: vi.fn(),
 }));
+vi.mock("@/store/collectes", () => ({
+  useCollectes: (selector: (state: Record<string, unknown>) => unknown) => selector({ sendRecapSection, closeRecapSection, addNote }),
+}));
+vi.mock("sonner", () => ({ toast: { success } }));
 
 const collecte = {
-  id: "c1",
-  societeId: "s1",
-  periode: "2026",
-  statut: "brouillon",
-  onglets: ["souche_cheques", "virements_recus"],
-  devise: "TND",
-  sections: [],
-  lignes: [
-    { id: "l1", onglet: "souche_cheques", ordre: 0, data: { date: "2026-01-06", num_cheque: "", beneficiaire: "X", motif: "", montant: 100, compte_bancaire: "ZITO" } },
-  ],
-  notes: [],
-  fichiers: [],
+  id: "c1", societeId: "s1", periode: "2026", statut: "brouillon",
+  onglets: ["souche_cheques", "virements_recus"], devise: "TND", sections: [],
+  lignes: [{ id: "l1", onglet: "souche_cheques", ordre: 0, data: { date: "2026-01-06", num_cheque: "", beneficiaire: "X", motif: "", montant: 100, compte_bancaire: "ZITO" } }],
+  notes: [], fichiers: [],
 } as unknown as CollecteFull;
 
-afterEach(() => {
-  cleanup();
-  sendRecapSection.mockClear();
+beforeEach(() => {
+  sendRecapSection.mockReset().mockResolvedValue(undefined);
+  closeRecapSection.mockReset().mockResolvedValue(undefined);
+  addNote.mockReset().mockResolvedValue(undefined);
+  success.mockClear();
 });
+afterEach(cleanup);
 
-const rendre = (c = collecte) => render(<RecapTab collecte={c} canManageRecap isClient={false} onNavigate={vi.fn()} />);
-const detailBoutons = () => screen.getAllByRole("button", { name: /Voir le détail de/ });
+const rendre = (c = collecte, onNavigate = vi.fn()) => render(<RecapTab collecte={c} canManageRecap onNavigate={onNavigate} />);
+const envoyer = (tableau = "Souche de chèques") => screen.getAllByRole("button", { name: `Transmettre au client : ${tableau}` });
+const cloturer = (tableau: string) => screen.getAllByRole("button", { name: `Clôturer la demande : ${tableau}` });
 
-describe("Récap : détail d'un tableau avant l'envoi", () => {
-  it("n'envoie plus directement : la ligne s'ouvre d'abord sur le détail des cases à compléter", () => {
+describe("Récap : demandes au client depuis le registre", () => {
+  it("transmet directement un tableau, sans ouvrir son détail", async () => {
     rendre();
-    expect(screen.queryByRole("button", { name: /Envoyer/ })).toBeNull();
-    fireEvent.click(detailBoutons()[0]);
-    const detail = screen.getAllByRole("region", { name: /Détail de « Souche de chèques »/ })[0];
-    expect(within(detail).getByText("Ligne 1")).toBeTruthy();
-    expect(within(detail).getByText("N° Chèque")).toBeTruthy();
-    expect(within(detail).getByText("Motif / Objet")).toBeTruthy();
-    expect(within(detail).getByText(/Ce que le client devra compléter dans « Souche de chèques » \(3 cases\)/)).toBeTruthy();
-  });
-
-  it("envoie depuis le détail, avec le nombre de cases lues", async () => {
-    rendre();
-    fireEvent.click(detailBoutons()[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: /Envoyer ces 3 cases au client/ })[0]);
+    expect(screen.queryByRole("region", { name: /Détail de/ })).toBeNull();
+    fireEvent.click(envoyer()[0]);
     await waitFor(() => expect(sendRecapSection).toHaveBeenCalledWith("c1", "souche_cheques", 3));
+    expect(success).toHaveBeenCalledWith("« Souche de chèques » transmis au client");
   });
 
-  it("ne liste pas un tableau vide : le cabinet n'envoie que le nécessaire", () => {
+  it("affiche les tableaux entièrement vides et permet de les demander", async () => {
     rendre();
-    // Seul « Souche de chèques » a des lignes ; « Virements reçus » est vide.
-    expect(screen.queryAllByText("Virements reçus")).toHaveLength(0);
-    expect(screen.getAllByText("Souche de chèques").length).toBeGreaterThan(0);
-    expect(screen.getByText(/1 tableau vide non listé/)).toBeTruthy();
-    expect(screen.getByText(/3 cases importantes à compléter, réparties sur 1 tableau/)).toBeTruthy();
+    expect(screen.getAllByText("Virements reçus").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Tableau à remplir").length).toBeGreaterThan(0);
+    fireEvent.click(envoyer("Virements reçus")[0]);
+    await waitFor(() => expect(sendRecapSection).toHaveBeenCalledWith("c1", "virements_recus", 1));
   });
 
-  it("permet d'afficher les tableaux vides pour les envoyer au client, puis de les masquer", () => {
+  it.each(["envoye", "repondu"])("clôture directement une demande %s", async (recapStatut) => {
+    rendre({ ...collecte, sections: [{ onglet: "virements_recus", recapStatut }] } as unknown as CollecteFull);
+    expect(screen.queryByRole("button", { name: "Transmettre au client : Virements reçus" })).toBeNull();
+    fireEvent.click(cloturer("Virements reçus")[0]);
+    await waitFor(() => expect(closeRecapSection).toHaveBeenCalledWith("c1", "virements_recus"));
+    expect(success).toHaveBeenCalledWith("Demande « Virements reçus » clôturée");
+  });
+
+  it("verrouille toutes les mutations pendant une transmission pour éviter les doublons", async () => {
+    let terminer!: () => void;
+    sendRecapSection.mockImplementation(() => new Promise<void>((resolve) => { terminer = resolve; }));
+    rendre({ ...collecte, sections: [{ onglet: "virements_recus", recapStatut: "envoye" }] } as unknown as CollecteFull);
+    const boutons = envoyer();
+    fireEvent.click(boutons[0]);
+    expect(boutons.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    expect(cloturer("Virements reçus").every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    expect((screen.getByRole("button", { name: "Ajouter" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(boutons[1]);
+    fireEvent.click(cloturer("Virements reçus")[0]);
+    expect(sendRecapSection).toHaveBeenCalledTimes(1);
+    expect(closeRecapSection).not.toHaveBeenCalled();
+    await act(async () => terminer());
+    await waitFor(() => expect((envoyer()[0] as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it("permet de réessayer après un échec d'envoi sans annoncer un succès", async () => {
+    sendRecapSection.mockRejectedValueOnce(new Error("Connexion interrompue"));
     rendre();
-    expect(screen.queryAllByText("Virements reçus")).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "Afficher pour les envoyer" }));
-    expect(screen.getAllByText("Virements reçus").length).toBeGreaterThan(0);
-    expect(screen.getByText(/1 tableau vide affiché : envoyez-le/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Masquer les tableaux vides" }));
-    expect(screen.queryAllByText("Virements reçus")).toHaveLength(0);
+    fireEvent.click(envoyer()[0]);
+    await waitFor(() => expect((envoyer()[0] as HTMLButtonElement).disabled).toBe(false));
+    expect(success).not.toHaveBeenCalled();
+    fireEvent.click(envoyer()[0]);
+    await waitFor(() => expect(sendRecapSection).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(1));
   });
 
-  it("garde un tableau vide dont une demande a déjà été envoyée, pour pouvoir la clore", () => {
-    const envoye = { ...collecte, sections: [{ onglet: "virements_recus", recapStatut: "envoye" }] } as unknown as CollecteFull;
-    rendre(envoye);
-    expect(screen.getAllByText("Virements reçus").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /Clore/ }).length).toBeGreaterThan(0);
+  it("conserve la demande après un échec de clôture", async () => {
+    closeRecapSection.mockRejectedValueOnce(new Error("Connexion interrompue"));
+    rendre({ ...collecte, sections: [{ onglet: "virements_recus", recapStatut: "repondu" }] } as unknown as CollecteFull);
+    fireEvent.click(cloturer("Virements reçus")[0]);
+    await waitFor(() => expect((cloturer("Virements reçus")[0] as HTMLButtonElement).disabled).toBe(false));
+    expect(success).not.toHaveBeenCalled();
+    expect(screen.getAllByText("Réponse reçue").length).toBeGreaterThan(0);
   });
 
-  it("opens the exact requested field for the client", () => {
-    const requested = {
-      ...collecte,
-      statut: "valide",
-      onglets: ["souche_cheques"],
-      sections: [{ onglet: "souche_cheques", statut: "valide", recapStatut: "envoye" }],
-    } as unknown as CollecteFull;
+  it("ne propose pas de demande pour un tableau sans case manquante", () => {
+    rendre({ ...collecte, onglets: ["souche_cheques"], lignes: [{ ...collecte.lignes[0], data: { ...collecte.lignes[0].data, num_cheque: "1", motif: "Achat", observations: "RAS" } }] });
+    expect(screen.queryByRole("button", { name: /Transmettre au client/ })).toBeNull();
+    expect(screen.getAllByText("Aucune case manquante").length).toBeGreaterThan(0);
+  });
+
+  it("donne accès aux cases précises sans imposer le détail avant l'envoi", () => {
     const onNavigate = vi.fn();
-    render(<RecapTab collecte={requested} canManageRecap={false} isClient onNavigate={onNavigate} />);
-    fireEvent.click(screen.getAllByRole("button", { name: /Aller à Ligne 1 · N° Chèque/ })[0]);
+    rendre(collecte, onNavigate);
+    fireEvent.click(screen.getAllByRole("button", { name: "Voir le détail de Souche de chèques" })[0]);
+    const detail = screen.getAllByRole("region", { name: "Détail de « Souche de chèques »" })[0];
+    expect(within(detail).getByText("Ligne 1")).toBeTruthy();
+    fireEvent.click(within(detail).getByRole("button", { name: "Ouvrir la ligne 1, N° Chèque, dans Souche de chèques" }));
     expect(onNavigate).toHaveBeenCalledWith("souche_cheques", { ordre: 0, col: "num_cheque" });
-  });
-
-  it("dit qu'il n'y a rien à envoyer quand tous les tableaux sont vides", () => {
-    rendre({ ...collecte, lignes: [] } as unknown as CollecteFull);
-    expect(screen.getByText("Aucun tableau à envoyer pour le moment.")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Voir le détail/ })).toBeNull();
+    expect(envoyer().length).toBeGreaterThan(0);
   });
 
   it("ouvre et referme un seul détail à la fois", () => {
-    const deux = {
-      ...collecte,
-      lignes: [...collecte.lignes, { id: "l9", onglet: "virements_recus", ordre: 0, data: { date: "2026-01-06", emetteur: "", reference: "", montant: 5, compte_bancaire: "" } }],
-    } as unknown as CollecteFull;
-    rendre(deux);
-    fireEvent.click(detailBoutons()[0]);
-    fireEvent.click(detailBoutons()[1]);
-    const noms = new Set(screen.getAllByRole("region", { name: /Détail de/ }).map((r) => r.getAttribute("aria-label")));
+    rendre();
+    fireEvent.click(screen.getAllByRole("button", { name: "Voir le détail de Souche de chèques" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Voir le détail de Virements reçus" })[0]);
+    const noms = new Set(screen.getAllByRole("region", { name: /Détail de/ }).map((region) => region.getAttribute("aria-label")));
     expect([...noms]).toEqual(["Détail de « Virements reçus »"]);
-    fireEvent.click(screen.getAllByRole("button", { name: /Masquer le détail de/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Masquer le détail de Virements reçus" })[0]);
     expect(screen.queryByRole("region", { name: /Détail de/ })).toBeNull();
   });
 });
 
+describe("Récap : droits et archives", () => {
+  it.each([{ canManageRecap: false, isClient: false }, { canManageRecap: false, isClient: true }, { canManageRecap: true, isClient: true }])("ne rend pas le récap hors de l'espace administrateur (%j)", (permissions) => {
+    const { container } = render(<RecapTab collecte={collecte} {...permissions} onNavigate={vi.fn()} />);
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("garde une collecte archivée consultable sans mutations ni ajout de note", () => {
+    rendre({ ...collecte, statut: "archive", sections: [{ onglet: "virements_recus", recapStatut: "envoye" }] } as unknown as CollecteFull);
+    expect(screen.getByRole("heading", { name: "Récap" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Transmettre au client|Clôturer|Ajouter/ })).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getAllByText("Archivé").length).toBeGreaterThan(0);
+  });
+
+  it("masque les mutations d'un seul tableau archivé sans bloquer les autres", () => {
+    rendre({ ...collecte, sections: [{ onglet: "virements_recus", recapStatut: "envoye", statut: "archive" }] } as unknown as CollecteFull);
+    expect(screen.queryByRole("button", { name: "Clôturer la demande : Virements reçus" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Transmettre au client : Virements reçus" })).toBeNull();
+    expect(envoyer().length).toBeGreaterThan(0);
+  });
+
+  it("exclut le tableau réservé au cabinet des demandes client", () => {
+    rendre({ ...collecte, onglets: ["etat_cheques_emis"] });
+    expect(screen.getByText("Aucun tableau destiné au client dans cette collecte.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Transmettre au client/ })).toBeNull();
+  });
+});
+
+describe("Récap : notes générales", () => {
+  it("ajoute la note puis vide le champ uniquement après succès", async () => {
+    rendre();
+    const input = screen.getByRole("textbox", { name: "Nouvelle note générale" });
+    fireEvent.change(input, { target: { value: "  Merci de vérifier les montants.  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter" }));
+    await waitFor(() => expect(addNote).toHaveBeenCalledWith("c1", "", "Merci de vérifier les montants."));
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe(""));
+  });
+
+  it("conserve le texte après un échec pour permettre de réessayer", async () => {
+    addNote.mockRejectedValueOnce(new Error("Connexion interrompue"));
+    rendre();
+    const input = screen.getByRole("textbox", { name: "Nouvelle note générale" });
+    fireEvent.change(input, { target: { value: "À vérifier" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter" }));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Ajouter" }) as HTMLButtonElement).disabled).toBe(false));
+    expect((input as HTMLInputElement).value).toBe("À vérifier");
+  });
+});
+
 describe("Récap : bordereaux à compléter", () => {
-  it("signale au cabinet un bordereau dont le montant n'est pas atteint ou est dépassé", () => {
+  it("transmet un bordereau dont toutes les cases sont remplies mais le montant reste à répartir", async () => {
+    const ligne = { id: "b0", onglet: "bordereaux_remise_cheques", ordre: 0, data: {
+      date_remise: "2026-10-10", num_bordereau: "3339", banque: "BIAT", num_cheque: "1", client_emetteur: "X",
+      date_echeance: "2026-11-01", observations: "ok", montant: 6660, montant_cheque: 1000,
+    } };
+    rendre({ ...collecte, onglets: ["bordereaux_remise_cheques"], lignes: [ligne] });
+    expect(screen.getAllByText("Montant à vérifier").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("À transmettre").length).toBeGreaterThan(0);
+    fireEvent.click(envoyer("Bordereaux remise de chèques")[0]);
+    await waitFor(() => expect(sendRecapSection).toHaveBeenCalledWith("c1", "bordereaux_remise_cheques", 0));
+  });
+
+  it("signale un montant de bordereau incomplet ou dépassé au cabinet", () => {
     const ligne = (ordre: number, data: Record<string, unknown>) => ({ id: `b${ordre}`, onglet: "bordereaux_remise_cheques", ordre, data });
     const base = { date_remise: "2026-10-10", num_bordereau: "3339", banque: "BIAT", num_cheque: "1", client_emetteur: "X", date_echeance: "2026-11-01", observations: "ok" };
-    const c = {
-      ...collecte,
-      onglets: ["bordereaux_remise_cheques"],
-      lignes: [ligne(0, { ...base, montant: 6660, montant_cheque: 40000 })],
-    } as unknown as CollecteFull;
+    const c = { ...collecte, onglets: ["bordereaux_remise_cheques"], lignes: [ligne(0, { ...base, montant: 6660, montant_cheque: 40000 })] } as unknown as CollecteFull;
     rendre(c);
     expect(screen.getAllByText(/Bordereau 3339 : dépassé de 33\s340,000 TND/).length).toBeGreaterThan(0);
     cleanup();
@@ -128,7 +194,7 @@ describe("Récap : bordereaux à compléter", () => {
     expect(screen.getAllByText(/Bordereau 3339 : il reste 5\s660,000 TND à répartir/).length).toBeGreaterThan(0);
   });
 
-  it("ne dit rien d'un bordereau complet", () => {
+  it("ne signale pas d'écart pour un bordereau réparti en entier", () => {
     const ligne = { id: "b0", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-10-10", num_bordereau: "1", montant: 100, montant_cheque: 100 } };
     rendre({ ...collecte, onglets: ["bordereaux_remise_cheques"], lignes: [ligne] } as unknown as CollecteFull);
     expect(screen.queryByText(/il reste|dépassé/)).toBeNull();

@@ -36,7 +36,7 @@ function renderGrid(key: string, onSave = vi.fn().mockResolvedValue(undefined), 
 }
 
 const lignes = () => Array.from(document.querySelectorAll<HTMLTableRowElement>("tbody tr[data-row]"));
-const champs = (ligne: HTMLElement) => Array.from(ligne.querySelectorAll<HTMLInputElement>("input"));
+const champs = (ligne: HTMLElement) => Array.from(ligne.querySelectorAll<HTMLInputElement>('input:not([type="file"])'));
 const ajouter = () => {
   const generic = screen.queryByRole("button", { name: "Ajouter une ligne" });
   // Un bordereau existant a un seul bouton d'ajout, lié à sa fiche de suivi.
@@ -90,6 +90,7 @@ describe("CollecteGrid : ajout de lignes directement dans le tableau", () => {
     expect(lignes()).toHaveLength(1);
 
     fireEvent.change(champs(lignes()[0])[1], { target: { value: "REM-1" } });
+    fireEvent.change(champs(lignes()[0])[4], { target: { value: "CHQ-1" } });
     fireEvent.keyDown(dernier(), { key: "Enter" });
     expect(lignes()).toHaveLength(2);
     // Entrée prolonge désormais le bordereau en cours, sans créer un nouveau groupe.
@@ -124,6 +125,24 @@ describe("CollecteGrid : ajout de lignes directement dans le tableau", () => {
     act(() => ref.current?.discard());
     expect(ref.current?.isDirty()).toBe(false);
     expect(screen.queryByDisplayValue("Client")).toBeNull();
+  });
+
+  it("protège la saisie et les actions du circuit tant que l'enregistrement est en cours", async () => {
+    let finishSave!: () => void;
+    const onSave = vi.fn(() => new Promise<void>((resolve) => { finishSave = resolve; }));
+    const { ref } = renderGrid("virements_recus", onSave, {
+      workflowActions: <button type="button">Transférer au cabinet</button>,
+    });
+    ajouter();
+    fireEvent.change(champs(lignes()[0])[1], { target: { value: "Client" } });
+    let pending!: Promise<void>;
+    act(() => { pending = ref.current!.save(); });
+    expect(champs(lignes()[0])[1].matches(":disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Ajouter une ligne" }).matches(":disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Transférer au cabinet" }).matches(":disabled")).toBe(true);
+    await act(async () => { finishSave(); await pending; });
+    expect(champs(lignes()[0])[1].matches(":disabled")).toBe(false);
+    expect(screen.getByDisplayValue("Client")).toBeTruthy();
   });
 
   it("garde le solde initial saisi dans la première ligne d'un état de caisse, les suivantes calculent le leur", () => {
@@ -165,6 +184,16 @@ describe("CollecteGrid : barre d'actions épurée", () => {
     expect(within(barre).getByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ })).toBeTruthy();
     expect(within(barre).queryByRole("button", { name: "Nouveau bordereau" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Ajouter un chèque" })).toBeNull();
+  });
+
+  it("garde le circuit accessible dans la barre fixe d'un tableau en consultation", () => {
+    renderGrid("virements_recus", undefined, {
+      readOnly: true,
+      workflowActions: <button type="button">Valider ce tableau</button>,
+    });
+    const barre = screen.getByRole("region", { name: "Suivi et actions du tableau" });
+    expect(within(barre).getByRole("button", { name: "Valider ce tableau" })).toBeTruthy();
+    expect(within(barre).queryByRole("button", { name: "Enregistrer" })).toBeNull();
   });
 });
 

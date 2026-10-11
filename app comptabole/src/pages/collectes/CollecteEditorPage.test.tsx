@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { CollecteFull } from "@/types";
 import { COLLECTE_TAB_KEYS, TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { CollecteEditorPage } from "./CollecteEditorPage";
 
-const { saveLignes, fetchOne, clearCurrent, collecte, perms, update, setStatut, submitRecap } = vi.hoisted(() => {
+const { saveLignes, fetchOne, clearCurrent, collecte, perms, update, setStatut, submitRecap, transmettreSection } = vi.hoisted(() => {
   const collecte = {
     id: "collecte-1",
     societeId: "soc-1",
@@ -33,6 +33,7 @@ const { saveLignes, fetchOne, clearCurrent, collecte, perms, update, setStatut, 
     update: vi.fn().mockResolvedValue(undefined),
     setStatut: vi.fn().mockResolvedValue(undefined),
     submitRecap: vi.fn().mockResolvedValue(undefined),
+    transmettreSection: vi.fn().mockResolvedValue(undefined),
     saveLignes: vi.fn().mockResolvedValue(undefined),
     fetchOne: vi.fn().mockResolvedValue(undefined),
     clearCurrent: vi.fn(),
@@ -45,10 +46,12 @@ vi.mock("@/hooks/usePermissions", () => ({
 vi.mock("@/store/data", () => ({
   useSocietes: () => [{ id: "soc-1", raisonSociale: "Société test" }],
 }));
-vi.mock("@/store/collectes", () => ({
-  useCollectes: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({ current: collecte, loadingOne: false, fetchOne, clearCurrent, saveLignes, update, setStatut, submitRecap }),
-}));
+vi.mock("@/store/collectes", () => {
+  const getState = () => ({ current: collecte, loadingOne: false, fetchOne, clearCurrent, saveLignes, update, setStatut, submitRecap, transmettreSection });
+  return {
+    useCollectes: Object.assign((selector: (state: Record<string, unknown>) => unknown) => selector(getState()), { getState }),
+  };
+});
 
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
@@ -61,6 +64,8 @@ beforeEach(() => {
   saveLignes.mockReset().mockResolvedValue(undefined);
   setStatut.mockReset().mockResolvedValue(undefined);
   submitRecap.mockReset().mockResolvedValue(undefined);
+  transmettreSection.mockReset().mockResolvedValue(undefined);
+  update.mockClear();
 });
 
 afterEach(() => {
@@ -76,14 +81,16 @@ afterEach(() => {
 });
 
 function renderPage(path = "/collectes/collecte-1") {
-  render(
+  const page = () => (
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/collectes/:id" element={<CollecteEditorPage />} />
         <Route path="/collectes" element={<p>Liste des collectes</p>} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
+  const rendered = render(page());
+  return { ...rendered, refresh: () => rendered.rerender(page()) };
 }
 
 function openBordereaux() {
@@ -124,6 +131,7 @@ function choisirTableau(name: string) {
 }
 
 function ajouterTableau(name: string) {
+  ouvrirSection("Checklist");
   fireEvent.click(screen.getByRole("button", { name: /Ajouter un tableau/ }));
   const dialog = screen.getByRole("dialog", { name: "Ajouter un tableau" });
   fireEvent.click(within(dialog).getByRole("button", { name }));
@@ -147,6 +155,12 @@ function stageRow() {
   fireEvent.change(cases[1], { target: { value: "REM-42" } });
 }
 
+function pendingSave() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 describe("Collecte : onglets de feuille et actions visibles", () => {
   it("place la navigation avant le contenu et garde une seule section active", () => {
     renderPage();
@@ -155,7 +169,8 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     // La navigation reste visible avant la longue zone de saisie.
     expect(nav.compareDocumentPosition(contenu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent);
-    expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);
+    expect(noms.slice(0, 3)).toEqual(["Récap", "Checklist", "Documents"]);
+    expect(screen.getByRole("heading", { name: "Récap" })).toBeTruthy();
     // Les 14 tableaux sont accessibles dans un sélecteur groupé sans seconde barre latérale.
     optionTableau("Bordereaux remise de chèques");
     expect(screen.getByRole("option", { name: /Souche de chèques/ })).toBeTruthy();
@@ -193,6 +208,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
 
   it("la checklist propose au cabinet d'ajouter les tableaux pas encore demandés, états compris", async () => {
     renderPage();
+    ouvrirSection("Checklist");
     fireEvent.click(screen.getByRole("button", { name: /Ajouter un tableau/ }));
     const zone = screen.getByRole("dialog", { name: "Ajouter un tableau" });
     // Les deux tableaux de l'état des chèques sont déjà demandés : ils ne sont pas proposés.
@@ -202,12 +218,13 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "etat_cheques_emis", "traites_escomptees", "souche_cheques"] }));
   });
 
-  it("garde une navigation horizontale et repliable sur toutes les tailles", () => {
+  it("garde les sections du cabinet et le choix des tableaux dans une seule navigation", () => {
     renderPage();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
-    expect(nav.className).toContain("flex-wrap");
-    expect(nav.className).toContain("border-b");
-    expect(nav.className).not.toContain("xl:flex-col");
+    expect(within(nav).getByRole("button", { name: "Checklist" })).toBeTruthy();
+    expect(within(nav).getByRole("button", { name: "Documents" })).toBeTruthy();
+    expect(within(nav).getByRole("combobox", { name: "Choisir un tableau" })).toBeTruthy();
+    expect(screen.getAllByRole("navigation", { name: "Sections du dossier" })).toHaveLength(1);
   });
 
   it("keeps all 14 accounting tables reachable in the grouped selector", () => {
@@ -221,29 +238,39 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     fermerSelecteurTableaux();
   });
 
-  it("affiche directement les actions de collecte dans l'en-tête bleu", () => {
+  it("regroupe les actions secondaires sous Outils et garde la validation directement visible", () => {
+    collecte.statut = "transmis";
     renderPage();
     const bandeau = document.querySelector('[data-tour="collecte-identity"]') as HTMLElement;
-    expect(bandeau.className).toContain("bg-primary");
-    expect(within(bandeau).getByRole("button", { name: /Tout en Excel/ })).toBeTruthy();
-    expect(within(bandeau).getByRole("button", { name: /Modifier la collecte/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Actions" })).toBeNull();
+    expect(within(bandeau).getByRole("button", { name: "Valider la collecte" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Tout en Excel/ })).toBeNull();
+    fireEvent.keyDown(within(bandeau).getByRole("button", { name: "Outils" }), { key: "Enter" });
+    expect(screen.getByRole("menuitem", { name: /Tout en Excel/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Modifier la collecte/ })).toBeTruthy();
   });
 
-  it("sépare l'enregistrement de la transmission finale côté client", async () => {
+  it("enregistre le client dans son tableau, puis transmet uniquement ce tableau au cabinet", async () => {
     perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
     collecte.onglets = ["virements_recus"];
+    collecte.sections = [{ id: "s", onglet: "virements_recus", statut: "a_corriger", recapStatut: "none", motifRenvoi: "Compléter l'émetteur" } as never];
+    collecte.lignes = [{ id: "l1", onglet: "virements_recus", ordre: 0, data: { date: "2026-09-02", emetteur: "", reference: "VIR-1", montant: 100, compte_bancaire: "Banque", observations: "RAS" } }];
+    saveLignes.mockImplementation(async (_id, onglet, lignes) => {
+      collecte.lignes = lignes.map((ligne: { ordre: number; data: Record<string, unknown> }) => ({ ...ligne, id: `l${ligne.ordre + 1}`, onglet }));
+    });
     renderPage("/collectes/collecte-1?tab=virements_recus");
-
-    fireEvent.click(screen.getByRole("button", { name: "Enregistrer et vérifier" }));
-    expect(await screen.findByRole("heading", { name: "Vérifiez votre collecte" })).toBeTruthy();
+    fireEvent.change(document.querySelector<HTMLInputElement>('tbody [data-col="emetteur"]')!, { target: { value: "Client A" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Virements reçus" })).toBeTruthy());
+    expect(screen.queryByRole("heading", { name: "Récap" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Vérifiez votre collecte" })).toBeNull();
     expect(setStatut).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Transmettre au cabinet" }));
-    const confirm = await screen.findByRole("dialog", { name: "Transmettre la collecte au cabinet ?" });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer et transférer au cabinet" }));
+    const confirm = await screen.findByRole("dialog", { name: "Transférer ce tableau au cabinet ?" });
+    expect(transmettreSection).not.toHaveBeenCalled();
+    fireEvent.click(within(confirm).getByRole("button", { name: "Transférer" }));
+    await waitFor(() => expect(transmettreSection).toHaveBeenCalledWith("collecte-1", "virements_recus", false));
     expect(setStatut).not.toHaveBeenCalled();
-    fireEvent.click(within(confirm).getByRole("button", { name: "Transmettre" }));
-    await waitFor(() => expect(setStatut).toHaveBeenCalledWith("collecte-1", "transmis"));
   });
 
   it("ouvre un tableau en un seul clic sur son onglet", () => {
@@ -257,7 +284,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(outils.compareDocumentPosition(tableau) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("ouvre directement une table prioritaire pour le rôle et respecte un lien partagé vers une section", async () => {
+  it("ouvre le Récap pour l'admin et respecte un lien partagé vers un tableau", async () => {
     collecte.statut = "transmis";
     collecte.sections = [
       { id: "s0", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" },
@@ -265,7 +292,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
       { id: "s1", onglet: "souche_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "transmis", transmisLe: null, valideLe: null, motifRenvoi: "" },
     ];
     renderPage();
-    await waitFor(() => expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page"));
+    await waitFor(() => expect(sectionButton("Récap").getAttribute("aria-current")).toBe("page"));
 
     cleanup();
     renderPage("/collectes/collecte-1?tab=etat_cheques_emis");
@@ -294,8 +321,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(within(region).getByRole("button", { name: "Télécharger" })).toBeTruthy();
   });
 
-  it("focuses the exact accounting field when the client chooses it from the recap", async () => {
-    perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
+  it("ouvre et cible la case exacte lorsque l'admin choisit un manque depuis le Récap", async () => {
     collecte.statut = "valide";
     collecte.sections = [
       { id: "s1", onglet: "souche_cheques", commentaire: "", recapStatut: "envoye", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "valide", transmisLe: null, valideLe: null, motifRenvoi: "" },
@@ -304,7 +330,8 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
       { id: "l1", onglet: "souche_cheques", ordre: 0, data: { date: "2026-09-01", num_cheque: "", beneficiaire: "Client", motif: "", montant: 25, compte_bancaire: "TND" } },
     ];
     renderPage("/collectes/collecte-1?tab=recap");
-    fireEvent.click(screen.getAllByRole("button", { name: /Aller à Ligne 1 · N° Chèque/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Voir le détail de Souche de chèques" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Ouvrir la ligne 1, N° Chèque, dans Souche de chèques" })[0]);
     await waitFor(() => expect(document.activeElement?.getAttribute("data-col")).toBe("num_cheque"));
   });
 });
@@ -383,11 +410,16 @@ describe("Collecte requested-table navigation guard", () => {
   });
 
   it("waits for the existing save before switching sections", async () => {
+    const pending = pendingSave();
+    saveLignes.mockReturnValueOnce(pending.promise);
     renderPage();
     openBordereaux();
     stageRow();
     ouvrirSection("Souche de chèques");
     await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
+    expect(sectionButton("Bordereaux remise de chèques").getAttribute("aria-current")).toBe("page");
+    expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
+    await act(async () => { pending.resolve(); await pending.promise; });
     await waitFor(() => expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page"));
   });
 
@@ -400,6 +432,56 @@ describe("Collecte requested-table navigation guard", () => {
     await waitFor(() => expect(screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("brouillon n’a pas été enregistré"))).toBe(true));
     expect(sectionButton("Bordereaux remise de chèques").getAttribute("aria-current")).toBe("page");
     expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
+  });
+});
+
+describe("Collecte : enregistrement de l'admin vers le Récap", () => {
+  it("attend la sauvegarde réussie avant d'ouvrir le Récap et conserve la saisie pendant l'attente", async () => {
+    const pending = pendingSave();
+    saveLignes.mockReturnValueOnce(pending.promise);
+    renderPage();
+    openBordereaux();
+    stageRow();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer et voir le récap" }));
+    await waitFor(() => expect(saveLignes).toHaveBeenCalledWith("collecte-1", "bordereaux_remise_cheques", expect.arrayContaining([
+      expect.objectContaining({ data: expect.objectContaining({ num_bordereau: "REM-42" }) }),
+    ])));
+    expect(sectionButton("Bordereaux remise de chèques").getAttribute("aria-current")).toBe("page");
+    expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Récap" })).toBeNull();
+    await act(async () => { pending.resolve(); await pending.promise; });
+    expect(await screen.findByRole("heading", { name: "Récap" })).toBeTruthy();
+    expect(sectionButton("Récap").getAttribute("aria-current")).toBe("page");
+    expect(saveLignes).toHaveBeenCalledOnce();
+  });
+
+  it("reste sur le tableau après un échec et permet de réessayer avec la même ligne", async () => {
+    saveLignes.mockRejectedValueOnce(new Error("network"));
+    renderPage();
+    openBordereaux();
+    stageRow();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer et voir le récap" }));
+    await waitFor(() => expect(screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("brouillon n’a pas été enregistré"))).toBe(true));
+    expect(screen.queryByRole("heading", { name: "Récap" })).toBeNull();
+    expect(sectionButton("Bordereaux remise de chèques").getAttribute("aria-current")).toBe("page");
+    expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer et voir le récap" }));
+    expect(await screen.findByRole("heading", { name: "Récap" })).toBeTruthy();
+    expect(saveLignes).toHaveBeenCalledTimes(2);
+    expect(saveLignes.mock.calls[1][2]).toEqual(saveLignes.mock.calls[0][2]);
+  });
+
+  it("enregistre un bordereau incomplet sans interrompre l'admin avant le Récap", async () => {
+    renderPage();
+    openBordereaux();
+    stageRow();
+    fireEvent.change(document.querySelector<HTMLInputElement>('tbody [data-col="montant"]')!, { target: { value: "60000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer et voir le récap" }));
+    expect(screen.queryByRole("dialog", { name: "Répartition incomplète" })).toBeNull();
+    expect(await screen.findByRole("heading", { name: "Récap" })).toBeTruthy();
+    expect(saveLignes).toHaveBeenCalledWith("collecte-1", "bordereaux_remise_cheques", expect.arrayContaining([
+      expect.objectContaining({ data: expect.objectContaining({ num_bordereau: "REM-42", montant: 60000 }) }),
+    ]));
   });
 });
 
@@ -422,7 +504,8 @@ describe("Collecte : circuit par tableau", () => {
     ouvrirSection("Bordereaux remise de chèques");
     expect(screen.getByRole("button", { name: "Ajouter une ligne" })).toBeTruthy();
     expect(screen.queryByText(/uniquement les cases marquées/)).toBeNull();
-    expect(screen.getByRole("button", { name: "Enregistrer et vérifier" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Enregistrer et voir le récap" })).toBeNull();
   });
 
   it("un récap envoyé sur un tableau transmis ou validé le rouvre : le client peut modifier et ajouter des lignes", () => {
@@ -438,10 +521,14 @@ describe("Collecte : circuit par tableau", () => {
 
   it("le cabinet voit les statuts de chaque table et peut traiter celle qui est transmise", () => {
     collecte.sections = [section("souche_cheques", "transmis"), section("bordereaux_remise_cheques", "valide")];
+    collecte.lignes = ["souche_cheques", "bordereaux_remise_cheques"].map((onglet) => ({
+      id: `ligne-${onglet}`, onglet, ordre: 0,
+      data: Object.fromEntries(TAB_BY_KEY[onglet].columns.map((col) => [col.key, col.type === "number" ? 1 : col.type === "date" ? "2026-09-01" : "Test"])),
+    }));
     renderPage();
     const options = [optionTableau("Bordereaux remise de chèques"), optionTableau("Souche de chèques")];
-    expect(options[0].querySelector('[title="Validé"]')).toBeTruthy();
-    expect(options[1].querySelector('[title="Transmis au cabinet"]')).toBeTruthy();
+    expect(options[0].textContent).toContain("Validé");
+    expect(options[1].textContent).toContain("À examiner");
     fermerSelecteurTableaux();
     ouvrirSection("Souche de chèques");
     expect(screen.getByRole("button", { name: "Valider ce tableau" })).toBeTruthy();
@@ -451,7 +538,7 @@ describe("Collecte : circuit par tableau", () => {
     expect(screen.getByRole("button", { name: "Archiver ce tableau" })).toBeTruthy();
   });
 
-  it("masque les chèques émis dans la navigation client tout en gardant la consultation directe", () => {
+  it("masque les chèques émis dans la navigation client et refuse aussi leur accès par lien direct", () => {
     client();
     collecte.sections = [{ ...(section("bordereaux_remise_cheques", "brouillon") as object), recapStatut: "envoye" } as never];
     renderPage();
@@ -464,8 +551,8 @@ describe("Collecte : circuit par tableau", () => {
 
     cleanup();
     renderPage("/collectes/collecte-1?tab=etat_cheques_emis");
-    expect(screen.getAllByText(/vous pouvez le consulter, pas le modifier/).length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "État des chèques émis" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Bordereaux remise de chèques" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Enregistrer et vérifier" })).toBeNull();
   });
 
@@ -503,23 +590,23 @@ describe("Collecte : avertissement de répartition réservé au responsable de s
     collecte.lignes = [entete] as never;
     renderPage();
     ouvrirSection("Bordereaux remise de chèques");
-    fireEvent.click(sectionButton("Souche de chèques"));
+    ouvrirSection("Souche de chèques");
     expect(screen.queryByText("Répartition incomplète")).toBeNull();
     expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page");
   });
 
   it("interrompt le responsable de société, avec un texte adapté à un dépassement", () => {
     perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
-    collecte.sections = [section as never];
+    collecte.sections = [section as never, { ...section, id: "s2", onglet: "souche_cheques" } as never];
     collecte.lignes = [entete, { id: "l2", onglet: "bordereaux_remise_cheques", ordre: 1, data: { ...entete.data, montant: "", montant_cheque: 40000 } }] as never;
     renderPage();
     ouvrirSection("Bordereaux remise de chèques");
-    fireEvent.click(sectionButton("Récap"));
+    ouvrirSection("Souche de chèques");
     expect(screen.getByText("Montants à vérifier")).toBeTruthy();
     expect(screen.getByText(/une faute de frappe/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Vérifier" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Continuer quand même" }));
-    expect(sectionButton("Récap").getAttribute("aria-current")).toBe("page");
+    expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page");
   });
 });
 
@@ -534,16 +621,12 @@ describe("Collecte : espace limité du responsable de société", () => {
     perms.current = { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true };
   });
 
-  it("n'a que le Récap et les tableaux à compléter dans la barre : ni Checklist, ni Documents, ni Historique", () => {
+  it("n'a que le choix des tableaux demandés dans la barre, sans aucune section du cabinet", () => {
     devenirClient();
     collecte.sections = [sectionOuverte as never];
     renderPage();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
-    const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent ?? "");
-    expect(noms.some((n) => n.startsWith("Checklist"))).toBe(false);
-    expect(noms.some((n) => n.startsWith("Documents"))).toBe(false);
-    expect(noms.some((n) => n.startsWith("Historique"))).toBe(false);
-    expect(noms.some((n) => n.startsWith("Récap"))).toBe(true);
+    expect(within(nav).queryAllByRole("button", { hidden: true })).toHaveLength(0);
     // Les tableaux se choisissent dans le sélecteur : le tableau envoyé par le cabinet y est seul.
     fireEvent.keyDown(within(nav).getByRole("combobox", { name: "Choisir un tableau", hidden: true }), { key: "Enter", code: "Enter" });
     const proposes = screen.getAllByRole("option", { hidden: true }).map((o) => o.textContent ?? "");
@@ -563,6 +646,8 @@ describe("Collecte : espace limité du responsable de société", () => {
     expect(screen.queryByRole("button", { name: /^Excel$/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^PDF$/ })).toBeNull();
     expect(screen.queryByText(/pièces reçues/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Outils" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Transmettre au cabinet" })).toBeNull();
     expect(screen.getByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeTruthy();
   });
 
@@ -585,13 +670,68 @@ describe("Collecte : espace limité du responsable de société", () => {
     expect(await screen.findByText("Liste des collectes")).toBeTruthy();
   });
 
-  it("le cabinet garde tous ses outils", () => {
+  it.each(["recap", "verification", "checklist", "documents", "historique", "souche_cheques"])("refuse la section %s par lien direct et ouvre le tableau demandé", (tab) => {
+    devenirClient();
+    collecte.sections = [sectionOuverte as never];
+    renderPage(`/collectes/collecte-1?tab=${tab}`);
+    expect(screen.getByRole("heading", { name: "Bordereaux remise de chèques" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Récap" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Vérifiez votre collecte" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Transmettre au cabinet" })).toBeNull();
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier" });
+    expect(within(nav).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("affiche l'attente sans ouvrir de tableau lorsque le cabinet n'a rien demandé", () => {
+    devenirClient();
+    renderPage("/collectes/collecte-1?tab=bordereaux_remise_cheques");
+    expect(screen.getByText("Aucun tableau à compléter")).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Choisir un tableau" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
+  });
+
+  it("conserve le brouillon si la demande est clôturée en direct et permet de l'enregistrer avant l'attente", async () => {
+    devenirClient();
+    collecte.onglets = ["bordereaux_remise_cheques"];
+    collecte.sections = [sectionOuverte as never];
+    const page = renderPage();
+    stageRow();
+    collecte.sections = collecte.sections.map((section) => ({ ...section, recapStatut: "none" }));
+    page.refresh();
+    expect(screen.getByText(/La demande a changé/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Bordereaux remise de chèques" })).toBeTruthy();
+    expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Enregistrer et transférer au cabinet" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(saveLignes).toHaveBeenCalledWith("collecte-1", "bordereaux_remise_cheques", expect.arrayContaining([
+      expect.objectContaining({ data: expect.objectContaining({ num_bordereau: "REM-42" }) }),
+    ])));
+    expect(await screen.findByText("Aucun tableau à compléter")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Bordereaux remise de chèques" })).toBeNull();
+    expect(transmettreSection).not.toHaveBeenCalled();
+  });
+
+  it("le cabinet garde ses outils accessibles depuis le menu", () => {
     renderPage();
     const bandeau = document.querySelector('[data-tour="collecte-identity"]') as HTMLElement;
-    expect(within(bandeau).getByRole("button", { name: /Tout en Excel/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Quitter/ })).toBeNull();
+    expect(within(bandeau).getByRole("button", { name: "Outils" })).toBeTruthy();
+    expect(within(bandeau).getByRole("button", { name: "Quitter" })).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
     const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent ?? "");
-    expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);
+    expect(noms.slice(0, 3)).toEqual(["Récap", "Checklist", "Documents"]);
+  });
+});
+
+describe("Collecte : espace du collaborateur", () => {
+  it("arrive sur la checklist et ignore un lien vers le Récap réservé à l'admin", () => {
+    perms.current = { isAdmin: false, poste: "collaborateur", isCollaborateur: true, canManageCollaborateurs: false, canSeeSociete: () => true };
+    renderPage("/collectes/collecte-1?tab=recap");
+    expect(screen.getByRole("heading", { name: "Checklist" })).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier" });
+    expect(within(nav).queryByRole("button", { name: "Récap" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Récap" })).toBeNull();
+    openBordereaux();
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Enregistrer et voir le récap" })).toBeNull();
   });
 });

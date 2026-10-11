@@ -85,8 +85,8 @@ async function loadCollecte(id) {
 
 /** Cabinet (admin ou collaborateur du périmètre de cette société) — jamais
  * le client. L'équipe qui a accès à une collecte doit pouvoir y agir comme
- * le cabinet : ajouter des notes, envoyer/clore un récap par tableau — pas
- * seulement consulter. */
+ * le cabinet : ajouter des notes, valider ou renvoyer les tableaux — pas
+ * seulement consulter. Le récap reste réservé à l'administrateur. */
 function isCabinet(session, societeId) {
   if (session.role === "admin") return true;
   if (session.poste === "responsable_collaborateurs") return true;
@@ -99,7 +99,7 @@ function isCabinet(session, societeId) {
 /** Gestion "admin" d'une collecte (statuts, période/devise/onglets/échéance,
  * relance) : réservée à l'admin ET au responsable des collaborateurs — pas
  * à un simple collaborateur, qui garde les droits plus limités d'`isCabinet`
- * (récap par tableau, notes). */
+ * (circuit des tableaux, notes). */
 function isCabinetManager(session) {
   return session.role === "admin" || session.poste === "responsable_collaborateurs";
 }
@@ -683,19 +683,15 @@ collectesRouter.post("/:id/notes", async (req, res) => {
  * côté client, pas figées ici) — indépendant des autres tableaux, jamais
  * un envoi global pour toute la collecte.
  */
-collectesRouter.post("/:id/sections/:onglet/recap/send", async (req, res) => {
-  const c = (await query("select * from collectes where id = $1", [req.params.id]))
-    .rows[0];
-  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
-  if (!isCabinet(req.session, c.societe_id))
-    return res.status(403).json({ error: "Réservé au cabinet" });
-  const onglet = req.params.onglet;
-  if (!(Array.isArray(c.onglets) ? c.onglets : []).includes(onglet))
-    return res.status(400).json({ error: "Onglet non demandé dans cette collecte" });
+collectesRouter.post("/:id/sections/:onglet/recap/send", requireAdmin, async (req, res) => {
+  const ctx = await chargerSection(req, res);
+  if (!ctx) return;
+  const { c, onglet, statut, socNom } = ctx;
+  if (statut === "archive")
+    return res.status(400).json({ error: "Tableau archivé : désarchivez-le d'abord" });
+  if (CABINET_SEUL.includes(onglet))
+    return res.status(400).json({ error: "Ce tableau est tenu par le cabinet" });
   const count = Number(req.body?.count) || 0;
-  const soc = (
-    await query("select raison_sociale from societes where id = $1", [c.societe_id])
-  ).rows[0];
 
   await query(
     `insert into collecte_sections (collecte_id, onglet, recap_statut)
@@ -706,17 +702,14 @@ collectesRouter.post("/:id/sections/:onglet/recap/send", async (req, res) => {
   );
   await withTransaction((client) => recalculerStatut(client, req.params.id));
 
-  logAction(req.session.nom, "modification", "collecte", `Récap « ${onglet} » envoyé — ${soc?.raison_sociale ?? ""} ${periodeLabel(c.periode)}`, req.params.id);
-  // L'admin est toujours tenu au courant de ce que fait l'équipe sur une
-  // collecte — includeAdmin seulement quand ce n'est pas lui l'auteur, pour
-  // ne jamais se notifier soi-même.
+  logAction(req.session.nom, "modification", "collecte", `Récap « ${onglet} » envoyé — ${socNom} ${periodeLabel(c.periode)}`, req.params.id);
   const targets = (
-    await concernedBySociete(c.societe_id, { includeAdmin: req.session.role !== "admin" })
+    await concernedBySociete(c.societe_id, { includeAdmin: false })
   ).filter((k) => k !== notifKey(req.session));
   notifyMany(
     targets,
     "collecte",
-    `Récap à compléter : ${soc?.raison_sociale ?? ""} — ${periodeLabel(c.periode)}`,
+    `Récap à compléter : ${socNom} — ${periodeLabel(c.periode)}`,
     `« ${onglet} » — ${count} case(s) à remplir`,
     `/collectes/${req.params.id}`,
   );
@@ -752,17 +745,17 @@ collectesRouter.post("/:id/recap/submit", async (req, res) => {
   res.json(await loadCollecte(req.params.id));
 });
 
-/** Le cabinet (admin ou collaborateur) clôt le récap d'UN tableau précis
+/** L'administrateur clôt le récap d'UN tableau précis
  * (retour à l'état normal). */
-collectesRouter.post("/:id/sections/:onglet/recap/close", async (req, res) => {
-  const c = (await query("select * from collectes where id = $1", [req.params.id]))
-    .rows[0];
-  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
-  if (!isCabinet(req.session, c.societe_id))
-    return res.status(403).json({ error: "Réservé au cabinet" });
+collectesRouter.post("/:id/sections/:onglet/recap/close", requireAdmin, async (req, res) => {
+  const ctx = await chargerSection(req, res);
+  if (!ctx) return;
+  const { c, onglet, statut } = ctx;
+  if (statut === "archive")
+    return res.status(400).json({ error: "Tableau archivé : désarchivez-le d'abord" });
   await query(
     "update collecte_sections set recap_statut = 'none' where collecte_id = $1 and onglet = $2",
-    [req.params.id, req.params.onglet],
+    [req.params.id, onglet],
   );
   logAction(
     req.session.nom,
@@ -771,19 +764,6 @@ collectesRouter.post("/:id/sections/:onglet/recap/close", async (req, res) => {
     `Récap « ${req.params.onglet} » clôturé — ${periodeLabel(c.periode)}`,
     req.params.id,
   );
-  // Admin informé quand c'est l'équipe (pas lui) qui a agi.
-  if (req.session.role !== "admin") {
-    const soc = (
-      await query("select raison_sociale from societes where id = $1", [c.societe_id])
-    ).rows[0];
-    notify(
-      "admin",
-      "collecte",
-      `Récap « ${req.params.onglet} » clôturé — ${soc?.raison_sociale ?? ""} ${periodeLabel(c.periode)}`,
-      `Par ${req.session.nom}`,
-      `/collectes/${req.params.id}`,
-    );
-  }
   res.json(await loadCollecte(req.params.id));
 });
 

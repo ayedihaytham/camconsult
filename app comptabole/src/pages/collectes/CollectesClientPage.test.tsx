@@ -31,4 +31,13 @@ describe("page Collecte de pièces du responsable de société", () => {
     fireEvent.click(screen.getByRole("button", { name: /Voir les collectes archivées \(1\)/ }));
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
+
+  it("ne montre pas une collecte que le cabinet n'a pas envoyée (aucun tableau demandé)", () => {
+    rendre([collecte("a", "brouillon", { tableauxDemandes: 0, tableauxTransmis: 0 }), collecte("b", "transmis")]);
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.queryByText("À compléter", { selector: "span" })).toBeNull();
+    cleanup();
+    rendre([collecte("a", "brouillon", { tableauxDemandes: 0, tableauxTransmis: 0 })]);
+    expect(screen.getByText(/Aucune collecte pour le moment/)).toBeTruthy();
+  });
 });

@@ -19,11 +19,13 @@ const STATUT: Record<CollecteStatut, { label: string; tone: string; action: stri
 /** Page Collecte de pièces du responsable de société : une carte par collecte, la société dite une seule fois dans le bandeau. */
 export function CollectesClientPage({ list, loading, societeNom }: { list: Collecte[]; loading: boolean; societeNom: string | null }) {
   const [archivesOuvertes, setArchivesOuvertes] = useState(false);
+  // Seules les collectes dont le cabinet a demandé au moins un tableau existent pour le responsable de société.
+  const demandees = useMemo(() => list.filter((c) => (c.tableauxDemandes ?? 0) > 0), [list]);
   const actives = useMemo(
-    () => list.filter((c) => c.statut !== "archive").sort((a, b) => STATUT[a.statut].rank - STATUT[b.statut].rank || b.majLe.localeCompare(a.majLe)),
-    [list],
+    () => demandees.filter((c) => c.statut !== "archive").sort((a, b) => STATUT[a.statut].rank - STATUT[b.statut].rank || b.majLe.localeCompare(a.majLe)),
+    [demandees],
   );
-  const archivees = useMemo(() => list.filter((c) => c.statut === "archive").sort((a, b) => b.majLe.localeCompare(a.majLe)), [list]);
+  const archivees = useMemo(() => demandees.filter((c) => c.statut === "archive").sort((a, b) => b.majLe.localeCompare(a.majLe)), [demandees]);
   const aCompleter = actives.filter((c) => c.statut === "brouillon" || c.statut === "a_corriger").length;
   const enAttente = actives.filter((c) => c.statut === "transmis").length;
   const validees = actives.filter((c) => c.statut === "valide").length;

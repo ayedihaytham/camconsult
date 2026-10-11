@@ -240,6 +240,8 @@ async function recalculerStatut(client, collecteId) {
   return next;
 }
 
+const estClient = (session) => session.poste === "societe_employe";
+
 // ── Liste ─────────────────────────────────────────
 collectesRouter.get("/", async (req, res) => {
   const params = [];
@@ -265,8 +267,11 @@ collectesRouter.get("/", async (req, res) => {
       )
     ).rows.map((r) => [r.collecte_id, r]),
   );
+  // Un compte de société cliente ne voit une collecte que si le cabinet lui a demandé (Récap) ou renvoyé au moins un tableau : une collecte
+  // créée mais pas encore envoyée, ou vide, n'existe pas pour lui.
+  const visibles = estClient(req.session) ? rows.filter((r) => (comptes.get(r.id)?.demandes ?? 0) > 0) : rows;
   res.json(
-    rows.map((r) => ({
+    visibles.map((r) => ({
       ...collecteDto(r),
       tableauxTransmis: comptes.get(r.id)?.transmis ?? 0,
       tableauxValides: comptes.get(r.id)?.valides ?? 0,
@@ -282,6 +287,16 @@ collectesRouter.get("/:id", async (req, res) => {
   if (!full) return res.status(404).json({ error: "Collecte introuvable" });
   if (!canSeeSociete(req.session, full.societeId))
     return res.status(403).json({ error: "Collecte hors périmètre" });
+  if (estClient(req.session)) {
+    const demandes = (
+      await query(
+        `select count(*)::int as n from collecte_sections
+          where collecte_id = $1 and onglet <> all($2::text[]) and (recap_statut <> 'none' or statut <> 'brouillon')`,
+        [req.params.id, CABINET_SEUL],
+      )
+    ).rows[0].n;
+    if (demandes === 0) return res.status(404).json({ error: "Collecte introuvable" });
+  }
   res.json(full);
 });
 
@@ -330,8 +345,12 @@ collectesRouter.post("/", async (req, res) => {
       includeAdmin: req.session.role !== "admin",
     })
   ).filter((k) => k !== notifKey(req.session));
+  // Le responsable de société n'est prévenu qu'au moment où le cabinet lui envoie un tableau (Récap) : avant, la collecte n'existe pas pour lui.
+  const clients = new Set(
+    (await query("select id from employes where role = 'societe_employe' and societe_id = $1", [v.societeId])).rows.map((r) => r.id),
+  );
   notifyMany(
-    targets,
+    targets.filter((k) => !clients.has(k)),
     "collecte",
     `Nouvelle collecte à remplir : ${periodeLabel(v.periode)}`,
     `Société ${soc.raison_sociale} — ${onglets.length} tableau(x) demandé(s)${

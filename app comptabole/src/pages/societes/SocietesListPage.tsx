@@ -362,17 +362,16 @@ export function SocietesListPage() {
       const creee = await addSociete(values);
       logJournal("creation", "societe", values.raisonSociale);
       toast.success("Société créée", { description: values.raisonSociale });
-      // Son arborescence documentaire standard est prête dès la création : son responsable la trouve dans Structuration.
-      try {
-        await provisionnerArborescenceSociete({
+      // Son arborescence documentaire standard se prépare en arrière-plan : la création de la société n'attend pas, et un compte
+      // qui ne peut pas déposer de fichiers ne reçoit aucune erreur.
+      if (isAdmin || can("deposerFichiers")) {
+        void provisionnerArborescenceSociete({
           noeuds: useData.getState().noeuds,
           addNoeud,
           updateNoeud,
           societeId: creee.id,
           societeLibelle: creee.raisonSociale,
-        });
-      } catch {
-        toast.error("Société créée, mais son arborescence n'a pas pu être préparée.", { description: "Instanciez-la depuis Structuration." });
+        }).catch(() => undefined);
       }
     }
   }

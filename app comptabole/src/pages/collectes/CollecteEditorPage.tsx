@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   BellRing,
   CheckCircle2,
+  ChevronDown,
   Download,
   Eye,
   File as FileIcon,
@@ -20,6 +21,7 @@ import {
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocietes } from "@/store/data";
@@ -27,8 +29,8 @@ import { useCollectes } from "@/store/collectes";
 import { COLLECTE_STATUT_LABELS, TAB_BY_KEY, ordonnerTableaux } from "@/lib/collecte/tabs";
 import { checklistRows } from "@/lib/collecte/checklist";
 import { computeManques } from "@/lib/collecte/manques";
-import { aggregateRecapStatut, sectionRecapStatut } from "@/lib/collecte/recap";
-import { estDemande, sectionOuverte, sectionStatut } from "@/lib/collecte/sections";
+import { sectionRecapStatut } from "@/lib/collecte/recap";
+import { sectionOuverte, sectionStatut, tableauxVisiblesClient } from "@/lib/collecte/sections";
 import {
   downloadCollecteSectionPdf,
   exportCollecteSectionXlsx,
@@ -40,7 +42,6 @@ import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { CollecteFull, CollecteJournalEntry, CollecteStatut } from "@/types";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { CollecteChecklist } from "./CollecteChecklist";
-import { CollecteClientVerification } from "./CollecteClientVerification";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { RecapTab } from "./RecapTab";
 import { OngletNotes } from "./OngletNotes";
@@ -81,7 +82,6 @@ export function CollecteEditorPage() {
   const saveComment = useCollectes((s) => s.saveComment);
   const saveSuivi = useCollectes((s) => s.saveSuivi);
   const marquerRecu = useCollectes((s) => s.marquerRecu);
-  const submitRecap = useCollectes((s) => s.submitRecap);
   const transmettreSection = useCollectes((s) => s.transmettreSection);
   const validerSection = useCollectes((s) => s.validerSection);
   const renvoyerSection = useCollectes((s) => s.renvoyerSection);
@@ -94,15 +94,14 @@ export function CollecteEditorPage() {
   const fetchJournal = useCollectes((s) => s.fetchJournal);
 
   const [confirm, setConfirm] = useState<
-    null | "transmis" | "valide" | "a_corriger" | "archive" | "reopen"
+    null | "valide" | "a_corriger" | "archive" | "reopen"
   >(null);
   const [editOpen, setEditOpen] = useState(false);
   const [tab, setTab] = useState("checklist");
   const [focusTarget, setFocusTarget] = useState<{ table: string; ordre: number | null; col: string | null; revision: number } | undefined>();
   const focusRevision = useRef(0);
   const gridRef = useRef<CollecteGridHandle>(null);
-  const transmittedBeforeRecapRef = useRef(false);
-  const [, setDirtyTableau] = useState(false);
+  const [dirtyTableau, setDirtyTableau] = useState(false);
   const [incomplet, setIncomplet] = useState<{ next: string; message: string; manque: boolean; target?: { ordre: number | null; col: string | null } } | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState(false);
@@ -140,31 +139,37 @@ export function CollecteEditorPage() {
       .finally(() => setJournalLoading(false));
   }, [tab, id, fetchJournal]);
 
-  const currentRecap = collecte ? aggregateRecapStatut(collecte) : "none";
   const initializedFor = useRef("");
   function focusTableCell(table: string, target: { ordre: number | null; col: string | null }) {
     focusRevision.current += 1;
     setFocusTarget({ table, ...target, revision: focusRevision.current });
   }
   useEffect(() => {
-    if (!collecte || initializedFor.current === collecte.id) return;
-    initializedFor.current = collecte.id;
+    if (!collecte) return;
     const requested = searchParams.get("tab");
-    const validRequested = requested === "checklist" || requested === "recap" || requested === "documents" ||
-      (requested === "verification" && !isAdmin) ||
+    const client = poste === "societe_employe";
+    const ordered = ordonnerTableaux(client ? tableauxVisiblesClient(collecte) : collecte.onglets);
+    const context = `${collecte.id}:${isAdmin}:${poste}`;
+    const retainedDraft = client && dirtyTableau && collecte.onglets.includes(tab) && !TAB_BY_KEY[tab]?.cabinetSeul;
+    const accessible = retainedDraft || ordered.includes(tab) || (client
+      ? tab === "attente" && ordered.length === 0
+      : tab === "recap" ? isAdmin : ["checklist", "documents"].includes(tab) || (tab === "historique" && isStaff));
+    // Une demande reçue en direct doit ouvrir un tableau même si le client attendait sans tableau.
+    if (initializedFor.current === context && accessible) return;
+    initializedFor.current = context;
+    const validRequested = (requested === "recap" && isAdmin) ||
+      (!client && ["checklist", "documents"].includes(requested ?? "")) ||
       (requested === "historique" && (isAdmin || isStaff)) ||
-      (requested ? collecte.onglets.includes(requested) : false);
-    const ordered = ordonnerTableaux(collecte.onglets);
+      (requested ? ordered.includes(requested) : false);
     const recapTarget = ordered.find((key) => sectionRecapStatut(collecte, key) === "envoye");
-    const nextTarget = poste === "societe_employe"
-      ? recapTarget ?? ordered.find((key) => estDemande(collecte, key))
+    const nextTarget = client
+      ? recapTarget ?? ordered.find((key) => sectionOuverte(sectionStatut(collecte, key))) ?? ordered[0]
       : ordered.find((key) => sectionStatut(collecte, key) === "transmis") ?? ordered.find((key) => sectionStatut(collecte, key) === "a_corriger");
-    // Le responsable de société n'a ni checklist ni documents : sans tableau demandé, il arrive sur le Récap.
-    const next = validRequested && !(poste === "societe_employe" && ["checklist", "documents", "historique"].includes(requested!))
+    const next = validRequested
       ? requested!
-      : (poste === "societe_employe" ? recapTarget ?? nextTarget ?? "recap" : nextTarget ?? "checklist");
+      : client ? nextTarget ?? "attente" : isAdmin ? "recap" : nextTarget ?? "checklist";
     setTab(next);
-    if (!validRequested && poste === "societe_employe" && !["checklist", "recap", "documents", "verification", "historique"].includes(next)) {
+    if (!validRequested && client && ordered.includes(next)) {
       const manque = computeManques(collecte).find((item) => item.onglet === next);
       if (manque) focusTableCell(next, { ordre: manque.ordre, col: manque.col });
     }
@@ -173,7 +178,7 @@ export function CollecteEditorPage() {
       updated.set("tab", next);
       return updated;
     }, { replace: true });
-  }, [collecte?.id, searchParams, setSearchParams, isAdmin, isStaff, poste]);
+  }, [collecte, searchParams, setSearchParams, isAdmin, isStaff, poste, tab, dirtyTableau]);
 
   if (!collecte) {
     return (
@@ -232,18 +237,10 @@ export function CollecteEditorPage() {
     const st = sectionStatut(collecte, key);
     return !archivee && st !== "archive" && (isAdmin || isStaff || (isClient && sectionOuverte(st) && !TAB_BY_KEY[key]?.cabinetSeul));
   };
-  // Cabinet = admin ou collaborateur : peut envoyer/clore un récap par
-  // tableau et écrire des notes — pas réservé à l'admin.
-  const canManageRecap = isAdmin || isStaff;
-
-  // Mode « complétion récap » côté client : au moins un tableau a été
-  // envoyé par le cabinet (chaque tableau se déverrouille indépendamment
-  // des autres — voir sectionRecapStatut plus bas, utilisé par tableau).
-  const clientRecap = poste === "societe_employe" && currentRecap === "envoye";
-  // L'envoi final se fait depuis l'écran de vérification, après l'enregistrement du tableau.
-  // Une réponse de récap reste distincte et garde son propre workflow.
-  const canSubmit = !isAdmin && !archivee && (sectionsOuvertes || clientRecap);
-  const canTransmitCollecte = canSubmit && (collecte.statut === "brouillon" || collecte.statut === "a_corriger");
+  const canManageRecap = isAdmin;
+  const requestedTables = isClient ? tableauxVisiblesClient(collecte) : collecte.onglets;
+  const retainedDraft = isClient && dirtyTableau && collecte.onglets.includes(tab) && !TAB_BY_KEY[tab]?.cabinetSeul && !requestedTables.includes(tab);
+  const visibleTables = retainedDraft ? [...requestedTables, tab] : requestedTables;
 
   // Cases importantes vides détectées EN DIRECT, par onglet.
   const liveManques = computeManques(collecte);
@@ -268,19 +265,6 @@ export function CollecteEditorPage() {
   const showFlagsFor = (key: string) =>
     !archivee &&
     (canManageCollaborateurs || sectionRecapStatut(collecte, key) !== "none");
-  // Le client ne peut renvoyer un récap au cabinet qu'une fois TOUTES les
-  // cases « ? » des tableaux demandés remplies et enregistrées — le cabinet
-  // ne reçoit jamais de récap à moitié complété à clôturer.
-  // Un tableau encore ouvert (à remplir ou à corriger) se transfère même incomplet : seuls comptent les tableaux
-  // déjà transmis pour lesquels le cabinet attend des cases précises.
-  const recapRestant = clientRecap
-    ? liveManques.filter(
-        (m) =>
-          sectionRecapStatut(collecte, m.onglet) === "envoye" &&
-          !sectionOuverte(sectionStatut(collecte, m.onglet)),
-      ).length
-    : 0;
-
   const rows = checklistRows(collecte);
   const recus = rows.filter((r) => r.recu).length;
   const monogram = socNom
@@ -293,6 +277,7 @@ export function CollecteEditorPage() {
   const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
 
   function requestTab(next: string, forcer = false, target?: { ordre: number | null; col: string | null }) {
+    if (next === "recap" && !isAdmin) return;
     if (next === tab) return;
     if (savingDraft) return;
     // Un bordereau dont les chèques n'atteignent pas le montant annoncé : on prévient avant de passer à autre chose.
@@ -314,7 +299,6 @@ export function CollecteEditorPage() {
   function completeNavigation(next: string, target?: { ordre: number | null; col: string | null }) {
     if (next === "__back__") navigate("/collectes");
     else if (next === "__preview__") setPreview((value) => !value);
-    else if (next === "__confirm_transmis__") setConfirm("transmis");
     else if (next === "__confirm_valide__") setConfirm("valide");
     else if (next === "__confirm_archive__") setConfirm("archive");
     else if (next === "__confirm_a_corriger__") setConfirm("a_corriger");
@@ -331,9 +315,14 @@ export function CollecteEditorPage() {
   }
 
   /** Avant de transférer un tableau : enregistre ce qui est en cours, puis dit ce qui manque encore (chaîne vide si complet). */
-  async function preparerTransfert(key: string): Promise<string> {
+  async function saveActiveTable(key: string) {
     const grille = tab === key ? gridRef.current : null;
     if (grille?.isDirty()) await grille.save();
+  }
+
+  async function preparerTransfert(key: string): Promise<string> {
+    const grille = tab === key ? gridRef.current : null;
+    await saveActiveTable(key);
     const courant = useCollectes.getState().current;
     if (!courant) return "";
     const morceaux: string[] = [];
@@ -361,49 +350,30 @@ export function CollecteEditorPage() {
     }
   }
 
-  async function saveAndVerifyTable() {
+  async function saveAndOpenRecap() {
     const grille = gridRef.current;
-    if (!grille) return;
-    if (!grille.isComplete()) {
-      setIncomplet({ next: "recap", message: grille.incompleteMessage(), manque: grille.ecart().manque });
-      return;
-    }
+    if (!grille || savingDraft) return;
+    setSavingDraft(true);
+    setDraftError(false);
     try {
       await grille.save();
       setDirtyTableau(false);
       completeNavigation("recap");
     } catch {
+      setDraftError(true);
       toast.error("Enregistrement impossible. Corrigez le problème puis réessayez.");
+    } finally {
+      setSavingDraft(false);
     }
   }
 
   async function applyStatut(s: CollecteStatut) {
-    if (!transmittedBeforeRecapRef.current) {
-      await setStatut(id, s);
-      if (s === "transmis" && clientRecap)
-        transmittedBeforeRecapRef.current = true;
-    }
-    // Une transmission peut coïncider avec un récap par tableau déjà en
-    // attente (le cabinet en a envoyé un avant que le client n'ait jamais
-    // transmis) — sans ce second appel, le bouton ne faisait QUE l'un des
-    // deux selon `clientRecap`, obligeant à cliquer deux fois : une
-    // première fois qui ne transmettait rien (juste le récap, avec un
-    // message trompeur), puis une seconde pour la vraie transmission.
-    if (s === "transmis" && clientRecap) {
-      await submitRecap(id);
-    }
-    transmittedBeforeRecapRef.current = false;
+    await setStatut(id, s);
     setConfirm(null);
     toast.success(
-      s === "transmis"
-        ? "Collecte transmise au cabinet"
-        : s === "valide"
-          ? confirm === "reopen"
-            ? "Collecte désarchivée"
-            : "Collecte validée"
-          : s === "archive"
-            ? "Collecte archivée"
-            : "Collecte rouverte (à corriger)",
+      s === "valide"
+        ? confirm === "reopen" ? "Collecte désarchivée" : "Collecte validée"
+        : s === "archive" ? "Collecte archivée" : "Collecte rouverte (à corriger)",
     );
   }
 
@@ -411,7 +381,7 @@ export function CollecteEditorPage() {
     <div>
       <header
         data-tour="collecte-identity"
-        className="rounded-xl bg-primary px-4 py-3.5 text-primary-foreground shadow-sm sm:px-5"
+        className="rounded-lg bg-primary px-3 py-3 text-primary-foreground sm:px-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -419,7 +389,7 @@ export function CollecteEditorPage() {
               {monogram}
             </span>
             <div className="min-w-0">
-              <h1 className="truncate font-serif text-2xl font-medium leading-tight tracking-tight text-primary-foreground">{socNom}</h1>
+              <h1 className="truncate text-lg font-semibold leading-tight tracking-tight text-primary-foreground">{socNom}</h1>
               <p className="mt-0.5 truncate text-xs text-primary-foreground/75">
                 {[codeSociete, collecte.periode.trim(), "Collecte de pièces"].filter(Boolean).join(" · ")}
               </p>
@@ -441,37 +411,45 @@ export function CollecteEditorPage() {
             {collecte.echeance && (
               <span className="text-xs text-primary-foreground/85">Échéance {formatDate(collecte.echeance)}{enRetard ? " · dépassée" : ""}</span>
             )}
-            {isClient && (
-              <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => requestTab("__back__")}>
-                <LogOut className="size-4" /> Quitter
-              </Button>
+            {!isClient && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button data-tour="collecte-tools" variant="outline" size="sm" disabled={savingDraft} className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+                    Outils <ChevronDown className="size-3.5" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => void exportCollecteXlsx(collecte, socNom).catch(() => toast.error("Export impossible"))}>
+                    <Download className="size-4" /> Tout en Excel
+                  </DropdownMenuItem>
+                  {isAdmin && !archivee && liveManques.length > 0 && (
+                    <DropdownMenuItem onSelect={() => requestTab("__preview__")}>
+                      <Eye className="size-4" /> {preview ? "Quitter l'aperçu client" : "Aperçu client"}
+                    </DropdownMenuItem>
+                  )}
+                  {canManageCollaborateurs && (
+                    <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                      <SlidersHorizontal className="size-4" /> Modifier la collecte
+                    </DropdownMenuItem>
+                  )}
+                  {canManageCollaborateurs && enAttente && (
+                    <DropdownMenuItem disabled={relancing} onSelect={() => {
+                      setRelancing(true);
+                      void relanceNow(id).then(() => toast.success("Relance envoyée au client")).catch(() => {}).finally(() => setRelancing(false));
+                    }}>
+                      <BellRing className="size-4" /> {relancing ? "Envoi…" : "Relancer maintenant"}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
+            <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" disabled={savingDraft} onClick={() => requestTab("__back__")}>
+              <LogOut className="size-4" /> Quitter
+            </Button>
           </div>
         </div>
-        {!isClient && (
-          <div data-tour="collecte-tools" className="mt-3 flex flex-wrap items-center gap-2 border-t border-primary-foreground/20 pt-3">
-            {/* Les actions sont toutes visibles : aucune action de collecte n'est dissimulée dans un menu. */}
-            <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => void exportCollecteXlsx(collecte, socNom).catch(() => toast.error("Export impossible"))}>
-              <Download className="size-4" /> Tout en Excel
-            </Button>
-            {isAdmin && !archivee && liveManques.length > 0 && (
-              <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => requestTab("__preview__")}>
-                <Eye className="size-4" /> {preview ? "Quitter l'aperçu client" : "Aperçu client"}
-              </Button>
-            )}
-            {canManageCollaborateurs && (
-              <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setEditOpen(true)}>
-                <SlidersHorizontal className="size-4" /> Modifier la collecte
-              </Button>
-            )}
-            {canManageCollaborateurs && enAttente && (
-              <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" disabled={relancing} onClick={() => {
-                setRelancing(true);
-                void relanceNow(id).then(() => toast.success("Relance envoyée au client")).catch(() => {}).finally(() => setRelancing(false));
-              }}>
-                <BellRing className="size-4" /> {relancing ? "Envoi…" : "Relancer maintenant"}
-              </Button>
-            )}
+        {!isClient && canManageCollaborateurs && (collecte.statut === "transmis" || validee || archivee) && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-primary-foreground/20 pt-2">
             {canManageCollaborateurs && collecte.statut === "transmis" && (
               <>
                 <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-primary-foreground text-primary hover:bg-primary-foreground/90" onClick={() => requestTab("__confirm_valide__")}><CheckCircle2 className="size-4" /> Valider la collecte</Button>
@@ -492,7 +470,7 @@ export function CollecteEditorPage() {
       </header>
       {(savingDraft || draftError) && (
         <p role={draftError ? "alert" : "status"} aria-live="polite" className={cn("mt-2 rounded-lg border px-3 py-2 text-xs", draftError ? "border-destructive/25 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary")}>
-          {draftError ? "Le brouillon n’a pas été enregistré. Restez sur ce tableau et réessayez." : "Enregistrement du brouillon avant le changement de section…"}
+          {draftError ? "Le brouillon n’a pas été enregistré. Restez sur ce tableau et réessayez." : "Enregistrement en cours…"}
         </p>
       )}
       {preview && (
@@ -502,11 +480,12 @@ export function CollecteEditorPage() {
       )}
 
       <Tabs value={tab} onValueChange={requestTab}>
-        <div className="mt-3 min-w-0 rounded-xl border border-border bg-card">
+        <div className="mt-2 min-w-0 rounded-lg border border-border bg-card">
           <CollecteWorkNavigation
             collecte={collecte}
             active={tab}
             isClient={isClient}
+            canSeeRecap={isAdmin}
             canVerify={false}
             canSeeHistory={isAdmin || isStaff}
             missingByTable={manqueCount}
@@ -515,52 +494,19 @@ export function CollecteEditorPage() {
             onSelect={requestTab}
           />
           <main data-tour="collecte-content" className="min-w-0">
-            <TabsContent value="recap" className="m-0">
-              <SectionHeader
-                title="Récap"
-                description="Demandes ciblées par tableau"
-              />
-              <div className="space-y-4 p-3 lg:p-4">
-                {isClient && (
-                  <CollecteClientVerification
-                    collecte={collecte}
-                    rows={rows}
-                    canTransmit={canTransmitCollecte}
-                    canSubmitRecap={clientRecap && !archivee && !isAdmin}
-                    recapPending={clientRecap}
-                    recapRemaining={recapRestant}
-                    onTransmit={() => requestTab("__confirm_transmis__")}
-                    onSubmitRecap={() => { void submitRecap(id).then(() => toast.success("Précisions transmises au cabinet")).catch(() => {}); }}
-                    onOpenTable={(key) => requestTab(key)}
-                  />
-                )}
-                <RecapTab
-                  collecte={collecte}
-                  canManageRecap={canManageRecap}
-                  isClient={poste === "societe_employe"}
-                  onNavigate={(key, target) => requestTab(key, false, target)}
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="verification" className="m-0">
-              <CollecteClientVerification
-                collecte={collecte}
-                rows={rows}
-                canTransmit={canTransmitCollecte}
-                canSubmitRecap={clientRecap && !archivee && !isAdmin}
-                recapPending={clientRecap}
-                recapRemaining={recapRestant}
-                onTransmit={() => requestTab("__confirm_transmis__")}
-                onSubmitRecap={() => {
-                  void submitRecap(id).then(() => toast.success("Précisions transmises au cabinet")).catch(() => {});
-                }}
-                onOpenTable={(key) => requestTab(key)}
-              />
-            </TabsContent>
+            {isAdmin && (
+              <TabsContent value="recap" className="m-0">
+                <RecapTab collecte={collecte} canManageRecap={canManageRecap} isClient={false} onNavigate={(key, target) => requestTab(key, false, target)} />
+              </TabsContent>
+            )}
+            {isClient && visibleTables.length === 0 && (
+              <TabsContent value="attente" className="m-0 p-4 sm:p-6">
+                <EmptyState icon={CheckCircle2} title="Aucun tableau à compléter" description="Les tableaux apparaîtront ici dès que le cabinet vous les transmettra." />
+              </TabsContent>
+            )}
 
             {/* ── Checklist ─────────────────────────── */}
-            <TabsContent value="checklist" className="m-0">
+            {!isClient && <TabsContent value="checklist" className="m-0">
               <SectionHeader
                 title="Checklist"
                 description={
@@ -595,10 +541,10 @@ export function CollecteEditorPage() {
                   }}
                 />
               )}
-            </TabsContent>
+            </TabsContent>}
 
             {/* ── Documents (pièces jointes réelles) ─── */}
-            <TabsContent value="documents" className="m-0">
+            {!isClient && <TabsContent value="documents" className="m-0">
               <SectionHeader
                 title="Documents"
                 description="Scans et PDF liés à cette collecte"
@@ -678,19 +624,29 @@ export function CollecteEditorPage() {
                   ))}
                 </ul>
               )}
-            </TabsContent>
+            </TabsContent>}
 
             {/* ── Onglets de saisie ─────────────────── */}
-            {collecte.onglets.map((key) => {
+            {visibleTables.map((key) => {
               const def = TAB_BY_KEY[key];
               if (!def) return null;
+              const motifRenvoi = collecte.sections.find((section) => section.onglet === key)?.motifRenvoi ?? "";
               return (
                 <TabsContent key={key} value={key} className="m-0">
                   <SectionHeader
                     title={def.label}
                     description={isClient ? (def.aide ?? "Tableau à compléter") : "Tableau de saisie · chiffres et justificatifs"}
                   />
-                  <div className="space-y-4 p-3 lg:p-4">
+                  <div className="space-y-3 p-2 sm:p-3">
+                    {retainedDraft && tab === key && (
+                      <p role="status" className="border-b border-warning/25 px-2 py-2 text-sm text-foreground">La demande a changé pendant votre saisie. Vos modifications restent affichées : enregistrez-les avant de quitter.</p>
+                    )}
+                    {!preview && sectionStatut(collecte, key) === "a_corriger" && motifRenvoi && (
+                      <div role="note" className="rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-foreground">
+                        <p className="font-semibold">Correction demandée par le cabinet</p>
+                        <p className="mt-1 whitespace-pre-wrap break-words">{motifRenvoi}</p>
+                      </div>
+                    )}
                     {!preview && !archivee && def.cabinetSeul && (
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-muted/20 px-3 py-2">
                         <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-muted-foreground">Tenu par le cabinet</span>
@@ -720,36 +676,6 @@ export function CollecteEditorPage() {
                           </Button>
                         )}
                       </div>
-                    )}
-                    {!preview && (!archivee || sectionStatut(collecte, key) === "archive") && !def.cabinetSeul && (
-                      <SectionCircuit
-                        label={def.label}
-                        statut={sectionStatut(collecte, key)}
-                        motifRenvoi={collecte.sections.find((x) => x.onglet === key)?.motifRenvoi ?? ""}
-                        isClient={isClient}
-                        canArchive={canManageCollaborateurs}
-                        preparerTransfert={() => preparerTransfert(key)}
-                        onTransmettre={async (incomplet) => {
-                          await transmettreSection(id, key, incomplet);
-                          toast.success(`« ${def.label} » transmis au cabinet`);
-                        }}
-                        onValider={async () => {
-                          await validerSection(id, key);
-                          toast.success(`« ${def.label} » validé`);
-                        }}
-                        onRenvoyer={async (motif) => {
-                          await renvoyerSection(id, key, motif);
-                          toast.success(`« ${def.label} » renvoyé au client`);
-                        }}
-                        onArchiver={async () => {
-                          await archiverSection(id, key);
-                          toast.success(`« ${def.label} » archivé`);
-                        }}
-                        onDesarchiver={async () => {
-                          await desarchiverSection(id, key);
-                          toast.success(`« ${def.label} » désarchivé`);
-                        }}
-                      />
                     )}
                     {!preview && collecte.fichiers.some((fichier) => !fichier.onglet || fichier.onglet === key) && (
                       <DocumentsDuTableau
@@ -800,7 +726,44 @@ export function CollecteEditorPage() {
                           highlight={hl}
                           wholeEditable={inRecap && whole}
                           focusTarget={focusTarget?.table === key ? focusTarget : undefined}
-                          saveAndContinue={isClient && (editableTab(key) || inRecap) ? saveAndVerifyTable : undefined}
+                          saveAndContinue={isAdmin && editableTab(key) ? saveAndOpenRecap : undefined}
+                          continueLabel="Enregistrer et voir le récap"
+                          workflowActions={
+                            !preview && !retainedDraft && (!archivee || sectionStatut(collecte, key) === "archive") && !def.cabinetSeul && (
+                              <SectionCircuit
+                                compact
+                                label={def.label}
+                                statut={sectionStatut(collecte, key)}
+                                motifRenvoi={motifRenvoi}
+                                isClient={isClient}
+                                canArchive={canManageCollaborateurs}
+                                preparerTransfert={() => preparerTransfert(key)}
+                                onTransmettre={async (incomplet) => {
+                                  await transmettreSection(id, key, incomplet);
+                                  toast.success(`« ${def.label} » transmis au cabinet`);
+                                }}
+                                onValider={async () => {
+                                  await saveActiveTable(key);
+                                  await validerSection(id, key);
+                                  toast.success(`« ${def.label} » validé`);
+                                }}
+                                onRenvoyer={async (motif) => {
+                                  await saveActiveTable(key);
+                                  await renvoyerSection(id, key, motif);
+                                  toast.success(`« ${def.label} » renvoyé au client`);
+                                }}
+                                onArchiver={async () => {
+                                  await saveActiveTable(key);
+                                  await archiverSection(id, key);
+                                  toast.success(`« ${def.label} » archivé`);
+                                }}
+                                onDesarchiver={async () => {
+                                  await desarchiverSection(id, key);
+                                  toast.success(`« ${def.label} » désarchivé`);
+                                }}
+                              />
+                            )
+                          }
                           exportActions={isClient ? undefined : <SectionExport collecte={collecte} section={key} societeNom={socNom} />}
                           flagged={
                             !inRecap && showFlagsFor(key) ? hl : undefined
@@ -841,7 +804,7 @@ export function CollecteEditorPage() {
                       collecteId={id}
                       onglet={key}
                       notes={collecte.notes}
-                      canWrite={canManageRecap || poste === "societe_employe"}
+                      canWrite={isAdmin || isStaff || isClient}
                     />
                   </div>
                 </TabsContent>
@@ -939,7 +902,6 @@ export function CollecteEditorPage() {
         open={confirm !== null}
         onOpenChange={(o) => {
           if (!o) {
-            transmittedBeforeRecapRef.current = false;
             setConfirm(null);
           }
         }}
@@ -947,8 +909,6 @@ export function CollecteEditorPage() {
         title={
           confirm === "reopen"
             ? "Désarchiver la collecte ?"
-            : confirm === "transmis"
-              ? "Transmettre la collecte au cabinet ?"
               : confirm === "valide"
                 ? "Valider la collecte ?"
                 : confirm === "archive"
@@ -958,8 +918,6 @@ export function CollecteEditorPage() {
         description={
           confirm === "reopen"
             ? "La collecte reviendra à l'état validé."
-            : confirm === "transmis"
-              ? "Vous ne pourrez plus la modifier tant que le cabinet ne l'a pas renvoyée."
               : confirm === "valide"
                 ? "Le client de la société ne pourra plus la modifier. Vous (cabinet) pourrez encore l'ajuster, puis l'archiver."
                 : confirm === "archive"
@@ -969,8 +927,6 @@ export function CollecteEditorPage() {
         confirmLabel={
           confirm === "reopen"
             ? "Désarchiver"
-            : confirm === "transmis"
-              ? "Transmettre"
               : confirm === "valide"
                 ? "Valider"
                 : confirm === "archive"

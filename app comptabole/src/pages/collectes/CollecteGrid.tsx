@@ -42,8 +42,11 @@ interface Props {
   onVoirPiece?: (fichierId: string) => void;
   /** Case précise à reprendre depuis le récap; un tableau vide ouvre sa première ligne de saisie. */
   focusTarget?: { ordre: number | null; col: string | null; revision: number };
-  /** Action principale du client : enregistrer puis ouvrir la vérification finale. */
+  /** Enregistrement explicite du cabinet suivi du récap ; l'auto-enregistrement conserve sa destination. */
   saveAndContinue?: () => Promise<void>;
+  continueLabel?: string;
+  /** Circuit du tableau, conservé à portée de main dans la même barre fixe. */
+  workflowActions?: ReactNode;
   /** Exports de ce tableau fournis par la page (aucune logique de téléchargement dupliquée ici). */
   exportActions?: ReactNode;
 }
@@ -93,6 +96,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   onVoirPiece,
   focusTarget,
   saveAndContinue,
+  continueLabel = "Enregistrer et vérifier",
+  workflowActions,
   exportActions,
 }, ref) {
   const cellRO = (i: number, key: string) => {
@@ -420,7 +425,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const totalLabel = def.totalLabel ?? "Total";
 
   return (
-    <div className="space-y-3">
+    <fieldset disabled={saving} className="min-w-0 space-y-3" aria-label={`Saisie de ${def.label}`}>
       {def.provisional && (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           Colonnes provisoires — elles seront ajustées aux colonnes exactes de ce
@@ -430,17 +435,17 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
       {/* Le suivi et les actions sont réunis dans une seule barre sticky. La création
           d'un nouveau bordereau n'est pas exposée : on continue les groupes existants. */}
-      {(groupes.length > 0 || !readOnly || exportActions) && (
+      {(groupes.length > 0 || !readOnly || exportActions || workflowActions) && (
         <section
           data-tour="collecte-sticky-tools"
           aria-label="Suivi et actions du tableau"
-          className="sticky top-0 z-30 overflow-hidden rounded-xl border border-border bg-card shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)]"
+          className="sticky top-0 z-30 rounded-lg border border-border bg-card shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)]"
         >
           {groupes.length > 0 && (
             <div
               data-tour="collecte-repartition"
               aria-label="Avancement des bordereaux"
-              className="flex min-w-0 gap-2 overflow-x-auto border-b border-border bg-muted/30 px-3 py-2.5 md:px-4"
+              className="flex min-w-0 gap-2 overflow-x-auto border-b border-border bg-muted/30 px-3 py-2 md:px-4"
             >
               {groupes.map((g) => {
                 const pourcentage = g.total > 0 ? Math.min(100, Math.max(0, (g.reparti / g.total) * 100)) : 0;
@@ -451,12 +456,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                       "flex items-center gap-3",
                       groupes.length === 1
                         ? "min-w-0 w-full flex-1 flex-wrap px-0.5 py-0.5 sm:flex-nowrap"
-                        : "min-w-[320px] flex-1 rounded-lg border border-border/80 bg-card px-3 py-2 lg:max-w-[540px]",
+                        : "min-w-[280px] flex-1 rounded-md border border-border/80 bg-card px-3 py-2 lg:max-w-[420px]",
                     )}
                   >
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
-                        <span className="truncate text-sm font-semibold text-foreground">
+                        <span className="min-w-0 truncate text-sm font-semibold text-foreground" title={`${def.groupe?.libelle} ${g.nom}`}>
                           {def.groupe?.libelle} {g.nom}
                         </span>
                         <span
@@ -469,9 +474,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                         </span>
                       </div>
                       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        <span className="min-w-0 text-xs tabular-nums text-muted-foreground">
                           {montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe}
-                          <span className="ml-2 text-muted-foreground/70">· {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}</span>
+                          <span className="ml-2 text-muted-foreground/70"> · {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}</span>
                         </span>
                         <div
                           role="progressbar"
@@ -493,12 +498,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-9 shrink-0 gap-1.5 whitespace-nowrap border-primary/20 bg-card px-3 text-primary hover:bg-secondary"
+                        className="size-9 shrink-0 border-primary/20 bg-card p-0 text-primary hover:bg-secondary"
                         onClick={() => addRow(g.id)}
                         aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${g.nom}`}
-                        title={g.complet ? "Ce bordereau est complet : vérifiez son montant après l'ajout" : undefined}
+                        title={`${def.groupe?.ajout}${g.complet ? " — vérifiez le montant après l'ajout" : ""}`}
                       >
-                        <Plus className="size-4" aria-hidden="true" /> {def.groupe?.ajout}
+                        <Plus className="size-4" aria-hidden="true" />
                       </Button>
                     )}
                   </div>
@@ -506,12 +511,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               })}
             </div>
           )}
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 md:px-4">
+          {(!readOnly || exportActions) && <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 md:px-4">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {canAdd && (def.plageNumeros && rows.length === 0 ? null : groupes.length === 0 ? ajoutLigne() : null)}
               {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
-                <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
-                  <FileUp className="size-4" aria-hidden="true" /> Importer un document
+                <Button type="button" variant="outline" size="sm" aria-label="Importer un document" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
+                  <FileUp className="size-4" aria-hidden="true" /><span className="sm:hidden">Importer</span><span className="hidden sm:inline">Importer un document</span>
                 </Button>
               )}
             </div>
@@ -522,7 +527,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 </div>
               )}
               {!readOnly && (
-                <div className="flex flex-wrap items-center gap-2 border-l border-border pl-3">
+                <div className="flex flex-wrap items-center gap-2 sm:border-l sm:border-border sm:pl-3">
                   {saveError && <span role="alert" className="text-xs font-medium text-destructive">Échec de l'enregistrement</span>}
                   {!saveError && dirty && <span role="status" className="text-xs font-medium text-warning">Non enregistré</span>}
                   {!dirty && saved && !saveError && <span role="status" className="text-xs text-success">Enregistré</span>}
@@ -535,12 +540,13 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                     disabled={saving || (!dirty && !saveAndContinue)}
                   >
                     {saving ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-                    {saving ? "Enregistrement…" : saveAndContinue ? "Enregistrer et vérifier" : "Enregistrer"}
+                    {saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}
                   </Button>
                 </div>
               )}
             </div>
-          </div>
+          </div>}
+          {workflowActions && <div className={cn((!readOnly || exportActions || groupes.length > 0) && "border-t border-border")}>{workflowActions}</div>}
         </section>
       )}
       {canAdd && def.plageNumeros && rows.length === 0 && (() => {
@@ -907,6 +913,6 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
         <ImportDocumentDialog open={importOpen} onOpenChange={setImportOpen} def={def} devise={devise} onAjouter={addRows} />
       )}
-    </div>
+    </fieldset>
   );
 });

@@ -181,7 +181,7 @@ const TOURS = {
   },
   collecteWorkspace: {
     id: "collecte-workspace",
-    version: 1,
+    version: 2,
     title: "Dossier de collecte",
     steps: [
       {
@@ -190,12 +190,9 @@ const TOURS = {
         body: "Le titre et le statut indiquent la collecte que vous consultez.",
       },
       {
-        target: {
-          desktop: "collecte-navigation-desktop",
-          mobile: "collecte-navigation-mobile",
-        },
+        target: "collecte-navigation",
         title: "Parcourir le dossier",
-        body: "Choisissez une feuille en bas, comme dans Excel : le tableau s'affiche au-dessus. Récapitulatif, documents et tableaux demandés sont à un clic.",
+        body: "Choisissez le tableau dans le sélecteur au-dessus de la saisie. Les autres sections disponibles dépendent de votre rôle ; le Récap est réservé à l'administrateur.",
       },
       {
         target: "collecte-content",
@@ -205,12 +202,12 @@ const TOURS = {
       {
         target: "collecte-save",
         title: "Enregistrer",
-        body: "Les changements restent en préparation jusqu’à Enregistrer. La visite ne sauvegarde rien.",
+        body: "Enregistrer conserve votre saisie. L'administrateur revient ensuite au Récap pour transmettre ou clôturer une demande. Le client transfère chaque tableau depuis sa barre fixe.",
       },
       {
         target: "collecte-tools",
         title: "Actions du dossier",
-        body: "Excel, aperçu client, modification et relance sont visibles ici ; leur disponibilité dépend du statut du dossier et de vos droits.",
+        body: "Le menu Outils regroupe l'export Excel, l'aperçu client, la modification et la relance selon vos droits.",
       },
     ],
   },

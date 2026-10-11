@@ -115,7 +115,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton
               size="lg"
               tooltip="Cabinet Ayadi Mohamed"
-              className="h-12 w-full gap-2.5 rounded-md px-2.5 hover:bg-transparent active:bg-transparent group-data-[collapsible=icon]:!p-0"
+              className="h-14 w-full gap-2.5 rounded-md px-2.5 hover:bg-transparent active:bg-transparent group-data-[collapsible=icon]:!p-0"
               aria-label="Cabinet Ayadi Mohamed"
             >
               {/* Menu ouvert : logo officiel complet ; menu réduit : symbole seul. */}
@@ -124,14 +124,14 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
                 alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
                 width={1500}
                 height={382}
-                className="h-7 w-auto max-w-full group-data-[collapsible=icon]:hidden"
+                className="h-10 w-auto max-w-full group-data-[collapsible=icon]:hidden"
               />
               <img
                 src="/brand/logo-mark-cabinet-white.png"
                 alt="Cabinet Ayadi Mohamed"
                 width={256}
                 height={256}
-                className="hidden size-7 shrink-0 object-contain group-data-[collapsible=icon]:block"
+                className="hidden size-8 shrink-0 object-contain group-data-[collapsible=icon]:block"
               />
             </SidebarMenuButton>
           </SidebarMenuItem>

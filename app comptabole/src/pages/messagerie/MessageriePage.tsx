@@ -376,6 +376,7 @@ export function MessageriePage() {
     );
   }
 
+  const avecMessages = new Set(messages.map((message) => message.conversationId));
   const conversationItems: MessengerConversationItem[] =
     filteredConversations.map((conversation) => {
       const employee = conversation.employeId
@@ -398,6 +399,8 @@ export function MessageriePage() {
           : directContext || "Conversation directe",
         lastMessage: conversation.dernierMessage,
         lastMessageTime: formatTime(conversation.dernierMessageLe),
+        hasMessages: avecMessages.has(conversation.id),
+        groupe: societe?.raisonSociale ?? (isConversationGroup ? "Groupes" : "Cabinet"),
         unread: conversation.nonLus,
         initials: partnerInitials(conversation, employee),
         isGroup: isConversationGroup,

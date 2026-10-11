@@ -1,5 +1,5 @@
 import type { FormEvent, RefObject } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
@@ -65,7 +65,20 @@ export interface MessengerConversationItem {
   isGroup: boolean;
   isOnline?: boolean;
   avatarClassName: string;
+  /** Rubrique de la liste (la société) : les conversations sont rangées par rubrique quand il y en a plusieurs. */
+  groupe?: string;
+  /** Faux tant qu'aucun message n'a été échangé : la liste n'affiche alors ni heure ni dernier message. */
+  hasMessages?: boolean;
 }
+
+type FiltreConversations = "toutes" | "non_lues" | "groupes" | "sans_echange";
+
+const FILTRES: { value: FiltreConversations; label: string; garde: (c: MessengerConversationItem) => boolean }[] = [
+  { value: "toutes", label: "Toutes", garde: () => true },
+  { value: "non_lues", label: "Non lues", garde: (c) => c.unread > 0 },
+  { value: "groupes", label: "Groupes", garde: (c) => c.isGroup },
+  { value: "sans_echange", label: "Sans échange", garde: (c) => c.hasMessages === false },
+];
 
 export interface MessengerActiveConversation {
   id: string;
@@ -196,7 +209,19 @@ export function Messenger({
   onSend,
 }: MessengerProps) {
   const shouldReduceMotion = useReducedMotion();
+  const [filtre, setFiltre] = useState<FiltreConversations>("toutes");
   const liveRegionRef = useRef<HTMLDivElement>(null);
+  // Les filtres et les rubriques par société n'ont d'intérêt qu'avec assez de conversations.
+  const avecFiltres = conversations.length > 3;
+  const garde = FILTRES.find((f) => f.value === filtre)!.garde;
+  const visibles = useMemo(() => (avecFiltres ? conversations.filter(garde) : conversations), [conversations, avecFiltres, garde]);
+  const rubriques = useMemo(() => {
+    const noms = [...new Set(visibles.map((c) => c.groupe).filter((g): g is string => Boolean(g)))];
+    if (!avecFiltres || noms.length < 2) return [{ nom: null as string | null, items: visibles }];
+    return noms
+      .sort((a, b) => a.localeCompare(b, "fr", { numeric: true }))
+      .map((nom) => ({ nom: nom as string | null, items: visibles.filter((c) => c.groupe === nom) }));
+  }, [visibles, avecFiltres]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -242,6 +267,26 @@ export function Messenger({
             )}
           </div>
 
+          {avecFiltres && (
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrer les conversations">
+              {FILTRES.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  aria-pressed={filtre === f.value}
+                  onClick={() => setFiltre(f.value)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    filtre === f.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-accent",
+                  )}
+                >
+                  {f.label}
+                  <span className="ml-1 opacity-70 tabular-nums">{conversations.filter(f.garde).length}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <label htmlFor="messenger-search" className="sr-only">
             Rechercher une conversation
           </label>
@@ -262,18 +307,23 @@ export function Messenger({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          {conversations.length === 0 ? (
+          {visibles.length === 0 ? (
             <div className="flex h-full min-h-40 items-center justify-center px-4 text-center">
               <div>
                 <p className="text-sm font-medium text-foreground">Aucune conversation.</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {emptyConversationDescription}
+                  {conversations.length > 0 ? "Aucune conversation dans ce filtre." : emptyConversationDescription}
                 </p>
               </div>
             </div>
           ) : (
             <ul className="space-y-1" aria-label="Liste des conversations">
-              {conversations.map((conversation) => {
+              {rubriques.flatMap((rubrique) => [
+                ...(rubrique.nom ? [<li key={`rubrique-${rubrique.nom}`} role="presentation" className="sticky top-0 z-10 -mx-2 bg-muted px-4 py-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">{rubrique.nom}</li>] : []),
+                ...rubrique.items,
+              ]).map((entree) => {
+                if (!("id" in entree)) return entree;
+                const conversation = entree;
                 const isActive = conversation.id === selectedConversationId;
 
                 return (
@@ -301,9 +351,11 @@ export function Messenger({
                           >
                             {conversation.name}
                           </span>
-                          <span className="shrink-0 text-[11px] text-muted-foreground">
-                            {conversation.lastMessageTime}
-                          </span>
+                          {conversation.hasMessages !== false && (
+                            <span className="shrink-0 text-[11px] text-muted-foreground">
+                              {conversation.lastMessageTime}
+                            </span>
+                          )}
                         </span>
                         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                           {conversation.secondary}
@@ -317,7 +369,7 @@ export function Messenger({
                                 : "text-muted-foreground",
                             )}
                           >
-                            {conversation.lastMessage}
+                            {conversation.hasMessages === false ? "Pas encore d'échange" : conversation.lastMessage}
                           </span>
                           {conversation.unread > 0 && (
                             <Badge
@@ -670,11 +722,20 @@ export function Messenger({
           >
             <div>
               <p className="text-sm font-medium text-foreground">
-                Sélectionnez une conversation.
+                Choisissez une conversation
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Choisissez un échange dans la liste pour afficher ses messages.
+                ou démarrez un échange avec une personne de la liste.
               </p>
+              {conversations.length > 0 && (
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  {(conversations.some((c) => c.hasMessages === false) ? conversations.filter((c) => c.hasMessages === false) : conversations).slice(0, 2).map((c) => (
+                    <Button key={c.id} type="button" variant="outline" size="sm" onClick={() => onSelectConversation(c.id)}>
+                      Écrire à {c.name}
+                    </Button>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

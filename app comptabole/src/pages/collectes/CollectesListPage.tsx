@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
+import { LedgerCompactHeader } from "@/components/ledger/LedgerCompactHeader";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -169,32 +170,22 @@ export function CollectesListPage() {
 
   return (
     <div className={`flex min-w-0 flex-1 flex-col ${canCreate ? "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0" : ""}`}>
-      <header className="mb-3 rounded-lg bg-primary px-5 pt-4 text-primary-foreground">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-accent">Clients &amp; travail</p>
-            <h1 className="mt-0.5 text-2xl font-bold tracking-tight">Collecte de pièces</h1>
-          </div>
-          {canCreate && (
-            <Button type="button" variant="outline" className="min-h-10 gap-1.5 border-accent/60 bg-transparent font-semibold text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" aria-hidden="true" /> Nouvelle collecte
-            </Button>
-          )}
-        </div>
-        <dl className="mt-3 flex flex-wrap border-t border-primary-foreground/15">
-          {[
-            ...(isCabinet ? [{ label: "À examiner", value: collectionSummary.aExaminer }] : []),
-            { label: "Chez le client", value: counts.chezClient },
-            { label: "En retard", value: collectionSummary.enRetard },
-            { label: "À corriger", value: collectionSummary.aCorriger },
-          ].map((metric, index) => (
-            <div key={metric.label} className={cn("flex items-baseline gap-2 py-3 pr-5", index > 0 && "border-l border-primary-foreground/15 pl-5")}>
-              <dd className="font-serif text-xl font-bold tabular-nums">{loading ? "…" : metric.value}</dd>
-              <dt className="text-[11px] font-bold uppercase tracking-[0.09em]">{metric.label}</dt>
-            </div>
-          ))}
-        </dl>
-      </header>
+      <LedgerCompactHeader
+        className="mb-3 operational-signature-banner"
+        eyebrow="Clients & travail"
+        title="Collecte de pièces"
+        actions={canCreate && (
+          <Button data-tour="page-primary-action" type="button" variant="outline" className="module-banner__create" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" aria-hidden="true" /> Nouvelle collecte
+          </Button>
+        )}
+        metrics={[
+          ...(isCabinet ? [{ label: "À examiner", value: collectionSummary.aExaminer, loading }] : []),
+          { label: "Chez le client", value: counts.chezClient, loading },
+          { label: "En retard", value: collectionSummary.enRetard, loading },
+          { label: "À corriger", value: collectionSummary.aCorriger, loading },
+        ]}
+      />
 
       <section aria-label="Registre des collectes" className="overflow-hidden rounded-lg border border-border bg-card">
         <div data-tour="collecte-lenses" role="tablist" aria-label="Vue des collectes" className="flex gap-1 overflow-x-auto border-b border-border px-2">

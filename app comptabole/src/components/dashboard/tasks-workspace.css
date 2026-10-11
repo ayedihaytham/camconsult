@@ -2,19 +2,6 @@
 .dashboard-workspace:has(.dashboard-tasks-workspace) {
   background: color-mix(in srgb, hsl(var(--background)) 94%, hsl(var(--accent)));
 }
-.dashboard-workspace:has(.dashboard-tasks-workspace) .dashboard-command h1 {
-  font-family: inherit;
-  font-size: 26px;
-  font-weight: 650;
-}
-.dashboard-workspace:has(.dashboard-tasks-workspace) .dashboard-command-date span:first-child {
-  font-family: inherit;
-  font-size: 36px;
-}
-.dashboard-workspace:has(.dashboard-tasks-workspace) .dashboard-command-actions,
-.dashboard-workspace:has(.dashboard-tasks-workspace) .dashboard-command button {
-  font-family: inherit;
-}
 .dashboard-tasks-workspace {
   --tasks-inset: 20px;
   --tasks-paper: color-mix(in srgb, hsl(var(--background)) 98%, hsl(var(--accent)));
@@ -147,8 +134,6 @@
   .dashboard-tasks-workspace .tasks-register-row { grid-template-columns: minmax(0, 1fr) 20px; grid-template-rows: auto auto auto auto; }
   .dashboard-tasks-workspace .tasks-register-row > .task-state { grid-column: 1; grid-row: 4; margin-left: 40px; }
   .dashboard-tasks-workspace .tasks-row-arrow { grid-column: 2; grid-row: 1 / 5; }
-  .dashboard-workspace:has(.dashboard-tasks-workspace) .dashboard-command h1 { font-size: 23px; }
-  .dashboard-workspace:has(.dashboard-tasks-workspace) .dashboard-command-date span:first-child { font-size: 30px; }
 }
 
 /* Carte douce (aligne Tâches sur Mon bureau). */

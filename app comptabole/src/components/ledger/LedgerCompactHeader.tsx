@@ -1,39 +1,52 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import "./module-banner.css";
 
 export interface LedgerCompactMetric {
   label: string;
-  value: number | string;
+  value: ReactNode;
   loading?: boolean;
+  tone?: "default" | "success" | "warning" | "destructive";
+  kind?: "count" | "detail";
 }
 
 /** Bandeau marine épuré des pages de module : repère, titre, action à droite et compteurs sur une ligne. */
-export function LedgerCompactHeader({ eyebrow, title, metrics, actions, className }: {
-  eyebrow: string;
+export function LedgerCompactHeader({ eyebrow, title, metrics, actions, description, contextLabel, children, titleAs: Title = "h1", titleId, tourTarget = "page-identity", className }: {
+  eyebrow: ReactNode;
   title: string;
   metrics: LedgerCompactMetric[];
   actions?: ReactNode;
+  description?: ReactNode;
+  contextLabel?: string;
+  children?: ReactNode;
+  titleAs?: "h1" | "h2";
+  titleId?: string;
+  tourTarget?: string;
   className?: string;
 }) {
   return (
-    <header className={cn("rounded-lg bg-primary px-5 pt-4 text-primary-foreground", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-accent">{eyebrow}</p>
-          <h1 className="mt-0.5 text-2xl font-bold tracking-tight">{title}</h1>
+    <header data-tour={tourTarget} aria-labelledby={titleId} className={cn("module-banner", className)}>
+      <div className="module-banner__top">
+        <div className="module-banner__identity">
+          <p className="module-banner__eyebrow">{eyebrow}</p>
+          <Title id={titleId} className="module-banner__title">{title}</Title>
+          {description && <p className="module-banner__description">{description}</p>}
+          {contextLabel && <p className="module-banner__context">{contextLabel}</p>}
         </div>
-        {actions}
+        {actions && <div className="module-banner__actions no-print">{actions}</div>}
       </div>
       {metrics.length > 0 && (
-        <dl className="mt-3 flex flex-wrap border-t border-primary-foreground/15">
-          {metrics.map((metric, index) => (
-            <div key={metric.label} className={cn("flex items-baseline gap-2 py-3 pr-5", index > 0 && "border-l border-primary-foreground/15 pl-5")}>
-              <dd className="font-serif text-xl font-bold tabular-nums">{metric.loading ? "…" : metric.value}</dd>
-              <dt className="text-[11px] font-bold uppercase tracking-[0.09em]">{metric.label}</dt>
+        <dl className="module-banner__metrics">
+          {metrics.map((metric) => (
+            <div key={metric.label} className={cn("module-banner__metric", `module-banner__metric--${metric.tone ?? "default"}`, metric.kind === "detail" && "module-banner__metric--detail")}>
+              <dt>{metric.label}</dt>
+              <dd>{metric.loading ? <><span className="sr-only">Chargement</span><Skeleton aria-hidden="true" className="h-5 w-8 bg-primary-foreground/20 motion-reduce:animate-none" /></> : metric.value}</dd>
             </div>
           ))}
         </dl>
       )}
+      {children && <div className="module-banner__footer">{children}</div>}
     </header>
   );
 }

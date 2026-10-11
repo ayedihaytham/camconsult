@@ -24,11 +24,10 @@ describe("Signature Ledger presentation", () => {
     );
 
     expect(html).toContain("Collecte de pièces");
-    expect(html).toContain('aria-hidden="true"');
-    expect(html).toContain("signature-ledger__title");
+    expect(html).toContain("module-banner__title");
     expect(html.match(/<dt>/g)).toHaveLength(3);
-    expect(html).toContain("signature-ledger__metric--destructive");
-    expect(html).not.toContain("signature-ledger__action");
+    expect(html).toContain("module-banner__metric--destructive");
+    expect(html).not.toContain("module-banner__create");
   });
 
   it("uses a compact scope treatment without a lower metric band", () => {
@@ -45,8 +44,8 @@ describe("Signature Ledger presentation", () => {
     );
 
     expect(html).toContain("signature-ledger--compact");
-    expect(html).toContain("signature-ledger__compact-context");
-    expect(html).not.toContain("signature-ledger__metrics");
+    expect(html).toContain("module-banner__context");
+    expect(html).not.toContain("module-banner__metrics");
   });
 
   it("keeps the mobile create affordance icon-only with an accessible name", () => {

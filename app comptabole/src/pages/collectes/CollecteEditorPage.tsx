@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { LedgerCompactHeader } from "@/components/ledger/LedgerCompactHeader";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -268,13 +269,6 @@ export function CollecteEditorPage() {
     (canManageCollaborateurs || sectionRecapStatut(collecte, key) !== "none");
   const rows = checklistRows(collecte);
   const recus = rows.filter((r) => r.recu).length;
-  const monogram = socNom
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toLocaleUpperCase("fr-FR");
   const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
 
   function requestTab(next: string, forcer = false, target?: { ordre: number | null; col: string | null }) {
@@ -380,38 +374,13 @@ export function CollecteEditorPage() {
 
   return (
     <div>
-      <header
-        data-tour="collecte-identity"
-        className="rounded-lg bg-primary px-3 py-3 text-primary-foreground sm:px-4"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-lg border border-primary-foreground/20 bg-primary-foreground/10 text-sm font-bold text-primary-foreground">
-              {monogram}
-            </span>
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold leading-tight tracking-tight text-primary-foreground">{socNom}</h1>
-              <p className="mt-0.5 truncate text-xs text-primary-foreground/75">
-                {[codeSociete, collecte.periode.trim(), "Collecte de pièces"].filter(Boolean).join(" · ")}
-              </p>
-            </div>
-          </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold">
-              <span aria-hidden="true" className={cn("size-2 rounded-full", validee ? "bg-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning" : archivee ? "bg-primary-foreground/50" : "bg-accent")} />
-              {COLLECTE_STATUT_LABELS[collecte.statut]}
-            </span>
-            {!isClient && (
-              <span className="inline-flex items-center gap-2 text-xs text-primary-foreground/85">
-                <strong className="font-semibold tabular-nums text-primary-foreground">{recus}/{rows.length}</strong> pièces reçues
-                <span role="progressbar" aria-label="Pièces reçues" aria-valuemin={0} aria-valuemax={rows.length} aria-valuenow={recus} className="h-1.5 w-20 overflow-hidden rounded-full bg-primary-foreground/20 sm:w-24">
-                  <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
-                </span>
-              </span>
-            )}
-            {collecte.echeance && (
-              <span className="text-xs text-primary-foreground/85">Échéance {formatDate(collecte.echeance)}{enRetard ? " · dépassée" : ""}</span>
-            )}
+      <LedgerCompactHeader
+        tourTarget="collecte-identity"
+        eyebrow="Clients & travail"
+        title={socNom}
+        description={[codeSociete, collecte.periode.trim(), "Collecte de pièces"].filter(Boolean).join(" · ")}
+        metrics={[]}
+        actions={<>
             {!isClient && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -447,13 +416,30 @@ export function CollecteEditorPage() {
             <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" disabled={savingDraft} onClick={() => requestTab("__back__")}>
               <LogOut className="size-4" /> Quitter
             </Button>
-          </div>
+        </>}
+      >
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold">
+              <span aria-hidden="true" className={cn("size-2 rounded-full", validee ? "bg-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning" : archivee ? "bg-primary-foreground/50" : "bg-accent")} />
+              {COLLECTE_STATUT_LABELS[collecte.statut]}
+            </span>
+            {!isClient && (
+              <span className="inline-flex items-center gap-2 text-xs text-primary-foreground/85">
+                <strong className="font-semibold tabular-nums text-primary-foreground">{recus}/{rows.length}</strong> pièces reçues
+                <span role="progressbar" aria-label="Pièces reçues" aria-valuemin={0} aria-valuemax={rows.length} aria-valuenow={recus} className="h-1.5 w-20 overflow-hidden rounded-full bg-primary-foreground/20 sm:w-24">
+                  <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
+                </span>
+              </span>
+            )}
+            {collecte.echeance && (
+              <span className="text-xs text-primary-foreground/85">Échéance {formatDate(collecte.echeance)}{enRetard ? " · dépassée" : ""}</span>
+            )}
         </div>
         {!isClient && canManageCollaborateurs && (collecte.statut === "transmis" || validee || archivee) && (
           <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-primary-foreground/20 pt-2">
             {canManageCollaborateurs && collecte.statut === "transmis" && (
               <>
-                <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-primary-foreground text-primary hover:bg-primary-foreground/90" onClick={() => requestTab("__confirm_valide__")}><CheckCircle2 className="size-4" /> Valider la collecte</Button>
+                <Button variant="outline" size="sm" className="module-banner__primary min-h-9 gap-1.5 border-primary-foreground/30 bg-primary-foreground text-primary hover:bg-primary-foreground/90" onClick={() => requestTab("__confirm_valide__")}><CheckCircle2 className="size-4" /> Valider la collecte</Button>
                 <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => requestTab("__confirm_a_corriger__")}>Renvoyer la collecte</Button>
               </>
             )}
@@ -468,7 +454,7 @@ export function CollecteEditorPage() {
             )}
           </div>
         )}
-      </header>
+      </LedgerCompactHeader>
       {(savingDraft || draftError) && (
         <p role={draftError ? "alert" : "status"} aria-live="polite" className={cn("mt-2 rounded-lg border px-3 py-2 text-xs", draftError ? "border-destructive/25 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary")}>
           {draftError ? "Le brouillon n’a pas été enregistré. Restez sur ce tableau et réessayez." : "Enregistrement en cours…"}

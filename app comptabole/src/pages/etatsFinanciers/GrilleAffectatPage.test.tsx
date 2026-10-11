@@ -73,9 +73,9 @@ describe("global AFFECTAT mapping safeguards", () => {
       "Référentiel global de reclassement du cabinet, appliqué aux sociétés autorisées.",
     );
     expect(banner.className).toContain("signature-ledger--compact");
-    expect(banner.querySelector(".signature-ledger__compact-context")?.textContent)
+    expect(banner.querySelector(".module-banner__context")?.textContent)
       .toBe("Référentiel global du cabinet");
-    expect(banner.querySelector(".signature-ledger__metrics")).toBeNull();
+    expect(banner.querySelector(".module-banner__metrics")).toBeNull();
     expect(banner.textContent).not.toContain("Sociétés accessibles");
   });
 

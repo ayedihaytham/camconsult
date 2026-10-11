@@ -1,0 +1,49 @@
+/* Shared navy page identity, matching the Collectes reference. */
+.module-banner {
+  min-width: 0;
+  padding: 16px 20px 0;
+  border-radius: 8px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-family: var(--font-sans, Inter, Arial, sans-serif);
+}
+.module-banner__top { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; padding-bottom: 16px; }
+.module-banner__identity { min-width: 0; flex: 1 1 240px; }
+.module-banner__eyebrow { color: hsl(var(--accent)); font-size: 11px; font-weight: 700; line-height: 1.4; letter-spacing: .1em; text-transform: uppercase; overflow-wrap: anywhere; }
+.module-banner__title { margin-top: 2px; color: inherit; font-family: inherit; font-size: 24px; font-weight: 700; line-height: 1.25; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.module-banner__description, .module-banner__context { margin-top: 4px; color: hsl(var(--primary-foreground) / .8); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.module-banner__actions { display: flex; min-width: 0; max-width: 100%; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.module-banner .module-banner__actions :is(button, a), .module-banner .module-banner__footer button {
+  min-height: 40px; height: auto; max-width: 100%; padding: 8px 16px; border: 1px solid hsl(var(--accent) / .6); border-radius: 6px; background: transparent; color: hsl(var(--primary-foreground)); font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1.4; white-space: normal; box-shadow: none;
+}
+.module-banner .module-banner__actions :is(button, a):hover, .module-banner .module-banner__footer button:hover { background: hsl(var(--primary-foreground) / .1); color: hsl(var(--primary-foreground)); }
+.module-banner :is(button, a):focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 3px; }
+.module-banner__metrics { display: flex; min-width: 0; flex-wrap: wrap; margin-top: 0; border-top: 1px solid hsl(var(--primary-foreground) / .15); }
+.module-banner__metric { display: flex; min-width: 0; max-width: 100%; align-items: baseline; flex-wrap: wrap; gap: 8px; padding: 12px 20px; border-left: 1px solid hsl(var(--primary-foreground) / .15); }
+.module-banner__metric:first-child { padding-left: 0; border-left: 0; }
+.module-banner__metric dt { order: 2; font-size: 11px; font-weight: 700; line-height: 1.4; letter-spacing: .09em; text-transform: uppercase; overflow-wrap: anywhere; }
+.module-banner__metric dd { order: 1; margin: 0; flex-shrink: 0; max-width: 100%; font-family: 'Playfair Display', Georgia, serif; font-size: 20px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums lining-nums; font-feature-settings: 'lnum' 1; overflow-wrap: anywhere; }
+.module-banner__metric--success dd { color: #a1dac4; }
+.module-banner__metric--warning dd { color: #f1c78d; }
+.module-banner__metric--destructive dd { color: #ffb9b9; }
+.module-banner__metric--detail dd { font-family: inherit; font-size: 13px; font-weight: 500; }
+.module-banner__footer { min-width: 0; padding: 12px 0 16px; border-top: 1px solid hsl(var(--primary-foreground) / .15); }
+.module-banner .module-banner__footer button.module-banner__primary { background: hsl(var(--primary-foreground)); color: hsl(var(--primary)); }
+.module-banner .module-banner__footer button.module-banner__primary:hover { background: hsl(var(--primary-foreground) / .9); }
+@media (max-width: 1023px) {
+  .operational-signature-banner .module-banner__create { display: none; }
+  .operational-signature-banner .module-banner__actions:has(> .module-banner__create:only-child) { display: none; }
+}
+@media (max-width: 639px) {
+  .module-banner { padding: 16px 14px 0; border-radius: 0 0 6px 6px; }
+  .module-banner__top { gap: 12px; padding-bottom: 14px; }
+  .module-banner__identity { flex-basis: 100%; }
+  .module-banner__title { font-size: 22px; }
+  .module-banner__actions { justify-content: flex-start; }
+  .module-banner .module-banner__actions :is(button, a), .module-banner .module-banner__footer button { min-height: 44px; padding-inline: 12px; }
+  .module-banner__metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .module-banner__metric { padding: 12px 10px; flex-wrap: wrap; gap: 4px 8px; }
+  .module-banner__metric:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .module-banner__metric:nth-child(n+3) { border-top: 1px solid hsl(var(--primary-foreground) / .15); }
+  .module-banner__metric dt { font-size: 10px; letter-spacing: .05em; }
+}

@@ -1,4 +1,3 @@
-.taches-work-ledger .signature-ledger__metric dd { font-family: inherit; font-size: 22px; font-weight: 600; }
 .taches-work-ledger .task-views-toolbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 12px; border-bottom: 1px solid hsl(var(--border)); }
 .taches-work-ledger .task-view-options { display: inline-flex; max-width: 100%; gap: 2px; padding: 3px; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--card)); }
 .taches-work-ledger .task-view-options button { border-radius: 5px; }

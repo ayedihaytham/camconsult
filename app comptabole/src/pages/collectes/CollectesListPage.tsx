@@ -1,24 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowRight, ChevronDown, ClipboardList, MoreHorizontal, Trash2 } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
-import { StatusDot } from "@/components/ledger/StatusDot";
 import {
   LedgerWorkSurface,
   OperationalContentHeader,
-  OperationalLedgerFooter,
   OperationalLedgerToolbar,
-  OperationalMobilePagination,
-  OperationalMobileUtility,
 } from "@/components/ledger/OperationalLedgerLayout";
-import { DataTable } from "@/components/data-table/DataTable";
-import { DataTableViewOptions } from "@/components/data-table/DataTableViewOptions";
-import { useDataTable } from "@/components/data-table/useDataTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -29,33 +21,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { useSocietes } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
-import { initials } from "@/lib/utils";
 import { isOverdueCollection } from "@/lib/dashboard/dashboardData";
 import { COLLECTE_STATUT_LABELS } from "@/lib/collecte/tabs";
 import {
   filterCollectes,
-  formatCollecteDeadline,
-  getCollecteStatusPresentation,
   getCollecteLensCounts,
-  getCollecteNextAction,
   type CollecteDeadlineFilter,
   type CollecteLens,
 } from "@/lib/collecte/collectionList";
 import type { Collecte, CollecteStatut } from "@/types";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
-import { CollectesClientPage } from "./CollectesClientPage";
+import { CollectesClientPage, CollecteCard } from "./CollectesClientPage";
+
+const PAGE_CARTES = 10;
 
 export function CollectesListPage() {
   const navigate = useNavigate();
@@ -132,76 +114,9 @@ export function CollectesListPage() {
   };
   const resetKey = [vue, query, societeId, periode, statut, echeance].join("|");
 
-  const columns = useMemo<ColumnDef<Collecte, unknown>[]>(() => [
-    {
-      id: "societePeriode",
-      accessorFn: (collecte) => `${socNom(collecte.societeId)} ${collecte.periode}`,
-      header: "Société · période",
-      cell: ({ row }) => <CollecteIdentity collecte={row.original} name={socNom(row.original.societeId)} />,
-      meta: { label: "Société · période", headerClassName: "w-[31%]", cellClassName: "w-[31%]" },
-    },
-    {
-      accessorKey: "statut",
-      header: "Statut",
-      cell: ({ row }) => <CollecteStatus statut={row.original.statut} />,
-      meta: { label: "Statut", headerClassName: "w-[15%]", cellClassName: "w-[15%]" },
-    },
-    {
-      id: "echeance",
-      accessorFn: (collecte) => collecte.echeance ?? "",
-      header: "Échéance",
-      cell: ({ row }) => {
-        return <CollecteDeadline collecte={row.original} />;
-      },
-      meta: { label: "Échéance", headerClassName: "w-[18%]", cellClassName: "w-[18%]" },
-    },
-    {
-      id: "suivi",
-      accessorFn: (collecte) => collecte.majLe,
-      header: "Suivi",
-      cell: ({ row }) => (
-        <div className="min-w-0 text-[11px] leading-snug">
-          <span className="block truncate font-semibold tabular-nums text-foreground/80">{formatTableauCount(row.original.onglets.length)}<AvancementTableaux collecte={row.original} /></span>
-          <span className="block truncate text-muted-foreground">{formatCollecteUpdate(row.original.majLe)}</span>
-        </div>
-      ),
-      meta: { label: "Suivi", headerClassName: "w-[17%]", cellClassName: "w-[17%]" },
-    },
-    {
-      id: "etape",
-      enableHiding: false,
-      enableSorting: false,
-      header: () => null,
-      cell: ({ row }) => (
-        <Link
-          to={`/collectes/${row.original.id}`}
-          onClick={(event) => event.stopPropagation()}
-          className="inline-flex min-h-9 items-center gap-1 whitespace-nowrap text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {getCollecteNextAction(row.original.statut, { isAdmin, isCabinet, isSocieteEmploye })}
-          <ArrowRight className="size-3.5" aria-hidden="true" />
-        </Link>
-      ),
-      meta: { label: "Étape suivante", headerClassName: "w-[13%]", cellClassName: "w-[13%]" },
-    },
-    ...(isAdmin ? [{
-      id: "actions",
-      enableHiding: false,
-      enableSorting: false,
-      header: () => null,
-      cell: ({ row }) => <CollecteActions collecte={row.original} socNom={socNom} onDelete={setToDelete} onOpen={() => navigate(`/collectes/${row.original.id}`)} />,
-      meta: { label: "Actions", headerClassName: "w-[6%]", cellClassName: "w-[6%]" },
-    } satisfies ColumnDef<Collecte, unknown>] : []),
-  ], [socNom, isAdmin, isCabinet, isSocieteEmploye, navigate]);
-
-  const table = useDataTable({
-    columns,
-    data: filtered,
-    getRowId: (collecte) => collecte.id,
-    initialSorting: [{ id: "suivi", desc: true }],
-    pageSize: 5,
-    resetKey,
-  });
+  const [limite, setLimite] = useState(PAGE_CARTES);
+  useEffect(() => setLimite(PAGE_CARTES), [resetKey]);
+  const visibles = filtered.slice(0, limite);
 
   const filters = (
     <div className="grid min-w-0 gap-3 sm:grid-cols-2">
@@ -255,7 +170,6 @@ export function CollectesListPage() {
       ]}
     />
   );
-  const emptyMessage = loading ? "Chargement…" : vue === "a_examiner" ? "Aucun tableau transmis à examiner." : "Aucune collecte.";
 
   if (isSocieteEmploye) {
     const unique = new Set(list.map((c) => c.societeId));
@@ -285,11 +199,7 @@ export function CollectesListPage() {
         <OperationalLedgerToolbar
           label="Outils des collectes"
           search={search}
-          tools={<CollecteTools table={table} />}
         />
-        <OperationalMobileUtility label="Recherche et filtres des collectes">
-          {search}
-        </OperationalMobileUtility>
         <OperationalContentHeader>
           <div className="flex min-w-0 items-baseline gap-3">
             <h2 className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">Registre des collectes</h2>
@@ -314,19 +224,28 @@ export function CollectesListPage() {
             {(query || activeFilterCount > 0) && <Button type="button" variant="link" className="h-auto px-0 pt-1" onClick={() => { setQuery(""); resetFilters(); }}>Effacer la recherche et les filtres</Button>}
           </div>
         ) : (
-          <DataTable
-            className="collectes-ledger-table ledger-work-table min-w-0 [&>div:last-child]:space-y-0"
-            desktopDensity="ledger"
-            desktopVariant="register"
-            table={table}
-            isLoading={loading}
-            emptyMessage={emptyMessage}
-            onRowClick={(row) => navigate(`/collectes/${row.original.id}`)}
-            getRowClassName={(row) => row.original.statut === "archive" ? "collectes-archived-row" : undefined}
-            footer={<OperationalLedgerFooter table={table} itemLabel="collectes" />}
-            mobileFooter={<OperationalMobilePagination table={table} itemLabel="collectes" />}
-            mobileRow={(row) => <CollecteMobileRow collecte={row.original} socNom={socNom} isAdmin={isAdmin} isCabinet={isCabinet} isSocieteEmploye={isSocieteEmploye} onDelete={setToDelete} onOpen={() => navigate(`/collectes/${row.original.id}`)} />}
-          />
+          <div className="px-3 py-3 sm:px-4 sm:py-4">
+            {loading ? <p className="text-sm text-muted-foreground">Chargement…</p> : (
+              <ul className="grid gap-3" aria-label="Collectes">
+                {visibles.map((collecte, index) => (
+                  <CollecteCard
+                    key={collecte.id}
+                    collecte={collecte}
+                    cabinet
+                    mise={index === 0 && vue === "a_examiner"}
+                    societeNom={socNom(collecte.societeId)}
+                    onDelete={isAdmin ? setToDelete : undefined}
+                  />
+                ))}
+              </ul>
+            )}
+            {!loading && filtered.length > limite && (
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="text-xs tabular-nums text-muted-foreground">{visibles.length} sur {filtered.length} collectes</span>
+                <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={() => setLimite((n) => n + PAGE_CARTES)}>Afficher plus</Button>
+              </div>
+            )}
+          </div>
         )}
       </LedgerWorkSurface>
 
@@ -363,153 +282,5 @@ function FilterSelect({ label, value, onValueChange, children }: {
         <SelectContent>{children}</SelectContent>
       </Select>
     </div>
-  );
-}
-
-function CollecteTools({ table }: { table: ReturnType<typeof useDataTable<Collecte>> }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1.5 px-2 text-xs font-semibold text-muted-foreground hover:text-primary"
-          aria-label="Outils des collectes"
-        >
-          Outils
-          <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Affichage</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DataTableViewOptions table={table} placement="submenu" />
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function CollecteActions({ collecte, socNom, onDelete, onOpen }: {
-  collecte: Collecte;
-  socNom: (id: string) => string;
-  onDelete: (collecte: Collecte) => void;
-  onOpen: () => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" className="size-11 lg:size-8" aria-label={`Actions pour ${socNom(collecte.societeId)}, ${collecte.periode.trim() || "période non renseignée"}`} onClick={(event) => event.stopPropagation()}>
-          <MoreHorizontal className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-        <DropdownMenuItem onSelect={onOpen}><ArrowRight /> Ouvrir la collecte</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={() => onDelete(collecte)}><Trash2 /> Supprimer…</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function CollecteIdentity({ collecte, name }: { collecte: Collecte; name: string }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <span aria-hidden="true" className="grid size-[30px] shrink-0 place-items-center rounded-[5px] border border-border bg-secondary/60 text-[10px] font-extrabold text-primary">
-        {initials(name)}
-      </span>
-      <span className="min-w-0">
-        <Link
-          to={`/collectes/${collecte.id}`}
-          onClick={(event) => event.stopPropagation()}
-          className={`ledger-soft-name block truncate text-[13px] font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${collecte.statut === "archive" ? "text-muted-foreground" : "text-primary"}`}
-          title={name}
-        >
-          {name}
-        </Link>
-        <span className="block truncate text-[11px] text-muted-foreground">{collecte.periode.trim() || "Période non renseignée"}</span>
-      </span>
-    </div>
-  );
-}
-
-function CollecteStatus({ statut }: { statut: CollecteStatut }) {
-  const status = getCollecteStatusPresentation(statut);
-  return (
-    <StatusDot
-      tone={status.tone}
-      label={statut === "transmis" ? "Transmis" : status.label}
-      className={`text-[11px] font-semibold ${statut === "archive" ? "text-muted-foreground" : "text-foreground/80"}`}
-    />
-  );
-}
-
-function formatCollecteUpdate(value: string) {
-  const date = new Date(value);
-  const formatter = new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "short",
-    ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" as const } : {}),
-  });
-  return `Mis à jour le ${formatter.format(date)}`;
-}
-
-/** « · 2 à examiner · 1 validé » : où en est chaque tableau de la collecte, sans ouvrir le dossier. */
-function AvancementTableaux({ collecte }: { collecte: Collecte }) {
-  const transmis = collecte.tableauxTransmis ?? 0;
-  const valides = collecte.tableauxValides ?? 0;
-  const archives = collecte.tableauxArchives ?? 0;
-  return (
-    <>
-      {transmis > 0 && <span className="font-semibold text-warning"> · {transmis} à examiner</span>}
-      {valides - archives > 0 && <span className="font-medium text-success"> · {valides - archives} validé{valides - archives > 1 ? "s" : ""}</span>}
-      {archives > 0 && <span className="text-muted-foreground"> · {archives} archivé{archives > 1 ? "s" : ""}</span>}
-    </>
-  );
-}
-
-function formatTableauCount(count: number) {
-  return `${count} tableau${count === 1 ? "" : "x"}`;
-}
-
-function CollecteDeadline({ collecte }: { collecte: Collecte }) {
-  const now = new Date();
-  const overdue = isOverdueCollection(collecte, now);
-  const [date, state] = formatCollecteDeadline(collecte, now).split(" · ");
-  return (
-    <span className="flex min-w-0 flex-col gap-0.5 text-[11px] leading-snug tabular-nums">
-      <span className="text-[10px] text-muted-foreground">Échéance</span>
-      <span className={`font-semibold ${collecte.echeance ? "text-foreground/85" : "text-muted-foreground"}`}>{date}</span>
-      {state && <span className={`text-[10px] ${overdue ? "font-semibold text-destructive" : "text-muted-foreground"}`}>{state === "Dépassée" ? "Date dépassée" : state}</span>}
-    </span>
-  );
-}
-
-function CollecteMobileRow({ collecte, socNom, isAdmin, isCabinet, isSocieteEmploye, onDelete, onOpen }: {
-  collecte: Collecte;
-  socNom: (id: string) => string;
-  isAdmin: boolean;
-  isCabinet: boolean;
-  isSocieteEmploye: boolean;
-  onDelete: (collecte: Collecte) => void;
-  onOpen: () => void;
-}) {
-  return (
-    <article className={`min-w-0 border-b border-border/80 px-3 py-2.5 ${collecte.statut === "archive" ? "bg-muted/20" : "bg-transparent"}`}>
-      <div className="flex min-w-0 items-start justify-between gap-2">
-        <div className="min-w-0 flex-1"><CollecteIdentity collecte={collecte} name={socNom(collecte.societeId)} /></div>
-        {isAdmin && <CollecteActions collecte={collecte} socNom={socNom} onDelete={onDelete} onOpen={onOpen} />}
-      </div>
-      <div className="mt-2.5 flex min-w-0 items-start justify-between gap-3">
-        <div className="pt-1"><CollecteStatus statut={collecte.statut} /></div>
-        <div className="shrink-0 text-right"><CollecteDeadline collecte={collecte} /></div>
-      </div>
-      <div className="mt-2 flex min-w-0 items-center justify-between gap-2 border-t border-border/60 pt-2">
-        <span className="min-w-0 truncate text-[11px] text-muted-foreground">{formatTableauCount(collecte.onglets.length)}<AvancementTableaux collecte={collecte} /> · {formatCollecteUpdate(collecte.majLe)}</span>
-        <Link to={`/collectes/${collecte.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {getCollecteNextAction(collecte.statut, { isAdmin, isCabinet, isSocieteEmploye })}<ArrowRight className="size-3.5" aria-hidden="true" />
-        </Link>
-      </div>
-    </article>
   );
 }

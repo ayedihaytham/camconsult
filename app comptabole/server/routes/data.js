@@ -18,6 +18,7 @@ import {
 } from "../mappers.js";
 import { notifKey } from "../notifications.js";
 import { tachesVisibles } from "./taches.js";
+import { taskPlanningError } from "../../shared/taskPlanning.js";
 
 export const dataRouter = Router();
 dataRouter.use(requireAuth);
@@ -248,9 +249,11 @@ dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
       );
     }
     for (const t of taches) {
+      const planningError = taskPlanningError(t.debutPrevu, t.finPrevue);
+      if (planningError) throw new Error(planningError);
       await client.query(
-        `insert into taches (id, titre, description, societe_id, assigne_id, statut, cree_par, cree_le, maj_le, termine_le, origine, module)
-         values ($1,$2,$3,$4,$5,$6,$7, coalesce($8::timestamptz, now()), coalesce($9::timestamptz, now()), $10::timestamptz, $11, $12)`,
+        `insert into taches (id, titre, description, societe_id, assigne_id, statut, cree_par, cree_le, maj_le, termine_le, origine, module, debut_prevu, fin_prevue)
+         values ($1,$2,$3,$4,$5,$6,$7, coalesce($8::timestamptz, now()), coalesce($9::timestamptz, now()), $10::timestamptz, $11, $12, $13::date, $14::date)`,
         [
           uuidOrNull(t.id), t.titre, t.description ?? "", uuidOrNull(t.societeId),
           uuidOrNull(t.assigneId),
@@ -258,6 +261,7 @@ dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
           t.creePar ?? "", t.creeLe ?? null, t.majLe ?? null, t.termineLe ?? null,
           t.origine === "societe" ? "societe" : "cabinet",
           ["collectes", "structuration", "messagerie"].includes(t.module) ? t.module : null,
+          t.debutPrevu || null, t.finPrevue || null,
         ],
       );
     }

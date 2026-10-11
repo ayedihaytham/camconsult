@@ -141,6 +141,8 @@ export function TachesPage() {
     societeId: string;
     assigneId: string | null;
     module: TacheModule | null;
+    debutPrevu: string | null;
+    finPrevue: string | null;
   }) {
     if (editing) {
       await updateTache(editing.id, values);
@@ -197,6 +199,7 @@ export function TachesPage() {
         }
         summary={summary}
         canManage={isManager}
+        canEditTask={(task) => isManager && (task.origine === "societe") === isResponsableSociete}
         canChangeStatus={canChangeStatus}
         onStatusChange={handleStatusChange}
         onCreate={openCreate}

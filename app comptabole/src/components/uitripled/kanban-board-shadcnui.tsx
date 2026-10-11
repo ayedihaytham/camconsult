@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   closestCorners,
@@ -27,7 +27,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ListChecks } from "lucide-react";
+import { CalendarDays, ChartNoAxesGantt, Columns3, GripVertical, List, ListChecks } from "lucide-react";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
@@ -37,7 +37,6 @@ import {
   OperationalContentHeader,
   OperationalLedgerPage,
   OperationalLedgerToolbar,
-  OperationalMobileHeader,
   OperationalMobileUtility,
 } from "@/components/ledger/OperationalLedgerLayout";
 import { TaskActionsMenu } from "@/components/tasks/TaskActionsMenu";
@@ -45,11 +44,15 @@ import { TaskAssignee } from "@/components/tasks/TaskAssignee";
 import { TaskActivity } from "@/components/tasks/TaskActivity";
 import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
 import { TaskTableView } from "@/components/tasks/TaskTableView";
+import { TaskGanttView } from "@/components/tasks/TaskGanttView";
+import { TaskNextAction } from "@/components/tasks/TaskNextAction";
 import { createTaskTableColumns } from "@/components/tasks/taskTableColumns";
 import { presentTasks } from "@/components/tasks/taskTypes";
 import type { PresentedTask } from "@/components/tasks/taskTypes";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { cn, formatDate } from "@/lib/utils";
+import "@/components/tasks/tasks-views.css";
 import type { Employe, Societe, Tache, TacheStatut } from "@/types";
 
 type Column = {
@@ -73,6 +76,7 @@ interface TasksKanbanProps {
   description: string;
   summary: { open: number; todo: number; doing: number; done: number };
   canManage: boolean;
+  canEditTask: (task: Tache) => boolean;
   canChangeStatus: (task: Tache, status: TacheStatut) => boolean;
   onStatusChange: (task: Tache, status: TacheStatut) => Promise<void>;
   onCreate: () => void;
@@ -93,6 +97,7 @@ export function TasksKanban({
   description,
   summary,
   canManage,
+  canEditTask,
   canChangeStatus,
   onStatusChange,
   onCreate,
@@ -104,17 +109,20 @@ export function TasksKanban({
 }: TasksKanbanProps) {
   const [activeTask, setActiveTask] = useState<PresentedTask | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [view, setView] = useState<"kanban" | "list" | "gantt">(() => typeof window !== "undefined" && window.innerWidth < 1024 ? "list" : "kanban");
+  const [mobileStatus, setMobileStatus] = useState<TacheStatut>("a_faire");
   const [statusOverrides, setStatusOverrides] = useState<
     Record<string, TacheStatut>
   >({});
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const pendingRef = useRef(new Set<string>());
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 3,
+        distance: 8,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -168,6 +176,7 @@ export function TasksKanban({
       ),
     );
   }, [presentedTasks, searchQuery]);
+  const mobileColumn = filteredTasks.some((item) => item.columnId === mobileStatus) ? mobileStatus : filteredTasks[0]?.columnId ?? mobileStatus;
 
   function clearStatusOverride(taskId: string) {
     setStatusOverrides((current) => {
@@ -178,7 +187,7 @@ export function TasksKanban({
     });
   }
 
-  function statusFromOver(event: DragOverEvent | DragEndEvent) {
+  function statusFromOver(event: Pick<DragOverEvent, "over">) {
     const over = event.over;
     if (!over) return null;
     if (over.data.current?.type === "Column") {
@@ -221,7 +230,7 @@ export function TasksKanban({
 
   async function changeTaskStatus(task: Tache, status: TacheStatut) {
     if (
-      pendingTaskIds.has(task.id) ||
+      pendingRef.current.has(task.id) ||
       status === task.statut ||
       !canChangeStatus(task, status)
     ) {
@@ -230,6 +239,7 @@ export function TasksKanban({
     }
 
     setStatusOverrides((current) => ({ ...current, [task.id]: status }));
+    pendingRef.current.add(task.id);
     setPendingTaskIds((current) => new Set(current).add(task.id));
 
     try {
@@ -237,6 +247,7 @@ export function TasksKanban({
     } catch {
       clearStatusOverride(task.id);
     } finally {
+      pendingRef.current.delete(task.id);
       setPendingTaskIds((current) => {
         const next = new Set(current);
         next.delete(task.id);
@@ -283,6 +294,7 @@ export function TasksKanban({
     : "Aucune tâche pour le moment.";
   const taskActions = {
     canManage,
+    canEditTask,
     canChangeStatus,
     pendingTaskIds,
     onStatusChange: changeTaskStatus,
@@ -321,17 +333,27 @@ export function TasksKanban({
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
+      accessibility={{ screenReaderInstructions: { draggable: "Appuyez sur Espace pour déplacer la tâche, puis utilisez les flèches. Espace confirme, Échap annule." }, announcements: {
+        onDragStart: ({ active }) => `Déplacement de ${(active.data.current?.task as PresentedTask | undefined)?.task.titre ?? "la tâche"}.`,
+        onDragOver: (event) => { const destination = statusFromOver(event); return destination ? `Colonne ${COLUMNS.find((column) => column.id === destination)?.title}.` : undefined; },
+        onDragEnd: () => "Déplacement terminé.",
+        onDragCancel: () => "Déplacement annulé.",
+      } }}
     >
       <OperationalContentHeader>
-        <h2 className="text-sm font-semibold text-foreground">Flux Kanban</h2>
+        <h2 className="text-sm font-semibold text-foreground">Tableau Kanban</h2>
+        <p className="hidden text-xs text-muted-foreground lg:block">Déplacez une tâche par sa poignée ou utilisez ses actions.</p>
       </OperationalContentHeader>
-      <div className="flex min-w-0 items-start gap-3 bg-transparent px-3 py-2.5">
+      <div className="task-kanban-mobile-status" role="group" aria-label="Colonne du Kanban">{COLUMNS.map((column) => { const count = filteredTasks.filter((task) => task.columnId === column.id).length; return <Button key={column.id} type="button" variant="ghost" aria-pressed={mobileColumn === column.id} disabled={count === 0} onClick={() => setMobileStatus(column.id)}>{column.title}<span>{count}</span></Button>; })}</div>
+      <div className="task-kanban-board">
         {COLUMNS.map((column) => (
           <BoardColumn
             key={column.id}
             column={column}
             tasks={filteredTasks.filter((task) => task.columnId === column.id)}
+            visibleOnMobile={column.id === mobileColumn}
             canManage={canManage}
+            canEditTask={canEditTask}
             canChangeStatus={canChangeStatus}
             pendingTaskIds={pendingTaskIds}
             onStatusChange={changeTaskStatus}
@@ -345,6 +367,7 @@ export function TasksKanban({
           <TaskCard
             task={activeTask}
             canManage={canManage}
+            canEditTask={canEditTask}
             canChangeStatus={canChangeStatus}
             isPending={pendingTaskIds.has(activeTask.task.id)}
             onStatusChange={changeTaskStatus}
@@ -385,32 +408,10 @@ export function TasksKanban({
         <OperationalMobileUtility label="Recherche et filtres des tâches">
           {renderSearchFilter()}
         </OperationalMobileUtility>
-
-        {filteredTasks.length === 0 ? (
-          <>
-            <div data-tour="tasks-board" className="hidden min-w-0 lg:block">{kanbanBoard}</div>
-            <OperationalMobileHeader>
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
-                File de travail
-              </h2>
-              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                0 tâches
-              </span>
-            </OperationalMobileHeader>
-            <TasksEmptyState message={emptyMessage} />
-          </>
-        ) : (
-          <>
-            <div data-tour="tasks-board" className="hidden min-w-0 lg:block">{kanbanBoard}</div>
-            <div data-tour="tasks-board" className="lg:hidden">
-              <TaskTableView
-                table={taskTable}
-                emptyMessage={emptyMessage}
-                {...taskActions}
-              />
-            </div>
-          </>
-        )}
+        <div className="task-views-toolbar" data-tour="tasks-views"><div className="task-view-options" role="group" aria-label="Vue des tâches">{([{ id: "kanban", label: "Kanban", icon: Columns3 }, { id: "list", label: "Liste", icon: List }, { id: "gantt", label: "Gantt", icon: ChartNoAxesGantt }] as const).map(({ id, label, icon: Icon }) => <Button key={id} type="button" variant="ghost" className="h-10 px-3 text-xs" aria-pressed={view === id} onClick={() => { setView(id); setActiveTask(null); }}><Icon className="size-4" aria-hidden="true" />{label}</Button>)}</div><span className="text-xs tabular-nums text-muted-foreground">{filteredTasks.length} tâche{filteredTasks.length > 1 ? "s" : ""}</span></div>
+        <div data-tour="tasks-board" className="min-w-0">
+          {filteredTasks.length === 0 ? <TasksEmptyState message={emptyMessage} /> : view === "gantt" ? <TaskGanttView tasks={filteredTasks} {...taskActions} /> : view === "list" ? <TaskTableView table={taskTable} emptyMessage={emptyMessage} {...taskActions} /> : kanbanBoard}
+        </div>
       </LedgerWorkSurface>
     </OperationalLedgerPage>
   );
@@ -428,6 +429,8 @@ interface BoardColumnProps {
   column: Column;
   tasks: PresentedTask[];
   canManage: boolean;
+  canEditTask: (task: Tache) => boolean;
+  visibleOnMobile: boolean;
   canChangeStatus: (task: Tache, status: TacheStatut) => boolean;
   pendingTaskIds: Set<string>;
   onStatusChange: (task: Tache, status: TacheStatut) => Promise<void>;
@@ -435,7 +438,7 @@ interface BoardColumnProps {
   onDelete: (task: Tache) => void;
 }
 
-function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
+function BoardColumn({ column, tasks, visibleOnMobile, ...taskActions }: BoardColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
     data: {
@@ -449,31 +452,34 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-accent/25 bg-secondary/50",
+        "task-board-column",
+        !visibleOnMobile && "is-mobile-hidden",
         isOver && "border-primary/35 ring-1 ring-primary/10",
       )}
     >
-      <div className="flex items-center justify-between border-b border-accent/25 px-4 py-3.5">
+      <div className="task-board-column-heading">
         <div className="flex items-center gap-2.5">
-          <h2 className="text-[0.8rem] font-bold uppercase tracking-[0.12em] text-primary">
+          <span className={`task-column-dot task-column-dot--${column.id}`} aria-hidden="true" />
+          <h2 className="text-sm font-semibold text-primary">
             {column.title}
           </h2>
           <Badge
             variant="secondary"
-            className="size-7 justify-center rounded-full border border-accent/25 bg-card px-0 text-xs font-semibold tabular-nums text-primary"
+            className="rounded-md border-0 bg-card px-2 text-xs font-medium tabular-nums text-primary"
           >
             {tasks.length}
           </Badge>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 p-3">
+      <div className="task-board-column-body">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <TaskCard
               key={task.task.id}
               task={task}
               canManage={taskActions.canManage}
+              canEditTask={taskActions.canEditTask}
               canChangeStatus={taskActions.canChangeStatus}
               isPending={taskActions.pendingTaskIds.has(task.task.id)}
               onStatusChange={taskActions.onStatusChange}
@@ -495,6 +501,7 @@ function BoardColumn({ column, tasks, ...taskActions }: BoardColumnProps) {
 interface TaskCardProps {
   task: PresentedTask;
   canManage: boolean;
+  canEditTask: (task: Tache) => boolean;
   canChangeStatus: (task: Tache, status: TacheStatut) => boolean;
   isPending: boolean;
   onStatusChange: (task: Tache, status: TacheStatut) => Promise<void>;
@@ -506,6 +513,7 @@ interface TaskCardProps {
 function TaskCard({
   task,
   canManage,
+  canEditTask,
   canChangeStatus,
   isPending,
   onStatusChange,
@@ -543,18 +551,16 @@ function TaskCard({
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
       className={cn(
-        "group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-accent/25 bg-card p-4 transition-shadow hover:shadow-[0_6px_18px_rgba(11,37,69,0.08)]",
-        canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-default",
+        "task-kanban-card",
         isDragging && "opacity-30",
         isPending && "pointer-events-none opacity-70",
         isOverlay && "z-50 cursor-grabbing bg-card opacity-100 shadow-pop",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 truncate text-[0.8rem] uppercase tracking-wide text-muted-foreground" title={task.societeName}>{task.societeName}</span>
+      <div className="flex items-center gap-2">
+        {canDrag && !isOverlay && <button type="button" {...attributes} {...listeners} aria-label={`Déplacer la tâche : ${task.task.titre}`} className="task-drag-handle"><GripVertical className="size-4" aria-hidden="true" /></button>}
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={task.societeName}>{task.societeName}</span>
         {!isOverlay && (
           <TaskActionsMenu
             task={task.task}
@@ -569,22 +575,23 @@ function TaskCard({
       </div>
 
       <div className="space-y-1">
-        <p className="line-clamp-2 font-serif text-xl font-medium leading-snug text-primary">
-          {task.task.titre}
-        </p>
+        {canEditTask(task.task) && !isOverlay ? <button type="button" className="task-card-title text-left" onClick={() => onEdit(task.task)} disabled={isPending}>{task.task.titre}</button> : <p className="task-card-title">{task.task.titre}</p>}
         {task.task.description && (
-          <p className="line-clamp-1 text-sm text-muted-foreground">
+          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground" title={task.task.description}>
             {task.task.description}
           </p>
         )}
       </div>
 
       <TaskAssignee task={task} />
+      {task.task.origine === "societe" && !canEditTask(task.task) && <p className="text-[11px] text-muted-foreground">Tâche de société{!canDrag ? " · Lecture seule" : ""}</p>}
+      <p className="task-card-planning"><CalendarDays className="size-3.5" aria-hidden="true" />{task.task.debutPrevu && task.task.finPrevue ? `${formatDate(task.task.debutPrevu).slice(0, 5)} – ${formatDate(task.task.finPrevue).slice(0, 5)}` : "Non planifiée"}</p>
 
-      <div className="flex items-center justify-between gap-2 border-t border-accent/20 pt-3">
-        <TaskStatusBadge status={task.task.statut} />
-        <TaskActivity task={task.task} className="truncate text-[11px]" />
+      <div className="task-card-footer">
+        <TaskStatusBadge status={task.columnId} />
+        {!isOverlay && <TaskNextAction task={task.task} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} isPending={isPending} />}
       </div>
+      <TaskActivity task={task.task} className="truncate text-[10px]" />
     </div>
   );
 }

@@ -412,6 +412,17 @@ alter table employes add column if not exists delegue boolean not null default f
 -- en plus de celles du cabinet ; module = module concerné (facultatif).
 alter table taches add column if not exists origine text not null default 'cabinet';
 alter table taches add column if not exists module text;
+-- Planification Gantt facultative : aucune date n'est déduite de cree_le/maj_le.
+alter table taches add column if not exists debut_prevu date;
+alter table taches add column if not exists fin_prevue date;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'taches_planification_check' and conrelid = 'taches'::regclass) then
+    alter table taches add constraint taches_planification_check check (
+      (debut_prevu is null and fin_prevue is null) or
+      (debut_prevu is not null and fin_prevue is not null and fin_prevue >= debut_prevu)
+    );
+  end if;
+end $$;
 alter table collectes add column if not exists recap_statut text not null default 'none';
 alter table collectes add column if not exists echeance date;
 alter table collectes add column if not exists derniere_relance_le timestamptz;

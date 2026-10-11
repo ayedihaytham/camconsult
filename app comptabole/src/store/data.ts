@@ -157,11 +157,13 @@ interface DataState {
     societeId: string;
     assigneId?: string | null;
     module?: Tache["module"];
+    debutPrevu?: string | null;
+    finPrevue?: string | null;
   }) => Promise<Tache>;
   updateTache: (
     id: string,
     patch: Partial<
-      Pick<Tache, "titre" | "description" | "societeId" | "assigneId" | "statut" | "module">
+      Pick<Tache, "titre" | "description" | "societeId" | "assigneId" | "statut" | "module" | "debutPrevu" | "finPrevue">
     >,
   ) => Promise<void>;
   setTacheStatut: (id: string, statut: TacheStatut) => Promise<void>;

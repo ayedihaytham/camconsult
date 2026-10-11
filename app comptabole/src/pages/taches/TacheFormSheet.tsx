@@ -25,6 +25,7 @@ import {
 import { useCollaborateurs, useSocietes } from "@/store/data";
 import { TACHE_MODULE_LABELS } from "@/types";
 import type { Employe, Tache, TacheModule } from "@/types";
+import { taskPlanningError } from "../../../shared/taskPlanning.js";
 
 const NONE = "__none__";
 
@@ -33,6 +34,11 @@ export const tacheFormSchema = z.object({
   description: z.string(),
   societeId: z.string().uuid("Société requise"),
   assigneId: z.string(),
+  debutPrevu: z.string().default(""),
+  finPrevue: z.string().default(""),
+}).superRefine((values, context) => {
+  const message = taskPlanningError(values.debutPrevu, values.finPrevue);
+  if (message) context.addIssue({ code: z.ZodIssueCode.custom, path: [!values.debutPrevu && values.finPrevue ? "debutPrevu" : "finPrevue"], message });
 });
 
 export type TacheFormValues = z.infer<typeof tacheFormSchema>;
@@ -52,6 +58,8 @@ interface Props {
     societeId: string;
     assigneId: string | null;
     module: TacheModule | null;
+    debutPrevu: string | null;
+    finPrevue: string | null;
   }) => Promise<void>;
 }
 
@@ -77,10 +85,11 @@ export function TacheFormSheet({
     reset,
     setValue,
     watch,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<TacheFormValues>({
     resolver: zodResolver(tacheFormSchema),
-    defaultValues: { titre: "", description: "", societeId: "", assigneId: NONE },
+    defaultValues: { titre: "", description: "", societeId: "", assigneId: NONE, debutPrevu: "", finPrevue: "" },
   });
 
   useEffect(() => {
@@ -94,12 +103,16 @@ export function TacheFormSheet({
             description: tache.description ?? "",
             societeId: tache.societeId,
             assigneId: tache.assigneId ?? NONE,
+            debutPrevu: tache.debutPrevu ?? "",
+            finPrevue: tache.finPrevue ?? "",
           }
         : {
             titre: "",
             description: "",
             societeId: lockedSocieteId ?? defaultSocieteId ?? "",
             assigneId: NONE,
+            debutPrevu: "",
+            finPrevue: "",
           },
     );
   }, [open, tache, defaultSocieteId, lockedSocieteId, reset]);
@@ -135,6 +148,8 @@ export function TacheFormSheet({
                 societeId: v.societeId,
                 assigneId: v.assigneId === NONE ? null : v.assigneId,
                 module: module === NONE ? null : (module as TacheModule),
+                debutPrevu: v.debutPrevu || null,
+                finPrevue: v.finPrevue || null,
               });
               onOpenChange(false);
             } catch (error) {
@@ -227,6 +242,16 @@ export function TacheFormSheet({
                 </p>
               )}
             </div>
+
+            <section className="space-y-3 rounded-lg border border-border bg-muted/20 p-3" aria-labelledby="tache-planning-title">
+              <div><h3 id="tache-planning-title" className="text-sm font-semibold text-primary">Planification · facultative</h3><p className="mt-1 text-xs text-muted-foreground">Ces dates placent la tâche dans la vue Gantt.</p></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"><Label htmlFor="tache-debut">Début prévu</Label><Input id="tache-debut" type="date" className="h-11 sm:h-9" {...register("debutPrevu")} disabled={isSubmitting} aria-invalid={Boolean(errors.debutPrevu)} aria-describedby={errors.debutPrevu || errors.finPrevue ? "tache-planning-error" : undefined} /></div>
+                <div className="space-y-1.5"><Label htmlFor="tache-fin">Fin prévue</Label><Input id="tache-fin" type="date" className="h-11 sm:h-9" {...register("finPrevue")} disabled={isSubmitting} aria-invalid={Boolean(errors.finPrevue)} aria-describedby={errors.debutPrevu || errors.finPrevue ? "tache-planning-error" : undefined} /></div>
+              </div>
+              {(errors.debutPrevu?.message || errors.finPrevue?.message) && <p id="tache-planning-error" role="alert" className="text-xs text-destructive">{errors.debutPrevu?.message || errors.finPrevue?.message}</p>}
+              <Button type="button" variant="ghost" size="sm" className="px-0 text-xs" disabled={isSubmitting || (!watch("debutPrevu") && !watch("finPrevue"))} onClick={() => { setValue("debutPrevu", "", { shouldDirty: true }); setValue("finPrevue", "", { shouldDirty: true }); clearErrors(["debutPrevu", "finPrevue"]); }}>Effacer les dates</Button>
+            </section>
 
             <div className="space-y-1.5">
               <Label htmlFor="tache-module">Module concerné (facultatif)</Label>

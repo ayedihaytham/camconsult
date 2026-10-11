@@ -80,6 +80,8 @@ export const tacheDto = (r) => ({
   creeLe: isoOrNull(r.cree_le),
   majLe: isoOrNull(r.maj_le),
   termineLe: isoOrNull(r.termine_le),
+  debutPrevu: r.debut_prevu == null ? null : dateStr(r.debut_prevu),
+  finPrevue: r.fin_prevue == null ? null : dateStr(r.fin_prevue),
 });
 
 export const noeudDto = (r) => ({

@@ -86,6 +86,9 @@ export interface Tache {
   creeLe: string; // ISO
   majLe: string; // ISO
   termineLe: string | null; // ISO
+  /** Planification facultative AAAA-MM-JJ ; distincte des dates d'activité. */
+  debutPrevu?: string | null;
+  finPrevue?: string | null;
 }
 
 export type TacheOrigine = "cabinet" | "societe";

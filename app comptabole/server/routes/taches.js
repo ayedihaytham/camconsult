@@ -5,6 +5,7 @@ import { requireAuth, canSeeSociete } from "../auth.js";
 import { logAction } from "../journal.js";
 import { notify, notifyMany } from "../notifications.js";
 import { tacheDto } from "../mappers.js";
+import { isPlanningDate, taskPlanningError } from "../../shared/taskPlanning.js";
 
 /** Notification liée à une tâche (lien → /taches). */
 const notifT = (userKey, type, titre, corps = "") =>
@@ -20,6 +21,7 @@ const STATUT_LABEL = {
   termine: "Terminé",
 };
 const MODULES = ["collectes", "structuration", "messagerie"];
+const planningDateSchema = z.string().refine(isPlanningDate, "Date de planification invalide").nullable().optional();
 
 const createSchema = z.object({
   titre: z.string().min(2),
@@ -28,6 +30,8 @@ const createSchema = z.object({
   assigneId: z.string().uuid().nullish(),
   statut: z.enum(STATUTS).default("a_faire"),
   module: z.enum(MODULES).nullish(),
+  debutPrevu: planningDateSchema,
+  finPrevue: planningDateSchema,
 });
 
 const patchSchema = z.object({
@@ -37,6 +41,8 @@ const patchSchema = z.object({
   assigneId: z.string().uuid().nullable().optional(),
   statut: z.enum(STATUTS).optional(),
   module: z.enum(MODULES).nullable().optional(),
+  debutPrevu: planningDateSchema,
+  finPrevue: planningDateSchema,
 });
 
 // Deux circuits de tâches :
@@ -125,6 +131,9 @@ tachesRouter.post("/", async (req, res) => {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
 
+  const planningError = taskPlanningError(v.debutPrevu, v.finPrevue);
+  if (planningError) return res.status(400).json({ error: planningError });
+
   let origine;
   if (isCabinetManager(s)) origine = "cabinet";
   else if (isResponsableSociete(s)) origine = "societe";
@@ -166,11 +175,12 @@ tachesRouter.post("/", async (req, res) => {
   }
 
   const { rows } = await query(
-    `insert into taches (titre, description, societe_id, assigne_id, statut, cree_par, origine, module)
-     values ($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
+    `insert into taches (titre, description, societe_id, assigne_id, statut, cree_par, origine, module, debut_prevu, fin_prevue)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *`,
     [
       v.titre, v.description, v.societeId, v.assigneId ?? null, v.statut, s.nom,
       origine, v.module ?? null,
+      v.debutPrevu ?? null, v.finPrevue ?? null,
     ],
   );
   logAction(s.nom, "creation", "tache", `${v.titre} — ${soc.raison_sociale}`);
@@ -254,6 +264,8 @@ tachesRouter.patch("/:id", async (req, res) => {
       });
   }
 
+  // node-postgres peut renvoyer les colonnes date comme des Date locales.
+  const existingDto = tacheDto(existing);
   const next = {
     titre: v.titre ?? existing.titre,
     description: v.description ?? existing.description,
@@ -261,17 +273,22 @@ tachesRouter.patch("/:id", async (req, res) => {
     assigne_id: v.assigneId === undefined ? existing.assigne_id : v.assigneId,
     statut: v.statut ?? existing.statut,
     module: v.module === undefined ? existing.module : v.module,
+    debut_prevu: v.debutPrevu === undefined ? existingDto.debutPrevu : v.debutPrevu,
+    fin_prevue: v.finPrevue === undefined ? existingDto.finPrevue : v.finPrevue,
   };
+  const planningError = taskPlanningError(next.debut_prevu, next.fin_prevue);
+  if (planningError) return res.status(400).json({ error: planningError });
   const termineLe =
     next.statut === "termine" ? existing.termine_le ?? new Date() : null;
 
   const { rows } = await query(
     `update taches set titre=$1, description=$2, societe_id=$3, assigne_id=$4,
-       statut=$5, termine_le=$6, module=$8, maj_le=now()
+       statut=$5, termine_le=$6, module=$8, debut_prevu=$9, fin_prevue=$10, maj_le=now()
      where id=$7 returning *`,
     [
       next.titre, next.description, next.societe_id, next.assigne_id,
       next.statut, termineLe, req.params.id, next.module,
+      next.debut_prevu ?? null, next.fin_prevue ?? null,
     ],
   );
   const statutChange = v.statut && v.statut !== existing.statut;

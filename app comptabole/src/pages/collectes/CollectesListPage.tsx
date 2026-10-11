@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ClipboardList } from "lucide-react";
@@ -59,6 +59,7 @@ export function CollectesListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Collecte | null>(null);
   const [vue, setVue] = useState<CollecteLens>(isCabinet ? "a_examiner" : "actives");
+  const vueChoisie = useRef(false);
   const [query, setQuery] = useState("");
   const [societeId, setSocieteId] = useState("all");
   const [periode, setPeriode] = useState("all");
@@ -78,6 +79,10 @@ export function CollectesListPage() {
   const socNom = useCallback((id: string) => societesById.get(id) ?? "Société", [societesById]);
   const periodeLabel = (value: string) => value.trim() || "Période non renseignée";
   const counts = useMemo(() => getCollecteLensCounts(list), [list]);
+  // Rien à examiner et aucun choix de vue : on ouvre les collectes actives plutôt qu'une liste vide.
+  useEffect(() => {
+    if (!loading && !vueChoisie.current && vue === "a_examiner" && counts.aExaminer === 0) setVue("actives");
+  }, [loading, vue, counts.aExaminer]);
   const collectionSummary = useMemo(() => {
     const now = new Date();
     return {
@@ -156,7 +161,7 @@ export function CollectesListPage() {
     <LedgerSegmented
       ariaLabel="Vue des collectes"
       value={vue}
-      onChange={setVue}
+      onChange={(next) => { vueChoisie.current = true; setVue(next); }}
       options={[
         ...(isCabinet ? [{ value: "a_examiner" as const, label: `À examiner (${counts.aExaminer})` }] : []),
         { value: "actives", label: `Actives (${counts.actives})` },
@@ -228,6 +233,11 @@ export function CollectesListPage() {
       {canCreate && <OperationalFab label="Nouvelle collecte" onClick={() => setCreateOpen(true)} />}
       {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} defaultSocieteId={societeActive?.id} onCreate={async (data) => {
         const collecte = await create(data);
+        // La nouvelle collecte est chez le client : elle se retrouve dans les collectes actives, pas dans « À examiner ».
+        vueChoisie.current = true;
+        setVue("actives");
+        setQuery("");
+        resetFilters();
         toast.success("Collecte créée", { description: `${socNom(collecte.societeId)} — ${periodeLabel(collecte.periode)}` });
         navigate(`/collectes/${collecte.id}`);
       }} />}

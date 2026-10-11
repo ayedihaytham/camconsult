@@ -2,21 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Copy,
   FolderTree,
   Layers,
   Network,
-  Pencil,
   Plus,
-  Trash2,
-  FolderOpen,
 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerToolbar } from "@/components/ledger/LedgerToolbar";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { LedgerTable } from "@/components/ledger/LedgerTable";
-import type { DataTableColumn } from "@/components/common/DataTable";
-import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -61,8 +54,8 @@ export function StructurationPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const societeParam = searchParams.get("societe");
   const vueParam = searchParams.get("vue");
-  const initialTab: "tableau" | "arbre" | "organigramme" =
-    vueParam === "arbre" ? "arbre" : vueParam === "organigramme" ? "organigramme" : "tableau";
+  // « Tableau » et « Arborescence » sont fusionnés en un seul onglet « Documents » (les anciennes adresses ?vue=arbre y mènent aussi).
+  const initialTab: "documents" | "organigramme" = vueParam === "organigramme" ? "organigramme" : "documents";
 
   const allNodes = useNoeuds();
   const societes = useSocietes();
@@ -84,7 +77,7 @@ export function StructurationPage() {
   const deleteNoeudsCascade = useData((s) => s.deleteNoeudsCascade);
   const getSocieteById = (id: string | null | undefined) =>
     societes.find((s) => s.id === id) ?? null;
-  const [tab, setTab] = useState<"tableau" | "arbre" | "organigramme">(initialTab);
+  const [tab, setTab] = useState<"documents" | "organigramme">(initialTab);
   const [search, setSearch] = useState("");
   const [societeFilter, setSocieteFilter] = useState(societeParam ?? "all");
 
@@ -146,30 +139,34 @@ export function StructurationPage() {
 
   const roots = useMemo(() => nodes.filter((n) => n.parentId === null), [nodes]);
 
-  const filteredRoots = useMemo(() => {
+  // Société choisie : l'arbre et la liste ne montrent que ses dossiers.
+  const scopedNodes = useMemo(
+    () =>
+      societeFilter === "all"
+        ? nodes
+        : nodes.filter((n) => (societeFilter === "none" ? n.societeId === null : n.societeId === societeFilter)),
+    [nodes, societeFilter],
+  );
+
+  // Ce que la liste affiche : le contenu du dossier ouvert, ou, dès qu'on cherche ou filtre, les résultats dans toute l'arborescence.
+  const filtreActif = search.trim() !== "" || typeFilter !== "all" || dateFilter !== "all";
+  const listed = useMemo(() => {
+    if (!filtreActif) return scopedNodes.filter((n) => n.parentId === currentFolder);
     const q = search.trim().toLowerCase();
     const now = Date.now();
-    const spanDays =
-      dateFilter === "7"
-        ? 7
-        : dateFilter === "30"
-          ? 30
-          : dateFilter === "365"
-            ? 365
-            : null;
-    return roots.filter((n) => {
-      const matchQ =
-        !q || [n.libelle, n.description].join(" ").toLowerCase().includes(q);
-      const matchSoc =
-        societeFilter === "all" ||
-        (societeFilter === "none" ? n.societeId === null : n.societeId === societeFilter);
+    const spanDays = dateFilter === "7" ? 7 : dateFilter === "30" ? 30 : dateFilter === "365" ? 365 : null;
+    return scopedNodes.filter((n) => {
+      const matchQ = !q || [n.libelle, n.description].join(" ").toLowerCase().includes(q);
       const matchType = typeFilter === "all" || n.type === typeFilter;
-      const matchDate =
-        spanDays === null ||
-        now - new Date(n.majLe).getTime() <= spanDays * 86400000;
-      return matchQ && matchSoc && matchType && matchDate;
+      const matchDate = spanDays === null || now - new Date(n.majLe).getTime() <= spanDays * 86400000;
+      return matchQ && matchType && matchDate;
     });
-  }, [roots, search, societeFilter, typeFilter, dateFilter]);
+  }, [scopedNodes, filtreActif, currentFolder, search, typeFilter, dateFilter]);
+
+  // Le dossier ouvert disparaît du périmètre quand on change de société : retour à la racine.
+  useEffect(() => {
+    if (currentFolder && !scopedNodes.some((n) => n.id === currentFolder)) setCurrentFolder(null);
+  }, [scopedNodes, currentFolder]);
 
   function descendantIds(id: string): string[] {
     const direct = nodes.filter((n) => n.parentId === id);
@@ -348,8 +345,8 @@ export function StructurationPage() {
   function handleExport(format: ExportFormat) {
     const source =
       selectedIds.length > 0
-        ? filteredRoots.filter((n) => selectedIds.includes(n.id))
-        : filteredRoots;
+        ? listed.filter((n) => selectedIds.includes(n.id))
+        : listed;
     exportRows(
       "structuration",
       source,
@@ -372,8 +369,8 @@ export function StructurationPage() {
   function handlePrint() {
     const source =
       selectedIds.length > 0
-        ? filteredRoots.filter((n) => selectedIds.includes(n.id))
-        : filteredRoots;
+        ? listed.filter((n) => selectedIds.includes(n.id))
+        : listed;
     printTable({
       title: "Structuration documentaire",
       subtitle: activeSociete
@@ -411,115 +408,8 @@ export function StructurationPage() {
 
   function openFolder(n: Noeud) {
     setCurrentFolder(n.id);
-    setTab("arbre");
+    setTab("documents");
   }
-
-  const columns: DataTableColumn<Noeud>[] = [
-    {
-      id: "libelle",
-      header: "Libellé",
-      sortable: true,
-      sortAccessor: (n) => n.libelle.toLowerCase(),
-      cell: (n) => (
-        <div className="flex items-center gap-2.5">
-          <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
-          <span className="font-semibold text-foreground">{n.libelle}</span>
-        </div>
-      ),
-    },
-    {
-      id: "description",
-      header: "Description",
-      cell: (n) => (
-        <span className="line-clamp-1 max-w-md text-sm text-muted-foreground">
-          {n.description || "—"}
-        </span>
-      ),
-    },
-    {
-      id: "societe",
-      header: "Société",
-      sortable: true,
-      sortAccessor: (n) => getSocieteById(n.societeId)?.raisonSociale ?? "zzz",
-      cell: (n) =>
-        n.societeId ? (
-          <span className="text-sm text-foreground">
-            {getSocieteById(n.societeId)?.raisonSociale}
-          </span>
-        ) : (
-          <span className="text-sm italic text-muted-foreground">
-            Modèle générique
-          </span>
-        ),
-    },
-    {
-      id: "contenu",
-      header: "Contenu",
-      cell: (n) => {
-        const desc = descendantIds(n.id);
-        const nbDossiers = desc.filter(
-          (id) => nodes.find((x) => x.id === id)?.type === "dossier",
-        ).length;
-        const nbFichiers = desc.filter(
-          (id) => nodes.find((x) => x.id === id)?.type === "fichier",
-        ).length;
-        return (
-          <span className="whitespace-nowrap text-sm text-muted-foreground">
-            {nbDossiers} dossier{nbDossiers > 1 ? "s" : ""} · {nbFichiers}{" "}
-            fichier{nbFichiers > 1 ? "s" : ""}
-          </span>
-        );
-      },
-    },
-    {
-      id: "maj",
-      header: "Mise à jour",
-      sortable: true,
-      sortAccessor: (n) => n.majLe,
-      cell: (n) => (
-        <span className="text-sm text-muted-foreground">
-          {formatDate(n.majLe)}
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "",
-      align: "right",
-      headerClassName: "w-[1%]",
-      cell: (n) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <LedgerRowMenu
-            actions={[
-              ...(canStructEdit
-                ? [
-                    { icon: Copy, label: "Dupliquer", onClick: () => duplicate(n) },
-                    {
-                      icon: Pencil,
-                      label: "Modifier",
-                      onClick: () => {
-                        setEditing(n);
-                        setFormOpen(true);
-                      },
-                    },
-                  ]
-                : []),
-              ...(canDelete
-                ? [
-                    {
-                      icon: Trash2,
-                      label: "Supprimer",
-                      destructive: true,
-                      onClick: () => setToDelete(n),
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        </div>
-      ),
-    },
-  ];
 
   const activeSociete = societeParam ? getSocieteById(societeParam) : null;
 
@@ -618,23 +508,22 @@ export function StructurationPage() {
         onChange={(v) => {
           setTab(v);
           const next = new URLSearchParams(searchParams);
-          if (v === "tableau") next.delete("vue");
+          if (v === "documents") next.delete("vue");
           else next.set("vue", v);
           setSearchParams(next, { replace: true });
         }}
         options={[
-          { value: "tableau", label: "Tableau" },
-          { value: "arbre", label: "Arborescence" },
+          { value: "documents", label: "Documents" },
           { value: "organigramme", label: "Organigramme" },
         ]}
       /></div>
 
-      {tab === "tableau" && (
-        <div data-tour="structuration-content" className="mt-3 flex flex-1 flex-col">
+      {tab === "documents" && (
+        <div data-tour="structuration-content" className="mt-3 flex flex-1 flex-col gap-3">
           <div data-tour="structuration-search"><LedgerToolbar
             search={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher un dossier, une description…"
+            searchPlaceholder="Rechercher un dossier ou un fichier…"
             onExport={handleExport}
             onPrint={handlePrint}
             selectedCount={selectedIds.length}
@@ -692,55 +581,50 @@ export function StructurationPage() {
             }
           /></div>
 
-          <LedgerSheet className="flex-1">
-            <LedgerTable
-              columns={columns}
-              data={filteredRoots}
-              getRowId={(n) => n.id}
-              enableSelection
+          {nodes.length === 0 ? (
+            <LedgerSheet className="flex-1">
+              <EmptyState
+                icon={FolderTree}
+                title="Aucune arborescence"
+                description={
+                  isAdmin || canCreate
+                    ? "Créez une première arborescence documentaire pour une société."
+                    : "Le cabinet n'a pas encore préparé l'arborescence documentaire de votre société. Elle apparaîtra ici dès qu'elle sera créée."
+                }
+              />
+            </LedgerSheet>
+          ) : (
+            <FileTree
+              nodes={scopedNodes}
+              items={listed}
+              resultats={filtreActif}
+              currentId={currentFolder}
+              canCreate={canCreate}
+              canEdit={canStructEdit}
+              canDelete={canDelete}
               selectedIds={selectedIds}
               onSelectedIdsChange={setSelectedIds}
-              onRowClick={openFolder}
-              initialSort={{ columnId: "libelle", direction: "asc" }}
-              emptyState={
-                <EmptyState
-                  icon={FolderTree}
-                  title="Aucune arborescence"
-                  description={
-                    isAdmin || canCreate
-                      ? "Créez une première arborescence documentaire pour une société."
-                      : "Le cabinet n'a pas encore préparé l'arborescence documentaire de votre société. Elle apparaîtra ici dès qu'elle sera créée."
-                  }
-                />
-              }
+              afficherSociete={filtreSocieteUtile}
+              onNavigate={(id) => {
+                setCurrentFolder(id);
+                // Ouvrir un dossier depuis les résultats quitte la recherche, pour en voir le contenu.
+                setSearch("");
+                setTypeFilter("all");
+                setDateFilter("all");
+              }}
+              onAddFolder={(parentId) => setSubfolderParent(parentId ?? null)}
+              onAddFile={(parentId) => setUploadParent(parentId)}
+              onDuplicate={duplicate}
+              onRename={(n) => {
+                setEditing(n);
+                setFormOpen(true);
+              }}
+              onMove={(n) => setMoveNode(n)}
+              onPreview={(n) => setPreviewNode(n)}
+              onReparent={handleMove}
+              onDelete={(n) => setToDelete(n)}
             />
-          </LedgerSheet>
-        </div>
-      )}
-
-      {tab === "arbre" && (
-        <div data-tour="structuration-content" className="mt-3">
-          {/* Vue arborescence : widget d'explorateur non couvert par les
-              maquettes Ledger (drag & drop, aperçu, réparentage) — laissé
-              intact pour ne pas improviser un design non validé. */}
-          <FileTree
-            nodes={nodes}
-            currentId={currentFolder}
-            canCreate={canCreate}
-            canEdit={canStructEdit}
-            canDelete={canDelete}
-            onNavigate={setCurrentFolder}
-            onAddFolder={(parentId) => setSubfolderParent(parentId ?? null)}
-            onAddFile={(parentId) => setUploadParent(parentId)}
-            onRename={(n) => {
-              setEditing(n);
-              setFormOpen(true);
-            }}
-            onMove={(n) => setMoveNode(n)}
-            onPreview={(n) => setPreviewNode(n)}
-            onReparent={handleMove}
-            onDelete={(n) => setToDelete(n)}
-          />
+          )}
         </div>
       )}
 

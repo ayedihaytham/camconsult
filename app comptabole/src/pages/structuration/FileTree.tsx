@@ -15,12 +15,14 @@ import {
   Pencil,
   Trash2,
   Building2,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 import { downloadDataUrl } from "@/lib/file";
 import { contenuNoeud, noeudADuContenu } from "@/lib/contenus";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +47,17 @@ interface FileTreeProps {
   onPreview: (node: Noeud) => void;
   onReparent: (nodeId: string, targetParentId: string | null) => void;
   onDelete: (node: Noeud) => void;
+  /** Éléments à lister à la place des enfants du dossier courant (résultats d'une recherche ou d'un filtre). */
+  items?: Noeud[];
+  /** `items` est un résultat de recherche : chaque ligne indique le dossier où elle se trouve. */
+  resultats?: boolean;
+  /** Sélection de plusieurs éléments (suppression groupée, export). */
+  selectedIds?: string[];
+  onSelectedIdsChange?: (ids: string[]) => void;
+  /** Duplication d'une arborescence (dossiers racine). */
+  onDuplicate?: (node: Noeud) => void;
+  /** Afficher la société de chaque arborescence racine. */
+  afficherSociete?: boolean;
 }
 
 export function FileTree({
@@ -61,6 +74,12 @@ export function FileTree({
   onPreview,
   onReparent,
   onDelete,
+  items,
+  resultats = false,
+  selectedIds,
+  onSelectedIdsChange,
+  onDuplicate,
+  afficherSociete = false,
 }: FileTreeProps) {
   const societes = useSocietes();
   const [dragId, setDragId] = useState<string | null>(null);
@@ -94,7 +113,44 @@ export function FileTree({
     return chain;
   }, [currentId, nodeById]);
 
-  const currentChildren = childrenOf(currentId);
+  const currentChildren = items
+    ? [...items].sort((a, b) => (a.type !== b.type ? (a.type === "dossier" ? -1 : 1) : a.libelle.localeCompare(b.libelle)))
+    : childrenOf(currentId);
+
+  /** Dossiers et fichiers contenus (tous niveaux) dans chaque dossier : colonne « Contenu ». */
+  const contenus = useMemo(() => {
+    const compter = (id: string): { dossiers: number; fichiers: number } => {
+      let dossiers = 0;
+      let fichiers = 0;
+      for (const n of byParent.get(id) ?? []) {
+        if (n.type === "dossier") {
+          dossiers += 1;
+          const sous = compter(n.id);
+          dossiers += sous.dossiers;
+          fichiers += sous.fichiers;
+        } else fichiers += 1;
+      }
+      return { dossiers, fichiers };
+    };
+    const map = new Map<string, { dossiers: number; fichiers: number }>();
+    for (const n of nodes) if (n.type === "dossier") map.set(n.id, compter(n.id));
+    return map;
+  }, [nodes, byParent]);
+
+  const cheminDe = (n: Noeud) => {
+    const chaine: string[] = [];
+    let cur = n.parentId ? nodeById.get(n.parentId) : undefined;
+    while (cur) {
+      chaine.unshift(cur.libelle);
+      cur = cur.parentId ? nodeById.get(cur.parentId) : undefined;
+    }
+    return chaine.join(" › ");
+  };
+  const selection = new Set(selectedIds ?? []);
+  const basculerSelection = (id: string) => {
+    if (!onSelectedIdsChange) return;
+    onSelectedIdsChange(selection.has(id) ? (selectedIds ?? []).filter((x) => x !== id) : [...(selectedIds ?? []), id]);
+  };
 
   /** Un nœud peut-il être déposé dans `targetId` ? (pas dans lui-même ni ses descendants) */
   function canDrop(nodeId: string, targetId: string | null): boolean {
@@ -250,8 +306,14 @@ export function FileTree({
           )}
         </div>
 
+        {resultats && (
+          <div className="border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground" role="status">
+            {currentChildren.length} résultat{currentChildren.length > 1 ? "s" : ""} dans toute l'arborescence
+          </div>
+        )}
+
         {/* Bandeau société courante */}
-        {currentId && breadcrumb[0]?.societeId && (
+        {!resultats && currentId && breadcrumb[0]?.societeId && (
           <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
             <Building2 className="h-3.5 w-3.5" />
             Dossier rattaché à{" "}
@@ -275,9 +337,9 @@ export function FileTree({
           >
             <Folder className="h-8 w-8 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">
-              {currentId ? "Ce dossier est vide." : "Aucune arborescence."}
+              {resultats ? "Aucun résultat pour cette recherche." : currentId ? "Ce dossier est vide." : "Aucune arborescence."}
             </p>
-            {canCreate && (
+            {canCreate && !resultats && (
               <div className="flex items-center gap-2">
                 <Button
                   variant="ledger"
@@ -325,6 +387,14 @@ export function FileTree({
                     isDropHere && "bg-accent/10 ring-1 ring-inset ring-accent",
                   )}
                 >
+                  {onSelectedIdsChange && canDelete && (
+                    <Checkbox
+                      checked={selection.has(n.id)}
+                      onCheckedChange={() => basculerSelection(n.id)}
+                      aria-label={`Sélectionner ${n.libelle}`}
+                      className="shrink-0"
+                    />
+                  )}
                   <button
                     onClick={() =>
                       isFolder ? onNavigate(n.id) : onPreview(n)
@@ -340,6 +410,11 @@ export function FileTree({
                       <span className="block truncate text-sm font-medium text-foreground">
                         {n.libelle}
                       </span>
+                      {(resultats || (afficherSociete && n.parentId === null)) && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {resultats && n.parentId ? cheminDe(n) : societes.find((x) => x.id === n.societeId)?.raisonSociale ?? "Modèle générique"}
+                        </span>
+                      )}
                       {n.description && (
                         <span className="block truncate text-xs text-muted-foreground">
                           {n.description}
@@ -351,6 +426,12 @@ export function FileTree({
                   {!isFolder && n.format && (
                     <span className="hidden shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground sm:block">
                       {n.format}
+                    </span>
+                  )}
+
+                  {isFolder && contenus.get(n.id) && (
+                    <span className="hidden shrink-0 whitespace-nowrap text-xs text-muted-foreground md:block">
+                      {contenus.get(n.id)!.dossiers} dossier{contenus.get(n.id)!.dossiers > 1 ? "s" : ""} · {contenus.get(n.id)!.fichiers} fichier{contenus.get(n.id)!.fichiers > 1 ? "s" : ""}
                     </span>
                   )}
 
@@ -419,6 +500,12 @@ export function FileTree({
                         </DropdownMenuItem>
                       )}
                       {(canEdit || canDelete) && <DropdownMenuSeparator />}
+                      {canEdit && onDuplicate && n.parentId === null && (
+                        <DropdownMenuItem onClick={() => onDuplicate(n)}>
+                          <Copy className="h-4 w-4" />
+                          Dupliquer
+                        </DropdownMenuItem>
+                      )}
                       {canEdit && (
                         <>
                           <DropdownMenuItem onClick={() => onRename(n)}>

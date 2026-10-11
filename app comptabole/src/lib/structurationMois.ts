@@ -2,6 +2,8 @@ import type { Noeud } from "@/types";
 
 export const MOIS_COURTS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"] as const;
 
+export const MOIS_COMPLETS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"] as const;
+
 export interface OptionsMois {
   /** Afficher les mois sous les dossiers de l'année. */
   afficher: boolean;

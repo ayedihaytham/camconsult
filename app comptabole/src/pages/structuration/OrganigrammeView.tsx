@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FileSpreadsheet,
   FileText,
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { THEME_ACCENT, THEME_BAR, THEME_ICON, THEME_LINE } from "@/lib/societeTheme";
-import { anneeDuLibelle, comptesParMois, fichiersDuMois, MOIS_COURTS, type OptionsMois } from "@/lib/structurationMois";
+import { anneeDuLibelle, comptesParMois, fichiersDuMois, MOIS_COMPLETS, MOIS_COURTS, type OptionsMois } from "@/lib/structurationMois";
 import type { Noeud, Societe } from "@/types";
 
 /**
@@ -86,6 +86,19 @@ export function OrganigrammeView({
   const [moisTous, setMoisTous] = useState(false);
   const mois: OptionsMois = { afficher: afficherMois, tous: moisTous };
   const [moisChoisi, setMoisChoisi] = useState<{ node: Noeud; mois: number; annee: number | null } | null>(null);
+  // Année affichée : les dossiers « … 2026 » de la société choisie ; la plus récente au départ.
+  const annees = useMemo(() => {
+    const trouvees = new Set<number>();
+    for (const r of groupe?.roots ?? []) {
+      for (const n of nodes) {
+        const a = n.parentId === r.id ? anneeDuLibelle(n.libelle) : null;
+        if (a !== null) trouvees.add(a);
+      }
+    }
+    return [...trouvees].sort((a, b) => b - a);
+  }, [groupe, nodes]);
+  const [anneeChoix, setAnneeChoix] = useState<number | null>(null);
+  const anneeAffichee = annees.includes(anneeChoix ?? -1) ? anneeChoix : (annees[0] ?? null);
 
   return (
     <div className="space-y-3">
@@ -105,14 +118,29 @@ export function OrganigrammeView({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input type="checkbox" checked={afficherMois} onChange={(e) => setAfficherMois(e.target.checked)} className="size-4 accent-primary" />
-            Afficher les mois
-          </label>
+        {annees.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Année</span>
+            <Select value={String(anneeAffichee)} onValueChange={(v) => setAnneeChoix(Number(v))}>
+              <SelectTrigger className="h-9 w-28" aria-label="Année de l'organigramme">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {annees.map((a) => (
+                  <SelectItem key={a} value={String(a)}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={afficherMois} onChange={(e) => setAfficherMois(e.target.checked)} className="size-4 accent-primary" />
+          Afficher les mois
+        </label>
+        <div className="ml-auto flex flex-wrap items-center gap-3">
           {afficherMois && (
             <Button variant="outline" size="sm" onClick={() => setMoisTous((v) => !v)}>
-              {moisTous ? "Replier les mois" : "Déplier les mois"}
+              {moisTous ? "Tout replier" : "Tout déplier"}
             </Button>
           )}
         </div>
@@ -153,12 +181,13 @@ export function OrganigrammeView({
         zoom={zoom}
         mois={mois}
         onChoisirMois={setMoisChoisi}
+        annee={anneeAffichee}
       />
       {afficherMois && moisChoisi && (
         <section className="rounded-lg border border-accent bg-card px-4 py-3" aria-label="Fichiers du mois">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold">
-              {moisChoisi.node.libelle} · {MOIS_COURTS[moisChoisi.mois]}{moisChoisi.annee ? ` ${moisChoisi.annee}` : ""}
+              {moisChoisi.node.libelle} · {MOIS_COMPLETS[moisChoisi.mois]}{moisChoisi.annee ? ` ${moisChoisi.annee}` : ""}
             </p>
             <span className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => onOpenNode(moisChoisi.node)}>Ouvrir le dossier</Button>
@@ -194,6 +223,7 @@ function OrganigrammeSociete({
   zoom,
   mois,
   onChoisirMois,
+  annee,
 }: {
   nodes: Noeud[];
   roots: Noeud[];
@@ -202,6 +232,8 @@ function OrganigrammeSociete({
   zoom: number;
   mois: OptionsMois;
   onChoisirMois: (m: { node: Noeud; mois: number; annee: number | null }) => void;
+  /** Année affichée : les dossiers d'une autre année sont masqués. */
+  annee: number | null;
 }) {
   return (
     <div
@@ -219,7 +251,7 @@ function OrganigrammeSociete({
             : { bar: GENERIC_BAR[i % GENERIC_BAR.length], line: GENERIC_LINE[i % GENERIC_LINE.length] };
           const { dossiers, fichiers } = countDescendants(root.id, nodes);
           const children = nodes
-            .filter((n) => n.parentId === root.id)
+            .filter((n) => n.parentId === root.id && (annee === null || (anneeDuLibelle(n.libelle) ?? annee) === annee))
             .sort((a, b) => a.libelle.localeCompare(b.libelle));
 
           return (
@@ -362,6 +394,8 @@ function OrgChartNode({
   const node = nodes.find((n) => n.id === nodeId);
   if (!node) return null;
   const anneeNoeud = annee ?? anneeDuLibelle(node.libelle);
+  // Avec les mois, un dossier de l'année se lit comme dans la maquette : son nom, ses fichiers, puis les 12 mois (le contenu est dans les mois).
+  const avecMois = mois.afficher && depth === 2 && node.type === "dossier";
   const children = nodes
     .filter((n) => n.parentId === nodeId)
     .sort((a, b) => a.libelle.localeCompare(b.libelle));
@@ -380,18 +414,19 @@ function OrgChartNode({
         "first:after:rounded-tl-md",
       )}
     >
-      <OrgChartBox
-        node={node}
-        depth={depth}
-        childCount={children.length}
-        branch={branch}
-        hasChildren={children.length > 0}
-        onOpenNode={onOpenNode}
-      />
-      {mois.afficher && depth === 2 && node.type === "dossier" && (
-        <MoisDuDossier key={`${node.id}-${mois.tous}`} node={node} nodes={nodes} annee={anneeNoeud} ouvertAuDepart={mois.tous} branch={branch} onChoisirMois={onChoisirMois} />
+      {avecMois ? (
+        <CarteMois node={node} nodes={nodes} annee={anneeNoeud} tous={mois.tous} branch={branch} onOpenNode={onOpenNode} onChoisirMois={onChoisirMois} />
+      ) : (
+        <OrgChartBox
+          node={node}
+          depth={depth}
+          childCount={children.length}
+          branch={branch}
+          hasChildren={children.length > 0}
+          onOpenNode={onOpenNode}
+        />
       )}
-      {children.length > 0 && (
+      {!avecMois && children.length > 0 && (
         <ul
           className={cn(
             "relative flex pt-4 before:absolute before:left-1/2 before:top-0 before:h-4 before:border-l before:content-['']",
@@ -417,22 +452,40 @@ function OrgChartNode({
   );
 }
 
-/** Les 12 mois d'un dossier : un fichier est rangé sous le mois de sa date d'ajout. Un clic sur un mois ouvre le dossier. */
-function MoisDuDossier({ node, nodes, annee, ouvertAuDepart, branch, onChoisirMois }: { node: Noeud; nodes: Noeud[]; annee: number | null; ouvertAuDepart: boolean; branch: Branch; onChoisirMois: (m: { node: Noeud; mois: number; annee: number | null }) => void }) {
-  const [ouvert, setOuvert] = useState(ouvertAuDepart);
+/** Dossier de l'année avec ses mois : le nom, le nombre de fichiers et « voir les mois » dans la même carte, puis les 12 mois
+ * (un fichier est rangé sous le mois de sa date d'ajout). Un clic sur un mois liste ses fichiers. */
+function CarteMois({ node, nodes, annee, tous, branch, onOpenNode, onChoisirMois }: {
+  node: Noeud;
+  nodes: Noeud[];
+  annee: number | null;
+  tous: boolean;
+  branch: Branch;
+  onOpenNode: (n: Noeud) => void;
+  onChoisirMois: (m: { node: Noeud; mois: number; annee: number | null }) => void;
+}) {
+  const [ouvert, setOuvert] = useState(tous);
+  useEffect(() => setOuvert(tous), [tous]);
   const comptes = useMemo(() => comptesParMois(node.id, nodes, annee), [node.id, nodes, annee]);
+  const fichiers = useMemo(() => countDescendants(node.id, nodes).fichiers, [node.id, nodes]);
   return (
-    <div className="mt-2 flex flex-col items-center">
-      <button
-        type="button"
-        aria-expanded={ouvert}
-        onClick={() => setOuvert((v) => !v)}
-        className="rounded px-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {ouvert ? "▾ masquer les mois" : "▸ voir les mois"}
-      </button>
+    <div className="flex flex-col items-center">
+      <div className="relative flex min-w-[11.5rem] flex-col items-start gap-0.5 overflow-hidden rounded-lg border border-border bg-card py-2 pl-4 pr-3 text-left shadow-sm">
+        <span className={cn("absolute inset-y-0 left-0 w-1", branch.bar)} aria-hidden />
+        <button type="button" onClick={() => onOpenNode(node)} className="text-sm font-bold text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Ouvrir le dossier">
+          {node.libelle}
+        </button>
+        <span className="text-xs text-muted-foreground">{fichiers} fichier{fichiers > 1 ? "s" : ""}</span>
+        <button
+          type="button"
+          aria-expanded={ouvert}
+          onClick={() => setOuvert((v) => !v)}
+          className="rounded text-xs font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {ouvert ? "▾ masquer les mois" : "▸ voir les mois"}
+        </button>
+      </div>
       {ouvert && (
-        <ul className="mt-1 grid w-[11.5rem] grid-cols-3 gap-1" aria-label={`Mois de ${node.libelle}`}>
+        <ul className="mt-2 grid w-[11.5rem] grid-cols-3 gap-1" aria-label={`Mois de ${node.libelle}`}>
           {MOIS_COURTS.map((m, i) => (
             <li key={m}>
               <button
@@ -450,7 +503,6 @@ function MoisDuDossier({ node, nodes, annee, ouvertAuDepart, branch, onChoisirMo
           ))}
         </ul>
       )}
-      <span className={cn("sr-only", branch.bar)} aria-hidden />
     </div>
   );
 }

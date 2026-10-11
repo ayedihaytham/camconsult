@@ -177,21 +177,32 @@ describe("CollecteGrid : barre d'actions épurée", () => {
     expect(exportExcel).toHaveBeenCalledOnce();
   });
 
-  it("n'affiche pas de second bouton Ajouter un chèque sous les récapitulatifs", () => {
-    renderGrid("bordereaux_remise_cheques");
+  it("réunit les commandes près du suivi d'un seul bordereau et ajoute au bon groupe sans doublon", () => {
+    renderGrid("bordereaux_remise_cheques", undefined, { exportActions: <DropdownMenuItem>Excel</DropdownMenuItem> });
     ajouter();
     fireEvent.change(champs(lignes()[0])[1], { target: { value: "BRD-9" } });
     // Le suivi d'un bordereau n'apparaît dans la barre qu'une fois son montant annoncé.
     fireEvent.change(champs(lignes()[0])[2], { target: { value: "1000" } });
+    fireEvent.change(champs(lignes()[0])[6], { target: { value: "400" } });
     const barre = document.querySelector('[data-tour="collecte-sticky-tools"]') as HTMLElement;
     expect(within(barre).getByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ })).toBeTruthy();
     const suivi = document.querySelector('[data-tour="collecte-repartition"]') as HTMLElement;
-    expect(within(suivi).queryByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ })).toBeNull();
     const commandes = document.querySelector('[aria-label="Commandes du tableau"]') as HTMLElement;
-    expect(within(commandes).getByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ })).toBeTruthy();
+    expect(suivi.contains(commandes)).toBe(true);
+    const ajouterCheque = within(commandes).getByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ });
+    expect(screen.getAllByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ })).toHaveLength(1);
     expect(within(commandes).getByRole("button", { name: "Importer un document" })).toBeTruthy();
+    expect(within(commandes).getByRole("button", { name: "Exporter le tableau" })).toBeTruthy();
+    expect(within(commandes).getByRole("button", { name: "Enregistrer" })).toBeTruthy();
+    const avancement = within(suivi).getByRole("progressbar", { name: "Montant réparti : Bordereau BRD-9" });
+    expect(avancement.getAttribute("aria-valuenow")).toBe("400");
+    expect(avancement.contains(commandes)).toBe(false);
     expect(within(barre).queryByRole("button", { name: "Nouveau bordereau" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Ajouter un chèque" })).toBeNull();
+    fireEvent.click(ajouterCheque);
+    expect(lignes()).toHaveLength(2);
+    expect(champs(lignes()[1])[1].value).toBe("BRD-9");
+    expect(document.activeElement).toBe(champs(lignes()[1])[4]);
   });
 
   it("ouvre l'import depuis son bouton nommé et garde la saisie dans la barre", () => {

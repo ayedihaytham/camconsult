@@ -412,8 +412,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
    * les chèques/traites suivants sont ajoutés dans le groupe concerné depuis la barre de suivi. */
   function ajoutLigne() {
     return (
-      <Button type="button" variant="outline" size="sm" className="min-h-11 shrink-0 gap-1.5 sm:min-h-9" onClick={() => addRow()}>
-        <Plus className="size-4" aria-hidden="true" /> Ajouter une ligne
+      <Button type="button" variant="outline" size="icon" aria-label="Ajouter une ligne" title="Ajouter une ligne" className="size-11 shrink-0 sm:size-9" onClick={() => addRow()}>
+        <Plus className="size-4" aria-hidden="true" />
       </Button>
     );
   }
@@ -425,101 +425,15 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       : null;
   const totalLabel = def.totalLabel ?? "Total";
 
-  return (
-    <fieldset disabled={saving} className="min-w-0 space-y-3" aria-label={`Saisie de ${def.label}`}>
-      {def.provisional && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Colonnes provisoires — elles seront ajustées aux colonnes exactes de ce
-          tableau.
-        </p>
-      )}
-
-      {/* Le suivi et les actions sont réunis dans une seule barre sticky. La création
-          d'un nouveau bordereau n'est pas exposée : on continue les groupes existants. */}
-      {(groupes.length > 0 || !readOnly || exportActions || workflowActions) && (
-        <section
-          data-tour="collecte-sticky-tools"
-          aria-label="Suivi et actions du tableau"
-          className="sticky top-0 z-30 rounded-lg border border-border bg-card shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)]"
-        >
-          {groupes.length > 0 && (
-            <div
-              data-tour="collecte-repartition"
-              aria-label="Avancement des bordereaux"
-              className="flex min-w-0 gap-2 overflow-x-auto border-b border-border bg-muted/30 px-3 py-2 md:px-4"
-            >
-              {groupes.map((g) => {
-                const pourcentage = g.total > 0 ? Math.min(100, Math.max(0, (g.reparti / g.total) * 100)) : 0;
-                return (
-                  <div
-                    key={g.id}
-                    className={cn(
-                      "flex items-center gap-3",
-                      groupes.length === 1
-                        ? "min-w-0 w-full flex-1 flex-wrap px-0.5 py-0.5 sm:flex-nowrap"
-                        : "min-w-[280px] flex-1 rounded-md border border-border/80 bg-card px-3 py-2 lg:max-w-[420px]",
-                    )}
-                  >
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
-                        <span className="min-w-0 truncate text-sm font-semibold text-foreground" title={`${def.groupe?.libelle} ${g.nom}`}>
-                          {def.groupe?.libelle} {g.nom}
-                        </span>
-                        <span
-                          className={cn(
-                            "shrink-0 text-xs font-semibold",
-                            g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning",
-                          )}
-                        >
-                          {g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)} ${symboleGroupe}` : `Reste ${montantFr(g.reste)} ${symboleGroupe}`}
-                        </span>
-                      </div>
-                      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-                        <span className="min-w-0 text-xs tabular-nums text-muted-foreground">
-                          {montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe}
-                          <span className="ml-2 text-muted-foreground/70"> · {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}</span>
-                        </span>
-                        <div
-                          role="progressbar"
-                          aria-label={`Montant réparti : ${def.groupe?.libelle} ${g.nom}`}
-                          aria-valuemin={0}
-                          aria-valuemax={Math.max(0, g.total)}
-                          aria-valuenow={Math.min(Math.max(0, g.reparti), Math.max(0, g.total))}
-                          className="h-1.5 min-w-[64px] flex-1 overflow-hidden rounded-full bg-border"
-                        >
-                          <div
-                            className={cn("h-full rounded-full transition-[width] duration-200", g.complet ? "bg-success" : g.reste < 0 ? "bg-destructive" : "bg-warning")}
-                            style={{ width: `${pourcentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    {canAdd && groupes.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="size-9 shrink-0 border-primary/20 bg-card p-0 text-primary hover:bg-secondary"
-                        onClick={() => addRow(g.id)}
-                        aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${g.nom}`}
-                        title={`${def.groupe?.ajout}${g.complet ? " — vérifiez le montant après l'ajout" : ""}`}
-                      >
-                        <Plus className="size-4" aria-hidden="true" />
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {(!readOnly || exportActions) && <div aria-label="Commandes du tableau" className="flex min-w-0 items-center gap-1.5 px-2 py-2 sm:px-3 md:px-4">
+  const commands = (
+    (!readOnly || exportActions) && <div aria-label="Commandes du tableau" className="flex min-w-0 shrink-0 items-center gap-1.5">
               {canAdd && (def.plageNumeros && rows.length === 0 ? null : groupes.length === 0 ? ajoutLigne() : null)}
               {canAdd && groupes.length === 1 && (
-                <Button type="button" variant="outline" size="sm" className="min-h-11 shrink-0 gap-1.5 sm:min-h-9"
+                <Button type="button" variant="outline" size="icon" className="size-11 shrink-0 sm:size-9"
                   aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${groupes[0].nom}`}
                   title={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${groupes[0].nom}`}
                   onClick={() => addRow(groupes[0].id)}>
-                  <Plus className="size-4" aria-hidden="true" />{def.groupe?.ajout}
+                  <Plus className="size-4" aria-hidden="true" />
                 </Button>
               )}
               {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
@@ -558,7 +472,104 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               {saveError && <span role="alert" className="sr-only min-w-0 text-xs font-medium text-destructive sm:not-sr-only sm:truncate">Échec de l'enregistrement</span>}
               {!saveError && dirty && <span role="status" className="sr-only min-w-0 text-xs font-medium text-warning sm:not-sr-only sm:truncate">Non enregistré</span>}
               {!dirty && saved && !saveError && <span role="status" className="sr-only min-w-0 text-xs text-success sm:not-sr-only sm:truncate">Enregistré</span>}
-          </div>}
+          </div>
+  );
+
+  return (
+    <fieldset disabled={saving} className="min-w-0 space-y-3" aria-label={`Saisie de ${def.label}`}>
+      {def.provisional && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Colonnes provisoires — elles seront ajustées aux colonnes exactes de ce
+          tableau.
+        </p>
+      )}
+
+      {/* Le suivi et les actions sont réunis dans une seule barre sticky. La création
+          d'un nouveau bordereau n'est pas exposée : on continue les groupes existants. */}
+      {(groupes.length > 0 || !readOnly || exportActions || workflowActions) && (
+        <section
+          data-tour="collecte-sticky-tools"
+          aria-label="Suivi et actions du tableau"
+          className="sticky top-0 z-30 rounded-lg border border-border bg-card shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)]"
+        >
+          {groupes.length > 0 && (
+            <div className="flex min-w-0 items-center gap-3 bg-muted/30 px-3 py-2 md:px-4">
+            <div
+              data-tour="collecte-repartition"
+              aria-label="Avancement des bordereaux"
+              className="flex min-w-0 flex-1 gap-2 overflow-x-auto"
+            >
+              {groupes.map((g) => {
+                const pourcentage = g.total > 0 ? Math.min(100, Math.max(0, (g.reparti / g.total) * 100)) : 0;
+                return (
+                  <div
+                    key={g.id}
+                    className={cn(
+                      "flex items-center gap-3",
+                      groupes.length === 1
+                        ? "min-w-0 w-full flex-1 px-0.5 py-0.5"
+                        : "min-w-[280px] flex-1 rounded-md border border-border/80 bg-card px-3 py-2 lg:max-w-[420px]",
+                    )}
+                  >
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
+                        <span className="min-w-0 truncate text-sm font-semibold text-foreground" title={`${def.groupe?.libelle} ${g.nom}`}>
+                          {def.groupe?.libelle} {g.nom}
+                        </span>
+                        <span
+                          className={cn(
+                            "shrink-0 text-xs font-semibold",
+                            g.complet ? "text-success" : g.reste < 0 ? "text-destructive" : "text-warning",
+                          )}
+                        >
+                          {g.complet ? "Complet" : g.reste < 0 ? `Dépassé de ${montantFr(-g.reste)} ${symboleGroupe}` : `Reste ${montantFr(g.reste)} ${symboleGroupe}`}
+                        </span>
+                      </div>
+                      <div className={cn(
+                        "min-w-0 gap-x-3 gap-y-1.5",
+                        groupes.length === 1 ? "grid grid-cols-[minmax(64px,1fr)_auto] items-center sm:grid-cols-[auto_minmax(64px,1fr)_auto]" : "flex flex-wrap items-center",
+                      )}>
+                        <span className={cn("min-w-0 text-xs tabular-nums text-muted-foreground", groupes.length === 1 && "col-span-2 sm:col-span-1")}>
+                          {montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe}
+                          <span className="ml-2 text-muted-foreground/70"> · {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}</span>
+                        </span>
+                        <div
+                          role="progressbar"
+                          aria-label={`Montant réparti : ${def.groupe?.libelle} ${g.nom}`}
+                          aria-valuemin={0}
+                          aria-valuemax={Math.max(0, g.total)}
+                          aria-valuenow={Math.min(Math.max(0, g.reparti), Math.max(0, g.total))}
+                          className="h-1.5 min-w-[64px] flex-1 overflow-hidden rounded-full bg-border"
+                        >
+                          <div
+                            className={cn("h-full rounded-full transition-[width] duration-200", g.complet ? "bg-success" : g.reste < 0 ? "bg-destructive" : "bg-warning")}
+                            style={{ width: `${pourcentage}%` }}
+                          />
+                        </div>
+                        {groupes.length === 1 && commands}
+                      </div>
+                    </div>
+                    {canAdd && groupes.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="size-9 shrink-0 border-primary/20 bg-card p-0 text-primary hover:bg-secondary"
+                        onClick={() => addRow(g.id)}
+                        aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${g.nom}`}
+                        title={`${def.groupe?.ajout}${g.complet ? " — vérifiez le montant après l'ajout" : ""}`}
+                      >
+                        <Plus className="size-4" aria-hidden="true" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {groupes.length > 1 && commands}
+            </div>
+          )}
+          {groupes.length === 0 && commands && <div className="px-2 py-2 sm:px-3 md:px-4">{commands}</div>}
           {workflowActions && <div className={cn((!readOnly || exportActions || groupes.length > 0) && "border-t border-border")}>{workflowActions}</div>}
         </section>
       )}

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { Collecte } from "@/types";
-import { CollectesClientPage } from "./CollectesClientPage";
+import { CollectesClientPage, CollecteCard } from "./CollectesClientPage";
 
 afterEach(cleanup);
 
@@ -30,5 +30,15 @@ describe("page Collecte de pièces du responsable de société", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: /Voir les collectes archivées \(1\)/ }));
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  });
+});
+
+describe("carte de collecte côté cabinet", () => {
+  it("garde le même design avec le nom de la société et propose d'examiner un tableau transmis", () => {
+    const c = collecte("a", "transmis", { onglets: ["a", "b"], tableauxTransmis: 1 } as Partial<Collecte>);
+    render(<MemoryRouter><ul><CollecteCard collecte={c} mise={false} cabinet societeNom="ha" /></ul></MemoryRouter>);
+    expect(screen.getByText("ha")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Examiner la collecte ha/ })).toBeTruthy();
+    expect(screen.getByText(/1 à examiner/)).toBeTruthy();
   });
 });

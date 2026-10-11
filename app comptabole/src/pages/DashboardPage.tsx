@@ -1,6 +1,7 @@
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import "@/components/dashboard/dashboard-polish.css";
 import "@/components/dashboard/mon-bureau.css";
+import "@/components/dashboard/admin-dashboard.css";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { SocieteShortcuts } from "@/components/dashboard/SocieteShortcuts";
 import { useDashboardData } from "@/hooks/dashboard/useDashboardData";
@@ -43,7 +44,7 @@ export function DashboardPage() {
   const canAddSociete = !lectureSeule && (isAdmin || can("modifierSocietes"));
 
   return (
-    <div className="dashboard-workspace min-w-0 space-y-4">
+    <div className={`dashboard-workspace min-w-0 space-y-4 ${role === "admin" ? "dashboard-admin" : ""}`}>
       <DashboardHeader
         salutation={`${greeting(now)}${firstName ? ` ${firstName}` : ""}`}
         dateLabel={dateLabel}

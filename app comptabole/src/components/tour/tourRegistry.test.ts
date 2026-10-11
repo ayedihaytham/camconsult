@@ -4,12 +4,14 @@ import { session } from "@/lib/dashboard/dashboardFixtures.test-support";
 
 describe("guided tour route coverage", () => {
   it("selects the Tasks tab walkthrough without changing bureau, other tabs or company tours", () => {
-    expect(getPageTour("/", session(), "?tab=tasks")?.id).toBe("dashboard-tasks");
+    expect(getPageTour("/", session(), "?tab=tasks")?.id).toBe("dashboard-admin-tasks");
     for (const tab of ["overview", "attention", "deadlines", "team", "activity"]) {
-      expect(getPageTour("/", session(), `?tab=${tab}`)?.id).toBe("dashboard");
-      expect(getPageTour("/", session(), `?tab=${tab}`)?.version).toBe(3);
+      expect(getPageTour("/", session(), `?tab=${tab}`)?.id).toBe("dashboard-admin");
+      expect(getPageTour("/", session(), `?tab=${tab}`)?.version).toBe(1);
     }
     expect(getPageTour("/", session("societe_employe"), "?tab=tasks")?.version).toBe(1);
+    expect(getPageTour("/", session("collaborateur"), "?tab=tasks")?.id).toBe("dashboard-tasks");
+    expect(getPageTour("/", session("collaborateur"))?.version).toBe(3);
   });
   it.each([
     "/", "/societes", "/employes", "/taches", "/collectes", "/collectes/1",

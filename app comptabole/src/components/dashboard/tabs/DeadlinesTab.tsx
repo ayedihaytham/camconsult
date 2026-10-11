@@ -3,9 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DeadlineList } from "@/components/dashboard/deadlines/DeadlineList";
+import { DeadlineCalendar } from "../deadlines/DeadlineCalendar";
+import "../deadlines/deadline-calendar.css";
 import type { DashboardDeadline } from "@/lib/dashboard/dashboardData";
 
-export function DeadlinesTab({ deadlines, loading, error, onRetry }: { deadlines: DashboardDeadline[]; loading: boolean; error: boolean; onRetry: () => void; }) {
+export function DeadlinesTab({ deadlines, loading, error, onRetry, now = new Date(), calendar = false }: { deadlines: DashboardDeadline[]; loading: boolean; error: boolean; onRetry: () => void; now?: Date; calendar?: boolean; }) {
   const overdue = deadlines.filter((item) => item.bucket === "overdue").length;
   const today = deadlines.filter((item) => item.bucket === "today").length;
   const week = deadlines.filter((item) => item.bucket === "week").length;
@@ -19,7 +21,7 @@ export function DeadlinesTab({ deadlines, loading, error, onRetry }: { deadlines
         <div className="space-y-1">{[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-16 w-full motion-reduce:animate-none" />)}</div>
       ) : error ? (
         <div className="flex items-start gap-3 border-b border-border py-4"><AlertTriangle className="mt-0.5 size-4 text-warning" /><div><p className="text-sm font-medium">Impossible de charger les échéances.</p><Button variant="link" size="sm" className="min-h-11 px-0" onClick={onRetry}>Réessayer</Button></div></div>
-      ) : <DeadlineList deadlines={deadlines} />}
+      ) : calendar ? <DeadlineCalendar deadlines={deadlines} now={now} /> : <DeadlineList deadlines={deadlines} />}
     </section></div>
   );
 }

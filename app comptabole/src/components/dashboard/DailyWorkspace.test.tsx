@@ -18,7 +18,8 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 vi.mock("@/hooks/use-media-query", () => ({ useMediaQuery: vi.fn(() => false) }));
 beforeEach(() => vi.mocked(useMediaQuery).mockReturnValue(false));
 afterEach(cleanup);
-const data = buildDashboardData(dashboardInput());
+const data = buildDashboardData(dashboardInput({ role: "collaborateur", viewerEmployeId: "emp-1" }));
+const adminData = buildDashboardData(dashboardInput());
 const base = { data, now: NOW, canUseMessaging: true, collectesLoading: false, collectesError: false, onRetryCollectes: () => {}, adminDataLoading: false, adminDataError: false, onRetryAdminData: () => {} };
 
 describe("Daily Workspace UI contract", () => {
@@ -45,7 +46,7 @@ describe("Daily Workspace UI contract", () => {
     expect(rail.parentElement).toBe(bureau);
     expect(workColumn.contains(container.querySelector('[data-tour="dashboard-tabs"]'))).toBe(true);
     expect(workColumn.contains(container.querySelector('[data-tour="dashboard-resume"]'))).toBe(true);
-    expect(workColumn.querySelectorAll('.dashboard-source-notice')).toHaveLength(2);
+    expect(workColumn.querySelectorAll('.dashboard-source-notice')).toHaveLength(1);
     expect(rail.querySelectorAll('[data-tour="dashboard-attention"]')).toHaveLength(1);
     const tasksTab = screen.getByRole('tab', { name: 'Tâches' });
     fireEvent.mouseDown(tasksTab, { button: 0, ctrlKey: false });
@@ -67,8 +68,8 @@ describe("Daily Workspace UI contract", () => {
     expect(screen.getAllByText("En cours").some((element) => element.className.includes("dashboard-badge--progress"))).toBe(true);
   });
   it("keeps the internal top area free of KPI presentation and preserves the banner and tabs", () => {
-    const { container } = render(<MemoryRouter><DashboardHeader salutation="Bonjour Amira" dateLabel="Mercredi" {...base} loading={false} role="admin" canAddSociete /><DashboardTabs {...base} /></MemoryRouter>);
-    expect(screen.getByRole("heading", { name: "Le travail du cabinet" })).toBeTruthy();
+    const { container } = render(<MemoryRouter><DashboardHeader salutation="Bonjour Amira" dateLabel="Mercredi" {...base} loading={false} role="collaborateur" canAddSociete /><DashboardTabs {...base} /></MemoryRouter>);
+    expect(screen.getByRole("heading", { name: "Mon espace de travail" })).toBeTruthy();
     expect(container.querySelector('[data-tour="dashboard-summary"] dl')).toBeNull();
     expect(container.querySelector('[aria-label="Accès aux modules"]')).toBeNull();
     ["Clients actifs", "Tâches ouvertes", "Échéances en retard"].forEach((label) => expect(screen.queryByText(label)).toBeNull());
@@ -105,7 +106,7 @@ describe("Daily Workspace UI contract", () => {
   it("limits the dossier composition to Mon bureau and preserves the dedicated views", () => {
     const { container } = render(<MemoryRouter><DashboardTabs {...base} /></MemoryRouter>);
     expect(container.querySelector(".dashboard-bureau")).toBeTruthy();
-    for (const name of ["Tâches", "À traiter", "Échéances", "Équipe", "Activité"]) {
+    for (const name of ["Tâches", "À traiter", "Échéances", "Activité"]) {
       fireEvent.mouseDown(screen.getByRole("tab", { name }), { button: 0, ctrlKey: false });
       expect(screen.getByRole("tab", { name }).getAttribute("aria-selected")).toBe("true");
       expect(container.querySelector(".dashboard-bureau")).toBeNull();
@@ -117,13 +118,13 @@ describe("Daily Workspace UI contract", () => {
   });
   it("provides all internal tour targets using the existing versioned registry", () => {
     const { container } = render(<MemoryRouter><div data-tour="page-workspace"><DashboardHeader salutation="Bonjour" dateLabel="Mercredi" data={data} now={NOW} loading={false} role="admin" canAddSociete canUseMessaging /><DashboardTabs {...base} /></div></MemoryRouter>);
-    const tour = getPageTour("/", session());
+    const tour = getPageTour("/", session("collaborateur"));
     expect(tour?.version).toBe(3);
     tour?.steps.forEach((step) => { expect(typeof step.target).toBe("string"); expect(container.querySelector(`[data-tour="${step.target}"]`)).toBeTruthy(); });
     expect(getPageTour("/", session("societe_employe"))?.version).toBe(1);
   });
   it("keeps empty bureau states distinct and completed work available", () => {
-    const empty = buildDashboardData(dashboardInput({ taches: [], collectes: [] }));
+    const empty = buildDashboardData(dashboardInput({ role: "collaborateur", viewerEmployeId: "emp-1", taches: [], collectes: [] }));
     const { rerender } = render(<MemoryRouter><DashboardTabs {...base} data={empty} /></MemoryRouter>);
     expect(screen.getByText(/Rien à reprendre/)).toBeTruthy();
     expect(screen.getByText("Aucune transmission prévue aujourd’hui.")).toBeTruthy();
@@ -150,7 +151,7 @@ describe("Daily Workspace UI contract", () => {
     expect(screen.queryByText("Tout est à jour")).toBeNull();
   });
   it("prioritizes overdue, correction and review items in the bureau action center", () => {
-    const actionData = buildDashboardData(dashboardInput({ collectes: [
+    const actionData = buildDashboardData(dashboardInput({ role: "collaborateur", viewerEmployeId: "emp-1", collectes: [
       collection("late", "2026-09-29"),
       collection("fix", "2026-10-02", "a_corriger"),
       collection("review", "2026-10-03", "transmis"),
@@ -247,19 +248,17 @@ describe("Daily Workspace UI contract", () => {
     expect(container.querySelector(".dashboard-badge--danger")?.textContent).toMatch(/retard/i);
   });
   it("keeps team rows informational when collaborator filtering is not exposed", () => {
-    render(<MemoryRouter initialEntries={["/?tab=team"]}><DashboardTabs {...base} /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={["/?tab=team"]}><DashboardTabs {...base} data={adminData} /></MemoryRouter>);
     expect(screen.queryByRole("button", { name: /Voir les tâches de Amira/ })).toBeNull();
     expect(screen.getAllByText("Amira emp-1")).toHaveLength(2);
   });
-  it("previews real team counts without ranking, row actions or company-side exposure", () => {
+  it("keeps the full admin team in its tab without crowding the overview", () => {
     const team = Array.from({ length: 5 }, (_, index) => ({ id: `emp-${index}`, name: `Collaborateur ${index}`, initials: `C${index}`, active: true, online: false, aFaire: index + 1, enCours: 2, done: 0, open: index + 3, total: index + 3 }));
-    const { container, rerender } = render(<MemoryRouter><DashboardTabs {...base} data={{ ...data, team }} /></MemoryRouter>);
-    const preview = container.querySelector('[data-tour="dashboard-team"]') as HTMLElement;
-    expect(within(preview).getAllByRole("listitem")).toHaveLength(3);
-    expect(within(preview).getByText("3 ouvertes")).toBeTruthy();
-    expect(within(preview).getByText(/1 à faire · 2 en cours/)).toBeTruthy();
-    expect(within(preview).getAllByRole("link")).toHaveLength(1);
-    expect(within(preview).getByRole("link", { name: "Voir l’équipe" }).getAttribute("href")).toBe("/?tab=team");
+    const { container, rerender } = render(<MemoryRouter><DashboardTabs {...base} data={{ ...adminData, team }} /></MemoryRouter>);
+    expect(container.querySelector('[data-tour="dashboard-team"]')).toBeNull();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Équipe" }), { button: 0, ctrlKey: false });
+    team.forEach((member) => expect(screen.getAllByText(member.name).length).toBeGreaterThan(0));
+    expect(screen.queryByRole("button", { name: /Voir les tâches de/ })).toBeNull();
     rerender(<MemoryRouter><DashboardTabs {...base} data={{ ...data, role: "collaborateur", team }} /></MemoryRouter>);
     expect(container.querySelector('[data-tour="dashboard-team"]')).toBeNull();
   });

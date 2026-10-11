@@ -614,6 +614,28 @@ export function getPageTour(
 ): Tour | null {
   if (pathname === "/") {
     if (_session?.poste === "societe_employe") return TOURS.dashboard;
+    if (_session?.role === "admin") return new URLSearchParams(search).get("tab") === "tasks" ? {
+      id: "dashboard-admin-tasks", version: 1, title: "Tâches du cabinet",
+      steps: [
+        { target: "dashboard-tasks", title: "Le travail du cabinet", body: "Cette vue rassemble les tâches accessibles dans le périmètre affiché." },
+        { target: "dashboard-task-lens", title: "Choisir un état", body: "Consultez les tâches ouvertes, en cours, à faire ou terminées. La recherche porte sur le titre, la société et le collaborateur." },
+        { target: "dashboard-task-ongoing", title: "Travail en cours", body: "Retrouvez les tâches déjà commencées et ouvrez une ligne pour poursuivre dans Tâches." },
+        { target: "dashboard-task-todo", title: "Tâches à commencer", body: "Les tâches à faire gardent leur société, leur collaborateur et leur statut." },
+        { target: "dashboard-task-completed", title: "Travail terminé", body: "Les tâches terminées restent consultables dans leur propre vue." },
+      ],
+    } : {
+      id: "dashboard-admin", version: 1, title: "Tableau de bord du cabinet",
+      steps: [
+        { target: "dashboard-summary", title: "Votre journée", body: "Le bandeau situe la journée et les actions rapides ouvrent les modules autorisés." },
+        { target: "dashboard-resume", title: "L’essentiel en un regard", body: "Collectes à examiner, tâches ouvertes, échéances proches et messages non lus. Chaque résumé ouvre sa vue complète." },
+        { target: "dashboard-tabs", title: "Approfondir une vue", body: "Les onglets donnent accès aux tâches, aux éléments à traiter, au calendrier, à l’équipe et à l’activité." },
+        { target: "dashboard-deadline-strip", title: "Choisir la journée", body: "Aujourd’hui est sélectionné au départ. Les cases de la semaine changent les collectes du jour et les échéances qui suivent. Les tâches et messages conservent leur état actuel." },
+        { target: "dashboard-attention", title: "Suivre les collectes du jour", body: "Cet aperçu présente les collectes dont l’échéance correspond à la date sélectionnée. Chaque ligne ouvre son dossier." },
+        { target: "dashboard-tasks", title: "Avancer sur le travail", body: "Les tâches en cours puis celles à faire sont accessibles directement." },
+        { target: "dashboard-transmissions", title: "Consulter les échéances", body: "Les dates qui suivent la journée choisie sont visibles ici. Calendrier ouvre le mois complet et le détail des collectes de chaque jour." },
+        { target: "dashboard-communication", title: "Lire les messages", body: "Les messages non lus sont ceux de votre compte. Messagerie ouvre les échanges." },
+      ],
+    };
     if (new URLSearchParams(search).get("tab") === "tasks") return {
       id: "dashboard-tasks", version: 1, title: "Tâches du tableau de bord",
       steps: [

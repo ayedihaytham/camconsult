@@ -21,6 +21,17 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ salutation, dateLabel, data, loading, role, canAddSociete, canUseMessaging, error = false, now = new Date(), societeNom = null }: DashboardHeaderProps) {
   const metrics = data.kpis;
 
+  if (role === "admin") return (
+    <header data-tour="dashboard-summary" className="admin-command">
+      <div className="min-w-0">
+        <p>{salutation}<span className="admin-command-date"> · {dateLabel}</span></p>
+        <h1>{societeNom ?? "Tableau de bord du cabinet"}</h1>
+        {societeNom && <span className="admin-command-context">Vue limitée à cette société</span>}
+      </div>
+      <DashboardQuickActions role={role} canAddSociete={canAddSociete} canUseMessaging={canUseMessaging} inverse />
+    </header>
+  );
+
   if (role !== "societe_employe") return (
     <header data-tour="dashboard-summary" className="dashboard-command">
         <div className="dashboard-command-content">
@@ -31,7 +42,7 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
             </time>
             <div className="min-w-0">
               <p className="text-xs text-primary-foreground/80">{salutation}</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[1.7rem]">{societeNom ?? (role === "admin" ? "Le travail du cabinet" : "Mon espace de travail")}</h1>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[1.7rem]">{societeNom ?? "Mon espace de travail"}</h1>
               <p className="mt-1 text-xs leading-relaxed text-primary-foreground/80">{societeNom ? "Tâches, collectes et échéances de ce client." : "Reprendre, avancer et préparer les prochaines transmissions."}</p>
             </div>
           </div>

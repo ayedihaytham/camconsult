@@ -9,7 +9,7 @@ import { getPageTour } from "@/components/tour/tourRegistry";
 
 afterEach(cleanup);
 function mount(input = dashboardInput()) {
-  const data = buildDashboardData(input);
+  const data = buildDashboardData({ ...input, role: "collaborateur", viewerEmployeId: "emp-1" });
   return { data, ...render(<MemoryRouter><TasksTab data={data} /></MemoryRouter>) };
 }
 describe("Dashboard Tâches workspace", () => {

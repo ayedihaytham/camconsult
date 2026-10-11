@@ -4,8 +4,13 @@ import { Link } from "react-router-dom";
 import { TaskRegister } from "../TaskRegister";
 import type { DashboardViewModel } from "@/lib/dashboard/dashboardData";
 import "../tasks-workspace.css";
+import { AdminTasksTab } from "./AdminTasksTab";
 
 export function TasksTab({ data }: { data: DashboardViewModel }) {
+  return data.role === "admin" ? <AdminTasksTab data={data} /> : <InternalTasksTab data={data} />;
+}
+
+function InternalTasksTab({ data }: { data: DashboardViewModel }) {
   const [completed, setCompleted] = useState(false);
   const accessible = [...data.taskRows, ...data.otherTaskRows];
   const openCount = accessible.filter(

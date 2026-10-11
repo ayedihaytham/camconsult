@@ -704,7 +704,11 @@ export function StructurationPage() {
                 <EmptyState
                   icon={FolderTree}
                   title="Aucune arborescence"
-                  description="Créez une première arborescence documentaire pour une société."
+                  description={
+                    isAdmin || canCreate
+                      ? "Créez une première arborescence documentaire pour une société."
+                      : "Le cabinet n'a pas encore préparé l'arborescence documentaire de votre société. Elle apparaîtra ici dès qu'elle sera créée."
+                  }
                 />
               }
             />

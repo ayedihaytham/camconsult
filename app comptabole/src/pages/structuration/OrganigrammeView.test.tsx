@@ -25,34 +25,36 @@ function afficher() {
   return { onOpenNode };
 }
 
-describe("organigramme avec les mois", () => {
-  it("montre sous chaque dossier de l'année son nombre de fichiers et « voir les mois »", () => {
+describe("organigramme vertical avec les mois", () => {
+  it("montre la société, l'année puis une ligne par dossier avec son nombre de fichiers et ses 12 mois", () => {
     afficher();
-    expect(screen.getByText("2 fichiers")).toBeTruthy();
-    expect(screen.getByText("1 fichier")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /voir les mois/ })).toHaveLength(2);
-    expect(screen.queryByLabelText("Mois de achat")).toBeNull();
-  });
-
-  it("déplie les 12 mois avec leur compte, puis liste les fichiers d'un mois au clic", () => {
-    afficher();
-    fireEvent.click(screen.getAllByRole("button", { name: /voir les mois/ })[0]);
+    expect(screen.getByText("3 dossiers · 3 fichiers")).toBeTruthy();
+    expect(screen.getByText("Comptabilité générale 2026")).toBeTruthy();
     const mois = within(screen.getByLabelText("Mois de achat"));
     expect(mois.getAllByRole("button")).toHaveLength(12);
-    fireEvent.click(mois.getByRole("button", { name: /Jan · 2/ }));
-    const panneau = within(screen.getByLabelText("Fichiers du mois"));
-    expect(panneau.getByText("achat · Janvier 2026")).toBeTruthy();
-    expect(panneau.getByText("FA-0013.pdf")).toBeTruthy();
-    expect(panneau.getByText("FA-0012.pdf")).toBeTruthy();
+    expect(mois.getByRole("button", { name: /Jan · 2/ })).toBeTruthy();
+    expect(screen.getByText("2 fichiers")).toBeTruthy();
+    expect(screen.getByText("1 fichier")).toBeTruthy();
   });
 
-  it("déplie ou replie tous les mois, et masque les mois si on le demande", () => {
+  it("affiche les fichiers d'un mois dans le volet de droite, sans quitter le schéma", () => {
     afficher();
-    fireEvent.click(screen.getByRole("button", { name: "Tout déplier" }));
-    expect(screen.getAllByLabelText(/^Mois de /)).toHaveLength(2);
-    fireEvent.click(screen.getByRole("button", { name: "Tout replier" }));
-    expect(screen.queryAllByLabelText(/^Mois de /)).toHaveLength(0);
-    fireEvent.click(screen.getByLabelText("Afficher les mois"));
-    expect(screen.queryByRole("button", { name: /voir les mois/ })).toBeNull();
+    expect(screen.getByText(/Cliquez un mois pour voir ses fichiers/)).toBeTruthy();
+    fireEvent.click(within(screen.getByLabelText("Mois de achat")).getByRole("button", { name: /Jan · 2/ }));
+    const volet = within(screen.getByLabelText("Fichiers du mois"));
+    expect(volet.getByText("achat · Janvier 2026")).toBeTruthy();
+    expect(volet.getByText("FA-0013.pdf")).toBeTruthy();
+    expect(volet.getByText("FA-0012.pdf")).toBeTruthy();
+    fireEvent.click(within(screen.getByLabelText("Mois de banque")).getByRole("button", { name: "Fév" }));
+    expect(volet.getByText("Aucun fichier ce mois-ci.")).toBeTruthy();
+  });
+
+  it("ouvre un dossier depuis son nom ou depuis le volet", () => {
+    const { onOpenNode } = afficher();
+    fireEvent.click(screen.getByRole("button", { name: "achat" }));
+    expect(onOpenNode).toHaveBeenCalledWith(NODES[2]);
+    fireEvent.click(within(screen.getByLabelText("Mois de banque")).getByRole("button", { name: /Mar · 1/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Ouvrir le dossier" }));
+    expect(onOpenNode).toHaveBeenLastCalledWith(NODES[3]);
   });
 });

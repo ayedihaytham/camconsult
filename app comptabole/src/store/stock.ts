@@ -62,8 +62,11 @@ interface StockState {
   extracting: boolean;
   /** Nombre de mouvements par société (page d'accueil du module). */
   counts: Record<string, number>;
+  /** Nombre de mouvements et date du dernier, par société (tableau de suivi de l'accueil). */
+  synthese: Record<string, { mouvements: number; dernierLe: string | null }>;
 
   fetchCounts: () => Promise<void>;
+  fetchSynthese: () => Promise<void>;
   fetchList: (societeId: string) => Promise<void>;
   clear: () => void;
   create: (data: StockMouvementInput) => Promise<StockMouvement>;
@@ -80,6 +83,15 @@ export const useStock = create<StockState>((set) => ({
   loading: false,
   extracting: false,
   counts: {},
+  synthese: {},
+
+  fetchSynthese: async () => {
+    try {
+      set({ synthese: await api.get<Record<string, { mouvements: number; dernierLe: string | null }>>("/stock/synthese") });
+    } catch {
+      /* l'accueil s'affiche sans synthèse */
+    }
+  },
 
   fetchCounts: async () => {
     try {

@@ -130,6 +130,17 @@ stockRouter.get("/compteurs", async (req, res) => {
   res.json(counts);
 });
 
+// Synthèse par société accessible : nombre de mouvements et date du dernier (accueil du module).
+stockRouter.get("/synthese", async (req, res) => {
+  const { rows } = await query(
+    "select societe_id, count(*)::int as n, max(maj_le) as dernier from stock_mouvements group by societe_id",
+  );
+  const synthese = {};
+  for (const r of rows)
+    if (canAccess(req.session, r.societe_id)) synthese[r.societe_id] = { mouvements: r.n, dernierLe: r.dernier };
+  res.json(synthese);
+});
+
 stockRouter.get("/mouvements", async (req, res) => {
   const societeId = req.query.societeId;
   if (!societeId) return res.status(400).json({ error: "societeId requis" });

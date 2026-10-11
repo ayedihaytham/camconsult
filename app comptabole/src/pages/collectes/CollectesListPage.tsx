@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ClipboardList } from "lucide-react";
+import { Plus } from "lucide-react";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
-import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
-import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
-import {
-  LedgerWorkSurface,
-  OperationalContentHeader,
-  OperationalLedgerToolbar,
-} from "@/components/ledger/OperationalLedgerLayout";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -25,6 +18,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { useSocietes } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
+import { cn } from "@/lib/utils";
 import { isOverdueCollection } from "@/lib/dashboard/dashboardData";
 import { COLLECTE_STATUT_LABELS } from "@/lib/collecte/tabs";
 import {
@@ -37,6 +31,7 @@ import type { Collecte, CollecteStatut } from "@/types";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { CollectesClientPage } from "./CollectesClientPage";
 import { CollectesRegistre } from "./CollectesRegistre";
+import { CollectesPipeline } from "./CollectesPipeline";
 
 export function CollectesListPage() {
   const navigate = useNavigate();
@@ -60,6 +55,7 @@ export function CollectesListPage() {
   const [toDelete, setToDelete] = useState<Collecte | null>(null);
   const [vue, setVue] = useState<CollecteLens>(isCabinet ? "a_examiner" : "actives");
   const vueChoisie = useRef(false);
+  const [affichage, setAffichage] = useState<"tableau" | "pipeline">("tableau");
   const [query, setQuery] = useState("");
   const [societeId, setSocieteId] = useState("all");
   const [periode, setPeriode] = useState("all");
@@ -81,7 +77,7 @@ export function CollectesListPage() {
   const counts = useMemo(() => getCollecteLensCounts(list), [list]);
   // Rien à examiner et aucun choix de vue : on ouvre les collectes actives plutôt qu'une liste vide.
   useEffect(() => {
-    if (!loading && !vueChoisie.current && vue === "a_examiner" && counts.aExaminer === 0) setVue("actives");
+    if (!loading && !vueChoisie.current && vue === "a_examiner" && counts.aExaminer === 0) setVue("toutes");
   }, [loading, vue, counts.aExaminer]);
   const collectionSummary = useMemo(() => {
     const now = new Date();
@@ -157,19 +153,14 @@ export function CollectesListPage() {
       {filters}
     </LedgerSearchFilter>
   );
-  const lensControl = (
-    <LedgerSegmented
-      ariaLabel="Vue des collectes"
-      value={vue}
-      onChange={(next) => { vueChoisie.current = true; setVue(next); }}
-      options={[
-        ...(isCabinet ? [{ value: "a_examiner" as const, label: `À examiner (${counts.aExaminer})` }] : []),
-        { value: "actives", label: `Actives (${counts.actives})` },
-        { value: "archivees", label: `Archivées (${counts.archivees})` },
-        { value: "toutes", label: `Toutes (${counts.toutes})` },
-      ]}
-    />
-  );
+  const onglets: { value: CollecteLens; label: string; count: number; chaud?: boolean }[] = [
+    ...(isCabinet ? [{ value: "a_examiner" as const, label: "À examiner", count: counts.aExaminer, chaud: true }] : []),
+    { value: "chez_client", label: "Chez le client", count: counts.chezClient },
+    { value: "a_corriger", label: "À corriger", count: counts.aCorriger },
+    { value: "validees", label: "Validées", count: counts.validees },
+    { value: "archivees", label: "Archivées", count: counts.archivees },
+    { value: "toutes", label: "Toutes", count: counts.toutes },
+  ];
 
   if (isSocieteEmploye) {
     const unique = new Set(list.map((c) => c.societeId));
@@ -178,38 +169,63 @@ export function CollectesListPage() {
 
   return (
     <div className={`flex min-w-0 flex-1 flex-col ${canCreate ? "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0" : ""}`}>
-      <SignatureLedgerBanner
-        icon={ClipboardList}
-        className="mb-0 sm:mb-2"
-        variant="process"
-        eyebrow="Clients & travail · Process Ledger"
-        title="Collecte de pièces"
-        description={canCreate ? "Classeurs confiés aux clients pour saisie et retour au cabinet." : "Classeurs à remplir et transmettre à votre cabinet."}
-        metrics={[
-          ...(isCabinet ? [{ label: "À examiner", value: collectionSummary.aExaminer, tone: "warning" as const, loading }] : []),
-          { label: "En cours", value: collectionSummary.enCours, loading },
-          { label: "En retard", value: collectionSummary.enRetard, tone: "destructive", loading },
-          { label: "À corriger", value: collectionSummary.aCorriger, tone: "warning", loading },
-        ]}
-        action={canCreate ? { label: "Nouvelle collecte", onClick: () => setCreateOpen(true) } : undefined}
-      />
-
-      <LedgerWorkSurface className="collectes-work-surface ledger-soft-rows">
-        <div data-tour="collecte-lenses" className="collectes-lenses">{lensControl}</div>
-        <OperationalLedgerToolbar
-          label="Outils des collectes"
-          search={search}
-        />
-        <OperationalContentHeader>
-          <div className="flex min-w-0 items-baseline gap-3">
-            <h2 className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">Registre des collectes</h2>
-            <p className="hidden truncate text-[11px] text-muted-foreground md:block">Suivi des transmissions et corrections</p>
+      <header className="mb-3 rounded-lg bg-primary px-5 pt-4 text-primary-foreground">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-accent">Clients &amp; travail</p>
+            <h1 className="mt-0.5 text-2xl font-bold tracking-tight">Collecte de pièces</h1>
           </div>
-          {!loading && <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">{filtered.length} dossier{filtered.length === 1 ? "" : "s"} visible{filtered.length === 1 ? "" : "s"}</span>}
-        </OperationalContentHeader>
+          {canCreate && (
+            <Button type="button" variant="outline" className="min-h-10 gap-1.5 border-accent/60 bg-transparent font-semibold text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4" aria-hidden="true" /> Nouvelle collecte
+            </Button>
+          )}
+        </div>
+        <dl className="mt-3 flex flex-wrap border-t border-primary-foreground/15">
+          {[
+            ...(isCabinet ? [{ label: "À examiner", value: collectionSummary.aExaminer }] : []),
+            { label: "Chez le client", value: counts.chezClient },
+            { label: "En retard", value: collectionSummary.enRetard },
+            { label: "À corriger", value: collectionSummary.aCorriger },
+          ].map((metric, index) => (
+            <div key={metric.label} className={cn("flex items-baseline gap-2 py-3 pr-5", index > 0 && "border-l border-primary-foreground/15 pl-5")}>
+              <dd className="font-serif text-xl font-bold tabular-nums">{loading ? "…" : metric.value}</dd>
+              <dt className="text-[11px] font-bold uppercase tracking-[0.09em]">{metric.label}</dt>
+            </div>
+          ))}
+        </dl>
+      </header>
+
+      <section aria-label="Registre des collectes" className="overflow-hidden rounded-lg border border-border bg-card">
+        <div data-tour="collecte-lenses" role="tablist" aria-label="Vue des collectes" className="flex gap-1 overflow-x-auto border-b border-border px-2">
+          {onglets.map((onglet) => (
+            <button
+              key={onglet.value}
+              type="button"
+              role="tab"
+              aria-selected={vue === onglet.value}
+              onClick={() => { vueChoisie.current = true; setVue(onglet.value); }}
+              className={cn(
+                "-mb-px flex min-h-11 shrink-0 items-center gap-1.5 border-b-[3px] px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                vue === onglet.value ? "border-accent text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {onglet.label}
+              <span className={cn("rounded-full px-2 py-0.5 text-[11.5px] tabular-nums", onglet.chaud && onglet.count > 0 ? "bg-warning/15 text-warning" : vue === onglet.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>{onglet.count}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2.5 sm:px-4">
+          <div className="min-w-0 flex-1 sm:max-w-md">{search}</div>
+          <div role="group" aria-label="Affichage des collectes" className="ml-auto flex rounded-md border border-border p-0.5">
+            {([["tableau", "Tableau"], ["pipeline", "Pipeline"]] as const).map(([valeur, label]) => (
+              <button key={valeur} type="button" aria-pressed={affichage === valeur} onClick={() => setAffichage(valeur)} className={cn("min-h-8 rounded px-3 text-xs font-semibold", affichage === valeur ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</button>
+            ))}
+          </div>
+        </div>
 
         {!loading && filtered.length === 0 ? (
-          <div className="border-b border-border/80 px-4 py-5">
+          <div className="px-4 py-6">
             <p className="text-sm text-muted-foreground">
               {query || activeFilterCount > 0
                 ? "Aucune collecte ne correspond à ces critères."
@@ -217,25 +233,25 @@ export function CollectesListPage() {
                   ? "Aucune collecte."
                   : vue === "a_examiner"
                     ? "Aucun tableau transmis à examiner."
-                    : vue === "archivees"
-                      ? "Aucune collecte archivée."
-                      : "Aucune collecte active."}
+                    : "Aucune collecte dans cette vue."}
             </p>
             {(query || activeFilterCount > 0) && <Button type="button" variant="link" className="h-auto px-0 pt-1" onClick={() => { setQuery(""); resetFilters(); }}>Effacer la recherche et les filtres</Button>}
           </div>
+        ) : loading ? (
+          <p className="px-4 py-5 text-sm text-muted-foreground">Chargement…</p>
+        ) : affichage === "pipeline" ? (
+          <CollectesPipeline collectes={filtered} socNom={socNom} />
         ) : (
-          loading ? <p className="px-4 py-5 text-sm text-muted-foreground">Chargement…</p> : (
-            <CollectesRegistre key={resetKey} collectes={filtered} socNom={socNom} onDelete={isAdmin ? setToDelete : undefined} />
-          )
+          <CollectesRegistre key={resetKey} collectes={filtered} socNom={socNom} onDelete={isAdmin ? setToDelete : undefined} />
         )}
-      </LedgerWorkSurface>
+      </section>
 
       {canCreate && <OperationalFab label="Nouvelle collecte" onClick={() => setCreateOpen(true)} />}
       {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} defaultSocieteId={societeActive?.id} onCreate={async (data) => {
         const collecte = await create(data);
         // La nouvelle collecte est chez le client : elle se retrouve dans les collectes actives, pas dans « À examiner ».
         vueChoisie.current = true;
-        setVue("actives");
+        setVue("chez_client");
         setQuery("");
         resetFilters();
         toast.success("Collecte créée", { description: `${socNom(collecte.societeId)} — ${periodeLabel(collecte.periode)}` });

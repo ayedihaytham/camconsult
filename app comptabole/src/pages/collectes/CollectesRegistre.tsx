@@ -17,7 +17,7 @@ type SortKey = "priorite" | "societe" | "statut" | "echeance" | "avancement" | "
 
 const STATUT: Record<CollecteStatut, { label: string; tone: string; rank: number }> = {
   brouillon: { label: "Chez le client", tone: "bg-muted text-muted-foreground", rank: 0 },
-  transmis: { label: "Transmis", tone: "bg-info/15 text-info", rank: 1 },
+  transmis: { label: "Transmis", tone: "bg-primary/10 text-primary", rank: 1 },
   a_corriger: { label: "À corriger", tone: "bg-warning/15 text-warning", rank: 2 },
   valide: { label: "Validée", tone: "bg-success/15 text-success", rank: 3 },
   archive: { label: "Archivée", tone: "bg-muted text-muted-foreground", rank: 4 },

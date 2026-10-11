@@ -11,7 +11,7 @@ import { cn, formatDate, formatRelative } from "@/lib/utils";
 const STATUT: Record<CollecteStatut, { label: string; tone: string; action: string; rank: number }> = {
   a_corriger: { label: "À corriger", tone: "bg-warning/15 text-warning", action: "Reprendre", rank: 0 },
   brouillon: { label: "À compléter", tone: "bg-warning/15 text-warning", action: "Remplir", rank: 1 },
-  transmis: { label: "En attente du cabinet", tone: "bg-info/15 text-info", action: "Ouvrir", rank: 2 },
+  transmis: { label: "En attente du cabinet", tone: "bg-primary/10 text-primary", action: "Ouvrir", rank: 2 },
   valide: { label: "Validée", tone: "bg-success/15 text-success", action: "Ouvrir", rank: 3 },
   archive: { label: "Archivée", tone: "bg-muted text-muted-foreground", action: "Ouvrir", rank: 4 },
 };

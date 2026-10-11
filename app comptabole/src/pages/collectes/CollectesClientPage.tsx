@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, ClipboardList, MoreHorizontal, Trash2 } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ArrowRight, ClipboardList } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,65 +66,32 @@ export function CollectesClientPage({ list, loading, societeNom }: { list: Colle
   );
 }
 
-export function CollecteCard({ collecte, mise, societeNom, cabinet = false, onDelete }: {
-  collecte: Collecte;
-  mise: boolean;
-  /** Nom de la société, affiché au cabinet (un responsable de société n'en a qu'une, déjà dite dans le bandeau). */
-  societeNom?: string;
-  cabinet?: boolean;
-  onDelete?: (collecte: Collecte) => void;
-}) {
+function CollecteCard({ collecte, mise }: { collecte: Collecte; mise: boolean }) {
   const navigate = useNavigate();
   const statut = STATUT[collecte.statut];
   const nom = collectionLabel(collecte);
   const progress = collectionProgress(collecte);
   const demandes = collecte.tableauxDemandes ?? 0;
   const faits = Math.round(((progress ?? 0) / 100) * demandes);
-  const nbTableaux = cabinet ? collecte.onglets.length : 0;
-  const aExaminer = collecte.tableauxTransmis ?? 0;
-  const avance = nbTableaux > 0 ? Math.min(100, Math.round((((collecte.tableauxTransmis ?? 0) + (collecte.tableauxValides ?? 0)) / nbTableaux) * 100)) : 0;
-  const etiquette = cabinet && collecte.statut === "brouillon" ? "Chez le client" : cabinet && collecte.statut === "transmis" ? "Transmis" : statut.label;
-  const action = cabinet && (collecte.statut === "transmis" || collecte.statut === "a_corriger") ? "Examiner" : cabinet && collecte.statut === "brouillon" ? "Ouvrir" : cabinet ? "Consulter" : statut.action;
-  const primaire = cabinet ? aExaminer > 0 : collecte.statut === "a_corriger" || collecte.statut === "brouillon";
   const ouvrir = () => navigate(`/collectes/${collecte.id}`);
   return (
     <li className={cn("grid min-w-0 items-center gap-x-6 gap-y-3 rounded-lg border bg-card p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(12rem,18rem)_auto]", mise ? "border-accent bg-gradient-to-br from-accent/15 to-card" : "border-border")}>
       <div className="min-w-0">
-        <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold", statut.tone)}>{etiquette}</span>
-        {cabinet && societeNom && <p className="mt-2 truncate text-sm font-semibold text-foreground">{societeNom}</p>}
-        <h3 className={cn("truncate font-serif text-xl font-semibold leading-tight", cabinet && societeNom ? "mt-0.5" : "mt-2")}>{nom}</h3>
+        <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold", statut.tone)}>{statut.label}</span>
+        <h3 className="mt-2 truncate font-serif text-xl font-semibold leading-tight">{nom}</h3>
         <p className="mt-1 text-xs text-muted-foreground">{collecte.echeance ? `Échéance ${formatDate(collecte.echeance)} · ` : ""}mise à jour {formatRelative(collecte.majLe)}</p>
       </div>
-      <div className="min-w-0" role="img" aria-label={cabinet ? `${nbTableaux} tableaux, ${aExaminer} à examiner` : demandes > 0 ? `${faits} tableaux transmis sur ${demandes}` : "Aucun tableau demandé"}>
-        {cabinet ? (
-          <>
-            <p className="mb-1.5 text-xs text-muted-foreground"><strong className="font-semibold tabular-nums text-foreground">{nbTableaux}</strong> tableau{nbTableaux > 1 ? "x" : ""}{aExaminer > 0 && <> · <span className="font-semibold text-warning">{aExaminer} à examiner</span></>}</p>
-            <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${avance}%` }} /></div>
-          </>
-        ) : demandes > 0 ? (
+      <div className="min-w-0" role="img" aria-label={demandes > 0 ? `${faits} tableaux transmis sur ${demandes}` : "Aucun tableau demandé"}>
+        {demandes > 0 ? (
           <>
             <p className="mb-1.5 text-xs text-muted-foreground"><strong className="font-semibold tabular-nums text-foreground">{faits}</strong> / {demandes} tableau{demandes > 1 ? "x" : ""} transmis</p>
             <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${progress ?? 0}%` }} /></div>
           </>
         ) : <p className="text-xs text-muted-foreground">Aucun tableau demandé pour le moment</p>}
       </div>
-      <div className="flex items-center gap-2 md:justify-self-end">
-        <Button variant={primaire ? "default" : "outline"} className="min-h-11 gap-2" onClick={ouvrir} aria-label={`${action} la collecte ${societeNom ? `${societeNom} — ` : ""}${nom}`}>
-          {action}<ArrowRight className="size-4" aria-hidden="true" />
-        </Button>
-        {onDelete && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="icon-sm" className="size-11" aria-label={`Actions pour ${societeNom ? `${societeNom}, ` : ""}${nom}`}><MoreHorizontal className="size-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={ouvrir}><ArrowRight /> Ouvrir la collecte</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => onDelete(collecte)}><Trash2 /> Supprimer…</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+      <Button variant={collecte.statut === "a_corriger" || collecte.statut === "brouillon" ? "default" : "outline"} className="min-h-11 gap-2 md:justify-self-end" onClick={ouvrir} aria-label={`${statut.action} la collecte ${nom}`}>
+        {statut.action}<ArrowRight className="size-4" aria-hidden="true" />
+      </Button>
     </li>
   );
 }

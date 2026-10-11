@@ -35,9 +35,8 @@ import {
 } from "@/lib/collecte/collectionList";
 import type { Collecte, CollecteStatut } from "@/types";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
-import { CollectesClientPage, CollecteCard } from "./CollectesClientPage";
-
-const PAGE_CARTES = 10;
+import { CollectesClientPage } from "./CollectesClientPage";
+import { CollectesRegistre } from "./CollectesRegistre";
 
 export function CollectesListPage() {
   const navigate = useNavigate();
@@ -113,10 +112,6 @@ export function CollectesListPage() {
     setEcheance("all");
   };
   const resetKey = [vue, query, societeId, periode, statut, echeance].join("|");
-
-  const [limite, setLimite] = useState(PAGE_CARTES);
-  useEffect(() => setLimite(PAGE_CARTES), [resetKey]);
-  const visibles = filtered.slice(0, limite);
 
   const filters = (
     <div className="grid min-w-0 gap-3 sm:grid-cols-2">
@@ -224,28 +219,9 @@ export function CollectesListPage() {
             {(query || activeFilterCount > 0) && <Button type="button" variant="link" className="h-auto px-0 pt-1" onClick={() => { setQuery(""); resetFilters(); }}>Effacer la recherche et les filtres</Button>}
           </div>
         ) : (
-          <div className="px-3 py-3 sm:px-4 sm:py-4">
-            {loading ? <p className="text-sm text-muted-foreground">Chargement…</p> : (
-              <ul className="grid gap-3" aria-label="Collectes">
-                {visibles.map((collecte, index) => (
-                  <CollecteCard
-                    key={collecte.id}
-                    collecte={collecte}
-                    cabinet
-                    mise={index === 0 && vue === "a_examiner"}
-                    societeNom={socNom(collecte.societeId)}
-                    onDelete={isAdmin ? setToDelete : undefined}
-                  />
-                ))}
-              </ul>
-            )}
-            {!loading && filtered.length > limite && (
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <span className="text-xs tabular-nums text-muted-foreground">{visibles.length} sur {filtered.length} collectes</span>
-                <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={() => setLimite((n) => n + PAGE_CARTES)}>Afficher plus</Button>
-              </div>
-            )}
-          </div>
+          loading ? <p className="px-4 py-5 text-sm text-muted-foreground">Chargement…</p> : (
+            <CollectesRegistre key={resetKey} collectes={filtered} socNom={socNom} onDelete={isAdmin ? setToDelete : undefined} />
+          )
         )}
       </LedgerWorkSurface>
 

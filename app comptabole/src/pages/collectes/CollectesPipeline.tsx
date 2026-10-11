@@ -5,7 +5,7 @@ import { cn, formatRelative } from "@/lib/utils";
 
 const COLONNES: { statut: CollecteStatut; titre: string; tone: string }[] = [
   { statut: "brouillon", titre: "Chez le client", tone: "bg-muted text-muted-foreground" },
-  { statut: "transmis", titre: "Transmis", tone: "bg-info/15 text-info" },
+  { statut: "transmis", titre: "Transmis", tone: "bg-primary/10 text-primary" },
   { statut: "a_corriger", titre: "À corriger", tone: "bg-warning/15 text-warning" },
   { statut: "valide", titre: "Validées", tone: "bg-success/15 text-success" },
 ];

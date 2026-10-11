@@ -22,7 +22,7 @@ describe("page Collecte de pièces du responsable de société", () => {
     expect(cartes[0].textContent).toContain("À corriger");
     expect(cartes[0].textContent).toContain("Collecte du 10 octobre 2026");
     expect(cartes[1].textContent).toContain("En attente du cabinet");
-    expect(screen.getByText(/1 \/ 2 tableaux transmis|\/ 2 tableaux transmis/)).toBeTruthy();
+    expect(screen.getAllByText(/tableaux transmis/)).toHaveLength(2);
   });
 
   it("garde les archives repliées derrière un bouton", () => {

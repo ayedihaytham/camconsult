@@ -38,10 +38,10 @@ describe("CollecteChecklist", () => {
   it("affiche les pièces avec leur lien vers le tableau, le total calculé et le décompte des pièces reçues", () => {
     monter();
     // Le tableau (grand écran) et les cartes (mobile) sont tous deux dans le DOM : le CSS en masque un.
-    expect(screen.getAllByText("Détail des virements reçus").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Virements reçus").length).toBeGreaterThan(0);
     expect(screen.getAllByText("4 250,000").length).toBeGreaterThan(0);
     expect(screen.getByText("2 / 3")).toBeTruthy();
-    expect(screen.getAllByText(/Ouvrir « Virements reçus »/).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Ouvrir « Virements reçus »" }).length).toBeGreaterThan(0);
   });
 
   it("filtre les pièces par statut avec leur effectif dans un sélecteur compact", () => {
@@ -50,7 +50,7 @@ describe("CollecteChecklist", () => {
     expect(filtre.textContent).toContain("Toutes (3)");
     fireEvent.click(filtre);
     fireEvent.click(screen.getByRole("option", { name: "En attente (1)" }));
-    expect(screen.queryByText("Détail des virements reçus")).toBeNull();
+    expect(screen.queryByText("Virements reçus")).toBeNull();
     expect(screen.getAllByText("Détail des achats").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("combobox", { name: "Filtrer les pièces" }));
     fireEvent.click(screen.getByRole("option", { name: "Reçues (2)" }));
@@ -97,7 +97,7 @@ describe("CollecteChecklist", () => {
 
   it("ouvre le tableau d'une pièce depuis son lien", () => {
     const { onSelectTab } = monter();
-    fireEvent.click(screen.getAllByText(/Ouvrir « Détail des achats »/)[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Ouvrir « Détail des achats »" })[0]);
     expect(onSelectTab).toHaveBeenCalledWith("achats");
   });
 

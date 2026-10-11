@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Table2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import {
 import { useSocietes } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
 import { COLLECTE_ETATS, COLLECTE_TABS, TAB_BY_KEY, etatDeTableau } from "@/lib/collecte/tabs";
+import { cn } from "@/lib/utils";
 
 interface CollecteFormData {
   societeId: string;
@@ -85,12 +86,24 @@ export function CollecteFormDrawer({
     );
   }
 
-  const ligneTableau = (key: string) => (
-    <label key={key} className="flex min-h-10 cursor-pointer items-center gap-2.5 px-2 py-1.5 hover:bg-secondary/70">
-      <Checkbox checked={onglets.includes(key)} disabled={submitting} onCheckedChange={() => toggle(key)} />
-      <span className="text-sm text-foreground">{TAB_BY_KEY[key].label}</span>
-    </label>
-  );
+  const carteTableau = (key: string) => {
+    const table = TAB_BY_KEY[key];
+    const selected = onglets.includes(key);
+    return (
+      <label key={key} className={cn(
+        "flex min-h-16 min-w-0 cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+        selected ? "border-accent/70 bg-accent/10" : "border-border bg-card hover:border-primary/30 hover:bg-muted/30",
+        submitting && "cursor-default opacity-60",
+      )}>
+        <Table2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-foreground">
+          {table.label}
+          {table.cabinetSeul && <span className="mt-1 block text-xs font-normal text-muted-foreground">Tenu par le cabinet</span>}
+        </span>
+        <Checkbox aria-label={table.label} checked={selected} disabled={submitting} onCheckedChange={() => toggle(key)} className="size-5 shrink-0 rounded-md" />
+      </label>
+    );
+  };
 
   async function submit() {
     if (submitting) return;
@@ -127,7 +140,7 @@ export function CollecteFormDrawer({
       }}
     >
       <DialogContent
-        className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-3xl gap-0 overflow-hidden rounded-xl p-0"
+        className="flex max-h-[90dvh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden rounded-xl p-0"
         onOpenAutoFocus={() => {
           const activeElement = document.activeElement;
           returnFocusRef.current =
@@ -153,7 +166,7 @@ export function CollecteFormDrawer({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[calc(90dvh-10rem)] min-h-0 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
           <div className="min-w-0 space-y-1.5">
               <Label htmlFor="collecte-societe">Société cliente</Label>
               <Select
@@ -252,12 +265,17 @@ export function CollecteFormDrawer({
             </div>
           </section>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label id="collecte-tableaux-label">Tableaux demandés</Label>
-              <button
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="space-y-1">
+                <Label id="collecte-tableaux-label" className="text-base font-semibold">Tableaux demandés</Label>
+                <p className="text-xs text-muted-foreground" role="status">{onglets.length} / {COLLECTE_TABS.length} sélectionnés</p>
+              </div>
+              <Button
                 type="button"
-                className="text-xs font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                variant="outline"
+                size="sm"
+                className="min-h-9"
                 disabled={submitting}
                 onClick={() =>
                   setOnglets(
@@ -270,10 +288,10 @@ export function CollecteFormDrawer({
                 {onglets.length === COLLECTE_TABS.length
                   ? "Tout décocher"
                   : "Tout cocher"}
-              </button>
+              </Button>
             </div>
             <div
-              className="space-y-1 border-y border-border py-1"
+              className="space-y-5"
               role="group"
               aria-labelledby="collecte-tableaux-label"
               aria-describedby={
@@ -286,15 +304,16 @@ export function CollecteFormDrawer({
               {COLLECTE_ETATS.map((etat) => {
                 const tous = etat.tableaux.every((k) => onglets.includes(k));
                 return (
-                  <div key={etat.key} role="group" aria-label={etat.label} className="py-1">
-                    <div className="flex items-center justify-between px-2 pb-0.5 pt-1.5">
-                      <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-primary">
-                        <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] text-accent-foreground">{etat.code}</span>
+                  <div key={etat.key} role="group" aria-label={etat.label}>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-primary">
+                        <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px]">{etat.code}</span>
                         {etat.label}
+                        <span className="text-xs font-normal tabular-nums text-muted-foreground">{etat.tableaux.filter((key) => onglets.includes(key)).length} / {etat.tableaux.length}</span>
                       </span>
                       <button
                         type="button"
-                        className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                        className="min-h-9 rounded-sm px-1 text-xs text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                         disabled={submitting}
                         onClick={() =>
                           setOnglets((o) =>
@@ -306,12 +325,15 @@ export function CollecteFormDrawer({
                         {tous ? "Tout décocher" : "Tout cocher"}
                       </button>
                     </div>
-                    {etat.tableaux.map((key) => ligneTableau(key))}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{etat.tableaux.map((key) => carteTableau(key))}</div>
                   </div>
                 );
               })}
-              <div role="group" aria-label="Autres tableaux" className="py-1">
-                {COLLECTE_TABS.filter((t) => !etatDeTableau(t.key)).map((t) => ligneTableau(t.key))}
+              <div role="group" aria-label="Autres tableaux">
+                <h3 className="mb-3 text-sm font-semibold text-primary">Autres tableaux</h3>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {COLLECTE_TABS.filter((t) => !etatDeTableau(t.key)).map((t) => carteTableau(t.key))}
+                </div>
               </div>
             </div>
             {error === "Sélectionnez au moins un tableau." && (

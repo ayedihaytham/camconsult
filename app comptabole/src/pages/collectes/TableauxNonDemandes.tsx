@@ -37,13 +37,11 @@ export function TableauxNonDemandes({ demandes, onAjouter }: Props) {
   }
 
   return (
-    <div className="border-t border-border px-4 py-2.5">
       <Dialog open={open} onOpenChange={(next) => !occupe && setOpen(next)}>
         <DialogTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="min-h-9 gap-2">
+          <Button type="button" variant="outline" size="icon" aria-label="Ajouter un tableau" title={`Ajouter un tableau (${absents.length} disponibles)`} className="size-11 shrink-0 sm:size-9 lg:w-auto lg:px-2 lg:text-xs">
             <Plus className="size-4" aria-hidden="true" />
-            Ajouter un tableau
-            <span className="text-xs text-muted-foreground">({absents.length} disponibles)</span>
+            <span className="hidden lg:inline">Ajouter un tableau</span>
           </Button>
         </DialogTrigger>
         <DialogContent className="max-h-[85dvh] w-[calc(100vw-2rem)] max-w-2xl overflow-hidden p-0">
@@ -108,6 +106,5 @@ export function TableauxNonDemandes({ demandes, onAjouter }: Props) {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
   );
 }

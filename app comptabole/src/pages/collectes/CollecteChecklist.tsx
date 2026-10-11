@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
-import { ArrowUpRight, CheckCircle2, LoaderCircle, Pencil } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, LoaderCircle, MoreHorizontal, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -51,6 +52,10 @@ interface Props {
   onMarkAll?: (keys: string[]) => Promise<void>;
   /** Exports (Excel, PDF, Imprimer) placés à côté des actions. */
   exports?: ReactNode;
+  /** Les mêmes exports dans le menu compact sur mobile. */
+  exportMenu?: ReactNode;
+  /** Ajout de tableau fourni par la page avec ses droits existants. */
+  actions?: ReactNode;
   /** Message affiché quand la liste n'est pas modifiable (collecte validée, archivée…). */
   notice?: string;
 }
@@ -309,7 +314,7 @@ function ChampTotal({ row, devise, editable, onSaveSuivi, compact = false }: Cha
   );
 }
 
-export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveComment, onSaveSuivi, onMarkAll, exports, notice }: Props) {
+export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveComment, onSaveSuivi, onMarkAll, exports, exportMenu, actions, notice }: Props) {
   const [filtre, setFiltre] = useState<Filtre>("toutes");
   const [marquage, setMarquage] = useState(false);
   const recus = rows.filter((row) => row.recu).length;
@@ -320,9 +325,10 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
     <button
       type="button"
       onClick={() => onSelectTab(row.onglet)}
-      className="mt-0.5 inline-flex items-center gap-1 text-left text-xs text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={`Ouvrir « ${row.tabLabel} »`}
+      className="group inline-flex min-h-9 max-w-full items-center gap-2 rounded-sm text-left text-sm font-semibold leading-snug text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      Ouvrir « {row.tabLabel} »<ArrowUpRight className="h-3 w-3 shrink-0" />
+      <span>{row.tabLabel}</span><ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
     </button>
   );
 
@@ -332,22 +338,26 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
       disabled={!editable || row.recuAuto || !onSaveSuivi}
       aria-label={`Pièce reçue : ${row.pieceLabel}`}
       title={row.recuAuto ? "Des lignes sont saisies dans le tableau : pièce reçue d'office" : undefined}
-      className="size-7 shrink-0 rounded-lg border-border data-[state=checked]:border-success data-[state=checked]:bg-success data-[state=checked]:text-white"
+      className="size-11 shrink-0 rounded-md border-border data-[state=checked]:border-success data-[state=checked]:bg-success data-[state=checked]:text-white lg:size-6"
       onCheckedChange={(valeur) => void onSaveSuivi?.(row.onglet, { recuManuel: valeur === true }).catch(() => undefined)}
     />
   );
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
-        <span className="text-xs text-muted-foreground">{recus} / {rows.length} pièces reçues</span>
-        <div className="flex flex-wrap items-center gap-2">
+      <section aria-label="Actions de la checklist" data-tour="collecte-checklist-tools" className="sticky top-0 z-30 mx-3 my-3 rounded-lg border border-border bg-card shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)] lg:mx-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 p-2 lg:px-3">
+        {actions}
         {editable && onMarkAll && (
           <Button
+            type="button"
             variant="outline"
-            size="sm"
-            className="min-h-9 gap-1.5"
+            size="icon"
+            aria-label={marquage ? "Marquage…" : "Tout marquer comme reçu"}
+            title="Tout marquer comme reçu"
+            className="size-11 shrink-0 sm:size-9 lg:w-auto lg:px-2 lg:text-xs"
             disabled={enAttente.length === 0 || marquage}
+            aria-busy={marquage}
             onClick={() => {
               setMarquage(true);
               void onMarkAll(enAttente.map((row) => row.onglet))
@@ -355,13 +365,25 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
                 .finally(() => setMarquage(false));
             }}
           >
-            <CheckCircle2 className="h-4 w-4 text-success" />
-            {marquage ? "Marquage…" : "Tout marquer comme reçu"}
+            {marquage ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CheckCircle2 className="size-4" aria-hidden="true" />}
+            <span className="hidden lg:inline">{marquage ? "Marquage…" : "Tout marquer comme reçu"}</span>
           </Button>
         )}
-        {exports}
+        {exports && <div className={cn("flex items-center gap-1.5", exportMenu && "hidden lg:flex")}>{exports}</div>}
+        {exportMenu && (
+          <div className="lg:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="icon" className="size-11 sm:size-9" aria-label="Exporter la checklist" title="Excel, PDF et impression">
+                  <MoreHorizontal className="size-4" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">{exportMenu}</DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
           <Select value={filtre} onValueChange={(value) => setFiltre(value as Filtre)}>
-            <SelectTrigger aria-label="Filtrer les pièces" className="min-h-9 w-40">
+            <SelectTrigger aria-label="Filtrer les pièces" className="h-11 min-w-0 flex-1 sm:h-9 lg:ml-auto lg:w-40 lg:flex-none lg:text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
@@ -371,7 +393,11 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
             </SelectContent>
           </Select>
         </div>
-      </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+          <span><strong className="font-semibold tabular-nums text-foreground">{recus} / {rows.length}</strong> pièces reçues{enAttente.length > 0 && <span className="ml-2">· {enAttente.length} en attente</span>}</span>
+          {editable && <span>Enregistrement automatique</span>}
+        </div>
+      </section>
 
       {notice && <p className="mx-4 mt-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-muted-foreground">{notice}</p>}
 
@@ -379,10 +405,10 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
         <table className="w-full table-fixed text-sm">
           <thead className="border-y border-border bg-secondary/65 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
             <tr>
-              <th className="w-[38%] px-4 py-3 text-left">Pièce à transmettre</th>
-              <th className="w-[17%] px-2 py-3 text-left">Date de suivi</th>
-              <th className="w-[18%] px-2 py-3 text-right">Total</th>
-              <th className="w-[27%] px-4 py-3 text-left">Commentaire</th>
+              <th className="w-[38%] px-4 py-2.5 text-left">Tableau / réception</th>
+              <th className="w-[22%] px-2 py-2.5 text-left">Date de suivi</th>
+              <th className="w-[18%] px-2 py-2.5 text-right">Total</th>
+              <th className="w-[22%] px-4 py-2.5 text-left">Commentaire</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -390,19 +416,15 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
               return (
                 <tr key={row.onglet} className="align-middle hover:bg-muted/20">
                   <td className="px-4 py-3">
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-center gap-3">
                       {coche(row)}
                       <div className="min-w-0">
-                        <p className="font-serif text-[1.05rem] leading-snug text-primary">
-                          {row.etat && <CodeEtat code={row.etat} />}
-                          {row.pieceLabel}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">Circuit du tableau · {row.circuitLabel}</p>
                         {lien(row)}
+                        <RowStatus row={row} />
                       </div>
                     </div>
                   </td>
-                  <td className="px-2 py-3"><ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
+                  <td className="px-2 py-3 [&>input]:max-w-44"><ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
                   <td className="px-2 py-3 text-right"><ChampTotal row={row} devise={devise} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
                   <td className="px-4 py-3">
                     <Comment row={row} editable={editable} onSave={(value) => onSaveComment(row.onglet, value)} />
@@ -435,10 +457,6 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
         ))}
         {visibles.length === 0 && <p className="px-4 py-6 text-center text-sm text-muted-foreground">Aucune pièce dans ce filtre.</p>}
       </div>
-      <div className="flex items-center justify-between border-t border-border bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
-        <span>Pièces reçues</span>
-        <strong className="tabular-nums text-primary">{recus} / {rows.length}</strong>
-      </div>
     </>
   );
 }
@@ -462,33 +480,31 @@ function MobileChecklistRow({
 }) {
   return (
     <article className="px-3 py-3">
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         {coche}
         <div className="min-w-0">
-          <h3 className="font-serif text-base leading-snug text-primary">
-            {row.etat && <CodeEtat code={row.etat} />}
-            {row.pieceLabel}
-          </h3>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Circuit du tableau · {row.circuitLabel}</p>
           {lien}
+          <RowStatus row={row} />
         </div>
       </div>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-3 pl-10">
-        <ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} compact />
-        <ChampTotal row={row} devise={devise} editable={editable} onSaveSuivi={onSaveSuivi} compact />
+      <div className="mt-2 grid min-w-0 grid-cols-2 items-center gap-3">
+        <div className="min-w-0 space-y-1"><p className="text-[11px] text-muted-foreground">Date de suivi</p><ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} /></div>
+        <div className="min-w-0 space-y-1 text-right"><p className="text-[11px] text-muted-foreground">Total</p><ChampTotal row={row} devise={devise} editable={editable} onSaveSuivi={onSaveSuivi} /></div>
       </div>
-      <div className="mt-2 border-t border-border/70 pl-10 pt-1 text-xs">
+      <div className="mt-1 text-xs">
         <Comment row={row} editable={editable} onSave={(value) => onSaveComment(row.onglet, value)} />
       </div>
     </article>
   );
 }
 
-/** Sigle de l'état (CHQ, VRT, TR) qui regroupe le tableau, avant le libellé de la pièce. */
-function CodeEtat({ code }: { code: string }) {
+/** Réception de la pièce et circuit du tableau restent deux informations distinctes. */
+function RowStatus({ row }: { row: ChecklistRow }) {
   return (
-    <span className="mr-2 inline-block rounded bg-accent/15 px-1.5 py-0.5 align-middle font-sans text-[10px] font-bold tracking-wide text-accent-foreground">
-      {code}
-    </span>
+    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-relaxed text-muted-foreground">
+      {row.etat && <span className="rounded-sm bg-muted px-1 py-0.5 text-[10px] font-semibold text-primary">{row.etat}</span>}
+      <span className={cn("font-medium", row.recu && "text-success")}>{row.statutLabel}</span>
+      <span aria-hidden="true">·</span><span>{row.circuitLabel}</span>
+    </p>
   );
 }

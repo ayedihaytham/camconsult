@@ -524,7 +524,17 @@ export function CollecteEditorPage() {
                 onSaveComment={(key, value) => saveComment(id, key, value)}
                 onSaveSuivi={(key, patch) => saveSuivi(id, key, patch)}
                 onMarkAll={(keys) => marquerRecu(id, keys, true)}
-                exports={<SectionExport collecte={collecte} section="checklist" societeNom={socNom} />}
+                exports={<SectionExport collecte={collecte} section="checklist" societeNom={socNom} toolbar />}
+                exportMenu={<SectionExport collecte={collecte} section="checklist" societeNom={socNom} menu />}
+                actions={canManageCollaborateurs && !archivee && (
+                  <TableauxNonDemandes
+                    demandes={collecte.onglets}
+                    onAjouter={async (k) => {
+                      await update(id, { onglets: ordonnerTableaux([...collecte.onglets, k]) });
+                      toast.success(`« ${TAB_BY_KEY[k]?.label ?? k} » ajouté à la collecte`);
+                    }}
+                  />
+                )}
                 notice={
                   !editable
                     ? archivee
@@ -533,15 +543,6 @@ export function CollecteEditorPage() {
                     : undefined
                 }
               />
-              {canManageCollaborateurs && !archivee && (
-                <TableauxNonDemandes
-                  demandes={collecte.onglets}
-                  onAjouter={async (k) => {
-                    await update(id, { onglets: ordonnerTableaux([...collecte.onglets, k]) });
-                    toast.success(`« ${TAB_BY_KEY[k]?.label ?? k} » ajouté à la collecte`);
-                  }}
-                />
-              )}
             </TabsContent>}
 
             {/* ── Documents (pièces jointes réelles) ─── */}

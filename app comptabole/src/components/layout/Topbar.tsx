@@ -43,7 +43,7 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card no-print">
-      <div className="flex h-[64px] items-center gap-3 px-4 lg:px-6">
+      <div className="flex h-[80px] items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger
           className="h-10 w-10 shrink-0 lg:h-9 lg:w-9"
           aria-label="Afficher ou réduire le menu"

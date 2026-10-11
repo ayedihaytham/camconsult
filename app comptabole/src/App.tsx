@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect } from "react";
-import { Route, Routes } from "react-router-dom";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -16,6 +16,9 @@ import { useData } from "@/store/data";
 import { registerQuotaHandler } from "@/lib/safeStorage";
 import { registerSessionExpiredHandler } from "@/lib/api";
 import { startLiveEvents } from "@/lib/liveEvents";
+import { useCollectes } from "@/store/collectes";
+import { cheminAutoriseClient } from "@/components/layout/sidebar/navigation";
+import { Button } from "@/components/ui/button";
 
 const LoginPage = lazy(() =>
   import("@/pages/LoginPage").then((m) => ({ default: m.LoginPage })),
@@ -202,10 +205,14 @@ function DataBoundary({ children }: { children: React.ReactNode }) {
   const clearLocal = useData((s) => s.clearLocal);
   const refreshMessages = useData((s) => s.refreshMessages);
   const refreshNotifications = useData((s) => s.refreshNotifications);
+  const refreshPresence = useData((s) => s.refreshPresence);
+  const [erreurChargement, setErreurChargement] = useState(false);
 
   useEffect(() => {
     clearLocal();
+    setErreurChargement(false);
     hydrate().catch(() => {
+      setErreurChargement(true);
       toast.error("Impossible de charger les données du cabinet.");
     });
     // Signal temps réel (messages/notifications) — voir src/lib/liveEvents.ts.
@@ -213,9 +220,23 @@ function DataBoundary({ children }: { children: React.ReactNode }) {
     const stopLiveEvents = startLiveEvents({
       onMessage: () => void refreshMessages(),
       onNotification: () => void refreshNotifications(),
+      // Collecte de pièces ouverte : mise à jour en direct quand l'autre partie (client ou cabinet) la modifie, sans rechargement.
+      onCollecte: (id) => void useCollectes.getState().synchroniser(id),
+      onResync: () => {
+        void useCollectes.getState().synchroniser();
+        void refreshPresence();
+      },
     });
+    // Présence (en ligne / hors ligne) : relue toutes les 30 s tant que l'onglet est visible.
+    void refreshPresence();
+    const presence = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshPresence();
+    }, 30_000);
     // recharge quand on change de compte
-    return stopLiveEvents;
+    return () => {
+      stopLiveEvents();
+      window.clearInterval(presence);
+    };
   }, [
     session?.employeId,
     session?.role,
@@ -223,8 +244,29 @@ function DataBoundary({ children }: { children: React.ReactNode }) {
     clearLocal,
     refreshMessages,
     refreshNotifications,
+    refreshPresence,
   ]);
 
+  const { pathname } = useLocation();
+  // Compte de société cliente : Dashboard, Collecte de pièces, Structuration et Messagerie ; toute autre adresse l'y ramène.
+  if (session?.poste === "societe_employe" && !cheminAutoriseClient(pathname)) return <Navigate to="/collectes" replace />;
+
+  if (!hydrated && erreurChargement) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-background px-6 text-center">
+        <p className="text-sm font-medium text-foreground">Les données du cabinet n'ont pas pu être chargées.</p>
+        <p className="text-xs text-muted-foreground">Le serveur est peut-être en cours de mise à jour. Réessayez dans un instant.</p>
+        <Button
+          onClick={() => {
+            setErreurChargement(false);
+            hydrate().catch(() => setErreurChargement(true));
+          }}
+        >
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
   if (!hydrated) return <FullScreenLoader label="Chargement des données…" />;
   return <>{children}</>;
 }

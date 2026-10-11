@@ -125,8 +125,23 @@ async function request<T>(
   return payload as T;
 }
 
+/** Une lecture qui échoue parce que le serveur redémarre (réseau coupé, 502/503/504) est relancée quelques fois avant d'abandonner :
+ * sans cela, la page restait vide jusqu'au rechargement manuel. Seules les lectures (GET) sont relancées, jamais une écriture. */
+async function lire<T>(path: string): Promise<T> {
+  const attentes = [800, 2000, 4000];
+  for (let essai = 0; ; essai++) {
+    try {
+      return await request<T>("GET", path);
+    } catch (err) {
+      const passager = err instanceof ApiError && (err.status === 0 || err.status === 502 || err.status === 503 || err.status === 504);
+      if (!passager || essai >= attentes.length) throw err;
+      await new Promise((resolve) => setTimeout(resolve, attentes[essai]));
+    }
+  }
+}
+
 export const api = {
-  get: <T>(path: string) => request<T>("GET", path),
+  get: <T>(path: string) => lire<T>(path),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>("POST", path, body ?? {}, options),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body ?? {}),

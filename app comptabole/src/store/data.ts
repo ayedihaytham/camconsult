@@ -101,6 +101,9 @@ function announceNotification(n: AppNotification) {
 
 interface DataState {
   hydrated: boolean;
+  /** Ids des employés qui ont un onglet ouvert en ce moment (plus « admin » pour le cabinet), relus toutes les 30 s. */
+  enLigneIds: string[];
+  refreshPresence: () => Promise<void>;
   societes: Societe[];
   employes: Employe[];
   noeuds: Noeud[];
@@ -182,6 +185,15 @@ interface DataState {
 
 export const useData = create<DataState>((set, get) => ({
   hydrated: false,
+  enLigneIds: [],
+  refreshPresence: async () => {
+    try {
+      const r = await api.get<{ ids: string[] }>("/events/presence");
+      set({ enLigneIds: r.ids });
+    } catch {
+      // la présence se rafraîchit au prochain passage
+    }
+  },
   societes: [],
   employes: [],
   noeuds: [],
@@ -560,6 +572,7 @@ export function useConversations(viewerAuthorId = "me"): Conversation[] {
   const employes = useData((s) => s.employes);
   const messages = useData((s) => s.messages);
   const groups = useData((s) => s.groupConversations);
+  const enLigneIds = useData((s) => s.enLigneIds);
 
   const threadOf = (convId: string) =>
     messages
@@ -576,8 +589,8 @@ export function useConversations(viewerAuthorId = "me"): Conversation[] {
     const thread = threadOf(convId);
     const last = thread[thread.length - 1];
     const online =
-      !!e.derniereConnexion &&
-      Date.now() - new Date(e.derniereConnexion).getTime() < ONLINE_WINDOW_MS;
+      enLigneIds.includes(e.id) ||
+      (!!e.derniereConnexion && Date.now() - new Date(e.derniereConnexion).getTime() < ONLINE_WINDOW_MS);
     return {
       id: convId,
       type: "direct",

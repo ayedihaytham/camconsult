@@ -377,6 +377,7 @@ export function MessageriePage() {
   }
 
   const avecMessages = new Set(messages.map((message) => message.conversationId));
+  const cabinetEnLigne = useData((state) => state.enLigneIds).includes("admin");
   const conversationItems: MessengerConversationItem[] =
     filteredConversations.map((conversation) => {
       const employee = conversation.employeId
@@ -404,7 +405,8 @@ export function MessageriePage() {
         unread: conversation.nonLus,
         initials: partnerInitials(conversation, employee),
         isGroup: isConversationGroup,
-        isOnline: isConversationGroup ? undefined : conversation.enLigne,
+        // Côté responsable de société, l'interlocuteur est le cabinet : sa présence vient du flux temps réel.
+        isOnline: isConversationGroup ? undefined : isAdmin ? conversation.enLigne : cabinetEnLigne,
         avatarClassName: isConversationGroup
           ? "bg-accent/15 text-accent-foreground"
           : avatarColor(conversation.employeId ?? conversation.id),
@@ -437,7 +439,7 @@ export function MessageriePage() {
         ]
           .filter(Boolean)
           .join(" · ")
-      : `Responsable du cabinet · Vu ${formatRelative(adminLastSeen)}`;
+      : `Responsable du cabinet · ${cabinetEnLigne ? "En ligne" : `Vu ${formatRelative(adminLastSeen)}`}`;
 
     activeConversationItem = {
       id: activeConversation.id,
@@ -445,7 +447,7 @@ export function MessageriePage() {
       subtitle: isGroup ? groupSubtitle : directSubtitle,
       initials: partnerInitials(activeConversation, activeEmployee),
       isGroup: Boolean(isGroup),
-      isOnline: isGroup ? undefined : activeConversation.enLigne,
+      isOnline: isGroup ? undefined : isAdmin ? activeConversation.enLigne : cabinetEnLigne,
       avatarClassName: isGroup
         ? "bg-accent/15 text-accent-foreground"
         : avatarColor(activeConversation.employeId ?? activeConversation.id),
@@ -483,7 +485,7 @@ export function MessageriePage() {
   );
 
   return (
-    <div className="flex h-[calc(100dvh-5.5rem)] min-h-[28rem] min-w-0 flex-col sm:h-[calc(100dvh-6rem)]">
+    <div className="flex h-[calc(100dvh-6.5rem)] min-h-[28rem] min-w-0 flex-col sm:h-[calc(100dvh-7rem)]">
       <LedgerPageHeader
         title="Messagerie"
         description={

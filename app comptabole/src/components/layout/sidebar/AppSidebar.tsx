@@ -109,13 +109,13 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" className="signature-sidebar border-r-0" {...props}>
-      <SidebarHeader className="signature-sidebar__brand-cap h-16 shrink-0 gap-0 p-0">
+      <SidebarHeader className="signature-sidebar__brand-cap h-20 shrink-0 gap-0 p-0">
         <SidebarMenu className="h-full gap-0 p-2">
           <SidebarMenuItem className="h-full">
             <SidebarMenuButton
               size="lg"
               tooltip="Cabinet Ayadi Mohamed"
-              className="h-14 w-full gap-2.5 rounded-md px-2.5 hover:bg-transparent active:bg-transparent group-data-[collapsible=icon]:!p-0"
+              className="h-16 w-full gap-2.5 rounded-md px-3 hover:bg-transparent active:bg-transparent group-data-[collapsible=icon]:!p-0"
               aria-label="Cabinet Ayadi Mohamed"
             >
               {/* Menu ouvert : logo officiel complet ; menu réduit : symbole seul. */}

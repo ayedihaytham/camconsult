@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../auth.js";
 import { notifKey } from "../notifications.js";
-import { addClient, removeClient } from "../sse.js";
+import { addClient, clesEnLigne, removeClient } from "../sse.js";
 
 /**
  * Flux "push" léger : le serveur pousse juste un signal (message /
@@ -11,6 +11,12 @@ import { addClient, removeClient } from "../sse.js";
  */
 export const eventsRouter = Router();
 eventsRouter.use(requireAuth);
+
+/** Qui est en ligne : l'admin voit tous les employés connectés ; un employé ne voit que la présence du cabinet (« admin »). */
+eventsRouter.get("/presence", (req, res) => {
+  const cles = clesEnLigne();
+  res.json({ ids: req.session.role === "admin" ? cles.filter((cle) => cle !== "admin") : cles.filter((cle) => cle === "admin") });
+});
 
 eventsRouter.get("/", (req, res) => {
   const userKey = notifKey(req.session);

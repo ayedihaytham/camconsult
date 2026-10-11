@@ -17,6 +17,11 @@ export function removeClient(userKey, res) {
   if (set.size === 0) clients.delete(userKey);
 }
 
+/** Clés des destinataires qui ont au moins un onglet ouvert (« admin » ou id d'un employé). */
+export function clesEnLigne() {
+  return [...clients.keys()];
+}
+
 /** Pousse un signal (jamais le contenu métier — le client refait l'appel
  * REST habituel) à toutes les connexions ouvertes de ce destinataire. */
 export function pushToUser(userKey, type, payload = {}) {

@@ -68,6 +68,8 @@ export function StructurationPage() {
   const societes = useSocietes();
   const { isAdmin, can, canSeeSociete } = usePermissions();
   const canCreate = isAdmin || can("deposerFichiers");
+  // Un compte qui n'a qu'une société n'a rien à filtrer par société.
+  const filtreSocieteUtile = isAdmin || societes.filter((s) => canSeeSociete(s.id)).length > 1;
   const canStructEdit = isAdmin || can("modifierSocietes");
   const canDelete = isAdmin || can("supprimer");
 
@@ -642,7 +644,7 @@ export function StructurationPage() {
             onClearSelection={() => setSelectedIds([])}
             filters={
               <>
-                <Select
+                {filtreSocieteUtile && <Select
                   value={societeFilter}
                   onValueChange={(v) => {
                     setSocieteFilter(v);
@@ -664,7 +666,7 @@ export function StructurationPage() {
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </Select>
+                </Select>}
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                   <SelectTrigger className={selectTriggerClass}>
                     <SelectValue placeholder="Type" />

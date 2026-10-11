@@ -22,6 +22,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Le serveur + le front compilé
 COPY server ./server
+# Code partagé par le serveur et le front (ex. règles de planification des tâches) : importé par server/routes/*.js
+COPY shared ./shared
 COPY --from=build /app/dist ./dist
 
 EXPOSE 8080

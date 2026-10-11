@@ -146,9 +146,10 @@ function choisirTableau(name: string) {
 
 function ajouterTableau(name: string) {
   ouvrirSection("Checklist");
-  fireEvent.click(screen.getByRole("button", { name: /Ajouter un tableau/ }));
-  const dialog = screen.getByRole("dialog", { name: "Ajouter un tableau" });
-  fireEvent.click(within(dialog).getByRole("button", { name }));
+  fireEvent.click(screen.getByRole("button", { name: "Ajouter des tableaux" }));
+  const dialog = screen.getByRole("dialog", { name: "Ajouter des tableaux" });
+  fireEvent.click(within(dialog).getByRole("checkbox", { name }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Ajouter (1)" }));
 }
 
 function ouvrirArchive(name: string) {
@@ -223,13 +224,16 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
   it("la checklist propose au cabinet d'ajouter les tableaux pas encore demandés, états compris", async () => {
     renderPage();
     ouvrirSection("Checklist");
-    fireEvent.click(screen.getByRole("button", { name: /Ajouter un tableau/ }));
-    const zone = screen.getByRole("dialog", { name: "Ajouter un tableau" });
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter des tableaux" }));
+    const zone = screen.getByRole("dialog", { name: "Ajouter des tableaux" });
     // Les deux tableaux de l'état des chèques sont déjà demandés : ils ne sont pas proposés.
-    expect(within(zone).queryByRole("button", { name: "Bordereaux remise de chèques" })).toBeNull();
-    expect(within(zone).getByRole("button", { name: "Virements émis" })).toBeTruthy();
-    fireEvent.click(within(zone).getByRole("button", { name: "Traites escomptées" }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "etat_cheques_emis", "traites_escomptees", "souche_cheques"] }));
+    expect(within(zone).queryByRole("checkbox", { name: "Bordereaux remise de chèques" })).toBeNull();
+    expect(within(zone).queryByRole("checkbox", { checked: true })).toBeNull();
+    fireEvent.click(within(zone).getByRole("checkbox", { name: "Virements émis" }));
+    fireEvent.click(within(zone).getByRole("checkbox", { name: "Traites escomptées" }));
+    fireEvent.click(within(zone).getByRole("button", { name: "Ajouter (2)" }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith("collecte-1", { onglets: ["bordereaux_remise_cheques", "etat_cheques_emis", "virements_emis", "traites_escomptees", "souche_cheques"] }));
+    expect(update).toHaveBeenCalledOnce();
   });
 
   it("garde les sections du cabinet et le choix des tableaux dans une seule navigation", () => {

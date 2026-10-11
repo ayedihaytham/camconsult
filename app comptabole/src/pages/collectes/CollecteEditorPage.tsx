@@ -529,9 +529,9 @@ export function CollecteEditorPage() {
                 actions={canManageCollaborateurs && !archivee && (
                   <TableauxNonDemandes
                     demandes={collecte.onglets}
-                    onAjouter={async (k) => {
-                      await update(id, { onglets: ordonnerTableaux([...collecte.onglets, k]) });
-                      toast.success(`« ${TAB_BY_KEY[k]?.label ?? k} » ajouté à la collecte`);
+                    onAjouter={async (keys) => {
+                      await update(id, { onglets: ordonnerTableaux([...collecte.onglets, ...keys]) });
+                      toast.success(keys.length === 1 ? `« ${TAB_BY_KEY[keys[0]]?.label ?? keys[0]} » ajouté à la collecte` : `${keys.length} tableaux ajoutés à la collecte`);
                     }}
                   />
                 )}

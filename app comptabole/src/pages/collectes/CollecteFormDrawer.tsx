@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LoaderCircle, Table2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -20,8 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useSocietes } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
-import { COLLECTE_ETATS, COLLECTE_TABS, TAB_BY_KEY, etatDeTableau } from "@/lib/collecte/tabs";
-import { cn } from "@/lib/utils";
+import { CollecteTableSelection } from "./CollecteTableSelection";
 
 interface CollecteFormData {
   societeId: string;
@@ -57,9 +55,7 @@ export function CollecteFormDrawer({
   const [devise, setDevise] = useState("TND");
   const [echeance, setEcheance] = useState("");
   const [relanceCadenceJours, setRelanceCadenceJours] = useState(3);
-  const [onglets, setOnglets] = useState<string[]>(
-    COLLECTE_TABS.map((t) => t.key),
-  );
+  const [onglets, setOnglets] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const submissionError =
     error ===
@@ -76,34 +72,9 @@ export function CollecteFormDrawer({
     setDevise(initial?.devise ?? "TND");
     setEcheance(initial?.echeance ?? "");
     setRelanceCadenceJours(initial?.relanceCadenceJours ?? 3);
-    setOnglets(initial?.onglets ?? COLLECTE_TABS.map((t) => t.key));
+    setOnglets(initial?.onglets ?? []);
     setError(null);
   }, [open]);
-
-  function toggle(key: string) {
-    setOnglets((o) =>
-      o.includes(key) ? o.filter((k) => k !== key) : [...o, key],
-    );
-  }
-
-  const carteTableau = (key: string) => {
-    const table = TAB_BY_KEY[key];
-    const selected = onglets.includes(key);
-    return (
-      <label key={key} className={cn(
-        "flex min-h-16 min-w-0 cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
-        selected ? "border-accent/70 bg-accent/10" : "border-border bg-card hover:border-primary/30 hover:bg-muted/30",
-        submitting && "cursor-default opacity-60",
-      )}>
-        <Table2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-foreground">
-          {table.label}
-          {table.cabinetSeul && <span className="mt-1 block text-xs font-normal text-muted-foreground">Tenu par le cabinet</span>}
-        </span>
-        <Checkbox aria-label={table.label} checked={selected} disabled={submitting} onCheckedChange={() => toggle(key)} className="size-5 shrink-0 rounded-md" />
-      </label>
-    );
-  };
 
   async function submit() {
     if (submitting) return;
@@ -265,83 +236,15 @@ export function CollecteFormDrawer({
             </div>
           </section>
 
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="space-y-1">
-                <Label id="collecte-tableaux-label" className="text-base font-semibold">Tableaux demandés</Label>
-                <p className="text-xs text-muted-foreground" role="status">{onglets.length} / {COLLECTE_TABS.length} sélectionnés</p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-9"
-                disabled={submitting}
-                onClick={() =>
-                  setOnglets(
-                    onglets.length === COLLECTE_TABS.length
-                      ? []
-                      : COLLECTE_TABS.map((t) => t.key),
-                  )
-                }
-              >
-                {onglets.length === COLLECTE_TABS.length
-                  ? "Tout décocher"
-                  : "Tout cocher"}
-              </Button>
-            </div>
-            <div
-              className="space-y-5"
-              role="group"
-              aria-labelledby="collecte-tableaux-label"
-              aria-describedby={
-                error === "Sélectionnez au moins un tableau."
-                  ? "collecte-tableaux-error"
-                  : undefined
-              }
-              aria-invalid={error === "Sélectionnez au moins un tableau."}
-            >
-              {COLLECTE_ETATS.map((etat) => {
-                const tous = etat.tableaux.every((k) => onglets.includes(k));
-                return (
-                  <div key={etat.key} role="group" aria-label={etat.label}>
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <span className="flex items-center gap-2 text-sm font-semibold text-primary">
-                        <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px]">{etat.code}</span>
-                        {etat.label}
-                        <span className="text-xs font-normal tabular-nums text-muted-foreground">{etat.tableaux.filter((key) => onglets.includes(key)).length} / {etat.tableaux.length}</span>
-                      </span>
-                      <button
-                        type="button"
-                        className="min-h-9 rounded-sm px-1 text-xs text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-                        disabled={submitting}
-                        onClick={() =>
-                          setOnglets((o) =>
-                            tous ? o.filter((k) => !etat.tableaux.includes(k)) : [...new Set([...o, ...etat.tableaux])],
-                          )
-                        }
-                        aria-label={`${tous ? "Tout décocher" : "Tout cocher"} : ${etat.label}`}
-                      >
-                        {tous ? "Tout décocher" : "Tout cocher"}
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{etat.tableaux.map((key) => carteTableau(key))}</div>
-                  </div>
-                );
-              })}
-              <div role="group" aria-label="Autres tableaux">
-                <h3 className="mb-3 text-sm font-semibold text-primary">Autres tableaux</h3>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {COLLECTE_TABS.filter((t) => !etatDeTableau(t.key)).map((t) => carteTableau(t.key))}
-                </div>
-              </div>
-            </div>
-            {error === "Sélectionnez au moins un tableau." && (
-              <p id="collecte-tableaux-error" role="alert" className="text-xs text-destructive">
-                {error}
-              </p>
-            )}
-          </div>
+          <CollecteTableSelection
+            selected={onglets}
+            disabled={submitting}
+            error={error === "Sélectionnez au moins un tableau." ? error : undefined}
+            onChange={(keys) => {
+              setOnglets(keys);
+              if (error === "Sélectionnez au moins un tableau.") setError(null);
+            }}
+          />
 
         </div>
 

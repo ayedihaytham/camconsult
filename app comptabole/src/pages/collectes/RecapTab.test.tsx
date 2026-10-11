@@ -153,9 +153,9 @@ describe("Récap : notes générales", () => {
   it("ajoute la note puis vide le champ uniquement après succès", async () => {
     rendre();
     const input = screen.getByRole("textbox", { name: "Nouvelle note générale" });
-    fireEvent.change(input, { target: { value: "  Merci de vérifier les montants.  " } });
+    fireEvent.change(input, { target: { value: "  Merci de vérifier les montants.\nJoindre les justificatifs.  " } });
     fireEvent.click(screen.getByRole("button", { name: "Ajouter" }));
-    await waitFor(() => expect(addNote).toHaveBeenCalledWith("c1", "", "Merci de vérifier les montants."));
+    await waitFor(() => expect(addNote).toHaveBeenCalledWith("c1", "", "Merci de vérifier les montants.\nJoindre les justificatifs."));
     await waitFor(() => expect((input as HTMLInputElement).value).toBe(""));
   });
 

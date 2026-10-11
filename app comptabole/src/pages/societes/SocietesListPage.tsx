@@ -60,6 +60,7 @@ import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
 import { cn } from "@/lib/utils";
 import { THEME_OPTIONS } from "@/lib/societeTheme";
+import { provisionnerArborescenceSociete } from "@/lib/classement";
 import {
   useData,
   useSocietes,
@@ -278,6 +279,8 @@ export function SocietesListPage() {
   const canDelete = isAdmin || can("supprimer");
 
   const addSociete = useData((s) => s.addSociete);
+  const addNoeud = useData((s) => s.addNoeud);
+  const updateNoeud = useData((s) => s.updateNoeud);
   const updateSociete = useData((s) => s.updateSociete);
   const duplicateSociete = useData((s) => s.duplicateSociete);
   const deleteSocietes = useData((s) => s.deleteSocietes);
@@ -356,9 +359,21 @@ export function SocietesListPage() {
       logJournal("modification", "societe", values.raisonSociale);
       toast.success("Société modifiée", { description: values.raisonSociale });
     } else {
-      await addSociete(values);
+      const creee = await addSociete(values);
       logJournal("creation", "societe", values.raisonSociale);
       toast.success("Société créée", { description: values.raisonSociale });
+      // Son arborescence documentaire standard est prête dès la création : son responsable la trouve dans Structuration.
+      try {
+        await provisionnerArborescenceSociete({
+          noeuds: useData.getState().noeuds,
+          addNoeud,
+          updateNoeud,
+          societeId: creee.id,
+          societeLibelle: creee.raisonSociale,
+        });
+      } catch {
+        toast.error("Société créée, mais son arborescence n'a pas pu être préparée.", { description: "Instanciez-la depuis Structuration." });
+      }
     }
   }
 

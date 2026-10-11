@@ -55,6 +55,7 @@ import {
 } from "@/lib/collecte/collectionList";
 import type { Collecte, CollecteStatut } from "@/types";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
+import { CollectesClientPage } from "./CollectesClientPage";
 
 export function CollectesListPage() {
   const navigate = useNavigate();
@@ -255,6 +256,11 @@ export function CollectesListPage() {
     />
   );
   const emptyMessage = loading ? "Chargement…" : vue === "a_examiner" ? "Aucun tableau transmis à examiner." : "Aucune collecte.";
+
+  if (isSocieteEmploye) {
+    const unique = new Set(list.map((c) => c.societeId));
+    return <CollectesClientPage list={list} loading={loading} societeNom={societeActive?.raisonSociale ?? (unique.size === 1 ? socNom([...unique][0]) : null)} />;
+  }
 
   return (
     <div className={`flex min-w-0 flex-1 flex-col ${canCreate ? "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0" : ""}`}>

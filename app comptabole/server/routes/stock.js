@@ -4,6 +4,7 @@ import { query, withTransaction } from "../db.js";
 import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { stockMouvementDto } from "../mappers.js";
+import { syntheseStock } from "../stockSynthese.js";
 import { extractDocument, extractPages } from "../ocr.js";
 import { ruspinaApplies } from "../ruspinaOcr.js";
 import { randomUUID } from "node:crypto";
@@ -130,15 +131,19 @@ stockRouter.get("/compteurs", async (req, res) => {
   res.json(counts);
 });
 
-// Synthèse par société accessible : nombre de mouvements et date du dernier (accueil du module).
+// Synthèse par société accessible (accueil du module) : mouvements, dernier mouvement, valeur du stock, alertes, cours à saisir.
+// Deux requêtes pour toutes les sociétés, sans les documents joints.
 stockRouter.get("/synthese", async (req, res) => {
-  const { rows } = await query(
-    "select societe_id, count(*)::int as n, max(maj_le) as dernier from stock_mouvements group by societe_id",
+  const { rows: mouvements } = await query(
+    `select id, societe_id, ordre, achat_devise, achat_cours, vente_devise, vente_cours, cree_le, maj_le
+       from stock_mouvements`,
   );
-  const synthese = {};
-  for (const r of rows)
-    if (canAccess(req.session, r.societe_id)) synthese[r.societe_id] = { mouvements: r.n, dernierLe: r.dernier };
-  res.json(synthese);
+  const visibles = mouvements.filter((m) => canAccess(req.session, m.societe_id));
+  const { rows: lignes } = await query(
+    "select * from stock_lignes where mouvement_id = any($1::uuid[])",
+    [visibles.map((m) => m.id)],
+  );
+  res.json(syntheseStock(visibles, lignes));
 });
 
 stockRouter.get("/mouvements", async (req, res) => {

@@ -56,6 +56,16 @@ export type StockMouvementInput = Omit<
   "id" | "ordre" | "ecart" | "ecartUnite" | "ecartParDesignation" | "creeLe" | "majLe"
 >;
 
+/** Synthèse d'une société pour l'accueil du module (valeur en TND). */
+export interface SyntheseStock {
+  mouvements: number;
+  dernierLe: string | null;
+  valeur: number;
+  alertes: number;
+  coursManquants: number;
+  enDevise: number;
+}
+
 interface StockState {
   list: StockMouvement[];
   loading: boolean;
@@ -63,7 +73,7 @@ interface StockState {
   /** Nombre de mouvements par société (page d'accueil du module). */
   counts: Record<string, number>;
   /** Nombre de mouvements et date du dernier, par société (tableau de suivi de l'accueil). */
-  synthese: Record<string, { mouvements: number; dernierLe: string | null }>;
+  synthese: Record<string, SyntheseStock>;
 
   fetchCounts: () => Promise<void>;
   fetchSynthese: () => Promise<void>;
@@ -87,7 +97,7 @@ export const useStock = create<StockState>((set) => ({
 
   fetchSynthese: async () => {
     try {
-      set({ synthese: await api.get<Record<string, { mouvements: number; dernierLe: string | null }>>("/stock/synthese") });
+      set({ synthese: await api.get<Record<string, SyntheseStock>>("/stock/synthese") });
     } catch {
       /* l'accueil s'affiche sans synthèse */
     }

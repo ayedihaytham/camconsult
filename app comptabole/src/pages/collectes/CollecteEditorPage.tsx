@@ -771,6 +771,7 @@ export function CollecteEditorPage() {
                             )
                           }
                           exportActions={isClient ? undefined : <SectionExport collecte={collecte} section={key} societeNom={socNom} menu />}
+                          exportButtons={isClient ? undefined : <SectionExport collecte={collecte} section={key} societeNom={socNom} toolbar />}
                           flagged={
                             !inRecap && showFlagsFor(key) ? hl : undefined
                           }
@@ -1082,11 +1083,13 @@ function SectionExport({
   section,
   societeNom,
   menu = false,
+  toolbar = false,
 }: {
   collecte: Parameters<typeof printCollecteSection>[0];
   section: string;
   societeNom: string;
   menu?: boolean;
+  toolbar?: boolean;
 }) {
   const exportExcel = () =>
     exportCollecteSectionXlsx(collecte, section, societeNom).catch(() =>
@@ -1106,17 +1109,23 @@ function SectionExport({
     </>
   );
 
-  return (
+  const buttons = (
+    <>
+      <Button type="button" variant={toolbar ? "outline" : "ghost"} size="sm" onClick={exportExcel} className={toolbar ? "h-9 px-2" : "min-h-9 gap-1 px-2"}>
+        <Download className="size-4" aria-hidden="true" /> Excel
+      </Button>
+      <Button type="button" variant={toolbar ? "outline" : "ghost"} size="sm" onClick={exportPdf} className={toolbar ? "h-9 px-2" : "min-h-9 gap-1 px-2"}>
+        <FileText className="size-4" aria-hidden="true" /> PDF
+      </Button>
+      <Button type="button" variant={toolbar ? "outline" : "ghost"} size="sm" onClick={print} className={toolbar ? "h-9 px-2" : "min-h-9 gap-1 px-2"}>
+        <Printer className="size-4" aria-hidden="true" /> Imprimer
+      </Button>
+    </>
+  );
+
+  return toolbar ? buttons : (
     <div className="flex flex-wrap items-center justify-end gap-0.5" aria-label="Exporter ce tableau">
-      <Button variant="ghost" size="sm" onClick={exportExcel} className="min-h-9 gap-1 px-2">
-        <Download className="size-4" /> Excel
-      </Button>
-      <Button variant="ghost" size="sm" onClick={exportPdf} className="min-h-9 gap-1 px-2">
-        <FileText className="size-4" /> PDF
-      </Button>
-      <Button variant="ghost" size="sm" onClick={print} className="min-h-9 gap-1 px-2">
-        <Printer className="size-4" /> Imprimer
-      </Button>
+      {buttons}
     </div>
   );
 }

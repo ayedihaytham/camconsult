@@ -267,17 +267,18 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     { label: "Excel", action: exportSectionXlsx },
     { label: "PDF", action: downloadSectionPdf },
     { label: "Imprimer", action: printSection },
-  ])("exporte uniquement le tableau courant via $label depuis le menu de la barre fixe", async ({ label, action }) => {
+  ])("exporte uniquement le tableau courant via $label depuis le bouton et le menu de la barre fixe", async ({ label, action }) => {
     renderPage();
     openBordereaux();
     const barre = screen.getByRole("region", { name: "Suivi et actions du tableau" });
     const exporter = within(barre).getByRole("button", { name: "Exporter le tableau" });
-    for (const outil of ["Excel", "PDF", "Imprimer"]) {
-      expect(within(barre).queryByRole("button", { name: outil })).toBeNull();
-    }
+    fireEvent.click(within(barre).getByRole("button", { name: label }));
+    await waitFor(() => expect(action).toHaveBeenCalledWith(collecte, "bordereaux_remise_cheques", "Société test"));
+    expect(action).toHaveBeenCalledOnce();
     fireEvent.keyDown(exporter, { key: "Enter" });
     fireEvent.click(screen.getByRole("menuitem", { name: label }));
     await waitFor(() => expect(action).toHaveBeenCalledWith(collecte, "bordereaux_remise_cheques", "Société test"));
+    expect(action).toHaveBeenCalledTimes(2);
     expect(exportAllXlsx).not.toHaveBeenCalled();
     expect(saveLignes).not.toHaveBeenCalled();
   });

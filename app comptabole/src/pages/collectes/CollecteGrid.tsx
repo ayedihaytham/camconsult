@@ -50,6 +50,8 @@ interface Props {
   workflowActions?: ReactNode;
   /** Exports de ce tableau fournis par la page (aucune logique de téléchargement dupliquée ici). */
   exportActions?: ReactNode;
+  /** Mêmes exports sous forme de boutons, visibles sur ordinateur sans barre de progression. */
+  exportButtons?: ReactNode;
 }
 
 export interface CollecteGridHandle {
@@ -100,6 +102,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   continueLabel = "Enregistrer et vérifier",
   workflowActions,
   exportActions,
+  exportButtons,
 }, ref) {
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
@@ -407,13 +410,15 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const largeurModele = def.columns.reduce((s, c) => s + (c.width ?? 140), 0) || 1;
   const derniereColonne = [...def.columns].reverse().find((c) => !c.computed)?.key;
   const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
+  const commandButtonClass = "size-11 shrink-0 sm:size-9 lg:w-auto lg:px-2 lg:text-xs";
 
   /** Dans les tableaux groupés, l'action générale sert uniquement au premier bordereau ;
    * les chèques/traites suivants sont ajoutés dans le groupe concerné depuis la barre de suivi. */
   function ajoutLigne() {
     return (
-      <Button type="button" variant="outline" size="icon" aria-label="Ajouter une ligne" title="Ajouter une ligne" className="size-11 shrink-0 sm:size-9" onClick={() => addRow()}>
+      <Button type="button" variant="outline" size="icon" aria-label="Ajouter une ligne" title="Ajouter une ligne" className={commandButtonClass} onClick={() => addRow()}>
         <Plus className="size-4" aria-hidden="true" />
+        <span className="hidden lg:inline">Ajouter une ligne</span>
       </Button>
     );
   }
@@ -426,33 +431,43 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const totalLabel = def.totalLabel ?? "Total";
 
   const commands = (
-    (!readOnly || exportActions) && <div aria-label="Commandes du tableau" className="flex min-w-0 shrink-0 items-center gap-1.5">
+    (!readOnly || exportActions) && <div aria-label="Commandes du tableau" className={cn("flex min-w-0 shrink-0 items-center gap-1.5", groupes.length === 0 && "lg:w-full lg:flex-wrap [&>button]:lg:flex-1")}>
               {canAdd && (def.plageNumeros && rows.length === 0 ? null : groupes.length === 0 ? ajoutLigne() : null)}
               {canAdd && groupes.length === 1 && (
-                <Button type="button" variant="outline" size="icon" className="size-11 shrink-0 sm:size-9"
+                <Button type="button" variant="outline" size="icon" className={commandButtonClass}
                   aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${groupes[0].nom}`}
                   title={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${groupes[0].nom}`}
                   onClick={() => addRow(groupes[0].id)}>
                   <Plus className="size-4" aria-hidden="true" />
+                  <span className="hidden lg:inline">{def.groupe?.ajout}</span>
                 </Button>
               )}
               {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
-                <Button type="button" variant="outline" size="icon" aria-label="Importer un document" title="Importer un document" className="size-11 shrink-0 sm:size-9" onClick={() => setImportOpen(true)}>
+                <Button type="button" variant="outline" size="icon" aria-label="Importer un document" title="Importer un document" className={commandButtonClass} onClick={() => setImportOpen(true)}>
                   <FileUp className="size-4" aria-hidden="true" />
+                  <span className="hidden lg:inline">Importer</span>
                 </Button>
               )}
               {exportActions && (
-                <div data-tour="collecte-export-sticky" className="shrink-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button type="button" variant="outline" size="icon" className="size-11 sm:size-9" aria-label="Exporter le tableau" title="Excel, PDF et impression" disabled={saving}>
-                        <MoreHorizontal className="size-4" aria-hidden="true" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-40 rounded-md">
-                      {exportActions}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                <div data-tour="collecte-export-sticky" className={cn("shrink-0", groupes.length === 0 && exportButtons && "lg:flex lg:flex-[3_1_0%]")}>
+                  {groupes.length === 0 && exportButtons && (
+                    <div className="hidden flex-1 items-center gap-1.5 lg:flex [&>button]:flex-1">
+                      {exportButtons}
+                    </div>
+                  )}
+                  <div className={cn(groupes.length === 0 && exportButtons && "lg:hidden")}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="outline" size="icon" className={commandButtonClass} aria-label="Exporter le tableau" title="Excel, PDF et impression" disabled={saving}>
+                          <MoreHorizontal className="size-4" aria-hidden="true" />
+                          <span className="hidden lg:inline">Plus</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="min-w-40 rounded-md">
+                        {exportActions}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               )}
               {!readOnly && (
@@ -462,11 +477,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                     size="icon"
                     aria-label={saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}
                     title={saveError ? "Enregistrement impossible : réessayez" : saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}
-                    className={cn("size-11 shrink-0 sm:size-9", saveError && "border border-destructive bg-destructive/10 text-destructive hover:bg-destructive/15", !dirty && !saveAndContinue && "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
+                    className={cn(commandButtonClass, saveError && "border border-destructive bg-destructive/10 text-destructive hover:bg-destructive/15", !dirty && !saveAndContinue && "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
                     onClick={() => { void (saveAndContinue ? saveAndContinue() : save()).catch(() => {}); }}
                     disabled={saving || (!dirty && !saveAndContinue)}
                   >
                     {saving ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
+                    <span className="hidden lg:inline">{saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}</span>
                   </Button>
               )}
               {saveError && <span role="alert" className="sr-only min-w-0 text-xs font-medium text-destructive sm:not-sr-only sm:truncate">Échec de l'enregistrement</span>}
@@ -527,9 +543,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                       </div>
                       <div className={cn(
                         "min-w-0 gap-x-3 gap-y-1.5",
-                        groupes.length === 1 ? "grid grid-cols-[minmax(64px,1fr)_auto] items-center sm:grid-cols-[auto_minmax(64px,1fr)_auto]" : "flex flex-wrap items-center",
+                        groupes.length === 1 ? "grid grid-cols-[minmax(64px,1fr)_auto] items-center sm:grid-cols-[auto_minmax(64px,1fr)_auto] lg:grid-cols-[minmax(64px,1fr)_auto] xl:grid-cols-[auto_minmax(64px,1fr)_auto]" : "flex flex-wrap items-center",
                       )}>
-                        <span className={cn("min-w-0 text-xs tabular-nums text-muted-foreground", groupes.length === 1 && "col-span-2 sm:col-span-1")}>
+                        <span className={cn("min-w-0 text-xs tabular-nums text-muted-foreground", groupes.length === 1 && "col-span-2 sm:col-span-1 lg:col-span-2 xl:col-span-1")}>
                           {montantFr(g.reparti)} / {montantFr(g.total)} {symboleGroupe}
                           <span className="ml-2 text-muted-foreground/70"> · {g.nbLignes} ligne{g.nbLignes > 1 ? "s" : ""}</span>
                         </span>
@@ -554,12 +570,13 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="size-9 shrink-0 border-primary/20 bg-card p-0 text-primary hover:bg-secondary"
+                        className="size-9 shrink-0 border-primary/20 bg-card p-0 text-primary hover:bg-secondary lg:w-auto lg:px-2"
                         onClick={() => addRow(g.id)}
                         aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${g.nom}`}
                         title={`${def.groupe?.ajout}${g.complet ? " — vérifiez le montant après l'ajout" : ""}`}
                       >
                         <Plus className="size-4" aria-hidden="true" />
+                        <span className="hidden lg:inline">{def.groupe?.ajout}</span>
                       </Button>
                     )}
                   </div>

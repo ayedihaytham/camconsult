@@ -83,6 +83,7 @@ describe("n° de facture en doublon", () => {
     useStock.setState({ list: [existant] });
     const { onSubmit } = ouvrir();
     saisir();
+    fireEvent.click(screen.getByRole("tab", { name: /Vente/ }));
     fireEvent.change(screen.getAllByLabelText("N° Facture")[1], { target: { value: "2023-00002" } });
     expect((await screen.findByRole("alert")).textContent).toMatch(/déjà utilisé dans le mouvement n° 1/);
 
@@ -207,5 +208,63 @@ describe("cours moyen du mois dans les factures du stock", () => {
     const existant = { id: "m1", societeId: "s1", natureMarchandise: "", achatDate: "2023-01-04", achatNumFacture: "", fournisseur: "", achatDevise: "EUR", achatCours: 3.268, achatLignes: [], venteDate: null, venteNumFacture: "", client: "", venteDevise: "TND", venteCours: 0, venteLignes: [] } as unknown as StockMouvement;
     render(<StockMouvementFormSheet open onOpenChange={vi.fn()} societeId="s1" mouvement={existant} onSubmit={vi.fn()} />);
     expect(coursAchat().replace(/\s/g, "")).toMatch(/^3[,.]268/);
+  });
+});
+
+describe("sections du mouvement en onglets", () => {
+  afterEach(cleanup);
+
+  it("n'affiche qu'une section à la fois, avec son document à côté, et change d'onglet au clic", () => {
+    ouvrir();
+    const achat = document.getElementById("panneau-achat") as HTMLElement;
+    const vente = document.getElementById("panneau-vente") as HTMLElement;
+    expect(achat.hidden).toBe(false);
+    expect(vente.hidden).toBe(true);
+    expect(screen.getAllByText("Aucun document pour cette section").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("tab", { name: /Vente/ }));
+    expect(achat.hidden).toBe(true);
+    expect(vente.hidden).toBe(false);
+    expect(screen.getByRole("tab", { name: /Vente/ }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("marque une section complète quand elle porte facture, tiers et produit", () => {
+    ouvrir();
+    const onglet = () => screen.getByRole("tab", { name: /Achat/ });
+    expect(onglet().textContent).not.toContain("complète");
+    fireEvent.change(screen.getAllByLabelText("N° Facture")[0], { target: { value: "F-1" } });
+    fireEvent.change(screen.getByLabelText("Fournisseur"), { target: { value: "SOTACIB" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /Ajouter un produit/ })[0]);
+    expect(onglet().textContent).toContain("complète");
+  });
+});
+
+describe("champs lus dans le document", () => {
+  afterEach(() => {
+    cleanup();
+    useStock.setState({ extract: useStock.getInitialState().extract });
+  });
+
+  it("surligne les champs extraits tant qu'ils ne sont pas modifiés", async () => {
+    const extract = vi.fn().mockResolvedValue({
+      source: "ia",
+      texte: "",
+      champs: { date: "2023-01-04", numFacture: "3100001306", fournisseur: "SOTACIB", devise: "EUR", lignes: [{ designation: "CEM I 52,5 N", quantite: 370, prixUnitaire: 90, montantDevise: 33300, montantTnd: 0, unite: "T" }] },
+    });
+    useStock.setState({ extract });
+    ouvrir();
+    const fichier = new File(["%PDF-1.4"], "facture.pdf", { type: "application/pdf" });
+    const entrees = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    fireEvent.change(entrees[1], { target: { files: [fichier] } });
+    await waitFor(() => expect(extract).toHaveBeenCalled());
+
+    const numero = (await screen.findAllByLabelText("N° Facture"))[0] as HTMLInputElement;
+    await waitFor(() => expect(numero.className).toContain("bg-accent/15"));
+    expect(screen.getAllByText(/lu dans le document/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/lus dans le document/).length).toBeGreaterThan(0);
+
+    // Modifier un champ retire son surlignage ; les autres restent surlignés.
+    fireEvent.change(numero, { target: { value: "3100001307" } });
+    expect(numero.className).not.toContain("bg-accent/15");
+    expect((screen.getByLabelText("Fournisseur") as HTMLInputElement).className).toContain("bg-accent/15");
   });
 });

@@ -116,55 +116,58 @@ describe("totaux du récapitulatif", () => {
   });
 });
 
+const tableau = () => within(document.querySelector("table") as HTMLElement);
+const lignesDe = (id: string) => Array.from(document.querySelectorAll<HTMLElement>(`tr[data-mouvement="${id}"]`));
+
 describe("tableau récapitulatif du stock", () => {
   afterEach(cleanup);
 
   it("met en évidence un n° de facture déjà utilisé par un autre mouvement", () => {
     afficher({ doublons: { vente: new Set(["m1"]), achat: new Set() } });
-    const icones = screen.getAllByLabelText("Numéro de facture en doublon");
+    const icones = tableau().getAllByLabelText("Numéro de facture en doublon");
     expect(icones).toHaveLength(1);
-    expect((document.getElementById("mouvement-m1") as HTMLElement).contains(icones[0])).toBe(true);
+    expect(lignesDe("m1")[0].contains(icones[0])).toBe(true);
     cleanup();
     afficher();
     expect(screen.queryByLabelText("Numéro de facture en doublon")).toBeNull();
   });
 
-  it("reprend les attributs du tableau Excel du cabinet, achat et vente côte à côte", () => {
+  it("garde les attributs du cabinet : côté, date, facture, tiers, quantité, devise, cours, montant TND, pièce et douane", () => {
     afficher();
     const entetes = Array.from(document.querySelectorAll("thead th")).map((th) => th.textContent);
-    for (const colonne of ["N°", "Mouvement", "Écart", "Achat", "Vente", "Douane", "N° déclaration"]) {
+    for (const colonne of ["N°", "Mouvement", "Écart", "Côté", "Date", "N° facture", "Client / Fournisseur", "Qté", "En devise", "Devise", "Cours", "MT TND", "Pièce", "Douane"]) {
       expect(entetes).toContain(colonne);
     }
-    // Les huit colonnes d'un côté : date, facture, tiers, quantité, montant en devise, devise, cours, MT TND.
-    for (const colonne of ["Date", "N° facture", "Qté", "En devise", "Devise", "Cours", "MT TND"]) {
-      expect(entetes.filter((e) => e === colonne)).toHaveLength(2);
-    }
-    expect(entetes).toContain("Fournisseur");
-    expect(entetes).toContain("Client");
-    // Vente d'abord, puis achat, puis douane.
-    expect(entetes.indexOf("Vente")).toBeLessThan(entetes.indexOf("Achat"));
-    expect(entetes.indexOf("Achat")).toBeLessThan(entetes.indexOf("Douane"));
-    expect(entetes.indexOf("Client")).toBeLessThan(entetes.indexOf("Fournisseur"));
+    // Une seule rangée d'en-têtes, aucune colonne n'est tronquée ni défilante.
+    expect(document.querySelectorAll("thead tr")).toHaveLength(1);
+    expect(document.querySelector("table")?.className).toContain("table-fixed");
+    expect(document.querySelector("[data-tour='stock-register']")?.querySelector(".overflow-x-auto")).toBeNull();
   });
 
-  it("montre le total vente − achat en devise en bas du tableau et dans le détail", () => {
+  it("donne deux lignes à chaque mouvement : la vente puis l'achat, avec la douane à droite", () => {
     afficher();
-    const pied = within(document.querySelector("tfoot") as HTMLElement);
-    // Une seule ligne de total, sans montant en dinars.
-    expect(document.querySelectorAll("tfoot tr")).toHaveLength(1);
-    expect(pied.getByText(/Vente − achat :/)).toBeTruthy();
-    expect(pied.getAllByText(/EUR/).length).toBeGreaterThan(0);
-    fireEvent.click(document.getElementById("mouvement-m1") as HTMLElement);
-    expect(screen.getByText(/Vente − achat \(en devise\)/)).toBeTruthy();
-    expect(screen.getAllByText("1 000,000 EUR").length).toBeGreaterThan(0);
+    const [vente, achat] = lignesDe("m1");
+    const v = within(vente);
+    const a = within(achat);
+    expect(v.getByText("VENTE")).toBeTruthy();
+    expect(v.getByText("GROUP BYOUT EZZ")).toBeTruthy();
+    expect(v.getByText("202300001")).toBeTruthy();
+    expect(a.getByText("ACHAT")).toBeTruthy();
+    expect(a.getByText("RUSPINA IMPORT ET EXPORT")).toBeTruthy();
+    expect(a.getByText("6608000533")).toBeTruthy();
+    // La douane est portée par la première ligne, sur les deux lignes du mouvement.
+    expect(v.getByText("447898")).toBeTruthy();
+    expect(v.getByText(/type E/)).toBeTruthy();
+    expect(v.getByText(/Valeur 170 778,400/)).toBeTruthy();
+    expect(a.queryByText("447898")).toBeNull();
+    expect(v.getByText("Portland Cement CEM I 42,5 N")).toBeTruthy();
   });
 
-  it("numérote les lignes et n'écrit la nature de la marchandise qu'une fois", () => {
+  it("numérote les mouvements et n'écrit la nature de la marchandise qu'une fois", () => {
     afficher();
-    const ligneCiment = document.getElementById("mouvement-m1") as HTMLElement;
-    expect(within(ligneCiment).getAllByText("Portland Cement CEM I 42,5 N")).toHaveLength(1);
-    expect(ligneCiment.querySelector("td")?.textContent).toBe("1");
-    expect((document.getElementById("mouvement-m2") as HTMLElement).querySelector("td")?.textContent).toBe("2");
+    expect(tableau().getAllByText("Portland Cement CEM I 42,5 N")).toHaveLength(1);
+    expect(lignesDe("m1")[0].querySelector("td")?.textContent).toBe("1");
+    expect(lignesDe("m2")[0].querySelector("td")?.textContent).toBe("2");
   });
 
   it("montre le cours, la devise et le montant en dinars de chaque côté", () => {
@@ -183,7 +186,7 @@ describe("tableau récapitulatif du stock", () => {
       venteLignes: [{ ...ligne("PET FLAKES", 46.826, 57127.72, 189464.083), unite: "T" }],
     });
     afficher({ mouvements: [avecCours] });
-    const r = within(document.getElementById("mouvement-m5") as HTMLElement);
+    const r = within(document.querySelector("tbody") as HTMLElement);
     expect(r.getAllByText("3,3165")).toHaveLength(2);
     expect(r.getAllByText("EUR")).toHaveLength(2);
     expect(r.getByText("147 545,100")).toBeTruthy();
@@ -192,49 +195,43 @@ describe("tableau récapitulatif du stock", () => {
     expect(r.getByText("250007")).toBeTruthy();
   });
 
-  it("affiche une ligne par mouvement avec achat, vente et douane côte à côte", () => {
+  it("met l'écart en évidence, totalise dans le pied du tableau et donne la marge en dinars", () => {
     afficher();
-    const ligneCiment = document.getElementById("mouvement-m1") as HTMLElement;
-    const cellules = within(ligneCiment);
-    expect(cellules.getByText("Portland Cement CEM I 42,5 N")).toBeTruthy();
-    expect(cellules.getByText("RUSPINA IMPORT ET EXPORT")).toBeTruthy();
-    expect(cellules.getByText("6608000533")).toBeTruthy();
-    expect(cellules.getByText("GROUP BYOUT EZZ")).toBeTruthy();
-    expect(cellules.getByText("202300001")).toBeTruthy();
-    // Le tableau n'affiche que le n° de déclaration ; le type, le taux et la valeur sont dans le détail.
-    expect(cellules.getByText("447898")).toBeTruthy();
-    expect(cellules.queryByText("3,2842")).toBeNull();
-    expect(cellules.queryByText("170 778,400")).toBeNull();
-    expect(document.getElementById("mouvement-m2")).toBeTruthy();
-  });
-
-  it("met l'écart en évidence et totalise dans le pied du tableau", () => {
-    afficher();
-    expect(screen.getByText("Total (2)")).toBeTruthy();
-    const pied = document.querySelector("tfoot") as HTMLElement;
-    expect(within(pied).getByText("1 370")).toBeTruthy();
-    expect(within(pied).getByText("371 000")).toBeTruthy();
-    const ecart = within(document.getElementById("mouvement-m2") as HTMLElement).getByText("-369 630");
+    expect(tableau().getByText("Total (2)")).toBeTruthy();
+    const pied = within(document.querySelector("tfoot") as HTMLElement);
+    expect(document.querySelectorAll("tfoot tr")).toHaveLength(1);
+    expect(pied.getByText(/Vente : 371 000/)).toBeTruthy();
+    expect(pied.getByText(/Achat : 1 370/)).toBeTruthy();
+    expect(pied.getByText(/Vente − achat :/)).toBeTruthy();
+    expect(pied.getByText(/Marge TND/)).toBeTruthy();
+    const ecart = within(lignesDe("m2")[0]).getByText("-369 630");
     expect(ecart.className).toContain("text-destructive");
   });
 
-  it("déplie le détail en trois cartes : achat, vente et douane", () => {
-    afficher();
-    expect(screen.queryByText("Écart achat − vente", { exact: false })).toBeNull();
-    fireEvent.click(document.getElementById("mouvement-m1") as HTMLElement);
-    for (const titre of ["Achat", "Vente", "Douane"]) {
-      expect(screen.getAllByText(titre, { selector: "h3" })).toHaveLength(1);
+  it("déplie le détail : vente et achat côte à côte, douane en dessous, avec leurs pièces et les actions", () => {
+    const { onEdit, onDelete } = afficher();
+    expect(tableau().queryByText("Écart achat − vente", { exact: false })).toBeNull();
+    fireEvent.click(lignesDe("m1")[0]);
+    for (const titre of ["Vente", "Achat", "Douane"]) {
+      expect(tableau().getAllByText(titre, { selector: "h3" })).toHaveLength(1);
     }
-    expect(screen.getAllByText("Fournisseur")).toHaveLength(2); // en-tête du tableau + carte du détail
-    expect(screen.getByText("Exportateur")).toBeTruthy();
-    expect(screen.getByText("STE DES CIMENTS D'ENFIDHA")).toBeTruthy();
-    expect(screen.getByText("Écart achat − vente", { exact: false })).toBeTruthy();
+    expect(tableau().getByText("Exportateur")).toBeTruthy();
+    expect(tableau().getByText("STE DES CIMENTS D'ENFIDHA")).toBeTruthy();
+    expect(tableau().getByText("Écart achat − vente", { exact: false })).toBeTruthy();
+    expect(tableau().getAllByText("1 000,000 EUR").length).toBeGreaterThan(0);
+    // Chaque facture porte sa pièce : seul le document douanier existe ici.
+    expect(tableau().getAllByText("Aucune pièce jointe").length).toBe(2);
+    expect(tableau().getByText("Document douanier")).toBeTruthy();
+    fireEvent.click(tableau().getByRole("button", { name: "Modifier" }));
+    fireEvent.click(tableau().getByRole("button", { name: "Supprimer" }));
+    expect(onEdit).toHaveBeenCalledWith(ciment);
+    expect(onDelete).toHaveBeenCalledWith(ciment);
   });
 
   it("n'affiche l'écart par produit que si une facture liste plusieurs produits", () => {
     afficher();
-    fireEvent.click(document.getElementById("mouvement-m2") as HTMLElement);
-    expect(screen.queryByText("CEM I 52.5 N", { exact: false, selector: "span" })).toBeNull();
+    fireEvent.click(lignesDe("m2")[0]);
+    expect(tableau().queryByText("CEM I 52.5 N", { exact: false, selector: "span" })).toBeNull();
 
     cleanup();
     const multi = base({
@@ -249,27 +246,22 @@ describe("tableau récapitulatif du stock", () => {
       ],
     });
     afficher({ mouvements: [multi] });
-    fireEvent.click(document.getElementById("mouvement-m4") as HTMLElement);
-    expect(screen.getByText("GRAVIER", { selector: "span" })).toBeTruthy();
-    expect(screen.getAllByText("Total").length).toBeGreaterThan(0);
+    fireEvent.click(lignesDe("m4")[0]);
+    expect(tableau().getByText("GRAVIER", { selector: "span" })).toBeTruthy();
+    expect(tableau().getAllByText("Total").length).toBeGreaterThan(0);
   });
 
-  it("ouvre les actions sans déplier la ligne", () => {
-    const { onEdit, onDelete, onPreview } = afficher();
-    const ligneCiment = document.getElementById("mouvement-m1") as HTMLElement;
-    fireEvent.click(within(ligneCiment).getByLabelText("Modifier ce mouvement"));
-    fireEvent.click(within(ligneCiment).getByLabelText("Supprimer ce mouvement"));
-    fireEvent.click(within(ligneCiment).getByLabelText("Voir : Document douanier"));
-    expect(onEdit).toHaveBeenCalledWith(ciment);
-    expect(onDelete).toHaveBeenCalledWith(ciment);
+  it("ouvre l'aperçu d'une pièce sans déplier la ligne", () => {
+    const { onPreview } = afficher();
+    fireEvent.click(within(lignesDe("m1")[0]).getByLabelText("Voir : Document douanier"));
     expect(onPreview).toHaveBeenCalledWith("Document douanier", ciment.douaneDocDataUrl);
-    expect(screen.queryByText("Écart achat − vente", { exact: false })).toBeNull();
+    expect(tableau().queryByText("Écart achat − vente", { exact: false })).toBeNull();
   });
 
   it("met en évidence le mouvement qui vient d'être enregistré", () => {
     afficher({ nouveauId: "m2" });
-    expect((document.getElementById("mouvement-m2") as HTMLElement).className).toContain("bg-accent/15");
-    expect((document.getElementById("mouvement-m1") as HTMLElement).className).not.toContain("bg-accent/15");
+    expect(lignesDe("m2")[0].getAttribute("data-nouveau")).toBe("true");
+    expect(lignesDe("m1")[0].getAttribute("data-nouveau")).toBeNull();
   });
 });
 
@@ -295,10 +287,11 @@ describe("quantités en unités différentes", () => {
 
   it("affiche l'unité de chaque quantité et de l'écart", () => {
     afficher({ mouvements: [kilos] });
-    const rangee = within(document.getElementById("mouvement-m3") as HTMLElement);
-    expect(rangee.getByText("370 T", { selector: "td" }).tagName).toBe("TD");
+    const [vente, achat] = lignesDe("m3");
+    expect(within(vente).getByText("370 T", { selector: "td" }).tagName).toBe("TD");
+    expect(within(achat).getByText("370 000 KG", { selector: "td" }).tagName).toBe("TD");
     // Un écart nul s'écrit « 0 », sans unité.
-    expect(rangee.getByText("0")).toBeTruthy();
-    expect(rangee.queryByText("0 T")).toBeNull();
+    expect(within(vente).getByText("0")).toBeTruthy();
+    expect(within(vente).queryByText("0 T")).toBeNull();
   });
 });

@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { periodeMois, periodesSuggerees } from "@/lib/collecte/periodes";
 import { useSocietes } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
 import { CollecteTableSelection } from "./CollecteTableSelection";
@@ -68,7 +69,7 @@ export function CollecteFormDrawer({
   useEffect(() => {
     if (!open) return;
     setSocieteId(initial?.societeId ?? defaultSocieteId ?? "");
-    setPeriode(initial?.periode ?? "");
+    setPeriode(initial ? initial.periode : periodeMois(new Date()));
     setDevise(initial?.devise ?? "TND");
     setEcheance(initial?.echeance ?? "");
     setRelanceCadenceJours(initial?.relanceCadenceJours ?? 3);
@@ -79,6 +80,7 @@ export function CollecteFormDrawer({
   async function submit() {
     if (submitting) return;
     if (!societeId) return setError("Choisissez une société.");
+    if (!periode.trim()) return setError("La période est obligatoire : elle identifie la collecte.");
     if (onglets.length === 0) {
       return setError("Sélectionnez au moins un tableau.");
     }
@@ -171,22 +173,40 @@ export function CollecteFormDrawer({
               )}
           </div>
 
+          <div className="space-y-1.5">
+            <Label htmlFor="collecte-periode">Période concernée <span className="text-destructive" aria-hidden="true">*</span></Label>
+            <Input
+              id="collecte-periode"
+              value={periode}
+              onChange={(e) => { setPeriode(e.target.value); if (error?.startsWith("La période")) setError(null); }}
+              disabled={submitting}
+              required
+              aria-invalid={error?.startsWith("La période") ? true : undefined}
+              aria-describedby={error?.startsWith("La période") ? "collecte-periode-error" : undefined}
+              placeholder="Ex. Octobre 2026, T3 2026, Exercice 2025"
+            />
+            <div className="flex flex-wrap gap-1.5 pt-1" role="group" aria-label="Périodes proposées">
+              {periodesSuggerees(new Date()).map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => { setPeriode(suggestion); setError(null); }}
+                  className={`min-h-8 rounded-full border px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${periode.trim() === suggestion ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-accent"}`}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+            {error?.startsWith("La période") && <p id="collecte-periode-error" role="alert" className="text-xs text-destructive">{error}</p>}
+          </div>
+
           <section className="space-y-3 rounded-lg border border-border bg-muted/10 p-3.5">
             <div>
               <h3 className="text-sm font-semibold text-foreground">Paramètres facultatifs</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">Les valeurs par défaut conviennent à la plupart des collectes.</p>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="collecte-periode">Période concernée (optionnel)</Label>
-              <Input
-                id="collecte-periode"
-                value={periode}
-                onChange={(e) => setPeriode(e.target.value)}
-                disabled={submitting}
-                placeholder="Ex. Janvier 2026, T1 2026, Exercice 2025…"
-              />
-            </div>
             <div className="min-w-0 space-y-1.5">
               <Label htmlFor="collecte-devise">Devise</Label>
               <Select value={devise} onValueChange={setDevise} disabled={submitting}>

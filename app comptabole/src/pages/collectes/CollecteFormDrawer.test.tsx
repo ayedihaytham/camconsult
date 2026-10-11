@@ -62,3 +62,20 @@ describe("CollecteFormDrawer : sélection de tableaux", () => {
     expect(screen.getAllByRole("checkbox", { checked: false })).toHaveLength(COLLECTE_TABS.length);
   });
 });
+
+describe("CollecteFormDrawer : période obligatoire", () => {
+  it("propose le mois courant par défaut, des raccourcis, et refuse une période vide", async () => {
+    const { onCreate } = renderForm();
+    const champ = screen.getByLabelText(/Période concernée/) as HTMLInputElement;
+    expect(champ.value).toMatch(/^[A-ZÉÛ][a-zéû]+ \d{4}$/);
+    expect(screen.getByRole("group", { name: "Périodes proposées" })).toBeTruthy();
+    fireEvent.click(screen.getByText("Virements reçus"));
+    fireEvent.change(champ, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Créer la collecte" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/La période est obligatoire/);
+    expect(onCreate).not.toHaveBeenCalled();
+    const raccourci = screen.getByRole("group", { name: "Périodes proposées" }).querySelectorAll("button")[2];
+    fireEvent.click(raccourci);
+    expect(champ.value).toBe(raccourci.textContent);
+  });
+});

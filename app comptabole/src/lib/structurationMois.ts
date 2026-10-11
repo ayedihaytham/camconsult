@@ -15,6 +15,29 @@ export function anneeDuLibelle(libelle: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** Fichiers d'un mois (janvier = 0) sous un dossier, tous niveaux confondus, du plus récent au plus ancien. */
+export function fichiersDuMois(dossierId: string, nodes: Noeud[], annee: number | null, mois: number): Noeud[] {
+  const enfants = new Map<string, Noeud[]>();
+  for (const n of nodes) {
+    if (!n.parentId) continue;
+    enfants.set(n.parentId, [...(enfants.get(n.parentId) ?? []), n]);
+  }
+  const trouves: Noeud[] = [];
+  const pile = [...(enfants.get(dossierId) ?? [])];
+  while (pile.length > 0) {
+    const n = pile.pop()!;
+    if (n.type === "dossier") {
+      pile.push(...(enfants.get(n.id) ?? []));
+      continue;
+    }
+    const date = new Date(n.creeLe);
+    if (Number.isNaN(date.getTime()) || date.getMonth() !== mois) continue;
+    if (annee !== null && date.getFullYear() !== annee) continue;
+    trouves.push(n);
+  }
+  return trouves.sort((a, b) => b.creeLe.localeCompare(a.creeLe));
+}
+
 /** Nombre de fichiers de chaque mois (janvier = 0) sous un dossier, tous niveaux confondus, d'après leur date d'ajout.
  * Avec une année, seuls les fichiers de cette année comptent. */
 export function comptesParMois(dossierId: string, nodes: Noeud[], annee: number | null): number[] {

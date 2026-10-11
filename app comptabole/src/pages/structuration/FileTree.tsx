@@ -402,7 +402,7 @@ export function FileTree({
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
                     {isFolder ? (
-                      <Folder className="h-4 w-4 shrink-0 text-primary" />
+                      <Folder className="h-4 w-4 shrink-0 fill-accent/40 text-accent" />
                     ) : (
                       <FileTypeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
@@ -600,9 +600,9 @@ function TreeBranch({
           className="flex flex-1 items-center gap-1.5 py-1.5 pr-2 text-left"
         >
           {active ? (
-            <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
+            <FolderOpen className="h-4 w-4 shrink-0 fill-accent/40 text-accent" />
           ) : (
-            <Folder className="h-4 w-4 shrink-0 text-primary/80" />
+            <Folder className="h-4 w-4 shrink-0 fill-accent/40 text-accent" />
           )}
           <span className="truncate">{node.libelle}</span>
         </button>

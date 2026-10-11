@@ -503,7 +503,7 @@ const TOURS = {
       {
         target: "structuration-lenses",
         title: "Changer de vue",
-        body: "Passez des documents (arbre et liste réunis) à l’organigramme.",
+        body: "Passez de l’organigramme aux documents (arbre et liste réunis), puis à la vue générale.",
       },
       {
         target: "structuration-search",

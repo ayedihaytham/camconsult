@@ -43,6 +43,7 @@ import type { Noeud } from "@/types";
 import { ArborescenceFormSheet, type ArboFormValues } from "./ArborescenceFormSheet";
 import { FileTree } from "./FileTree";
 import { OrganigrammeView } from "./OrganigrammeView";
+import { VueGenerale } from "./VueGenerale";
 import { FileUploadDialog, type NewFichier } from "./FileUploadDialog";
 import { MoveNodeDialog } from "./MoveNodeDialog";
 import { FilePreviewDialog } from "./FilePreviewDialog";
@@ -54,8 +55,10 @@ export function StructurationPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const societeParam = searchParams.get("societe");
   const vueParam = searchParams.get("vue");
-  // « Tableau » et « Arborescence » sont fusionnés en un seul onglet « Documents » (les anciennes adresses ?vue=arbre y mènent aussi).
-  const initialTab: "documents" | "organigramme" = vueParam === "organigramme" ? "organigramme" : "documents";
+  // Organigramme (détail par mois), Documents (arbre et liste réunis) et Vue générale. Les anciennes adresses ?vue=arbre / tableau mènent à Documents.
+  type Onglet = "organigramme" | "documents" | "generale";
+  const initialTab: Onglet =
+    vueParam === "documents" || vueParam === "arbre" || vueParam === "tableau" ? "documents" : vueParam === "generale" ? "generale" : "organigramme";
 
   const allNodes = useNoeuds();
   const societes = useSocietes();
@@ -77,7 +80,7 @@ export function StructurationPage() {
   const deleteNoeudsCascade = useData((s) => s.deleteNoeudsCascade);
   const getSocieteById = (id: string | null | undefined) =>
     societes.find((s) => s.id === id) ?? null;
-  const [tab, setTab] = useState<"documents" | "organigramme">(initialTab);
+  const [tab, setTab] = useState<Onglet>(initialTab);
   const [search, setSearch] = useState("");
   const [societeFilter, setSocieteFilter] = useState(societeParam ?? "all");
 
@@ -413,6 +416,31 @@ export function StructurationPage() {
 
   const activeSociete = societeParam ? getSocieteById(societeParam) : null;
 
+  // Les deux boutons de structure, dans la barre de l'organigramme et de la vue générale.
+  const actionsStructure =
+    canStructEdit || isAdmin ? (
+      <>
+        {isAdmin && (
+          <Button variant="outline" disabled={provisioning} onClick={() => setProvisionConfirmOpen(true)}>
+            <Layers className="h-4 w-4" />
+            {provisioning ? "Instanciation…" : "Instancier pour toutes les sociétés"}
+          </Button>
+        )}
+        {canStructEdit && (
+          <Button
+            variant="ledger"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            Ajouter une arborescence
+          </Button>
+        )}
+      </>
+    ) : undefined;
+
   return (
     <div className="flex flex-1 flex-col">
       <LedgerPageHeader
@@ -423,34 +451,6 @@ export function StructurationPage() {
             : isAdmin
               ? "Arborescence documentaire du cabinet, par société."
               : "Dossiers des sociétés auxquelles vous avez accès."
-        }
-        actions={
-          canStructEdit || isAdmin ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {isAdmin && (
-                <Button
-                  variant="outline"
-                  disabled={provisioning}
-                  onClick={() => setProvisionConfirmOpen(true)}
-                >
-                  <Layers className="h-4 w-4" />
-                  {provisioning ? "Instanciation…" : "Instancier pour toutes les sociétés"}
-                </Button>
-              )}
-              {canStructEdit && (
-                <Button
-                  variant="ledger"
-                  onClick={() => {
-                    setEditing(null);
-                    setFormOpen(true);
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                  Ajouter une arborescence
-                </Button>
-              )}
-            </div>
-          ) : undefined
         }
       />
 
@@ -508,13 +508,14 @@ export function StructurationPage() {
         onChange={(v) => {
           setTab(v);
           const next = new URLSearchParams(searchParams);
-          if (v === "documents") next.delete("vue");
+          if (v === "organigramme") next.delete("vue");
           else next.set("vue", v);
           setSearchParams(next, { replace: true });
         }}
         options={[
-          { value: "documents", label: "Documents" },
           { value: "organigramme", label: "Organigramme" },
+          { value: "documents", label: "Documents" },
+          { value: "generale", label: "Vue générale" },
         ]}
       /></div>
 
@@ -644,7 +645,24 @@ export function StructurationPage() {
               roots={roots}
               getSocieteById={getSocieteById}
               onOpenNode={openFolder}
+              actions={actionsStructure}
             />
+          )}
+        </div>
+      )}
+
+      {tab === "generale" && (
+        <div data-tour="structuration-content" className="mt-3">
+          {roots.length === 0 ? (
+            <LedgerSheet>
+              <EmptyState
+                icon={Network}
+                title="Aucune arborescence"
+                description="Créez une première arborescence documentaire pour en voir la vue générale."
+              />
+            </LedgerSheet>
+          ) : (
+            <VueGenerale nodes={nodes} roots={roots} getSocieteById={getSocieteById} onOpenNode={openFolder} actions={actionsStructure} />
           )}
         </div>
       )}

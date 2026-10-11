@@ -1,17 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { FileSpreadsheet, FileText, FolderTree, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { THEME_BAR } from "@/lib/societeTheme";
 import { anneeDuLibelle, comptesParMois, fichiersDuMois, MOIS_COMPLETS, MOIS_COURTS } from "@/lib/structurationMois";
 import type { Noeud, Societe } from "@/types";
+import { SelecteursSocieteAnnee, useGroupeAnnee } from "./useGroupeAnnee";
 
 /**
  * Organigramme d'UNE société à la fois (sélecteur en haut) : un arbre vertical qui tient toujours dans la largeur de l'écran.
@@ -19,7 +13,6 @@ import type { Noeud, Societe } from "@/types";
  * date d'ajout). Un clic sur un mois affiche ses fichiers dans le volet de droite, sans quitter le schéma ni faire défiler la page.
  */
 const GENERIC_BAR = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"];
-const COMMUN = "__commun__";
 
 interface MoisChoisi {
   node: Noeud;
@@ -58,93 +51,38 @@ export function OrganigrammeView({
   roots,
   getSocieteById,
   onOpenNode,
+  actions,
 }: {
   nodes: Noeud[];
   roots: Noeud[];
   getSocieteById: (id: string | null) => Societe | null;
   onOpenNode: (n: Noeud) => void;
+  /** Boutons de la barre (ajouter une arborescence, instancier pour toutes les sociétés). */
+  actions?: ReactNode;
 }) {
   // Un organigramme par société (choisie en haut) plutôt que toutes côte à côte : chaque schéma reste lisible.
-  // Les arborescences sans société (modèle générique…) forment leur propre entrée « Commun ».
-  const groupes = useMemo(() => {
-    const map = new Map<string, { cle: string; label: string; roots: Noeud[] }>();
-    for (const r of roots) {
-      const cle = r.societeId ?? COMMUN;
-      const label = r.societeId ? (getSocieteById(r.societeId)?.raisonSociale ?? r.libelle) : "Commun (sans société)";
-      const g = map.get(cle) ?? { cle, label, roots: [] };
-      g.roots.push(r);
-      map.set(cle, g);
-    }
-    return [...map.values()].sort((a, b) =>
-      a.cle === COMMUN ? 1 : b.cle === COMMUN ? -1 : a.label.localeCompare(b.label, "fr"),
-    );
-  }, [roots, getSocieteById]);
-  const [choix, setChoix] = useState<string | null>(null);
-  const groupe = groupes.find((g) => g.cle === choix) ?? groupes[0];
+  const { groupes, groupe, setChoix, annees, annee, setAnneeChoix } = useGroupeAnnee(nodes, roots, getSocieteById);
   const [moisChoisi, setMoisChoisi] = useState<MoisChoisi | null>(null);
-
-  // Année affichée : les dossiers « … 2026 » de la société choisie ; la plus récente au départ.
-  const annees = useMemo(() => {
-    const trouvees = new Set<number>();
-    for (const r of groupe?.roots ?? []) {
-      for (const n of nodes) {
-        const a = n.parentId === r.id ? anneeDuLibelle(n.libelle) : null;
-        if (a !== null) trouvees.add(a);
-      }
-    }
-    return [...trouvees].sort((a, b) => b - a);
-  }, [groupe, nodes]);
-  const [anneeChoix, setAnneeChoix] = useState<number | null>(null);
-  const annee = annees.includes(anneeChoix ?? -1) ? anneeChoix : (annees[0] ?? null);
 
   const fichiersDuChoix = moisChoisi ? fichiersDuMois(moisChoisi.node.id, nodes, moisChoisi.annee, moisChoisi.mois) : [];
 
   return (
     <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-xl border border-border bg-card lg:h-[calc(100dvh-15rem)]">
-      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2.5">
-        <span className="text-sm text-muted-foreground">Société</span>
-        <Select
-          value={groupe?.cle}
-          onValueChange={(v) => {
-            setChoix(v);
-            setMoisChoisi(null);
-          }}
-        >
-          <SelectTrigger className="h-9 w-64" aria-label="Organigramme de la société">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {groupes.map((g) => (
-              <SelectItem key={g.cle} value={g.cle}>
-                {g.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {annees.length > 0 && (
-          <>
-            <span className="text-sm text-muted-foreground">Année</span>
-            <Select
-              value={String(annee)}
-              onValueChange={(v) => {
-                setAnneeChoix(Number(v));
-                setMoisChoisi(null);
-              }}
-            >
-              <SelectTrigger className="h-9 w-28" aria-label="Année de l'organigramme">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {annees.map((a) => (
-                  <SelectItem key={a} value={String(a)}>
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </>
-        )}
-      </div>
+      <SelecteursSocieteAnnee
+        groupes={groupes}
+        groupe={groupe}
+        onGroupe={(cle) => {
+          setChoix(cle);
+          setMoisChoisi(null);
+        }}
+        annees={annees}
+        annee={annee}
+        onAnnee={(a) => {
+          setAnneeChoix(a);
+          setMoisChoisi(null);
+        }}
+        droite={actions}
+      />
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-h-0 overflow-y-auto px-4 py-3">

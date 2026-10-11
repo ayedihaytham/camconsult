@@ -35,7 +35,7 @@ export function formatCollecteDeadline(collecte: Collecte, now: Date): string {
   return formatted;
 }
 
-export type CollecteLens = "a_examiner" | "actives" | "archivees" | "toutes";
+export type CollecteLens = "a_examiner" | "chez_client" | "a_corriger" | "validees" | "actives" | "archivees" | "toutes";
 export type CollecteDeadlineFilter = "all" | "late" | "today" | "upcoming" | "none";
 
 export interface CollecteListFilters {
@@ -54,6 +54,9 @@ export function getCollecteLensCounts(collectes: Collecte[]) {
   ).length;
   return {
     aExaminer,
+    chezClient: collectes.filter((collecte) => collecte.statut === "brouillon").length,
+    aCorriger: collectes.filter((collecte) => collecte.statut === "a_corriger").length,
+    validees: collectes.filter((collecte) => collecte.statut === "valide").length,
     actives: collectes.length - archivees,
     archivees,
     toutes: collectes.length,
@@ -71,6 +74,9 @@ export function filterCollectes(
   return collectes.filter((collecte) => {
     if (filters.lens === "a_examiner" &&
       (collecte.tableauxTransmis ?? Number(collecte.statut === "transmis")) <= 0) return false;
+    if (filters.lens === "chez_client" && collecte.statut !== "brouillon") return false;
+    if (filters.lens === "a_corriger" && collecte.statut !== "a_corriger") return false;
+    if (filters.lens === "validees" && collecte.statut !== "valide") return false;
     if (filters.lens === "archivees" && collecte.statut !== "archive") return false;
     if ((filters.lens === "actives" || filters.lens === "a_examiner") && collecte.statut === "archive") return false;
     if (filters.societeId && collecte.societeId !== filters.societeId) return false;

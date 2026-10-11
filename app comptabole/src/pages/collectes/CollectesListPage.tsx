@@ -37,6 +37,7 @@ import type { Collecte, CollecteStatut } from "@/types";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { CollectesClientPage } from "./CollectesClientPage";
 import { CollectesRegistre } from "./CollectesRegistre";
+import { CollectesPipeline } from "./CollectesPipeline";
 
 export function CollectesListPage() {
   const navigate = useNavigate();
@@ -60,6 +61,7 @@ export function CollectesListPage() {
   const [toDelete, setToDelete] = useState<Collecte | null>(null);
   const [vue, setVue] = useState<CollecteLens>(isCabinet ? "a_examiner" : "actives");
   const vueChoisie = useRef(false);
+  const [affichage, setAffichage] = useState<"tableau" | "pipeline">("tableau");
   const [query, setQuery] = useState("");
   const [societeId, setSocieteId] = useState("all");
   const [periode, setPeriode] = useState("all");
@@ -81,7 +83,7 @@ export function CollectesListPage() {
   const counts = useMemo(() => getCollecteLensCounts(list), [list]);
   // Rien à examiner et aucun choix de vue : on ouvre les collectes actives plutôt qu'une liste vide.
   useEffect(() => {
-    if (!loading && !vueChoisie.current && vue === "a_examiner" && counts.aExaminer === 0) setVue("actives");
+    if (!loading && !vueChoisie.current && vue === "a_examiner" && counts.aExaminer === 0) setVue("toutes");
   }, [loading, vue, counts.aExaminer]);
   const collectionSummary = useMemo(() => {
     const now = new Date();
@@ -164,7 +166,9 @@ export function CollectesListPage() {
       onChange={(next) => { vueChoisie.current = true; setVue(next); }}
       options={[
         ...(isCabinet ? [{ value: "a_examiner" as const, label: `À examiner (${counts.aExaminer})` }] : []),
-        { value: "actives", label: `Actives (${counts.actives})` },
+        { value: "chez_client", label: `Chez le client (${counts.chezClient})` },
+        { value: "a_corriger", label: `À corriger (${counts.aCorriger})` },
+        { value: "validees", label: `Validées (${counts.validees})` },
         { value: "archivees", label: `Archivées (${counts.archivees})` },
         { value: "toutes", label: `Toutes (${counts.toutes})` },
       ]}
@@ -187,7 +191,7 @@ export function CollectesListPage() {
         description={canCreate ? "Classeurs confiés aux clients pour saisie et retour au cabinet." : "Classeurs à remplir et transmettre à votre cabinet."}
         metrics={[
           ...(isCabinet ? [{ label: "À examiner", value: collectionSummary.aExaminer, tone: "warning" as const, loading }] : []),
-          { label: "En cours", value: collectionSummary.enCours, loading },
+          { label: "Chez le client", value: counts.chezClient, loading },
           { label: "En retard", value: collectionSummary.enRetard, tone: "destructive", loading },
           { label: "À corriger", value: collectionSummary.aCorriger, tone: "warning", loading },
         ]}
@@ -199,6 +203,17 @@ export function CollectesListPage() {
         <OperationalLedgerToolbar
           label="Outils des collectes"
           search={search}
+          tools={
+            <LedgerSegmented
+              ariaLabel="Affichage des collectes"
+              value={affichage}
+              onChange={setAffichage}
+              options={[
+                { value: "tableau" as const, label: "Tableau" },
+                { value: "pipeline" as const, label: "Pipeline" },
+              ]}
+            />
+          }
         />
         <OperationalContentHeader>
           <div className="flex min-w-0 items-baseline gap-3">
@@ -225,7 +240,9 @@ export function CollectesListPage() {
           </div>
         ) : (
           loading ? <p className="px-4 py-5 text-sm text-muted-foreground">Chargement…</p> : (
-            <CollectesRegistre key={resetKey} collectes={filtered} socNom={socNom} onDelete={isAdmin ? setToDelete : undefined} />
+            affichage === "pipeline"
+              ? <CollectesPipeline collectes={filtered} socNom={socNom} />
+              : <CollectesRegistre key={resetKey} collectes={filtered} socNom={socNom} onDelete={isAdmin ? setToDelete : undefined} />
           )
         )}
       </LedgerWorkSurface>
@@ -235,7 +252,7 @@ export function CollectesListPage() {
         const collecte = await create(data);
         // La nouvelle collecte est chez le client : elle se retrouve dans les collectes actives, pas dans « À examiner ».
         vueChoisie.current = true;
-        setVue("actives");
+        setVue("chez_client");
         setQuery("");
         resetFilters();
         toast.success("Collecte créée", { description: `${socNom(collecte.societeId)} — ${periodeLabel(collecte.periode)}` });

@@ -49,7 +49,7 @@ describe("Collecte Process Ledger list", () => {
       collecte({ id: "collecte-3", statut: "archive" }),
     ];
 
-    expect(getCollecteLensCounts(items)).toEqual({ aExaminer: 0, actives: 2, archivees: 1, toutes: 3 });
+    expect(getCollecteLensCounts(items)).toMatchObject({ aExaminer: 0, actives: 2, archivees: 1, toutes: 3 });
     expect(filterCollectes(items, { ...baseFilters, lens: "actives" }, names, now)).toHaveLength(2);
     expect(filterCollectes(items, { ...baseFilters, lens: "archivees" }, names, now)).toHaveLength(1);
     expect(filterCollectes(items, { ...baseFilters, lens: "toutes" }, names, now)).toHaveLength(3);
@@ -127,5 +127,29 @@ describe("Collecte Process Ledger list", () => {
     expect(getCollecteNextAction("a_corriger", { isAdmin: true, isSocieteEmploye: false })).toBe("Examiner");
     expect(getCollecteNextAction("valide", { isAdmin: true, isSocieteEmploye: false })).toBe("Consulter");
     expect(getCollecteNextAction("archive", { isAdmin: true, isSocieteEmploye: false })).toBe("Consulter");
+  });
+});
+
+describe("vues par étape du registre du cabinet", () => {
+  const items = [
+    collecte({ id: "a", statut: "brouillon" }),
+    collecte({ id: "b", statut: "transmis", tableauxTransmis: 1 }),
+    collecte({ id: "c", statut: "a_corriger" }),
+    collecte({ id: "d", statut: "valide" }),
+    collecte({ id: "e", statut: "archive" }),
+  ];
+  const ids = (lens: CollecteListFilters["lens"]) => filterCollectes(items, { ...baseFilters, lens }, names, now).map((item) => item.id);
+
+  it("range chaque collecte dans une seule vue d'étape, une collecte neuve est « Chez le client »", () => {
+    expect(ids("chez_client")).toEqual(["a"]);
+    expect(ids("a_examiner")).toEqual(["b"]);
+    expect(ids("a_corriger")).toEqual(["c"]);
+    expect(ids("validees")).toEqual(["d"]);
+    expect(ids("archivees")).toEqual(["e"]);
+    expect(ids("toutes")).toHaveLength(5);
+  });
+
+  it("compte chaque étape", () => {
+    expect(getCollecteLensCounts(items)).toMatchObject({ chezClient: 1, aExaminer: 1, aCorriger: 1, validees: 1, archivees: 1, toutes: 5 });
   });
 });

@@ -6,7 +6,7 @@ import type { CollecteFull } from "@/types";
 import { COLLECTE_TAB_KEYS, TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { CollecteEditorPage } from "./CollecteEditorPage";
 
-const { saveLignes, fetchOne, clearCurrent, collecte, perms, update, setStatut, submitRecap, transmettreSection } = vi.hoisted(() => {
+const { saveLignes, fetchOne, clearCurrent, collecte, perms, update, setStatut, submitRecap, transmettreSection, exportSectionXlsx, downloadSectionPdf, printSection, exportAllXlsx } = vi.hoisted(() => {
   const collecte = {
     id: "collecte-1",
     societeId: "soc-1",
@@ -34,6 +34,10 @@ const { saveLignes, fetchOne, clearCurrent, collecte, perms, update, setStatut, 
     setStatut: vi.fn().mockResolvedValue(undefined),
     submitRecap: vi.fn().mockResolvedValue(undefined),
     transmettreSection: vi.fn().mockResolvedValue(undefined),
+    exportSectionXlsx: vi.fn().mockResolvedValue(undefined),
+    downloadSectionPdf: vi.fn().mockResolvedValue(undefined),
+    printSection: vi.fn(),
+    exportAllXlsx: vi.fn().mockResolvedValue(undefined),
     saveLignes: vi.fn().mockResolvedValue(undefined),
     fetchOne: vi.fn().mockResolvedValue(undefined),
     clearCurrent: vi.fn(),
@@ -45,6 +49,12 @@ vi.mock("@/hooks/usePermissions", () => ({
 }));
 vi.mock("@/store/data", () => ({
   useSocietes: () => [{ id: "soc-1", raisonSociale: "Société test" }],
+}));
+vi.mock("@/lib/collecte/exportXlsx", () => ({
+  exportCollecteSectionXlsx: exportSectionXlsx,
+  downloadCollecteSectionPdf: downloadSectionPdf,
+  printCollecteSection: printSection,
+  exportCollecteXlsx: exportAllXlsx,
 }));
 vi.mock("@/store/collectes", () => {
   const getState = () => ({ current: collecte, loadingOne: false, fetchOne, clearCurrent, saveLignes, update, setStatut, submitRecap, transmettreSection });
@@ -66,6 +76,10 @@ beforeEach(() => {
   submitRecap.mockReset().mockResolvedValue(undefined);
   transmettreSection.mockReset().mockResolvedValue(undefined);
   update.mockClear();
+  exportSectionXlsx.mockClear();
+  downloadSectionPdf.mockClear();
+  printSection.mockClear();
+  exportAllXlsx.mockClear();
 });
 
 afterEach(() => {
@@ -247,6 +261,38 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     fireEvent.keyDown(within(bandeau).getByRole("button", { name: "Outils" }), { key: "Enter" });
     expect(screen.getByRole("menuitem", { name: /Tout en Excel/ })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: /Modifier la collecte/ })).toBeTruthy();
+  });
+
+  it.each([
+    { label: "Excel", action: exportSectionXlsx },
+    { label: "PDF", action: downloadSectionPdf },
+    { label: "Imprimer", action: printSection },
+  ])("exporte uniquement le tableau courant via $label depuis le menu de la barre fixe", async ({ label, action }) => {
+    renderPage();
+    openBordereaux();
+    const barre = screen.getByRole("region", { name: "Suivi et actions du tableau" });
+    const exporter = within(barre).getByRole("button", { name: "Exporter le tableau" });
+    for (const outil of ["Excel", "PDF", "Imprimer"]) {
+      expect(within(barre).queryByRole("button", { name: outil })).toBeNull();
+    }
+    fireEvent.keyDown(exporter, { key: "Enter" });
+    fireEvent.click(screen.getByRole("menuitem", { name: label }));
+    await waitFor(() => expect(action).toHaveBeenCalledWith(collecte, "bordereaux_remise_cheques", "Société test"));
+    expect(exportAllXlsx).not.toHaveBeenCalled();
+    expect(saveLignes).not.toHaveBeenCalled();
+  });
+
+  it("garde le menu d'export accessible sur un tableau archivé, sans actions de saisie", () => {
+    collecte.statut = "archive";
+    renderPage();
+    openBordereaux();
+    const barre = screen.getByRole("region", { name: "Suivi et actions du tableau" });
+    expect(within(barre).queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
+    expect(within(barre).queryByRole("button", { name: "Enregistrer et voir le récap" })).toBeNull();
+    fireEvent.keyDown(within(barre).getByRole("button", { name: "Exporter le tableau" }), { key: "Enter" });
+    for (const outil of ["Excel", "PDF", "Imprimer"]) {
+      expect(screen.getByRole("menuitem", { name: outil })).toBeTruthy();
+    }
   });
 
   it("enregistre le client dans son tableau, puis transmet uniquement ce tableau au cabinet", async () => {
@@ -497,6 +543,24 @@ describe("Collecte : circuit par tableau", () => {
     perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
   };
 
+  it.each([false, true])("place le motif et À corriger dans un seul bloc hors de la barre fixe (client : %s)", (isClient) => {
+    if (isClient) client();
+    collecte.onglets = ["virements_recus"];
+    collecte.sections = [section("virements_recus", "a_corriger", "Il manque le justificatif de VIR-42")];
+    renderPage();
+    if (!isClient) ouvrirSection("Virements reçus");
+    const note = screen.getByRole("note");
+    expect(within(note).getByText("À corriger")).toBeTruthy();
+    expect(within(note).getByText("Il manque le justificatif de VIR-42")).toBeTruthy();
+    const barre = screen.getByRole("region", { name: "Suivi et actions du tableau" });
+    expect(barre.contains(note)).toBe(false);
+    expect(within(barre).queryByText("À corriger")).toBeNull();
+    expect(within(barre).queryByText(/en attente de ses corrections/)).toBeNull();
+    expect(within(barre).queryByText(/Complétez les informations demandées/)).toBeNull();
+    if (isClient) expect(within(barre).getByRole("button", { name: "Enregistrer et transférer au cabinet" })).toBeTruthy();
+    else expect(barre.querySelector('[data-tour="collecte-circuit"]')).toBeNull();
+  });
+
   it("le responsable de société peut ajouter des lignes à un tableau à remplir, même si le cabinet a envoyé un récap", () => {
     client();
     collecte.sections = [{ ...(section("bordereaux_remise_cheques", "brouillon") as object), recapStatut: "envoye" } as never];
@@ -645,6 +709,7 @@ describe("Collecte : espace limité du responsable de société", () => {
     expect(screen.queryByRole("button", { name: /Relancer/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Excel$/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^PDF$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Exporter le tableau" })).toBeNull();
     expect(screen.queryByText(/pièces reçues/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Outils" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Transmettre au cabinet" })).toBeNull();

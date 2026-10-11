@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SectionCircuit } from "./SectionCircuit";
 import type { SectionStatut } from "@/types";
 
@@ -50,9 +50,22 @@ describe("SectionCircuit : côté client", () => {
 
   it("affiche ce que le cabinet demande de corriger, et permet de retransférer", () => {
     rendre("a_corriger", { isClient: true, motifRenvoi: "Il manque le chèque 4001" });
-    expect(screen.getByText("Renvoyé par le cabinet")).toBeTruthy();
-    expect(screen.getByText("Il manque le chèque 4001")).toBeTruthy();
+    const note = screen.getByRole("note");
+    expect(within(note).getByText("À corriger")).toBeTruthy();
+    expect(within(note).getByText("Il manque le chèque 4001")).toBeTruthy();
+    expect(screen.getAllByText("À corriger")).toHaveLength(1);
     expect(transferer()).toBeTruthy();
+  });
+
+  it("garde le transfert compact sans répéter le statut ni le motif déjà affichés par la page", async () => {
+    const a = rendre("a_corriger", { compact: true, isClient: true, motifRenvoi: "Il manque le chèque 4001" });
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.queryByText("À corriger")).toBeNull();
+    expect(screen.queryByText(/Complétez les informations demandées/)).toBeNull();
+    fireEvent.click(transferer());
+    expect(await screen.findByRole("dialog", { name: "Transférer ce tableau au cabinet ?" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Transférer" }));
+    await waitFor(() => expect(a.onTransmettre).toHaveBeenCalledWith(false));
   });
 
   it("ne propose plus rien une fois le tableau transmis", () => {
@@ -63,6 +76,13 @@ describe("SectionCircuit : côté client", () => {
 });
 
 describe("SectionCircuit : côté cabinet", () => {
+  it("ne produit pas de seconde bande de statut pour une correction compacte", () => {
+    rendre("a_corriger", { compact: true, motifRenvoi: "Il manque le chèque 4001" });
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.queryByText("À corriger")).toBeNull();
+    expect(screen.queryByText(/en attente de ses corrections/)).toBeNull();
+    expect(document.querySelector('[data-tour="collecte-circuit"]')).toBeNull();
+  });
   it("valide un tableau transmis", async () => {
     const a = rendre("transmis");
     fireEvent.click(screen.getByRole("button", { name: "Valider ce tableau" }));

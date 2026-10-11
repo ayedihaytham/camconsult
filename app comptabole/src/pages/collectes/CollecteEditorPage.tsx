@@ -5,6 +5,7 @@ import {
   BellRing,
   CheckCircle2,
   ChevronDown,
+  CornerUpLeft,
   Download,
   Eye,
   File as FileIcon,
@@ -641,10 +642,15 @@ export function CollecteEditorPage() {
                     {retainedDraft && tab === key && (
                       <p role="status" className="border-b border-warning/25 px-2 py-2 text-sm text-foreground">La demande a changé pendant votre saisie. Vos modifications restent affichées : enregistrez-les avant de quitter.</p>
                     )}
-                    {!preview && sectionStatut(collecte, key) === "a_corriger" && motifRenvoi && (
+                    {!preview && sectionStatut(collecte, key) === "a_corriger" && (
                       <div role="note" className="rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-foreground">
-                        <p className="font-semibold">Correction demandée par le cabinet</p>
-                        <p className="mt-1 whitespace-pre-wrap break-words">{motifRenvoi}</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-destructive/10 px-2 py-1 text-xs font-semibold text-destructive">
+                            <CornerUpLeft className="size-3.5" aria-hidden="true" /> À corriger
+                          </span>
+                          <p className="font-semibold">Correction demandée par le cabinet</p>
+                        </div>
+                        {motifRenvoi && <p className="mt-1 whitespace-pre-wrap break-words">{motifRenvoi}</p>}
                       </div>
                     )}
                     {!preview && !archivee && def.cabinetSeul && (
@@ -729,7 +735,7 @@ export function CollecteEditorPage() {
                           saveAndContinue={isAdmin && editableTab(key) ? saveAndOpenRecap : undefined}
                           continueLabel="Enregistrer et voir le récap"
                           workflowActions={
-                            !preview && !retainedDraft && (!archivee || sectionStatut(collecte, key) === "archive") && !def.cabinetSeul && (
+                            !preview && !retainedDraft && (isClient || sectionStatut(collecte, key) !== "a_corriger") && (!archivee || sectionStatut(collecte, key) === "archive") && !def.cabinetSeul && (
                               <SectionCircuit
                                 compact
                                 label={def.label}
@@ -764,7 +770,7 @@ export function CollecteEditorPage() {
                               />
                             )
                           }
-                          exportActions={isClient ? undefined : <SectionExport collecte={collecte} section={key} societeNom={socNom} />}
+                          exportActions={isClient ? undefined : <SectionExport collecte={collecte} section={key} societeNom={socNom} menu />}
                           flagged={
                             !inRecap && showFlagsFor(key) ? hl : undefined
                           }
@@ -1075,10 +1081,12 @@ function SectionExport({
   collecte,
   section,
   societeNom,
+  menu = false,
 }: {
   collecte: Parameters<typeof printCollecteSection>[0];
   section: string;
   societeNom: string;
+  menu?: boolean;
 }) {
   const exportExcel = () =>
     exportCollecteSectionXlsx(collecte, section, societeNom).catch(() =>
@@ -1089,6 +1097,14 @@ function SectionExport({
       toast.error("PDF impossible"),
     );
   const print = () => printCollecteSection(collecte, section, societeNom);
+
+  if (menu) return (
+    <>
+      <DropdownMenuItem onSelect={exportExcel}><Download className="size-4" aria-hidden="true" /> Excel</DropdownMenuItem>
+      <DropdownMenuItem onSelect={exportPdf}><FileText className="size-4" aria-hidden="true" /> PDF</DropdownMenuItem>
+      <DropdownMenuItem onSelect={print}><Printer className="size-4" aria-hidden="true" /> Imprimer</DropdownMenuItem>
+    </>
+  );
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-0.5" aria-label="Exporter ce tableau">

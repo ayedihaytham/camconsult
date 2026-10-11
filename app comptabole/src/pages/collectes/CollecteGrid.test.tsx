@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { createRef } from "react";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { TAB_BY_KEY } from "@/lib/collecte/tabs";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -161,17 +162,19 @@ describe("CollecteGrid : ajout de lignes directement dans le tableau", () => {
 });
 
 describe("CollecteGrid : barre d'actions épurée", () => {
-  it("place les exports dans le même bandeau sticky que l'enregistrement", () => {
+  it("place le menu d'export dans le même bandeau sticky que l'enregistrement", () => {
+    const exportExcel = vi.fn();
     renderGrid("virements_recus", undefined, {
-      exportActions: <div><button type="button">Excel</button><button type="button">PDF</button><button type="button">Imprimer</button></div>,
+      exportActions: <><DropdownMenuItem onSelect={exportExcel}>Excel</DropdownMenuItem><DropdownMenuItem>PDF</DropdownMenuItem><DropdownMenuItem>Imprimer</DropdownMenuItem></>,
     });
     const barre = document.querySelector('[data-tour="collecte-sticky-tools"]') as HTMLElement;
     expect(barre.className).toContain("sticky");
-    expect(within(barre).getByRole("button", { name: "Excel" })).toBeTruthy();
-    expect(within(barre).getByRole("button", { name: "PDF" })).toBeTruthy();
-    expect(within(barre).getByRole("button", { name: "Imprimer" })).toBeTruthy();
+    expect(within(barre).getByRole("button", { name: "Exporter le tableau" })).toBeTruthy();
     expect(within(barre).getByRole("button", { name: "Enregistrer" })).toBeTruthy();
     expect(document.querySelectorAll('[data-tour="collecte-export-sticky"]')).toHaveLength(1);
+    fireEvent.keyDown(within(barre).getByRole("button", { name: "Exporter le tableau" }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Excel" }));
+    expect(exportExcel).toHaveBeenCalledOnce();
   });
 
   it("n'affiche pas de second bouton Ajouter un chèque sous les récapitulatifs", () => {
@@ -182,8 +185,21 @@ describe("CollecteGrid : barre d'actions épurée", () => {
     fireEvent.change(champs(lignes()[0])[2], { target: { value: "1000" } });
     const barre = document.querySelector('[data-tour="collecte-sticky-tools"]') as HTMLElement;
     expect(within(barre).getByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ })).toBeTruthy();
+    const suivi = document.querySelector('[data-tour="collecte-repartition"]') as HTMLElement;
+    expect(within(suivi).queryByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ })).toBeNull();
+    const commandes = document.querySelector('[aria-label="Commandes du tableau"]') as HTMLElement;
+    expect(within(commandes).getByRole("button", { name: /Ajouter un chèque à ce bordereau BRD-9/ })).toBeTruthy();
+    expect(within(commandes).getByRole("button", { name: "Importer un document" })).toBeTruthy();
     expect(within(barre).queryByRole("button", { name: "Nouveau bordereau" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Ajouter un chèque" })).toBeNull();
+  });
+
+  it("ouvre l'import depuis son bouton nommé et garde la saisie dans la barre", () => {
+    renderGrid("virements_recus");
+    const barre = screen.getByRole("region", { name: "Suivi et actions du tableau" });
+    expect(within(barre).getByRole("button", { name: "Ajouter une ligne" })).toBeTruthy();
+    fireEvent.click(within(barre).getByRole("button", { name: "Importer un document" }));
+    expect(screen.getByRole("dialog", { name: "Importer un document dans « Virements reçus »" })).toBeTruthy();
   });
 
   it("garde le circuit accessible dans la barre fixe d'un tableau en consultation", () => {

@@ -90,21 +90,28 @@ export function SectionCircuit({
     }[statut];
   }
 
+  if (compact && statut === "a_corriger" && !isClient) return null;
+
   return (
     <div className="space-y-2">
-      {!compact && statut === "a_corriger" && motifRenvoi && (
+      {!compact && statut === "a_corriger" && (
         <div role="note" className="rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-foreground">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-destructive">Renvoyé par le cabinet</p>
-          <p className="mt-0.5 whitespace-pre-wrap">{motifRenvoi}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold", STYLES.a_corriger)}>
+              <CornerUpLeft className="size-3.5" aria-hidden="true" /> À corriger
+            </span>
+            <p className="font-semibold">Renvoyé par le cabinet</p>
+          </div>
+          {motifRenvoi && <p className="mt-0.5 whitespace-pre-wrap">{motifRenvoi}</p>}
         </div>
       )}
 
-      <div data-tour="collecte-circuit" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 bg-muted/20 px-3 py-2", !compact && "rounded-lg border border-border")}>
-        <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold", STYLES[statut])}>
-          {statut === "valide" ? <CheckCircle2 className="size-3.5" /> : statut === "transmis" ? <Clock className="size-3.5" /> : statut === "archive" ? <Archive className="size-3.5" /> : statut === "a_corriger" ? <CornerUpLeft className="size-3.5" /> : null}
+      {!(statut === "a_corriger" && !isClient) && <div data-tour="collecte-circuit" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 bg-muted/20 px-3 py-2", !compact && "rounded-lg border border-border")}>
+        {statut !== "a_corriger" && <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold", STYLES[statut])}>
+          {statut === "valide" ? <CheckCircle2 className="size-3.5" /> : statut === "transmis" ? <Clock className="size-3.5" /> : statut === "archive" ? <Archive className="size-3.5" /> : null}
           {SECTION_STATUT_LABELS[statut]}
-        </span>
-        <p className={cn("min-w-0 flex-1 text-xs text-muted-foreground", compact && "hidden sm:block")}>{aide}</p>
+        </span>}
+        {statut !== "a_corriger" && <p className={cn("min-w-0 flex-1 text-xs text-muted-foreground", compact && "hidden sm:block")}>{aide}</p>}
 
         <div className="flex flex-wrap items-center gap-2">
           {isClient && ouverte && (
@@ -148,7 +155,7 @@ export function SectionCircuit({
             </Button>
           )}
         </div>
-      </div>
+      </div>}
 
       <ConfirmDialog
         open={manque !== null}

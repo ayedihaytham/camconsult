@@ -1,6 +1,7 @@
 import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronRight, FileUp, LoaderCircle, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
+import { ChevronRight, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -411,8 +412,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
    * les chèques/traites suivants sont ajoutés dans le groupe concerné depuis la barre de suivi. */
   function ajoutLigne() {
     return (
-      <Button type="button" variant="outline" size="sm" className="min-h-9 gap-1.5" onClick={() => addRow()}>
-        <Plus className="size-4" /> Ajouter une ligne
+      <Button type="button" variant="outline" size="sm" className="min-h-11 shrink-0 gap-1.5 sm:min-h-9" onClick={() => addRow()}>
+        <Plus className="size-4" aria-hidden="true" /> Ajouter une ligne
       </Button>
     );
   }
@@ -493,7 +494,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                         </div>
                       </div>
                     </div>
-                    {canAdd && (
+                    {canAdd && groupes.length > 1 && (
                       <Button
                         type="button"
                         variant="outline"
@@ -511,40 +512,52 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               })}
             </div>
           )}
-          {(!readOnly || exportActions) && <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 md:px-4">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {(!readOnly || exportActions) && <div aria-label="Commandes du tableau" className="flex min-w-0 items-center gap-1.5 px-2 py-2 sm:px-3 md:px-4">
               {canAdd && (def.plageNumeros && rows.length === 0 ? null : groupes.length === 0 ? ajoutLigne() : null)}
-              {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
-                <Button type="button" variant="outline" size="sm" aria-label="Importer un document" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
-                  <FileUp className="size-4" aria-hidden="true" /><span className="sm:hidden">Importer</span><span className="hidden sm:inline">Importer un document</span>
+              {canAdd && groupes.length === 1 && (
+                <Button type="button" variant="outline" size="sm" className="min-h-11 shrink-0 gap-1.5 sm:min-h-9"
+                  aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${groupes[0].nom}`}
+                  title={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${groupes[0].nom}`}
+                  onClick={() => addRow(groupes[0].id)}>
+                  <Plus className="size-4" aria-hidden="true" />{def.groupe?.ajout}
                 </Button>
               )}
-            </div>
-            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-2">
+              {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
+                <Button type="button" variant="outline" size="icon" aria-label="Importer un document" title="Importer un document" className="size-11 shrink-0 sm:size-9" onClick={() => setImportOpen(true)}>
+                  <FileUp className="size-4" aria-hidden="true" />
+                </Button>
+              )}
               {exportActions && (
-                <div data-tour="collecte-export-sticky" aria-label="Exporter le tableau" className="flex flex-wrap items-center gap-0.5 sm:gap-1">
-                  {exportActions}
+                <div data-tour="collecte-export-sticky" className="shrink-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="outline" size="icon" className="size-11 sm:size-9" aria-label="Exporter le tableau" title="Excel, PDF et impression" disabled={saving}>
+                        <MoreHorizontal className="size-4" aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-40 rounded-md">
+                      {exportActions}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )}
               {!readOnly && (
-                <div className="flex flex-wrap items-center gap-2 sm:border-l sm:border-border sm:pl-3">
-                  {saveError && <span role="alert" className="text-xs font-medium text-destructive">Échec de l'enregistrement</span>}
-                  {!saveError && dirty && <span role="status" className="text-xs font-medium text-warning">Non enregistré</span>}
-                  {!dirty && saved && !saveError && <span role="status" className="text-xs text-success">Enregistré</span>}
                   <Button
                     data-tour="collecte-save"
                     variant="ledger"
-                    size="sm"
-                    className={cn("h-9 gap-1.5 whitespace-nowrap px-4", !dirty && !saveAndContinue && "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
+                    size="icon"
+                    aria-label={saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}
+                    title={saveError ? "Enregistrement impossible : réessayez" : saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}
+                    className={cn("size-11 shrink-0 sm:size-9", saveError && "border border-destructive bg-destructive/10 text-destructive hover:bg-destructive/15", !dirty && !saveAndContinue && "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
                     onClick={() => { void (saveAndContinue ? saveAndContinue() : save()).catch(() => {}); }}
                     disabled={saving || (!dirty && !saveAndContinue)}
                   >
                     {saving ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-                    {saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}
                   </Button>
-                </div>
               )}
-            </div>
+              {saveError && <span role="alert" className="sr-only min-w-0 text-xs font-medium text-destructive sm:not-sr-only sm:truncate">Échec de l'enregistrement</span>}
+              {!saveError && dirty && <span role="status" className="sr-only min-w-0 text-xs font-medium text-warning sm:not-sr-only sm:truncate">Non enregistré</span>}
+              {!dirty && saved && !saveError && <span role="status" className="sr-only min-w-0 text-xs text-success sm:not-sr-only sm:truncate">Enregistré</span>}
           </div>}
           {workflowActions && <div className={cn((!readOnly || exportActions || groupes.length > 0) && "border-t border-border")}>{workflowActions}</div>}
         </section>

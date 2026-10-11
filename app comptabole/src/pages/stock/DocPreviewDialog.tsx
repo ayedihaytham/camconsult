@@ -4,8 +4,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { VisionneuseDocument } from "./VisionneuseDocument";
 
-/** Aperçu simple d'un document (PDF/image) attaché à un mouvement de stock. */
+/** Aperçu en grand d'un document (PDF/image) attaché à un mouvement de stock, avec zoom. */
 export function DocPreviewDialog({
   open,
   onOpenChange,
@@ -17,10 +18,9 @@ export function DocPreviewDialog({
   title: string;
   dataUrl: string | null;
 }) {
-  const isImage = dataUrl?.startsWith("data:image/");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[1400px] flex-col gap-3 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -28,18 +28,10 @@ export function DocPreviewDialog({
           <p className="py-10 text-center text-sm text-muted-foreground">
             Aucun document.
           </p>
-        ) : isImage ? (
-          <img
-            src={dataUrl}
-            alt={title}
-            className="mx-auto max-h-[70vh] rounded border border-border object-contain"
-          />
         ) : (
-          <iframe
-            title={title}
-            src={dataUrl}
-            className="h-[70vh] w-full rounded border border-border bg-white"
-          />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <VisionneuseDocument dataUrl={dataUrl} titre={title} className="h-[78vh]" />
+          </div>
         )}
       </DialogContent>
     </Dialog>

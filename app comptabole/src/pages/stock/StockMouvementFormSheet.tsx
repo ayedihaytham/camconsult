@@ -41,6 +41,7 @@ import { mouvementsAvecNumero } from "@/lib/facturesDoublons";
 import { useSocieteById } from "@/store/data";
 import type { StockChamps, StockDocType, StockExtractPage, StockLigne, StockMouvement } from "@/types";
 import { DocPreviewDialog } from "./DocPreviewDialog";
+import { VisionneuseDocument } from "./VisionneuseDocument";
 
 interface Props {
   open: boolean;
@@ -174,6 +175,20 @@ export function StockMouvementFormSheet({
   const [v, setV] = useState<StockMouvementInput>(empty(societeId));
   const [importing, setImporting] = useState<StockDocType | null>(null);
   const [onglet, setOnglet] = useState<StockDocType>("achat");
+  // Document agrandi (plein écran) et largeur du volet du document.
+  const [apercuGrand, setApercuGrand] = useState<{ titre: string; dataUrl: string } | null>(null);
+  const [documentLarge, setDocumentLarge] = useState(false);
+  // Champs lus dans le document : clé du champ -> valeur lue. Un champ reste surligné tant qu'on n'a pas changé sa valeur.
+  const [lus, setLus] = useState<Record<string, string>>({});
+  const estLu = (cle: string, courant: unknown) => lus[cle] !== undefined && lus[cle] === String(courant ?? "");
+  const signatureLignes = (lignes: StockLigne[]) => JSON.stringify(lignes.map((l) => [l.designation, l.quantite, l.prixUnitaire, l.montantDevise]));
+  const lignesLues = (type: "achat" | "vente", lignes: StockLigne[]) => lus[`${type}.lignes`] !== undefined && lus[`${type}.lignes`] === signatureLignes(lignes);
+  const marquerLus = (valeurs: Record<string, unknown>) =>
+    setLus((prev) => {
+      const suite = { ...prev };
+      for (const [cle, valeur] of Object.entries(valeurs)) if (valeur !== undefined && valeur !== null && valeur !== "" && valeur !== 0) suite[cle] = String(valeur);
+      return suite;
+    });
   const fileInputs = {
     achat: useRef<HTMLInputElement>(null),
     vente: useRef<HTMLInputElement>(null),
@@ -270,6 +285,8 @@ export function StockMouvementFormSheet({
     initialJson.current = JSON.stringify(depart);
     setConfirmClose(false);
     setOnglet("achat");
+    setLus({});
+    setApercuGrand(null);
     setBatchPages(null);
     setBatchAssignments({});
   }, [open, mouvement, societeId]);
@@ -305,6 +322,34 @@ export function StockMouvementFormSheet({
   }
 
   function applyChamps(type: StockDocType, champs: StockChamps) {
+    if (type === "achat") {
+      marquerLus({
+        achatDate: champs.date,
+        achatNumFacture: champs.numFacture,
+        fournisseur: champs.fournisseur,
+        achatDevise: champs.devise,
+        "achat.lignes": champs.lignes && champs.lignes.length > 0 ? signatureLignes(champs.lignes) : undefined,
+      });
+    } else if (type === "vente") {
+      marquerLus({
+        venteDate: champs.date,
+        venteNumFacture: champs.numFacture,
+        client: champs.client,
+        venteDevise: champs.devise,
+        "vente.lignes": champs.lignes && champs.lignes.length > 0 ? signatureLignes(champs.lignes) : undefined,
+      });
+    } else {
+      marquerLus({
+        douaneNumDeclaration: champs.numDeclaration,
+        douaneDate: champs.date,
+        douaneTypeDeclaration: champs.typeDeclaration,
+        douaneTauxChange: champs.tauxChange,
+        douaneValeurTnd: champs.valeurTnd,
+        douanePtfn: champs.ptfn,
+        douaneExportateur: champs.exportateur,
+        douaneImportateur: champs.importateur,
+      });
+    }
     if (type === "achat") {
       setV((prev) => avecCoursMoyen({
         ...prev,
@@ -435,7 +480,6 @@ export function StockMouvementFormSheet({
         </div>
       );
     }
-    const isImage = dataUrl.startsWith("data:image/");
     return (
       <div className="space-y-1.5 rounded-lg border border-border bg-card p-2">
         <div className="flex items-center justify-between px-1">
@@ -445,11 +489,7 @@ export function StockMouvementFormSheet({
             Retirer
           </button>
         </div>
-        {isImage ? (
-          <img src={dataUrl} alt="Document importé" className="mx-auto max-h-[70vh] w-full rounded border border-border object-contain" />
-        ) : (
-          <iframe title="Document importé" src={dataUrl} className="h-[70vh] w-full rounded border border-border bg-white" />
-        )}
+        <VisionneuseDocument dataUrl={dataUrl} titre={DOC_TITRES[type]} className="h-[calc(94vh-22rem)] min-h-72" onAgrandir={() => setApercuGrand({ titre: DOC_TITRES[type], dataUrl })} />
       </div>
     );
   }
@@ -619,8 +659,14 @@ export function StockMouvementFormSheet({
           })}
         </div>
 
-        <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <div className={cn("grid min-h-0 flex-1 overflow-hidden", documentLarge ? "lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]")}>
           <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-5 sm:px-8">
+            {Object.keys(lus).length > 0 && (
+              <p className="flex items-center gap-2 rounded-md bg-accent/15 px-3 py-2 text-xs text-foreground">
+                <span aria-hidden="true" className="size-2.5 shrink-0 rounded-sm bg-accent" />
+                Les champs surlignés ont été lus dans le document. Comparez-les avec le document, puis corrigez : le surlignage disparaît dès que vous modifiez un champ.
+              </p>
+            )}
             {/* ── Achat ─────────────────────────── */}
             <section id="panneau-achat" role="tabpanel" aria-labelledby="onglet-achat" hidden={onglet !== "achat"} className="space-y-4">
               {doublonAchat.length > 0 && (
@@ -632,16 +678,16 @@ export function StockMouvementFormSheet({
                 </p>
               )}
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <Field label="Date">
+                <Field label="Date" lu={estLu("achatDate", v.achatDate)}>
                   <Input type="date" value={v.achatDate ?? ""} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDate: e.target.value || null }, "achat"))} />
                 </Field>
-                <Field label="N° Facture">
+                <Field label="N° Facture" lu={estLu("achatNumFacture", v.achatNumFacture)}>
                   <Input value={v.achatNumFacture} onChange={(e) => set("achatNumFacture", e.target.value)} />
                 </Field>
-                <Field label="Fournisseur">
+                <Field label="Fournisseur" lu={estLu("fournisseur", v.fournisseur)}>
                   <Input value={v.fournisseur} onChange={(e) => set("fournisseur", e.target.value)} />
                 </Field>
-                <Field label="Devise">
+                <Field label="Devise" lu={estLu("achatDevise", v.achatDevise)}>
                   <Input value={v.achatDevise} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDevise: e.target.value }, "achat"))} />
                 </Field>
                 <Field
@@ -658,7 +704,7 @@ export function StockMouvementFormSheet({
                   <AmountInput value={v.achatCours} decimals={4} onValueChange={(n) => setV((prev) => ({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }))} />
                 </Field>
               </div>
-              <LignesEditor lignes={v.achatLignes} cours={v.achatCours} devise={v.achatDevise} onChange={(lignes) => set("achatLignes", lignes)} />
+              <LignesEditor lues={lignesLues("achat", v.achatLignes)} lignes={v.achatLignes} cours={v.achatCours} devise={v.achatDevise} onChange={(lignes) => set("achatLignes", lignes)} />
             </section>
 
             {/* ── Vente ─────────────────────────── */}
@@ -672,16 +718,16 @@ export function StockMouvementFormSheet({
                 </p>
               )}
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <Field label="Date">
+                <Field label="Date" lu={estLu("venteDate", v.venteDate)}>
                   <Input type="date" value={v.venteDate ?? ""} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDate: e.target.value || null }, "vente"))} />
                 </Field>
-                <Field label="N° Facture">
+                <Field label="N° Facture" lu={estLu("venteNumFacture", v.venteNumFacture)}>
                   <Input value={v.venteNumFacture} onChange={(e) => set("venteNumFacture", e.target.value)} />
                 </Field>
-                <Field label="Client">
+                <Field label="Client" lu={estLu("client", v.client)}>
                   <Input value={v.client} onChange={(e) => set("client", e.target.value)} />
                 </Field>
-                <Field label="Devise">
+                <Field label="Devise" lu={estLu("venteDevise", v.venteDevise)}>
                   <Input value={v.venteDevise} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDevise: e.target.value }, "vente"))} />
                 </Field>
                 <Field
@@ -698,37 +744,37 @@ export function StockMouvementFormSheet({
                   <AmountInput value={v.venteCours} decimals={4} onValueChange={(n) => setV((prev) => ({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }))} />
                 </Field>
               </div>
-              <LignesEditor lignes={v.venteLignes} cours={v.venteCours} devise={v.venteDevise} onChange={(lignes) => set("venteLignes", lignes)} />
+              <LignesEditor lues={lignesLues("vente", v.venteLignes)} lignes={v.venteLignes} cours={v.venteCours} devise={v.venteDevise} onChange={(lignes) => set("venteLignes", lignes)} />
             </section>
 
             {/* ── Douane ────────────────────────── */}
             <section id="panneau-douane" role="tabpanel" aria-labelledby="onglet-douane" hidden={onglet !== "douane"} className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <Field label="N° Déclaration">
+                <Field label="N° Déclaration" lu={estLu("douaneNumDeclaration", v.douaneNumDeclaration)}>
                   <Input value={v.douaneNumDeclaration} onChange={(e) => set("douaneNumDeclaration", e.target.value)} />
                 </Field>
-                <Field label="Date">
+                <Field label="Date" lu={estLu("douaneDate", v.douaneDate)}>
                   <Input type="date" value={v.douaneDate ?? ""} onChange={(e) => set("douaneDate", e.target.value || null)} />
                 </Field>
-                <Field label="Type de déclaration">
+                <Field label="Type de déclaration" lu={estLu("douaneTypeDeclaration", v.douaneTypeDeclaration)}>
                   <Input value={v.douaneTypeDeclaration} onChange={(e) => set("douaneTypeDeclaration", e.target.value)} placeholder="E" />
                 </Field>
-                <Field label="Taux de change (TND)">
+                <Field label="Taux de change (TND)" lu={estLu("douaneTauxChange", v.douaneTauxChange)}>
                   <AmountInput value={v.douaneTauxChange} onValueChange={(n) => setV((prev) => avecTauxDouane(prev, n))} decimals={4} />
                 </Field>
-                <Field label="Valeur en douane (TND)">
+                <Field label="Valeur en douane (TND)" lu={estLu("douaneValeurTnd", v.douaneValeurTnd)}>
                   <AmountInput value={v.douaneValeurTnd} onValueChange={(n) => set("douaneValeurTnd", n)} />
                 </Field>
-                <Field label="PTFN">
+                <Field label="PTFN" lu={estLu("douanePtfn", v.douanePtfn)}>
                   <AmountInput value={v.douanePtfn} onValueChange={(n) => set("douanePtfn", n)} />
                 </Field>
                 <div className="sm:col-span-2 xl:col-span-1">
-                  <Field label="Exportateur">
+                  <Field label="Exportateur" lu={estLu("douaneExportateur", v.douaneExportateur)}>
                     <Input value={v.douaneExportateur} onChange={(e) => set("douaneExportateur", e.target.value)} />
                   </Field>
                 </div>
                 <div className="sm:col-span-2">
-                  <Field label="Importateur">
+                  <Field label="Importateur" lu={estLu("douaneImportateur", v.douaneImportateur)}>
                     <Input value={v.douaneImportateur} onChange={(e) => set("douaneImportateur", e.target.value)} />
                   </Field>
                 </div>
@@ -746,7 +792,12 @@ export function StockMouvementFormSheet({
               <div key={type} hidden={onglet !== type} className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-foreground">{DOC_TITRES[type]}</h3>
-                  <span className="flex flex-wrap items-center gap-2"><ImportButton type={type} /></span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <ImportButton type={type} />
+                    <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex" aria-pressed={documentLarge} onClick={() => setDocumentLarge((x) => !x)}>
+                      {documentLarge ? "Réduire le document" : "Élargir le document"}
+                    </Button>
+                  </span>
                 </div>
                 <DocPreview type={type} />
                 {v[DOC_FIELD[type]] && <p className="text-xs text-muted-foreground">Comparez les chiffres du document avec ceux de la saisie, et corrigez à gauche si besoin.</p>}
@@ -833,6 +884,13 @@ export function StockMouvementFormSheet({
     />
 
     <DocPreviewDialog
+      open={Boolean(apercuGrand)}
+      onOpenChange={(o) => !o && setApercuGrand(null)}
+      title={apercuGrand?.titre ?? ""}
+      dataUrl={apercuGrand?.dataUrl ?? null}
+    />
+
+    <DocPreviewDialog
       open={Boolean(batchPreview)}
       onOpenChange={(o) => !o && setBatchPreview(null)}
       title={batchPreview ? `Page ${batchPreview.index + 1} — à vérifier avant d'appliquer` : ""}
@@ -842,16 +900,19 @@ export function StockMouvementFormSheet({
   );
 }
 
-function Field({ label, children, aide }: { label: string; children: React.ReactNode; /** Texte ou bouton d'aide sous le champ (ex. cours moyen du mois). */ aide?: React.ReactNode }) {
+function Field({ label, children, aide, lu = false }: { label: string; children: React.ReactNode; /** Texte ou bouton d'aide sous le champ (ex. cours moyen du mois). */ aide?: React.ReactNode; /** Valeur lue dans le document et pas encore modifiée : champ surligné. */ lu?: boolean }) {
   const generated = useId();
   const child =
-    isValidElement<{ id?: string }>(children) && (children.type === Input || children.type === Textarea || children.type === AmountInput)
-      ? cloneElement(children, { id: children.props.id ?? generated })
+    isValidElement<{ id?: string; className?: string }>(children) && (children.type === Input || children.type === Textarea || children.type === AmountInput)
+      ? cloneElement(children, { id: children.props.id ?? generated, className: cn(children.props.className, lu && "border-accent bg-accent/15 ring-1 ring-accent/60") })
       : children;
   const id = isValidElement<{ id?: string }>(child) && child.props.id ? child.props.id : generated;
   return (
     <div className="min-w-0 space-y-1">
-      <Label htmlFor={id} className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={id} className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">{label}</Label>
+        {lu && <span className="rounded bg-accent/30 px-1 text-[0.58rem] text-accent-foreground">lu dans le document</span>}
+      </div>
       {child}
       {aide}
     </div>
@@ -865,8 +926,11 @@ function LignesEditor({
   lignes,
   cours,
   devise,
+  lues = false,
   onChange,
 }: {
+  /** Produits lus dans le document et pas encore modifiés. */
+  lues?: boolean;
   lignes: StockLigne[];
   /** Cours (taux de change) de la section : le montant en dinars en découle. */
   cours: number;
@@ -894,12 +958,15 @@ function LignesEditor({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Label className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">Produits</Label>
+        <div className="flex items-center gap-1.5">
+          <Label className="text-[0.66rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">Produits</Label>
+          {lues && <span className="rounded bg-accent/30 px-1 text-[0.58rem] text-accent-foreground">lus dans le document</span>}
+        </div>
       </div>
       {lignes.length === 0 ? (
         <p className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">Aucune ligne de produit.</p>
       ) : (
-        <div className="space-y-1.5">
+        <div className={cn("space-y-1.5", lues && "rounded-lg border border-accent bg-accent/10 p-2 ring-1 ring-accent/60")}>
           <div className={cn(colonnes, "px-0.5")} aria-hidden="true">
             <span className={entete}>Désignation</span>
             <span className={cn(entete, "text-right")}>Qté</span>

@@ -237,3 +237,34 @@ describe("sections du mouvement en onglets", () => {
     expect(onglet().textContent).toContain("complète");
   });
 });
+
+describe("champs lus dans le document", () => {
+  afterEach(() => {
+    cleanup();
+    useStock.setState({ extract: useStock.getInitialState().extract });
+  });
+
+  it("surligne les champs extraits tant qu'ils ne sont pas modifiés", async () => {
+    const extract = vi.fn().mockResolvedValue({
+      source: "ia",
+      texte: "",
+      champs: { date: "2023-01-04", numFacture: "3100001306", fournisseur: "SOTACIB", devise: "EUR", lignes: [{ designation: "CEM I 52,5 N", quantite: 370, prixUnitaire: 90, montantDevise: 33300, montantTnd: 0, unite: "T" }] },
+    });
+    useStock.setState({ extract });
+    ouvrir();
+    const fichier = new File(["%PDF-1.4"], "facture.pdf", { type: "application/pdf" });
+    const entrees = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    fireEvent.change(entrees[1], { target: { files: [fichier] } });
+    await waitFor(() => expect(extract).toHaveBeenCalled());
+
+    const numero = (await screen.findAllByLabelText("N° Facture"))[0] as HTMLInputElement;
+    await waitFor(() => expect(numero.className).toContain("bg-accent/15"));
+    expect(screen.getAllByText(/lu dans le document/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/lus dans le document/).length).toBeGreaterThan(0);
+
+    // Modifier un champ retire son surlignage ; les autres restent surlignés.
+    fireEvent.change(numero, { target: { value: "3100001307" } });
+    expect(numero.className).not.toContain("bg-accent/15");
+    expect((screen.getByLabelText("Fournisseur") as HTMLInputElement).className).toContain("bg-accent/15");
+  });
+});

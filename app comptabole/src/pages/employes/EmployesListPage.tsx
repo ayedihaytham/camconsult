@@ -1066,6 +1066,16 @@ export function EmployesListPage() {
         open={viewOpen}
         onOpenChange={setViewOpen}
         employe={viewing}
+        onEdit={(employe) => {
+          setViewOpen(false);
+          setEditing(employe);
+          setFormOpen(true);
+        }}
+        onAcces={(employe) => {
+          setViewOpen(false);
+          setAccesTarget(employe);
+          setAccesOpen(true);
+        }}
       />
       <ConfirmDialog
         open={Boolean(toDelete)}

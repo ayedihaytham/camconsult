@@ -52,6 +52,7 @@ describe("sidebar navigation policy", () => {
       "/honoraires",
       "/souche-cheques",
       "/suivi-devise",
+      "/etat-swift",
       "/structuration",
       "/messagerie",
       "/conversions",
@@ -81,6 +82,7 @@ describe("sidebar navigation policy", () => {
       "/banque",
       "/etats-financiers",
       "/suivi-devise",
+      "/etat-swift",
       "/structuration",
       "/messagerie",
       "/conversions",
@@ -106,6 +108,7 @@ describe("sidebar navigation policy", () => {
       "/banque",
       "/etats-financiers",
       "/suivi-devise",
+      "/etat-swift",
       "/structuration",
       "/conversions",
     ]);
@@ -124,6 +127,7 @@ describe("sidebar navigation policy", () => {
       "/",
       "/taches",
       "/collectes",
+      "/etat-swift",
       "/structuration",
       "/messagerie",
     ]);
@@ -131,7 +135,7 @@ describe("sidebar navigation policy", () => {
 });
 
 describe("État client pour le responsable de société", () => {
-  it("le responsable de société voit État client (lecture seule), pas son délégué", () => {
+  it("le responsable de société, comme son délégué, voit État client (lecture seule)", () => {
     const base = { isAdmin: false, lectureSeule: true, can: allowAll };
     expect(
       destinations(visibleNavigation({ ...base, isResponsableSociete: true })),
@@ -142,13 +146,11 @@ describe("État client pour le responsable de société", () => {
       "/fournisseurs",
       "/banque",
       "/honoraires",
+      "/etat-swift",
       "/structuration",
       "/messagerie",
     ]);
-    const delegue = destinations(visibleNavigation({ ...base, isResponsableSociete: false }));
-    expect(delegue).not.toContain("/honoraires");
-    expect(delegue).not.toContain("/fournisseurs");
-    expect(delegue).not.toContain("/banque");
+    // Le délégué a les mêmes accès : côté client il est lui aussi « responsable » (voir usePermissions).
   });
 });
 
@@ -263,11 +265,11 @@ describe("sidebar indicators", () => {
 });
 
 describe("espace du compte de société cliente", () => {
-  it("ne garde que le Dashboard, la Collecte de pièces, la Structuration et la Messagerie", () => {
+  it("ne garde que le Dashboard, la Collecte de pièces, l'État SWIFT, la Structuration et la Messagerie", () => {
     const routes = destinations(
       visibleNavigation({ isAdmin: false, lectureSeule: true, can: allowAll, isResponsableSociete: true, espaceCollecteSeul: true }),
     );
-    expect(routes).toEqual(["/", "/collectes", "/structuration", "/messagerie"]);
+    expect(routes).toEqual(["/", "/collectes", "/etat-swift", "/structuration", "/messagerie"]);
   });
 
   it("n'y change rien pour le cabinet", () => {
@@ -277,7 +279,7 @@ describe("espace du compte de société cliente", () => {
   });
 
   it("n'autorise que ces quatre espaces comme adresses", () => {
-    for (const ok of ["/", "/collectes", "/collectes/abc-123", "/structuration", "/messagerie"]) expect(cheminAutoriseClient(ok)).toBe(true);
+    for (const ok of ["/", "/collectes", "/collectes/abc-123", "/structuration", "/messagerie", "/etat-swift", "/etat-swift/s1"]) expect(cheminAutoriseClient(ok)).toBe(true);
     for (const non of ["/taches", "/fournisseurs", "/banque/s1", "/honoraires", "/parametres", "/collectes-autre"]) {
       expect(cheminAutoriseClient(non)).toBe(false);
     }

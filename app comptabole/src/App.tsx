@@ -64,6 +64,12 @@ const BordereauxPage = lazy(() =>
 const CoursChangePage = lazy(() =>
   import("@/pages/coursChange/CoursChangePage").then((m) => ({ default: m.CoursChangePage })),
 );
+const EtatSwiftListPage = lazy(() =>
+  import("@/pages/etatSwift/EtatSwiftListPage").then((m) => ({ default: m.EtatSwiftListPage })),
+);
+const EtatSwiftSocietePage = lazy(() =>
+  import("@/pages/etatSwift/EtatSwiftSocietePage").then((m) => ({ default: m.EtatSwiftSocietePage })),
+);
 const StockPage = lazy(() =>
   import("@/pages/stock/StockPage").then((m) => ({ default: m.StockPage })),
 );
@@ -458,6 +464,22 @@ export default function App() {
                 element={
                   <Suspense fallback={<PageFallback />}>
                     <ConversionsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/etat-swift"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <EtatSwiftListPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/etat-swift/:societeId"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <EtatSwiftSocietePage />
                   </Suspense>
                 }
               />

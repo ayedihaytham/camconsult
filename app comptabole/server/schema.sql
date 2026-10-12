@@ -1154,3 +1154,33 @@ create table if not exists cours_change (
   maj_le timestamptz not null default now(),
   primary key (devise, annee, mois)
 );
+
+-- État SWIFT : virements SWIFT en dinars à justifier par des factures d'achat en devise.
+create table if not exists swift_virements (
+  id             uuid primary key default gen_random_uuid(),
+  societe_id     uuid not null references societes(id) on delete cascade,
+  date_operation date,
+  montant        numeric not null default 0,
+  libelle        text not null default '',
+  banque         text not null default '',
+  envoye         boolean not null default false,
+  cree_par       text not null default '',
+  cree_le        timestamptz not null default now(),
+  maj_le         timestamptz not null default now()
+);
+create table if not exists swift_factures (
+  id            uuid primary key default gen_random_uuid(),
+  virement_id   uuid not null references swift_virements(id) on delete cascade,
+  num_facture   text not null default '',
+  montant_devise numeric not null default 0,
+  devise        text not null default 'EUR',
+  taux          numeric not null default 0,
+  montant_tnd   numeric not null default 0,
+  ordre         int not null default 0,
+  piece_nom     text not null default '',
+  piece_data_url text,
+  cree_par      text not null default '',
+  cree_le       timestamptz not null default now()
+);
+create index if not exists swift_virements_societe on swift_virements (societe_id);
+create index if not exists swift_factures_virement on swift_factures (virement_id);

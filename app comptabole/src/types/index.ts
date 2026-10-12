@@ -119,7 +119,8 @@ export type NotificationType =
   | "compte"
   | "acces"
   | "message"
-  | "collecte";
+  | "collecte"
+  | "swift";
 
 // ── Collecte de pièces ────────────────────────────
 export type CollecteStatut =
@@ -1079,4 +1080,36 @@ export interface CoursChange {
   mois: number;
   /** TND pour `unite` unités de la devise. */
   cours: number;
+}
+
+// ── État SWIFT ────────────────────────────────────
+export type SwiftStatut = "a_justifier" | "en_cours" | "justifie" | "ecart";
+
+/** Facture d'achat qui compose un virement SWIFT (montant en devise × taux = montant en TND). */
+export interface SwiftFacture {
+  id?: string;
+  numFacture: string;
+  montantDevise: number;
+  devise: string;
+  taux: number;
+  montantTnd: number;
+  pieceNom?: string;
+  /** Pièce choisie à l'instant, pas encore enregistrée. */
+  pieceDataUrl?: string;
+  creePar?: string;
+}
+
+export interface SwiftVirement {
+  id: string;
+  societeId: string;
+  date: string | null;
+  montant: number;
+  libelle: string;
+  banque: string;
+  /** Envoyé à la société : elle le voit et peut le justifier. */
+  envoye: boolean;
+  justifie: number;
+  reste: number;
+  statut: SwiftStatut;
+  factures: SwiftFacture[];
 }

@@ -4,6 +4,7 @@ import {
   Building2,
   Calculator,
   CircleDollarSign,
+  Globe,
   ClipboardList,
   FileOutput,
   FileText,
@@ -139,6 +140,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: CircleDollarSign,
         hideForSocieteEmploye: true,
       },
+      { label: "État SWIFT", to: "/etat-swift", icon: Globe },
     ],
   },
   {
@@ -178,7 +180,7 @@ export const NAV_GROUPS: NavGroup[] = [
 export function cheminAutoriseClient(pathname: string): boolean {
   return (
     pathname === "/" ||
-    ["/collectes", "/structuration", "/messagerie"].some((base) => pathname === base || pathname.startsWith(`${base}/`))
+    ["/collectes", "/structuration", "/messagerie", "/etat-swift"].some((base) => pathname === base || pathname.startsWith(`${base}/`))
   );
 }
 

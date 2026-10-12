@@ -66,6 +66,15 @@ interface CollectesState {
     fichier: { onglet?: string; nom: string; format: string; taille: string; dataUrl: string },
   ) => Promise<CollecteFichier>;
   deleteFichier: (id: string, fichierId: string) => Promise<void>;
+  /** Le cabinet demande une pièce au client (note sans pièce jointe) ; le client est notifié. */
+  demanderPiece: (id: string, texte: string) => Promise<void>;
+  supprimerDemandePiece: (id: string, demandeId: string) => Promise<void>;
+  /** Réponse à une demande : un document ajouté. */
+  fournirPiece: (
+    id: string,
+    demandeId: string,
+    fichier: { nom: string; format: string; taille: string; dataUrl: string },
+  ) => Promise<void>;
 
   saveLignes: (
     id: string,
@@ -375,6 +384,33 @@ export const useCollectes = create<CollectesState>((set, get) => ({
       return cree;
     } catch (e) {
       return fail(e);
+    }
+  },
+
+  demanderPiece: async (id, texte) => {
+    try {
+      const c = await api.post<CollecteFull>(`/collectes/${id}/demandes-pieces`, { texte });
+      set((st) => ({ current: st.current?.id === id ? c : st.current }));
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  supprimerDemandePiece: async (id, demandeId) => {
+    try {
+      const c = await api.del<CollecteFull>(`/collectes/${id}/demandes-pieces/${demandeId}`);
+      set((st) => ({ current: st.current?.id === id ? c : st.current }));
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  fournirPiece: async (id, demandeId, fichier) => {
+    try {
+      const c = await api.post<CollecteFull>(`/collectes/${id}/demandes-pieces/${demandeId}/fichiers`, fichier);
+      set((st) => ({ current: st.current?.id === id ? c : st.current }));
+    } catch (e) {
+      fail(e);
     }
   },
 

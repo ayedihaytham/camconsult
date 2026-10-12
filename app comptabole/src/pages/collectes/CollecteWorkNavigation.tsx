@@ -116,6 +116,11 @@ export function CollecteWorkNavigation({
       aria-label="Sections du dossier"
       className="flex min-w-0 flex-col gap-2 border-b border-border bg-card px-3 py-2 lg:flex-row lg:items-center lg:gap-3"
     >
+      {isClient && (collecte.demandesPieces ?? []).length > 0 && (
+        <div className="flex min-w-0 items-center gap-1">
+          {navButton("documents", "Documents", Paperclip, (collecte.demandesPieces ?? []).filter((d) => d.statut === "en_attente").length)}
+        </div>
+      )}
       {!isClient && (
         <div className="flex min-w-0 items-center gap-1">
           {canSeeRecap && navButton("recap", "Récap", MessageSquareText, recapCount)}

@@ -40,6 +40,7 @@ import {
   printCollecteSection,
 } from "@/lib/collecte/exportXlsx";
 import { downloadDataUrl } from "@/lib/file";
+import { PiecesDemandees } from "./PiecesDemandees";
 import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { CollecteFull, CollecteJournalEntry, CollecteStatut } from "@/types";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
@@ -93,6 +94,9 @@ export function CollecteEditorPage() {
   const desarchiverSection = useCollectes((s) => s.desarchiverSection);
   const relanceNow = useCollectes((s) => s.relanceNow);
   const uploadFichier = useCollectes((s) => s.uploadFichier);
+  const demanderPiece = useCollectes((s) => s.demanderPiece);
+  const supprimerDemandePiece = useCollectes((s) => s.supprimerDemandePiece);
+  const fournirPiece = useCollectes((s) => s.fournirPiece);
   const joindreFichier = useCollectes((s) => s.joindreFichier);
   const deleteFichier = useCollectes((s) => s.deleteFichier);
   const fetchJournal = useCollectes((s) => s.fetchJournal);
@@ -156,13 +160,14 @@ export function CollecteEditorPage() {
     const context = `${collecte.id}:${canRecap}:${poste}`;
     const retainedDraft = client && dirtyTableau && collecte.onglets.includes(tab) && !TAB_BY_KEY[tab]?.cabinetSeul;
     const accessible = retainedDraft || ordered.includes(tab) || (client
-      ? tab === "attente" && ordered.length === 0
+      ? (tab === "documents" && (collecte.demandesPieces ?? []).length > 0) || (tab === "attente" && ordered.length === 0)
       : tab === "recap" ? canRecap : ["checklist", "documents"].includes(tab) || (tab === "historique" && isStaff));
     // Une demande reçue en direct doit ouvrir un tableau même si le client attendait sans tableau.
     if (initializedFor.current === context && accessible) return;
     initializedFor.current = context;
     const validRequested = (requested === "recap" && canRecap) ||
       (!client && ["checklist", "documents"].includes(requested ?? "")) ||
+      (client && requested === "documents" && (collecte.demandesPieces ?? []).length > 0) ||
       (requested === "historique" && (isAdmin || isStaff)) ||
       (requested ? ordered.includes(requested) : false);
     const recapTarget = ordered.find((key) => sectionRecapStatut(collecte, key) === "envoye");
@@ -171,7 +176,7 @@ export function CollecteEditorPage() {
       : ordered.find((key) => sectionStatut(collecte, key) === "transmis") ?? ordered.find((key) => sectionStatut(collecte, key) === "a_corriger");
     const next = validRequested
       ? requested!
-      : client ? nextTarget ?? "attente" : canRecap ? "recap" : nextTarget ?? "checklist";
+      : client ? nextTarget ?? ((collecte.demandesPieces ?? []).length > 0 ? "documents" : "attente") : canRecap ? "recap" : nextTarget ?? "checklist";
     setTab(next);
     if (!validRequested && client && ordered.includes(next)) {
       const manque = computeManques(collecte).find((item) => item.onglet === next);
@@ -534,12 +539,12 @@ export function CollecteEditorPage() {
             </TabsContent>}
 
             {/* ── Documents (pièces jointes réelles) ─── */}
-            {!isClient && <TabsContent value="documents" className="m-0">
+            <TabsContent value="documents" className="m-0">
               <SectionHeader
                 title="Documents"
-                description="Scans et PDF liés à cette collecte"
+                description={isClient ? "Pièces que le cabinet vous demande" : "Scans et PDF liés à cette collecte"}
                 action={
-                  editable && (
+                  !isClient && editable && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -550,7 +555,29 @@ export function CollecteEditorPage() {
                   )
                 }
               />
-              {collecte.fichiers.length === 0 ? (
+              <PiecesDemandees
+                collecte={collecte}
+                isClient={isClient}
+                peutDemander={!isClient && (isAdmin || isStaff)}
+                lectureSeule={archivee}
+                onDemander={async (texte) => {
+                  await demanderPiece(id, texte);
+                  toast.success("Demande envoyée au client");
+                }}
+                onSupprimer={(demandeId) => supprimerDemandePiece(id, demandeId)}
+                onFournir={async (demandeId, fichiers: NewFichier[]) => {
+                  let ajoutes = 0;
+                  for (const f of fichiers) {
+                    if (!f.dataUrl) continue;
+                    await fournirPiece(id, demandeId, { nom: f.libelle, format: f.format, taille: f.taille, dataUrl: f.dataUrl });
+                    ajoutes++;
+                  }
+                  if (fichiers.length > ajoutes) toast.warning(`${fichiers.length - ajoutes} fichier(s) trop volumineux, ignoré(s).`);
+                  if (ajoutes > 0) toast.success("Document envoyé au cabinet");
+                }}
+                onPreview={(f) => setPreviewFichier({ title: f.nom, dataUrl: f.dataUrl ?? null })}
+              />
+              {isClient ? null : collecte.fichiers.length === 0 ? (
                 <div className="flex items-start gap-3 px-4 py-5">
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><Paperclip className="size-4" aria-hidden="true" /></span>
                   <div>
@@ -614,7 +641,7 @@ export function CollecteEditorPage() {
                   ))}
                 </ul>
               )}
-            </TabsContent>}
+            </TabsContent>
 
             {/* ── Onglets de saisie ─────────────────── */}
             {visibleTables.map((key) => {

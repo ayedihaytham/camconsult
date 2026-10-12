@@ -169,6 +169,19 @@ create table if not exists collecte_fichiers (
   cree_le     timestamptz not null default now()
 );
 
+-- Pièce demandée au client par le cabinet (sans pièce jointe) : une note, puis le client répond en ajoutant le document.
+alter table collecte_fichiers add column if not exists demande_id uuid;
+create table if not exists collecte_demandes_pieces (
+  id          uuid primary key default gen_random_uuid(),
+  collecte_id uuid not null references collectes(id) on delete cascade,
+  texte       text not null,
+  demande_par text not null default '',
+  statut      text not null default 'en_attente',   -- en_attente | fournie
+  fournie_par text not null default '',
+  fournie_le  timestamptz,
+  cree_le     timestamptz not null default now()
+);
+
 -- Bordereaux bancaires : registre interne du cabinet (comptable seul).
 -- 1 bordereau = 1 opération bancaire groupant plusieurs lignes.
 create table if not exists bordereaux (

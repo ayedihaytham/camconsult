@@ -15,6 +15,7 @@ import {
   collecteLigneDto,
   collecteNoteDto,
   collecteFichierDto,
+  collecteDemandePieceDto,
 } from "../mappers.js";
 import { sendRelance } from "../relances.js";
 import { pushToUser } from "../sse.js";
@@ -87,7 +88,7 @@ const createSchema = z.object({
 async function loadCollecte(id) {
   const c = (await query("select * from collectes where id = $1", [id])).rows[0];
   if (!c) return null;
-  const [sections, lignes, notes, fichiers] = await Promise.all([
+  const [sections, lignes, notes, fichiers, demandesPieces] = await Promise.all([
     query("select * from collecte_sections where collecte_id = $1", [id]),
     query(
       "select * from collecte_lignes where collecte_id = $1 order by onglet, ordre",
@@ -101,6 +102,7 @@ async function loadCollecte(id) {
       "select * from collecte_fichiers where collecte_id = $1 order by cree_le desc",
       [id],
     ),
+    query("select * from collecte_demandes_pieces where collecte_id = $1 order by cree_le", [id]),
   ]);
   return {
     ...collecteDto(c),
@@ -108,6 +110,7 @@ async function loadCollecte(id) {
     lignes: lignes.rows.map(collecteLigneDto),
     notes: notes.rows.map(collecteNoteDto),
     fichiers: fichiers.rows.map(collecteFichierDto),
+    demandesPieces: demandesPieces.rows.map(collecteDemandePieceDto),
   };
 }
 
@@ -277,7 +280,11 @@ collectesRouter.get("/", async (req, res) => {
   );
   // Un compte de société cliente ne voit une collecte que si le cabinet lui a demandé (Récap) ou renvoyé au moins un tableau : une collecte
   // créée mais pas encore envoyée, ou vide, n'existe pas pour lui.
-  const visibles = estClient(req.session) ? rows.filter((r) => (comptes.get(r.id)?.demandes ?? 0) > 0) : rows;
+  // Une pièce demandée par le cabinet suffit aussi à la faire exister pour lui (il doit pouvoir y répondre).
+  const avecPieces = new Set(
+    (await query("select distinct collecte_id from collecte_demandes_pieces where collecte_id = any($1::uuid[])", [rows.map((r) => r.id)])).rows.map((r) => r.collecte_id),
+  );
+  const visibles = estClient(req.session) ? rows.filter((r) => (comptes.get(r.id)?.demandes ?? 0) > 0 || avecPieces.has(r.id)) : rows;
   res.json(
     visibles.map((r) => ({
       ...collecteDto(r),
@@ -303,7 +310,8 @@ collectesRouter.get("/:id", async (req, res) => {
         [req.params.id, CABINET_SEUL],
       )
     ).rows[0].n;
-    if (demandes === 0) return res.status(404).json({ error: "Collecte introuvable" });
+    const pieces = (await query("select count(*)::int as n from collecte_demandes_pieces where collecte_id = $1", [req.params.id])).rows[0].n;
+    if (demandes === 0 && pieces === 0) return res.status(404).json({ error: "Collecte introuvable" });
   }
   res.json(full);
 });
@@ -1017,6 +1025,63 @@ collectesRouter.post("/:id/fichiers", async (req, res) => {
     [req.params.id, v.onglet, v.nom, v.format, v.taille, v.dataUrl, req.session.nom],
   );
   logAction(req.session.nom, "creation", "collecte", `Pièce jointe « ${v.nom} » — ${periodeLabel(c.periode)}`, req.params.id);
+  res.status(201).json(await loadCollecte(req.params.id));
+});
+
+// ── Pièces demandées au client ─────────────────────
+// Le cabinet demande une pièce par une simple note (sans pièce jointe) ; le client est prévenu, lit la note et répond en
+// ajoutant le document (même si ses tableaux sont déjà transmis : c'est une demande explicite du cabinet).
+collectesRouter.post("/:id/demandes-pieces", async (req, res) => {
+  const c = (await query("select * from collectes where id = $1", [req.params.id])).rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!isCabinet(req.session, c.societe_id)) return res.status(403).json({ error: "Demande non autorisée" });
+  if (c.statut === "archive") return res.status(400).json({ error: "Collecte archivée" });
+  const texte = String(req.body?.texte ?? "").trim().slice(0, 2000);
+  if (!texte) return res.status(400).json({ error: "Précisez la pièce demandée" });
+  await query("insert into collecte_demandes_pieces (collecte_id, texte, demande_par) values ($1,$2,$3)", [req.params.id, texte, req.session.nom]);
+  logAction(req.session.nom, "creation", "collecte", `Pièce demandée — ${periodeLabel(c.periode)} : ${texte.slice(0, 80)}`, req.params.id);
+  const clients = (
+    await query("select id from employes where role = 'societe_employe' and societe_id = $1 and statut = 'actif'", [c.societe_id])
+  ).rows.map((r) => r.id);
+  notifyMany(clients, "collecte", `Pièce demandée par le cabinet : ${periodeLabel(c.periode)}`, texte.slice(0, 120), `/collectes/${req.params.id}?tab=documents`);
+  res.status(201).json(await loadCollecte(req.params.id));
+});
+
+collectesRouter.delete("/:id/demandes-pieces/:demandeId", async (req, res) => {
+  const c = (await query("select * from collectes where id = $1", [req.params.id])).rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!isCabinet(req.session, c.societe_id)) return res.status(403).json({ error: "Suppression non autorisée" });
+  const { rowCount } = await query("delete from collecte_demandes_pieces where id = $1 and collecte_id = $2", [req.params.demandeId, req.params.id]);
+  if (!rowCount) return res.status(404).json({ error: "Demande introuvable" });
+  res.json(await loadCollecte(req.params.id));
+});
+
+/** Le client (ou le cabinet) répond à une demande en ajoutant le document. */
+collectesRouter.post("/:id/demandes-pieces/:demandeId/fichiers", async (req, res) => {
+  const c = (await query("select * from collectes where id = $1", [req.params.id])).rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!canEdit(req.session, c.societe_id)) return res.status(403).json({ error: "Dépôt non autorisé" });
+  if (c.statut === "archive") return res.status(400).json({ error: "Collecte archivée" });
+  const demande = (await query("select * from collecte_demandes_pieces where id = $1 and collecte_id = $2", [req.params.demandeId, req.params.id])).rows[0];
+  if (!demande) return res.status(404).json({ error: "Demande introuvable" });
+  const parsed = fichierSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  const v = parsed.data;
+  await query(
+    `insert into collecte_fichiers (collecte_id, onglet, nom, format, taille, data_url, depose_par, demande_id)
+     values ($1,'',$2,$3,$4,$5,$6,$7)`,
+    [req.params.id, v.nom, v.format, v.taille, v.dataUrl, req.session.nom, demande.id],
+  );
+  if (demande.statut !== "fournie") {
+    await query("update collecte_demandes_pieces set statut = 'fournie', fournie_par = $2, fournie_le = now() where id = $1", [demande.id, req.session.nom]);
+    logAction(req.session.nom, "creation", "collecte", `Pièce fournie « ${v.nom} » — ${periodeLabel(c.periode)}`, req.params.id);
+    const soc = (await query("select raison_sociale from societes where id = $1", [c.societe_id])).rows[0];
+    const clientsIds = new Set(
+      (await query("select id from employes where role = 'societe_employe' and societe_id = $1", [c.societe_id])).rows.map((r) => r.id),
+    );
+    const cabinet = (await concernedBySociete(c.societe_id, { includeAdmin: true })).filter((k) => k !== notifKey(req.session) && !clientsIds.has(k));
+    notifyMany(cabinet, "collecte", `Pièce fournie : ${soc?.raison_sociale ?? ""} — ${periodeLabel(c.periode)}`, `« ${demande.texte.slice(0, 80)} » · par ${req.session.nom}`, `/collectes/${req.params.id}?tab=documents`);
+  }
   res.status(201).json(await loadCollecte(req.params.id));
 });
 

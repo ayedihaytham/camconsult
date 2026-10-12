@@ -185,6 +185,19 @@ export interface CollecteFichier {
   taille: string;
   dataUrl?: string;
   deposePar: string;
+  /** Demande de pièce à laquelle ce document répond (null : dépôt libre). */
+  demandeId?: string | null;
+  creeLe: string;
+}
+
+/** Pièce demandée au client par le cabinet, sans pièce jointe : le client répond en ajoutant le document. */
+export interface DemandePiece {
+  id: string;
+  texte: string;
+  demandePar: string;
+  statut: "en_attente" | "fournie";
+  fourniePar: string;
+  fournieLe: string | null;
   creeLe: string;
 }
 
@@ -225,6 +238,7 @@ export interface CollecteFull extends Collecte {
   lignes: CollecteLigne[];
   notes: CollecteNote[];
   fichiers: CollecteFichier[];
+  demandesPieces?: DemandePiece[];
 }
 
 // ── Bordereaux bancaires (registre interne cabinet) ──

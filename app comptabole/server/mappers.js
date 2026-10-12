@@ -169,6 +169,17 @@ export const collecteFichierDto = (r) => ({
   taille: r.taille ?? "",
   dataUrl: r.data_url,
   deposePar: r.depose_par ?? "",
+  demandeId: r.demande_id ?? null,
+  creeLe: isoOrNull(r.cree_le),
+});
+
+export const collecteDemandePieceDto = (r) => ({
+  id: r.id,
+  texte: r.texte ?? "",
+  demandePar: r.demande_par ?? "",
+  statut: r.statut === "fournie" ? "fournie" : "en_attente",
+  fourniePar: r.fournie_par ?? "",
+  fournieLe: isoOrNull(r.fournie_le),
   creeLe: isoOrNull(r.cree_le),
 });
 

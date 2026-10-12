@@ -416,6 +416,13 @@ collectesRouter.patch("/:id", async (req, res) => {
   }
 
   // Admin ou responsable des collaborateurs
+  if (b.onglets !== undefined && req.session.role !== "admin") {
+    // Retirer un tableau efface ses lignes : seul l'administrateur le peut. Le responsable des collaborateurs peut en ajouter.
+    const actuels = Array.isArray(c.onglets) ? c.onglets : [];
+    const demandes = new Set(cleanOnglets(b.onglets));
+    if (actuels.some((o) => !demandes.has(o)))
+      return res.status(403).json({ error: "Seul l'administrateur peut retirer un tableau d'une collecte" });
+  }
   const echeanceChanged = b.echeance !== undefined && (b.echeance || null) !== c.echeance;
   const next = {
     periode: typeof b.periode === "string" ? b.periode.trim() : c.periode,

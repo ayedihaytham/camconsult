@@ -48,7 +48,7 @@ export function CollecteFormDrawer({
   initial,
   defaultSocieteId,
 }: Props) {
-  const { canSeeSociete } = usePermissions();
+  const { canSeeSociete, isAdmin } = usePermissions();
   const societes = useSocietes().filter((s) => canSeeSociete(s.id));
   const isEdit = Boolean(initial);
   const [societeId, setSocieteId] = useState("");
@@ -258,6 +258,7 @@ export function CollecteFormDrawer({
 
           <CollecteTableSelection
             selected={onglets}
+            verrouilles={isEdit && !isAdmin ? initial?.onglets : undefined}
             disabled={submitting}
             error={error === "Sélectionnez au moins un tableau." ? error : undefined}
             onChange={(keys) => {

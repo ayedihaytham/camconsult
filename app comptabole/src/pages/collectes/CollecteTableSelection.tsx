@@ -12,10 +12,12 @@ interface Props {
   disabled?: boolean;
   label?: string;
   error?: string;
+  /** Tableaux déjà dans la collecte que l'on ne peut pas retirer (seul l'administrateur le peut). */
+  verrouilles?: string[];
 }
 
 /** Sélection commune à la création d'une collecte et à l'ajout de tableaux. */
-export function CollecteTableSelection({ selected, onChange, available, disabled = false, label = "Tableaux demandés", error }: Props) {
+export function CollecteTableSelection({ selected, onChange, available, disabled = false, label = "Tableaux demandés", error, verrouilles = [] }: Props) {
   const id = useId();
   const tables = COLLECTE_TABS.filter((table) => !available || available.includes(table.key));
   const keys = tables.map((table) => table.key);
@@ -28,7 +30,7 @@ export function CollecteTableSelection({ selected, onChange, available, disabled
 
   function toggleGroup(groupKeys: string[]) {
     const all = groupKeys.every((key) => selected.includes(key));
-    onChange(all ? selected.filter((key) => !groupKeys.includes(key)) : [...new Set([...selected, ...groupKeys])]);
+    onChange(all ? selected.filter((key) => !groupKeys.includes(key) || verrouilles.includes(key)) : [...new Set([...selected, ...groupKeys])]);
   }
 
   return (
@@ -37,6 +39,7 @@ export function CollecteTableSelection({ selected, onChange, available, disabled
         <div className="space-y-1">
           <h3 id={`${id}-label`} className="text-base font-semibold">{label}</h3>
           <p className="text-xs text-muted-foreground" role="status">{count} / {keys.length} sélectionnés</p>
+          {verrouilles.length > 0 && <p className="text-xs text-muted-foreground">Les tableaux déjà dans la collecte sont verrouillés : seul l'administrateur peut en retirer.</p>}
         </div>
         <Button type="button" variant="outline" size="sm" className="min-h-9" disabled={disabled || keys.length === 0} onClick={() => toggleGroup(keys)}>
           {allSelected ? "Tout décocher" : "Tout cocher"}
@@ -74,7 +77,7 @@ export function CollecteTableSelection({ selected, onChange, available, disabled
                         {table.label}
                         {table.cabinetSeul && <span className="mt-1 block text-xs font-normal text-muted-foreground">Tenu par le cabinet</span>}
                       </span>
-                      <Checkbox aria-label={table.label} checked={checked} disabled={disabled}
+                      <Checkbox aria-label={table.label} checked={checked} disabled={disabled || verrouilles.includes(table.key)}
                         onCheckedChange={(value) => onChange(value === true ? [...new Set([...selected, table.key])] : selected.filter((key) => key !== table.key))}
                         className="size-5 shrink-0 rounded-md" />
                     </label>

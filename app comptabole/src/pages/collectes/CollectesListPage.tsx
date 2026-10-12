@@ -36,7 +36,7 @@ import { CollectesPipeline } from "./CollectesPipeline";
 
 export function CollectesListPage() {
   const navigate = useNavigate();
-  const { isAdmin, isCollaborateur: canCreate, poste } = usePermissions();
+  const { isAdmin, isCollaborateur: canCreate, canManageCollaborateurs, poste } = usePermissions();
   const isCabinet = isAdmin || canCreate;
   const isSocieteEmploye = poste === "societe_employe";
   const societes = useSocietes();
@@ -233,7 +233,7 @@ export function CollectesListPage() {
         ) : affichage === "pipeline" ? (
           <CollectesPipeline collectes={filtered} socNom={socNom} />
         ) : (
-          <CollectesRegistre key={resetKey} collectes={filtered} socNom={socNom} onDelete={isAdmin ? setToDelete : undefined} />
+          <CollectesRegistre key={resetKey} collectes={filtered} socNom={socNom} onDelete={isAdmin || canManageCollaborateurs ? setToDelete : undefined} />
         )}
       </section>
 

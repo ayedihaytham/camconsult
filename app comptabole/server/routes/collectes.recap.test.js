@@ -90,6 +90,20 @@ describe("collecte recap authorization and archive protection", () => {
     expect(closed.body.sections[0]).toMatchObject({ recapStatut: "none" });
   });
 
+  it("lets the admin and the responsable_collaborateurs delete a collecte, not a simple collaborateur", async () => {
+    state.query.mockImplementation(async (sql) => (sql.startsWith("delete from collectes") ? { rows: [{ periode: "2026-10", societe_id: "s1" }] } : { rows: [], rowCount: 1 }));
+    const supprimer = async () => (await fetch(baseUrl, { method: "DELETE" })).status;
+    for (const session of [
+      { role: "admin", nom: "Admin", societeIds: null },
+      { role: "employe", poste: "responsable_collaborateurs", nom: "Responsable", societeIds: null },
+    ]) {
+      state.session = session;
+      expect(await supprimer()).toBe(200);
+    }
+    state.session = { role: "employe", poste: "collaborateur", nom: "Collab", societeIds: ["s1"] };
+    expect(await supprimer()).toBe(403);
+  });
+
   it.each(["send", "close"])("rejects %s for an archived collecte", async (action) => {
     state.collecte.statut = "archive";
     expect((await post(`/sections/souche_cheques/recap/${action}`)).status).toBe(400);

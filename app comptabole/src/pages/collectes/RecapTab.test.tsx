@@ -15,7 +15,7 @@ vi.mock("sonner", () => ({ toast: { success } }));
 const collecte = {
   id: "c1", societeId: "s1", periode: "2026", statut: "brouillon",
   onglets: ["souche_cheques", "virements_recus"], devise: "TND", sections: [],
-  lignes: [{ id: "l1", onglet: "souche_cheques", ordre: 0, data: { date: "2026-01-06", num_cheque: "", beneficiaire: "X", motif: "", montant: 100, compte_bancaire: "ZITO" } }],
+  lignes: [{ id: "l1", onglet: "souche_cheques", ordre: 0, data: { date: "2026-01-06", num_cheque: "", beneficiaire: "X", motif: "", montant: 100, banque: "ZITO" } }],
   notes: [], fichiers: [],
 } as unknown as CollecteFull;
 

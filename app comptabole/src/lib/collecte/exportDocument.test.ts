@@ -81,7 +81,7 @@ describe("document PDF / impression des bordereaux de remise", () => {
   it("ne change rien aux autres tableaux", () => {
     const c = collecte([]);
     c.onglets = ["souche_cheques"];
-    c.lignes = [{ id: "s1", onglet: "souche_cheques", ordre: 0, data: { date: "2026-01-06", num_cheque: "4001", beneficiaire: "X", motif: "m", montant: 10, compte_bancaire: "ZITO", observations: "ok" } }] as never;
+    c.lignes = [{ id: "s1", onglet: "souche_cheques", ordre: 0, data: { date: "2026-01-06", num_cheque: "4001", beneficiaire: "X", motif: "m", montant: 10, banque: "ZITO", observations: "ok" } }] as never;
     expect(sectionReport(c, "souche_cheques", "X")!.header).toContain("Observations");
   });
 });

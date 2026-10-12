@@ -579,6 +579,18 @@ describe("CollecteGrid : bordereaux terminés repliés sur une ligne", () => {
     expect(lignes()).toHaveLength(2);
   });
 
+  it("souche de chèques : la banque saisie avant de créer les lignes se recopie sur chacune, et le compte bancaire n'existe plus", () => {
+    renderGrid("souche_cheques");
+    expect(TAB_BY_KEY.souche_cheques.columns.some((c) => c.key === "compte_bancaire")).toBe(false);
+    fireEvent.change(screen.getByLabelText("N° du premier chèque"), { target: { value: "4001" } });
+    fireEvent.change(screen.getByLabelText("N° du dernier chèque"), { target: { value: "4003" } });
+    fireEvent.change(screen.getByLabelText("Banque"), { target: { value: "ZITOUNA" } });
+    fireEvent.click(screen.getByRole("button", { name: "Créer 3 lignes" }));
+    expect(lignes()).toHaveLength(3);
+    const banques = lignes().map((l) => (champs(l).find((c) => c.getAttribute("data-col") === "banque") as HTMLInputElement).value);
+    expect(banques).toEqual(["ZITOUNA", "ZITOUNA", "ZITOUNA"]);
+  });
+
   it("« Nouveau bordereau » ajoute un bordereau indépendant, sans reprendre le n° ni la banque du précédent", () => {
     renderGrid("bordereaux_remise_cheques");
     fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));

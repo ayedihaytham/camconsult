@@ -256,6 +256,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const [ouverts, setOuverts] = useState<Set<string>>(new Set());
   const [plageDebut, setPlageDebut] = useState("");
   const [plageFin, setPlageFin] = useState("");
+  const [plageCommun, setPlageCommun] = useState("");
   const [envoi, setEnvoi] = useState<string | null>(null);
   async function joindre(i: number, key: string, file: File) {
     if (!onJoindre) return;
@@ -625,11 +626,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         const plage = plageNumeros(plageDebut, plageFin);
         const saisi = plageDebut.trim() !== "" && plageFin.trim() !== "";
         const nom = def.plageNumeros.libelle;
+        const commun = def.plageNumeros.commun;
         return (
           <div data-tour="collecte-plage" className="space-y-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-3">
             <p className="text-sm font-semibold text-foreground">Avant de saisir : les numéros de votre souche</p>
             <p className="text-xs text-muted-foreground">
-              Indiquez le premier et le dernier numéro de {nom} à remplir : une ligne est créée pour chaque numéro, vous n'avez plus qu'à compléter les autres cases.
+              Indiquez le premier et le dernier numéro de {nom} à remplir{commun ? ` et ${commun.label.toLowerCase() === "banque" ? "la banque" : `le champ « ${commun.label} »`}` : ""} : une ligne est créée pour chaque numéro, vous n'avez plus qu'à compléter les autres cases.
             </p>
             <div className="flex flex-wrap items-end gap-3">
               <label className="space-y-1 text-xs font-medium text-foreground">
@@ -640,6 +642,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 N° du dernier {nom}
                 <Input className="h-10 w-44" value={plageFin} onChange={(e) => setPlageFin(e.target.value)} placeholder="ex. 4001025" inputMode="text" />
               </label>
+              {commun && (
+                <label className="space-y-1 text-xs font-medium text-foreground">
+                  {commun.label}
+                  <Input className="h-10 w-52" value={plageCommun} onChange={(e) => setPlageCommun(e.target.value)} placeholder={commun.placeholder} inputMode="text" />
+                </label>
+              )}
               <Button
                 type="button"
                 variant="ledger"
@@ -648,7 +656,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 onClick={() => {
                   if (!plage.ok) return;
                   const col = def.plageNumeros!.col;
-                  addRows(plage.numeros.map((n) => ({ [col]: n })));
+                  addRows(plage.numeros.map((n) => ({ [col]: n, ...(commun && plageCommun.trim() ? { [commun.col]: plageCommun.trim() } : {}) })));
                   setFocusRow(0);
                 }}
               >

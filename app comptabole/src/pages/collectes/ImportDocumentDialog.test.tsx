@@ -46,7 +46,7 @@ describe.skipIf(!existsSync(PDF))("import du grand-livre 461 dans un tableau de 
     fireEvent.click(screen.getByRole("button", { name: "Ajouter 27 lignes" }));
     expect(onAjouter).toHaveBeenCalledTimes(1);
     expect(onAjouter.mock.calls[0][0]).toHaveLength(27);
-    expect(onAjouter.mock.calls[0][0][0]).toMatchObject({ date: "2026-01-06", num_cheque: "4001511", beneficiaire: "BATTERIE QODS AUT", compte_bancaire: "ZITO", montant: 820 });
+    expect(onAjouter.mock.calls[0][0][0]).toMatchObject({ date: "2026-01-06", num_cheque: "4001511", beneficiaire: "BATTERIE QODS AUT", banque: "ZITO", montant: 820 });
   });
 
   it("n'ajoute que les lignes cochées", async () => {

@@ -142,7 +142,7 @@ export function lignesPourTableau(onglet: string, ecritures: EcritureLivre[]): T
       switch (onglet) {
         case "souche_cheques":
         case "etat_cheques_emis":
-          return { date: e.date, num_cheque: numero, beneficiaire: reste, motif: MOTIFS[maj(base)] ?? base, montant: e.debit, compte_bancaire: e.journal, observations: "" };
+          return { date: e.date, num_cheque: numero, beneficiaire: reste, motif: MOTIFS[maj(base)] ?? base, montant: e.debit, banque: e.journal, observations: "" };
         case "bordereaux_remise_cheques":
           return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_cheque: numero, client_emetteur: reste, montant_cheque: e.credit, date_echeance: "", observations: "" };
         case "bordereaux_traites_recues":

@@ -46,9 +46,9 @@ describe.skipIf(!existsSync(PDF))("grand-livre Sage du compte 461 (PDF réel)", 
     const souche = lignesPourTableau("souche_cheques", l.ecritures);
     expect(souche).toHaveLength(27);
     expect(souche.find((r) => r.num_cheque === "144167")).toEqual({
-      date: "2026-04-02", num_cheque: "144167", beneficiaire: "ADEL EDHAWTHI", motif: "Paiement par chèque", montant: 1560, compte_bancaire: "BTK", observations: "",
+      date: "2026-04-02", num_cheque: "144167", beneficiaire: "ADEL EDHAWTHI", motif: "Paiement par chèque", montant: 1560, banque: "BTK", observations: "",
     });
-    expect(souche.find((r) => r.num_cheque === "4001511")).toMatchObject({ beneficiaire: "BATTERIE QODS AUT", motif: "Règlement par chèque", compte_bancaire: "ZITO", montant: 820 });
+    expect(souche.find((r) => r.num_cheque === "4001511")).toMatchObject({ beneficiaire: "BATTERIE QODS AUT", motif: "Règlement par chèque", banque: "ZITO", montant: 820 });
     expect(souche.find((r) => r.num_cheque === "173746")).toMatchObject({ beneficiaire: "SPLENDID", montant: 804.5 });
   });
 

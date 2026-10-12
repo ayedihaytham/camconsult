@@ -201,7 +201,7 @@ export interface TabDef {
   /** Consigne courte pour le client : ce qu'il doit saisir dans ce tableau, en une ou deux phrases. */
   aide?: string;
   /** Tableau qui s'ouvre en demandant la plage de numéros à remplir (de tel n° à tel n°) : une ligne est créée par numéro de la plage. */
-  plageNumeros?: { col: string; libelle: string };
+  plageNumeros?: { col: string; libelle: string; commun?: { col: string; label: string; placeholder: string } };
 }
 
 const COLONNES_CHEQUES_EMIS: TabColumn[] = [
@@ -210,12 +210,7 @@ const COLONNES_CHEQUES_EMIS: TabColumn[] = [
       { key: "beneficiaire", label: "Bénéficiaire", type: "text", width: 220 },
       { key: "motif", label: "Motif / Objet", type: "text", width: 240 },
       { key: "montant", label: "Montant", type: "number", width: 130 },
-      {
-        key: "compte_bancaire",
-        label: "Compte bancaire",
-        type: "text",
-        width: 170,
-      },
+      { key: "banque", label: "Banque", type: "text", width: 170 },
       { key: "observations", label: "Observations", type: "text", width: 220 },
     ];
 
@@ -225,7 +220,7 @@ const TABLEAUX_DEFINIS: TabDef[] = [
     label: "Souche de chèques",
     pieceLabel: "Détail de la souche de chèques (chèques émis)",
     // Le client indique d'abord les numéros de sa souche (du premier au dernier chèque) : une ligne est créée par chèque à remplir.
-    plageNumeros: { col: "num_cheque", libelle: "chèque" },
+    plageNumeros: { col: "num_cheque", libelle: "chèque", commun: { col: "banque", label: "Banque", placeholder: "ex. ZITOUNA" } },
     totalKey: "montant",
     columns: COLONNES_CHEQUES_EMIS,
   },

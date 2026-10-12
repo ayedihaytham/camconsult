@@ -14,7 +14,6 @@ import {
   MoveRight,
   Pencil,
   Trash2,
-  Building2,
   Copy,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -58,9 +57,7 @@ interface FileTreeProps {
   onDuplicate?: (node: Noeud) => void;
   /** Afficher la société de chaque arborescence racine. */
   afficherSociete?: boolean;
-  /** Présentation du responsable de société : tout tient dans une seule carte, barre de recherche en tête, arbre à la société. */
-  variante?: "cabinet" | "client";
-  /** Barre affichée en tête de la carte (variante « client »). */
+  /** Barre affichée en tête de la carte (recherche, filtres, actions). */
   barre?: ReactNode;
 }
 
@@ -84,10 +81,8 @@ export function FileTree({
   onSelectedIdsChange,
   onDuplicate,
   afficherSociete = false,
-  variante = "cabinet",
   barre,
 }: FileTreeProps) {
-  const client = variante === "client";
   const societes = useSocietes();
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | "root" | null>(null);
@@ -153,9 +148,12 @@ export function FileTree({
     }
     return chaine.join(" › ");
   };
-  const nomRacine = client
-    ? societes.find((s) => s.id === nodes.find((n) => n.societeId)?.societeId)?.raisonSociale ?? "Documents"
-    : "Racine";
+  // Une seule société : la racine porte son nom ; plusieurs : « Toutes les sociétés ».
+  const societesDesNoeuds = new Set(nodes.map((n) => n.societeId).filter(Boolean));
+  const nomRacine =
+    societesDesNoeuds.size === 1
+      ? societes.find((s) => s.id === [...societesDesNoeuds][0])?.raisonSociale ?? "Documents"
+      : "Toutes les sociétés";
   const totalFichiers = useMemo(() => nodes.filter((n) => n.type === "fichier").length, [nodes]);
   const selection = new Set(selectedIds ?? []);
   const basculerSelection = (id: string) => {
@@ -217,14 +215,14 @@ export function FileTree({
       : {};
 
   return (
-    <div className={client ? "overflow-hidden rounded-sm border border-border bg-card" : undefined}>
-    {client && barre}
-    <div className={cn("grid", client ? "lg:grid-cols-[240px_1fr]" : "gap-4 lg:grid-cols-[280px_1fr]")}>
+    <div className="overflow-hidden rounded-sm border border-border bg-card">
+    {barre}
+    <div className="grid lg:grid-cols-[240px_1fr]">
       {/* Colonne arbre */}
-      <div className={client ? "border-b border-border bg-muted/40 p-2 lg:border-b-0 lg:border-r" : "rounded-sm border border-border bg-card p-2"}>
-        {(!client || canCreate) && <div className="flex items-center justify-between px-2 py-1.5">
+      <div className="border-b border-border bg-muted/40 p-2 lg:border-b-0 lg:border-r">
+        {canCreate && <div className="flex items-center justify-between px-2 py-1.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {client ? "Dossiers" : "Arborescence"}
+            Dossiers
           </span>
           {canCreate && (
             <Button
@@ -242,13 +240,13 @@ export function FileTree({
           {...dropProps(null, "root")}
           className={cn(
             "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-secondary",
-            currentId === null && (client ? "bg-accent/15 font-semibold" : "bg-secondary font-medium"),
+            currentId === null && "bg-accent/15 font-semibold",
             dropTarget === "root" && "ring-2 ring-accent",
           )}
         >
           <Home className="h-4 w-4 text-muted-foreground" />
           <span className="min-w-0 flex-1 truncate text-left">{nomRacine}</span>
-          {client && <span className="text-xs font-normal text-muted-foreground">{totalFichiers}</span>}
+          <span className="text-xs font-normal text-muted-foreground">{totalFichiers}</span>
         </button>
         <div className="mt-1 space-y-0.5">
           {childrenOf(null)
@@ -264,14 +262,14 @@ export function FileTree({
                 dragProps={dragProps}
                 dropProps={dropProps}
                 dropTarget={dropTarget}
-                compteur={client ? (id) => contenus.get(id)?.fichiers ?? 0 : undefined}
+                compteur={(id) => contenus.get(id)?.fichiers ?? 0}
               />
             ))}
         </div>
       </div>
 
       {/* Colonne contenu */}
-      <div className={client ? "min-w-0" : "rounded-sm border border-border bg-card"}>
+      <div className="min-w-0">
         {/* Fil d'Ariane */}
         <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-3 text-sm">
           <button
@@ -324,20 +322,6 @@ export function FileTree({
         {resultats && (
           <div className="border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground" role="status">
             {currentChildren.length} résultat{currentChildren.length > 1 ? "s" : ""} dans toute l'arborescence
-          </div>
-        )}
-
-        {/* Bandeau société courante */}
-        {!client && !resultats && currentId && breadcrumb[0]?.societeId && (
-          <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-            <Building2 className="h-3.5 w-3.5" />
-            Dossier rattaché à{" "}
-            <span className="font-medium text-foreground">
-              {
-                societes.find((s) => s.id === breadcrumb[0].societeId)
-                  ?.raisonSociale
-              }
-            </span>
           </div>
         )}
 
@@ -417,13 +401,9 @@ export function FileTree({
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
                     {isFolder ? (
-                      client ? (
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/15">
-                          <Folder className="h-4 w-4 fill-accent/40 text-accent" />
-                        </span>
-                      ) : (
-                        <Folder className="h-4 w-4 shrink-0 fill-accent/40 text-accent" />
-                      )
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/15">
+                        <Folder className="h-4 w-4 fill-accent/40 text-accent" />
+                      </span>
                     ) : (
                       <FileTypeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
@@ -436,7 +416,7 @@ export function FileTree({
                           {resultats && n.parentId ? cheminDe(n) : societes.find((x) => x.id === n.societeId)?.raisonSociale ?? "Modèle générique"}
                         </span>
                       )}
-                      {client && isFolder && contenus.get(n.id) && (
+                      {isFolder && contenus.get(n.id) && (
                         <span className="block truncate text-xs text-muted-foreground">
                           {contenus.get(n.id)!.fichiers} fichier{contenus.get(n.id)!.fichiers > 1 ? "s" : ""}
                         </span>
@@ -452,12 +432,6 @@ export function FileTree({
                   {!isFolder && n.format && (
                     <span className="hidden shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground sm:block">
                       {n.format}
-                    </span>
-                  )}
-
-                  {!client && isFolder && contenus.get(n.id) && (
-                    <span className="hidden shrink-0 whitespace-nowrap text-xs text-muted-foreground md:block">
-                      {contenus.get(n.id)!.dossiers} dossier{contenus.get(n.id)!.dossiers > 1 ? "s" : ""} · {contenus.get(n.id)!.fichiers} fichier{contenus.get(n.id)!.fichiers > 1 ? "s" : ""}
                     </span>
                   )}
 

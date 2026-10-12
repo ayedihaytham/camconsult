@@ -27,7 +27,7 @@ function afficher(extra: Partial<React.ComponentProps<typeof FileTree>> = {}) {
 describe("explorateur de documents (tableau et arborescence réunis)", () => {
   it("montre pour chaque dossier ce qu'il contient, et la société de chaque arborescence", () => {
     afficher({ afficherSociete: true });
-    expect(screen.getAllByText(/2 dossiers · 2 fichiers/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/2 fichiers/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("01-RUSPINA").length).toBeGreaterThan(1); // l'arbre et la ligne de la liste
   });
 

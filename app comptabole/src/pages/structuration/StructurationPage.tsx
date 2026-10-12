@@ -12,7 +12,6 @@ import {
   Search,
 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
-import { LedgerToolbar } from "@/components/ledger/LedgerToolbar";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -68,7 +67,7 @@ export function StructurationPage() {
   // Organigramme (détail par mois), Documents (arbre et liste réunis) et Vue générale. Les anciennes adresses ?vue=arbre / tableau mènent à Documents.
   type Onglet = "organigramme" | "documents" | "generale";
   const initialTab: Onglet =
-    vueParam === "documents" || vueParam === "arbre" || vueParam === "tableau" ? "documents" : vueParam === "generale" ? "generale" : "organigramme";
+    vueParam === "documents" || vueParam === "arbre" || vueParam === "tableau" ? "documents" : vueParam === "organigramme" ? "organigramme" : "generale";
 
   const allNodes = useNoeuds();
   const societes = useSocietes();
@@ -520,79 +519,19 @@ export function StructurationPage() {
         onChange={(v) => {
           setTab(v);
           const next = new URLSearchParams(searchParams);
-          if (v === "organigramme") next.delete("vue");
+          if (v === "generale") next.delete("vue");
           else next.set("vue", v);
           setSearchParams(next, { replace: true });
         }}
         options={[
+          { value: "generale", label: "Vue générale" },
           { value: "organigramme", label: "Organigramme" },
           { value: "documents", label: "Documents" },
-          { value: "generale", label: "Vue générale" },
         ]}
       /></div>
 
       {tab === "documents" && (
         <div data-tour="structuration-content" className="mt-3 flex flex-1 flex-col gap-3">
-          {!estClient && <div data-tour="structuration-search"><LedgerToolbar
-            search={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Rechercher un dossier ou un fichier…"
-            onExport={handleExport}
-            onPrint={handlePrint}
-            selectedCount={selectedIds.length}
-            onDeleteSelected={
-              canDelete ? () => setBulkDeleteOpen(true) : undefined
-            }
-            onClearSelection={() => setSelectedIds([])}
-            filters={
-              <>
-                {filtreSocieteUtile && <Select
-                  value={societeFilter}
-                  onValueChange={(v) => {
-                    setSocieteFilter(v);
-                    const next = new URLSearchParams(searchParams);
-                    if (v === "all") next.delete("societe");
-                    else next.set("societe", v);
-                    setSearchParams(next, { replace: true });
-                  }}
-                >
-                  <SelectTrigger className={selectTriggerClass}>
-                    <SelectValue placeholder="Société" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes les sociétés</SelectItem>
-                    <SelectItem value="none">Modèles génériques</SelectItem>
-                    {societes.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.raisonSociale}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>}
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className={selectTriggerClass}>
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous types</SelectItem>
-                    <SelectItem value="dossier">Dossier</SelectItem>
-                    <SelectItem value="fichier">Fichier</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className={selectTriggerClass}>
-                    <SelectValue placeholder="Date" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes dates</SelectItem>
-                    <SelectItem value="7">7 derniers jours</SelectItem>
-                    <SelectItem value="30">30 derniers jours</SelectItem>
-                    <SelectItem value="365">Cette année</SelectItem>
-                  </SelectContent>
-                </Select>
-              </>
-            }
-          /></div>}
 
           {nodes.length === 0 ? (
             <LedgerSheet className="flex-1">
@@ -618,62 +557,104 @@ export function StructurationPage() {
               selectedIds={selectedIds}
               onSelectedIdsChange={setSelectedIds}
               afficherSociete={filtreSocieteUtile}
-              variante={estClient ? "client" : "cabinet"}
               barre={
-                estClient ? (
-                  <div data-tour="structuration-search" className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-                    <div className="relative min-w-[12rem] max-w-[460px] flex-1">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Rechercher un dossier ou un fichier"
-                        aria-label="Rechercher un dossier ou un fichier"
-                        className="h-10 bg-muted/40 pl-9"
-                      />
-                    </div>
-                    <div role="group" aria-label="Type d'élément" className="flex items-center gap-1">
-                      {([
-                        ["all", "Tout"],
-                        ["dossier", "Dossiers"],
-                        ["fichier", "Fichiers"],
-                      ] as const).map(([valeur, libelle]) => (
-                        <button
-                          key={valeur}
-                          type="button"
-                          aria-pressed={typeFilter === valeur}
-                          onClick={() => setTypeFilter(valeur)}
-                          className={cn(
-                            "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
-                            typeFilter === valeur
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
-                          )}
-                        >
-                          {libelle}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex-1" />
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon" aria-label="Plus d'actions">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleExport("xlsx")}>
-                          <Download className="h-4 w-4" />
-                          Exporter la liste
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handlePrint}>
-                          <Printer className="h-4 w-4" />
-                          Imprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                <div data-tour="structuration-search" className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+                  <div className="relative min-w-[12rem] max-w-[460px] flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Rechercher un dossier ou un fichier"
+                      aria-label="Rechercher un dossier ou un fichier"
+                      className="h-10 bg-muted/40 pl-9"
+                    />
                   </div>
-                ) : undefined
+                  <div role="group" aria-label="Type d'élément" className="flex items-center gap-1">
+                    {([
+                      ["all", "Tout"],
+                      ["dossier", "Dossiers"],
+                      ["fichier", "Fichiers"],
+                    ] as const).map(([valeur, libelle]) => (
+                      <button
+                        key={valeur}
+                        type="button"
+                        aria-pressed={typeFilter === valeur}
+                        onClick={() => setTypeFilter(valeur)}
+                        className={cn(
+                          "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
+                          typeFilter === valeur
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+                        )}
+                      >
+                        {libelle}
+                      </button>
+                    ))}
+                  </div>
+                  {filtreSocieteUtile && <Select
+                value={societeFilter}
+                onValueChange={(v) => {
+                  setSocieteFilter(v);
+                  const next = new URLSearchParams(searchParams);
+                  if (v === "all") next.delete("societe");
+                  else next.set("societe", v);
+                  setSearchParams(next, { replace: true });
+                }}
+              >
+                <SelectTrigger className={selectTriggerClass}>
+                  <SelectValue placeholder="Société" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les sociétés</SelectItem>
+                  <SelectItem value="none">Modèles génériques</SelectItem>
+                  {societes.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.raisonSociale}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>}
+                  {!estClient && (
+                    <Select value={dateFilter} onValueChange={setDateFilter}>
+                      <SelectTrigger className={selectTriggerClass} aria-label="Date">
+                        <SelectValue placeholder="Date" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Toutes dates</SelectItem>
+                        <SelectItem value="7">7 derniers jours</SelectItem>
+                        <SelectItem value="30">30 derniers jours</SelectItem>
+                        <SelectItem value="365">Cette année</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <div className="flex-1" />
+                  {selectedIds.length > 0 && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-medium text-foreground">{selectedIds.length} sélectionné{selectedIds.length > 1 ? "s" : ""}</span>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Annuler</Button>
+                      {canDelete && (
+                        <Button type="button" variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>Supprimer</Button>
+                      )}
+                    </div>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" aria-label="Plus d'actions">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleExport("xlsx")}>
+                        <Download className="h-4 w-4" />
+                        Exporter la liste
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handlePrint}>
+                        <Printer className="h-4 w-4" />
+                        Imprimer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               }
               onNavigate={(id) => {
                 setCurrentFolder(id);

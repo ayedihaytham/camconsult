@@ -1038,12 +1038,14 @@ collectesRouter.post("/:id/demandes-pieces", async (req, res) => {
   if (c.statut === "archive") return res.status(400).json({ error: "Collecte archivée" });
   const texte = String(req.body?.texte ?? "").trim().slice(0, 2000);
   if (!texte) return res.status(400).json({ error: "Précisez la pièce demandée" });
-  await query("insert into collecte_demandes_pieces (collecte_id, texte, demande_par) values ($1,$2,$3)", [req.params.id, texte, req.session.nom]);
-  logAction(req.session.nom, "creation", "collecte", `Pièce demandée — ${periodeLabel(c.periode)} : ${texte.slice(0, 80)}`, req.params.id);
+  const categorie = req.body?.categorie === "fournisseur" ? "fournisseur" : "client";
+  const tiers = String(req.body?.tiers ?? "").trim().slice(0, 200);
+  await query("insert into collecte_demandes_pieces (collecte_id, texte, demande_par, categorie, tiers) values ($1,$2,$3,$4,$5)", [req.params.id, texte, req.session.nom, categorie, tiers]);
+  logAction(req.session.nom, "creation", "collecte", `Pièce ${categorie} demandée — ${periodeLabel(c.periode)} : ${texte.slice(0, 80)}`, req.params.id);
   const clients = (
     await query("select id from employes where role = 'societe_employe' and societe_id = $1 and statut = 'actif'", [c.societe_id])
   ).rows.map((r) => r.id);
-  notifyMany(clients, "collecte", `Pièce demandée par le cabinet : ${periodeLabel(c.periode)}`, texte.slice(0, 120), `/collectes/${req.params.id}?tab=documents`);
+  notifyMany(clients, "collecte", `Pièce ${categorie} demandée par le cabinet : ${periodeLabel(c.periode)}`, `${tiers ? `${tiers} — ` : ""}${texte}`.slice(0, 120), `/collectes/${req.params.id}?tab=documents`);
   res.status(201).json(await loadCollecte(req.params.id));
 });
 

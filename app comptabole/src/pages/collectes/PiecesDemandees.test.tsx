@@ -10,22 +10,27 @@ const collecte = {
   id: "c1",
   fichiers: [{ id: "f1", onglet: "", nom: "releve.pdf", format: "pdf", taille: "1 Ko", deposePar: "Client", demandeId: "d2", creeLe: new Date().toISOString() }],
   demandesPieces: [
-    { id: "d1", texte: "Relevé bancaire d'octobre", demandePar: "Chaima", statut: "en_attente", fourniePar: "", fournieLe: null, creeLe: new Date().toISOString() },
-    { id: "d2", texte: "Facture 2100001269", demandePar: "Chaima", statut: "fournie", fourniePar: "Client", fournieLe: new Date().toISOString(), creeLe: new Date().toISOString() },
+    { id: "d1", texte: "Relevé bancaire d'octobre", categorie: "client", tiers: "", demandePar: "Chaima", statut: "en_attente", fourniePar: "", fournieLe: null, creeLe: new Date().toISOString() },
+    { id: "d2", texte: "Facture 2100001269", categorie: "fournisseur", tiers: "SOTACIB", demandePar: "Chaima", statut: "fournie", fourniePar: "Client", fournieLe: new Date().toISOString(), creeLe: new Date().toISOString() },
   ],
 } as unknown as CollecteFull;
 
 const props = { onDemander: vi.fn().mockResolvedValue(undefined), onSupprimer: vi.fn().mockResolvedValue(undefined), onFournir: vi.fn().mockResolvedValue(undefined), onPreview: vi.fn() };
 
 describe("PiecesDemandees", () => {
-  it("le cabinet envoie une demande avec une note, sans pièce jointe", async () => {
+  it("le cabinet demande séparément une pièce client et une pièce fournisseur, sans pièce jointe", async () => {
     render(<PiecesDemandees collecte={collecte} isClient={false} peutDemander {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: /Demander une pièce/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Demander une pièce fournisseur" }));
     const envoyer = screen.getByRole("button", { name: /Envoyer la demande/ }) as HTMLButtonElement;
     expect(envoyer.disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText("Pièce demandée"), { target: { value: "Contrat de bail" } });
+    fireEvent.change(screen.getByLabelText(/Fournisseur concerné/), { target: { value: "SOTACIB" } });
+    fireEvent.change(screen.getByLabelText("Pièce demandée"), { target: { value: "Bon de livraison" } });
     fireEvent.click(envoyer);
-    await waitFor(() => expect(props.onDemander).toHaveBeenCalledWith("Contrat de bail"));
+    await waitFor(() => expect(props.onDemander).toHaveBeenCalledWith({ texte: "Bon de livraison", categorie: "fournisseur", tiers: "SOTACIB" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Demander une pièce client" }));
+    fireEvent.change(screen.getByLabelText("Pièce demandée"), { target: { value: "Facture de vente" } });
+    fireEvent.click(screen.getByRole("button", { name: /Envoyer la demande/ }));
+    await waitFor(() => expect(props.onDemander).toHaveBeenLastCalledWith({ texte: "Facture de vente", categorie: "client", tiers: "" }));
   });
 
   it("le client lit la note et peut ajouter le document ; la pièce fournie reste consultable", () => {

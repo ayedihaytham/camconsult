@@ -560,9 +560,9 @@ export function CollecteEditorPage() {
                 isClient={isClient}
                 peutDemander={!isClient && (isAdmin || isStaff)}
                 lectureSeule={archivee}
-                onDemander={async (texte) => {
-                  await demanderPiece(id, texte);
-                  toast.success("Demande envoyée au client");
+                onDemander={async (demande) => {
+                  await demanderPiece(id, demande);
+                  toast.success(demande.categorie === "fournisseur" ? "Demande de pièce fournisseur envoyée" : "Demande de pièce client envoyée");
                 }}
                 onSupprimer={(demandeId) => supprimerDemandePiece(id, demandeId)}
                 onFournir={async (demandeId, fichiers: NewFichier[]) => {

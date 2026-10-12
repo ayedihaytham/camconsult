@@ -177,6 +177,8 @@ export const collecteDemandePieceDto = (r) => ({
   id: r.id,
   texte: r.texte ?? "",
   demandePar: r.demande_par ?? "",
+  categorie: r.categorie === "fournisseur" ? "fournisseur" : "client",
+  tiers: r.tiers ?? "",
   statut: r.statut === "fournie" ? "fournie" : "en_attente",
   fourniePar: r.fournie_par ?? "",
   fournieLe: isoOrNull(r.fournie_le),

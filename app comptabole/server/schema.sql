@@ -176,11 +176,16 @@ create table if not exists collecte_demandes_pieces (
   collecte_id uuid not null references collectes(id) on delete cascade,
   texte       text not null,
   demande_par text not null default '',
+  categorie   text not null default 'client',      -- client | fournisseur (deux demandes indépendantes)
+  tiers       text not null default '',            -- nom du client / fournisseur concerné (facultatif)
   statut      text not null default 'en_attente',   -- en_attente | fournie
   fournie_par text not null default '',
   fournie_le  timestamptz,
   cree_le     timestamptz not null default now()
 );
+
+alter table collecte_demandes_pieces add column if not exists categorie text not null default 'client';
+alter table collecte_demandes_pieces add column if not exists tiers text not null default '';
 
 -- Bordereaux bancaires : registre interne du cabinet (comptable seul).
 -- 1 bordereau = 1 opération bancaire groupant plusieurs lignes.

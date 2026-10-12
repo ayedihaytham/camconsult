@@ -194,6 +194,10 @@ export interface CollecteFichier {
 export interface DemandePiece {
   id: string;
   texte: string;
+  /** Demande de pièce « client » ou « fournisseur » : deux listes indépendantes. */
+  categorie: "client" | "fournisseur";
+  /** Nom du client ou du fournisseur concerné (facultatif). */
+  tiers: string;
   demandePar: string;
   statut: "en_attente" | "fournie";
   fourniePar: string;

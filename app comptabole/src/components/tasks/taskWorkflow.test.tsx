@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Tache, TacheStatut } from "@/types";
 import { TaskNextAction } from "./TaskNextAction";
 import { TaskStatusBadge } from "./TaskStatusBadge";
-import { getNextTaskStatus, getTaskActivity, summarizeTasks } from "./taskTypes";
+import { getNextTaskStatus, getTaskActivity, getTaskPlanning, societeInitiales, summarizeTasks } from "./taskTypes";
 
 function task(statut: TacheStatut): Tache {
   return {
@@ -49,5 +49,32 @@ describe("Work Ledger task rules", () => {
     expect(badge).toContain("En cours");
     expect(badge).not.toContain("warning");
     expect(action).toContain('aria-label="Passer en cours : Contrôler les écritures"');
+  });
+});
+
+describe("planning d'une carte", () => {
+  const aujourdhui = new Date(2026, 9, 12); // 12 octobre 2026
+  const planifiee = (statut: TacheStatut, debutPrevu: string, finPrevue: string) => ({ ...task(statut), debutPrevu, finPrevue });
+
+  it("ne planifie rien sans les deux dates", () => {
+    expect(getTaskPlanning(task("a_faire"), aujourdhui)).toBeNull();
+    expect(getTaskPlanning({ ...task("a_faire"), debutPrevu: "2026-10-10" }, aujourdhui)).toBeNull();
+  });
+
+  it("dit où on en est entre le début et la fin prévus", () => {
+    expect(getTaskPlanning(planifiee("en_cours", "2026-10-10", "2026-10-20"), aujourdhui)).toMatchObject({ plage: "10 – 20 oct.", label: "Fin dans 8 j", tone: "muted", progress: 20 });
+    expect(getTaskPlanning(planifiee("en_cours", "2026-10-10", "2026-10-14"), aujourdhui)).toMatchObject({ label: "Fin dans 2 j", tone: "warn" });
+    expect(getTaskPlanning(planifiee("en_cours", "2026-10-01", "2026-10-09"), aujourdhui)).toMatchObject({ label: "Fin dépassée de 3 j", tone: "bad", progress: 100 });
+    expect(getTaskPlanning(planifiee("a_faire", "2026-10-14", "2026-10-24"), aujourdhui)).toMatchObject({ label: "Débute dans 2 j", progress: 0 });
+  });
+
+  it("une tâche terminée n'est jamais en retard", () => {
+    const fait = { ...planifiee("termine", "2026-10-01", "2026-10-09"), termineLe: "2026-10-11T08:00:00.000Z" };
+    expect(getTaskPlanning(fait, aujourdhui)).toMatchObject({ label: "Terminée le 11 oct.", tone: "ok", progress: 100 });
+  });
+
+  it("tire les initiales d'une société", () => {
+    expect(societeInitiales("05-I CARGO LINE")).toBe("IC");
+    expect(societeInitiales("ha")).toBe("H");
   });
 });

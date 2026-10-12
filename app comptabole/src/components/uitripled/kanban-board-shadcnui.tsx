@@ -27,7 +27,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarDays, ChartNoAxesGantt, Columns3, GripVertical, List, ListChecks } from "lucide-react";
+import { ChartNoAxesGantt, Columns3, GripVertical, List, ListChecks, Lock } from "lucide-react";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
@@ -42,17 +42,17 @@ import {
 import { TaskActionsMenu } from "@/components/tasks/TaskActionsMenu";
 import { TaskAssignee } from "@/components/tasks/TaskAssignee";
 import { TaskActivity } from "@/components/tasks/TaskActivity";
-import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
 import { TaskTableView } from "@/components/tasks/TaskTableView";
 import { TaskGanttView } from "@/components/tasks/TaskGanttView";
 import { TaskNextAction } from "@/components/tasks/TaskNextAction";
 import { createTaskTableColumns } from "@/components/tasks/taskTableColumns";
-import { presentTasks } from "@/components/tasks/taskTypes";
+import { getTaskPlanning, presentTasks, societeInitiales } from "@/components/tasks/taskTypes";
 import type { PresentedTask } from "@/components/tasks/taskTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import "@/components/tasks/tasks-views.css";
+import { TACHE_MODULE_LABELS } from "@/types";
 import type { Employe, Societe, Tache, TacheStatut } from "@/types";
 
 type Column = {
@@ -547,12 +547,18 @@ function TaskCard({
     transition,
     transform: CSS.Translate.toString(transform),
   };
+  const module = task.task.module;
+  // `societeName` joint le module à la société ; la carte les sépare (carré de société, puis étiquette du module).
+  const societeNom = module ? task.societeName.replace(` · ${TACHE_MODULE_LABELS[module]}`, "") : task.societeName;
+  const planning = getTaskPlanning(task.task);
+  const lectureSeule = task.task.origine === "societe" && !canEditTask(task.task);
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
         "task-kanban-card",
+        `task-kanban-card--${task.columnId}`,
         isDragging && "opacity-30",
         isPending && "pointer-events-none opacity-70",
         isOverlay && "z-50 cursor-grabbing bg-card opacity-100 shadow-pop",
@@ -560,7 +566,10 @@ function TaskCard({
     >
       <div className="flex items-center gap-2">
         {canDrag && !isOverlay && <button type="button" {...attributes} {...listeners} aria-label={`Déplacer la tâche : ${task.task.titre}`} className="task-drag-handle"><GripVertical className="size-4" aria-hidden="true" /></button>}
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={task.societeName}>{task.societeName}</span>
+        <span className="flex min-w-0 flex-1 items-center gap-2" title={societeNom}>
+          <span className="grid size-[22px] shrink-0 place-items-center rounded-[5px] bg-accent/20 text-[10px] font-extrabold text-primary" aria-hidden="true">{societeInitiales(societeNom)}</span>
+          <span className="min-w-0 truncate text-xs font-semibold text-muted-foreground">{societeNom}</span>
+        </span>
         {!isOverlay && (
           <TaskActionsMenu
             task={task.task}
@@ -583,15 +592,49 @@ function TaskCard({
         )}
       </div>
 
-      <TaskAssignee task={task} />
-      {task.task.origine === "societe" && !canEditTask(task.task) && <p className="text-[11px] text-muted-foreground">Tâche de société{!canDrag ? " · Lecture seule" : ""}</p>}
-      <p className="task-card-planning"><CalendarDays className="size-3.5" aria-hidden="true" />{task.task.debutPrevu && task.task.finPrevue ? `${formatDate(task.task.debutPrevu).slice(0, 5)} – ${formatDate(task.task.finPrevue).slice(0, 5)}` : "Non planifiée"}</p>
+      {(module || lectureSeule) && (
+        <div className="flex flex-wrap gap-1.5">
+          {module && <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">{TACHE_MODULE_LABELS[module]}</span>}
+          {lectureSeule && (
+            <span className="inline-flex items-center gap-1 rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+              <Lock className="size-3" aria-hidden="true" />Tâche de société{!canDrag ? " · Lecture seule" : ""}
+            </span>
+          )}
+        </div>
+      )}
+
+      {planning ? (
+        <div className="grid gap-1.5">
+          <div className="flex items-baseline justify-between gap-2 text-xs tabular-nums">
+            <span className="font-semibold text-foreground">{planning.plage}</span>
+            <span
+              className={cn(
+                "font-bold",
+                planning.tone === "bad" && "text-destructive",
+                planning.tone === "warn" && "text-warning",
+                planning.tone === "ok" && "text-success",
+                planning.tone === "muted" && "font-medium text-muted-foreground",
+              )}
+            >
+              {planning.label}
+            </span>
+          </div>
+          <div className="h-[5px] overflow-hidden rounded-full bg-border" role="img" aria-label={`Période écoulée : ${planning.progress} %`}>
+            <div
+              className={cn("h-full rounded-full", planning.tone === "bad" ? "bg-destructive" : planning.tone === "ok" ? "bg-success" : "bg-accent")}
+              style={{ width: `${planning.progress}%` }}
+            />
+          </div>
+        </div>
+      ) : (
+        <p className="rounded border border-dashed border-input px-2 py-1 text-xs text-muted-foreground">Non planifiée</p>
+      )}
 
       <div className="task-card-footer">
-        <TaskStatusBadge status={task.columnId} />
-        {!isOverlay && <TaskNextAction task={task.task} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} isPending={isPending} />}
+        <TaskAssignee task={task} />
+        {!isOverlay && <TaskNextAction task={task.task} canChangeStatus={canChangeStatus} onStatusChange={onStatusChange} isPending={isPending} variant="carte" />}
       </div>
-      <TaskActivity task={task.task} className="truncate text-[10px]" />
+      <TaskActivity task={task.task} className="truncate text-[11px]" />
     </div>
   );
 }

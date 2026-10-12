@@ -10,6 +10,9 @@
 .taches-work-ledger .task-column-dot--termine { background: hsl(var(--success)); }
 .taches-work-ledger .task-board-column-body { display: flex; min-width: 0; flex-direction: column; gap: 10px; padding: 10px; }
 .taches-work-ledger .task-kanban-card { display: flex; position: relative; min-width: 0; flex-direction: column; gap: 10px; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--card)); padding: 12px; }
+.taches-work-ledger .task-kanban-card--a_faire { border-left: 4px solid hsl(var(--primary) / .35); }
+.taches-work-ledger .task-kanban-card--en_cours { border-left: 4px solid hsl(var(--accent)); }
+.taches-work-ledger .task-kanban-card--termine { border-left: 4px solid hsl(var(--success)); }
 .taches-work-ledger .task-kanban-card:focus-within { border-color: hsl(var(--primary) / .4); }
 .taches-work-ledger .task-card-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: hsl(var(--primary)); font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1.5; }
 .taches-work-ledger button.task-card-title:hover { text-decoration: underline; }

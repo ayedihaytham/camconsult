@@ -57,6 +57,62 @@ export function getTaskActivity(task: Tache) {
   };
 }
 
+const JOUR_MS = 86_400_000;
+const jourUtc = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+const jourCourt = (date: Date) => date.toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
+
+/** « 10 – 20 oct. » ou « 28 sept. – 4 oct. ». */
+function formatPlage(debut: number, fin: number) {
+  const d = new Date(debut);
+  const f = new Date(fin);
+  if (d.getUTCMonth() === f.getUTCMonth() && d.getUTCFullYear() === f.getUTCFullYear()) {
+    return `${d.getUTCDate()} – ${jourCourt(f)}`;
+  }
+  return `${jourCourt(d)} – ${jourCourt(f)}`;
+}
+
+export interface TaskPlanning {
+  plage: string;
+  /** Part de la période écoulée, 0 à 100. */
+  progress: number;
+  label: string;
+  tone: "muted" | "warn" | "bad" | "ok";
+}
+
+/** Planning lisible d'une carte : où on en est entre le début et la fin prévus. `null` quand la tâche n'est pas planifiée. */
+export function getTaskPlanning(task: Tache, today = new Date()): TaskPlanning | null {
+  if (!task.debutPrevu || !task.finPrevue) return null;
+  const debut = jourUtc(task.debutPrevu);
+  const fin = jourUtc(task.finPrevue);
+  const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const plage = formatPlage(debut, fin);
+  if (task.statut === "termine") {
+    return {
+      plage,
+      progress: 100,
+      label: task.termineLe ? `Terminée le ${jourCourt(new Date(jourUtc(task.termineLe)))}` : "Terminée",
+      tone: "ok",
+    };
+  }
+  if (now < debut) return { plage, progress: 0, label: `Débute dans ${Math.round((debut - now) / JOUR_MS)} j`, tone: "muted" };
+  if (now > fin) return { plage, progress: 100, label: `Fin dépassée de ${Math.round((now - fin) / JOUR_MS)} j`, tone: "bad" };
+  const restant = Math.round((fin - now) / JOUR_MS);
+  const progress = Math.min(100, Math.max(0, Math.round(((now - debut) / Math.max(fin - debut, JOUR_MS)) * 100)));
+  return { plage, progress, label: restant === 0 ? "Fin aujourd'hui" : `Fin dans ${restant} j`, tone: restant <= 3 ? "warn" : "muted" };
+}
+
+/** Initiales d'une société pour son carré : « 05-I CARGO LINE » → « IC ». */
+export function societeInitiales(nom: string) {
+  const lettres = nom
+    .split(/\s+/)
+    .map((mot) => mot.match(/\p{L}/u)?.[0])
+    .filter((l): l is string => Boolean(l));
+  return (lettres.slice(0, 2).join("") || "?").toUpperCase();
+}
+
 export function presentTasks({
   tasks,
   societesById,

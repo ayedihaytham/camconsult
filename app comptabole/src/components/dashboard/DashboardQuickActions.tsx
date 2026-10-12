@@ -33,7 +33,14 @@ interface QuickAction {
 
 export function DashboardQuickActions({ role, canAddSociete, canUseMessaging, inverse = false }: DashboardQuickActionsProps) {
   const navigate = useNavigate();
-  const actions: QuickAction[] = role === "admin"
+  const actions: QuickAction[] = role === "responsable"
+    ? [
+        { label: "Voir les tâches", route: "/taches", icon: ListChecks },
+        { label: "Voir les collectes", route: "/collectes", icon: ClipboardCheck },
+        ...(canAddSociete ? [{ label: "Gérer les sociétés", route: "/societes", icon: Building2 }] : []),
+        ...(canUseMessaging ? [{ label: "Messagerie", route: "/messagerie", icon: MessageCircle }] : []),
+      ]
+    : role === "admin"
     ? [
         { label: "Voir les tâches", route: "/taches", icon: ListChecks },
         { label: "Voir les collectes", route: "/collectes", icon: ClipboardCheck },

@@ -15,7 +15,7 @@ import { CollectionFailure } from "./WorkspaceSection";
 import { Button } from "@/components/ui/button";
 import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
 import { AdminOverviewTab } from "./tabs/AdminOverviewTab";
-import type { DashboardViewModel } from "@/lib/dashboard/dashboardData";
+import { vueCabinet, type DashboardViewModel } from "@/lib/dashboard/dashboardData";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
 const DASHBOARD_TAB_TRIGGER_CLASS = "dashboard-tab relative inline-flex min-h-11 items-center gap-2 shrink-0 rounded-none border-0 bg-transparent px-0 py-3 text-muted-foreground shadow-none data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-accent after:opacity-0 data-[state=active]:after:opacity-100";
@@ -102,7 +102,7 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
       {cabinetNotice && <div role="status" className="dashboard-source-notice mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-border py-3 text-xs text-muted-foreground"><p>{adminDataLoading ? "Chargement du journal et des bordereaux…" : "Suivi partiel : une source cabinet est indisponible. Les tâches, fichiers et messages restent accessibles."}</p>{adminDataError && <Button variant="outline" className="min-h-11" onClick={onRetryAdminData}>Réessayer le suivi cabinet</Button>}</div>}
 
       <TabsContent value="overview" className="dashboard-overview-content mt-4">
-        {isClient ? <ClientOverviewTab data={data} loading={collectesLoading} error={collectesError} /> : data.role === "admin" ? <AdminOverviewTab data={data} now={now} loading={collectesLoading} error={collectesError} canUseMessaging={canUseMessaging} /> : <DailyWorkspaceTab data={data} wide={wide} now={now} loading={collectesLoading} error={collectesError} adminDataLoading={adminDataLoading} adminDataError={adminDataError} canUseMessaging={canUseMessaging} />}
+        {isClient ? <ClientOverviewTab data={data} loading={collectesLoading} error={collectesError} /> : vueCabinet(data.role) ? <AdminOverviewTab data={data} now={now} loading={collectesLoading} error={collectesError} canUseMessaging={canUseMessaging} /> : <DailyWorkspaceTab data={data} wide={wide} now={now} loading={collectesLoading} error={collectesError} adminDataLoading={adminDataLoading} adminDataError={adminDataError} canUseMessaging={canUseMessaging} />}
       </TabsContent>
       {isClient ? (
         <>
@@ -114,7 +114,7 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
         <>
           <TabsContent value="tasks" className="mt-4"><TasksTab data={data} /></TabsContent>
           <TabsContent value="attention" className="mt-4"><AttentionTab items={data.attentionItems} loading={collectesLoading || adminDataLoading} error={collectesError || adminDataError} /></TabsContent>
-          <TabsContent value="deadlines" className="mt-4"><DeadlinesTab deadlines={data.deadlines} loading={collectesLoading} error={collectesError} onRetry={onRetryCollectes} now={now} calendar={data.role === "admin"} /></TabsContent>
+          <TabsContent value="deadlines" className="mt-4"><DeadlinesTab deadlines={data.deadlines} loading={collectesLoading} error={collectesError} onRetry={onRetryCollectes} now={now} calendar={vueCabinet(data.role)} /></TabsContent>
           {data.role === "admin" && <TabsContent value="team" className="mt-4"><TeamTab members={data.team} counts={data.taskCounts} /></TabsContent>}
           <TabsContent value="activity" className="mt-4"><ActivityTab data={data} canUseMessaging={canUseMessaging} loading={adminDataLoading} error={journalError} /></TabsContent>
         </>

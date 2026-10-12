@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDashboardData, getDeadlineBucket, isOpenTask, isOverdueCollection, type DashboardDataInput } from "./dashboardData";
+import { buildDashboardData, getDeadlineBucket, isOpenTask, isOverdueCollection, vueCabinet, type DashboardDataInput } from "./dashboardData";
 import type { Collecte, Conversation, Societe, Tache } from "@/types";
 
 const NOW = new Date("2026-09-20T10:00:00");
@@ -147,5 +147,25 @@ describe("dashboard role and message metrics", () => {
       taches: [task("hidden", "en_cours")],
     }));
     expect(data.kpis.some((kpi) => kpi.id === "tasks" || kpi.id === "clients")).toBe(false);
+  });
+});
+
+describe("responsable des collaborateurs", () => {
+  it("a la présentation cabinet de l'administrateur, sans équipe, journal ni bordereaux", () => {
+    expect(vueCabinet("responsable")).toBe(true);
+    expect(vueCabinet("admin")).toBe(true);
+    expect(vueCabinet("collaborateur")).toBe(false);
+    expect(vueCabinet("societe_employe")).toBe(false);
+    const data = buildDashboardData(input({
+      role: "responsable",
+      viewerEmployeId: "resp-1",
+      taches: [{ ...task("a", "en_cours"), assigneId: "autre" }, task("b", "a_faire")],
+      collaborateurs: [{ id: "autre", nom: "Ktata", prenom: "Skander", role: "collaborateur", statut: "actif", societesAssignees: [] } as never],
+    }));
+    expect(data.taskRows).toHaveLength(2);
+    expect(data.otherTaskRows).toHaveLength(0);
+    expect(data.team).toHaveLength(0);
+    expect(data.journalEntries).toHaveLength(0);
+    expect(data.kpis.find((kpi) => kpi.id === "clients")?.label).toBe("Clients actifs");
   });
 });

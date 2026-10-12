@@ -143,6 +143,17 @@ insets are 20px, then 16px at 900px and 14px below 640px, with 12px gaps and
 - Admin bordereaux contribute an unpointed attention item and aggregate values.
   The cabinet aggregate remains an Admin-only item.
 
+### Responsable des collaborateurs
+
+- Role `responsable` (poste `responsable_collaborateurs`). It uses the **same
+  presentation as Admin** (`Tableau de bord du cabinet`, cabinet overview, Tâches
+  register of all accessible work, deadline calendar, `dashboard-admin` styling),
+  selected through `vueCabinet(role)` in `dashboardData.ts`.
+- Access is unchanged: it never loads the journal or the bordereaux
+  (`isAdmin` only), has no `Équipe` tab, no employee switch, no `Journal` activity
+  filter and no `Voir les bordereaux` quick action. Data remains whatever the
+  server scopes for the account.
+
 ### Collaborateur
 
 - Server-scoped assigned societies/tasks and accessible entities.

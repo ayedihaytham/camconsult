@@ -100,7 +100,9 @@ export function useDashboardData(selectedEmployeeId: string | null = null) {
     ? "admin"
     : poste === "societe_employe"
       ? "societe_employe"
-      : "collaborateur";
+      : poste === "responsable_collaborateurs"
+        ? "responsable"
+        : "collaborateur";
   const canUseMessaging = isAdmin || can("messagerie");
 
   const data = useMemo(() => {

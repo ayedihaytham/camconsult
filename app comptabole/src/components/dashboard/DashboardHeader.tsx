@@ -1,6 +1,6 @@
 import { LedgerCompactHeader } from "@/components/ledger/LedgerCompactHeader";
 import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
-import type { DashboardRole, DashboardViewModel } from "@/lib/dashboard/dashboardData";
+import { vueCabinet, type DashboardRole, type DashboardViewModel } from "@/lib/dashboard/dashboardData";
 import { formatNumber } from "@/lib/utils";
 
 interface DashboardHeaderProps {
@@ -19,10 +19,10 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ salutation, dateLabel, data, loading, role, canAddSociete, canUseMessaging, error = false, societeNom = null }: DashboardHeaderProps) {
   const companyView = role === "societe_employe";
-  const title = companyView ? salutation : societeNom ?? (role === "admin" ? "Tableau de bord du cabinet" : "Mon espace de travail");
+  const title = companyView ? salutation : societeNom ?? (vueCabinet(role) ? "Tableau de bord du cabinet" : "Mon espace de travail");
   const description = companyView
     ? "Voici les éléments utiles pour suivre vos échanges avec le cabinet."
-    : role === "admin" ? undefined
+    : vueCabinet(role) ? undefined
     : societeNom ? "Tâches, collectes et échéances de ce client." : "Reprendre, avancer et préparer les prochaines transmissions.";
   return (
     <LedgerCompactHeader

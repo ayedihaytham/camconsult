@@ -47,11 +47,14 @@ describe("Dashboard orchestration and roles", () => {
     expect(fetchBordereaux).toHaveBeenCalledTimes(1);
     expect(fetchJournal).toHaveBeenCalledTimes(1);
   });
-  it.each(["collaborateur", "responsable_collaborateurs"] as const)("keeps %s distinct from Admin", async (poste) => {
+  it.each([
+    ["collaborateur", "collaborateur"],
+    ["responsable_collaborateurs", "responsable"],
+  ] as const)("keeps %s distinct from Admin: no admin sources, no team, no employee switch", async (poste, role) => {
     useAuth.setState({ session: session(poste) });
     const { result } = renderHook(() => useDashboardData("emp-2"));
     await waitFor(() => expect(result.current.collectesLoading).toBe(false));
-    expect(result.current.role).toBe("collaborateur");
+    expect(result.current.role).toBe(role);
     expect(result.current.employeeOptions).toEqual([]);
     expect(result.current.data.team).toEqual([]);
     expect(fetchBordereaux).not.toHaveBeenCalled();

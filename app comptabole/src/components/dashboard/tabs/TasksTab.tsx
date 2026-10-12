@@ -2,12 +2,12 @@ import { useState } from "react";
 import { ArrowRight, Building2, FolderOpen, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { TaskRegister } from "../TaskRegister";
-import type { DashboardViewModel } from "@/lib/dashboard/dashboardData";
+import { vueCabinet, type DashboardViewModel } from "@/lib/dashboard/dashboardData";
 import "../tasks-workspace.css";
 import { AdminTasksTab } from "./AdminTasksTab";
 
 export function TasksTab({ data }: { data: DashboardViewModel }) {
-  return data.role === "admin" ? <AdminTasksTab data={data} /> : <InternalTasksTab data={data} />;
+  return vueCabinet(data.role) ? <AdminTasksTab data={data} /> : <InternalTasksTab data={data} />;
 }
 
 function InternalTasksTab({ data }: { data: DashboardViewModel }) {

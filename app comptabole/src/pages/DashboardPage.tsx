@@ -6,6 +6,7 @@ import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { SocieteShortcuts } from "@/components/dashboard/SocieteShortcuts";
 import { useDashboardData } from "@/hooks/dashboard/useDashboardData";
 import { usePermissions } from "@/hooks/usePermissions";
+import { vueCabinet } from "@/lib/dashboard/dashboardData";
 import { toTitleCase } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
 
@@ -44,7 +45,7 @@ export function DashboardPage() {
   const canAddSociete = !lectureSeule && (isAdmin || can("modifierSocietes"));
 
   return (
-    <div className={`dashboard-workspace min-w-0 space-y-4 ${role === "admin" ? "dashboard-admin" : ""}`}>
+    <div className={`dashboard-workspace min-w-0 space-y-4 ${vueCabinet(role) ? "dashboard-admin" : ""}`}>
       <DashboardHeader
         salutation={`${greeting(now)}${firstName ? ` ${firstName}` : ""}`}
         dateLabel={dateLabel}

@@ -12,7 +12,11 @@ import type {
   TacheStatut,
 } from "@/types";
 
-export type DashboardRole = "admin" | "collaborateur" | "societe_employe";
+/** `responsable` : le responsable des collaborateurs — même présentation que l'administrateur, mais sans journal, bordereaux ni vue Équipe. */
+export type DashboardRole = "admin" | "responsable" | "collaborateur" | "societe_employe";
+
+/** Présentation « cabinet » : l'administrateur et le responsable des collaborateurs. */
+export const vueCabinet = (role: DashboardRole) => role === "admin" || role === "responsable";
 export type DashboardTone = "neutral" | "primary" | "warning" | "destructive" | "success";
 
 export interface DashboardKpi {
@@ -452,7 +456,7 @@ export function buildDashboardData(source: DashboardDataInput): DashboardViewMod
   const employees = new Map(input.collaborateurs.map((employee) => [employee.id, `${employee.prenom} ${employee.nom}`]));
   const orderedTasks = [...input.taches].sort((a, b) => b.majLe.localeCompare(a.majLe) || b.creeLe.localeCompare(a.creeLe) || a.id.localeCompare(b.id));
   const row = (task: Tache): DashboardTaskRow => ({ ...task, societeName: societyNames.get(task.societeId) ?? "Société", assigneeName: employees.get(task.assigneId ?? "") ?? "Non attribuée" });
-  const taskRows = input.role === "societe_employe" ? [] : orderedTasks.filter((task) => input.role === "admin" || task.assigneId === input.viewerEmployeId).map(row);
+  const taskRows = input.role === "societe_employe" ? [] : orderedTasks.filter((task) => vueCabinet(input.role) || task.assigneId === input.viewerEmployeId).map(row);
   const otherTaskRows = input.role === "collaborateur" ? orderedTasks.filter((task) => task.assigneId !== input.viewerEmployeId).map(row) : [];
   const resumeTask = taskRows.find((task) => task.statut === "en_cours") ?? null;
   const deadlines = buildDeadlines(input.collectes, societyNames, input.now);
@@ -506,8 +510,8 @@ export function buildDashboardData(source: DashboardDataInput): DashboardViewMod
     : [
         {
           id: "clients",
-          label: input.role === "admin" ? "Clients actifs" : "Mes sociétés",
-          value: input.role === "admin" ? activeSocieties.length : input.societes.length,
+          label: vueCabinet(input.role) ? "Clients actifs" : "Mes sociétés",
+          value: vueCabinet(input.role) ? activeSocieties.length : input.societes.length,
           supportingText: `${input.societes.filter((societe) => isCurrentMonth(societe.creeLe, input.now)).length} ajoutées ce mois`,
         },
         {
@@ -521,7 +525,7 @@ export function buildDashboardData(source: DashboardDataInput): DashboardViewMod
         },
         {
           id: "tasks",
-          label: input.role === "admin" ? "Tâches ouvertes" : "Mes tâches ouvertes",
+          label: vueCabinet(input.role) ? "Tâches ouvertes" : "Mes tâches ouvertes",
           value: openTasks,
           supportingText: `${input.taches.filter((task) => isCurrentMonth(task.creeLe, input.now)).length} créées ce mois`,
         },

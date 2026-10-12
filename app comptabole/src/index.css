@@ -712,46 +712,46 @@
 .societes-ledger-page .ledger-work-surface .operational-ledger-toolbar input {
   border-radius: 10px;
 }
-.societes-ledger-page .ledger-work-surface .ledger-work-table thead tr {
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table thead tr {
   background: hsl(var(--primary)) !important;
 }
-.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density thead th {
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density thead th {
   height: 2.6rem;
   padding-inline: 0.75rem;
   border-bottom-color: hsl(var(--primary));
   border-right: 1px solid hsl(var(--primary-foreground) / 0.16);
   color: hsl(var(--primary-foreground) / 0.92);
   font-size: 0.68rem;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.07em;
   white-space: nowrap;
 }
-.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density thead th:last-child {
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density thead th:last-child {
   border-right: 0;
 }
-.societes-ledger-page .ledger-work-surface .ledger-work-table thead th svg {
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table thead th svg {
   color: hsl(var(--accent));
 }
-.societes-ledger-page .ledger-work-surface .ledger-work-table thead [role="checkbox"] {
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table thead [role="checkbox"] {
   border-color: hsl(var(--primary-foreground) / 0.8);
   background: hsl(var(--primary-foreground));
 }
-.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr {
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr {
   height: 3.6rem;
   border-bottom: 1px solid var(--soft-border);
 }
-.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr:last-child {
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr:last-child {
   border-bottom: 0;
 }
-.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr:nth-child(even) {
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr:nth-child(even) {
   background: color-mix(in srgb, hsl(var(--background)) 55%, hsl(var(--card)));
 }
-.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density tbody td {
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density tbody td {
   padding: 0.4rem 0.75rem;
 }
 /* Fine bande de couleur à gauche de chaque ligne, selon le statut de la société. */
-.societes-ledger-page tbody tr.societes-row--actif > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--success)); }
-.societes-ledger-page tbody tr.societes-row--en_attente > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--warning)); }
-.societes-ledger-page tbody tr.societes-row--inactif > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--muted-foreground) / 0.45); }
+:is(.societes-ledger-page, .employes-ledger-page) tbody tr.ledger-row--actif > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--success)); }
+:is(.societes-ledger-page, .employes-ledger-page) tbody tr.ledger-row--en_attente > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--warning)); }
+:is(.societes-ledger-page, .employes-ledger-page) tbody tr.ledger-row--inactif > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--muted-foreground) / 0.45); }
 .societes-ledger-page .societes-ledger-monogram {
   width: 2.5rem;
   height: 2.5rem;

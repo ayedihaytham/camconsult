@@ -126,13 +126,26 @@ const TOURS = {
       { target: "page-primary-action", title: "Ajouter", body: "Si vous avez les droits nécessaires, ajoutez une société depuis cette commande." },
     ],
   },
-  employes: registry(
-    "collaborateurs",
-    "Collaborateurs",
-    "Retrouvez les membres du cabinet et leur périmètre.",
-    "Ouvrez une ligne pour consulter les accès et les sociétés associés.",
-    "Ajoutez un collaborateur depuis cette commande si votre rôle le permet.",
-  ),
+  employes: {
+    id: "collaborateurs",
+    version: 2,
+    title: "Collaborateurs",
+    steps: [
+      { target: "page-identity", title: "Collaborateurs", body: "Retrouvez les membres du cabinet et leur périmètre. Les compteurs du bandeau filtrent la liste." },
+      {
+        target: responsiveSearch,
+        title: "Rechercher et filtrer",
+        body: "Saisissez un terme dans la recherche. Les filtres affinent la liste.",
+      },
+      { target: responsiveRows, title: "Ouvrir un collaborateur", body: "Ouvrez la fiche ou les accès d'un collaborateur depuis les boutons de sa ligne." },
+      {
+        target: responsivePagination,
+        title: "Parcourir la liste",
+        body: "Passez aux pages suivantes pour parcourir les autres résultats.",
+      },
+      { target: "page-primary-action", title: "Ajouter", body: "Ajoutez un collaborateur depuis cette commande si votre rôle le permet." },
+    ],
+  },
   taches: {
     id: "taches",
     version: 2,

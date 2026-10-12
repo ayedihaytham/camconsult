@@ -29,6 +29,7 @@ import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
+import { StatutIcone } from "@/components/ledger/StatutIcone";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
   LedgerWorkSurface,
@@ -108,22 +109,6 @@ function monogramTone(seed: string) {
     0,
   );
   return MONOGRAM_TONES[index % MONOGRAM_TONES.length];
-}
-
-const STATUT_ICONE = {
-  actif: { icone: CheckCircle2, libelle: "Actif", classe: "text-success" },
-  en_attente: { icone: Clock, libelle: "En attente", classe: "text-warning" },
-  inactif: { icone: PauseCircle, libelle: "Inactif", classe: "text-muted-foreground" },
-} as const;
-
-function StatutIcone({ statut }: { statut: Statut }) {
-  const { icone: Icone, libelle, classe } = STATUT_ICONE[statut];
-  return (
-    <span className={cn("inline-flex items-center gap-2 whitespace-nowrap text-[13px] font-semibold", statut === "inactif" ? "text-muted-foreground" : "text-foreground")}>
-      <Icone className={cn("size-4 shrink-0", classe)} aria-hidden="true" />
-      {libelle}
-    </span>
-  );
 }
 
 function BulkActionsMenu({
@@ -679,7 +664,7 @@ export function SocietesListPage() {
           </div>
         );
       },
-      meta: { label: "Société", icon: Building2, headerClassName: "w-[26%]" },
+      meta: { label: "Société", icon: Building2, headerClassName: "w-[24%] min-w-[14rem]" },
     },
     {
       id: "contactCle",
@@ -702,7 +687,7 @@ export function SocietesListPage() {
           </div>
         );
       },
-      meta: { label: "Contact", icon: User, headerClassName: "w-[16%]" },
+      meta: { label: "Contact", icon: User, headerClassName: "w-[15%] min-w-[10rem]" },
     },
     {
       id: "collecteMois",
@@ -730,7 +715,7 @@ export function SocietesListPage() {
           </span>
         );
       },
-      meta: { label: libelleCollecte, icon: ClipboardList, headerClassName: "w-[17%]" },
+      meta: { label: libelleCollecte, icon: ClipboardList, headerClassName: "w-[17%] min-w-[14.5rem]" },
     },
     {
       id: "tachesOuvertes",
@@ -1017,7 +1002,7 @@ export function SocietesListPage() {
         footer={<OperationalLedgerFooter table={table} itemLabel="sociétés" />}
         getRowClassName={(row) =>
           cn(
-            `societes-row--${row.original.statut}`,
+            `ledger-row--${row.original.statut}`,
             selectedIds.includes(row.original.id) && "bg-accent/[0.14] hover:bg-accent/[0.18]",
           )
         }

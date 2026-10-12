@@ -2,13 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import {
+  Building2,
+  CheckCircle2,
+  CircleDot,
   Copy,
   Eye,
   MoreHorizontal,
   Pencil,
   Printer,
   ShieldCheck,
+  ListChecks,
   Trash2,
+  User,
   Users,
   X,
 } from "lucide-react";
@@ -17,13 +22,13 @@ import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHe
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
+import { StatutIcone } from "@/components/ledger/StatutIcone";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
   LedgerWorkSurface,
-  OperationalContentHeader,
   OperationalLedgerPage,
   OperationalLedgerFooter,
   OperationalLedgerToolbar,
@@ -563,7 +568,7 @@ export function EmployesListPage() {
           </div>
         );
       },
-      meta: { label: "Collaborateur", headerClassName: "w-[31%]" },
+      meta: { label: "Collaborateur", icon: User, headerClassName: "w-[30%] min-w-[16rem]" },
     },
     {
       id: "perimetre",
@@ -594,20 +599,23 @@ export function EmployesListPage() {
           </div>
         );
       },
-      meta: { label: "Périmètre", headerClassName: "w-[25%]" },
+      meta: { label: "Périmètre", icon: Building2, headerClassName: "w-[22%] min-w-[12rem]" },
     },
     {
       id: "taches",
       accessorFn: (e) => openTaskCounts.get(e.id) ?? 0,
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Tâches ouvertes" />
+        <DataTableColumnHeader column={column} title="Tâches" />
       ),
-      cell: ({ row }) => (
-        <span className="text-sm font-semibold tabular-nums text-foreground">
-          {openTaskCounts.get(row.original.id) ?? 0}
-        </span>
-      ),
-      meta: { label: "Tâches ouvertes", headerClassName: "w-[13%]" },
+      cell: ({ row }) => {
+        const count = openTaskCounts.get(row.original.id) ?? 0;
+        return (
+          <span className={cn("text-[13px] font-bold tabular-nums", count === 0 ? "font-normal text-muted-foreground/50" : "text-primary")}>
+            {count}
+          </span>
+        );
+      },
+      meta: { label: "Tâches", icon: ListChecks, headerClassName: "w-24 text-right", cellClassName: "text-right" },
     },
     {
       id: "acces",
@@ -620,15 +628,15 @@ export function EmployesListPage() {
           {allowedPermissionCount(row.original)}/{PERMISSION_TOTAL} droits
         </span>
       ),
-      meta: { label: "Accès", headerClassName: "w-[13%]" },
+      meta: { label: "Accès", icon: ShieldCheck, headerClassName: "w-36" },
     },
     {
       accessorKey: "statut",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Statut" />
       ),
-      cell: ({ row }) => <StatutDot statut={row.original.statut} />,
-      meta: { label: "Statut", headerClassName: "w-[11%]" },
+      cell: ({ row }) => <StatutIcone statut={row.original.statut} />,
+      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-36" },
     },
     {
       id: "actions",
@@ -640,10 +648,29 @@ export function EmployesListPage() {
           className="flex justify-end"
           onClick={(event) => event.stopPropagation()}
         >
+          <span className="mr-1 hidden items-center gap-1.5 lg:flex">
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-accent bg-accent/15 px-2.5 text-xs font-semibold shadow-none hover:bg-accent/30" onClick={() => openView(row.original)}>
+              <Eye className="size-3.5" aria-hidden="true" />
+              Fiche
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 px-2.5 text-xs font-semibold shadow-none"
+              onClick={() => {
+                setAccesTarget(row.original);
+                setAccesOpen(true);
+              }}
+            >
+              <ShieldCheck className="size-3.5" aria-hidden="true" />
+              Accès
+            </Button>
+          </span>
           <LedgerRowMenu actions={employeMenuActions(row.original)} />
         </div>
       ),
-      meta: { headerClassName: "w-10", cellClassName: "w-10" },
+      meta: { headerClassName: "w-56", cellClassName: "w-56" },
     },
   ];
   const pageSize = useOperationalPageSize(8);
@@ -655,11 +682,6 @@ export function EmployesListPage() {
     pageSize,
     resetKey: `${search}\u0000${typeFilter}\u0000${statutFilter}`,
   });
-  const currentPageIds = table.getRowModel().rows.map((row) => row.original.id);
-  const currentPageSelected =
-    currentPageIds.length > 0 &&
-    currentPageIds.every((id) => selectedIds.includes(id));
-  const partlySelected = currentPageIds.some((id) => selectedIds.includes(id));
   const mobileSelecting = mobileSelectionMode || selectedIds.length > 0;
   const activeFilterCount =
     (typeFilter !== "all" ? 1 : 0) + (statutFilter !== "all" ? 1 : 0);
@@ -676,6 +698,7 @@ export function EmployesListPage() {
       placeholder="Rechercher un collaborateur, un identifiant…"
       searchLabel="Rechercher un collaborateur"
       filterLabel="Filtrer les collaborateurs"
+      filterButtonText="Filtres"
       activeFilterCount={activeFilterCount}
       onReset={() => {
         setTypeFilter("all");
@@ -776,17 +799,24 @@ export function EmployesListPage() {
         metrics={[
           {
             label: "Collaborateurs",
+            icon: Users,
             value: rows.length,
             loading: isDataLoading,
+            onSelect: () => setStatutFilter("all"),
+            active: statutFilter === "all",
           },
           {
             label: "Actifs",
+            icon: CheckCircle2,
             value: activeCount,
             tone: "success",
             loading: isDataLoading,
+            onSelect: () => setStatutFilter("actif"),
+            active: statutFilter === "actif",
           },
           {
             label: "Attributions sociétés",
+            icon: Building2,
             value: attributionCount,
             loading: isDataLoading,
           },
@@ -799,7 +829,7 @@ export function EmployesListPage() {
         <OperationalLedgerToolbar
           label="Outils du registre des collaborateurs"
           search={renderSearchFilter()}
-          resultCount={!isDataLoading ? `${filtered.length} collaborateurs` : undefined}
+          resultCount={!isDataLoading ? `${filtered.length} collaborateur${filtered.length > 1 ? "s" : ""}` : undefined}
           tools={desktopUtilityMenu}
         />
       )}
@@ -809,36 +839,6 @@ export function EmployesListPage() {
         </OperationalMobileUtility>
       )}
       <div className="employes-ledger-register">
-      <OperationalContentHeader className="hidden lg:flex">
-        <div className="flex min-w-0 items-center gap-2">
-          <Checkbox
-            checked={
-              currentPageSelected
-                ? true
-                : partlySelected
-                  ? "indeterminate"
-                  : false
-            }
-            onCheckedChange={() =>
-              setSelectedIds(
-                currentPageSelected
-                  ? selectedIds.filter((id) => !currentPageIds.includes(id))
-                  : [...new Set([...selectedIds, ...currentPageIds])],
-              )
-            }
-            aria-label="Sélectionner la page"
-            className="hidden lg:flex"
-          />
-          <h2>
-            <DataTableColumnHeader
-              column={table.getColumn("nom")!}
-              title="Registre équipe"
-              className="h-7 text-[11px] font-bold uppercase tracking-[0.12em] text-primary"
-            />
-          </h2>
-        </div>
-        <span className="text-xs text-muted-foreground">Registre équipe</span>
-      </OperationalContentHeader>
       <OperationalMobileHeader>
         <div className="min-w-0 flex-1">
           <h2>
@@ -959,15 +959,17 @@ export function EmployesListPage() {
         className="ledger-work-table bg-transparent [&>div:last-child]:space-y-0"
         desktopDensity="ledger"
         desktopVariant="register"
+        showSelectionHeader
         table={table}
         emptyMessage={emptyMessage}
         isLoading={isDataLoading}
         footer={<OperationalLedgerFooter table={table} itemLabel="collaborateurs" />}
         onRowClick={(row) => openView(row.original)}
         getRowClassName={(row) =>
-          selectedIds.includes(row.original.id)
-            ? "bg-accent/[0.10] hover:bg-accent/[0.14] [&>td:first-child]:border-l-2 [&>td:first-child]:border-accent"
-            : undefined
+          cn(
+            `ledger-row--${row.original.statut}`,
+            selectedIds.includes(row.original.id) && "bg-accent/[0.14] hover:bg-accent/[0.18]",
+          )
         }
         mobileRow={(row) => {
           const e = row.original;

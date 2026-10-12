@@ -40,7 +40,7 @@ export function DataTablePagination<TData>({
         )}
         {...props}
       >
-        {totalItems} {itemLabel}
+        {totalItems} {totalItems === 1 ? itemLabel.replace(/s$/, "") : itemLabel}
       </div>
     );
   }
@@ -51,7 +51,7 @@ export function DataTablePagination<TData>({
         className={cn("text-xs text-muted-foreground", className)}
         {...props}
       >
-        {range.firstItem}–{range.lastItem} sur {totalItems} {itemLabel}
+        {range.firstItem}–{range.lastItem} sur {totalItems} {totalItems === 1 ? itemLabel.replace(/s$/, "") : itemLabel}
       </div>
     );
   }
@@ -67,7 +67,7 @@ export function DataTablePagination<TData>({
           {...props}
         >
           <span className="truncate">
-            {range.firstItem}–{range.lastItem} sur {totalItems} {itemLabel}
+            {range.firstItem}–{range.lastItem} sur {totalItems} {totalItems === 1 ? itemLabel.replace(/s$/, "") : itemLabel}
           </span>
         </div>
       );
@@ -192,7 +192,7 @@ export function DataTablePagination<TData>({
         {...props}
       >
         <span className="min-w-0 truncate">
-          {range.firstItem}–{range.lastItem} sur {totalItems} {itemLabel}
+          {range.firstItem}–{range.lastItem} sur {totalItems} {totalItems === 1 ? itemLabel.replace(/s$/, "") : itemLabel}
         </span>
         {controls}
       </div>
@@ -208,7 +208,7 @@ export function DataTablePagination<TData>({
       {...props}
     >
       <span>
-        {range.firstItem}–{range.lastItem} sur {totalItems} {itemLabel}
+        {range.firstItem}–{range.lastItem} sur {totalItems} {totalItems === 1 ? itemLabel.replace(/s$/, "") : itemLabel}
       </span>
       {controls}
     </div>

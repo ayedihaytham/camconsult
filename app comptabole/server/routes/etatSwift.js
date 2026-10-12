@@ -27,10 +27,13 @@ function jour(d) {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 }
 
-/** Statut d'un virement d'après le total de ses factures : à justifier, en cours, justifié, ou écart (dépassement). */
-export function statutSwift(montant, justifie, nbFactures) {
+/** Statut d'un virement : à justifier (aucune facture), en cours, justifié ou écart (dépassement).
+ * Les factures sont comparées à l'équivalent en devise indiqué par la société, pas au montant en dinar ;
+ * tant que cet équivalent n'est pas indiqué, le virement ne peut pas être justifié. */
+export function statutSwift(equivalentDevise, justifieDevise, nbFactures) {
   if (nbFactures === 0) return "a_justifier";
-  const reste = r3(montant - justifie);
+  if (!(equivalentDevise > 0)) return "en_cours";
+  const reste = r3(equivalentDevise - justifieDevise);
   if (Math.abs(reste) < 0.0005) return "justifie";
   return reste < 0 ? "ecart" : "en_cours";
 }
@@ -49,6 +52,12 @@ const factureDto = (r) => ({
 function virementDto(r, factures) {
   const montant = Number(r.montant);
   const justifie = r3(factures.reduce((s, f) => s + Number(f.montant_tnd), 0));
+  const devise = r.devise || "";
+  const equivalentDevise = r.equivalent_devise == null ? null : Number(r.equivalent_devise);
+  // Seules les factures dans la devise du virement comptent dans la comparaison.
+  const justifieDevise = r3(
+    factures.filter((f) => !devise || String(f.devise).toUpperCase() === devise.toUpperCase()).reduce((s, f) => s + Number(f.montant_devise), 0),
+  );
   return {
     id: r.id,
     societeId: r.societe_id,
@@ -59,7 +68,11 @@ function virementDto(r, factures) {
     envoye: Boolean(r.envoye),
     justifie,
     reste: r3(montant - justifie),
-    statut: statutSwift(montant, justifie, factures.length),
+    devise,
+    equivalentDevise,
+    justifieDevise,
+    resteDevise: equivalentDevise > 0 ? r3(equivalentDevise - justifieDevise) : null,
+    statut: statutSwift(equivalentDevise, justifieDevise, factures.length),
     factures: factures.map(factureDto),
   };
 }
@@ -177,7 +190,7 @@ etatSwiftRouter.put("/:id/factures", async (req, res) => {
   if (!existant) return res.status(404).json({ error: "Virement introuvable" });
   if (!peutVoir(req.session, existant.societe_id) || (estClient(req.session) && !existant.envoye))
     return res.status(403).json({ error: "Accès non autorisé" });
-  const parsed = z.object({ factures: z.array(factureSchema).max(200) }).safeParse(req.body);
+  const parsed = z.object({ factures: z.array(factureSchema).max(200), equivalentDevise: z.coerce.number().min(0).optional(), devise: z.string().trim().max(8).transform((d) => d.toUpperCase()).optional() }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
   await withTransaction(async (client) => {
@@ -205,9 +218,19 @@ etatSwiftRouter.put("/:id/factures", async (req, res) => {
     }
   });
 
+  // Équivalent en devise du virement et devise : indiqués par la société, base de la comparaison.
+  let virementMaj = existant;
+  if (parsed.data.equivalentDevise !== undefined || parsed.data.devise !== undefined) {
+    virementMaj = (
+      await query(
+        "update swift_virements set equivalent_devise = $2, devise = $3, maj_le = now() where id = $1 returning *",
+        [existant.id, parsed.data.equivalentDevise !== undefined ? r3(parsed.data.equivalentDevise) : existant.equivalent_devise, parsed.data.devise ?? existant.devise],
+      )
+    ).rows[0];
+  }
   const factures = (await query("select * from swift_factures where virement_id = $1 order by ordre, cree_le", [existant.id])).rows;
-  const dto = virementDto(existant, factures);
-  logAction(req.session.nom, "modification", "etat_swift", `Factures de « ${existant.libelle} » : ${fmt(dto.justifie)} / ${fmt(dto.montant)} TND`, existant.id);
+  const dto = virementDto(virementMaj, factures);
+  logAction(req.session.nom, "modification", "etat_swift", `Factures de « ${existant.libelle} » : ${fmt(dto.justifieDevise)} / ${fmt(dto.equivalentDevise ?? 0)} ${dto.devise}`, existant.id);
 
   if (estClient(req.session)) {
     const nom = await societeNom(existant.societe_id);
@@ -216,7 +239,7 @@ etatSwiftRouter.put("/:id/factures", async (req, res) => {
     );
     const cabinet = (await concernedBySociete(existant.societe_id, { includeAdmin: true })).filter((k) => k !== notifKey(req.session) && !clientsIds.has(k));
     const titre = dto.statut === "justifie" ? `État SWIFT justifié : ${nom}` : `État SWIFT : factures reçues de ${nom}`;
-    notifyMany(cabinet, "swift", titre, `${existant.libelle} · ${fmt(dto.justifie)} / ${fmt(dto.montant)} TND`, `/etat-swift/${existant.societe_id}`);
+    notifyMany(cabinet, "swift", titre, `${existant.libelle} · ${fmt(dto.justifieDevise)} / ${fmt(dto.equivalentDevise ?? 0)} ${dto.devise}`, `/etat-swift/${existant.societe_id}`);
   }
   res.json(dto);
 });

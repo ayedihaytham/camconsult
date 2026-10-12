@@ -1110,6 +1110,11 @@ export interface SwiftVirement {
   envoye: boolean;
   justifie: number;
   reste: number;
+  /** Devise du virement et son équivalent, indiqués par la société : les factures sont comparées à ce montant, pas au dinar. */
+  devise: string;
+  equivalentDevise: number | null;
+  justifieDevise: number;
+  resteDevise: number | null;
   statut: SwiftStatut;
   factures: SwiftFacture[];
 }

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Coins, FileText, Hash, Paperclip, Plus, Repeat, Save, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AmountInput } from "@/components/common/AmountInput";
 import { api } from "@/lib/api";
 import { round3 } from "@/lib/amount";
@@ -20,7 +21,7 @@ interface Ligne extends SwiftFacture {
 let compteur = 0;
 const nouvelleCle = () => `l${++compteur}`;
 
-const vide = (): Ligne => ({ cle: nouvelleCle(), numFacture: "", montantDevise: 0, devise: "EUR", taux: 0, montantTnd: 0, tndManuel: false });
+const vide = (devise: string): Ligne => ({ cle: nouvelleCle(), numFacture: "", montantDevise: 0, devise, taux: 0, montantTnd: 0, tndManuel: false });
 
 /** Factures d'achat qui composent un virement SWIFT : une par ligne, jusqu'à atteindre le montant demandé. */
 export function SwiftFacturesEditor({
@@ -29,22 +30,32 @@ export function SwiftFacturesEditor({
   libelleBouton = "Envoyer au cabinet",
 }: {
   virement: SwiftVirement;
-  onSave: (factures: SwiftFacture[]) => Promise<void>;
+  onSave: (factures: SwiftFacture[], reference: { equivalentDevise: number; devise: string }) => Promise<void>;
   libelleBouton?: string;
 }) {
   const [lignes, setLignes] = useState<Ligne[]>(() =>
     virement.factures.map((f) => ({ ...f, cle: nouvelleCle(), tndManuel: f.montantTnd !== round3(f.montantDevise * f.taux) })),
   );
+  // Équivalent du virement en devise, indiqué par la société : les factures sont comparées à ce montant, pas au dinar.
+  const [equivalent, setEquivalent] = useState(virement.equivalentDevise ?? 0);
+  const [deviseRef, setDeviseRef] = useState(virement.devise || virement.factures[0]?.devise || "EUR");
   const [busy, setBusy] = useState(false);
   const [modifie, setModifie] = useState(false);
   const fichierRef = useRef<HTMLInputElement>(null);
   const [pieceCible, setPieceCible] = useState<string | null>(null);
 
-  const justifie = useMemo(() => round3(lignes.reduce((s, l) => s + (l.montantTnd || 0), 0)), [lignes]);
-  const reste = round3(virement.montant - justifie);
-  const atteint = Math.abs(reste) < 0.0005;
-  const depasse = reste < -0.0005;
-  const pct = virement.montant > 0 ? Math.min(100, Math.round((justifie / virement.montant) * 100)) : 0;
+  const justifieTnd = useMemo(() => round3(lignes.reduce((s, l) => s + (l.montantTnd || 0), 0)), [lignes]);
+  // Seules les factures dans la devise du virement comptent dans la comparaison.
+  const justifie = useMemo(
+    () => round3(lignes.filter((l) => l.devise.trim().toUpperCase() === deviseRef.trim().toUpperCase()).reduce((s, l) => s + (l.montantDevise || 0), 0)),
+    [lignes, deviseRef],
+  );
+  const autreDevise = lignes.some((l) => l.devise.trim().toUpperCase() !== deviseRef.trim().toUpperCase());
+  const reference = equivalent > 0;
+  const reste = reference ? round3(equivalent - justifie) : 0;
+  const atteint = reference && Math.abs(reste) < 0.0005;
+  const depasse = reference && reste < -0.0005;
+  const pct = reference ? Math.min(100, Math.round((justifie / equivalent) * 100)) : 0;
 
   function maj(cle: string, patch: Partial<Ligne>) {
     setModifie(true);
@@ -82,7 +93,10 @@ export function SwiftFacturesEditor({
     }
     setBusy(true);
     try {
-      await onSave(lignes.map(({ cle: _cle, tndManuel: _manuel, ...f }) => ({ ...f, numFacture: f.numFacture.trim() })));
+      await onSave(
+        lignes.map(({ cle: _cle, tndManuel: _manuel, ...f }) => ({ ...f, numFacture: f.numFacture.trim() })),
+        { equivalentDevise: equivalent, devise: deviseRef.trim().toUpperCase() },
+      );
       setModifie(false);
     } finally {
       setBusy(false);
@@ -91,6 +105,33 @@ export function SwiftFacturesEditor({
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-md border border-accent/40 bg-accent/10 px-3 py-2.5">
+        <div className="min-w-[220px] flex-1 space-y-1">
+          <Label htmlFor={`swift-equiv-${virement.id}`} className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <Coins className="size-3.5" aria-hidden="true" />
+            Équivalent du virement en devise
+          </Label>
+          <AmountInput id={`swift-equiv-${virement.id}`} className="text-right font-bold tabular-nums" value={equivalent} allowNegative={false} onValueChange={(v) => { setEquivalent(v); setModifie(true); }} />
+        </div>
+        <div className="w-28 space-y-1">
+          <Label htmlFor={`swift-devise-${virement.id}`} className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Devise</Label>
+          <Input
+            id={`swift-devise-${virement.id}`}
+            value={deviseRef}
+            maxLength={8}
+            onChange={(e) => {
+              const nouvelle = e.target.value.toUpperCase();
+              // Les factures qui étaient dans l'ancienne devise suivent le changement.
+              setLignes((ls) => ls.map((l) => (l.devise.trim().toUpperCase() === deviseRef.trim().toUpperCase() ? { ...l, devise: nouvelle } : l)));
+              setDeviseRef(nouvelle);
+              setModifie(true);
+            }}
+          />
+        </div>
+        <p className="min-w-[220px] flex-1 text-xs text-muted-foreground">
+          Indiquez à combien le virement de <b className="text-foreground">{montantSwift(virement.montant)} TND</b> correspond en devise : vos factures sont comparées à ce montant.
+        </p>
+      </div>
       <input
         ref={fichierRef}
         type="file"
@@ -152,7 +193,7 @@ export function SwiftFacturesEditor({
         </table>
       </div>
 
-      <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => { setModifie(true); setLignes((ls) => [...ls, vide()]); }}>
+      <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => { setModifie(true); setLignes((ls) => [...ls, vide(deviseRef.trim().toUpperCase() || "EUR")]); }}>
         <Plus className="size-4" aria-hidden="true" />
         Ajouter une facture
       </Button>
@@ -163,17 +204,21 @@ export function SwiftFacturesEditor({
             <div className={cn("h-full", atteint ? "bg-success" : depasse ? "bg-destructive" : "bg-accent")} style={{ width: `${pct}%` }} />
           </div>
           <p className={cn("mt-1 text-xs", depasse ? "text-destructive" : "text-muted-foreground")}>
-            {atteint
-              ? "Le total des factures atteint le montant demandé."
-              : depasse
-                ? `Dépassement de ${montantSwift(-reste)} TND : vérifiez les taux ou retirez une facture.`
-                : `${pct} % justifié · encore ${montantSwift(reste)} TND à couvrir avec d'autres factures`}
+            {!reference
+              ? "Indiquez d'abord l'équivalent du virement en devise : c'est avec lui que les factures sont comparées."
+              : atteint
+                ? `Le total des factures atteint l'équivalent demandé (${montantSwift(equivalent)} ${deviseRef}).`
+                : depasse
+                  ? `Dépassement de ${montantSwift(-reste)} ${deviseRef} : vérifiez les montants ou retirez une facture.`
+                  : `${pct} % justifié · encore ${montantSwift(reste)} ${deviseRef} à couvrir avec d'autres factures`}
+            {autreDevise && " Les factures dans une autre devise ne sont pas comptées."}
           </p>
         </div>
         <dl className="flex gap-5 text-xs text-muted-foreground">
-          <div><dt>Demandé</dt><dd className="text-[15px] font-bold tabular-nums text-foreground">{montantSwift(virement.montant)}</dd></div>
+          <div><dt>Équivalent ({deviseRef || "devise"})</dt><dd className="text-[15px] font-bold tabular-nums text-foreground">{reference ? montantSwift(equivalent) : "—"}</dd></div>
           <div><dt>Justifié</dt><dd className="text-[15px] font-bold tabular-nums text-foreground">{montantSwift(justifie)}</dd></div>
-          <div><dt>Reste</dt><dd className={cn("text-[15px] font-bold tabular-nums", atteint ? "text-success" : "text-warning")}>{montantSwift(Math.max(reste, 0))}</dd></div>
+          <div><dt>Reste</dt><dd className={cn("text-[15px] font-bold tabular-nums", atteint ? "text-success" : "text-warning")}>{reference ? montantSwift(Math.max(reste, 0)) : "—"}</dd></div>
+          <div title="Information : le total des factures converti au taux de chaque facture"><dt>≈ en dinar</dt><dd className="text-[15px] font-bold tabular-nums text-foreground">{montantSwift(justifieTnd)}</dd></div>
         </dl>
         <Button type="button" className="gap-2" disabled={busy || !modifie} onClick={() => void enregistrer()}>
           {libelleBouton.startsWith("Envoyer") ? <Send className="size-4" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}

@@ -25,7 +25,7 @@ interface EtatSwiftState {
   update: (id: string, data: Partial<VirementInput>) => Promise<void>;
   remove: (id: string) => Promise<void>;
   /** Remplace les factures d'un virement : la société les ajoute une à une jusqu'à atteindre le montant. */
-  saveFactures: (id: string, factures: SwiftFacture[]) => Promise<SwiftVirement>;
+  saveFactures: (id: string, factures: SwiftFacture[], reference?: { equivalentDevise: number; devise: string }) => Promise<SwiftVirement>;
 }
 
 export const useEtatSwift = create<EtatSwiftState>((set, get) => ({
@@ -72,9 +72,9 @@ export const useEtatSwift = create<EtatSwiftState>((set, get) => ({
     }
   },
 
-  saveFactures: async (id, factures) => {
+  saveFactures: async (id, factures, reference) => {
     try {
-      const v = await api.put<SwiftVirement>(`/etat-swift/${id}/factures`, { factures });
+      const v = await api.put<SwiftVirement>(`/etat-swift/${id}/factures`, { factures, ...reference });
       set({ virements: get().virements.map((x) => (x.id === id ? v : x)) });
       return v;
     } catch (err) {

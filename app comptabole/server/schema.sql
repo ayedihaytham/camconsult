@@ -1184,3 +1184,7 @@ create table if not exists swift_factures (
 );
 create index if not exists swift_virements_societe on swift_virements (societe_id);
 create index if not exists swift_factures_virement on swift_factures (virement_id);
+
+-- Équivalent en devise du virement, indiqué par la société : c'est avec lui que ses factures sont comparées (pas avec le dinar).
+alter table swift_virements add column if not exists equivalent_devise numeric;
+alter table swift_virements add column if not exists devise text not null default '';

@@ -17,14 +17,17 @@ import { SwiftVirementDialog } from "./SwiftVirementDialog";
 import type { SwiftVirement } from "@/types";
 
 function Barre({ virement }: { virement: SwiftVirement }) {
-  const pct = virement.montant > 0 ? Math.min(100, Math.round((virement.justifie / virement.montant) * 100)) : 0;
+  const ref = virement.equivalentDevise;
+  if (virement.factures.length === 0) return <p className="text-xs text-muted-foreground">En attente des factures de la société</p>;
+  if (!ref) return <p className="text-xs text-muted-foreground">Équivalent en devise pas encore indiqué</p>;
+  const pct = Math.min(100, Math.round((virement.justifieDevise / ref) * 100));
   return (
-    <div className="min-w-[120px]">
-      <div className="h-2 overflow-hidden rounded-full border border-border bg-muted" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Part du montant justifiée">
+    <div className="min-w-[140px]">
+      <div className="h-2 overflow-hidden rounded-full border border-border bg-muted" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Part de l'équivalent en devise justifiée">
         <div className={cn("h-full", virement.statut === "justifie" ? "bg-success" : virement.statut === "ecart" ? "bg-destructive" : "bg-accent")} style={{ width: `${pct}%` }} />
       </div>
       <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-        {montantSwift(virement.justifie)} · {pct} %{virement.statut === "en_cours" ? ` · reste ${montantSwift(virement.reste)}` : ""}
+        {montantSwift(virement.justifieDevise)} / {montantSwift(ref)} {virement.devise} · {pct} %
       </p>
     </div>
   );
@@ -48,8 +51,8 @@ export function EtatSwiftSocietePage() {
   }, [societeId, fetch, clear]);
 
   const totalMontant = useMemo(() => virements.reduce((s, v) => s + v.montant, 0), [virements]);
-  const totalReste = useMemo(() => virements.reduce((s, v) => s + Math.max(v.reste, 0), 0), [virements]);
   const nbJustifies = virements.filter((v) => v.statut === "justifie").length;
+  const nbAJustifier = virements.length - nbJustifies;
 
   // Le client ouvre d'office le premier virement qui attend ses factures.
   const premierAJustifier = virements.find((v) => v.statut !== "justifie")?.id ?? null;
@@ -67,13 +70,13 @@ export function EtatSwiftSocietePage() {
         isResponsableSociete
           ? [
               { label: "Virements", value: virements.length, icon: Globe, loading },
-              { label: "Reste à justifier (TND)", value: montantSwift(totalReste), icon: AlertCircle, tone: totalReste > 0 ? "warning" : "success", loading },
+              { label: "À justifier", value: nbAJustifier, icon: AlertCircle, tone: nbAJustifier > 0 ? "warning" : "success", loading },
             ]
           : [
               { label: "Virements SWIFT", value: virements.length, icon: Globe, loading },
               { label: "TND à justifier", value: montantSwift(totalMontant), icon: Coins, loading },
               { label: "Entièrement justifiés", value: `${nbJustifies} / ${virements.length}`, icon: CheckCircle2, tone: "success", loading },
-              { label: "TND encore à justifier", value: montantSwift(totalReste), icon: AlertCircle, tone: totalReste > 0 ? "warning" : "success", loading },
+              { label: "Virements à justifier", value: nbAJustifier, icon: AlertCircle, tone: nbAJustifier > 0 ? "warning" : "success", loading },
             ]
       }
       actions={
@@ -121,9 +124,15 @@ export function EtatSwiftSocietePage() {
                       {montantSwift(v.montant)}
                       <small className="ml-1 text-xs font-semibold text-muted-foreground">TND demandés</small>
                     </p>
-                    <div className="min-w-[140px]">
+                    <div className="min-w-[150px]">
                       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Reste à justifier</p>
-                      <p className={cn("text-[17px] font-bold tabular-nums", v.statut === "justifie" ? "text-success" : "text-warning")}>{montantSwift(Math.max(v.reste, 0))}</p>
+                      {v.resteDevise === null ? (
+                        <p className="text-[13px] font-semibold text-warning">Équivalent en devise à indiquer</p>
+                      ) : (
+                        <p className={cn("text-[17px] font-bold tabular-nums", v.statut === "justifie" ? "text-success" : "text-warning")}>
+                          {montantSwift(Math.max(v.resteDevise, 0))} <small className="text-xs font-semibold text-muted-foreground">{v.devise}</small>
+                        </p>
+                      )}
                     </div>
                     <Button variant={estOuvert ? "outline" : v.statut === "justifie" ? "outline" : "default"} className="gap-2" onClick={() => setOuvertId(estOuvert ? "" : v.id)}>
                       {v.statut === "justifie" ? <Eye className="size-4" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
@@ -134,10 +143,10 @@ export function EtatSwiftSocietePage() {
                     <div className="border-t border-border bg-muted/40 px-4 py-3">
                       <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Factures d'achat qui composent ce virement</h2>
                       <SwiftFacturesEditor
-                        key={`${v.id}-${v.factures.length}-${v.justifie}`}
+                        key={`${v.id}-${v.factures.length}-${v.justifie}-${v.equivalentDevise ?? 0}`}
                         virement={v}
-                        onSave={async (factures) => {
-                          const maj = await saveFactures(v.id, factures);
+                        onSave={async (factures, reference) => {
+                          const maj = await saveFactures(v.id, factures, reference);
                           toast.success(maj.statut === "justifie" ? "Virement justifié : le cabinet est prévenu" : "Factures envoyées au cabinet");
                         }}
                       />
@@ -262,8 +271,8 @@ export function EtatSwiftSocietePage() {
               <SwiftFacturesEditor
                 virement={voir}
                 libelleBouton="Enregistrer les corrections"
-                onSave={async (factures) => {
-                  const maj = await saveFactures(voir.id, factures);
+                onSave={async (factures, reference) => {
+                  const maj = await saveFactures(voir.id, factures, reference);
                   setVoir(maj);
                   toast.success("Factures enregistrées");
                 }}

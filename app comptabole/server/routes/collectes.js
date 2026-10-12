@@ -132,6 +132,13 @@ function isCabinetManager(session) {
   return session.role === "admin" || session.poste === "responsable_collaborateurs";
 }
 
+/** Récap (demandes au client) : l'administrateur et le responsable des collaborateurs. */
+function requireCabinetManager(req, res, next) {
+  if (!isCabinetManager(req.session))
+    return res.status(403).json({ error: "Réservé à l'administrateur ou au responsable des collaborateurs" });
+  next();
+}
+
 /** Qui peut écrire une note : le cabinet (admin/collaborateur) ou le client
  * de la société. */
 function canPostNote(session, societeId) {
@@ -737,7 +744,7 @@ collectesRouter.post("/:id/notes", async (req, res) => {
  * côté client, pas figées ici) — indépendant des autres tableaux, jamais
  * un envoi global pour toute la collecte.
  */
-collectesRouter.post("/:id/sections/:onglet/recap/send", requireAdmin, async (req, res) => {
+collectesRouter.post("/:id/sections/:onglet/recap/send", requireCabinetManager, async (req, res) => {
   const ctx = await chargerSection(req, res);
   if (!ctx) return;
   const { c, onglet, statut, socNom } = ctx;
@@ -801,7 +808,7 @@ collectesRouter.post("/:id/recap/submit", async (req, res) => {
 
 /** L'administrateur clôt le récap d'UN tableau précis
  * (retour à l'état normal). */
-collectesRouter.post("/:id/sections/:onglet/recap/close", requireAdmin, async (req, res) => {
+collectesRouter.post("/:id/sections/:onglet/recap/close", requireCabinetManager, async (req, res) => {
   const ctx = await chargerSection(req, res);
   if (!ctx) return;
   const { c, onglet, statut } = ctx;

@@ -72,12 +72,22 @@ async function post(path, body = {}) {
 }
 
 describe("collecte recap authorization and archive protection", () => {
-  it.each(["collaborateur", "responsable_collaborateurs", "societe_employe"])("rejects recap management by %s before reading or changing data", async (poste) => {
+  it.each(["collaborateur", "societe_employe"])("rejects recap management by %s before reading or changing data", async (poste) => {
     state.session = { role: "employe", poste, societeIds: ["s1"] };
     for (const action of ["send", "close"]) {
       expect((await post(`/sections/souche_cheques/recap/${action}`)).status).toBe(403);
     }
     expect(state.query).not.toHaveBeenCalled();
+  });
+
+  it("lets the responsable_collaborateurs manage the recap like the admin", async () => {
+    state.session = { role: "employe", poste: "responsable_collaborateurs", nom: "Responsable", societeIds: null };
+    const sent = await post("/sections/souche_cheques/recap/send", { count: 1 });
+    expect(sent.status).toBe(200);
+    expect(sent.body.sections[0]).toMatchObject({ recapStatut: "envoye" });
+    const closed = await post("/sections/souche_cheques/recap/close");
+    expect(closed.status).toBe(200);
+    expect(closed.body.sections[0]).toMatchObject({ recapStatut: "none" });
   });
 
   it.each(["send", "close"])("rejects %s for an archived collecte", async (action) => {

@@ -805,3 +805,13 @@ describe("Collecte : espace du collaborateur", () => {
     expect(screen.queryByRole("button", { name: "Enregistrer et voir le récap" })).toBeNull();
   });
 });
+
+describe("Collecte : espace du responsable des collaborateurs", () => {
+  it("arrive sur le Récap comme l'administrateur, et peut y revenir par un lien", () => {
+    perms.current = { isAdmin: false, poste: "responsable_collaborateurs", isCollaborateur: true, canManageCollaborateurs: true, canSeeSociete: () => true };
+    renderPage("/collectes/collecte-1?tab=recap");
+    expect(screen.getByRole("heading", { name: "Récap" })).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "Sections du dossier" });
+    expect(within(nav).getByRole("button", { name: /Récap/ })).toBeTruthy();
+  });
+});

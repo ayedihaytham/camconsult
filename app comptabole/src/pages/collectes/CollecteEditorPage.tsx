@@ -72,6 +72,8 @@ export function CollecteEditorPage() {
     isCollaborateur: isStaff,
     canManageCollaborateurs,
   } = usePermissions();
+  // Le Récap (demandes au client) est tenu par l'administrateur et par le responsable des collaborateurs.
+  const canRecap = isAdmin || canManageCollaborateurs;
   const societes = useSocietes();
 
   const collecte = useCollectes((s) => s.current);
@@ -151,15 +153,15 @@ export function CollecteEditorPage() {
     const requested = searchParams.get("tab");
     const client = poste === "societe_employe";
     const ordered = ordonnerTableaux(client ? tableauxVisiblesClient(collecte) : collecte.onglets);
-    const context = `${collecte.id}:${isAdmin}:${poste}`;
+    const context = `${collecte.id}:${canRecap}:${poste}`;
     const retainedDraft = client && dirtyTableau && collecte.onglets.includes(tab) && !TAB_BY_KEY[tab]?.cabinetSeul;
     const accessible = retainedDraft || ordered.includes(tab) || (client
       ? tab === "attente" && ordered.length === 0
-      : tab === "recap" ? isAdmin : ["checklist", "documents"].includes(tab) || (tab === "historique" && isStaff));
+      : tab === "recap" ? canRecap : ["checklist", "documents"].includes(tab) || (tab === "historique" && isStaff));
     // Une demande reçue en direct doit ouvrir un tableau même si le client attendait sans tableau.
     if (initializedFor.current === context && accessible) return;
     initializedFor.current = context;
-    const validRequested = (requested === "recap" && isAdmin) ||
+    const validRequested = (requested === "recap" && canRecap) ||
       (!client && ["checklist", "documents"].includes(requested ?? "")) ||
       (requested === "historique" && (isAdmin || isStaff)) ||
       (requested ? ordered.includes(requested) : false);
@@ -169,7 +171,7 @@ export function CollecteEditorPage() {
       : ordered.find((key) => sectionStatut(collecte, key) === "transmis") ?? ordered.find((key) => sectionStatut(collecte, key) === "a_corriger");
     const next = validRequested
       ? requested!
-      : client ? nextTarget ?? "attente" : isAdmin ? "recap" : nextTarget ?? "checklist";
+      : client ? nextTarget ?? "attente" : canRecap ? "recap" : nextTarget ?? "checklist";
     setTab(next);
     if (!validRequested && client && ordered.includes(next)) {
       const manque = computeManques(collecte).find((item) => item.onglet === next);
@@ -180,7 +182,7 @@ export function CollecteEditorPage() {
       updated.set("tab", next);
       return updated;
     }, { replace: true });
-  }, [collecte, searchParams, setSearchParams, isAdmin, isStaff, poste, tab, dirtyTableau]);
+  }, [collecte, searchParams, setSearchParams, isAdmin, canRecap, isStaff, poste, tab, dirtyTableau]);
 
   if (!collecte) {
     return (
@@ -239,7 +241,7 @@ export function CollecteEditorPage() {
     const st = sectionStatut(collecte, key);
     return !archivee && st !== "archive" && (isAdmin || isStaff || (isClient && sectionOuverte(st) && !TAB_BY_KEY[key]?.cabinetSeul));
   };
-  const canManageRecap = isAdmin;
+  const canManageRecap = canRecap;
   const requestedTables = isClient ? tableauxVisiblesClient(collecte) : collecte.onglets;
   const retainedDraft = isClient && dirtyTableau && collecte.onglets.includes(tab) && !TAB_BY_KEY[tab]?.cabinetSeul && !requestedTables.includes(tab);
   const visibleTables = retainedDraft ? [...requestedTables, tab] : requestedTables;
@@ -272,7 +274,7 @@ export function CollecteEditorPage() {
   const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
 
   function requestTab(next: string, forcer = false, target?: { ordre: number | null; col: string | null }) {
-    if (next === "recap" && !isAdmin) return;
+    if (next === "recap" && !canRecap) return;
     if (next === tab) return;
     if (savingDraft) return;
     // Un bordereau dont les chèques n'atteignent pas le montant annoncé : on prévient avant de passer à autre chose.
@@ -392,7 +394,7 @@ export function CollecteEditorPage() {
                   <DropdownMenuItem onSelect={() => void exportCollecteXlsx(collecte, socNom).catch(() => toast.error("Export impossible"))}>
                     <Download className="size-4" /> Tout en Excel
                   </DropdownMenuItem>
-                  {isAdmin && !archivee && liveManques.length > 0 && (
+                  {canRecap && !archivee && liveManques.length > 0 && (
                     <DropdownMenuItem onSelect={() => requestTab("__preview__")}>
                       <Eye className="size-4" /> {preview ? "Quitter l'aperçu client" : "Aperçu client"}
                     </DropdownMenuItem>
@@ -472,7 +474,7 @@ export function CollecteEditorPage() {
             collecte={collecte}
             active={tab}
             isClient={isClient}
-            canSeeRecap={isAdmin}
+            canSeeRecap={canRecap}
             canVerify={false}
             canSeeHistory={isAdmin || isStaff}
             missingByTable={manqueCount}
@@ -481,7 +483,7 @@ export function CollecteEditorPage() {
             onSelect={requestTab}
           />
           <main data-tour="collecte-content" className="min-w-0">
-            {isAdmin && (
+            {canRecap && (
               <TabsContent value="recap" className="m-0">
                 <RecapTab collecte={collecte} canManageRecap={canManageRecap} isClient={false} onNavigate={(key, target) => requestTab(key, false, target)} />
               </TabsContent>
@@ -719,7 +721,7 @@ export function CollecteEditorPage() {
                           highlight={hl}
                           wholeEditable={inRecap && whole}
                           focusTarget={focusTarget?.table === key ? focusTarget : undefined}
-                          saveAndContinue={isAdmin && editableTab(key) ? saveAndOpenRecap : undefined}
+                          saveAndContinue={canRecap && editableTab(key) ? saveAndOpenRecap : undefined}
                           continueLabel="Enregistrer et voir le récap"
                           workflowActions={
                             !preview && !retainedDraft && (isClient || sectionStatut(collecte, key) !== "a_corriger") && (!archivee || sectionStatut(collecte, key) === "archive") && !def.cabinetSeul && (

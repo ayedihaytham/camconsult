@@ -12,7 +12,8 @@ import { honoraireLignesDto, honoraireRecapDto, HONORAIRE_COLONNES_LEGERES } fro
 export const honorairesRouter = safeRouter(Router());
 honorairesRouter.use(requireAuth);
 
-const isResponsableSociete = (s) => s.poste === "societe_employe" && !s.delegue;
+// Responsable ET délégué de société ont les mêmes accès.
+const isResponsableSociete = (s) => s.poste === "societe_employe";
 const canRead = (s, societeId) =>
   s.role === "admin" ||
   (isResponsableSociete(s) && (s.societeIds || []).includes(societeId));

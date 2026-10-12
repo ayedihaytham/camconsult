@@ -51,7 +51,8 @@ const patchSchema = z.object({
 // - "societe" : données par un responsable de société à ses délégués. Le
 //   cabinet les voit (sur les sociétés de son périmètre) mais en lecture seule.
 const isSocieteSide = (s) => s.poste === "societe_employe";
-const isResponsableSociete = (s) => isSocieteSide(s) && !s.delegue;
+// Le délégué a les mêmes accès que le responsable de société.
+const isResponsableSociete = (s) => isSocieteSide(s);
 const ownSociete = (s, societeId) => (s.societeIds || []).includes(societeId);
 // Le responsable des collaborateurs gère le circuit cabinet au même titre
 // que l'admin (création, visibilité de toute l'équipe, statuts) — seule la
@@ -64,19 +65,12 @@ export async function tachesVisibles(s) {
   if (isCabinetManager(s))
     return (await query("select * from taches order by cree_le desc")).rows;
   if (isSocieteSide(s)) {
-    return s.delegue
-      ? (
-          await query(
-            "select * from taches where origine = 'societe' and assigne_id = $1 order by cree_le desc",
-            [s.employeId],
-          )
-        ).rows
-      : (
-          await query(
-            "select * from taches where origine = 'societe' and societe_id = any($1::uuid[]) order by cree_le desc",
-            [s.societeIds ?? []],
-          )
-        ).rows;
+    return (
+      await query(
+        "select * from taches where origine = 'societe' and societe_id = any($1::uuid[]) order by cree_le desc",
+        [s.societeIds ?? []],
+      )
+    ).rows;
   }
   // Cabinet (collaborateur, responsable des collaborateurs) : ses tâches +
   // celles des sociétés qu'il suit, données en interne par leur responsable.

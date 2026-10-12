@@ -12,9 +12,9 @@ import { randomUUID } from "node:crypto";
 export const stockRouter = Router();
 stockRouter.use(requireAuth);
 
-/** Stock = données comptables internes : admin + collaborateurs de la société. Jamais le client. */
+/** Stock = données comptables internes : admin + responsable des collaborateurs (toutes les sociétés) + collaborateurs de la société. Jamais le client. */
 function canAccess(session, societeId) {
-  if (session.role === "admin") return true;
+  if (session.role === "admin" || session.poste === "responsable_collaborateurs") return true;
   if (session.poste === "societe_employe") return false;
   return (session.societeIds || []).includes(societeId);
 }

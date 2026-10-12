@@ -14,7 +14,7 @@ fournisseursRouter.use(requireAuth);
 const inScope = (s, societeId) => s.role === "admin" || (s.societeIds || []).includes(societeId);
 const canWrite = (s, societeId) => s.poste !== "societe_employe" && inScope(s, societeId);
 const canRead = (s, societeId) =>
-  canWrite(s, societeId) || (s.poste === "societe_employe" && !s.delegue && inScope(s, societeId));
+  canWrite(s, societeId) || (s.poste === "societe_employe" && inScope(s, societeId));
 
 const r3 = (n) => Math.round((Number(n) + Number.EPSILON) * 1000) / 1000;
 

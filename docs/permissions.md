@@ -78,8 +78,8 @@ requests and out-of-scope society IDs.
 
 ## Suivi fournisseur
 
-- Lecture : admin, collaborateurs de la société et responsable de la société cliente (jamais un
-  délégué). Écriture : admin et collaborateurs de la société — `server/routes/fournisseurs.js`
+- Lecture : admin, collaborateurs de la société et responsable ou délégué de la société cliente
+  (mêmes accès pour les deux). Écriture : admin et collaborateurs de la société — `server/routes/fournisseurs.js`
   (`canRead` / `canWrite`). Le menu et la route (`RequireSuiviFournisseur`) ne font que refléter ces règles.
 - Un règlement ne peut couvrir que des factures de la même société, du même fournisseur et de la
   même devise, sans dépasser le solde de chaque facture.
@@ -87,7 +87,7 @@ requests and out-of-scope society IDs.
 ## Suivi bancaire
 
 - Mêmes règles que le suivi fournisseur : lecture pour l'admin, les collaborateurs de la société et
-  le responsable de la société cliente (jamais un délégué), écriture pour l'admin et les
+  le responsable ou le délégué de la société cliente, écriture pour l'admin et les
   collaborateurs — `server/routes/banque.js`.
 - Un règlement fournisseur ne peut être rapproché que d'un mouvement bancaire de sa société, et un
   mouvement ne règle qu'un seul règlement.
@@ -98,8 +98,8 @@ requests and out-of-scope society IDs.
   uniquement — `server/routes/honoraires.js`, `requireAdmin` sur chaque route
   d'écriture.
 - Lecture seule (liste + téléchargement des pièces jointes) : admin, et le
-  **responsable de la société concernée** (`poste === "societe_employe"`,
-  jamais un délégué, jamais une autre société — `canRead` côté serveur,
+  **responsable ou délégué de la société concernée** (`poste === "societe_employe"`,
+  jamais une autre société — `canRead` côté serveur,
   `RequireEtatClient` + redirection vers sa société côté client).
 - Le contenu d'une pièce jointe n'est jamais dans les listes : chargé à la
   demande via `GET /honoraires/:id/piece` (même contrôle d'accès).
@@ -110,3 +110,8 @@ requests and out-of-scope society IDs.
   (`requireAuth` + `requireAdmin` sur tout le routeur), routes client sous
   `RequireAdmin` (`/souche-cheques`, `/souche-cheques/:societeId`) et entrée de
   menu `adminOnly`. Aucun accès collaborateur, responsable ou société.
+
+## Délégué de société et gestion de stock
+
+- Le délégué de société a exactement les mêmes accès et les mêmes vues que le responsable de société (`isResponsableSociete` côté client, `isSocieteSide` côté serveur) ; seul son libellé change.
+- Gestion de stock : admin et responsable des collaborateurs (toutes les sociétés), collaborateurs sur leurs sociétés — `canAccess` dans `server/routes/stock.js`. Jamais le client.

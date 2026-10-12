@@ -58,7 +58,7 @@ The backend lives in `app comptabole/server/`:
   `/etats-financiers`, `/etats-financiers/:societeId`, its print route and
   balance editor route.
 - Suivi fournisseur (`RequireSuiviFournisseur`): `/fournisseurs`, `/fournisseurs/:societeId` —
-  the team writes, a société responsable reads only their own société (never a délégué).
+  the team writes, a société responsable or délégué reads only their own société.
   Purchase invoices are the achat side of `stock_mouvements`; only règlements
   (`fournisseur_reglements` + `fournisseur_affectations`) and proforma/chargement notes
   (`fournisseur_suivi`) are stored. API: `server/routes/fournisseurs.js`.

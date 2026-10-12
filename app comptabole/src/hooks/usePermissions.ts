@@ -64,7 +64,8 @@ export function usePermissions(): PermissionContext {
     lectureSeule: Boolean(session.lectureSeule) || poste === "societe_employe",
     isCollaborateur: poste === "collaborateur" || seesAllSocietes,
     canManageCollaborateurs: seesAllSocietes,
-    isResponsableSociete: poste === "societe_employe" && !session.delegue,
+    // Le délégué a les mêmes accès et les mêmes vues que le responsable de société.
+    isResponsableSociete: poste === "societe_employe",
     isDelegue: poste === "societe_employe" && Boolean(session.delegue),
   };
 }

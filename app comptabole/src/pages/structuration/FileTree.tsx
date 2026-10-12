@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import {
   ChevronRight,
   Folder,
@@ -58,6 +58,10 @@ interface FileTreeProps {
   onDuplicate?: (node: Noeud) => void;
   /** Afficher la société de chaque arborescence racine. */
   afficherSociete?: boolean;
+  /** Présentation du responsable de société : tout tient dans une seule carte, barre de recherche en tête, arbre à la société. */
+  variante?: "cabinet" | "client";
+  /** Barre affichée en tête de la carte (variante « client »). */
+  barre?: ReactNode;
 }
 
 export function FileTree({
@@ -80,7 +84,10 @@ export function FileTree({
   onSelectedIdsChange,
   onDuplicate,
   afficherSociete = false,
+  variante = "cabinet",
+  barre,
 }: FileTreeProps) {
+  const client = variante === "client";
   const societes = useSocietes();
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | "root" | null>(null);
@@ -146,6 +153,10 @@ export function FileTree({
     }
     return chaine.join(" › ");
   };
+  const nomRacine = client
+    ? societes.find((s) => s.id === nodes.find((n) => n.societeId)?.societeId)?.raisonSociale ?? "Documents"
+    : "Racine";
+  const totalFichiers = useMemo(() => nodes.filter((n) => n.type === "fichier").length, [nodes]);
   const selection = new Set(selectedIds ?? []);
   const basculerSelection = (id: string) => {
     if (!onSelectedIdsChange) return;
@@ -206,12 +217,14 @@ export function FileTree({
       : {};
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+    <div className={client ? "overflow-hidden rounded-sm border border-border bg-card" : undefined}>
+    {client && barre}
+    <div className={cn("grid", client ? "lg:grid-cols-[240px_1fr]" : "gap-4 lg:grid-cols-[280px_1fr]")}>
       {/* Colonne arbre */}
-      <div className="rounded-sm border border-border bg-card p-2">
-        <div className="flex items-center justify-between px-2 py-1.5">
+      <div className={client ? "border-b border-border bg-muted/40 p-2 lg:border-b-0 lg:border-r" : "rounded-sm border border-border bg-card p-2"}>
+        {(!client || canCreate) && <div className="flex items-center justify-between px-2 py-1.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Arborescence
+            {client ? "Dossiers" : "Arborescence"}
           </span>
           {canCreate && (
             <Button
@@ -223,18 +236,19 @@ export function FileTree({
               <FolderPlus className="h-4 w-4" />
             </Button>
           )}
-        </div>
+        </div>}
         <button
           onClick={() => onNavigate(null)}
           {...dropProps(null, "root")}
           className={cn(
             "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-secondary",
-            currentId === null && "bg-secondary font-medium",
+            currentId === null && (client ? "bg-accent/15 font-semibold" : "bg-secondary font-medium"),
             dropTarget === "root" && "ring-2 ring-accent",
           )}
         >
           <Home className="h-4 w-4 text-muted-foreground" />
-          Racine
+          <span className="min-w-0 flex-1 truncate text-left">{nomRacine}</span>
+          {client && <span className="text-xs font-normal text-muted-foreground">{totalFichiers}</span>}
         </button>
         <div className="mt-1 space-y-0.5">
           {childrenOf(null)
@@ -250,13 +264,14 @@ export function FileTree({
                 dragProps={dragProps}
                 dropProps={dropProps}
                 dropTarget={dropTarget}
+                compteur={client ? (id) => contenus.get(id)?.fichiers ?? 0 : undefined}
               />
             ))}
         </div>
       </div>
 
       {/* Colonne contenu */}
-      <div className="rounded-sm border border-border bg-card">
+      <div className={client ? "min-w-0" : "rounded-sm border border-border bg-card"}>
         {/* Fil d'Ariane */}
         <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-3 text-sm">
           <button
@@ -264,7 +279,7 @@ export function FileTree({
             className="flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <Home className="h-3.5 w-3.5" />
-            Racine
+            {nomRacine}
           </button>
           {breadcrumb.map((n) => (
             <Fragment key={n.id}>
@@ -313,7 +328,7 @@ export function FileTree({
         )}
 
         {/* Bandeau société courante */}
-        {!resultats && currentId && breadcrumb[0]?.societeId && (
+        {!client && !resultats && currentId && breadcrumb[0]?.societeId && (
           <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
             <Building2 className="h-3.5 w-3.5" />
             Dossier rattaché à{" "}
@@ -402,7 +417,13 @@ export function FileTree({
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
                     {isFolder ? (
-                      <Folder className="h-4 w-4 shrink-0 fill-accent/40 text-accent" />
+                      client ? (
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/15">
+                          <Folder className="h-4 w-4 fill-accent/40 text-accent" />
+                        </span>
+                      ) : (
+                        <Folder className="h-4 w-4 shrink-0 fill-accent/40 text-accent" />
+                      )
                     ) : (
                       <FileTypeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
@@ -413,6 +434,11 @@ export function FileTree({
                       {(resultats || (afficherSociete && n.parentId === null)) && (
                         <span className="block truncate text-xs text-muted-foreground">
                           {resultats && n.parentId ? cheminDe(n) : societes.find((x) => x.id === n.societeId)?.raisonSociale ?? "Modèle générique"}
+                        </span>
+                      )}
+                      {client && isFolder && contenus.get(n.id) && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {contenus.get(n.id)!.fichiers} fichier{contenus.get(n.id)!.fichiers > 1 ? "s" : ""}
                         </span>
                       )}
                       {n.description && (
@@ -429,7 +455,7 @@ export function FileTree({
                     </span>
                   )}
 
-                  {isFolder && contenus.get(n.id) && (
+                  {!client && isFolder && contenus.get(n.id) && (
                     <span className="hidden shrink-0 whitespace-nowrap text-xs text-muted-foreground md:block">
                       {contenus.get(n.id)!.dossiers} dossier{contenus.get(n.id)!.dossiers > 1 ? "s" : ""} · {contenus.get(n.id)!.fichiers} fichier{contenus.get(n.id)!.fichiers > 1 ? "s" : ""}
                     </span>
@@ -536,6 +562,7 @@ export function FileTree({
         )}
       </div>
     </div>
+    </div>
   );
 }
 
@@ -554,6 +581,7 @@ function TreeBranch({
   dragProps,
   dropProps,
   dropTarget,
+  compteur,
 }: {
   node: Noeud;
   depth: number;
@@ -563,6 +591,8 @@ function TreeBranch({
   dragProps: DragPropsFn;
   dropProps: DropPropsFn;
   dropTarget: string | "root" | null;
+  /** Nombre de fichiers d'un dossier, affiché à droite de son nom. */
+  compteur?: (id: string) => number;
 }) {
   const subFolders = childrenOf(node.id).filter((n) => n.type === "dossier");
   const hasChildren = subFolders.length > 0;
@@ -576,7 +606,7 @@ function TreeBranch({
         {...dropProps(node.id, node.id)}
         className={cn(
           "flex items-center rounded-md text-sm transition-colors hover:bg-secondary",
-          active && "bg-secondary font-medium",
+          active && (compteur ? "bg-accent/15 font-semibold" : "bg-secondary font-medium"),
           dropTarget === node.id && "ring-2 ring-inset ring-accent",
         )}
         style={{ paddingLeft: depth * 12 }}
@@ -604,7 +634,8 @@ function TreeBranch({
           ) : (
             <Folder className="h-4 w-4 shrink-0 fill-accent/40 text-accent" />
           )}
-          <span className="truncate">{node.libelle}</span>
+          <span className="min-w-0 flex-1 truncate">{node.libelle}</span>
+          {compteur && <span className="text-xs font-normal text-muted-foreground">{compteur(node.id)}</span>}
         </button>
       </div>
       {open &&
@@ -619,6 +650,7 @@ function TreeBranch({
             dragProps={dragProps}
             dropProps={dropProps}
             dropTarget={dropTarget}
+            compteur={compteur}
           />
         ))}
     </div>

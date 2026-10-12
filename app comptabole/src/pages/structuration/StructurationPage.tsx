@@ -2,10 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
+  Download,
   FolderTree,
   Layers,
+  MoreHorizontal,
   Network,
   Plus,
+  Printer,
+  Search,
 } from "lucide-react";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { LedgerToolbar } from "@/components/ledger/LedgerToolbar";
@@ -14,6 +18,12 @@ import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -33,7 +43,7 @@ import {
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { provisionnerArborescenceSociete } from "@/lib/classement";
 import { printTable } from "@/lib/print";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { useData, useNoeuds, useSocietes } from "@/store/data";
 import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { useSocieteActiveStore } from "@/store/societeActive";
@@ -62,7 +72,9 @@ export function StructurationPage() {
 
   const allNodes = useNoeuds();
   const societes = useSocietes();
-  const { isAdmin, can, canSeeSociete } = usePermissions();
+  const { isAdmin, can, canSeeSociete, poste } = usePermissions();
+  // Le responsable de société a une présentation plus simple : une seule société, donc ni filtre société ni filtre date.
+  const estClient = poste === "societe_employe";
   const canCreate = isAdmin || can("deposerFichiers");
   // Un compte qui n'a qu'une société n'a rien à filtrer par société.
   const filtreSocieteUtile = isAdmin || societes.filter((s) => canSeeSociete(s.id)).length > 1;
@@ -521,7 +533,7 @@ export function StructurationPage() {
 
       {tab === "documents" && (
         <div data-tour="structuration-content" className="mt-3 flex flex-1 flex-col gap-3">
-          <div data-tour="structuration-search"><LedgerToolbar
+          {!estClient && <div data-tour="structuration-search"><LedgerToolbar
             search={search}
             onSearchChange={setSearch}
             searchPlaceholder="Rechercher un dossier ou un fichier…"
@@ -580,7 +592,7 @@ export function StructurationPage() {
                 </Select>
               </>
             }
-          /></div>
+          /></div>}
 
           {nodes.length === 0 ? (
             <LedgerSheet className="flex-1">
@@ -606,6 +618,63 @@ export function StructurationPage() {
               selectedIds={selectedIds}
               onSelectedIdsChange={setSelectedIds}
               afficherSociete={filtreSocieteUtile}
+              variante={estClient ? "client" : "cabinet"}
+              barre={
+                estClient ? (
+                  <div data-tour="structuration-search" className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+                    <div className="relative min-w-[12rem] max-w-[460px] flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Rechercher un dossier ou un fichier"
+                        aria-label="Rechercher un dossier ou un fichier"
+                        className="h-10 bg-muted/40 pl-9"
+                      />
+                    </div>
+                    <div role="group" aria-label="Type d'élément" className="flex items-center gap-1">
+                      {([
+                        ["all", "Tout"],
+                        ["dossier", "Dossiers"],
+                        ["fichier", "Fichiers"],
+                      ] as const).map(([valeur, libelle]) => (
+                        <button
+                          key={valeur}
+                          type="button"
+                          aria-pressed={typeFilter === valeur}
+                          onClick={() => setTypeFilter(valeur)}
+                          className={cn(
+                            "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
+                            typeFilter === valeur
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+                          )}
+                        >
+                          {libelle}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex-1" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon" aria-label="Plus d'actions">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleExport("xlsx")}>
+                          <Download className="h-4 w-4" />
+                          Exporter la liste
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handlePrint}>
+                          <Printer className="h-4 w-4" />
+                          Imprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ) : undefined
+              }
               onNavigate={(id) => {
                 setCurrentFolder(id);
                 // Ouvrir un dossier depuis les résultats quitte la recherche, pour en voir le contenu.

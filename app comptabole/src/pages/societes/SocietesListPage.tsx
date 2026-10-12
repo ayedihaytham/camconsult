@@ -12,13 +12,12 @@ import {
   Settings2,
   Trash2,
   Eye,
-  LayoutList,
-  Plus,
-  Table2,
+  Building2,
 } from "lucide-react";
 import type { ColumnDef, Table as TanstackTable } from "@tanstack/react-table";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
@@ -70,12 +69,13 @@ import {
   nextSocieteCode,
 } from "@/store/data";
 import { useCollectes } from "@/store/collectes";
+import { COLLECTE_STATUT_LABELS } from "@/lib/collecte/tabs";
+import { periodeMois } from "@/lib/collecte/periodes";
 import { usePermissions } from "@/hooks/usePermissions";
 import { logJournal } from "@/store/journal";
-import type { Societe, SocieteTheme, Statut } from "@/types";
+import type { Collecte, Societe, SocieteTheme, Statut } from "@/types";
 import { SocieteFormSheet, type SocieteFormValues } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
-import { SocietesFiches, type SocieteIndicateurs } from "./SocietesFiches";
 
 const MONOGRAM_TONES = [
   "border-primary/15 bg-primary/[0.07] text-primary",
@@ -317,39 +317,41 @@ export function SocietesListPage() {
     }
     return counts;
   }, [voitTaches, taches]);
-  const indicateurs = useMemo(() => {
-    const map = new Map<string, SocieteIndicateurs>();
-    for (const societe of rows) {
-      map.set(societe.id, {
-        taches: voitTaches ? 0 : null,
-        collectes: voitTaches ? 0 : null,
-        aExaminer: 0,
-        dossiers: 0,
-        contacts: contactCount.get(societe.id) ?? 0,
-      });
-    }
-    for (const [id, nombre] of openTaskCount) {
-      const ligne = map.get(id);
-      if (ligne) ligne.taches = nombre;
-    }
+  const dossiersParSociete = useMemo(() => {
+    const map = new Map<string, number>();
     for (const noeud of noeuds) {
-      if (noeud.type === "dossier" && noeud.societeId) {
-        const ligne = map.get(noeud.societeId);
-        if (ligne) ligne.dossiers += 1;
-      }
+      if (noeud.type === "dossier" && noeud.societeId) map.set(noeud.societeId, (map.get(noeud.societeId) ?? 0) + 1);
     }
-    if (voitTaches) {
-      for (const collecte of collectes) {
-        const ligne = map.get(collecte.societeId);
-        if (!ligne) continue;
-        if (collecte.statut !== "valide" && collecte.statut !== "archive") ligne.collectes = (ligne.collectes ?? 0) + 1;
-        ligne.aExaminer += collecte.tableauxTransmis ?? 0;
+    return map;
+  }, [noeuds]);
+  // Contact affiché : le responsable de la société (sinon un délégué), avec le nombre de délégués.
+  const contactPrincipal = useMemo(() => {
+    const map = new Map<string, { nom: string; role: "Responsable" | "Délégué"; delegues: number }>();
+    for (const e of employes) {
+      if (e.role !== "societe_employe" || !e.societeId) continue;
+      const actuel = map.get(e.societeId);
+      if (!e.delegue) {
+        map.set(e.societeId, { nom: `${e.prenom} ${e.nom}`, role: "Responsable", delegues: actuel?.delegues ?? 0 });
+      } else if (!actuel) {
+        map.set(e.societeId, { nom: `${e.prenom} ${e.nom}`, role: "Délégué", delegues: 0 });
+      } else {
+        actuel.delegues += 1;
       }
     }
     return map;
-  }, [rows, voitTaches, contactCount, openTaskCount, noeuds, collectes]);
-  const [vue, setVue] = useState<"fiches" | "tableau">("fiches");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  }, [employes]);
+  // Collecte du mois en cours, par société (statuts réels : brouillon, transmise, à corriger, validée).
+  const moisCourant = periodeMois(new Date());
+  const collecteDuMois = useMemo(() => {
+    const map = new Map<string, Collecte>();
+    for (const collecte of collectes) {
+      if (collecte.statut === "archive" || collecte.periode.trim().toLowerCase() !== moisCourant.toLowerCase()) continue;
+      if (!map.has(collecte.societeId)) map.set(collecte.societeId, collecte);
+    }
+    return map;
+  }, [collectes, moisCourant]);
+  const moisNom = moisCourant.split(" ")[0].toLowerCase();
+  const libelleCollecte = `Collecte ${/^[aeiouhéèêàâîôû]/i.test(moisNom) ? "d'" : "de "}${moisNom}`;
   const [search, setSearch] = useState("");
   const [themeFilter, setThemeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
@@ -652,38 +654,61 @@ export function SocietesListPage() {
           </div>
         );
       },
-      meta: { label: "Société", headerClassName: "w-[42%]" },
+      meta: { label: "Société", headerClassName: "w-[30%]" },
     },
     {
       id: "contactCle",
-      accessorFn: (societe) => contactCount.get(societe.id) ?? 0,
+      accessorFn: (societe) => contactPrincipal.get(societe.id)?.nom.toLowerCase() ?? "",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Contact clé" />
+        <DataTableColumnHeader column={column} title="Contact" />
       ),
       cell: ({ row }) => {
-        const count = contactCount.get(row.original.id) ?? 0;
-        if (count === 0) {
+        const contact = contactPrincipal.get(row.original.id);
+        if (!contact) {
           return <span className="text-xs text-muted-foreground">Aucun contact</span>;
         }
-
         return (
           <div className="min-w-0">
-            <p className="societes-ledger-contact truncate text-xs font-medium text-foreground">
-              Contact clé non désigné
-            </p>
+            <p className="societes-ledger-contact truncate text-[13px] font-medium text-foreground">{contact.nom}</p>
             <p className="societes-ledger-meta truncate text-[11px] text-muted-foreground">
-              {count} contact{count > 1 ? "s" : ""} enregistré{count > 1 ? "s" : ""}
+              {contact.role}
+              {contact.delegues > 0 && ` · ${contact.delegues} délégué${contact.delegues > 1 ? "s" : ""}`}
             </p>
           </div>
         );
       },
-      meta: { label: "Contact clé", headerClassName: "w-[19%]" },
+      meta: { label: "Contact", headerClassName: "w-[17%]" },
+    },
+    {
+      id: "collecteMois",
+      accessorFn: (societe) => collecteDuMois.get(societe.id)?.statut ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={libelleCollecte} />
+      ),
+      cell: ({ row }) => {
+        if (!voitTaches) return <span className="text-xs text-muted-foreground">—</span>;
+        const collecte = collecteDuMois.get(row.original.id);
+        if (!collecte) return <span className="text-xs text-muted-foreground">Aucune collecte</span>;
+        const style: Record<string, string> = {
+          brouillon: "border border-border bg-muted/60 text-muted-foreground",
+          transmis: "bg-primary/10 text-primary",
+          a_corriger: "bg-destructive/10 text-destructive",
+          valide: "bg-success/10 text-success",
+        };
+        const libelle: Record<string, string> = { transmis: "Transmise", valide: "Validée" };
+        return (
+          <span className={cn("inline-flex rounded px-2 py-0.5 text-xs font-bold", style[collecte.statut])}>
+            {libelle[collecte.statut] ?? COLLECTE_STATUT_LABELS[collecte.statut]}
+          </span>
+        );
+      },
+      meta: { label: libelleCollecte, headerClassName: "w-[15%]" },
     },
     {
       id: "tachesOuvertes",
       accessorFn: (societe) => openTaskCount.get(societe.id) ?? 0,
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Tâches en cours" />
+        <DataTableColumnHeader column={column} title="Tâches" />
       ),
       cell: ({ row }) => {
         if (!voitTaches) {
@@ -691,12 +716,28 @@ export function SocietesListPage() {
         }
         const count = openTaskCount.get(row.original.id) ?? 0;
         return (
-          <span className="societes-ledger-count text-xs font-semibold tabular-nums text-foreground" data-zero={count === 0 ? "true" : undefined}>
+          <span className={cn("text-[13px] font-bold tabular-nums", count === 0 ? "font-normal text-muted-foreground/50" : "text-primary")}>
             {count}
           </span>
         );
       },
-      meta: { label: "Tâches en cours", headerClassName: "w-32" },
+      meta: { label: "Tâches en cours", headerClassName: "w-20 text-right", cellClassName: "text-right" },
+    },
+    {
+      id: "dossiers",
+      accessorFn: (societe) => dossiersParSociete.get(societe.id) ?? 0,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Dossiers" />
+      ),
+      cell: ({ row }) => {
+        const count = dossiersParSociete.get(row.original.id) ?? 0;
+        return (
+          <span className={cn("text-[13px] font-bold tabular-nums", count === 0 ? "font-normal text-muted-foreground/50" : "text-primary")}>
+            {count}
+          </span>
+        );
+      },
+      meta: { label: "Dossiers", headerClassName: "w-24 text-right", cellClassName: "text-right" },
     },
     {
       accessorKey: "code",
@@ -730,13 +771,21 @@ export function SocietesListPage() {
             className="flex items-center justify-end"
             onClick={(e) => e.stopPropagation()}
           >
+            <span className="mr-1 hidden items-center gap-1.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 lg:flex">
+              <Button type="button" variant="outline" size="sm" className="h-7 border-accent bg-accent/15 px-2.5 text-xs shadow-none hover:bg-accent/30" onClick={() => openView(s)}>
+                Fiche
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="h-7 px-2.5 text-xs shadow-none" onClick={() => navigate(`/structuration?societe=${s.id}`)}>
+                Dossiers
+              </Button>
+            </span>
             <LedgerRowMenu actions={societeMenuActions(s)} />
           </div>
         );
       },
       meta: {
-        headerClassName: "w-10",
-        cellClassName: "w-10",
+        headerClassName: "w-56",
+        cellClassName: "w-56",
       },
     },
   ];
@@ -800,44 +849,22 @@ export function SocietesListPage() {
         selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
-      <div data-tour="page-identity" className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="font-serif text-2xl font-medium text-primary">Sociétés</h1>
-          <p className="text-sm text-muted-foreground">
-            {isAdmin ? "Registre des clients du cabinet" : "Registre des sociétés auxquelles vous avez accès"}
-          </p>
-        </div>
-        {canEdit && (
-          <Button type="button" variant="ledger" data-tour="page-primary-action" onClick={startCreate} className="hidden lg:inline-flex">
-            <Plus className="size-4" />
-            Ajouter une société
-          </Button>
-        )}
-      </div>
-      <div role="group" aria-label="Filtrer par statut" className="mb-3 flex flex-wrap gap-2">
-        {([
-          ["all", "Toutes", registerSummary.total],
-          ["actif", "Actives", registerSummary.actif],
-          ["en_attente", "En attente", registerSummary.enAttente],
-          ["inactif", "Inactives", registerSummary.inactif],
-        ] as const).map(([valeur, libelle, nombre]) => (
-          <button
-            key={valeur}
-            type="button"
-            aria-pressed={statutFilter === valeur}
-            onClick={() => setStatutFilter(valeur)}
-            className={cn(
-              "inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-[13px] font-semibold transition-colors",
-              statutFilter === valeur
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-input bg-card text-muted-foreground hover:border-accent hover:text-foreground",
-            )}
-          >
-            <span className="tabular-nums">{nombre}</span>
-            {libelle}
-          </button>
-        ))}
-      </div>
+      <SignatureLedgerBanner
+        icon={Building2}
+        className="operational-signature-banner mb-0"
+        eyebrow="Clients & travail · Client Ledger"
+        title="Sociétés"
+        description={isAdmin
+          ? "Registre des clients du cabinet"
+          : "Registre des sociétés auxquelles vous avez accès"}
+        metrics={[
+          { label: "Sociétés", value: registerSummary.total, onSelect: () => setStatutFilter("all"), active: statutFilter === "all" },
+          { label: "Actives", value: registerSummary.actif, tone: "success", onSelect: () => setStatutFilter("actif"), active: statutFilter === "actif" },
+          { label: "En attente", value: registerSummary.enAttente, onSelect: () => setStatutFilter("en_attente"), active: statutFilter === "en_attente" },
+          { label: registerSummary.inactif > 1 ? "Inactives" : "Inactive", value: registerSummary.inactif, onSelect: () => setStatutFilter("inactif"), active: statutFilter === "inactif" },
+        ]}
+        action={canEdit ? { label: "Ajouter une société", onClick: startCreate } : undefined}
+      />
 
       <LedgerWorkSurface className="societes-ledger-surface">
       {selectedIds.length === 0 && (
@@ -846,33 +873,11 @@ export function SocietesListPage() {
           search={renderSearchFilter("max-w-none")}
           resultCount={!isDataLoading ? `${filtered.length} société${filtered.length > 1 ? "s" : ""}` : undefined}
           tools={
-            <>
-              <div role="group" aria-label="Affichage" className="hidden overflow-hidden rounded-md border border-input lg:inline-flex">
-                {([
-                  ["fiches", "Fiches", LayoutList],
-                  ["tableau", "Tableau", Table2],
-                ] as const).map(([valeur, libelle, Icone]) => (
-                  <button
-                    key={valeur}
-                    type="button"
-                    aria-pressed={vue === valeur}
-                    onClick={() => setVue(valeur)}
-                    className={cn(
-                      "inline-flex h-8 items-center gap-1.5 px-3 text-xs font-semibold transition-colors",
-                      vue === valeur ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Icone className="size-3.5" aria-hidden="true" />
-                    {libelle}
-                  </button>
-                ))}
-              </div>
-              <SocietesUtilityMenu
-                table={table}
-                onExport={handleExport}
-                onPrint={handlePrint}
-              />
-            </>
+            <SocietesUtilityMenu
+              table={table}
+              onExport={handleExport}
+              onPrint={handlePrint}
+            />
           }
         />
       )}
@@ -883,30 +888,7 @@ export function SocietesListPage() {
         </OperationalMobileUtility>
       )}
 
-      <div data-tour="societes-registre">
-      {vue === "fiches" && (
-        <SocietesFiches
-          societes={filtered}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          indicateurs={indicateurs}
-          collectes={collectes}
-          employes={employes}
-          isAdmin={isAdmin}
-          canEdit={canEdit}
-          isLoading={isDataLoading}
-          emptyMessage={emptyMessage}
-          menuActions={(societe) => societeMenuActions(societe).filter((action) => action.label !== "Voir la fiche" && action.label !== "Modifier" && action.label !== "Mes dossiers")}
-          onEdit={(societe) => {
-            setEditing(societe);
-            setFormOpen(true);
-          }}
-          onOpenDossiers={(societe) => navigate(`/structuration?societe=${societe.id}`)}
-          onOpenCollecte={(collecte) => navigate(`/collectes/${collecte.id}`)}
-        />
-      )}
-
-      <div className={cn("societes-ledger-register", vue === "fiches" && "lg:hidden")}>
+      <div className="societes-ledger-register">
       <OperationalContentHeader className="societes-ledger-register-heading hidden lg:flex">
         <div className="hidden min-w-0 items-center gap-2.5 lg:flex">
           <Checkbox
@@ -1130,7 +1112,6 @@ export function SocietesListPage() {
       {!isDataLoading && filtered.length > 0 && (
         <OperationalMobilePagination table={table} itemLabel="sociétés" />
       )}
-      </div>
       </div>
       </LedgerWorkSurface>
 

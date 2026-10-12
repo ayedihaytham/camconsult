@@ -9,6 +9,9 @@ export interface LedgerCompactMetric {
   loading?: boolean;
   tone?: "default" | "success" | "warning" | "destructive";
   kind?: "count" | "detail";
+  /** Compteur-filtre : un clic le sélectionne (`active` = filtre en cours). */
+  onSelect?: () => void;
+  active?: boolean;
 }
 
 /** Bandeau marine épuré des pages de module : repère, titre, action à droite et compteurs sur une ligne. */
@@ -39,7 +42,24 @@ export function LedgerCompactHeader({ eyebrow, title, metrics, actions, descript
       {metrics.length > 0 && (
         <dl className="module-banner__metrics">
           {metrics.map((metric) => (
-            <div key={metric.label} className={cn("module-banner__metric", `module-banner__metric--${metric.tone ?? "default"}`, metric.kind === "detail" && "module-banner__metric--detail")}>
+            <div
+              key={metric.label}
+              className={cn("module-banner__metric", `module-banner__metric--${metric.tone ?? "default"}`, metric.kind === "detail" && "module-banner__metric--detail", metric.onSelect && "module-banner__metric--interactive")}
+              {...(metric.onSelect
+                ? {
+                    role: "button",
+                    tabIndex: 0,
+                    "aria-pressed": Boolean(metric.active),
+                    onClick: metric.onSelect,
+                    onKeyDown: (event: React.KeyboardEvent) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        metric.onSelect?.();
+                      }
+                    },
+                  }
+                : {})}
+            >
               <dt>{metric.label}</dt>
               <dd>{metric.loading ? <><span className="sr-only">Chargement</span><Skeleton aria-hidden="true" className="h-5 w-8 bg-primary-foreground/20 motion-reduce:animate-none" /></> : metric.value}</dd>
             </div>

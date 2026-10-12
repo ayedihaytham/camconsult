@@ -9,6 +9,9 @@ export interface SignatureLedgerMetric {
   value: number | string;
   tone?: "default" | "success" | "warning" | "destructive";
   loading?: boolean;
+  /** Compteur-filtre cliquable. */
+  onSelect?: () => void;
+  active?: boolean;
 }
 
 interface SignatureLedgerBannerProps {

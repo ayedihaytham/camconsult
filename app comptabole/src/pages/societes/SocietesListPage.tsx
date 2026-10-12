@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Building2,
   ChevronDown,
   Copy,
   Download,
@@ -13,11 +12,13 @@ import {
   Settings2,
   Trash2,
   Eye,
+  LayoutList,
+  Plus,
+  Table2,
 } from "lucide-react";
 import type { ColumnDef, Table as TanstackTable } from "@tanstack/react-table";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
-import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
@@ -63,15 +64,18 @@ import { THEME_OPTIONS } from "@/lib/societeTheme";
 import { provisionnerArborescenceSociete } from "@/lib/classement";
 import {
   useData,
+  useNoeuds,
   useSocietes,
   useTaches,
   nextSocieteCode,
 } from "@/store/data";
+import { useCollectes } from "@/store/collectes";
 import { usePermissions } from "@/hooks/usePermissions";
 import { logJournal } from "@/store/journal";
 import type { Societe, SocieteTheme, Statut } from "@/types";
 import { SocieteFormSheet, type SocieteFormValues } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
+import { SocietesFiches, type SocieteIndicateurs } from "./SocietesFiches";
 
 const MONOGRAM_TONES = [
   "border-primary/15 bg-primary/[0.07] text-primary",
@@ -295,16 +299,57 @@ export function SocietesListPage() {
     }
     return m;
   }, [employes]);
+  const voitTaches = isAdmin || isCollaborateur;
+  const noeuds = useNoeuds();
+  const collectes = useCollectes((state) => state.list);
+  const fetchCollectes = useCollectes((state) => state.fetchList);
+  // Une seule lecture de la liste des collectes (toutes sociétés) pour les chiffres et la fiche : pas de requête par société.
+  useEffect(() => {
+    if (voitTaches) void fetchCollectes().catch(() => undefined);
+  }, [voitTaches, fetchCollectes]);
   const openTaskCount = useMemo(() => {
     const counts = new Map<string, number>();
-    if (!isCollaborateur) return counts;
+    if (!voitTaches) return counts;
     for (const task of taches) {
       if (task.statut !== "termine") {
         counts.set(task.societeId, (counts.get(task.societeId) ?? 0) + 1);
       }
     }
     return counts;
-  }, [isCollaborateur, taches]);
+  }, [voitTaches, taches]);
+  const indicateurs = useMemo(() => {
+    const map = new Map<string, SocieteIndicateurs>();
+    for (const societe of rows) {
+      map.set(societe.id, {
+        taches: voitTaches ? 0 : null,
+        collectes: voitTaches ? 0 : null,
+        aExaminer: 0,
+        dossiers: 0,
+        contacts: contactCount.get(societe.id) ?? 0,
+      });
+    }
+    for (const [id, nombre] of openTaskCount) {
+      const ligne = map.get(id);
+      if (ligne) ligne.taches = nombre;
+    }
+    for (const noeud of noeuds) {
+      if (noeud.type === "dossier" && noeud.societeId) {
+        const ligne = map.get(noeud.societeId);
+        if (ligne) ligne.dossiers += 1;
+      }
+    }
+    if (voitTaches) {
+      for (const collecte of collectes) {
+        const ligne = map.get(collecte.societeId);
+        if (!ligne) continue;
+        if (collecte.statut !== "valide" && collecte.statut !== "archive") ligne.collectes = (ligne.collectes ?? 0) + 1;
+        ligne.aExaminer += collecte.tableauxTransmis ?? 0;
+      }
+    }
+    return map;
+  }, [rows, voitTaches, contactCount, openTaskCount, noeuds, collectes]);
+  const [vue, setVue] = useState<"fiches" | "tableau">("fiches");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [themeFilter, setThemeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
@@ -641,7 +686,7 @@ export function SocietesListPage() {
         <DataTableColumnHeader column={column} title="Tâches en cours" />
       ),
       cell: ({ row }) => {
-        if (!isCollaborateur) {
+        if (!voitTaches) {
           return <span className="text-xs text-muted-foreground">—</span>;
         }
         const count = openTaskCount.get(row.original.id) ?? 0;
@@ -755,35 +800,79 @@ export function SocietesListPage() {
         selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
-      <SignatureLedgerBanner
-        icon={Building2}
-        className="operational-signature-banner mb-0"
-        eyebrow="Clients & travail · Client Ledger"
-        title="Sociétés"
-        description={isAdmin
-          ? "Registre des clients du cabinet"
-          : "Registre des sociétés auxquelles vous avez accès"}
-        metrics={[
-          { label: "Sociétés", value: registerSummary.total },
-          { label: "Actives", value: registerSummary.actif, tone: "success" },
-          { label: "En attente", value: registerSummary.enAttente },
-          { label: "Inactive", value: registerSummary.inactif },
-        ]}
-        action={canEdit ? { label: "Ajouter une société", onClick: startCreate } : undefined}
-      />
+      <div data-tour="page-identity" className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-serif text-2xl font-medium text-primary">Sociétés</h1>
+          <p className="text-sm text-muted-foreground">
+            {isAdmin ? "Registre des clients du cabinet" : "Registre des sociétés auxquelles vous avez accès"}
+          </p>
+        </div>
+        {canEdit && (
+          <Button type="button" variant="ledger" data-tour="page-primary-action" onClick={startCreate} className="hidden lg:inline-flex">
+            <Plus className="size-4" />
+            Ajouter une société
+          </Button>
+        )}
+      </div>
+      <div role="group" aria-label="Filtrer par statut" className="mb-3 flex flex-wrap gap-2">
+        {([
+          ["all", "Toutes", registerSummary.total],
+          ["actif", "Actives", registerSummary.actif],
+          ["en_attente", "En attente", registerSummary.enAttente],
+          ["inactif", "Inactives", registerSummary.inactif],
+        ] as const).map(([valeur, libelle, nombre]) => (
+          <button
+            key={valeur}
+            type="button"
+            aria-pressed={statutFilter === valeur}
+            onClick={() => setStatutFilter(valeur)}
+            className={cn(
+              "inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-[13px] font-semibold transition-colors",
+              statutFilter === valeur
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-input bg-card text-muted-foreground hover:border-accent hover:text-foreground",
+            )}
+          >
+            <span className="tabular-nums">{nombre}</span>
+            {libelle}
+          </button>
+        ))}
+      </div>
 
       <LedgerWorkSurface className="societes-ledger-surface">
       {selectedIds.length === 0 && (
         <OperationalLedgerToolbar
           label="Outils du registre des sociétés"
           search={renderSearchFilter("max-w-none")}
-          resultCount={!isDataLoading ? `${filtered.length} sociétés` : undefined}
+          resultCount={!isDataLoading ? `${filtered.length} société${filtered.length > 1 ? "s" : ""}` : undefined}
           tools={
-            <SocietesUtilityMenu
-              table={table}
-              onExport={handleExport}
-              onPrint={handlePrint}
-            />
+            <>
+              <div role="group" aria-label="Affichage" className="hidden overflow-hidden rounded-md border border-input lg:inline-flex">
+                {([
+                  ["fiches", "Fiches", LayoutList],
+                  ["tableau", "Tableau", Table2],
+                ] as const).map(([valeur, libelle, Icone]) => (
+                  <button
+                    key={valeur}
+                    type="button"
+                    aria-pressed={vue === valeur}
+                    onClick={() => setVue(valeur)}
+                    className={cn(
+                      "inline-flex h-8 items-center gap-1.5 px-3 text-xs font-semibold transition-colors",
+                      vue === valeur ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Icone className="size-3.5" aria-hidden="true" />
+                    {libelle}
+                  </button>
+                ))}
+              </div>
+              <SocietesUtilityMenu
+                table={table}
+                onExport={handleExport}
+                onPrint={handlePrint}
+              />
+            </>
           }
         />
       )}
@@ -794,7 +883,30 @@ export function SocietesListPage() {
         </OperationalMobileUtility>
       )}
 
-      <div className="societes-ledger-register">
+      <div data-tour="societes-registre">
+      {vue === "fiches" && (
+        <SocietesFiches
+          societes={filtered}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          indicateurs={indicateurs}
+          collectes={collectes}
+          employes={employes}
+          isAdmin={isAdmin}
+          canEdit={canEdit}
+          isLoading={isDataLoading}
+          emptyMessage={emptyMessage}
+          menuActions={(societe) => societeMenuActions(societe).filter((action) => action.label !== "Voir la fiche" && action.label !== "Modifier" && action.label !== "Mes dossiers")}
+          onEdit={(societe) => {
+            setEditing(societe);
+            setFormOpen(true);
+          }}
+          onOpenDossiers={(societe) => navigate(`/structuration?societe=${societe.id}`)}
+          onOpenCollecte={(collecte) => navigate(`/collectes/${collecte.id}`)}
+        />
+      )}
+
+      <div className={cn("societes-ledger-register", vue === "fiches" && "lg:hidden")}>
       <OperationalContentHeader className="societes-ledger-register-heading hidden lg:flex">
         <div className="hidden min-w-0 items-center gap-2.5 lg:flex">
           <Checkbox
@@ -1003,7 +1115,7 @@ export function SocietesListPage() {
                   <span className="truncate">
                     {contacts === 0 ? "Aucun contact" : "Contact clé non désigné"}
                   </span>
-                  {isCollaborateur && (
+                  {voitTaches && (
                     <span className="shrink-0 tabular-nums">
                       {tasks} tâche{tasks === 1 ? "" : "s"}
                     </span>
@@ -1018,6 +1130,7 @@ export function SocietesListPage() {
       {!isDataLoading && filtered.length > 0 && (
         <OperationalMobilePagination table={table} itemLabel="sociétés" />
       )}
+      </div>
       </div>
       </LedgerWorkSurface>
 

@@ -15,9 +15,12 @@ function renderForm(extra: Partial<React.ComponentProps<typeof CollecteFormDrawe
   return { ...result, onCreate, onOpenChange };
 }
 
+const remplirPeriode = () => fireEvent.change(screen.getByLabelText(/Période concernée/), { target: { value: "Octobre 2026" } });
+
 describe("CollecteFormDrawer : sélection de tableaux", () => {
   it("commence sans sélection et transmet uniquement les cartes choisies", async () => {
     const { onCreate } = renderForm();
+    remplirPeriode();
     expect(screen.getAllByRole("checkbox", { checked: false })).toHaveLength(COLLECTE_TABS.length);
     fireEvent.click(screen.getByText("Virements reçus"));
     expect(screen.getByRole("checkbox", { name: "Virements reçus" }).getAttribute("aria-checked")).toBe("true");
@@ -29,6 +32,7 @@ describe("CollecteFormDrawer : sélection de tableaux", () => {
 
   it("sélectionne une famille sans sélectionner les autres tableaux", async () => {
     const { onCreate } = renderForm();
+    remplirPeriode();
     fireEvent.click(screen.getByRole("button", { name: "Tout cocher : État des virements" }));
     expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: "Créer la collecte" }));
@@ -37,6 +41,7 @@ describe("CollecteFormDrawer : sélection de tableaux", () => {
 
   it("empêche une création sans tableau puis permet de corriger la sélection", async () => {
     const { onCreate } = renderForm();
+    remplirPeriode();
     fireEvent.click(screen.getByRole("button", { name: "Créer la collecte" }));
     expect(screen.getByRole("alert").textContent).toBe("Sélectionnez au moins un tableau.");
     expect(onCreate).not.toHaveBeenCalled();
@@ -64,13 +69,12 @@ describe("CollecteFormDrawer : sélection de tableaux", () => {
 });
 
 describe("CollecteFormDrawer : période obligatoire", () => {
-  it("propose le mois courant par défaut, des raccourcis, et refuse une période vide", async () => {
+  it("laisse la période vide au départ, propose des raccourcis, et refuse une période vide", async () => {
     const { onCreate } = renderForm();
     const champ = screen.getByLabelText(/Période concernée/) as HTMLInputElement;
-    expect(champ.value).toMatch(/^[A-ZÉÛ][a-zéû]+ \d{4}$/);
+    expect(champ.value).toBe("");
     expect(screen.getByRole("group", { name: "Périodes proposées" })).toBeTruthy();
     fireEvent.click(screen.getByText("Virements reçus"));
-    fireEvent.change(champ, { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Créer la collecte" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/La période est obligatoire/);
     expect(onCreate).not.toHaveBeenCalled();

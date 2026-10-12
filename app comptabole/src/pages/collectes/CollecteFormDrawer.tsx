@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { periodeMois, periodesSuggerees } from "@/lib/collecte/periodes";
+import { periodesSuggerees } from "@/lib/collecte/periodes";
 import { useSocietes } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
 import { CollecteTableSelection } from "./CollecteTableSelection";
@@ -69,7 +69,7 @@ export function CollecteFormDrawer({
   useEffect(() => {
     if (!open) return;
     setSocieteId(initial?.societeId ?? defaultSocieteId ?? "");
-    setPeriode(initial ? initial.periode : periodeMois(new Date()));
+    setPeriode(initial ? initial.periode : "");
     setDevise(initial?.devise ?? "TND");
     setEcheance(initial?.echeance ?? "");
     setRelanceCadenceJours(initial?.relanceCadenceJours ?? 3);

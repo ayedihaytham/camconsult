@@ -748,6 +748,9 @@
 :is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density tbody td {
   padding: 0.4rem 0.75rem;
 }
+/* Colonnes à largeur fixe : en dessous de cette largeur, le tableau défile au lieu d'écraser les titres. */
+.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density { min-width: 1120px; }
+.employes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density { min-width: 1000px; }
 /* Fine bande de couleur à gauche de chaque ligne, selon le statut de la société. */
 :is(.societes-ledger-page, .employes-ledger-page) tbody tr.ledger-row--actif > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--success)); }
 :is(.societes-ledger-page, .employes-ledger-page) tbody tr.ledger-row--en_attente > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--warning)); }

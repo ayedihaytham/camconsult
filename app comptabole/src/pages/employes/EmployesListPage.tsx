@@ -568,7 +568,7 @@ export function EmployesListPage() {
           </div>
         );
       },
-      meta: { label: "Collaborateur", icon: User, headerClassName: "w-[30%] min-w-[16rem]" },
+      meta: { label: "Collaborateur", icon: User },
     },
     {
       id: "perimetre",
@@ -599,7 +599,7 @@ export function EmployesListPage() {
           </div>
         );
       },
-      meta: { label: "Périmètre", icon: Building2, headerClassName: "w-[22%] min-w-[12rem]" },
+      meta: { label: "Périmètre", icon: Building2, headerClassName: "w-[230px]" },
     },
     {
       id: "taches",
@@ -615,7 +615,7 @@ export function EmployesListPage() {
           </span>
         );
       },
-      meta: { label: "Tâches", icon: ListChecks, headerClassName: "w-24 text-right", cellClassName: "text-right" },
+      meta: { label: "Tâches", icon: ListChecks, headerClassName: "w-[90px] text-right", cellClassName: "text-right" },
     },
     {
       id: "acces",
@@ -628,7 +628,7 @@ export function EmployesListPage() {
           {allowedPermissionCount(row.original)}/{PERMISSION_TOTAL} droits
         </span>
       ),
-      meta: { label: "Accès", icon: ShieldCheck, headerClassName: "w-36" },
+      meta: { label: "Accès", icon: ShieldCheck, headerClassName: "w-[140px]" },
     },
     {
       accessorKey: "statut",
@@ -636,7 +636,7 @@ export function EmployesListPage() {
         <DataTableColumnHeader column={column} title="Statut" />
       ),
       cell: ({ row }) => <StatutIcone statut={row.original.statut} />,
-      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-36" },
+      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-[140px]" },
     },
     {
       id: "actions",
@@ -670,7 +670,7 @@ export function EmployesListPage() {
           <LedgerRowMenu actions={employeMenuActions(row.original)} />
         </div>
       ),
-      meta: { headerClassName: "w-56", cellClassName: "w-56" },
+      meta: { headerClassName: "w-[220px]", cellClassName: "w-[220px]" },
     },
   ];
   const pageSize = useOperationalPageSize(8);

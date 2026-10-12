@@ -663,7 +663,7 @@ export function SocietesListPage() {
           </div>
         );
       },
-      meta: { label: "Société", icon: Building2, headerClassName: "w-[24%] min-w-[14rem]" },
+      meta: { label: "Société", icon: Building2 },
     },
     {
       id: "contactCle",
@@ -686,7 +686,7 @@ export function SocietesListPage() {
           </div>
         );
       },
-      meta: { label: "Contact", icon: User, headerClassName: "w-[15%] min-w-[10rem]" },
+      meta: { label: "Contact", icon: User, headerClassName: "w-[190px]" },
     },
     {
       id: "collecteMois",
@@ -714,7 +714,7 @@ export function SocietesListPage() {
           </span>
         );
       },
-      meta: { label: libelleCollecte, icon: ClipboardList, headerClassName: "w-[17%] min-w-[14.5rem]" },
+      meta: { label: libelleCollecte, icon: ClipboardList, headerClassName: "w-[270px]" },
     },
     {
       id: "tachesOuvertes",
@@ -733,7 +733,7 @@ export function SocietesListPage() {
           </span>
         );
       },
-      meta: { label: "Tâches", icon: ListChecks, headerClassName: "w-24 text-right", cellClassName: "text-right" },
+      meta: { label: "Tâches", icon: ListChecks, headerClassName: "w-[90px] text-right", cellClassName: "text-right" },
     },
     {
       id: "dossiers",
@@ -749,7 +749,7 @@ export function SocietesListPage() {
           </span>
         );
       },
-      meta: { label: "Dossiers", icon: FolderOpen, headerClassName: "w-28 text-right", cellClassName: "text-right" },
+      meta: { label: "Dossiers", icon: FolderOpen, headerClassName: "w-[104px] text-right", cellClassName: "text-right" },
     },
     {
       accessorKey: "statut",
@@ -757,7 +757,7 @@ export function SocietesListPage() {
         <DataTableColumnHeader column={column} title="Statut" />
       ),
       cell: ({ row }) => <StatutIcone statut={row.original.statut} />,
-      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-36" },
+      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-[140px]" },
     },
     {
       id: "actions",
@@ -786,8 +786,8 @@ export function SocietesListPage() {
         );
       },
       meta: {
-        headerClassName: "w-64",
-        cellClassName: "w-64",
+        headerClassName: "w-[250px]",
+        cellClassName: "w-[250px]",
       },
     },
   ];

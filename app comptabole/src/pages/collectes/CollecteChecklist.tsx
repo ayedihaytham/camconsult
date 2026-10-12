@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
+import { montantFixe } from "@/lib/amount";
 import { ArrowUpRight, CheckCircle2, LoaderCircle, MoreHorizontal, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -280,8 +281,8 @@ function ChampDate({ row, editable, onSaveSuivi, compact = false }: ChampProps) 
 
 /** Total d'une pièce : calculé d'après les lignes du tableau quand il y en a, sinon saisi ici. */
 function ChampTotal({ row, devise, editable, onSaveSuivi, compact = false }: ChampProps & { devise: string }) {
-  const [total, setTotal] = useState(row.total == null ? "" : String(row.total));
-  useEffect(() => setTotal(row.total == null ? "" : String(row.total)), [row.total]);
+  const [total, setTotal] = useState(row.total == null ? "" : montantFixe(row.total));
+  useEffect(() => setTotal(row.total == null ? "" : montantFixe(row.total)), [row.total]);
   const symbole = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
   if (row.recuAuto)
     return (

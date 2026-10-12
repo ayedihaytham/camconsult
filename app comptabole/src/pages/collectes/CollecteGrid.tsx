@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { CollecteLigne } from "@/types";
-import { cellNumber, repartitionGroupes, saisieNombre, type TabDef, type TabRow } from "@/lib/collecte/tabs";
+import { cellNumber, estColonneMontant, repartitionGroupes, saisieNombre, type TabDef, type TabRow } from "@/lib/collecte/tabs";
+import { montantAffiche } from "@/lib/amount";
 import { TABLEAUX_GRAND_LIVRE } from "@/lib/collecte/grandLivre";
 import { plageNumeros } from "@/lib/collecte/souche";
 import { ImportDocumentDialog } from "./ImportDocumentDialog";
@@ -127,6 +128,10 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   );
   const [rows, setRows] = useState<TabRow[]>(initial);
   const [saving, setSaving] = useState(false);
+  /** Case de montant en cours de saisie (texte tapé gardé tel quel) ; les autres montants s'affichent à 3 décimales. */
+  const [enSaisie, setEnSaisie] = useState<string | null>(null);
+  const valeurCellule = (c: { key: string; type: string }, i: number, brut: unknown) =>
+    c.type === "number" && estColonneMontant(c.key) && enSaisie !== `${i}:${c.key}` ? montantAffiche(brut) : String(brut ?? "");
   const [saveError, setSaveError] = useState(false);
   const [saved, setSaved] = useState(false);
   // Ligne à qui donner le curseur après l'avoir ajoutée.
@@ -818,7 +823,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                             type={c.type === "date" ? "date" : "text"}
                             inputMode={c.type === "number" ? "decimal" : undefined}
                             placeholder={hi ? "?" : undefined}
-                            value={String(row[c.key] ?? "")}
+                            value={valeurCellule(c, i, row[c.key])}
+                            onFocus={() => setEnSaisie(`${i}:${c.key}`)}
+                            onBlur={() => setEnSaisie(null)}
                             onChange={(e) =>
                               setCell(i, c.key, c.type === "number" ? saisieNombre(e.target.value, String(row[c.key] ?? "")) : e.target.value)
                             }
@@ -891,7 +898,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                           type={c.type === "date" ? "date" : "text"}
                           inputMode={c.type === "number" ? "decimal" : undefined}
                           placeholder={hi ? "?" : undefined}
-                          value={String(row[c.key] ?? "")}
+                          value={valeurCellule(c, i, row[c.key])}
+                          onFocus={() => setEnSaisie(`${i}:${c.key}`)}
+                          onBlur={() => setEnSaisie(null)}
                           onChange={(e) =>
                             setCell(i, c.key, c.type === "number" ? saisieNombre(e.target.value, String(row[c.key] ?? "")) : e.target.value)
                           }

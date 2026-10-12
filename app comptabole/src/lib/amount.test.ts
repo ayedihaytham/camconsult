@@ -29,8 +29,9 @@ describe("saisie des montants", () => {
   it("arrondit au millime et affiche avec la virgule", () => {
     expect(round3(0.1 + 0.2)).toBe(0.3);
     expect(round3(1.23456)).toBe(1.235);
-    expect(formatAmountInput(1234.5)).toBe("1234,5");
-    expect(formatAmountInput(0)).toBe("0");
+    expect(formatAmountInput(1234.5)).toBe("1234,500");
+    expect(formatAmountInput(0)).toBe("0,000");
+    expect(formatAmountInput(0.4)).toBe("0,400");
     // Un cours garde ses 4 décimales ; sans précision, le millime reste la limite.
     expect(formatAmountInput(3.3167, 4)).toBe("3,3167");
     expect(formatAmountInput(3.3167)).toBe("3,317");

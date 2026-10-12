@@ -36,8 +36,26 @@ export function toNumber(cell: unknown): number {
   return Number.isFinite(n) ? round3(n) : 0;
 }
 
-/** Nombre → texte de saisie avec virgule décimale, sans zéros inutiles ; `decimals` décimales au plus (3 par défaut, 4 pour un cours). */
+/** Nombre → texte de saisie avec virgule décimale : toujours 3 décimales au moins (« 0,400 », « 12,000 »),
+ * davantage seulement si le nombre en a (jusqu'à `decimals`, 4 pour un cours). */
 export function formatAmountInput(n: number, decimals = AMOUNT_DECIMALS): string {
   const k = 10 ** decimals;
-  return String(Math.round(n * k) / k).replace(".", ",");
+  return montantFixe(Math.round(n * k) / k).replace(".", ",");
+}
+
+/** Texte d'un montant avec au moins 3 décimales, point décimal : 0.4 → « 0.400 », 3.3167 → « 3.3167 ». */
+export function montantFixe(n: number): string {
+  const s = String(n);
+  if (s.includes("e")) return n.toFixed(AMOUNT_DECIMALS);
+  const decimales = s.includes(".") ? s.split(".")[1].length : 0;
+  return decimales >= AMOUNT_DECIMALS ? s : n.toFixed(AMOUNT_DECIMALS);
+}
+
+/** Saisie d'une cellule de montant mise à 3 décimales (« 0,4 » → « 0,400 », « .5 » → « 0,500 ») ; texte vide ou illisible inchangé. */
+export function montantAffiche(saisie: unknown): string {
+  const brut = String(saisie ?? "");
+  if (brut.trim() === "" || !/^-?\d*[.,]?\d*$/.test(brut.trim()) || !/\d/.test(brut)) return brut;
+  const virgule = brut.includes(",");
+  const fixe = montantFixe(parseFloat(brut.replace(",", ".")));
+  return virgule ? fixe.replace(".", ",") : fixe;
 }

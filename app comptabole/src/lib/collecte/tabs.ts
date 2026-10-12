@@ -50,6 +50,9 @@ const ttcFormula: TabColumn["excelFormula"] = (r, col) => {
   return `IF(AND(${ht}="",${ns}=""),"",ROUND(N(${ht})*(1+N(${tva})/100)+N(${ns})+N(${tb}),3))`;
 };
 
+/** Colonne numérique qui est un montant (3 décimales affichées) : ni le taux de TVA ni l'ancienneté en jours. */
+export const estColonneMontant = (key: string) => key !== "tva_pct" && key !== "anciennete";
+
 /** Lit une cellule comme nombre (« 1 200,50 » → 1200.5). */
 export function cellNumber(v: unknown): number {
   if (typeof v === "number") return v;

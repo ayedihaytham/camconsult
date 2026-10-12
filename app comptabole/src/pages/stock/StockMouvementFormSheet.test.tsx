@@ -172,7 +172,7 @@ describe("cours moyen du mois dans les factures du stock", () => {
     amorcer();
     ouvrir();
     changer(0, "EUR", "Devise");
-    expect(coursAchat()).toBe("0");
+    expect(coursAchat()).toBe("0,000");
     fireEvent.change(document.querySelectorAll('input[type="date"]')[0], { target: { value: "2023-01-04" } });
     expect(coursAchat().replace(/\s/g, "")).toMatch(/^3[,.]3167/);
     // Un autre mois, un autre cours.
@@ -187,7 +187,7 @@ describe("cours moyen du mois dans les factures du stock", () => {
     const dates = document.querySelectorAll('input[type="date"]');
     fireEvent.change(dates[1], { target: { value: "2023-01-15" } });
     expect(coursVente().replace(/\s/g, "")).toMatch(/^3[,.]2/);
-    expect(coursAchat()).toBe("0");
+    expect(coursAchat()).toBe("0,000");
   });
 
   it("ne change rien sans cours pour ce mois, ni pour le dinar", () => {
@@ -195,7 +195,7 @@ describe("cours moyen du mois dans les factures du stock", () => {
     ouvrir();
     changer(0, "EUR", "Devise");
     fireEvent.change(document.querySelectorAll('input[type="date"]')[0], { target: { value: "2023-06-01" } });
-    expect(coursAchat()).toBe("0");
+    expect(coursAchat()).toBe("0,000");
     expect(screen.getByText(/Aucun cours EUR pour Juin 2023/)).toBeTruthy();
     // Le dinar n'a pas de cours de change : rien n'est appliqué.
     changer(0, "TND", "Devise");

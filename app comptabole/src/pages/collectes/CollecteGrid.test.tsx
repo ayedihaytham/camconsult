@@ -53,6 +53,7 @@ describe("CollecteGrid : saisie des montants", () => {
   it("garde ce qui est tapé : le séparateur (« 24. ») et le dernier zéro (« 20.030 ») ne sont pas effacés", () => {
     renderGrid("virements_recus");
     ajouter();
+    fireEvent.focus(montant());
     fireEvent.change(montant(), { target: { value: "24" } });
     fireEvent.change(montant(), { target: { value: "24." } });
     expect(montant().value).toBe("24.");
@@ -62,6 +63,16 @@ describe("CollecteGrid : saisie des montants", () => {
     expect(montant().value).toBe("20.030");
     fireEvent.change(montant(), { target: { value: "20,030" } });
     expect(montant().value).toBe("20,030");
+  });
+
+  it("affiche toujours trois décimales une fois la saisie terminée (0,4 → 0,400)", () => {
+    renderGrid("virements_recus");
+    ajouter();
+    fireEvent.focus(montant());
+    fireEvent.change(montant(), { target: { value: "0,4" } });
+    expect(montant().value).toBe("0,4");
+    fireEvent.blur(montant());
+    expect(montant().value).toBe("0,400");
   });
 
   it("limite à trois chiffres après le séparateur et refuse les lettres", () => {

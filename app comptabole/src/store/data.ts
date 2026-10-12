@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { jouerSonNotification } from "@/lib/notificationSound";
 import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
@@ -72,6 +73,7 @@ function announceNotification(n: AppNotification) {
   announcedIds.add(n.id);
 
   toast(n.titre, { description: n.corps || undefined, duration: 6000 });
+  jouerSonNotification();
 
   try {
     if (

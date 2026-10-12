@@ -64,7 +64,7 @@ const STRENGTH_COLOR = [
   "bg-success",
 ];
 
-export function SocieteEmployesSection({ societeId }: { societeId: string }) {
+export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { societeId: string; peutSupprimer?: boolean }) {
   const employes = useSocieteEmployes(societeId);
   const societe = useSocieteById(societeId);
   const addEmploye = useData((s) => s.addEmploye);
@@ -320,17 +320,19 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
                     <KeyRound className="size-3.5" aria-hidden="true" />
                     Accès
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 gap-1.5 border-destructive/30 px-2.5 text-xs font-semibold text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => setToDelete(e)}
-                    aria-label={`Supprimer ${e.prenom} ${e.nom}`}
-                  >
-                    <Trash2 className="size-3.5" aria-hidden="true" />
-                    Supprimer
-                  </Button>
+                  {peutSupprimer && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1.5 border-destructive/30 px-2.5 text-xs font-semibold text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setToDelete(e)}
+                      aria-label={`Supprimer ${e.prenom} ${e.nom}`}
+                    >
+                      <Trash2 className="size-3.5" aria-hidden="true" />
+                      Supprimer
+                    </Button>
+                  )}
                 </div>
               </li>
             );

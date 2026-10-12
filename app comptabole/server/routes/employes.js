@@ -51,7 +51,10 @@ const schema = z.object({
  * collaborateurs, ni un employé de société — pour ne jamais pouvoir
  * s'accorder plus de droits que ce qu'on lui a explicitement donné. */
 function forbiddenRoleEscalation(req, role) {
-  return req.session.role !== "admin" && role !== "collaborateur";
+  if (req.session.role === "admin") return false;
+  // Le responsable des collaborateurs gère aussi les comptes des sociétés (responsable ou délégué de société) : ils ont moins de droits que lui.
+  const permis = req.session.poste === "responsable_collaborateurs" ? ["collaborateur", "societe_employe"] : ["collaborateur"];
+  return !permis.includes(role);
 }
 
 /** Normalise droits / périmètre selon le rôle. */

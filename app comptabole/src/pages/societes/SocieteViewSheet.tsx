@@ -71,7 +71,9 @@ export function SocieteViewSheet({
   onEdit?: (societe: Societe) => void;
   onOpenDossiers?: (societe: Societe) => void;
 }) {
-  const { isAdmin, can } = usePermissions();
+  const { isAdmin, can, canManageCollaborateurs } = usePermissions();
+  // Les comptes de la société (responsable, délégués) : l'administrateur et le responsable des collaborateurs les gèrent.
+  const gereContacts = isAdmin || canManageCollaborateurs;
   const canEdit = isAdmin || can("modifierSocietes");
 
   return (
@@ -119,11 +121,11 @@ export function SocieteViewSheet({
                 <Ligne icone={MapPin} libelle="Adresse">{societe.adresse || "—"}</Ligne>
               </Rubrique>
 
-              {isAdmin && <SocieteEmployesSection societeId={societe.id} />}
+              {gereContacts && <SocieteEmployesSection societeId={societe.id} peutSupprimer={isAdmin} />}
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-[18px] py-3">
-              {isAdmin && <span className="mr-auto text-xs text-muted-foreground">Les responsables donnent les tâches aux délégués.</span>}
+              {gereContacts && <span className="mr-auto text-xs text-muted-foreground">Les responsables donnent les tâches aux délégués.</span>}
               {canEdit && onEdit && (
                 <Button type="button" variant="outline" className="gap-2" onClick={() => onEdit(societe)}>
                   <Pencil className="size-4" aria-hidden="true" />

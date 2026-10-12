@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { avecMesure, claudeAvailable, claudeExtractPage, champsByTypeFromClaude } from "./claudeExtract.js";
+import { avecMesure, claudeAvailable, claudeExtractPage, champsByTypeFromClaude, corrigerDossier } from "./claudeExtract.js";
 import {
   RuspinaReviewRequired,
   ruspinaApplies,
@@ -422,7 +422,14 @@ function pageIA(index, imageDataUrl, lecture) {
     champsByType: champsByTypeFromClaude(lecture),
     type: lecture.type,
     confidence: lecture.confidence,
+    lecture,
   };
+}
+
+/** Relit le type des factures d'un dossier d'après leur enchaînement (voir corrigerDossier). */
+function resoudreDossier(pages, raisonSociale) {
+  const lectures = corrigerDossier(pages.map((p) => p.lecture ?? null), raisonSociale);
+  return pages.map((p, i) => (lectures[i] === p.lecture ? p : pageIA(p.index, p.imageDataUrl, lectures[i])));
 }
 
 /**
@@ -470,13 +477,13 @@ async function lirePages(dataUrl, raisonSociale) {
   // d'un dossier est celle de la page la plus longue, pas la somme.
   const textPages = await tryPdfTextPages(buffer);
   if (textPages.some((t) => t.trim().length > 20)) {
-    return Promise.all(
+    return resoudreDossier(await Promise.all(
       textPages.map(async (texte, index) =>
         texte.trim().length < 20
           ? pageIA(index, null, lectureVide())
           : pageIA(index, null, await aiExtractPage({ texte, raisonSociale })),
       ),
-    );
+    ), raisonSociale);
   }
 
   // PDF scanné : une image par page. Une page en échec (quota épuisé, panne…)
@@ -512,5 +519,5 @@ async function lirePages(dataUrl, raisonSociale) {
   console.log(`[ocr] dossier de ${rastered.length} pages lu en ${((Date.now() - debut) / 1000).toFixed(1)} s (rendu des pages ${(rendu / 1000).toFixed(1)} s)`);
   // Aucune page lue : on le dit plutôt que d'afficher des pages vides.
   if (premiereErreur && pages.every((p) => !p.type)) throw premiereErreur;
-  return pages;
+  return resoudreDossier(pages, raisonSociale);
 }

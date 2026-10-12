@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod/v4";
-import { accepteEffort, champsByTypeFromClaude, ExtractionSchema, avecMesure, corrigerQuantiteLigne, uniteNormalisee, completerReponse, enregistrerMesure, coutNombre, coutEstime, corrigerTypeEtTiers, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
+import { accepteEffort, champsByTypeFromClaude, ExtractionSchema, avecMesure, corrigerQuantiteLigne, uniteNormalisee, completerReponse, enregistrerMesure, coutNombre, coutEstime, corrigerTypeEtTiers, corrigerDossier, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -231,5 +231,22 @@ describe("unité de la quantité", () => {
     const [l] = champsByTypeFromClaude(out).vente.lignes;
     expect(l.quantite).toBe(370);
     expect(l.unite).toBe("T");
+  });
+});
+
+describe("dossier sans la société sur les factures", () => {
+  const achatLu = { type: "vente", confidence: "moyenne", emetteur: "SOTACIB KAIROUAN", client: "RUSPINA IMPORT EXPORT", partie: "RUSPINA IMPORT EXPORT" };
+  const venteLue = { type: "vente", confidence: "haute", emetteur: "RUSPINA IMPORT EXPORT", client: "SOUMOUD AL ABRAJ COMPANY", partie: "SOUMOUD AL ABRAJ COMPANY" };
+
+  it("la facture dont le client vend ensuite est un achat, avec l'émetteur de l'en-tête pour fournisseur", () => {
+    const [a, v, d] = corrigerDossier([achatLu, venteLue, { type: "douane" }], "05-I CARGO LINE");
+    expect(a).toMatchObject({ type: "achat", partie: "SOTACIB KAIROUAN" });
+    expect(v).toMatchObject({ type: "vente", partie: "SOUMOUD AL ABRAJ COMPANY" });
+    expect(d.type).toBe("douane");
+  });
+
+  it("ne touche pas une page déjà tranchée par le nom de la société", () => {
+    const lectures = [achatLu, venteLue];
+    expect(corrigerDossier(lectures, "01-RUSPINA")).toEqual(lectures);
   });
 });

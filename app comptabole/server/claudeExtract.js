@@ -209,6 +209,37 @@ export function corrigerTypeEtTiers(lecture, raisonSociale) {
   return { ...lecture, type, partie: tiers, confidence: type === lecture.type ? lecture.confidence : "haute" };
 }
 
+/**
+ * Dossier de plusieurs pages dont le nom de la société ne figure sur aucune facture (ou n'est pas
+ * reconnu) : la facture dont le client est l'émetteur d'une autre est un achat, l'autre une vente
+ * (le fournisseur vend à la société qui revend à son tour). Seules les pages non tranchées par le
+ * nom de la société sont touchées ; renvoie les mêmes objets quand rien ne change.
+ */
+export function corrigerDossier(lectures, raisonSociale) {
+  const factures = lectures.map((l, i) => ({ l, i })).filter(({ l }) => l && l.type !== "douane" && l.emetteur && l.client);
+  const resultat = [...lectures];
+  const fixe = (i, type) => {
+    const l = resultat[i];
+    if (l.type === type) {
+      resultat[i] = { ...l, partie: (type === "achat" ? l.emetteur : l.client) || l.partie };
+    } else {
+      console.log(`[ocr] page ${i + 1} : ${type} d'après l'enchaînement des factures du dossier (modèle : ${l.type})`);
+      resultat[i] = { ...l, type, partie: (type === "achat" ? l.emetteur : l.client) || l.partie, confidence: "haute" };
+    }
+  };
+  for (const { l, i } of factures) {
+    if (typeParEmetteur(l, raisonSociale)) continue;
+    for (const { l: autre, i: j } of factures) {
+      if (i === j || typeParEmetteur(autre, raisonSociale)) continue;
+      if (designeLaSociete(l.client, autre.emetteur)) {
+        fixe(i, "achat");
+        fixe(j, "vente");
+      }
+    }
+  }
+  return resultat;
+}
+
 /** Dollars par million de jetons (entrée, sortie), tarifs Anthropic. Un service
  * revendeur peut facturer autrement : CLAUDE_PRICE_IN / CLAUDE_PRICE_OUT les remplacent. */
 const TARIFS = [

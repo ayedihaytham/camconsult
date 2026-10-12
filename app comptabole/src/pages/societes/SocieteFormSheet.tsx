@@ -2,7 +2,21 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Mail } from "lucide-react";
+import {
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Hash,
+  Layers,
+  Mail,
+  MapPin,
+  PauseCircle,
+  Phone,
+  Plus,
+  Save,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,15 +24,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CARD_FIELD_INPUT, CardField, CardSectionTitle } from "@/components/common/CardField";
-import { StatutDot } from "@/components/ledger/StatusDot";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import type { Societe, SocieteTheme, Statut } from "@/types";
 
 const THEMES: SocieteTheme[] = [
@@ -68,8 +76,65 @@ function previewInitials(name: string) {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-const SELECT_TRIGGER =
-  "mt-1 h-auto w-full border-0 bg-transparent p-0 text-base text-foreground shadow-none focus:ring-0 focus:ring-offset-0 [&>svg]:size-4 [&>svg]:text-muted-foreground";
+const STATUTS: { valeur: Statut; libelle: string; icone: typeof CheckCircle2; actif: string }[] = [
+  { valeur: "actif", libelle: "Actif", icone: CheckCircle2, actif: "bg-success/10 text-success" },
+  { valeur: "en_attente", libelle: "En attente", icone: Clock, actif: "bg-warning/10 text-warning" },
+  { valeur: "inactif", libelle: "Inactif", icone: PauseCircle, actif: "bg-muted text-foreground" },
+];
+
+/** Section de la carte : titre en capitales avec son icône. */
+function Rubrique({ icone: Icone, titre, children }: { icone: typeof FileText; titre: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2.5">
+      <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
+        <Icone className="size-4 text-accent" aria-hidden="true" />
+        {titre}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+/** Champ avec libellé, icône dans la case et message d'erreur dessous. */
+function Champ({
+  id,
+  label,
+  requis,
+  icone: Icone,
+  erreur,
+  lien,
+  children,
+}: {
+  id: string;
+  label: string;
+  requis?: boolean;
+  icone?: typeof FileText;
+  erreur?: string;
+  lien?: React.ReactNode;
+  children: (classe: string) => React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <Label htmlFor={id} className="text-[11.5px] font-semibold text-muted-foreground">
+          {label}
+          {requis && <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>}
+        </Label>
+        {lien}
+      </div>
+      <div className="relative">
+        {Icone && <Icone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />}
+        {children(cn("h-10 text-[13.5px]", Icone && "pl-9", erreur && "border-destructive bg-destructive/5"))}
+      </div>
+      {erreur && (
+        <p id={`${id}-error`} role="alert" className="flex items-center gap-1.5 text-[11.5px] text-destructive">
+          <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
+          {erreur}
+        </p>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -97,7 +162,7 @@ export function SocieteFormSheet({
     watch,
     clearErrors,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<SocieteFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -136,8 +201,17 @@ export function SocieteFormSheet({
   const statut = watch("statut");
   const email = watch("email");
   const raisonSociale = watch("raisonSociale");
-  const rne = watch("rne");
   const code = watch("code");
+  const rne = watch("rne");
+  const tva = watch("tva");
+
+  const aideBouton = isEdit
+    ? isDirty
+      ? "Modifications non enregistrées"
+      : "Aucune modification en attente"
+    : !raisonSociale.trim() || !rne.trim() || !tva.trim()
+      ? "Raison sociale, RNE et TVA requis"
+      : "Prête à être créée";
 
   return (
     <Dialog
@@ -146,16 +220,27 @@ export function SocieteFormSheet({
         if (!isSubmitting) onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
-        <div className="shrink-0 border-b border-accent/30 px-6 pb-5 pt-6 sm:px-8">
-          <DialogTitle className="font-serif text-3xl font-medium text-primary">
-            {isEdit ? "Modifier la société" : "Ajouter une société"}
-          </DialogTitle>
-          <DialogDescription className="mt-1 text-sm text-muted-foreground">
-            {isEdit
-              ? "Mettez à jour les informations de la fiche société."
-              : "Renseignez les informations de la nouvelle société cliente."}
-          </DialogDescription>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[560px] flex-col gap-0 overflow-hidden rounded-lg p-0">
+        <div className="flex shrink-0 items-center gap-3.5 border-b border-border px-[18px] py-4 pr-14">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "grid size-12 shrink-0 place-items-center rounded-[10px] border text-[15px] font-extrabold",
+              raisonSociale.trim() ? "border-border bg-accent/15 text-primary" : "border-dashed border-input bg-muted/60 text-muted-foreground/70",
+            )}
+          >
+            {previewInitials(raisonSociale)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <DialogTitle className="font-serif text-[22px] font-semibold leading-tight text-primary">
+              {isEdit ? "Modifier la société" : "Ajouter une société"}
+            </DialogTitle>
+            <DialogDescription className="truncate text-[12.5px] text-muted-foreground">
+              {isEdit
+                ? `${societe?.raisonSociale ?? ""} · ${societe?.code ?? code}`
+                : `Code ${code || nextCode} attribué automatiquement`}
+            </DialogDescription>
+          </div>
         </div>
 
         <form
@@ -176,178 +261,169 @@ export function SocieteFormSheet({
             }
           })}
         >
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6 sm:px-8">
-            <div className="rounded-xl border border-accent/30 bg-secondary/60 p-5" aria-live="polite">
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                Aperçu dans le registre
-              </p>
-              <div className="mt-3 flex items-center gap-4">
-                <span
-                  aria-hidden="true"
-                  className={`grid size-14 shrink-0 place-items-center rounded-xl border text-sm font-bold tracking-wide ${raisonSociale.trim() ? "border-accent/40 bg-accent/15 text-primary" : "border-border bg-muted text-muted-foreground"}`}
-                >
-                  {previewInitials(raisonSociale)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={`truncate font-serif text-2xl leading-tight ${raisonSociale.trim() ? "text-primary" : "text-muted-foreground/60"}`}>
-                    {raisonSociale.trim() || "Nom de la société"}
-                  </p>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {theme} · {rne.trim() || "RNE"}
-                  </p>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[18px] py-3.5">
+            <Rubrique icone={FileText} titre="Identité">
+              <Champ id="societe-raison-sociale" label="Raison sociale" requis erreur={errors.raisonSociale?.message}>
+                {(classe) => (
+                  <Input
+                    id="societe-raison-sociale"
+                    {...register("raisonSociale")}
+                    placeholder="Ex. CAMCONSULT"
+                    className={cn(classe, "h-11 font-serif text-[17px] font-semibold text-primary")}
+                    aria-invalid={Boolean(errors.raisonSociale)}
+                    aria-describedby={errors.raisonSociale ? "societe-raison-sociale-error" : undefined}
+                  />
+                )}
+              </Champ>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <Champ id="societe-rne" label="RNE" requis icone={FileText} erreur={errors.rne?.message}>
+                  {(classe) => (
+                    <Input
+                      id="societe-rne"
+                      {...register("rne")}
+                      placeholder="1234567A"
+                      className={classe}
+                      aria-invalid={Boolean(errors.rne)}
+                      aria-describedby={errors.rne ? "societe-rne-error" : undefined}
+                    />
+                  )}
+                </Champ>
+                <Champ id="societe-tva" label="N° TVA" requis icone={FileText} erreur={errors.tva?.message}>
+                  {(classe) => (
+                    <Input
+                      id="societe-tva"
+                      {...register("tva")}
+                      placeholder="1234567A/A/M/000"
+                      className={classe}
+                      aria-invalid={Boolean(errors.tva)}
+                      aria-describedby={errors.tva ? "societe-tva-error" : undefined}
+                    />
+                  )}
+                </Champ>
+              </div>
+            </Rubrique>
+
+            <Rubrique icone={Layers} titre="Classification">
+              <div className="space-y-1">
+                <p id="societe-theme-label" className="text-[11.5px] font-semibold text-muted-foreground">Type de structure</p>
+                <div role="radiogroup" aria-labelledby="societe-theme-label" className="flex flex-wrap gap-1.5">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      role="radio"
+                      aria-checked={theme === t}
+                      disabled={isSubmitting}
+                      onClick={() => setValue("theme", t, { shouldDirty: true })}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-semibold transition-colors disabled:opacity-50",
+                        theme === t
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-input bg-card text-muted-foreground hover:border-accent hover:text-foreground",
+                      )}
+                    >
+                      {theme === t && <Building2 className="size-3.5" aria-hidden="true" />}
+                      {t}
+                    </button>
+                  ))}
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-mono text-xs text-muted-foreground">{code || "—"}</p>
-                  <div className="mt-1 flex justify-end text-sm">
-                    <StatutDot statut={statut} />
+                {errors.theme?.message && <p role="alert" className="text-[11.5px] text-destructive">{errors.theme.message}</p>}
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <p id="societe-statut-label" className="text-[11.5px] font-semibold text-muted-foreground">Statut</p>
+                  <div role="radiogroup" aria-labelledby="societe-statut-label" className="flex overflow-hidden rounded-md border border-input">
+                    {STATUTS.map(({ valeur, libelle, icone: Icone, actif }) => (
+                      <button
+                        key={valeur}
+                        type="button"
+                        role="radio"
+                        aria-checked={statut === valeur}
+                        disabled={isSubmitting}
+                        onClick={() => setValue("statut", valeur, { shouldDirty: true })}
+                        className={cn(
+                          "inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 border-r border-input bg-card text-[12.5px] font-semibold text-muted-foreground transition-colors last:border-r-0 disabled:opacity-50",
+                          statut === valeur && actif,
+                        )}
+                      >
+                        <Icone className="size-3.5" aria-hidden="true" />
+                        {libelle}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <CardSectionTitle>Identité</CardSectionTitle>
-            <CardField id="societe-raison-sociale" label="Raison sociale" error={errors.raisonSociale?.message}>
-              <input
-                id="societe-raison-sociale"
-                {...register("raisonSociale")}
-                placeholder="Ex. CAMCONSULT"
-                className={CARD_FIELD_INPUT}
-                aria-invalid={Boolean(errors.raisonSociale)}
-                aria-describedby={errors.raisonSociale ? "societe-raison-sociale-error" : undefined}
-              />
-            </CardField>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <CardField id="societe-rne" label="RNE" error={errors.rne?.message}>
-                <input
-                  id="societe-rne"
-                  {...register("rne")}
-                  placeholder="1234567A"
-                  className={CARD_FIELD_INPUT}
-                  aria-invalid={Boolean(errors.rne)}
-                  aria-describedby={errors.rne ? "societe-rne-error" : undefined}
-                />
-              </CardField>
-              <CardField id="societe-tva" label="N° TVA" error={errors.tva?.message}>
-                <input
-                  id="societe-tva"
-                  {...register("tva")}
-                  placeholder="1234567A/A/M/000"
-                  className={CARD_FIELD_INPUT}
-                  aria-invalid={Boolean(errors.tva)}
-                  aria-describedby={errors.tva ? "societe-tva-error" : undefined}
-                />
-              </CardField>
-            </div>
-
-            <CardSectionTitle>Classification</CardSectionTitle>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <CardField id="societe-theme" label="Type de structure" error={errors.theme?.message}>
-                <Select
-                  value={theme}
-                  onValueChange={(v) => setValue("theme", v as SocieteTheme)}
-                  disabled={isSubmitting}
-                >
-                  <SelectTrigger
-                    id="societe-theme"
-                    className={SELECT_TRIGGER}
-                    aria-invalid={Boolean(errors.theme)}
-                    aria-describedby={errors.theme ? "societe-theme-error" : undefined}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {THEMES.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardField>
-              <CardField id="societe-statut" label="Statut" error={errors.statut?.message}>
-                <Select
-                  value={statut}
-                  onValueChange={(v) => setValue("statut", v as Statut)}
-                  disabled={isSubmitting}
-                >
-                  <SelectTrigger
-                    id="societe-statut"
-                    className={SELECT_TRIGGER}
-                    aria-invalid={Boolean(errors.statut)}
-                    aria-describedby={errors.statut ? "societe-statut-error" : undefined}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="actif">Actif</SelectItem>
-                    <SelectItem value="inactif">Inactif</SelectItem>
-                    <SelectItem value="en_attente">En attente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </CardField>
-            </div>
-            <CardField
-              id="societe-code"
-              label="Code interne"
-              error={errors.code?.message}
-              hint={isEdit ? undefined : "Généré automatiquement, modifiable"}
-            >
-              <input
-                id="societe-code"
-                {...register("code")}
-                className={CARD_FIELD_INPUT}
-                aria-invalid={Boolean(errors.code)}
-                aria-describedby={errors.code ? "societe-code-error" : !isEdit ? "societe-code-hint" : undefined}
-              />
-            </CardField>
-
-            <CardSectionTitle>Contact</CardSectionTitle>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <CardField id="societe-telephone" label="Téléphone" error={errors.telephone?.message}>
-                <input
-                  id="societe-telephone"
-                  {...register("telephone")}
-                  type="tel"
-                  placeholder="+216 00 00 00 00"
-                  className={CARD_FIELD_INPUT}
-                  aria-invalid={Boolean(errors.telephone)}
-                  aria-describedby={errors.telephone ? "societe-telephone-error" : undefined}
-                />
-              </CardField>
-              <CardField id="societe-email" label="Email" error={errors.email?.message}>
-                <div className="relative">
-                  <input
-                    id="societe-email"
-                    {...register("email")}
-                    type="email"
-                    placeholder="contact@societe.tn"
-                    className={`${CARD_FIELD_INPUT} ${email && !errors.email ? "pr-8" : ""}`}
-                    aria-invalid={Boolean(errors.email)}
-                    aria-describedby={errors.email ? "societe-email-error" : undefined}
-                  />
-                  {email && !errors.email && (
-                    <a
-                      href={`mailto:${email}`}
-                      title="Envoyer un email à cette adresse"
-                      aria-label={`Envoyer un email à ${email}`}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-accent"
-                    >
-                      <Mail className="h-4 w-4" />
-                    </a>
+                <Champ id="societe-code" label="Code interne" icone={Hash} erreur={errors.code?.message}>
+                  {(classe) => (
+                    <Input
+                      id="societe-code"
+                      {...register("code")}
+                      className={classe}
+                      aria-invalid={Boolean(errors.code)}
+                      aria-describedby={errors.code ? "societe-code-error" : undefined}
+                    />
                   )}
-                </div>
-              </CardField>
-            </div>
-            <CardField id="societe-adresse" label="Adresse" error={errors.adresse?.message}>
-              <input
-                id="societe-adresse"
-                {...register("adresse")}
-                placeholder="N°, rue, code postal, ville"
-                className={CARD_FIELD_INPUT}
-                aria-invalid={Boolean(errors.adresse)}
-                aria-describedby={errors.adresse ? "societe-adresse-error" : undefined}
-              />
-            </CardField>
+                </Champ>
+              </div>
+            </Rubrique>
+
+            <Rubrique icone={Phone} titre="Coordonnées">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <Champ id="societe-telephone" label="Téléphone" icone={Phone} erreur={errors.telephone?.message}>
+                  {(classe) => (
+                    <Input
+                      id="societe-telephone"
+                      {...register("telephone")}
+                      type="tel"
+                      placeholder="+216 00 00 00 00"
+                      className={classe}
+                      aria-invalid={Boolean(errors.telephone)}
+                      aria-describedby={errors.telephone ? "societe-telephone-error" : undefined}
+                    />
+                  )}
+                </Champ>
+                <Champ
+                  id="societe-email"
+                  label="Email"
+                  icone={Mail}
+                  erreur={errors.email?.message}
+                  lien={
+                    email && !errors.email ? (
+                      <a
+                        href={`mailto:${email}`}
+                        aria-label={`Envoyer un email à ${email}`}
+                        className="text-[11.5px] font-bold text-primary underline underline-offset-2"
+                      >
+                        Envoyer un email
+                      </a>
+                    ) : undefined
+                  }
+                >
+                  {(classe) => (
+                    <Input
+                      id="societe-email"
+                      {...register("email")}
+                      type="email"
+                      placeholder="contact@societe.tn"
+                      className={classe}
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={errors.email ? "societe-email-error" : undefined}
+                    />
+                  )}
+                </Champ>
+              </div>
+              <Champ id="societe-adresse" label="Adresse" icone={MapPin} erreur={errors.adresse?.message}>
+                {(classe) => (
+                  <Input
+                    id="societe-adresse"
+                    {...register("adresse")}
+                    placeholder="N°, rue, code postal, ville"
+                    className={classe}
+                    aria-invalid={Boolean(errors.adresse)}
+                    aria-describedby={errors.adresse ? "societe-adresse-error" : undefined}
+                  />
+                )}
+              </Champ>
+            </Rubrique>
 
             {errors.root?.message && (
               <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -356,11 +432,11 @@ export function SocieteFormSheet({
             )}
           </div>
 
-          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-accent/30 px-6 py-4 sm:flex-row sm:justify-end sm:px-8">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-[18px] py-3">
+            <span className={cn("mr-auto text-xs", (isEdit ? isDirty : false) ? "font-bold text-warning" : "text-muted-foreground")}>{aideBouton}</span>
             <Button
               type="button"
               variant="outline"
-              className="h-12 rounded-lg px-6"
               disabled={isSubmitting}
               onClick={() => onOpenChange(false)}
             >
@@ -369,9 +445,10 @@ export function SocieteFormSheet({
             <Button
               type="submit"
               variant="ledger"
-              className="h-12 rounded-lg px-8 text-sm uppercase tracking-[0.16em]"
-              disabled={isSubmitting}
+              className="gap-2"
+              disabled={isSubmitting || (isEdit && !isDirty)}
             >
+              {isEdit ? <Save className="size-4" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
               {isSubmitting
                 ? isEdit
                   ? "Enregistrement…"

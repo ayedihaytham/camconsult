@@ -595,7 +595,7 @@ const TOURS = {
   },
   parametres: {
     id: "parametres",
-    version: 1,
+    version: 2,
     title: "Paramètres",
     steps: [
       {
@@ -605,13 +605,13 @@ const TOURS = {
       },
       {
         target: "parametres-account",
-        title: "Compte et sécurité",
-        body: "Vérifiez les informations du compte et les commandes de sécurité.",
+        title: "Profil, sécurité et données",
+        body: "Trois onglets : le profil affiché, les identifiants de connexion, puis les données du cabinet.",
       },
       {
-        target: "parametres-data",
-        title: "Données du cabinet",
-        body: "Les sauvegardes, imports et réinitialisations peuvent avoir des conséquences importantes. La visite ne les lance jamais.",
+        target: "parametres-content",
+        title: "Un formulaire, une action",
+        body: "Chaque onglet n'a qu'un bouton d'enregistrement. Sauvegarde, import et réinitialisation se trouvent dans l'onglet Données : la visite ne les lance jamais.",
       },
     ],
   },

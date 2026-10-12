@@ -219,7 +219,7 @@ export function FileTree({
     {barre}
     <div className="grid lg:grid-cols-[240px_1fr]">
       {/* Colonne arbre */}
-      <div className="border-b border-border bg-muted/40 p-2 lg:border-b-0 lg:border-r">
+      <div className="min-w-0 border-b border-border bg-muted/40 p-2 lg:border-b-0 lg:border-r">
         {canCreate && <div className="flex items-center justify-between px-2 py-1.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Dossiers
@@ -402,7 +402,7 @@ export function FileTree({
                   >
                     {isFolder ? (
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/15">
-                        <Folder className="h-4 w-4 fill-accent/40 text-accent" />
+                        <Folder className="h-4 w-4 fill-amber-300 text-amber-500" />
                       </span>
                     ) : (
                       <FileTypeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -579,7 +579,7 @@ function TreeBranch({
         {...dragProps(node)}
         {...dropProps(node.id, node.id)}
         className={cn(
-          "flex items-center rounded-md text-sm transition-colors hover:bg-secondary",
+          "flex min-w-0 items-center rounded-md text-sm transition-colors hover:bg-secondary",
           active && (compteur ? "bg-accent/15 font-semibold" : "bg-secondary font-medium"),
           dropTarget === node.id && "ring-2 ring-inset ring-accent",
         )}
@@ -601,12 +601,13 @@ function TreeBranch({
         </button>
         <button
           onClick={() => onNavigate(node.id)}
-          className="flex flex-1 items-center gap-1.5 py-1.5 pr-2 text-left"
+          title={node.libelle}
+          className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pr-2 text-left"
         >
           {active ? (
-            <FolderOpen className="h-4 w-4 shrink-0 fill-accent/40 text-accent" />
+            <FolderOpen className="h-4 w-4 shrink-0 fill-amber-300 text-amber-500" />
           ) : (
-            <Folder className="h-4 w-4 shrink-0 fill-accent/40 text-accent" />
+            <Folder className="h-4 w-4 shrink-0 fill-amber-300 text-amber-500" />
           )}
           <span className="min-w-0 flex-1 truncate">{node.libelle}</span>
           {compteur && <span className="text-xs font-normal text-muted-foreground">{compteur(node.id)}</span>}

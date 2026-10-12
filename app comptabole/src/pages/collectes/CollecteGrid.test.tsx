@@ -197,7 +197,7 @@ describe("CollecteGrid : barre d'actions épurée", () => {
     const avancement = within(suivi).getByRole("progressbar", { name: "Montant réparti : Bordereau BRD-9" });
     expect(avancement.getAttribute("aria-valuenow")).toBe("400");
     expect(avancement.contains(commandes)).toBe(false);
-    expect(within(barre).queryByRole("button", { name: "Nouveau bordereau" })).toBeNull();
+    expect(within(barre).getByRole("button", { name: "Nouveau bordereau" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Ajouter un chèque" })).toBeNull();
     fireEvent.click(ajouterCheque);
     expect(lignes()).toHaveLength(2);
@@ -274,7 +274,7 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     expect(champs(lignes()[2])[BANQUE].value).toBe("BNA");
   });
 
-  it("n'offre pas de création d'un autre bordereau, et continue celui qui existe", () => {
+  it("propose un nouveau bordereau indépendant, et « Ajouter un chèque » continue celui qui existe", () => {
     renderGrid("bordereaux_remise_cheques");
     ajouter();
     fireEvent.change(champs(lignes()[0])[1], { target: { value: "REM-42" } });
@@ -282,7 +282,7 @@ describe("CollecteGrid : bordereau réparti sur plusieurs lignes", () => {
     fireEvent.change(champs(lignes()[0])[BANQUE], { target: { value: "BNA" } });
     fireEvent.change(champs(lignes()[0])[MONTANT], { target: { value: "60000" } });
     expect(suivi()?.textContent).toContain("Complet");
-    expect(screen.queryByRole("button", { name: /Nouveau bordereau/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Nouveau bordereau" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /Ajouter un chèque à ce bordereau REM-42/ }));
     expect(lignes()).toHaveLength(2);
@@ -579,6 +579,29 @@ describe("CollecteGrid : bordereaux terminés repliés sur une ligne", () => {
     expect(lignes()).toHaveLength(2);
   });
 
+  it("« Nouveau bordereau » ajoute un bordereau indépendant, sans reprendre le n° ni la banque du précédent", () => {
+    renderGrid("bordereaux_remise_cheques");
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
+    const l0 = champs(lignes()[0]);
+    fireEvent.change(l0[0], { target: { value: "2026-10-01" } });
+    fireEvent.change(l0[1], { target: { value: "REM-1" } });
+    fireEvent.change(l0[MONTANT_BORDEREAU], { target: { value: "1000" } });
+    fireEvent.change(l0[3], { target: { value: "ZITOUNA" } });
+    fireEvent.change(l0[MONTANT], { target: { value: "400" } });
+    // « Ajouter un chèque » reste dans le même bordereau : il reprend son n° et sa banque.
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter un chèque à ce bordereau/ }));
+    expect((champs(lignes()[1])[1] as HTMLInputElement).value).toBe("REM-1");
+    // « Nouveau bordereau » en démarre un autre : ligne vierge.
+    fireEvent.click(screen.getByRole("button", { name: "Nouveau bordereau" }));
+    expect(lignes()).toHaveLength(3);
+    const nouvelle = champs(lignes()[2]);
+    expect((nouvelle[1] as HTMLInputElement).value).toBe("");
+    expect((nouvelle[3] as HTMLInputElement).value).toBe("");
+    // Une ligne vierge n'est pas empilée une seconde fois.
+    fireEvent.click(screen.getByRole("button", { name: "Nouveau bordereau" }));
+    expect(lignes()).toHaveLength(3);
+  });
+
   it("se replie lorsqu'un autre bordereau est importé, et se déplie pour voir le détail", () => {
     const { ref } = renderGrid("bordereaux_remise_cheques");
     fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
@@ -657,11 +680,11 @@ describe("CollecteGrid : actions propres à chaque bordereau", () => {
     expect(champs(visibles[visibles.length - 1])[1].value).toBe("REM-2");
   });
 
-  it("ne propose plus d'action de création de nouveau bordereau", () => {
+  it("propose un nouveau bordereau indépendant, sans reprendre la date, le n° ni la banque du précédent", () => {
     deuxBordereaux();
     expect(screen.queryByRole("button", { name: /Commencer un nouveau bordereau/ })).toBeNull();
     expect(screen.queryByText(/garde sa date, son n° et sa banque/)).toBeNull();
-    expect(screen.queryByRole("button", { name: /Nouveau bordereau/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Nouveau bordereau" })).toBeTruthy();
   });
 
   it("un bordereau dont la dernière ligne attend son chèque ne reçoit pas une ligne vide de plus", () => {

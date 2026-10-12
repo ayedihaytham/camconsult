@@ -1,5 +1,5 @@
 import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronRight, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
+import { ChevronRight, FilePlus, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -158,7 +158,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   }
   /** Ajoute une ligne à la suite, directement dans le tableau, et y place le curseur. Dans un groupe qui n'a pas
    * encore atteint son montant (un bordereau), la ligne reprend la date, le n° et la banque du groupe.
-   * La création explicite d'un nouveau bordereau n'est pas proposée dans cette interface. */
+   * Un nouveau bordereau, indépendant, se crée par `addBordereau`. */
   function addRow(groupeId?: string) {
     // Une ligne vierge est déjà en bas du tableau : on y place le curseur au lieu d'en empiler d'autres.
     const derniere = rows[rows.length - 1];
@@ -213,6 +213,23 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setFocusRow(rows.length);
     // Ligne d'un groupe en cours : le curseur va à la première case propre au chèque / à la traite.
     setFocusCol(g && idDuBordereau ? (def.columns.find((c) => !c.computed && !g.prefill.includes(c.key) && c.key !== g.totalCol)?.key ?? null) : null);
+  }
+
+  /** Nouveau bordereau (ou nouvelle traite groupée) : une ligne vierge, indépendante du bordereau précédent, qui ne reprend ni son n°, ni sa date, ni sa banque. */
+  function addBordereau() {
+    const derniere = rows[rows.length - 1];
+    const premiere = def.columns.find((c) => !c.computed)?.key ?? null;
+    if (derniere && ligneVide(def, derniere)) {
+      setFocusRow(rows.length - 1);
+      setFocusCol(premiere);
+      return;
+    }
+    setSaved(false);
+    setSaveError(false);
+    const vide = Object.fromEntries(def.columns.map((c) => [c.key, c.defaut ?? ""]));
+    setRows((current) => [...current, vide]);
+    setFocusRow(rows.length);
+    setFocusCol(premiere);
   }
 
   useEffect(() => {
@@ -438,6 +455,15 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const commands = (
     (!readOnly || exportActions) && <div aria-label="Commandes du tableau" className={cn("flex min-w-0 shrink-0 items-center gap-1.5", groupes.length === 0 && "lg:w-full lg:flex-wrap [&>button]:lg:flex-1")}>
               {canAdd && (def.plageNumeros && rows.length === 0 ? null : groupes.length === 0 ? ajoutLigne() : null)}
+              {canAdd && def.groupe && groupes.length >= 1 && (
+                <Button type="button" variant="outline" size="icon" className={commandButtonClass}
+                  aria-label={`Nouveau ${def.groupe.libelle.toLowerCase()}`}
+                  title={`Nouveau ${def.groupe.libelle.toLowerCase()} (indépendant du précédent)`}
+                  onClick={addBordereau}>
+                  <FilePlus className="size-4" aria-hidden="true" />
+                  <span className="hidden lg:inline">Nouveau {def.groupe.libelle.toLowerCase()}</span>
+                </Button>
+              )}
               {canAdd && groupes.length === 1 && (
                 <Button type="button" variant="outline" size="icon" className={commandButtonClass}
                   aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${groupes[0].nom}`}
@@ -506,7 +532,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       )}
 
       {/* Le suivi et les actions sont réunis dans une seule barre sticky. La création
-          d'un nouveau bordereau n'est pas exposée : on continue les groupes existants. */}
+          d'un nouveau bordereau passe par le bouton « Nouveau bordereau » ; « Ajouter un chèque » continue le bordereau existant. */}
       {(groupes.length > 0 || !readOnly || exportActions || workflowActions) && (
         <section
           data-tour="collecte-sticky-tools"

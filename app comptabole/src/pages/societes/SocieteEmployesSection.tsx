@@ -34,7 +34,7 @@ import { IDENTIFIANT_RE, suggestIdentifiant } from "@/lib/identifiant";
 import { ApiError } from "@/lib/api";
 import { cn, initials } from "@/lib/utils";
 import { useData, useSocieteById, useSocieteEmployes } from "@/store/data";
-import type { Employe, EmployePermissions } from "@/types";
+import type { EmailEnvoi, Employe, EmployePermissions } from "@/types";
 
 const SOC_EMP_PERMS: EmployePermissions = {
   consulterDossiers: true,
@@ -151,7 +151,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
         });
         toast.success("Compte modifié", { description: `${prenom} ${nom}` });
       } else {
-        await addEmploye({
+        const cree = await addEmploye({
           prenom,
           nom,
           identifiant,
@@ -165,9 +165,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
           permissions: SOC_EMP_PERMS,
           delegue: draft.delegue,
         });
-        toast.success(draft.delegue ? "Délégué ajouté" : "Responsable ajouté", {
-          description: `${prenom} ${nom}`,
-        });
+        annonceEmail(draft.delegue ? "Délégué ajouté" : "Responsable ajouté", `${prenom} ${nom}`, email, cree?.emailEnvoi);
       }
       setMode(null);
     } catch (err) {
@@ -180,15 +178,21 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
     }
   }
 
+  /** Confirme l'action et dit si l'email d'identifiants est bien parti (résultat renvoyé par le serveur). */
+  function annonceEmail(titre: string, description: string, email: string | undefined, envoi: EmailEnvoi | undefined) {
+    if (envoi === "envoye") toast.success(titre, { description: `${description} — email envoyé à ${email}` });
+    else if (envoi === "smtp") toast.warning(titre, { description: `${description} — email non envoyé : l'envoi d'emails n'est pas configuré sur le serveur.` });
+    else if (envoi === "echec") toast.warning(titre, { description: `${description} — l'email n'a pas pu être envoyé à ${email}.` });
+    else toast.success(titre, { description });
+  }
+
   async function confirmReset(id: string) {
     if (resetValue.length < 8) {
       toast.error("Mot de passe : 8 caractères minimum.");
       return;
     }
-    await updateEmploye(id, { motDePasse: resetValue });
-    toast.success("Mot de passe réinitialisé", {
-      description: "Il devra en choisir un nouveau à sa prochaine connexion.",
-    });
+    const e = await updateEmploye(id, { motDePasse: resetValue });
+    annonceEmail("Mot de passe réinitialisé", "Il devra en choisir un nouveau à sa prochaine connexion.", e?.email, e?.emailEnvoi);
     setResettingId(null);
     setResetValue("");
   }

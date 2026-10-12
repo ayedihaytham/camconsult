@@ -122,10 +122,11 @@ employesRouter.post("/", async (req, res) => {
     );
     const dto = employeDto(rows[0]);
     // Jamais bloquant : la création du compte réussit même si l'email échoue.
-    sendCollaborateurWelcomeEmail(dto).catch((err) =>
-      console.error("[mailer] envoi identifiants échoué", err.message),
-    );
-    res.status(201).json(employeDtoFor(req.session)(rows[0]));
+    const emailEnvoi = await sendCollaborateurWelcomeEmail(dto).catch((err) => {
+      console.error("[mailer] envoi identifiants échoué", err.message);
+      return "echec";
+    });
+    res.status(201).json({ ...employeDtoFor(req.session)(rows[0]), emailEnvoi });
   } catch (err) {
     if (err.code === "23505")
       return res.status(409).json({ error: "Cet identifiant existe déjà" });
@@ -190,13 +191,15 @@ employesRouter.patch("/:id", async (req, res) => {
     v.role === "societe_employe" ? "/structuration" : "/",
   );
   const dto = employeDto(rows[0]);
+  let emailEnvoi;
   if (passwordChanged) {
-    // Jamais bloquant : la réinitialisation réussit même si l'email échoue.
-    sendPasswordResetEmail(dto).catch((err) =>
-      console.error("[mailer] envoi réinitialisation échoué", err.message),
-    );
+    // Jamais bloquant : la réinitialisation réussit même si l'email échoue ; le résultat est indiqué à l'écran.
+    emailEnvoi = await sendPasswordResetEmail(dto).catch((err) => {
+      console.error("[mailer] envoi réinitialisation échoué", err.message);
+      return "echec";
+    });
   }
-  res.json(employeDtoFor(req.session)(rows[0]));
+  res.json({ ...employeDtoFor(req.session)(rows[0]), ...(emailEnvoi ? { emailEnvoi } : {}) });
 });
 
 employesRouter.patch("/:id/acces", async (req, res) => {

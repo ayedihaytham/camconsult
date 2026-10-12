@@ -45,8 +45,12 @@ export type PermissionKey =
 
 export type EmployePermissions = Record<PermissionKey, boolean>;
 
+/** Résultat de l'envoi des identifiants par email, renvoyé par le serveur à la création / réinitialisation. */
+export type EmailEnvoi = "envoye" | "smtp" | "sans_email" | "echec";
+
 export interface Employe {
   id: string;
+  emailEnvoi?: EmailEnvoi;
   nom: string;
   prenom: string;
   identifiant: string;

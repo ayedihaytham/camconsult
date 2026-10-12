@@ -133,7 +133,7 @@ interface DataState {
   deleteSocietes: (ids: string[]) => Promise<void>;
 
   addEmploye: (data: Omit<Employe, "id" | "creeLe">) => Promise<Employe>;
-  updateEmploye: (id: string, patch: Partial<Employe>) => Promise<void>;
+  updateEmploye: (id: string, patch: Partial<Employe>) => Promise<Employe | undefined>;
   duplicateEmploye: (id: string) => Promise<void>;
   deleteEmployes: (ids: string[]) => Promise<void>;
   setEmployeAcces: (
@@ -359,6 +359,7 @@ export const useData = create<DataState>((set, get) => ({
       set((st) => ({
         employes: st.employes.map((x) => (x.id === id ? e : x)),
       }));
+      return e;
     } catch (err) {
       fail(err);
     }

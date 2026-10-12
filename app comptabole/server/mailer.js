@@ -189,11 +189,11 @@ export async function sendSocieteWelcomeEmail(societe) {
 export async function sendCollaborateurWelcomeEmail(employe) {
   if (!mailerAvailable()) {
     console.log("[mailer] envoi sauté (SMTP non configuré)");
-    return;
+    return "smtp";
   }
   if (!employe.email) {
     console.log(`[mailer] envoi sauté : collaborateur « ${employe.prenom} ${employe.nom} » sans email`);
-    return;
+    return "sans_email";
   }
 
   const bodyHtml = `
@@ -217,7 +217,7 @@ export async function sendCollaborateurWelcomeEmail(employe) {
       bodyHtml,
     }),
   });
-  console.log(`[mailer] identifiants collaborateur envoyés à ${employe.email}`);
+  console.log(`[mailer] identifiants collaborateur envoyés à ${employe.email}`);  return "envoye";
 }
 
 /** Email envoyé quand l'admin (ou le responsable des collaborateurs)
@@ -229,11 +229,11 @@ export async function sendCollaborateurWelcomeEmail(employe) {
 export async function sendPasswordResetEmail(employe) {
   if (!mailerAvailable()) {
     console.log("[mailer] envoi sauté (SMTP non configuré)");
-    return;
+    return "smtp";
   }
   if (!employe.email) {
     console.log(`[mailer] envoi sauté : « ${employe.prenom} ${employe.nom} » sans email`);
-    return;
+    return "sans_email";
   }
 
   const bodyHtml = `
@@ -261,7 +261,7 @@ export async function sendPasswordResetEmail(employe) {
       accent: BRAND.warning,
     }),
   });
-  console.log(`[mailer] réinitialisation de mot de passe envoyée à ${employe.email}`);
+  console.log(`[mailer] réinitialisation de mot de passe envoyée à ${employe.email}`);  return "envoye";
 }
 
 /** Relance envoyée à la société cliente pour une collecte en attente

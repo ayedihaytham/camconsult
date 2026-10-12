@@ -234,8 +234,8 @@ const TABLEAUX_DEFINIS: TabDef[] = [
     key: "etat_cheques_emis",
     label: "État des chèques émis",
     pieceLabel: "État des chèques émis",
-    // Tableau tenu par le comptable : il reprend la souche remplie par le client, la vérifie et ajoute le nécessaire.
-    cabinetSeul: true,
+    // Le comptable reprend la souche remplie par le client, la vérifie, ajoute le nécessaire, puis transmet le tableau au client (Récap)
+    // pour qu'il le complète ou le corrige.
     totalKey: "montant",
     columns: COLONNES_CHEQUES_EMIS,
   },

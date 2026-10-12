@@ -31,8 +31,8 @@ describe("circuit par tableau", () => {
     expect(resumeSections(c)).toEqual({ brouillon: 1, transmis: 2, a_corriger: 0, valide: 1, archive: 0 });
   });
 
-  it("ne compte pas les tableaux tenus par le cabinet seul", () => {
+  it("compte l'état des chèques émis comme les autres tableaux", () => {
     const c = { statut: "brouillon" as const, onglets: ["souche_cheques", "etat_cheques_emis"], sections: [] as CollecteSection[] };
-    expect(resumeSections(c)).toEqual({ brouillon: 1, transmis: 0, a_corriger: 0, valide: 0, archive: 0 });
+    expect(resumeSections(c)).toEqual({ brouillon: 2, transmis: 0, a_corriger: 0, valide: 0, archive: 0 });
   });
 });

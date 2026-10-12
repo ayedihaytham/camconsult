@@ -146,6 +146,14 @@ describe("Récap : droits et archives", () => {
     expect(envoyer().length).toBeGreaterThan(0);
   });
 
+  it("liste l'état des chèques émis dans le récap dès qu'il a une ligne, et permet de le transmettre au client", async () => {
+    const ligne = { id: "l9", onglet: "etat_cheques_emis", ordre: 0, data: { date: "2026-01-06", num_cheque: "12", beneficiaire: "", motif: "", montant: 100, banque: "" } };
+    rendre({ ...collecte, onglets: ["etat_cheques_emis"], lignes: [ligne] } as unknown as CollecteFull);
+    expect(screen.getAllByText("État des chèques émis").length).toBeGreaterThan(0);
+    fireEvent.click(envoyer("État des chèques émis")[0]);
+    await waitFor(() => expect(sendRecapSection).toHaveBeenCalledWith("c1", "etat_cheques_emis", expect.any(Number)));
+  });
+
   it("exclut le tableau réservé au cabinet des demandes client", () => {
     rendre({ ...collecte, onglets: ["etat_cheques_emis"] });
     expect(screen.getByText("Aucun tableau à transmettre : un tableau apparaît ici dès qu'il contient au moins une ligne.")).toBeTruthy();

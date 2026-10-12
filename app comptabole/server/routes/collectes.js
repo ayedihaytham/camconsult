@@ -160,8 +160,9 @@ function canEdit(session, societeId) {
 }
 
 const SECTION_OUVERTES = ["brouillon", "a_corriger"];
-/** Tableaux tenus par le cabinet seul (miroir de TABLEAUX_CABINET_SEUL, src/lib/collecte/tabs.ts) : le client les consulte seulement. */
-const CABINET_SEUL = ["etat_cheques_emis"];
+/** Tableaux tenus par le cabinet seul (miroir de TABLEAUX_CABINET_SEUL, src/lib/collecte/tabs.ts) : le client les consulte seulement.
+ * Aucun pour l'instant : l'état des chèques émis est transmis au client par le Récap, comme les autres tableaux. */
+const CABINET_SEUL = [];
 const LIBELLES_ONGLETS = {
   souche_cheques: "Souche de chèques",
   etat_cheques_emis: "État des chèques émis",

@@ -16,12 +16,12 @@ describe("états de la collecte : chèques, virements, traites", () => {
   });
 
   it("nomme les tableaux comme demandé", () => {
-    // La souche de chèques (remplie par le client) et l'état des chèques émis (tenu par le comptable) sont deux tableaux distincts.
+    // La souche de chèques (remplie par le client) et l'état des chèques émis (repris par le comptable, puis transmis au client) sont deux tableaux distincts.
     expect(TAB_BY_KEY.souche_cheques.label).toBe("Souche de chèques");
     expect(TAB_BY_KEY.etat_cheques_emis.label).toBe("État des chèques émis");
     expect(etatDeTableau("souche_cheques")).toBeUndefined();
     expect(TAB_BY_KEY.etat_cheques_emis.columns).toEqual(TAB_BY_KEY.souche_cheques.columns);
-    expect(TAB_BY_KEY.etat_cheques_emis.cabinetSeul).toBe(true);
+    expect(TAB_BY_KEY.etat_cheques_emis.cabinetSeul).toBeUndefined();
     expect(TAB_BY_KEY.souche_cheques.cabinetSeul).toBeUndefined();
     expect(TAB_BY_KEY.virements_salaire.label).toBe("Virement multiple (salaires)");
     expect(TAB_BY_KEY.traites_emises.label).toBe("État des traites émises");
@@ -77,15 +77,15 @@ describe("états de la collecte : chèques, virements, traites", () => {
     ]);
   });
 
-  it("l'état des chèques émis, tenu par le cabinet, n'est ni dans la checklist ni dans le récap du client", () => {
+  it("l'état des chèques émis est dans la checklist et le récap, comme les autres tableaux", () => {
     const c = {
       onglets: ["souche_cheques", "etat_cheques_emis"],
       sections: [],
       statut: "brouillon",
       lignes: [{ id: "1", onglet: "etat_cheques_emis", ordre: 0, data: { date: "2026-01-01", montant: 5 } }],
     } as unknown as CollecteFull;
-    expect(checklistRows(c).map((r) => r.onglet)).toEqual(["souche_cheques"]);
-    expect(computeManques(c).every((m) => m.onglet === "souche_cheques")).toBe(true);
+    expect(checklistRows(c).map((r) => r.onglet).sort()).toEqual(["etat_cheques_emis", "souche_cheques"]);
+    expect(computeManques(c).some((m) => m.onglet === "etat_cheques_emis")).toBe(true);
   });
 
   it("ne demande pas le montant du bordereau sur les traites suivantes, mais le montant de chaque traite", () => {

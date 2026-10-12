@@ -19,6 +19,6 @@ describe("périodes de collecte", () => {
     const cinq = COLLECTE_TABS.slice(0, 7).map((tab) => tab.key);
     const resume = resumeTableaux(cinq);
     expect(resume).toHaveLength(5);
-    expect(resume[4]).toBe("+2");
+    expect(resume[4]).toBe("+3");
   });
 });

@@ -203,15 +203,15 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(screen.getByRole("heading", { name: "État des chèques émis" })).toBeTruthy();
   });
 
-  it("la souche de chèques est un onglet à part, remplie par le client ; l'état des chèques émis est tenu par le cabinet", () => {
+  it("la souche de chèques est un onglet à part, remplie par le client ; l'état des chèques émis est repris par le cabinet puis transmis au client", () => {
     renderPage();
     ouvrirSection("Souche de chèques");
     expect(screen.getByRole("heading", { name: "Souche de chèques" })).toBeTruthy();
     // Elle suit le circuit du client (il la transfère, le cabinet la valide).
     expect(screen.getByText(/Le client n'a pas encore transféré ce tableau/)).toBeTruthy();
     ouvrirSection("État des chèques émis");
-    expect(screen.getByText("Tenu par le cabinet")).toBeTruthy();
-    expect(screen.queryByText(/Le client n'a pas encore transféré/)).toBeNull();
+    expect(screen.getByText("Repris de la souche")).toBeTruthy();
+    expect(screen.getByText(/Le client n'a pas encore transféré ce tableau/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reprendre la souche de chèques" })).toBeTruthy();
   });
 

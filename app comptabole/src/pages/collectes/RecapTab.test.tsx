@@ -40,12 +40,16 @@ describe("Récap : demandes au client depuis le registre", () => {
     expect(success).toHaveBeenCalledWith("« Souche de chèques » transmis au client");
   });
 
-  it("affiche les tableaux entièrement vides et permet de les demander", async () => {
-    rendre();
+  it("ne liste pas un tableau sans ligne, et le fait apparaître dès qu'il a une ligne", async () => {
+    const { unmount } = rendre();
+    expect(screen.queryByText("Virements reçus")).toBeNull();
+    expect(screen.getAllByText("Souche de chèques").length).toBeGreaterThan(0);
+    unmount();
+    const ligne = { id: "l2", onglet: "virements_recus", ordre: 0, data: { date: "2026-01-02" } };
+    rendre({ ...collecte, lignes: [...collecte.lignes, ligne] } as unknown as CollecteFull);
     expect(screen.getAllByText("Virements reçus").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Tableau à remplir").length).toBeGreaterThan(0);
     fireEvent.click(envoyer("Virements reçus")[0]);
-    await waitFor(() => expect(sendRecapSection).toHaveBeenCalledWith("c1", "virements_recus", 1));
+    await waitFor(() => expect(sendRecapSection).toHaveBeenCalledWith("c1", "virements_recus", expect.any(Number)));
   });
 
   it.each(["envoye", "repondu"])("clôture directement une demande %s", async (recapStatut) => {
@@ -111,7 +115,7 @@ describe("Récap : demandes au client depuis le registre", () => {
   });
 
   it("ouvre et referme un seul détail à la fois", () => {
-    rendre();
+    rendre({ ...collecte, lignes: [...collecte.lignes, { id: "l2", onglet: "virements_recus", ordre: 0, data: { date: "2026-01-02" } }] } as unknown as CollecteFull);
     fireEvent.click(screen.getAllByRole("button", { name: "Voir le détail de Souche de chèques" })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: "Voir le détail de Virements reçus" })[0]);
     const noms = new Set(screen.getAllByRole("region", { name: /Détail de/ }).map((region) => region.getAttribute("aria-label")));
@@ -144,7 +148,7 @@ describe("Récap : droits et archives", () => {
 
   it("exclut le tableau réservé au cabinet des demandes client", () => {
     rendre({ ...collecte, onglets: ["etat_cheques_emis"] });
-    expect(screen.getByText("Aucun tableau destiné au client dans cette collecte.")).toBeTruthy();
+    expect(screen.getByText("Aucun tableau à transmettre : un tableau apparaît ici dès qu'il contient au moins une ligne.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Transmettre au client/ })).toBeNull();
   });
 });

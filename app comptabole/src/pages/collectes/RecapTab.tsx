@@ -103,7 +103,9 @@ export function RecapTab({ collecte, canManageRecap, isClient = false, onNavigat
       archive: collecte.statut === "archive" || sectionStatut(collecte, onglet) === "archive",
       vide: !collecte.lignes.some((ligne) => ligne.onglet === onglet),
       ecarts: ecartsDeRepartition(collecte, onglet, collecte.devise),
-    })), [collecte, live]);
+    }))
+    // Un tableau sans aucune ligne n'est pas listé : il apparaît dès qu'il a au moins une ligne (ou s'il a déjà fait l'objet d'une demande).
+    .filter((row) => !row.vide || row.statut !== "none"), [collecte, live]);
   type RecapRow = (typeof rows)[number];
   const aCompleter = (row: RecapRow) => row.count > 0 || row.ecarts.length > 0;
   const aTransmettre = rows.filter((row) => !row.archive && row.statut === "none" && aCompleter(row)).length;
@@ -197,7 +199,7 @@ export function RecapTab({ collecte, canManageRecap, isClient = false, onNavigat
         </div>
       </div>
       {rows.length === 0 ? (
-        <p className="px-3 text-sm text-muted-foreground">Aucun tableau destiné au client dans cette collecte.</p>
+        <p className="px-3 text-sm text-muted-foreground">Aucun tableau à transmettre : un tableau apparaît ici dès qu'il contient au moins une ligne.</p>
       ) : (
         <>
           <div className="hidden border-y border-border lg:block">

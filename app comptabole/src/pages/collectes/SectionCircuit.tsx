@@ -35,7 +35,7 @@ interface Props {
 }
 
 const STYLES: Record<SectionStatut, string> = {
-  brouillon: "bg-secondary text-muted-foreground",
+  brouillon: "border border-warning/40 bg-warning/10 text-warning",
   transmis: "bg-warning/15 text-warning",
   a_corriger: "bg-destructive/10 text-destructive",
   valide: "bg-success/15 text-success",
@@ -106,7 +106,7 @@ export function SectionCircuit({
         </div>
       )}
 
-      {!(statut === "a_corriger" && !isClient) && <div data-tour="collecte-circuit" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 bg-muted/20 px-3 py-2", !compact && "rounded-lg border border-border")}>
+      {!(statut === "a_corriger" && !isClient) && <div data-tour="collecte-circuit" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 bg-primary/[0.03] px-3 py-2", !compact && "rounded-lg border border-primary/20")}>
         {statut !== "a_corriger" && <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold", STYLES[statut])}>
           {statut === "valide" ? <CheckCircle2 className="size-3.5" /> : statut === "transmis" ? <Clock className="size-3.5" /> : statut === "archive" ? <Archive className="size-3.5" /> : null}
           {SECTION_STATUT_LABELS[statut]}

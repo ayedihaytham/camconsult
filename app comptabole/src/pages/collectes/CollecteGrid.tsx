@@ -432,6 +432,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       ? derived.reduce((s, r) => s + cellNumber(r[def.totalKey as string]), 0)
       : null;
   const totalLabel = def.totalLabel ?? "Total";
+  // Ventes et achats : le total HT (colonne totalisée) est complété par le total TTC.
+  const totalTtc: number | null = def.columns.some((c) => c.key === "montant_ttc") ? derived.reduce((t, r) => t + cellNumber(r.montant_ttc), 0) : null;
 
   const commands = (
     (!readOnly || exportActions) && <div aria-label="Commandes du tableau" className={cn("flex min-w-0 shrink-0 items-center gap-1.5", groupes.length === 0 && "lg:w-full lg:flex-wrap [&>button]:lg:flex-1")}>
@@ -480,7 +482,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                     size="icon"
                     aria-label={saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}
                     title={saveError ? "Enregistrement impossible : réessayez" : saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}
-                    className={cn(commandButtonClass, saveError && "border border-destructive bg-destructive/10 text-destructive hover:bg-destructive/15", !dirty && !saveAndContinue && "disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
+                    className={cn(commandButtonClass, saveError && "border border-destructive bg-destructive/10 text-destructive hover:bg-destructive/15", !dirty && !saveAndContinue && "disabled:border-success/30 disabled:bg-success/10 disabled:text-success disabled:opacity-100")}
                     onClick={() => { void (saveAndContinue ? saveAndContinue() : save()).catch(() => {}); }}
                     disabled={saving || (!dirty && !saveAndContinue)}
                   >
@@ -509,7 +511,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         <section
           data-tour="collecte-sticky-tools"
           aria-label="Suivi et actions du tableau"
-          className="sticky top-0 z-30 rounded-lg border border-border bg-card shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)]"
+          className="sticky top-0 z-30 overflow-hidden rounded-lg border border-primary/20 border-l-4 border-l-primary bg-primary/[0.07] shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)] [&_button.bg-background]:border-primary/25 [&_button.bg-background]:bg-card [&_button.bg-background]:font-semibold [&_button.bg-background]:text-primary"
         >
           {groupes.length > 0 && (
             <div className="flex min-w-0 items-center gap-3 bg-muted/30 px-3 py-2 md:px-4">
@@ -590,7 +592,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             </div>
           )}
           {groupes.length === 0 && commands && <div className="px-2 py-2 sm:px-3 md:px-4">{commands}</div>}
-          {workflowActions && <div className={cn((!readOnly || exportActions || groupes.length > 0) && "border-t border-border")}>{workflowActions}</div>}
+          {workflowActions && <div className={cn((!readOnly || exportActions || groupes.length > 0) && "border-t border-primary/20")}>{workflowActions}</div>}
         </section>
       )}
       {canAdd && def.plageNumeros && rows.length === 0 && (() => {
@@ -660,7 +662,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
       {/* Sur grand écran le tableau occupe exactement la largeur disponible, sans défilement horizontal : les colonnes
           se répartissent selon leur largeur de modèle. Sous 1024 px, il garde un défilement de secours. */}
-      <div className="overflow-x-auto rounded-lg border border-border lg:overflow-x-visible">
+      <div className="mt-1 overflow-x-auto rounded-lg border border-input bg-card shadow-[0_1px_2px_rgba(11,37,69,0.06),0_6px_18px_-12px_rgba(11,37,69,0.35)] lg:overflow-x-visible">
         <table className="w-full text-sm lg:table-fixed">
           <colgroup className="hidden lg:table-column-group">
             <col style={{ width: 40 }} />
@@ -669,7 +671,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             ))}
             {!readOnly && <col style={{ width: 40 }} />}
           </colgroup>
-          <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-primary text-xs uppercase tracking-wide text-primary-foreground/90">
             <tr>
               <th className="w-10 px-2 py-2 text-left font-medium">#</th>
               {def.columns.map((c) => (
@@ -687,7 +689,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               {!readOnly && <th className="w-10 px-2 py-2" />}
             </tr>
           </thead>
-          <tbody ref={tbodyRef} className="divide-y divide-border">
+          <tbody ref={tbodyRef} className="divide-y divide-border [&_input:not([readonly]):not(.ring-1)]:bg-card [&_input:not([readonly]):not(.ring-1)]:shadow-[inset_0_-2px_0_hsl(var(--accent)/0.25)] [&_button[role=combobox]]:bg-card">
             {rows.map((row, i) => {
               const repli = replie(i);
               if (repli && !repli.ouvert && !repli.premier) return null;
@@ -718,7 +720,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 </tr>
               )}
               {(!repli || repli.ouvert) && (
-              <tr data-row={i} className="hover:bg-muted/20">
+              <tr data-row={i} className="focus-within:bg-accent/10 hover:bg-accent/5">
                 <td className="px-2 py-1.5 text-xs text-muted-foreground">
                   {numeroLigne(i)}
                 </td>
@@ -728,7 +730,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                     return (
                       <td key={c.key} className="px-1 py-1">
                         <Input
-                          className="h-8 bg-muted/40 px-2 text-[13px]"
+                          className="h-8 border-border bg-[repeating-linear-gradient(45deg,hsl(var(--muted)),hsl(var(--muted))_3px,hsl(var(--background))_3px,hsl(var(--background))_6px)] px-2 text-[13px] font-semibold text-primary"
                           value={shown}
                           readOnly
                           tabIndex={-1}
@@ -930,22 +932,27 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
           </tbody>
           {total !== null && rows.length > 0 && (
             <tfoot>
-              <tr className="border-t-2 border-border bg-muted/30 font-medium">
-                <td />
-                <td
-                  colSpan={def.columns.length - 1}
-                  className="px-2 py-2 text-right text-muted-foreground"
-                >
-                  {totalLabel}
+              <tr className="border-t-2 border-primary bg-muted/30 font-medium">
+                <td colSpan={def.columns.length + (readOnly ? 1 : 2)} className="px-3 py-2.5">
+                  <div className="flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1">
+                    <span className="text-muted-foreground">{totalLabel}</span>
+                    <span className="whitespace-nowrap text-base font-semibold text-primary">
+                      {total.toLocaleString("fr-FR", {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })}{" "}
+                      {symbol}
+                    </span>
+                    {totalTtc !== null && (
+                      <>
+                        <span className="text-muted-foreground">Total TTC</span>
+                        <span className="whitespace-nowrap text-base font-semibold text-primary">
+                          {totalTtc.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} {symbol}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </td>
-                <td className="px-2 py-2">
-                  {total.toLocaleString("fr-FR", {
-                    minimumFractionDigits: 3,
-                    maximumFractionDigits: 3,
-                  })}{" "}
-                  {symbol}
-                </td>
-                {!readOnly && <td />}
               </tr>
             </tfoot>
           )}

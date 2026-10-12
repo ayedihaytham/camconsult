@@ -2,33 +2,38 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertCircle,
-  ChevronLeft,
+  AtSign,
   Eye,
   EyeOff,
   KeyRound,
+  Info,
+  Mail,
   Pencil,
   Plus,
   RefreshCw,
+  Save,
+  ShieldCheck,
   Trash2,
+  User,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { PasswordField } from "@/components/common/PasswordField";
-import { CARD_FIELD_INPUT, CardField } from "@/components/common/CardField";
 import { Switch } from "@/components/common/Switch";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { generatePassword, scorePassword } from "@/lib/password";
 import { IDENTIFIANT_RE, suggestIdentifiant } from "@/lib/identifiant";
 import { ApiError } from "@/lib/api";
 import { cn, initials } from "@/lib/utils";
-import { useData, useSocieteEmployes } from "@/store/data";
+import { useData, useSocieteById, useSocieteEmployes } from "@/store/data";
 import type { Employe, EmployePermissions } from "@/types";
 
 const SOC_EMP_PERMS: EmployePermissions = {
@@ -61,6 +66,7 @@ const STRENGTH_COLOR = [
 
 export function SocieteEmployesSection({ societeId }: { societeId: string }) {
   const employes = useSocieteEmployes(societeId);
+  const societe = useSocieteById(societeId);
   const addEmploye = useData((s) => s.addEmploye);
   const updateEmploye = useData((s) => s.updateEmploye);
   const deleteEmployes = useData((s) => s.deleteEmployes);
@@ -189,6 +195,15 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
 
   const responsables = employes.filter((e) => !e.delegue);
   const delegues = employes.filter((e) => e.delegue);
+  const modifie =
+    mode?.kind === "edit"
+      ? draft.prenom !== mode.employe.prenom ||
+        draft.nom !== mode.employe.nom ||
+        draft.identifiant !== mode.employe.identifiant ||
+        draft.email !== (mode.employe.email ?? "") ||
+        draft.delegue !== Boolean(mode.employe.delegue)
+      : true;
+  const probleme = mode ? validate() : null;
   const { score, level } = scorePassword(draft.motDePasse);
   const roleLabel = draft.delegue ? "délégué" : "responsable";
 
@@ -323,33 +338,41 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
         </ul>
       )}
 
-      <Sheet
+      <Dialog
         open={mode !== null}
         onOpenChange={(open) => {
           if (!open && !busy) setMode(null);
         }}
       >
-        <SheetContent side="right" className="gap-0 p-0 sm:max-w-md">
-          <div className="flex shrink-0 items-center gap-3 border-b border-accent/30 px-5 py-5 pr-12">
-            <button
-              type="button"
-              onClick={() => setMode(null)}
-              disabled={busy}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              aria-label="Retour"
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[520px] flex-col gap-0 overflow-hidden rounded-lg p-0">
+          <div className="flex shrink-0 items-center gap-3.5 border-b border-border px-[18px] py-4 pr-14">
+            <span
+              aria-hidden="true"
+              className={cn(
+                "grid size-12 shrink-0 place-items-center rounded-full text-[15px] font-extrabold",
+                draft.prenom.trim() || draft.nom.trim()
+                  ? "bg-primary text-accent"
+                  : "border border-dashed border-input bg-muted/60 text-muted-foreground/70",
+              )}
             >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <SheetTitle className="font-serif text-2xl font-medium text-primary">
-              {isEdit
-                ? `Modifier le ${roleLabel}`
-                : draft.delegue
-                  ? "Nouveau délégué"
-                  : "Nouveau responsable"}
-            </SheetTitle>
-            <SheetDescription className="sr-only">
-              Informations du compte de la société.
-            </SheetDescription>
+              {draft.prenom.trim() || draft.nom.trim() ? initials(`${draft.prenom} ${draft.nom}`) : "··"}
+            </span>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="font-serif text-[22px] font-semibold leading-tight text-primary">
+                {isEdit
+                  ? `Modifier le ${roleLabel}`
+                  : draft.delegue
+                    ? "Nouveau délégué"
+                    : "Nouveau responsable"}
+              </DialogTitle>
+              <DialogDescription className="truncate text-[12.5px] text-muted-foreground">
+                {isEdit
+                  ? `${`${draft.prenom} ${draft.nom}`.trim()}${societe ? ` · ${societe.raisonSociale}` : ""}`
+                  : societe
+                    ? `Société ${societe.raisonSociale}`
+                    : "Informations du compte de la société."}
+              </DialogDescription>
+            </div>
           </div>
 
           <form
@@ -359,161 +382,216 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
               void submit();
             }}
           >
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-6">
-              <div className="space-y-2">
-                <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[18px] py-3.5">
+              <section className="space-y-2.5">
+                <h3 id="emp-role-titre" className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
+                  <ShieldCheck className="size-4 text-accent" aria-hidden="true" />
                   Rôle
-                </p>
-                <div className="grid grid-cols-2 gap-3">
+                </h3>
+                <div role="radiogroup" aria-labelledby="emp-role-titre" className="grid grid-cols-2 gap-2.5">
                   {[
-                    { value: false, label: "Responsable", hint: "Donne les tâches" },
-                    { value: true, label: "Délégué", hint: "Reçoit les tâches" },
+                    { value: false, label: "Responsable", hint: "Donne les tâches", Icone: ShieldCheck },
+                    { value: true, label: "Délégué", hint: "Reçoit les tâches", Icone: Users },
                   ].map((o) => {
                     const selected = draft.delegue === o.value;
                     return (
                       <button
                         key={o.label}
                         type="button"
-                        aria-pressed={selected}
+                        role="radio"
+                        aria-checked={selected}
                         onClick={() => setDraft((d) => ({ ...d, delegue: o.value }))}
                         className={cn(
-                          "rounded-xl border px-4 py-3 text-left transition-colors",
+                          "grid grid-cols-[34px_1fr] items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
                           selected
-                            ? "border-primary bg-card shadow-[0_0_0_3px_hsl(var(--accent)/0.22)]"
-                            : "border-accent/35 bg-secondary/60 hover:border-accent",
+                            ? "border-accent bg-accent/15 shadow-[0_0_0_2px_hsl(var(--accent)/0.18)]"
+                            : "border-input bg-card hover:border-accent",
                         )}
                       >
-                        <span className="flex items-center gap-2 font-serif text-lg font-medium text-primary">
-                          {o.label}
-                          {selected && <span className="size-2 rotate-45 bg-accent" aria-hidden="true" />}
+                        <span className={cn("grid size-[34px] place-items-center rounded-lg", selected ? "bg-primary text-accent" : "bg-muted text-muted-foreground")}>
+                          <o.Icone className="size-4" aria-hidden="true" />
                         </span>
-                        <span className="block text-sm text-muted-foreground">{o.hint}</span>
+                        <span>
+                          <span className="block text-sm font-semibold text-primary">{o.label}</span>
+                          <span className="block text-xs text-muted-foreground">{o.hint}</span>
+                        </span>
                       </button>
                     );
                   })}
                 </div>
-              </div>
+              </section>
 
-              <div className="grid grid-cols-2 gap-3">
-                <CardField id="emp-prenom" label="Prénom">
-                  <input
-                    id="emp-prenom"
-                    autoFocus
-                    value={draft.prenom}
-                    onChange={(ev) => setDraft((d) => ({ ...d, prenom: ev.target.value }))}
-                    className={CARD_FIELD_INPUT}
-                  />
-                </CardField>
-                <CardField id="emp-nom" label="Nom">
-                  <input
-                    id="emp-nom"
-                    value={draft.nom}
-                    onChange={(ev) => setDraft((d) => ({ ...d, nom: ev.target.value }))}
-                    className={CARD_FIELD_INPUT}
-                  />
-                </CardField>
-              </div>
-
-              <CardField
-                id="emp-identifiant"
-                label="Identifiant"
-                hint={
-                  isEdit
-                    ? `C'est avec cet identifiant que ${draft.prenom || "la personne"} se connecte — prévenez-la s'il change.`
-                    : !identifiantTouched
-                      ? "Proposé à partir du prénom/nom — modifiable"
-                      : "Minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre"
-                }
-              >
-                <input
-                  id="emp-identifiant"
-                  value={draft.identifiant}
-                  onChange={(ev) => {
-                    setIdentifiantTouched(true);
-                    setDraft((d) => ({ ...d, identifiant: ev.target.value }));
-                  }}
-                  placeholder="prenom.nom"
-                  className={CARD_FIELD_INPUT}
-                />
-              </CardField>
-
-              <CardField id="emp-email" label="Email (facultatif)">
-                <input
-                  id="emp-email"
-                  type="email"
-                  value={draft.email}
-                  onChange={(ev) => setDraft((d) => ({ ...d, email: ev.target.value }))}
-                  placeholder="marwen@exemple.com"
-                  className={CARD_FIELD_INPUT}
-                />
-              </CardField>
-
-              {!isEdit && (
-                <div className="space-y-2">
-                  <div className="flex gap-3">
-                    <CardField id="emp-mdp" label="Mot de passe" className="flex-1">
-                      <div className="relative">
-                        <input
-                          id="emp-mdp"
-                          type={passwordVisible ? "text" : "password"}
-                          value={draft.motDePasse}
-                          onChange={(ev) => setDraft((d) => ({ ...d, motDePasse: ev.target.value }))}
-                          autoComplete="new-password"
-                          className={cn(CARD_FIELD_INPUT, "pr-8 font-mono")}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setPasswordVisible((v) => !v)}
-                          className="absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          aria-label={passwordVisible ? "Masquer" : "Afficher"}
-                        >
-                          {passwordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                        </button>
-                      </div>
-                    </CardField>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDraft((d) => ({ ...d, motDePasse: generatePassword() }));
-                        setPasswordVisible(true);
-                      }}
-                      aria-label="Générer un mot de passe"
-                      className="grid w-14 shrink-0 place-items-center self-stretch rounded-lg border border-accent/35 bg-secondary/60 text-primary transition-colors hover:border-accent hover:bg-card"
-                    >
-                      <RefreshCw className="h-5 w-5" />
-                    </button>
-                  </div>
-                  {draft.motDePasse.length > 0 && (
-                    <div className="flex items-center gap-4">
-                      <div className="flex flex-1 gap-2">
-                        {[0, 1, 2, 3].map((i) => (
-                          <span
-                            key={i}
-                            className={cn(
-                              "h-1 flex-1 rounded-full transition-colors",
-                              i < score ? STRENGTH_COLOR[score] : "bg-border",
-                            )}
-                          />
-                        ))}
-                      </div>
-                      <span className="w-20 text-right text-sm capitalize text-muted-foreground">{level}</span>
+              <section className="space-y-2.5">
+                <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
+                  <User className="size-4 text-accent" aria-hidden="true" />
+                  Identité
+                </h3>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="emp-prenom" className="text-[11.5px] font-semibold text-muted-foreground">
+                      Prénom <span className="text-destructive" aria-hidden="true">*</span>
+                    </Label>
+                    <div className="relative">
+                      <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                      <Input
+                        id="emp-prenom"
+                        autoFocus
+                        value={draft.prenom}
+                        onChange={(ev) => setDraft((d) => ({ ...d, prenom: ev.target.value }))}
+                        className="h-10 pl-9 text-[13.5px]"
+                      />
                     </div>
-                  )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="emp-nom" className="text-[11.5px] font-semibold text-muted-foreground">
+                      Nom <span className="text-destructive" aria-hidden="true">*</span>
+                    </Label>
+                    <div className="relative">
+                      <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                      <Input
+                        id="emp-nom"
+                        value={draft.nom}
+                        onChange={(ev) => setDraft((d) => ({ ...d, nom: ev.target.value }))}
+                        className="h-10 pl-9 text-[13.5px]"
+                      />
+                    </div>
+                  </div>
                 </div>
-              )}
+              </section>
+
+              <section className="space-y-2.5">
+                <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
+                  <KeyRound className="size-4 text-accent" aria-hidden="true" />
+                  Connexion
+                </h3>
+                <div className="space-y-1">
+                  <Label htmlFor="emp-identifiant" className="text-[11.5px] font-semibold text-muted-foreground">
+                    Identifiant <span className="text-destructive" aria-hidden="true">*</span>
+                  </Label>
+                  <div className="relative">
+                    <AtSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <Input
+                      id="emp-identifiant"
+                      value={draft.identifiant}
+                      onChange={(ev) => {
+                        setIdentifiantTouched(true);
+                        setDraft((d) => ({ ...d, identifiant: ev.target.value }));
+                      }}
+                      placeholder="prenom.nom"
+                      className="h-10 pl-9 text-[13.5px]"
+                    />
+                  </div>
+                  <p className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
+                    <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    {isEdit
+                      ? `C'est avec cet identifiant que ${draft.prenom || "la personne"} se connecte — prévenez-la s'il change.`
+                      : !identifiantTouched
+                        ? "Proposé à partir du prénom et du nom — modifiable."
+                        : "Minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre."}
+                  </p>
+                </div>
+
+                {!isEdit && (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+                      <div className="min-w-0 space-y-1">
+                        <Label htmlFor="emp-mdp" className="text-[11.5px] font-semibold text-muted-foreground">
+                          Mot de passe <span className="text-destructive" aria-hidden="true">*</span>
+                        </Label>
+                        <div className="relative">
+                          <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                          <Input
+                            id="emp-mdp"
+                            type={passwordVisible ? "text" : "password"}
+                            value={draft.motDePasse}
+                            onChange={(ev) => setDraft((d) => ({ ...d, motDePasse: ev.target.value }))}
+                            autoComplete="new-password"
+                            className="h-10 pl-9 pr-10 font-mono text-[13.5px]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setPasswordVisible((v) => !v)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            aria-label={passwordVisible ? "Masquer" : "Afficher"}
+                          >
+                            {passwordVisible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 gap-2 px-3 text-[13px] font-semibold"
+                        onClick={() => {
+                          setDraft((d) => ({ ...d, motDePasse: generatePassword() }));
+                          setPasswordVisible(true);
+                        }}
+                        aria-label="Générer un mot de passe"
+                      >
+                        <RefreshCw className="size-4" aria-hidden="true" />
+                        Générer
+                      </Button>
+                    </div>
+                    {draft.motDePasse.length > 0 && (
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-1 gap-1">
+                          {[0, 1, 2, 3].map((i) => (
+                            <span
+                              key={i}
+                              className={cn(
+                                "h-1 flex-1 rounded-full transition-colors",
+                                i < score ? STRENGTH_COLOR[score] : "bg-border",
+                              )}
+                            />
+                          ))}
+                        </div>
+                        <span className="w-16 text-right text-xs capitalize text-muted-foreground">{level}</span>
+                      </div>
+                    )}
+                    <p className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
+                      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                      Communiquez-le à {draft.prenom || "la personne"} : elle devra en choisir un nouveau à sa première connexion.
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label htmlFor="emp-email" className="text-[11.5px] font-semibold text-muted-foreground">
+                    Email <span className="font-medium">(facultatif)</span>
+                  </Label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <Input
+                      id="emp-email"
+                      type="email"
+                      value={draft.email}
+                      onChange={(ev) => setDraft((d) => ({ ...d, email: ev.target.value }))}
+                      placeholder="prenom@societe.tn"
+                      className="h-10 pl-9 text-[13.5px]"
+                    />
+                  </div>
+                </div>
+              </section>
 
               {error && (
-                <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <p role="alert" className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
                   {error}
                 </p>
               )}
             </div>
 
-            <div className="flex shrink-0 justify-end gap-3 border-t border-accent/30 px-5 py-4">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-[18px] py-3">
+              <span className={cn("mr-auto text-xs", isEdit ? (modifie ? "font-bold text-warning" : "text-muted-foreground") : probleme ? "font-bold text-warning" : "text-muted-foreground")}>
+                {isEdit
+                  ? modifie
+                    ? "Modifications non enregistrées"
+                    : "Aucune modification en attente"
+                  : (probleme ?? "Prêt à être ajouté")}
+              </span>
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 rounded-lg px-6"
                 disabled={busy}
                 onClick={() => setMode(null)}
               >
@@ -522,9 +600,10 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
               <Button
                 type="submit"
                 variant="ledger"
-                className="h-12 rounded-lg px-6 text-sm uppercase tracking-[0.14em]"
-                disabled={busy}
+                className="gap-2"
+                disabled={busy || (isEdit && !modifie)}
               >
+                {isEdit ? <Save className="size-4" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
                 {isEdit
                   ? "Enregistrer"
                   : draft.delegue
@@ -533,8 +612,8 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
               </Button>
             </div>
           </form>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={Boolean(toDelete)}

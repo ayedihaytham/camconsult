@@ -26,3 +26,17 @@ describe("balance âgée", () => {
     expect(TAB_BY_KEY.etat_clients.columns.find((c) => c.key === "anciennete")?.computed).toBe(true);
   });
 });
+
+describe("TTC des ventes et des achats", () => {
+  it("ajoute le montant non soumis et le timbre après la TVA", () => {
+    for (const cle of ["chiffre_affaires", "detail_achats"]) {
+      const [row] = TAB_BY_KEY[cle].derive!([{ montant_ht: "100", tva_pct: "19", non_soumis: "10", timbre: "1" }]);
+      expect(row.montant_ttc).toBe(130);
+      expect(TAB_BY_KEY[cle].columns.find((c) => c.key === "timbre")?.defaut).toBe("1.000");
+    }
+  });
+  it("une ligne qui n'a que le timbre pré-rempli n'a pas de TTC", () => {
+    const [row] = TAB_BY_KEY.detail_achats.derive!([{ montant_ht: "", tva_pct: "", non_soumis: "", timbre: "1.000" }]);
+    expect(row.montant_ttc).toBe(0);
+  });
+});

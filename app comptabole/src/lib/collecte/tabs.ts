@@ -25,6 +25,8 @@ export interface TabColumn {
   excelFormula?: (r: number, col: (key: string) => string) => string;
   /** Export Excel : format numérique (défaut « #,##0.000 » pour un montant). */
   excelNumFmt?: string;
+  /** Valeur pré-remplie à la création d'une ligne (modifiable) ; une ligne qui n'a que cette valeur reste considérée comme vide. */
+  defaut?: string;
   /** La case accepte une pièce jointe (scan, PDF) en plus du texte : l'id du fichier est gardé dans `<clé>_fichier`. */
   piece?: boolean;
 }
@@ -39,9 +41,14 @@ const soldeFinalFormula: TabColumn["excelFormula"] = (r, col) => {
 const ancienneteFormula: TabColumn["excelFormula"] = (r, col) =>
   `IF(${col("date_dernier_reglement")}${r}="","",TODAY()-${col("date_dernier_reglement")}${r})`;
 
-/** TTC = HT × (1 + TVA %), vide tant que le HT n'est pas saisi. */
-const ttcFormula: TabColumn["excelFormula"] = (r, col) =>
-  `IF(${col("montant_ht")}${r}="","",ROUND(${col("montant_ht")}${r}*(1+${col("tva_pct")}${r}/100),2))`;
+/** Timbre fiscal pré-rempli sur chaque facture (TND). */
+const TIMBRE_DEFAUT = "1.000";
+
+/** TTC = HT × (1 + TVA %) + montant non soumis à la TVA + timbre fiscal (ajouté après TVA), vide tant que ni HT ni non-soumis ne sont saisis. */
+const ttcFormula: TabColumn["excelFormula"] = (r, col) => {
+  const [ht, tva, ns, tb] = [col("montant_ht"), col("tva_pct"), col("non_soumis"), col("timbre")].map((l) => `${l}${r}`);
+  return `IF(AND(${ht}="",${ns}=""),"",ROUND(N(${ht})*(1+N(${tva})/100)+N(${ns})+N(${tb}),3))`;
+};
 
 /** Lit une cellule comme nombre (« 1 200,50 » → 1200.5). */
 export function cellNumber(v: unknown): number {
@@ -56,14 +63,17 @@ export function cellNumber(v: unknown): number {
 
 const round2 = (n: number) => Math.round(n * 1000) / 1000;
 
-/** HT + TVA % → TTC, sur chaque ligne. */
+/** TTC = HT + TVA + montant non soumis + timbre, sur chaque ligne (une ligne sans HT ni non-soumis n'a pas de TTC : le timbre seul n'en fait pas une facture). */
 const deriveTtc = (rows: TabRow[]): TabRow[] =>
-  rows.map((r) => ({
-    ...r,
-    montant_ttc: round2(
-      cellNumber(r.montant_ht) * (1 + cellNumber(r.tva_pct) / 100),
-    ),
-  }));
+  rows.map((r) => {
+    const base = cellNumber(r.montant_ht);
+    const nonSoumis = cellNumber(r.non_soumis);
+    const vide = base === 0 && nonSoumis === 0;
+    return {
+      ...r,
+      montant_ttc: vide ? 0 : round2(base * (1 + cellNumber(r.tva_pct) / 100) + nonSoumis + cellNumber(r.timbre)),
+    };
+  });
 
 /** solde_final = solde_initial + facture − regle, sur chaque ligne. */
 const deriveSoldeFinal = (rows: TabRow[]): TabRow[] =>
@@ -411,7 +421,7 @@ const TABLEAUX_DEFINIS: TabDef[] = [
     label: "Chiffre d'affaires",
     pieceLabel: "Détail du chiffre d'affaires",
     totalKey: "montant_ht",
-    excelTotalKeys: ["montant_ht", "montant_ttc"],
+    excelTotalKeys: ["montant_ht", "non_soumis", "timbre", "montant_ttc"],
     derive: deriveTtc,
     columns: [
       { key: "date", label: "Date", type: "date", width: 130 },
@@ -430,6 +440,8 @@ const TABLEAUX_DEFINIS: TabDef[] = [
       },
       { key: "montant_ht", label: "Montant HT", type: "number", width: 130 },
       { key: "tva_pct", label: "TVA %", type: "number", width: 90 },
+      { key: "non_soumis", label: "Montant non soumis", type: "number", width: 140 },
+      { key: "timbre", label: "Timbre", type: "number", width: 100, defaut: TIMBRE_DEFAUT },
       {
         key: "montant_ttc",
         label: "Montant TTC",
@@ -474,6 +486,8 @@ const TABLEAUX_DEFINIS: TabDef[] = [
       },
       { key: "montant_ht", label: "Montant HT", type: "number", width: 130 },
       { key: "tva_pct", label: "TVA %", type: "number", width: 90 },
+      { key: "non_soumis", label: "Montant non soumis", type: "number", width: 140 },
+      { key: "timbre", label: "Timbre", type: "number", width: 100, defaut: TIMBRE_DEFAUT },
       {
         key: "montant_ttc",
         label: "Montant TTC",

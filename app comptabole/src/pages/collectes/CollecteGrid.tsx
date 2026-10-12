@@ -79,7 +79,10 @@ const minColWidth = (c: { width?: number; type?: string }) =>
 function ligneVide(def: TabDef, row: TabRow) {
   return def.columns
     .filter((c) => !c.computed)
-    .every((c) => String(row[c.key] ?? "").trim() === "" && !(c.piece && row[`${c.key}_fichier`]));
+    .every((c) => {
+      const v = String(row[c.key] ?? "").trim();
+      return (v === "" || v === c.defaut) && !(c.piece && row[`${c.key}_fichier`]);
+    });
 }
 
 export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function CollecteGrid({
@@ -186,7 +189,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     }
     setSaved(false);
     setSaveError(false);
-    const vide = Object.fromEntries(def.columns.map((c) => [c.key, ""]));
+    const vide = Object.fromEntries(def.columns.map((c) => [c.key, c.defaut ?? ""]));
     const g = def.groupe;
     const cible =
       g &&
@@ -254,7 +257,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     if (nouvelles.length === 0) return;
     setSaved(false);
     setSaveError(false);
-    const vide = Object.fromEntries(def.columns.map((c) => [c.key, ""]));
+    const vide = Object.fromEntries(def.columns.map((c) => [c.key, c.defaut ?? ""]));
     setRows((courantes) => [...courantes.filter((r) => !ligneVide(def, r)), ...nouvelles.map((r) => ({ ...vide, ...r }))]);
   }
   function removeRow(i: number) {
@@ -371,7 +374,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     if (manquantes.length === 0) return;
     const ajoutees = manquantes.map((x) => {
       const modele = rows.find((r) => String(r[g.cle] ?? "").trim().toLowerCase() === x.id);
-      const vide: TabRow = Object.fromEntries(def.columns.map((c) => [c.key, ""]));
+      const vide: TabRow = Object.fromEntries(def.columns.map((c) => [c.key, c.defaut ?? ""]));
       for (const k of g.prefill) vide[k] = String(modele?.[k] ?? "");
       return vide;
     });

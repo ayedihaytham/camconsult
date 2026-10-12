@@ -230,6 +230,22 @@ employesRouter.patch("/:id/acces", async (req, res) => {
   res.json(employeDtoFor(req.session)(rows[0]));
 });
 
+// Renvoie ses identifiants par email : seulement tant que le mot de passe est provisoire
+// (le compte ne l'a pas encore changé), sinon on enverrait un mot de passe qui n'est plus le sien.
+employesRouter.post("/:id/envoyer-acces", async (req, res) => {
+  const existing = (await query("select * from employes where id = $1", [req.params.id])).rows[0];
+  if (!existing) return res.status(404).json({ error: "Compte introuvable" });
+  if (forbiddenRoleEscalation(req, existing.role ?? "collaborateur"))
+    return res.status(403).json({ error: "Action non autorisée pour ce compte" });
+  if (!existing.doit_changer_mdp)
+    return res.status(409).json({ error: "Cette personne a déjà choisi son mot de passe : réinitialisez-le pour lui envoyer un nouvel accès." });
+  const emailEnvoi = await sendCollaborateurWelcomeEmail(employeDto(existing)).catch((err) => {
+    console.error("[mailer] envoi identifiants échoué", err.message);
+    return "echec";
+  });
+  res.json({ emailEnvoi });
+});
+
 employesRouter.post("/:id/duplicate", async (req, res) => {
   const src = (await query("select * from employes where id = $1", [req.params.id])).rows[0];
   if (!src) return res.status(404).json({ error: "Collaborateur introuvable" });

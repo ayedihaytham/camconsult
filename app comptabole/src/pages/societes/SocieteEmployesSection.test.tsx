@@ -50,13 +50,13 @@ describe("compte de société en carte", () => {
     await waitFor(() => expect(updateEmploye).toHaveBeenCalledWith("e1", expect.objectContaining({ prenom: "Haytham", nom: "ayedi", identifiant: "h.ayedi" })));
   });
 
-  it("l'email est obligatoire, et « Envoyer un email » apparaît pour une adresse valide", async () => {
+  it("l'email est obligatoire, et « Envoyer les identifiants » apparaît pour l'adresse enregistrée", async () => {
     render(<SocieteEmployesSection societeId="s1" />);
     fireEvent.click(screen.getByRole("button", { name: "Modifier haytham ayedi" }));
     const carte = within(screen.getByRole("dialog"));
-    expect(carte.getByRole("link", { name: "Envoyer un email à haythamayedi5@gmail.com" }).getAttribute("href")).toBe("mailto:haythamayedi5@gmail.com");
+    expect(carte.getByRole("button", { name: /Envoyer les identifiants/ })).toBeTruthy();
     fireEvent.change(carte.getByLabelText(/Email/), { target: { value: "" } });
-    expect(carte.queryByRole("link", { name: /Envoyer un email/ })).toBeNull();
+    expect(carte.queryByRole("button", { name: /Envoyer les identifiants/ })).toBeNull();
     expect(carte.getByText("Email requis.")).toBeTruthy();
     fireEvent.change(carte.getByLabelText(/Email/), { target: { value: "pas-un-email" } });
     expect(carte.getByText("Email invalide.")).toBeTruthy();

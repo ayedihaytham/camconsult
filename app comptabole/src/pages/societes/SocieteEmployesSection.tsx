@@ -31,7 +31,7 @@ import { Switch } from "@/components/common/Switch";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { generatePassword, scorePassword } from "@/lib/password";
 import { IDENTIFIANT_RE, suggestIdentifiant } from "@/lib/identifiant";
-import { ApiError } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { cn, initials } from "@/lib/utils";
 import { useData, useSocieteById, useSocieteEmployes } from "@/store/data";
 import type { EmailEnvoi, Employe, EmployePermissions } from "@/types";
@@ -77,6 +77,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [toDelete, setToDelete] = useState<Employe | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [resetValue, setResetValue] = useState("");
@@ -184,6 +185,19 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
     else if (envoi === "smtp") toast.warning(titre, { description: `${description} — email non envoyé : l'envoi d'emails n'est pas configuré sur le serveur.` });
     else if (envoi === "echec") toast.warning(titre, { description: `${description} — l'email n'a pas pu être envoyé à ${email}.` });
     else toast.success(titre, { description });
+  }
+
+  /** Renvoie les identifiants par email au compte ouvert et affiche le résultat réel. */
+  async function envoyerAcces(e: Employe) {
+    setEnvoiEnCours(true);
+    try {
+      const { emailEnvoi } = await api.post<{ emailEnvoi: EmailEnvoi }>(`/employes/${e.id}/envoyer-acces`);
+      annonceEmail("Identifiants envoyés", `${e.prenom} ${e.nom}`, e.email, emailEnvoi);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Envoi impossible.");
+    } finally {
+      setEnvoiEnCours(false);
+    }
   }
 
   async function confirmReset(id: string) {
@@ -566,14 +580,16 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
                     <Label htmlFor="emp-email" className="text-[11.5px] font-semibold text-muted-foreground">
                       Email <span className="text-destructive" aria-hidden="true">*</span>
                     </Label>
-                    {/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()) && (
-                      <a
-                        href={`mailto:${draft.email.trim()}`}
-                        aria-label={`Envoyer un email à ${draft.email.trim()}`}
-                        className="text-[11.5px] font-bold text-primary underline underline-offset-2"
+                    {mode?.kind === "edit" && draft.email.trim() === mode.employe.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()) && (
+                      <button
+                        type="button"
+                        disabled={envoiEnCours}
+                        onClick={() => void envoyerAcces(mode.employe)}
+                        className="inline-flex items-center gap-1 text-[11.5px] font-bold text-primary underline underline-offset-2 disabled:opacity-50"
                       >
-                        Envoyer un email
-                      </a>
+                        <Mail className="size-3.5" aria-hidden="true" />
+                        {envoiEnCours ? "Envoi en cours…" : "Envoyer les identifiants"}
+                      </button>
                     )}
                   </div>
                   <div className="relative">

@@ -61,6 +61,12 @@ export function cellNumber(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Saisie d'un montant au clavier : chiffres, signe moins et un seul séparateur (point ou virgule) suivi de 3 chiffres au plus (millimes).
+ * Tout autre caractère est refusé, et le texte tapé est gardé tel quel (« 24. », « 20.030 ») : le dernier zéro et le séparateur ne sont pas effacés. */
+export function saisieNombre(brut: string, precedent: string): string {
+  return /^-?\d*([.,]\d{0,3})?$/.test(brut) ? brut : precedent;
+}
+
 const round2 = (n: number) => Math.round(n * 1000) / 1000;
 
 /** TTC = HT + TVA + montant non soumis + timbre, sur chaque ligne (une ligne sans HT ni non-soumis n'a pas de TTC : le timbre seul n'en fait pas une facture). */

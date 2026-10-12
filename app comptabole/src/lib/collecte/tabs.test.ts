@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TAB_BY_KEY, joursDepuis } from "./tabs";
+import { TAB_BY_KEY, joursDepuis, saisieNombre } from "./tabs";
 
 const today = new Date(2026, 8, 24); // 24/09/2026
 
@@ -38,5 +38,12 @@ describe("TTC des ventes et des achats", () => {
   it("une ligne qui n'a que le timbre pré-rempli n'a pas de TTC", () => {
     const [row] = TAB_BY_KEY.detail_achats.derive!([{ montant_ht: "", tva_pct: "", non_soumis: "", timbre: "1.000" }]);
     expect(row.montant_ttc).toBe(0);
+  });
+});
+
+describe("saisie d'un montant", () => {
+  it("accepte les montants en cours de frappe et refuse le reste", () => {
+    for (const ok of ["", "-", "24", "24.", "24,", "24.0", "20.030", "0,5", "-12.5"]) expect(saisieNombre(ok, "AVANT")).toBe(ok);
+    for (const ko of ["24.0301", "2 4", "12a", "1.2.3", "--1"]) expect(saisieNombre(ko, "AVANT")).toBe("AVANT");
   });
 });

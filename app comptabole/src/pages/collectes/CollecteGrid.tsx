@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { CollecteLigne } from "@/types";
-import { cellNumber, repartitionGroupes, type TabDef, type TabRow } from "@/lib/collecte/tabs";
+import { cellNumber, repartitionGroupes, saisieNombre, type TabDef, type TabRow } from "@/lib/collecte/tabs";
 import { TABLEAUX_GRAND_LIVRE } from "@/lib/collecte/grandLivre";
 import { plageNumeros } from "@/lib/collecte/souche";
 import { ImportDocumentDialog } from "./ImportDocumentDialog";
@@ -292,7 +292,14 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     try {
       // Les lignes restées vides ne sont pas enregistrées.
       const kept = rows.filter((r) => !ligneVide(def, r));
-      const out = def.derive ? def.derive(kept) : kept;
+      // Les montants se tapent comme du texte (« 20.030 ») ; ils sont enregistrés comme des nombres.
+      const nombres = def.columns.filter((c) => c.type === "number" && !c.computed).map((c) => c.key);
+      const normalises = kept.map((r) => {
+        const copie = { ...r };
+        for (const k of nombres) if (typeof copie[k] === "string" && String(copie[k]).trim() !== "") copie[k] = cellNumber(copie[k]);
+        return copie;
+      });
+      const out = def.derive ? def.derive(normalises) : normalises;
       await onSave(out.map((data, ordre) => ({ data, ordre })));
       baseline.current = kept;
       latestInitial.current = kept;
@@ -808,27 +815,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                               hi && "ring-1 ring-amber-400 bg-amber-50",
                               ro && !hi && "bg-muted/30",
                             )}
-                            type={
-                              c.type === "number"
-                                ? "number"
-                                : c.type === "date"
-                                  ? "date"
-                                  : "text"
-                            }
+                            type={c.type === "date" ? "date" : "text"}
                             inputMode={c.type === "number" ? "decimal" : undefined}
-                            step={c.type === "number" ? "any" : undefined}
                             placeholder={hi ? "?" : undefined}
                             value={String(row[c.key] ?? "")}
                             onChange={(e) =>
-                              setCell(
-                                i,
-                                c.key,
-                                c.type === "number"
-                                  ? e.target.value === ""
-                                    ? ""
-                                    : Number(e.target.value)
-                                  : e.target.value,
-                              )
+                              setCell(i, c.key, c.type === "number" ? saisieNombre(e.target.value, String(row[c.key] ?? "")) : e.target.value)
                             }
                             readOnly={ro}
                             onKeyDown={(e) => {
@@ -896,27 +888,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                             hi && "ring-1 ring-amber-400 bg-amber-50",
                             ro && !hi && "bg-muted/30",
                           )}
-                          type={
-                            c.type === "number"
-                              ? "number"
-                              : c.type === "date"
-                                ? "date"
-                                : "text"
-                          }
+                          type={c.type === "date" ? "date" : "text"}
                           inputMode={c.type === "number" ? "decimal" : undefined}
-                          step={c.type === "number" ? "any" : undefined}
                           placeholder={hi ? "?" : undefined}
                           value={String(row[c.key] ?? "")}
                           onChange={(e) =>
-                            setCell(
-                              i,
-                              c.key,
-                              c.type === "number"
-                                ? e.target.value === ""
-                                  ? ""
-                                  : Number(e.target.value)
-                                : e.target.value,
-                            )
+                            setCell(i, c.key, c.type === "number" ? saisieNombre(e.target.value, String(row[c.key] ?? "")) : e.target.value)
                           }
                           readOnly={ro}
                           onKeyDown={(e) => {

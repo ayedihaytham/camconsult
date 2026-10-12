@@ -47,6 +47,43 @@ const ajouter = () => {
 };
 const enregistrer = () => screen.getByRole("button", { name: "Enregistrer" });
 
+describe("CollecteGrid : saisie des montants", () => {
+  const montant = () => champs(lignes()[0]).find((c) => c.getAttribute("data-col") === "montant") as HTMLInputElement;
+
+  it("garde ce qui est tapé : le séparateur (« 24. ») et le dernier zéro (« 20.030 ») ne sont pas effacés", () => {
+    renderGrid("virements_recus");
+    ajouter();
+    fireEvent.change(montant(), { target: { value: "24" } });
+    fireEvent.change(montant(), { target: { value: "24." } });
+    expect(montant().value).toBe("24.");
+    fireEvent.change(montant(), { target: { value: "24.0" } });
+    expect(montant().value).toBe("24.0");
+    fireEvent.change(montant(), { target: { value: "20.030" } });
+    expect(montant().value).toBe("20.030");
+    fireEvent.change(montant(), { target: { value: "20,030" } });
+    expect(montant().value).toBe("20,030");
+  });
+
+  it("limite à trois chiffres après le séparateur et refuse les lettres", () => {
+    renderGrid("virements_recus");
+    ajouter();
+    fireEvent.change(montant(), { target: { value: "20.030" } });
+    fireEvent.change(montant(), { target: { value: "20.0301" } });
+    expect(montant().value).toBe("20.030");
+    fireEvent.change(montant(), { target: { value: "20.03a" } });
+    expect(montant().value).toBe("20.030");
+  });
+
+  it("enregistre le montant tapé comme un nombre", async () => {
+    const { onSave } = renderGrid("virements_recus");
+    ajouter();
+    fireEvent.change(montant(), { target: { value: "20.030" } });
+    fireEvent.click(enregistrer());
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0][0].data.montant).toBe(20.03);
+  });
+});
+
 describe("CollecteGrid : ajout de lignes directement dans le tableau", () => {
   it("ajoute une ligne vide dans le tableau, sans panneau, avec le curseur dans la première case", () => {
     const { ref } = renderGrid("bordereaux_remise_cheques");

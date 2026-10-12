@@ -25,7 +25,7 @@ function contenu(id: string, nodes: Noeud[]): { dossiers: number; fichiers: numb
 function Carte({ titre, detail, onClick, className }: { titre: string; detail: string; onClick?: () => void; className?: string }) {
   const contenuCarte = (
     <>
-      <span className="block text-sm font-bold text-foreground">{titre}</span>
+      <span className="block text-sm font-bold uppercase text-foreground">{titre}</span>
       <span className="block text-xs text-muted-foreground">{detail}</span>
     </>
   );

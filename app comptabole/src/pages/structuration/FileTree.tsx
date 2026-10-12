@@ -245,7 +245,7 @@ export function FileTree({
           )}
         >
           <Home className="h-4 w-4 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate text-left">{nomRacine}</span>
+          <span className="min-w-0 flex-1 truncate text-left uppercase">{nomRacine}</span>
           <span className="text-xs font-normal text-muted-foreground">{totalFichiers}</span>
         </button>
         <div className="mt-1 space-y-0.5">
@@ -277,7 +277,7 @@ export function FileTree({
             className="flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <Home className="h-3.5 w-3.5" />
-            {nomRacine}
+            <span className="uppercase">{nomRacine}</span>
           </button>
           {breadcrumb.map((n) => (
             <Fragment key={n.id}>
@@ -285,7 +285,7 @@ export function FileTree({
               <button
                 onClick={() => onNavigate(n.id)}
                 className={cn(
-                  "rounded px-1.5 py-0.5 transition-colors hover:bg-secondary",
+                  "rounded px-1.5 py-0.5 uppercase transition-colors hover:bg-secondary",
                   n.id === currentId
                     ? "font-medium text-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -408,11 +408,11 @@ export function FileTree({
                       <FileTypeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-foreground">
+                      <span className="block truncate text-sm font-medium uppercase text-foreground">
                         {n.libelle}
                       </span>
                       {(resultats || (afficherSociete && n.parentId === null)) && (
-                        <span className="block truncate text-xs text-muted-foreground">
+                        <span className="block truncate text-xs uppercase text-muted-foreground">
                           {resultats && n.parentId ? cheminDe(n) : societes.find((x) => x.id === n.societeId)?.raisonSociale ?? "Modèle générique"}
                         </span>
                       )}
@@ -609,7 +609,7 @@ function TreeBranch({
           ) : (
             <Folder className="h-4 w-4 shrink-0 fill-amber-300 text-amber-500" />
           )}
-          <span className="min-w-0 flex-1 truncate">{node.libelle}</span>
+          <span className="min-w-0 flex-1 truncate uppercase">{node.libelle}</span>
           {compteur && <span className="text-xs font-normal text-muted-foreground">{compteur(node.id)}</span>}
         </button>
       </div>

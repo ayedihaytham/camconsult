@@ -54,6 +54,8 @@ const SheetContent = React.forwardRef<
     <SheetPrimitive.Content
       ref={ref}
       className={cn(sheetVariants({ side }), "flex flex-col", className)}
+      // Un volet ne se ferme que par sa croix ou ses boutons : un clic à côté ne le ferme pas.
+      onInteractOutside={(event) => event.preventDefault()}
       {...props}
     >
       {children}

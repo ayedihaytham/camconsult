@@ -97,7 +97,7 @@ export function OrganigrammeView({
               <div key={root.id} className="mb-4 last:mb-0">
                 <div className="flex flex-wrap items-baseline gap-x-4 border-b border-border py-2">
                   <span className={cn("mr-2 inline-block h-4 w-1 self-center rounded-full", barre)} aria-hidden="true" />
-                  <button type="button" onClick={() => onOpenNode(root)} className="flex items-center gap-2 text-base font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <button type="button" onClick={() => onOpenNode(root)} className="flex items-center gap-2 text-base font-bold uppercase hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <FolderTree className="size-4 text-muted-foreground" aria-hidden="true" />
                     {root.libelle}
                   </button>
@@ -115,7 +115,7 @@ export function OrganigrammeView({
         <aside aria-label="Fichiers du mois" className="min-h-0 overflow-y-auto border-t border-border bg-card px-4 py-4 lg:border-l lg:border-t-0">
           {moisChoisi ? (
             <>
-              <h3 className="text-base font-bold">
+              <h3 className="text-base font-bold uppercase">
                 {moisChoisi.node.libelle} · {MOIS_COMPLETS[moisChoisi.mois]}{moisChoisi.annee ? ` ${moisChoisi.annee}` : ""}
               </h3>
               {fichiersDuChoix.length === 0 ? (
@@ -127,7 +127,7 @@ export function OrganigrammeView({
                     return (
                       <li key={f.id} className="flex items-center gap-2 py-1.5">
                         <Icone className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        <span className="min-w-0 break-words">{f.libelle}</span>
+                        <span className="min-w-0 break-words uppercase">{f.libelle}</span>
                       </li>
                     );
                   })}
@@ -159,7 +159,7 @@ function BrancheAnnee({ dossier, nodes, annee, moisChoisi, onOpenNode, onChoisir
   return (
     <div className="ml-3 border-l border-border pl-3">
       <div className="flex flex-wrap items-baseline gap-x-4 py-2">
-        <button type="button" onClick={() => onOpenNode(dossier)} className="text-sm font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <button type="button" onClick={() => onOpenNode(dossier)} className="text-sm font-bold uppercase hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {dossier.libelle}
         </button>
         <span className="text-xs text-muted-foreground">{pluriel(dossiers.length, "dossier")}</span>
@@ -187,7 +187,7 @@ function LigneDossier({ dossier, nodes, annee, moisChoisi, onOpenNode, onChoisir
   return (
     <li className="grid items-center gap-x-3 gap-y-1.5 border-t border-border py-1.5 md:grid-cols-[11rem_minmax(0,1fr)]">
       <div className="flex min-w-0 items-baseline gap-2 pl-2">
-        <button type="button" onClick={() => onOpenNode(dossier)} className="truncate text-sm font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Ouvrir le dossier">
+        <button type="button" onClick={() => onOpenNode(dossier)} className="truncate text-sm font-semibold uppercase hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Ouvrir le dossier">
           {dossier.libelle}
         </button>
         <span className="shrink-0 text-xs text-muted-foreground">{pluriel(fichiers, "fichier")}</span>

@@ -97,6 +97,9 @@ employesRouter.post("/", async (req, res) => {
     return res.status(403).json({ error: "Seul l'administrateur peut attribuer ce rôle" });
   if (v.role === "societe_employe" && !v.societeId)
     return res.status(400).json({ error: "Société requise pour un employé de société" });
+  // Le responsable et le délégué d'une société se contactent par email : il est obligatoire.
+  if (v.role === "societe_employe" && !v.email)
+    return res.status(400).json({ error: "Email requis pour un responsable ou un délégué de société" });
   const sc = scopeForRole(v);
   try {
     const { rows } = await query(
@@ -144,6 +147,9 @@ employesRouter.patch("/:id", async (req, res) => {
     forbiddenRoleEscalation(req, existing.role ?? "collaborateur")
   )
     return res.status(403).json({ error: "Seul l'administrateur peut modifier ce compte" });
+  // Modifier l'email d'un responsable ou d'un délégué de société ne peut pas le vider.
+  if (v.role === "societe_employe" && merged.data.email !== undefined && !merged.data.email)
+    return res.status(400).json({ error: "Email requis pour un responsable ou un délégué de société" });
   const sc = scopeForRole(v);
   // Un mot de passe changé ici (admin/responsable qui réinitialise un
   // compte oublié) force à nouveau le changement à la prochaine connexion —

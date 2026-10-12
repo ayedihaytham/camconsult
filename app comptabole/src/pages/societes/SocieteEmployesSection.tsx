@@ -123,8 +123,8 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
     if (!isEdit && draft.motDePasse.length < 8)
       return "Mot de passe : 8 caractères minimum.";
     const email = draft.email.trim();
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      return "Email invalide (ou laissez-le vide).";
+    if (!email) return "Email requis.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Email invalide.";
     return null;
   }
 
@@ -556,14 +556,26 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
                 )}
 
                 <div className="space-y-1">
-                  <Label htmlFor="emp-email" className="text-[11.5px] font-semibold text-muted-foreground">
-                    Email <span className="font-medium">(facultatif)</span>
-                  </Label>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <Label htmlFor="emp-email" className="text-[11.5px] font-semibold text-muted-foreground">
+                      Email <span className="text-destructive" aria-hidden="true">*</span>
+                    </Label>
+                    {/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()) && (
+                      <a
+                        href={`mailto:${draft.email.trim()}`}
+                        aria-label={`Envoyer un email à ${draft.email.trim()}`}
+                        className="text-[11.5px] font-bold text-primary underline underline-offset-2"
+                      >
+                        Envoyer un email
+                      </a>
+                    )}
+                  </div>
                   <div className="relative">
                     <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                     <Input
                       id="emp-email"
                       type="email"
+                      required
                       value={draft.email}
                       onChange={(ev) => setDraft((d) => ({ ...d, email: ev.target.value }))}
                       placeholder="prenom@societe.tn"
@@ -582,10 +594,10 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
             </div>
 
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-[18px] py-3">
-              <span className={cn("mr-auto text-xs", isEdit ? (modifie ? "font-bold text-warning" : "text-muted-foreground") : probleme ? "font-bold text-warning" : "text-muted-foreground")}>
+              <span className={cn("mr-auto text-xs", isEdit ? (modifie || probleme ? "font-bold text-warning" : "text-muted-foreground") : probleme ? "font-bold text-warning" : "text-muted-foreground")}>
                 {isEdit
                   ? modifie
-                    ? "Modifications non enregistrées"
+                    ? (probleme ?? "Modifications non enregistrées")
                     : "Aucune modification en attente"
                   : (probleme ?? "Prêt à être ajouté")}
               </span>

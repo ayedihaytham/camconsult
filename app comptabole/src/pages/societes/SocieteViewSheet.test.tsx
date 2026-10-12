@@ -30,7 +30,7 @@ describe("fiche société en carte", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(screen.getByText("CAM")).toBeTruthy();
     expect(screen.getByText("Actif")).toBeTruthy();
-    expect(screen.getByText("CLI-0001")).toBeTruthy();
+    expect(screen.queryByText("CLI-0001")).toBeNull();
     expect(screen.getByText("jldsfn")).toBeTruthy();
     expect(screen.getByRole("link", { name: "contact@cam.tn" })).toBeTruthy();
     expect(screen.getByText("Sfax")).toBeTruthy();

@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  Hash,
   Layers,
   Mail,
   MapPin,
@@ -201,7 +200,6 @@ export function SocieteFormSheet({
   const statut = watch("statut");
   const email = watch("email");
   const raisonSociale = watch("raisonSociale");
-  const code = watch("code");
   const rne = watch("rne");
   const tva = watch("tva");
 
@@ -237,8 +235,8 @@ export function SocieteFormSheet({
             </DialogTitle>
             <DialogDescription className="truncate text-[12.5px] text-muted-foreground">
               {isEdit
-                ? `${societe?.raisonSociale ?? ""} · ${societe?.code ?? code}`
-                : `Code ${code || nextCode} attribué automatiquement`}
+                ? (societe?.raisonSociale ?? "")
+                : "Renseignez les informations de la nouvelle société cliente."}
             </DialogDescription>
           </div>
         </div>
@@ -262,6 +260,7 @@ export function SocieteFormSheet({
           })}
         >
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[18px] py-3.5">
+            <input type="hidden" {...register("code")} />
             <Rubrique icone={FileText} titre="Identité">
               <Champ id="societe-raison-sociale" label="Raison sociale" requis erreur={errors.raisonSociale?.message}>
                 {(classe) => (
@@ -329,7 +328,7 @@ export function SocieteFormSheet({
                 </div>
                 {errors.theme?.message && <p role="alert" className="text-[11.5px] text-destructive">{errors.theme.message}</p>}
               </div>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2.5">
                 <div className="space-y-1">
                   <p id="societe-statut-label" className="text-[11.5px] font-semibold text-muted-foreground">Statut</p>
                   <div role="radiogroup" aria-labelledby="societe-statut-label" className="flex overflow-hidden rounded-md border border-input">
@@ -352,17 +351,6 @@ export function SocieteFormSheet({
                     ))}
                   </div>
                 </div>
-                <Champ id="societe-code" label="Code interne" icone={Hash} erreur={errors.code?.message}>
-                  {(classe) => (
-                    <Input
-                      id="societe-code"
-                      {...register("code")}
-                      className={classe}
-                      aria-invalid={Boolean(errors.code)}
-                      aria-describedby={errors.code ? "societe-code-error" : undefined}
-                    />
-                  )}
-                </Champ>
               </div>
             </Rubrique>
 

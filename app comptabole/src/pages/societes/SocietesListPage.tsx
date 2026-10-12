@@ -18,7 +18,6 @@ import {
   Trash2,
   Eye,
   Building2,
-  Hash,
   ListChecks,
   PauseCircle,
   Send,
@@ -753,18 +752,6 @@ export function SocietesListPage() {
       meta: { label: "Dossiers", icon: FolderOpen, headerClassName: "w-28 text-right", cellClassName: "text-right" },
     },
     {
-      accessorKey: "code",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Code" />
-      ),
-      cell: ({ row }) => (
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
-          {row.original.code}
-        </span>
-      ),
-      meta: { label: "Code", icon: Hash, headerClassName: "w-28" },
-    },
-    {
       accessorKey: "statut",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Statut" />
@@ -829,7 +816,7 @@ export function SocietesListPage() {
     <LedgerSearchFilter
       value={search}
       onValueChange={setSearch}
-      placeholder="Rechercher une société, RNE ou code"
+      placeholder="Rechercher une société ou un RNE"
       searchLabel="Rechercher une société"
       filterLabel="Filtrer les sociétés"
       filterButtonText="Filtres"
@@ -1056,7 +1043,7 @@ export function SocietesListPage() {
                     </button>
                   )}
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {s.theme} · {s.code} · {s.rne || "RNE non renseigné"}
+                    {s.theme} · {s.rne || "RNE non renseigné"}
                   </p>
                 </div>
                 {!isMobileSelectionActive && (

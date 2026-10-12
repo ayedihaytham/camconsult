@@ -4,7 +4,6 @@ import {
   Clock,
   FileText,
   FolderOpen,
-  Hash,
   Mail,
   MapPin,
   Pencil,
@@ -104,7 +103,6 @@ export function SocieteViewSheet({
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[18px] py-3.5">
               <Rubrique icone={FileText} titre="Identité">
                 <div className="grid gap-x-6 sm:grid-cols-2">
-                  <Ligne icone={Hash} libelle="Code">{societe.code}</Ligne>
                   <Ligne icone={FileText} libelle="RNE">{societe.rne || "—"}</Ligne>
                   <Ligne icone={FileText} libelle="N° TVA">{societe.tva || "—"}</Ligne>
                   <Ligne icone={CalendarDays} libelle="Créée le">{formatDate(societe.creeLe)}</Ligne>

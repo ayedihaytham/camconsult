@@ -32,13 +32,14 @@ describe("carte de société", () => {
     expect(screen.getByText("Modifications non enregistrées")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({ raisonSociale: "CAM", statut: "inactif", theme: "PME" });
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ raisonSociale: "CAM", statut: "inactif", theme: "PME", code: "CLI-0001" });
   });
 
   it("en ajout, demande le RNE et la TVA et propose les types en pastilles", async () => {
     const onSubmit = vi.fn();
     render(<SocieteFormSheet open onOpenChange={vi.fn()} societe={null} nextCode="CLI-0002" onSubmit={onSubmit} />);
-    expect(screen.getByText("Code CLI-0002 attribué automatiquement")).toBeTruthy();
+    expect(screen.getByText("Renseignez les informations de la nouvelle société cliente.")).toBeTruthy();
+    expect(screen.queryByLabelText(/Code interne/)).toBeNull();
     expect(screen.getByText("Raison sociale, RNE et TVA requis")).toBeTruthy();
     expect(screen.getAllByRole("radio").length).toBe(8); // 5 types + 3 statuts
     fireEvent.click(screen.getByRole("button", { name: "Créer la société" }));

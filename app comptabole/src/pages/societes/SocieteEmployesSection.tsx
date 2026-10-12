@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
+  AlertCircle,
   ChevronLeft,
   Eye,
   EyeOff,
@@ -9,6 +10,7 @@ import {
   Plus,
   RefreshCw,
   Trash2,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,7 +21,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { PasswordField } from "@/components/common/PasswordField";
-import { PasswordCell } from "@/components/common/PasswordCell";
 import { CARD_FIELD_INPUT, CardField } from "@/components/common/CardField";
 import { Switch } from "@/components/common/Switch";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -188,151 +189,139 @@ export function SocieteEmployesSection({ societeId }: { societeId: string }) {
 
   const responsables = employes.filter((e) => !e.delegue);
   const delegues = employes.filter((e) => e.delegue);
-  const groups = [
-    { key: "resp", title: "Responsables", hint: "Donnent les tâches", items: responsables },
-    { key: "deleg", title: "Délégués", hint: "Reçoivent les tâches", items: delegues },
-  ].filter((g) => g.items.length > 0);
-
   const { score, level } = scorePassword(draft.motDePasse);
   const roleLabel = draft.delegue ? "délégué" : "responsable";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+        <h4 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
+          <Users className="size-4 text-accent" aria-hidden="true" />
           Responsables et délégués
-        </p>
-        <Button size="sm" variant="outline" className="h-10 rounded-lg px-4" onClick={openAdd}>
-          <Plus className="h-4 w-4" />
+          <span className="rounded-full border border-border bg-muted px-2 text-[11px] font-semibold tracking-normal text-muted-foreground">{employes.length}</span>
+        </h4>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs font-semibold" onClick={openAdd}>
+          <Plus className="size-3.5" aria-hidden="true" />
           Ajouter
         </Button>
       </div>
 
       {employes.length === 0 && (
-        <p className="rounded-xl border border-dashed border-accent/40 px-4 py-5 text-center text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-accent/40 px-4 py-5 text-center text-sm text-muted-foreground">
           Aucun compte. Ajoutez le responsable de cette société, puis ses
           délégués, qui recevront les tâches qu'il leur confie.
         </p>
       )}
 
-      {groups.map((group) => (
-        <section key={group.key} aria-label={group.title} className="space-y-3">
-          <p className="flex items-baseline gap-2">
-            <span className="font-serif text-base font-medium text-primary">{group.title}</span>
-            <span className="text-sm text-muted-foreground">{group.hint}</span>
-          </p>
-          <ul className="space-y-3">
-            {group.items.map((e) => {
-              const actif = e.statut === "actif";
-              return (
-                <li
-                  key={e.id}
-                  className="overflow-hidden rounded-xl border border-accent/30 bg-card"
-                >
-                  <div className="flex items-start gap-3.5 p-4">
-                    <span className="relative grid size-12 shrink-0 place-items-center rounded-full bg-accent/15 text-sm font-bold text-primary">
-                      {initials(`${e.prenom} ${e.nom}`)}
-                      <span
-                        className={cn(
-                          "absolute bottom-0 left-0 size-3 rounded-full border-2 border-card",
-                          actif ? "bg-success" : "bg-muted-foreground/50",
-                        )}
-                        aria-hidden="true"
-                      />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate font-serif text-lg font-medium leading-tight text-primary">
-                          {e.prenom} {e.nom}
-                        </p>
-                        <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-primary">
-                          {e.delegue ? "Délégué" : "Responsable"}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 break-all text-sm text-muted-foreground">
-                        {e.identifiant}
-                        {e.email ? ` · ${e.email}` : ""}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <PasswordCell value={e.motDePasse} />
-                        {e.doitChangerMotDePasse && (
-                          <span className="rounded-full bg-warning/12 px-2 py-0.5 text-[0.7rem] font-semibold text-warning">
-                            Doit changer son mot de passe
-                          </span>
-                        )}
-                      </div>
+      {[...responsables, ...delegues].length > 0 && (
+        <ul className="space-y-2.5" aria-label="Responsables et délégués">
+          {[...responsables, ...delegues].map((e) => {
+            const actif = e.statut === "actif";
+            return (
+              <li key={e.id} className="overflow-hidden rounded-lg border border-border bg-card">
+                <div className="flex items-center gap-3 p-3">
+                  <span className="relative grid size-10 shrink-0 place-items-center rounded-full bg-primary text-[13px] font-extrabold text-accent">
+                    {initials(`${e.prenom} ${e.nom}`)}
+                    <span
+                      className={cn(
+                        "absolute -bottom-px -right-px size-2.5 rounded-full border-2 border-card",
+                        actif ? "bg-success" : "bg-muted-foreground/50",
+                      )}
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <p className="truncate text-sm font-semibold text-primary">{e.prenom} {e.nom}</p>
+                      <span className="shrink-0 rounded bg-primary/10 px-1.5 py-px text-[11.5px] font-bold text-primary">
+                        {e.delegue ? "Délégué" : "Responsable"}
+                      </span>
+                    </div>
+                    <p className="break-all text-xs text-muted-foreground">
+                      {e.identifiant}
+                      {e.email ? ` · ${e.email}` : ""}
+                    </p>
+                    {e.doitChangerMotDePasse && (
+                      <span className="mt-1 inline-flex items-center gap-1.5 rounded bg-warning/10 px-2 py-0.5 text-[11.5px] font-bold text-warning">
+                        <AlertCircle className="size-3.5" aria-hidden="true" />
+                        Doit changer son mot de passe
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {resettingId === e.id && (
+                  <div className="space-y-2 border-t border-border px-3 py-3">
+                    <Label className="text-xs">Nouveau mot de passe</Label>
+                    <PasswordField value={resetValue} onValueChange={setResetValue} />
+                    <p className="text-xs text-muted-foreground">
+                      Communiquez-le à {e.prenom} — il devra en choisir un nouveau,
+                      connu de lui seul, à sa prochaine connexion.
+                    </p>
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setResettingId(null)}>
+                        Annuler
+                      </Button>
+                      <Button size="sm" variant="ledger" onClick={() => confirmReset(e.id)}>
+                        Réinitialiser
+                      </Button>
                     </div>
                   </div>
+                )}
 
-                  {resettingId === e.id && (
-                    <div className="space-y-2 border-t border-accent/25 px-4 py-3">
-                      <Label className="text-xs">Nouveau mot de passe</Label>
-                      <PasswordField value={resetValue} onValueChange={setResetValue} />
-                      <p className="text-xs text-muted-foreground">
-                        Communiquez-le à {e.prenom} — il devra en choisir un nouveau,
-                        connu de lui seul, à sa prochaine connexion.
-                      </p>
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setResettingId(null)}>
-                          Annuler
-                        </Button>
-                        <Button size="sm" variant="ledger" onClick={() => confirmReset(e.id)}>
-                          Réinitialiser
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between gap-3 border-t border-accent/25 bg-accent/[0.06] px-4 py-3">
-                    <div className="flex items-center gap-2.5 text-sm font-medium text-primary">
-                      <Switch
-                        checked={actif}
-                        onCheckedChange={(on) =>
-                          updateEmploye(e.id, { statut: on ? "actif" : "inactif" })
-                        }
-                        label={actif ? `Désactiver ${e.prenom}` : `Activer ${e.prenom}`}
-                      />
-                      {actif ? "Actif" : "Inactif"}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        onClick={() => openEdit(e)}
-                        title="Modifier"
-                        aria-label={`Modifier ${e.prenom} ${e.nom}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        onClick={() => {
-                          setResettingId(resettingId === e.id ? null : e.id);
-                          setResetValue(generatePassword());
-                        }}
-                        title="Réinitialiser le mot de passe"
-                        aria-label={`Réinitialiser le mot de passe de ${e.prenom}`}
-                      >
-                        <KeyRound className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => setToDelete(e)}
-                        title="Supprimer"
-                        aria-label={`Supprimer ${e.prenom} ${e.nom}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                <div className="flex flex-wrap items-center gap-2 border-t border-border bg-muted/40 px-3 py-2">
+                  <div className="mr-auto flex items-center gap-2 text-[12.5px] font-bold text-foreground">
+                    <Switch
+                      checked={actif}
+                      onCheckedChange={(on) =>
+                        updateEmploye(e.id, { statut: on ? "actif" : "inactif" })
+                      }
+                      label={actif ? `Désactiver ${e.prenom}` : `Activer ${e.prenom}`}
+                    />
+                    {actif ? "Actif" : "Inactif"}
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2.5 text-xs font-semibold shadow-none"
+                    onClick={() => openEdit(e)}
+                    aria-label={`Modifier ${e.prenom} ${e.nom}`}
+                  >
+                    <Pencil className="size-3.5" aria-hidden="true" />
+                    Modifier
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2.5 text-xs font-semibold shadow-none"
+                    onClick={() => {
+                      setResettingId(resettingId === e.id ? null : e.id);
+                      setResetValue(generatePassword());
+                    }}
+                    aria-label={`Réinitialiser le mot de passe de ${e.prenom}`}
+                  >
+                    <KeyRound className="size-3.5" aria-hidden="true" />
+                    Accès
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 border-destructive/30 px-2.5 text-xs font-semibold text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setToDelete(e)}
+                    aria-label={`Supprimer ${e.prenom} ${e.nom}`}
+                  >
+                    <Trash2 className="size-3.5" aria-hidden="true" />
+                    Supprimer
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <Sheet
         open={mode !== null}

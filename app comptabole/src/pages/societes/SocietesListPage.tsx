@@ -1155,6 +1155,15 @@ export function SocietesListPage() {
         open={viewOpen}
         onOpenChange={setViewOpen}
         societe={viewing}
+        onEdit={(societe) => {
+          setViewOpen(false);
+          setEditing(societe);
+          setFormOpen(true);
+        }}
+        onOpenDossiers={(societe) => {
+          setViewOpen(false);
+          navigate(`/structuration?societe=${societe.id}`);
+        }}
       />
 
       <ConfirmDialog

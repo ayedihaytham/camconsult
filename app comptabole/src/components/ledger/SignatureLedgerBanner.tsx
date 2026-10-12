@@ -9,6 +9,8 @@ export interface SignatureLedgerMetric {
   value: number | string;
   tone?: "default" | "success" | "warning" | "destructive";
   loading?: boolean;
+  /** Icône affichée avant le chiffre. */
+  icon?: LucideIcon;
   /** Compteur-filtre cliquable. */
   onSelect?: () => void;
   active?: boolean;

@@ -26,6 +26,8 @@
 .module-banner__metric--interactive { cursor: pointer; border-bottom: 3px solid transparent; transition: border-color .12s; }
 .module-banner__metric--interactive:hover dd, .module-banner__metric--interactive[aria-pressed="true"] dt { color: hsl(var(--accent)); }
 .module-banner__metric--interactive[aria-pressed="true"] { border-bottom-color: hsl(var(--accent)); }
+.module-banner__metric-icon { display: inline-block; width: 17px; height: 17px; margin-right: 9px; vertical-align: -2px; opacity: .7; }
+.module-banner__metric--interactive[aria-pressed="true"] .module-banner__metric-icon { color: hsl(var(--accent)); opacity: 1; }
 .module-banner__metric--success dd { color: #a1dac4; }
 .module-banner__metric--warning dd { color: #f1c78d; }
 .module-banner__metric--destructive dd { color: #ffb9b9; }

@@ -27,6 +27,8 @@ interface LedgerSearchFilterProps {
   mobilePlaceholder?: string;
   searchLabel: string;
   filterLabel: string;
+  /** Texte affiché à côté de l'icône du filtre (écran large). */
+  filterButtonText?: string;
   activeFilterCount: number;
   onReset: () => void;
   children: ReactNode;
@@ -64,6 +66,7 @@ export function LedgerSearchFilter({
   mobilePlaceholder,
   searchLabel,
   filterLabel,
+  filterButtonText,
   activeFilterCount,
   onReset,
   children,
@@ -111,6 +114,7 @@ export function LedgerSearchFilter({
         size="icon"
         className={cn(
           "relative h-full w-11 shrink-0 rounded-none border-l border-input text-muted-foreground hover:bg-muted/70 hover:text-foreground focus-visible:z-10 lg:w-10",
+          filterButtonText && "lg:w-auto lg:gap-2 lg:px-3",
           open && "bg-muted text-foreground",
           activeFilterCount > 0 && "text-primary",
         )}
@@ -122,6 +126,7 @@ export function LedgerSearchFilter({
         onClick={() => setOpen((current) => !current)}
       >
         <Filter className="size-4" aria-hidden="true" />
+        {filterButtonText && <span className="hidden text-sm font-semibold lg:inline">{filterButtonText}</span>}
         {activeFilterCount > 0 && (
           <span className="absolute right-0 top-0 z-10 flex h-3.5 min-w-3.5 -translate-y-1/3 translate-x-1/3 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-semibold leading-none text-primary-foreground tabular-nums">
             {activeFilterCount}

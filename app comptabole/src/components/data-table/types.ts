@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import type { RowData } from "@tanstack/react-table";
 
 declare module "@tanstack/react-table" {
@@ -5,6 +6,8 @@ declare module "@tanstack/react-table" {
     cellClassName?: string;
     headerClassName?: string;
     label?: string;
+    /** Icône affichée avant le titre dans l'en-tête « register ». */
+    icon?: ComponentType<{ className?: string }>;
   }
 }
 

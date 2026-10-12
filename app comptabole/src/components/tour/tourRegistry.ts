@@ -106,13 +106,26 @@ const TOURS = {
       },
     ],
   },
-  societes: registry(
-    "societes",
-    "Sociétés",
-    "Consultez les sociétés accessibles et leur situation. Les compteurs du bandeau filtrent la liste par statut.",
-    "Ouvrez une société pour consulter son dossier et ses informations.",
-    "Si vous avez les droits nécessaires, ajoutez une société depuis cette commande.",
-  ),
+  societes: {
+    id: "societes",
+    version: 3,
+    title: "Sociétés",
+    steps: [
+      { target: "page-identity", title: "Sociétés", body: "Consultez les sociétés accessibles et leur situation. Les compteurs du bandeau filtrent la liste par statut." },
+      {
+        target: responsiveSearch,
+        title: "Rechercher et filtrer",
+        body: "Saisissez un terme dans la recherche. Les filtres affinent la liste.",
+      },
+      { target: responsiveRows, title: "Ouvrir une société", body: "Ouvrez la fiche ou les dossiers d'une société depuis les boutons de sa ligne." },
+      {
+        target: responsivePagination,
+        title: "Parcourir la liste",
+        body: "Passez aux pages suivantes pour parcourir les autres résultats.",
+      },
+      { target: "page-primary-action", title: "Ajouter", body: "Si vous avez les droits nécessaires, ajoutez une société depuis cette commande." },
+    ],
+  },
   employes: registry(
     "collaborateurs",
     "Collaborateurs",

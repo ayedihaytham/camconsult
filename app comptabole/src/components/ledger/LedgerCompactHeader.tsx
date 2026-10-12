@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import "./module-banner.css";
@@ -9,6 +9,8 @@ export interface LedgerCompactMetric {
   loading?: boolean;
   tone?: "default" | "success" | "warning" | "destructive";
   kind?: "count" | "detail";
+  /** Icône affichée avant le chiffre. */
+  icon?: ComponentType<{ className?: string }>;
   /** Compteur-filtre : un clic le sélectionne (`active` = filtre en cours). */
   onSelect?: () => void;
   active?: boolean;
@@ -61,7 +63,10 @@ export function LedgerCompactHeader({ eyebrow, title, metrics, actions, descript
                 : {})}
             >
               <dt>{metric.label}</dt>
-              <dd>{metric.loading ? <><span className="sr-only">Chargement</span><Skeleton aria-hidden="true" className="h-5 w-8 bg-primary-foreground/20 motion-reduce:animate-none" /></> : metric.value}</dd>
+              <dd>
+                {metric.icon && <metric.icon className="module-banner__metric-icon" aria-hidden="true" />}
+                {metric.loading ? <><span className="sr-only">Chargement</span><Skeleton aria-hidden="true" className="h-5 w-8 bg-primary-foreground/20 motion-reduce:animate-none" /></> : metric.value}
+              </dd>
             </div>
           ))}
         </dl>

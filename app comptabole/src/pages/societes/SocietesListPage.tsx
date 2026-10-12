@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
+  AlertCircle,
+  CheckCircle2,
   ChevronDown,
+  CircleDot,
+  ClipboardList,
+  Clock,
   Copy,
   Download,
   FolderOpen,
@@ -13,6 +18,11 @@ import {
   Trash2,
   Eye,
   Building2,
+  Hash,
+  ListChecks,
+  PauseCircle,
+  Send,
+  User,
 } from "lucide-react";
 import type { ColumnDef, Table as TanstackTable } from "@tanstack/react-table";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
@@ -22,7 +32,6 @@ import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
   LedgerWorkSurface,
-  OperationalContentHeader,
   OperationalLedgerPage,
   OperationalLedgerFooter,
   OperationalLedgerToolbar,
@@ -99,6 +108,22 @@ function monogramTone(seed: string) {
     0,
   );
   return MONOGRAM_TONES[index % MONOGRAM_TONES.length];
+}
+
+const STATUT_ICONE = {
+  actif: { icone: CheckCircle2, libelle: "Actif", classe: "text-success" },
+  en_attente: { icone: Clock, libelle: "En attente", classe: "text-warning" },
+  inactif: { icone: PauseCircle, libelle: "Inactif", classe: "text-muted-foreground" },
+} as const;
+
+function StatutIcone({ statut }: { statut: Statut }) {
+  const { icone: Icone, libelle, classe } = STATUT_ICONE[statut];
+  return (
+    <span className={cn("inline-flex items-center gap-2 whitespace-nowrap text-[13px] font-semibold", statut === "inactif" ? "text-muted-foreground" : "text-foreground")}>
+      <Icone className={cn("size-4 shrink-0", classe)} aria-hidden="true" />
+      {libelle}
+    </span>
+  );
 }
 
 function BulkActionsMenu({
@@ -654,7 +679,7 @@ export function SocietesListPage() {
           </div>
         );
       },
-      meta: { label: "Société", headerClassName: "w-[30%]" },
+      meta: { label: "Société", icon: Building2, headerClassName: "w-[26%]" },
     },
     {
       id: "contactCle",
@@ -670,14 +695,14 @@ export function SocietesListPage() {
         return (
           <div className="min-w-0">
             <p className="societes-ledger-contact truncate text-[13px] font-medium text-foreground">{contact.nom}</p>
-            <p className="societes-ledger-meta truncate text-[11px] text-muted-foreground">
+            <p className="societes-ledger-meta truncate whitespace-nowrap text-[11px] text-muted-foreground">
               {contact.role}
               {contact.delegues > 0 && ` · ${contact.delegues} délégué${contact.delegues > 1 ? "s" : ""}`}
             </p>
           </div>
         );
       },
-      meta: { label: "Contact", headerClassName: "w-[17%]" },
+      meta: { label: "Contact", icon: User, headerClassName: "w-[16%]" },
     },
     {
       id: "collecteMois",
@@ -688,7 +713,7 @@ export function SocietesListPage() {
       cell: ({ row }) => {
         if (!voitTaches) return <span className="text-xs text-muted-foreground">—</span>;
         const collecte = collecteDuMois.get(row.original.id);
-        if (!collecte) return <span className="text-xs text-muted-foreground">Aucune collecte</span>;
+        if (!collecte) return <span className="whitespace-nowrap text-xs text-muted-foreground">Aucune collecte</span>;
         const style: Record<string, string> = {
           brouillon: "border border-border bg-muted/60 text-muted-foreground",
           transmis: "bg-primary/10 text-primary",
@@ -696,13 +721,16 @@ export function SocietesListPage() {
           valide: "bg-success/10 text-success",
         };
         const libelle: Record<string, string> = { transmis: "Transmise", valide: "Validée" };
+        const icone = { brouillon: Pencil, transmis: Send, a_corriger: AlertCircle, valide: CheckCircle2 }[collecte.statut as "brouillon" | "transmis" | "a_corriger" | "valide"] ?? Pencil;
+        const Icone = icone;
         return (
-          <span className={cn("inline-flex rounded px-2 py-0.5 text-xs font-bold", style[collecte.statut])}>
+          <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-0.5 text-xs font-bold", style[collecte.statut])}>
+            <Icone className="size-3.5 shrink-0" aria-hidden="true" />
             {libelle[collecte.statut] ?? COLLECTE_STATUT_LABELS[collecte.statut]}
           </span>
         );
       },
-      meta: { label: libelleCollecte, headerClassName: "w-[15%]" },
+      meta: { label: libelleCollecte, icon: ClipboardList, headerClassName: "w-[17%]" },
     },
     {
       id: "tachesOuvertes",
@@ -721,7 +749,7 @@ export function SocietesListPage() {
           </span>
         );
       },
-      meta: { label: "Tâches en cours", headerClassName: "w-20 text-right", cellClassName: "text-right" },
+      meta: { label: "Tâches", icon: ListChecks, headerClassName: "w-24 text-right", cellClassName: "text-right" },
     },
     {
       id: "dossiers",
@@ -737,7 +765,7 @@ export function SocietesListPage() {
           </span>
         );
       },
-      meta: { label: "Dossiers", headerClassName: "w-24 text-right", cellClassName: "text-right" },
+      meta: { label: "Dossiers", icon: FolderOpen, headerClassName: "w-28 text-right", cellClassName: "text-right" },
     },
     {
       accessorKey: "code",
@@ -749,15 +777,15 @@ export function SocietesListPage() {
           {row.original.code}
         </span>
       ),
-      meta: { label: "Code", headerClassName: "w-24" },
+      meta: { label: "Code", icon: Hash, headerClassName: "w-28" },
     },
     {
       accessorKey: "statut",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Statut" />
       ),
-      cell: ({ row }) => <StatutDot statut={row.original.statut} />,
-      meta: { label: "Statut", headerClassName: "w-28" },
+      cell: ({ row }) => <StatutIcone statut={row.original.statut} />,
+      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-36" },
     },
     {
       id: "actions",
@@ -771,11 +799,13 @@ export function SocietesListPage() {
             className="flex items-center justify-end"
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="mr-1 hidden items-center gap-1.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 lg:flex">
-              <Button type="button" variant="outline" size="sm" className="h-7 border-accent bg-accent/15 px-2.5 text-xs shadow-none hover:bg-accent/30" onClick={() => openView(s)}>
+            <span className="mr-1 hidden items-center gap-1.5 lg:flex">
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-accent bg-accent/15 px-2.5 text-xs font-semibold shadow-none hover:bg-accent/30" onClick={() => openView(s)}>
+                <Eye className="size-3.5" aria-hidden="true" />
                 Fiche
               </Button>
-              <Button type="button" variant="outline" size="sm" className="h-7 px-2.5 text-xs shadow-none" onClick={() => navigate(`/structuration?societe=${s.id}`)}>
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-semibold shadow-none" onClick={() => navigate(`/structuration?societe=${s.id}`)}>
+                <FolderOpen className="size-3.5" aria-hidden="true" />
                 Dossiers
               </Button>
             </span>
@@ -784,8 +814,8 @@ export function SocietesListPage() {
         );
       },
       meta: {
-        headerClassName: "w-56",
-        cellClassName: "w-56",
+        headerClassName: "w-64",
+        cellClassName: "w-64",
       },
     },
   ];
@@ -799,14 +829,6 @@ export function SocietesListPage() {
     pageSize,
     resetKey: `${search}\u0000${themeFilter}\u0000${statutFilter}`,
   });
-  const currentPageIds = table.getRowModel().rows.map((row) => row.original.id);
-  const isCurrentPageSelected =
-    currentPageIds.length > 0 &&
-    currentPageIds.every((id) => selectedIds.includes(id));
-  const isCurrentPagePartlySelected = currentPageIds.some((id) =>
-    selectedIds.includes(id),
-  );
-
   const emptyMessage =
     rows.length === 0
       ? canEdit
@@ -825,6 +847,7 @@ export function SocietesListPage() {
       placeholder="Rechercher une société, RNE ou code"
       searchLabel="Rechercher une société"
       filterLabel="Filtrer les sociétés"
+      filterButtonText="Filtres"
       activeFilterCount={activeFilterCount}
       onReset={() => {
         setThemeFilter("all");
@@ -858,10 +881,10 @@ export function SocietesListPage() {
           ? "Registre des clients du cabinet"
           : "Registre des sociétés auxquelles vous avez accès"}
         metrics={[
-          { label: "Sociétés", value: registerSummary.total, onSelect: () => setStatutFilter("all"), active: statutFilter === "all" },
-          { label: "Actives", value: registerSummary.actif, tone: "success", onSelect: () => setStatutFilter("actif"), active: statutFilter === "actif" },
-          { label: "En attente", value: registerSummary.enAttente, onSelect: () => setStatutFilter("en_attente"), active: statutFilter === "en_attente" },
-          { label: registerSummary.inactif > 1 ? "Inactives" : "Inactive", value: registerSummary.inactif, onSelect: () => setStatutFilter("inactif"), active: statutFilter === "inactif" },
+          { label: "Sociétés", icon: Building2, value: registerSummary.total, onSelect: () => setStatutFilter("all"), active: statutFilter === "all" },
+          { label: "Actives", icon: CheckCircle2, value: registerSummary.actif, tone: "success", onSelect: () => setStatutFilter("actif"), active: statutFilter === "actif" },
+          { label: "En attente", icon: Clock, value: registerSummary.enAttente, onSelect: () => setStatutFilter("en_attente"), active: statutFilter === "en_attente" },
+          { label: registerSummary.inactif > 1 ? "Inactives" : "Inactive", icon: PauseCircle, value: registerSummary.inactif, onSelect: () => setStatutFilter("inactif"), active: statutFilter === "inactif" },
         ]}
         action={canEdit ? { label: "Ajouter une société", onClick: startCreate } : undefined}
       />
@@ -889,38 +912,6 @@ export function SocietesListPage() {
       )}
 
       <div className="societes-ledger-register">
-      <OperationalContentHeader className="societes-ledger-register-heading hidden lg:flex">
-        <div className="hidden min-w-0 items-center gap-2.5 lg:flex">
-          <Checkbox
-            checked={
-              isCurrentPageSelected
-                ? true
-                : isCurrentPagePartlySelected
-                  ? "indeterminate"
-                  : false
-            }
-            onCheckedChange={() =>
-              setSelectedIds(
-                isCurrentPageSelected
-                  ? selectedIds.filter((id) => !currentPageIds.includes(id))
-                  : [...new Set([...selectedIds, ...currentPageIds])],
-              )
-            }
-            aria-label="Sélectionner la page"
-            className="hidden lg:flex"
-          />
-          <div className="min-w-0">
-            <h2>
-              <DataTableColumnHeader
-                column={table.getColumn("raisonSociale")!}
-                title="Registre client"
-                className="h-7 text-[11px] font-bold uppercase tracking-[0.12em] text-primary"
-              />
-            </h2>
-          </div>
-        </div>
-        <span className="text-xs text-muted-foreground">Sociétés accessibles</span>
-      </OperationalContentHeader>
 
       <OperationalMobileHeader>
         <div className="min-w-0 flex-1">
@@ -1019,14 +1010,16 @@ export function SocietesListPage() {
         className="ledger-work-table societes-ledger-table bg-transparent [&>div:last-child]:space-y-0"
         desktopDensity="ledger"
         desktopVariant="register"
+        showSelectionHeader
         table={table}
         emptyMessage={emptyMessage}
         isLoading={isDataLoading}
         footer={<OperationalLedgerFooter table={table} itemLabel="sociétés" />}
         getRowClassName={(row) =>
-          selectedIds.includes(row.original.id)
-            ? "bg-accent/[0.10] hover:bg-accent/[0.14] [&>td:first-child]:border-l-2 [&>td:first-child]:border-accent"
-            : undefined
+          cn(
+            `societes-row--${row.original.statut}`,
+            selectedIds.includes(row.original.id) && "bg-accent/[0.14] hover:bg-accent/[0.18]",
+          )
         }
         onRowClick={(row) => openView(row.original)}
         mobileRow={(row) => {

@@ -25,6 +25,8 @@ interface DataTableProps<TData> extends ComponentProps<"div"> {
   desktopDensity?: "default" | "compact" | "ledger";
   /** Borderless ledger presentation with a compact structural table header. */
   desktopVariant?: "table" | "register";
+  /** Variante « register » : affiche la case « tout sélectionner » dans l'en-tête de la colonne de sélection. */
+  showSelectionHeader?: boolean;
   emptyMessage: string;
   footer?: ReactNode;
   getRowClassName?: (row: Row<TData>) => string | undefined;
@@ -42,6 +44,7 @@ interface DataTableProps<TData> extends ComponentProps<"div"> {
 export function DataTable<TData>({
   desktopDensity = "default",
   desktopVariant = "table",
+  showSelectionHeader = false,
   table,
   emptyMessage,
   footer,
@@ -112,11 +115,23 @@ export function DataTable<TData>({
                     {header.isPlaceholder
                       ? null
                       : isRegisterDesktop
-                        ? header.column.id === "selection" ||
-                          header.column.id === "actions"
-                          ? null
-                          : (header.column.columnDef.meta?.label ??
-                            header.column.id)
+                        ? header.column.id === "selection" && showSelectionHeader
+                          ? flexRender(header.column.columnDef.header, header.getContext())
+                          : header.column.id === "selection" ||
+                              header.column.id === "actions"
+                            ? null
+                            : (() => {
+                                const Icon = header.column.columnDef.meta?.icon;
+                                const label = header.column.columnDef.meta?.label ?? header.column.id;
+                                return Icon ? (
+                                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                                    <Icon className="size-3.5 shrink-0" />
+                                    {label}
+                                  </span>
+                                ) : (
+                                  label
+                                );
+                              })()
                         : flexRender(
                             header.column.columnDef.header,
                             header.getContext(),

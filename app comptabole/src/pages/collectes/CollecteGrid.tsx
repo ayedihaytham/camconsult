@@ -511,7 +511,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         <section
           data-tour="collecte-sticky-tools"
           aria-label="Suivi et actions du tableau"
-          className="sticky top-0 z-30 overflow-hidden rounded-lg border border-primary/20 border-l-4 border-l-primary bg-primary/[0.07] shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)] [&_button.bg-background]:border-primary/25 [&_button.bg-background]:bg-card [&_button.bg-background]:font-semibold [&_button.bg-background]:text-primary"
+          className="sticky top-0 z-30 overflow-hidden rounded-lg border border-primary/20 border-l-4 border-l-primary bg-card bg-[linear-gradient(hsl(var(--primary)/0.07),hsl(var(--primary)/0.07))] shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)] [&_button.bg-background]:border-primary/25 [&_button.bg-background]:bg-card [&_button.bg-background]:font-semibold [&_button.bg-background]:text-primary"
         >
           {groupes.length > 0 && (
             <div className="flex min-w-0 items-center gap-3 bg-muted/30 px-3 py-2 md:px-4">

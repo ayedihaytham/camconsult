@@ -1118,3 +1118,14 @@ export interface SwiftVirement {
   statut: SwiftStatut;
   factures: SwiftFacture[];
 }
+
+/** Résumé de l'État SWIFT d'une société (page de choix du cabinet). */
+export interface SwiftResumeSociete {
+  societeId: string;
+  virements: number;
+  montant: number;
+  justifies: number;
+  enCours: number;
+  aJustifier: number;
+  dernierVirement: string | null;
+}

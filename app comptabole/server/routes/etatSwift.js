@@ -95,6 +95,35 @@ async function charger(societeId, session) {
   return virements.map((v) => virementDto(v, factures.filter((f) => f.virement_id === v.id)));
 }
 
+/** Résumé par société (page de choix du cabinet) : virements, montant, avancement, état, dernier virement. */
+etatSwiftRouter.get("/resume", async (req, res) => {
+  if (estClient(req.session)) return res.status(403).json({ error: "Accès non autorisé" });
+  const virements = (
+    await query("select * from swift_virements order by date_operation desc nulls last, cree_le desc")
+  ).rows.filter((v) => canSeeSociete(req.session, v.societe_id));
+  const factures = virements.length
+    ? (
+        await query(
+          "select virement_id, montant_devise, devise, montant_tnd from swift_factures where virement_id = any($1::uuid[])",
+          [virements.map((v) => v.id)],
+        )
+      ).rows
+    : [];
+  const parSociete = new Map();
+  for (const v of virements) {
+    const dto = virementDto(v, factures.filter((f) => f.virement_id === v.id));
+    const r = parSociete.get(v.societe_id) ?? { societeId: v.societe_id, virements: 0, montant: 0, justifies: 0, enCours: 0, aJustifier: 0, dernierVirement: null };
+    r.virements++;
+    r.montant = r3(r.montant + dto.montant);
+    if (dto.statut === "justifie") r.justifies++;
+    else if (dto.statut === "en_cours") r.enCours++;
+    else r.aJustifier++; // à justifier ou écart : demande encore l'attention de la société
+    if (dto.date && (!r.dernierVirement || dto.date > r.dernierVirement)) r.dernierVirement = dto.date;
+    parSociete.set(v.societe_id, r);
+  }
+  res.json([...parSociete.values()]);
+});
+
 etatSwiftRouter.get("/", async (req, res) => {
   const societeId = String(req.query.societeId || "");
   if (!societeId) return res.status(400).json({ error: "societeId requis" });

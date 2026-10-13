@@ -29,6 +29,7 @@ const STATIC_ROUTES: Record<string, string> = {
   "/honoraires": "État client",
   "/souche-cheques": "Souche de chèques",
   "/suivi-devise": "Suivi client devise",
+  "/etat-swift": "État SWIFT",
   "/structuration": "Structuration",
   "/messagerie": "Messagerie",
   "/journal": "Journal",
@@ -154,6 +155,14 @@ export function getAppBreadcrumbs(
     return [
       { label: "Suivi client devise", to: "/suivi-devise" },
       { label: societeName(suiviSocieteParams.societeId) },
+    ];
+  }
+
+  const swiftSocieteParams = paramsFor("/etat-swift/:societeId", pathname);
+  if (swiftSocieteParams) {
+    return [
+      { label: "État SWIFT", to: "/etat-swift" },
+      { label: societeName(swiftSocieteParams.societeId) },
     ];
   }
 

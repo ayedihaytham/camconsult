@@ -9,9 +9,10 @@ export const MODULES_PAR_SOCIETE = [
   "/honoraires",
   "/souche-cheques",
   "/suivi-devise",
+  "/etat-swift",
 ] as const;
 
-const ROUTE_SOCIETE = /^(\/(?:stock|fournisseurs|banque|etats-financiers|honoraires|souche-cheques|suivi-devise))(?=\/|$)(?:\/([^/]+))?/;
+const ROUTE_SOCIETE = /^(\/(?:stock|fournisseurs|banque|etats-financiers|honoraires|souche-cheques|suivi-devise|etat-swift))(?=\/|$)(?:\/([^/]+))?/;
 
 /** Société portée par l'adresse courante (ex. /stock/abc -> abc), sinon null. */
 export function societeIdFromPath(pathname: string): string | null {

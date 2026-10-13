@@ -49,6 +49,8 @@ export interface NavItem {
   hideForSocieteEmploye?: boolean;
   /** Masqué pour un délégué de société seulement : l'équipe du cabinet et le responsable de société le voient. */
   hideForDelegue?: boolean;
+  /** Seulement pour le compte de société cliente (responsable ou délégué). */
+  societeOnly?: boolean;
 }
 
 export interface NavGroup {
@@ -83,6 +85,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ListChecks,
       },
       { label: "Collecte de pièces", to: "/collectes", icon: ClipboardList },
+      { label: "Souche de chèques", to: "/ma-souche", icon: BookText, societeOnly: true },
       {
         label: "Gestion de stock",
         to: "/stock",
@@ -180,7 +183,7 @@ export const NAV_GROUPS: NavGroup[] = [
 export function cheminAutoriseClient(pathname: string): boolean {
   return (
     pathname === "/" ||
-    ["/collectes", "/structuration", "/messagerie", "/etat-swift"].some((base) => pathname === base || pathname.startsWith(`${base}/`))
+    ["/collectes", "/structuration", "/messagerie", "/etat-swift", "/ma-souche"].some((base) => pathname === base || pathname.startsWith(`${base}/`))
   );
 }
 
@@ -211,6 +214,7 @@ export function visibleNavigation({
           !(item.responsableSocieteOk && isResponsableSociete)
         )
           return false;
+        if (item.societeOnly && !lectureSeule) return false;
         if (item.hideForSocieteEmploye && lectureSeule) return false;
         if (item.hideForDelegue && lectureSeule && !isResponsableSociete) return false;
         if (item.perm && !can(item.perm)) return false;

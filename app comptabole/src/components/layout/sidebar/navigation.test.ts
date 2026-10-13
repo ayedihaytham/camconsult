@@ -127,6 +127,7 @@ describe("sidebar navigation policy", () => {
       "/",
       "/taches",
       "/collectes",
+      "/ma-souche",
       "/etat-swift",
       "/structuration",
       "/messagerie",
@@ -143,6 +144,7 @@ describe("État client pour le responsable de société", () => {
       "/",
       "/taches",
       "/collectes",
+      "/ma-souche",
       "/fournisseurs",
       "/banque",
       "/honoraires",
@@ -269,7 +271,7 @@ describe("espace du compte de société cliente", () => {
     const routes = destinations(
       visibleNavigation({ isAdmin: false, lectureSeule: true, can: allowAll, isResponsableSociete: true, espaceCollecteSeul: true }),
     );
-    expect(routes).toEqual(["/", "/collectes", "/etat-swift", "/structuration", "/messagerie"]);
+    expect(routes).toEqual(["/", "/collectes", "/ma-souche", "/etat-swift", "/structuration", "/messagerie"]);
   });
 
   it("n'y change rien pour le cabinet", () => {
@@ -279,7 +281,7 @@ describe("espace du compte de société cliente", () => {
   });
 
   it("n'autorise que ces quatre espaces comme adresses", () => {
-    for (const ok of ["/", "/collectes", "/collectes/abc-123", "/structuration", "/messagerie", "/etat-swift", "/etat-swift/s1"]) expect(cheminAutoriseClient(ok)).toBe(true);
+    for (const ok of ["/", "/collectes", "/collectes/abc-123", "/structuration", "/messagerie", "/etat-swift", "/etat-swift/s1", "/ma-souche"]) expect(cheminAutoriseClient(ok)).toBe(true);
     for (const non of ["/taches", "/fournisseurs", "/banque/s1", "/honoraires", "/parametres", "/collectes-autre"]) {
       expect(cheminAutoriseClient(non)).toBe(false);
     }

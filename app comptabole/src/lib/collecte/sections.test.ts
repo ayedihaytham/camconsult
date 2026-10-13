@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CollecteSection, SectionStatut } from "@/types";
-import { resumeSections, sectionOuverte, sectionStatut } from "./sections";
+import { resumeSections, sectionOuverte, sectionStatut, tableauxVisiblesClient } from "./sections";
 
 const section = (onglet: string, statut?: SectionStatut) => ({ onglet, statut }) as CollecteSection;
 
@@ -34,5 +34,20 @@ describe("circuit par tableau", () => {
   it("compte l'état des chèques émis comme les autres tableaux", () => {
     const c = { statut: "brouillon" as const, onglets: ["souche_cheques", "etat_cheques_emis"], sections: [] as CollecteSection[] };
     expect(resumeSections(c)).toEqual({ brouillon: 2, transmis: 0, a_corriger: 0, valide: 0, archive: 0 });
+  });
+});
+
+describe("souche de chèques hors de la collecte du client", () => {
+  it("n'apparaît pas parmi les tableaux de la collecte du client, même demandée ou transmise", () => {
+    const c = {
+      statut: "transmis" as const,
+      onglets: ["souche_cheques", "etat_cheques_emis", "virements_recus"],
+      sections: [
+        { onglet: "souche_cheques", statut: "transmis", recapStatut: "none" } as CollecteSection,
+        { onglet: "virements_recus", statut: "brouillon", recapStatut: "envoye" } as CollecteSection,
+      ],
+    };
+    expect(tableauxVisiblesClient(c)).not.toContain("souche_cheques");
+    expect(tableauxVisiblesClient(c)).toContain("virements_recus");
   });
 });

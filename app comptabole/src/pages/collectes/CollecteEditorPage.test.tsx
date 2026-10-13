@@ -392,7 +392,7 @@ describe("Collecte : bordereau incomplet", () => {
   beforeEach(() => {
     perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
     const demandee = (onglet: string, id: string) => ({ id, onglet, commentaire: "", recapStatut: "envoye", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" }) as never;
-    collecte.sections = [demandee("bordereaux_remise_cheques", "s"), demandee("souche_cheques", "s2")];
+    collecte.sections = [demandee("bordereaux_remise_cheques", "s"), demandee("etat_cheques_emis", "s2")];
   });
   afterEach(() => {
     perms.current = { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true };
@@ -411,7 +411,7 @@ describe("Collecte : bordereau incomplet", () => {
   it("prévient avant de quitter la section tant que les chèques n'atteignent pas le montant, et propose de compléter", () => {
     renderPage();
     saisirBordereauIncomplet();
-    ouvrirSection("Souche de chèques");
+    ouvrirSection("État des chèques émis");
     const alerte = screen.getByRole("dialog", { name: "Répartition incomplète" });
     expect(alerte.textContent).toMatch(/Bordereau REM-42 : il reste 25\s000,000 TND à répartir/);
     fireEvent.click(within(alerte).getByRole("button", { name: "Compléter" }));
@@ -423,7 +423,7 @@ describe("Collecte : bordereau incomplet", () => {
     saisirBordereauIncomplet();
     const cases = document.querySelectorAll<HTMLInputElement>("tbody tr[data-row] input");
     fireEvent.change(cases[6], { target: { value: "60000" } });
-    ouvrirSection("Souche de chèques");
+    ouvrirSection("État des chèques émis");
     expect(screen.queryByRole("dialog", { name: "Répartition incomplète" })).toBeNull();
     await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
     await waitFor(() => expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page"));
@@ -432,7 +432,7 @@ describe("Collecte : bordereau incomplet", () => {
   it("permet de continuer quand même après l'avertissement et sauvegarde le brouillon", async () => {
     renderPage();
     saisirBordereauIncomplet();
-    ouvrirSection("Souche de chèques");
+    ouvrirSection("État des chèques émis");
     fireEvent.click(screen.getByRole("button", { name: "Continuer quand même" }));
     await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
     await waitFor(() => expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page"));
@@ -445,7 +445,7 @@ describe("Collecte requested-table navigation guard", () => {
     openBordereaux();
     fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
     expect(document.querySelectorAll("tbody tr[data-row]")).toHaveLength(1);
-    ouvrirSection("Souche de chèques");
+    ouvrirSection("État des chèques émis");
     expect(screen.queryByText("Modifications non enregistrées")).toBeNull();
     expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page");
   });
@@ -454,7 +454,7 @@ describe("Collecte requested-table navigation guard", () => {
     renderPage();
     openBordereaux();
     stageRow();
-    ouvrirSection("Souche de chèques");
+    ouvrirSection("État des chèques émis");
     await waitFor(() => expect(saveLignes).toHaveBeenCalledWith("collecte-1", "bordereaux_remise_cheques", expect.arrayContaining([expect.objectContaining({ data: expect.objectContaining({ num_bordereau: "REM-42" }) })])));
     await waitFor(() => expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page"));
     expect(screen.queryByRole("dialog", { name: "Modifications non enregistrées" })).toBeNull();
@@ -466,7 +466,7 @@ describe("Collecte requested-table navigation guard", () => {
     renderPage();
     openBordereaux();
     stageRow();
-    ouvrirSection("Souche de chèques");
+    ouvrirSection("État des chèques émis");
     await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
     expect(sectionButton("Bordereaux remise de chèques").getAttribute("aria-current")).toBe("page");
     expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
@@ -479,7 +479,7 @@ describe("Collecte requested-table navigation guard", () => {
     renderPage();
     openBordereaux();
     stageRow();
-    ouvrirSection("Souche de chèques");
+    ouvrirSection("État des chèques émis");
     await waitFor(() => expect(screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("brouillon n’a pas été enregistré"))).toBe(true));
     expect(sectionButton("Bordereaux remise de chèques").getAttribute("aria-current")).toBe("page");
     expect(screen.getByDisplayValue("REM-42")).toBeTruthy();
@@ -659,18 +659,18 @@ describe("Collecte : avertissement de répartition réservé au responsable de s
     collecte.lignes = [entete] as never;
     renderPage();
     ouvrirSection("Bordereaux remise de chèques");
-    ouvrirSection("Souche de chèques");
+    ouvrirSection("État des chèques émis");
     expect(screen.queryByText("Répartition incomplète")).toBeNull();
     expect(sectionButton("Souche de chèques").getAttribute("aria-current")).toBe("page");
   });
 
   it("interrompt le responsable de société, avec un texte adapté à un dépassement", () => {
     perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
-    collecte.sections = [section as never, { ...section, id: "s2", onglet: "souche_cheques" } as never];
+    collecte.sections = [section as never, { ...section, id: "s2", onglet: "etat_cheques_emis" } as never];
     collecte.lignes = [entete, { id: "l2", onglet: "bordereaux_remise_cheques", ordre: 1, data: { ...entete.data, montant: "", montant_cheque: 40000 } }] as never;
     renderPage();
     ouvrirSection("Bordereaux remise de chèques");
-    ouvrirSection("Souche de chèques");
+    ouvrirSection("État des chèques émis");
     expect(screen.getByText("Montants à vérifier")).toBeTruthy();
     expect(screen.getByText(/une faute de frappe/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Vérifier" })).toBeTruthy();

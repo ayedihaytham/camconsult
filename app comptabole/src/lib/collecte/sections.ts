@@ -41,6 +41,8 @@ export function estDemande(collecte: Pick<CollecteFull, "sections" | "statut">, 
 export function tableauxVisiblesClient(collecte: Pick<CollecteFull, "sections" | "statut" | "onglets">): string[] {
   return collecte.onglets.filter((k) => {
     if (TAB_BY_KEY[k]?.cabinetSeul) return false;
+    // La souche se remplit hors de la collecte, depuis le module « Souche de chèques » de la société.
+    if (k === "souche_cheques") return false;
     const st = sectionStatut(collecte, k);
     return estDemande(collecte, k) || st === "transmis" || st === "valide";
   });

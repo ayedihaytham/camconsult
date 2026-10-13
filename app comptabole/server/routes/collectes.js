@@ -272,7 +272,8 @@ collectesRouter.get("/", async (req, res) => {
         `select collecte_id, count(*) filter (where statut = 'transmis')::int as transmis,
                 count(*) filter (where statut in ('valide','archive'))::int as valides,
                 count(*) filter (where statut = 'archive')::int as archives,
-                count(*) filter (where recap_statut <> 'none' or statut <> 'brouillon')::int as demandes
+                count(*) filter (where recap_statut <> 'none' or statut <> 'brouillon')::int as demandes,
+                count(*) filter (where (recap_statut <> 'none' or statut <> 'brouillon') and onglet <> 'souche_cheques')::int as demandes_client
            from collecte_sections where collecte_id = any($1::uuid[]) and onglet <> all($2::text[]) group by collecte_id`,
         [rows.map((r) => r.id), CABINET_SEUL],
       )
@@ -284,7 +285,7 @@ collectesRouter.get("/", async (req, res) => {
   const avecPieces = new Set(
     (await query("select distinct collecte_id from collecte_demandes_pieces where collecte_id = any($1::uuid[])", [rows.map((r) => r.id)])).rows.map((r) => r.collecte_id),
   );
-  const visibles = estClient(req.session) ? rows.filter((r) => (comptes.get(r.id)?.demandes ?? 0) > 0 || avecPieces.has(r.id)) : rows;
+  const visibles = estClient(req.session) ? rows.filter((r) => (comptes.get(r.id)?.demandes_client ?? 0) > 0 || avecPieces.has(r.id)) : rows;
   res.json(
     visibles.map((r) => ({
       ...collecteDto(r),
@@ -293,6 +294,37 @@ collectesRouter.get("/", async (req, res) => {
       tableauxArchives: comptes.get(r.id)?.archives ?? 0,
       tableauxDemandes: comptes.get(r.id)?.demandes ?? 0,
     })),
+  );
+});
+
+// ── Souche de chèques de la société ───────────────
+// La souche est remplie par le client dans son propre module (hors de la collecte) ; le cabinet la consulte seulement. Chaque
+// collecte (période) qui demande ce tableau a sa souche : seules ses lignes et son circuit sont renvoyés ici.
+collectesRouter.get("/souche", async (req, res) => {
+  const societeId = String(req.query.societeId || "");
+  if (!societeId) return res.status(400).json({ error: "societeId requis" });
+  if (!canSeeSociete(req.session, societeId)) return res.status(403).json({ error: "Société hors périmètre" });
+  const collectes = (
+    await query("select * from collectes where societe_id = $1 and onglets @> '[\"souche_cheques\"]'::jsonb order by cree_le desc", [societeId])
+  ).rows;
+  if (collectes.length === 0) return res.json([]);
+  const ids = collectes.map((c) => c.id);
+  const [sections, lignes] = await Promise.all([
+    query("select * from collecte_sections where collecte_id = any($1::uuid[]) and onglet = 'souche_cheques'", [ids]),
+    query("select * from collecte_lignes where collecte_id = any($1::uuid[]) and onglet = 'souche_cheques' order by ordre", [ids]),
+  ]);
+  res.json(
+    collectes.map((c) => {
+      const row = sections.rows.find((r) => r.collecte_id === c.id);
+      return {
+        collecteId: c.id,
+        periode: c.periode,
+        devise: c.devise,
+        statut: sectionStatutDe(c, row),
+        motifRenvoi: row?.motif_renvoi ?? "",
+        lignes: lignes.rows.filter((l) => l.collecte_id === c.id).map(collecteLigneDto),
+      };
+    }),
   );
 });
 
@@ -306,7 +338,7 @@ collectesRouter.get("/:id", async (req, res) => {
     const demandes = (
       await query(
         `select count(*)::int as n from collecte_sections
-          where collecte_id = $1 and onglet <> all($2::text[]) and (recap_statut <> 'none' or statut <> 'brouillon')`,
+          where collecte_id = $1 and onglet <> all($2::text[]) and onglet <> 'souche_cheques' and (recap_statut <> 'none' or statut <> 'brouillon')`,
         [req.params.id, CABINET_SEUL],
       )
     ).rows[0].n;
@@ -565,6 +597,9 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
     return res.status(400).json({ error: "Onglet non demandé dans cette collecte" });
   if (!canEdit(req.session, c.societe_id))
     return res.status(403).json({ error: "Modification non autorisée" });
+  // La souche est remplie par la société ; le cabinet la consulte et complète « État des chèques émis ».
+  if (onglet === "souche_cheques" && !estClient(req.session))
+    return res.status(403).json({ error: "La souche est remplie par la société : complétez « État des chèques émis »" });
   if (await isOngletLocked(req.session, c, onglet))
     return res.status(400).json({ error: "Ce tableau est verrouillé" });
 

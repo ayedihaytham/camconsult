@@ -115,3 +115,9 @@ requests and out-of-scope society IDs.
 
 - Le délégué de société a exactement les mêmes accès et les mêmes vues que le responsable de société (`isResponsableSociete` côté client, `isSocieteSide` côté serveur) ; seul son libellé change.
 - Gestion de stock : admin et responsable des collaborateurs (toutes les sociétés), collaborateurs sur leurs sociétés — `canAccess` dans `server/routes/stock.js`. Jamais le client.
+
+## Souche de chèques de la société
+
+- Le responsable ou délégué de société remplit la souche depuis son menu « Souche de chèques » (`/ma-souche`, `SoucheClientPage`) : le même tableau que celui de la collecte, une souche par période. Elle n'apparaît plus dans ses collectes (`tableauxVisiblesClient`).
+- Données : les lignes du tableau `souche_cheques` de chaque collecte de la société ; `GET /collectes/souche?societeId=` ne renvoie que ce tableau, et le client transmet au cabinet par le circuit habituel du tableau.
+- Le cabinet (admin, responsable des collaborateurs, collaborateurs) consulte la souche en lecture seule dans la collecte (le serveur refuse son écriture) ; s'il manque des informations, il les complète dans « État des chèques émis » et le renvoie au client par le Récap. Le registre admin `/souche-cheques` ne change pas.

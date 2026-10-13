@@ -244,6 +244,8 @@ export function CollecteEditorPage() {
   /** Tableau modifiable par cette session : jamais un tableau archivé ; le client seulement tant qu'il est ouvert. */
   const editableTab = (key: string) => {
     const st = sectionStatut(collecte, key);
+    // La souche est remplie par la société (module « Souche de chèques ») : le cabinet la consulte, il complète « État des chèques émis ».
+    if (key === "souche_cheques") return false;
     return !archivee && st !== "archive" && (isAdmin || isStaff || (isClient && sectionOuverte(st) && !TAB_BY_KEY[key]?.cabinetSeul));
   };
   const canManageRecap = canRecap;

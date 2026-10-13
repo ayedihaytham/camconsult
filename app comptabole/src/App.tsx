@@ -70,6 +70,9 @@ const EtatSwiftListPage = lazy(() =>
 const EtatSwiftSocietePage = lazy(() =>
   import("@/pages/etatSwift/EtatSwiftSocietePage").then((m) => ({ default: m.EtatSwiftSocietePage })),
 );
+const SoucheClientPage = lazy(() =>
+  import("@/pages/soucheCheques/SoucheClientPage").then((m) => ({ default: m.SoucheClientPage })),
+);
 const StockPage = lazy(() =>
   import("@/pages/stock/StockPage").then((m) => ({ default: m.StockPage })),
 );
@@ -464,6 +467,14 @@ export default function App() {
                 element={
                   <Suspense fallback={<PageFallback />}>
                     <ConversionsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/ma-souche"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <SoucheClientPage />
                   </Suspense>
                 }
               />

@@ -1,3 +1,4 @@
+import { lireTamponClasseur, messageImport } from "@/lib/fichierImport";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, Download, FileOutput, TriangleAlert, Upload } from "lucide-react";
@@ -26,7 +27,7 @@ interface ConvItem {
  * ImportBalanceDialog.tsx, mais sur toutes les feuilles plutôt que la
  * première seule. */
 async function readSheets(file: File): Promise<PdfSheet[]> {
-  const buf = await file.arrayBuffer();
+  const buf = await lireTamponClasseur(file, { formats: ["xlsx", "xls"] });
   const XLSX = await import("xlsx");
   const wb = XLSX.read(buf, { type: "array" });
   return wb.SheetNames.map((name) => ({
@@ -89,10 +90,10 @@ export function ConversionsPage() {
           status: "ok", detail: `${sheets.length} feuille${sheets.length > 1 ? "s" : ""} prête${sheets.length > 1 ? "s" : ""}`,
           sheets, pdfDoc, pdfUrl,
         });
-      } catch {
+      } catch (err) {
         results.push({
           id: crypto.randomUUID(), name: file.name, baseName,
-          status: "erreur", detail: "Fichier illisible — export Excel (.xlsx) attendu",
+          status: "erreur", detail: messageImport(err, "Fichier illisible — export Excel (.xlsx) attendu"),
           sheets: [], pdfDoc: null, pdfUrl: null,
         });
       }

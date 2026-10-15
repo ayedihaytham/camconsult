@@ -1,3 +1,4 @@
+import { lireTamponClasseur } from "@/lib/fichierImport";
 import type { FusionVerticale } from "@/lib/banqueClasseur";
 
 export interface FeuilleExcel {
@@ -10,7 +11,7 @@ export interface FeuilleExcel {
  * (la valeur d'une cellule fusionnée n'est que dans sa première ligne, d'où la liste des fusions). */
 export async function lireClasseurExcel(file: File): Promise<FeuilleExcel[]> {
   const XLSX = await import("xlsx");
-  const classeur = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+  const classeur = XLSX.read(await lireTamponClasseur(file, { formats: ["xlsx", "xls"] }), { type: "array", cellDates: true });
   return classeur.SheetNames.map((nom) => {
     const ws = classeur.Sheets[nom];
     const ref = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]) : null;

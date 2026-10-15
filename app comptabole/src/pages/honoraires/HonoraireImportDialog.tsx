@@ -1,3 +1,4 @@
+import { lireTamponClasseur, messageImport } from "@/lib/fichierImport";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
@@ -37,7 +38,7 @@ export function HonoraireImportDialog({ open, onOpenChange, societeId }: Props) 
     if (!file) return;
     try {
       const XLSX = await import("xlsx");
-      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const wb = XLSX.read(await lireTamponClasseur(file), { type: "array" });
       const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {
         header: 1,
         raw: true,
@@ -52,8 +53,8 @@ export function HonoraireImportDialog({ open, onOpenChange, societeId }: Props) 
       }
       setRows(parsed);
       setFileName(file.name);
-    } catch {
-      toast.error("Fichier illisible — export Excel (.xlsx) ou CSV attendu.");
+    } catch (err) {
+      toast.error(messageImport(err, "Fichier illisible — export Excel (.xlsx) ou CSV attendu."));
     }
   }
 

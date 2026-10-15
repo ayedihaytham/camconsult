@@ -1,3 +1,4 @@
+import { lireTamponClasseur, messageImport } from "@/lib/fichierImport";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
@@ -33,7 +34,7 @@ export function SoucheChequeImportDialog({ open, onOpenChange, societeId }: Prop
     try {
       const XLSX = await import("xlsx");
       // cellDates : les dates Excel arrivent en Date (et non en numéro de série)
-      const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+      const wb = XLSX.read(await lireTamponClasseur(file), { type: "array", cellDates: true });
       const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {
         header: 1,
         raw: true,
@@ -46,8 +47,8 @@ export function SoucheChequeImportDialog({ open, onOpenChange, societeId }: Prop
       }
       setRows(parsed);
       setFileName(file.name);
-    } catch {
-      toast.error("Fichier illisible — export Excel (.xlsx) ou CSV attendu.");
+    } catch (err) {
+      toast.error(messageImport(err, "Fichier illisible — export Excel (.xlsx) ou CSV attendu."));
     }
   }
 

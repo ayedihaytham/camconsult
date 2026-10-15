@@ -1,3 +1,4 @@
+import { lireTamponClasseur, messageImport } from "@/lib/fichierImport";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
@@ -148,7 +149,7 @@ export function SuiviDeviseImportDialog({ open, onOpenChange, suiviId, lots }: P
     e.target.value = "";
     if (!file) return;
     try {
-      const buf = await file.arrayBuffer();
+      const buf = await lireTamponClasseur(file);
       const XLSX = await import("xlsx");
       const wb = XLSX.read(buf, { type: "array" });
       const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -164,8 +165,8 @@ export function SuiviDeviseImportDialog({ open, onOpenChange, suiviId, lots }: P
       }
       setRows(parsed);
       setFileName(file.name);
-    } catch {
-      toast.error("Fichier illisible — export Excel (.xlsx) ou CSV attendu.");
+    } catch (err) {
+      toast.error(messageImport(err, "Fichier illisible — export Excel (.xlsx) ou CSV attendu."));
     }
   }
 

@@ -6,9 +6,19 @@ export interface ExportColumn<T> {
 
 export type ExportFormat = "csv" | "xlsx";
 
+/** Un texte qui commence par = + - @ (ou tabulation / retour chariot) serait exécuté comme formule à l'ouverture dans Excel : on le
+ * préfixe d'une apostrophe. Les nombres (type number) et les textes qui ne sont qu'un montant (« -4 500,500 ») restent intacts. */
+export function neutraliserFormule(valeur: string): string {
+  // Espaces et caractères de contrôle avant le premier caractère : ignorés par certains tableurs, donc sautés pour le contrôle.
+  const debut = valeur.replace(/^[\s\u0000-\u001f\u007f]+/, "");
+  if (!/^[=+\-@]/.test(debut) && !/^[\t\r]/.test(valeur)) return valeur;
+  if (/^[+-]?[\d\s.,]+$/.test(debut) && /\d/.test(debut) && !/^[\t\r]/.test(valeur)) return valeur;
+  return "'" + valeur;
+}
+
 function escapeCsv(value: string | number | null | undefined): string {
-  const s = value == null ? "" : String(value);
-  if (/[";\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  const s = typeof value === "string" ? neutraliserFormule(value) : value == null ? "" : String(value);
+  if (/[";\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 

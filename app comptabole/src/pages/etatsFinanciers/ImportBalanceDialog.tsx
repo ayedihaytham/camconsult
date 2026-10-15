@@ -1,3 +1,4 @@
+import { lireTamponClasseur, messageImport } from "@/lib/fichierImport";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Upload } from "lucide-react";
@@ -51,7 +52,7 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
     e.target.value = "";
     if (!file) return;
     try {
-      const buf = await file.arrayBuffer();
+      const buf = await lireTamponClasseur(file);
       const XLSX = await import("xlsx");
       const wb = XLSX.read(buf, { type: "array" });
       const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -95,8 +96,8 @@ export function ImportBalanceDialog({ open, onOpenChange, balanceId, societeId }
       setSuggested(nextSuggested);
       setScoped(nextScoped);
       setFileName(file.name);
-    } catch {
-      toast.error("Fichier illisible — export Excel (.xlsx) ou CSV attendu.");
+    } catch (err) {
+      toast.error(messageImport(err, "Fichier illisible — export Excel (.xlsx) ou CSV attendu."));
     }
   }
 

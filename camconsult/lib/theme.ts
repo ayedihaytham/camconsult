@@ -14,7 +14,7 @@ export function applyTheme(dark: boolean) {
   const root = document.documentElement
   root.classList.toggle('dark', dark)
   root.dataset.theme = dark ? 'dark' : 'light'
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#3A4F68' : '#D7DADB')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#303D46' : '#E3E7E7')
 }
 
 export function readTheme() {

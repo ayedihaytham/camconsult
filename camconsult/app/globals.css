@@ -8,63 +8,61 @@
   --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring); --color-navy: var(--ink); --color-ink: var(--ink); --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); --color-gold-soft: var(--gold-soft); --color-feature: var(--feature); --color-feature-raised: var(--feature-raised); --color-feature-foreground: var(--feature-foreground); --color-feature-muted: var(--feature-muted); --color-scrim: var(--ink); --color-slate: var(--slate); --color-warning: var(--warning); --color-destructive: var(--destructive); --color-success: var(--success); --font-serif: var(--font-playfair); --font-sans: var(--font-inter); --radius-sm: 0.25rem; --radius-md: 0.375rem; --radius-lg: 0.5rem;
 }
 
-/* Both modes are tints and shades of the existing navy, gold and warm paper.
-   Surface colors and readable ink are separate so a gold button stays legible
-   while page text and the former navy/white sections follow the selected mode. */
+/* Warm stone, slate ink and restrained champagne retain the cabinet's identity.
+   Each theme has composed surfaces; the accent fill and readable accent ink
+   remain separate so buttons and fine text both keep sufficient contrast. */
 :root {
   color-scheme: light;
-  --ink: #0B2545;
-  --gold: #C9A96A;
-  --paper: #F8F7F4;
-  --paper-base: color-mix(in srgb, var(--paper) 95%, var(--ink));
-  --background: color-mix(in srgb, var(--paper-base) 90%, var(--gold));
-  --foreground: color-mix(in srgb, var(--ink) 85%, var(--paper));
-  --card: var(--paper-base);
+  --ink: #213747;
+  --gold: #BDA478;
+  --background: #F0EEE9;
+  --foreground: #2D3E4A;
+  --card: #F6F4EF;
   --card-foreground: var(--foreground);
   --popover: var(--card);
   --popover-foreground: var(--foreground);
   --primary: var(--gold);
   --primary-foreground: var(--ink);
-  --secondary: color-mix(in srgb, var(--background) 92%, var(--ink));
+  --secondary: #E3E5E3;
   --secondary-foreground: var(--foreground);
-  --muted: color-mix(in srgb, var(--background) 88%, var(--gold));
-  --muted-foreground: color-mix(in srgb, var(--ink) 80%, var(--paper));
+  --muted: #E9E7E1;
+  --muted-foreground: #53616A;
   --accent: var(--gold);
   --accent-foreground: var(--ink);
-  --border: color-mix(in srgb, var(--background) 82%, var(--ink));
-  --input: color-mix(in srgb, var(--background) 45%, var(--ink));
+  --border: #C9CECC;
+  --input: #7E898F;
   --ring: var(--gold-ink);
-  --gold-ink: color-mix(in srgb, #8A6A2A 70%, var(--ink));
-  --gold-soft: color-mix(in srgb, var(--background) 78%, var(--gold));
-  --feature: color-mix(in srgb, var(--paper) 86%, var(--ink));
-  --feature-raised: color-mix(in srgb, var(--feature) 80%, var(--paper));
+  --gold-ink: #6F5936;
+  --gold-soft: #E9E1D2;
+  --feature: #E3E7E7;
+  --feature-raised: #ECEEEC;
   --feature-foreground: var(--foreground);
-  --feature-muted: var(--muted-foreground);
+  --feature-muted: #42525D;
   --feature-grid: color-mix(in srgb, var(--feature-foreground) 50%, transparent);
-  --slate: #8C9BAB;
-  --warning: color-mix(in srgb, #B5532F 90%, var(--ink));
+  --slate: #96A2A6;
+  --warning: #9C4D30;
   --destructive: #A73F32;
   --success: #18734F;
 }
 
 :root.dark {
   color-scheme: dark;
-  --background: color-mix(in srgb, var(--ink) 88%, var(--paper));
-  --foreground: color-mix(in srgb, var(--paper) 88%, var(--ink));
-  --card: color-mix(in srgb, var(--ink) 84%, var(--paper));
-  --secondary: color-mix(in srgb, var(--ink) 81%, var(--paper));
-  --muted: color-mix(in srgb, var(--ink) 86%, var(--paper));
-  --muted-foreground: color-mix(in srgb, var(--paper) 75%, var(--ink));
-  --border: color-mix(in srgb, var(--background) 82%, var(--paper));
-  --input: color-mix(in srgb, var(--ink) 45%, var(--paper));
-  --gold-ink: color-mix(in srgb, var(--gold) 60%, var(--paper));
-  --gold-soft: color-mix(in srgb, var(--background) 85%, var(--gold));
-  --feature: color-mix(in srgb, var(--ink) 80%, var(--paper));
-  --feature-raised: color-mix(in srgb, var(--ink) 77%, var(--paper));
-  --feature-muted: color-mix(in srgb, var(--paper) 84%, var(--ink));
-  --warning: color-mix(in srgb, #B5532F 45%, var(--paper));
-  --destructive: color-mix(in srgb, #A73F32 40%, var(--paper));
-  --success: color-mix(in srgb, #18734F 30%, var(--paper));
+  --background: #252F37;
+  --foreground: #E4E3DE;
+  --card: #2D3840;
+  --secondary: #354149;
+  --muted: #2A343C;
+  --muted-foreground: #BFC7CA;
+  --border: #4A575F;
+  --input: #919A9C;
+  --gold-ink: #D2BE99;
+  --gold-soft: #3B3D39;
+  --feature: #303D46;
+  --feature-raised: #37434B;
+  --feature-muted: #D4D8D8;
+  --warning: #DFB19C;
+  --destructive: #DFAFA6;
+  --success: #A2C7B7;
 }
 
 * { box-sizing: border-box; }

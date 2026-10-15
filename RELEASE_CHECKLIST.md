@@ -137,6 +137,22 @@ Voir le rapport §7 pour les résultats complets : suite complète, types, const
 
 Phase 4 (nouveaux résultats, 15 octobre) : `tsc` PASSED ; 130 fichiers / 1086 tests PASSED (dont 34 d'intégration sur bases jetables locales : 21 + 10 + 3) ; construction PASSED ; `npm audit --omit=dev` : 13 vulnérabilités (7 hautes, 6 moyennes, 0 critique) ; `git diff --check` propre. Défaut trouvé : restauration JSON sans garde-fou (corrigé). BLOCKED : `pg_restore` réel, `nginx -t`, exécution GitHub Actions. NOT EXECUTED : contrôle de configuration sur le serveur réel, vérification HTTPS des en-têtes.
 
+### Phase 5 : pull request, protection de `main` et portes (rien n'a été exécuté côté GitHub)
+
+Un push de branche de travail ne lance **aucun** workflow ; seule l'ouverture d'une pull request lance `tests` et `integration` (sans secret, sans publication). Détail et tableau des déclencheurs : rapport §14. Correction locale non commitée : le filtre de chemins des pull requests a été retiré (sinon un contrôle requis resterait « en attente »). **Commiter cette correction avant d'ouvrir la pull request.**
+
+Commandes préparées pour le propriétaire (à lancer seulement après accord ; `git push` d'une branche de travail ne publie rien) :
+```bash
+git switch -c revue/securite-phase-5      # crée la branche à partir du commit courant ; main et les 4 commits ne bougent pas
+git push -u origin revue/securite-phase-5 # NE PAS pousser main ; ce push seul ne lance aucun workflow
+# puis, sur GitHub : Compare & pull request vers main (brouillon). Ne pas fusionner.
+```
+Protection de `main` (GitHub > Settings > Branches ou Rules > Rulesets), après la première exécution (les noms de contrôles n'apparaissent qu'ensuite) : pull request obligatoire avec au moins 1 approbation ; contrôles requis **`tests`** et **`integration`** (pas `docker`) ; branche à jour avant fusion ; aucune fusion si un contrôle est en attente ou en échec ; pas de push forcé, pas de suppression de la branche ; pas de contournement (y compris administrateurs, sauf justification consignée). Vérification : tenter de pousser sur `main` doit être refusé. Ne cocher qu'après vérification.
+
+Quatre portes distinctes : (1) validation locale, (2) CI de pull request, (3) approbation de mise en ligne, (4) autorisation de déploiement : fusionner sur `main` déploie sous 60 s.
+
+Décisions D1 à D7 : rapport §14 (recommandations ; aucune action exécutée). Restauration native, `nginx -t`, GitHub Actions, serveur : BLOCKED/NOT EXECUTED comme au §9.
+
 ## 10. Conditions avant une revue de mise en ligne
 
 - [ ] D1 à D3 décidées ; D4 à D7 consignées (traitées plus tard, avec la date prévue).

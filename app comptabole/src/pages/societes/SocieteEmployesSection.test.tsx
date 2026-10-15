@@ -50,24 +50,25 @@ describe("compte de société en carte", () => {
     await waitFor(() => expect(updateEmploye).toHaveBeenCalledWith("e1", expect.objectContaining({ prenom: "Haytham", nom: "ayedi", identifiant: "h.ayedi" })));
   });
 
-  it("l'email est obligatoire, et « Envoyer les identifiants » apparaît pour l'adresse enregistrée", async () => {
+  it("l'email est obligatoire, et « Lien d'accès » apparaît pour l'adresse enregistrée", async () => {
     render(<SocieteEmployesSection societeId="s1" />);
     fireEvent.click(screen.getByRole("button", { name: "Modifier haytham ayedi" }));
     const carte = within(screen.getByRole("dialog"));
-    expect(carte.getByRole("button", { name: /Envoyer les identifiants/ })).toBeTruthy();
+    expect(carte.getByRole("button", { name: /Lien d'accès/ })).toBeTruthy();
     fireEvent.change(carte.getByLabelText(/Email/), { target: { value: "" } });
-    expect(carte.queryByRole("button", { name: /Envoyer les identifiants/ })).toBeNull();
+    expect(carte.queryByRole("button", { name: /Lien d'accès/ })).toBeNull();
     expect(carte.getByText("Email requis.")).toBeTruthy();
     fireEvent.change(carte.getByLabelText(/Email/), { target: { value: "pas-un-email" } });
     expect(carte.getByText("Email invalide.")).toBeTruthy();
   });
 
-  it("à l'ajout, propose le mot de passe avec Générer et dit ce qui manque", () => {
+  it("à l'ajout, ne demande aucun mot de passe (lien d'activation) et dit ce qui manque", () => {
     render(<SocieteEmployesSection societeId="s1" />);
     fireEvent.click(screen.getByRole("button", { name: "Ajouter" }));
     const carte = within(screen.getByRole("dialog"));
     expect(carte.getByText("Nouveau responsable")).toBeTruthy();
-    expect(carte.getByRole("button", { name: "Générer un mot de passe" })).toBeTruthy();
+    expect(carte.queryByLabelText(/Mot de passe/)).toBeNull();
+    expect(carte.getByText(/lien d.accès à usage unique/)).toBeTruthy();
     expect(carte.getByText("Prénom et nom requis.")).toBeTruthy();
     fireEvent.click(carte.getByRole("radio", { name: /Délégué/ }));
     expect(carte.getByText("Nouveau délégué")).toBeTruthy();

@@ -3,3 +3,10 @@ dist
 *.local
 .DS_Store
 .env
+
+# Documents réels de clients et fichiers de travail locaux : jamais versionnés (voir l'audit de sécurité)
+samples/
+ocr-transfer/
+transfer-*.zip
+server_ui*.log
+server_ui.pid

@@ -348,9 +348,11 @@ export const useData = create<DataState>((set, get) => ({
   // ── Employés ────────────────────────────────
   addEmploye: async (data) => {
     try {
-      const e = await api.post<Employe>("/employes", data);
+      const cree = await api.post<Employe>("/employes", data);
+      // Le lien d'accès à usage unique n'est rendu qu'à l'appelant : il n'entre pas dans l'état partagé.
+      const { lienAcces: _lien, ...e } = cree;
       set((st) => ({ employes: [e, ...st.employes] }));
-      return e;
+      return cree;
     } catch (err) {
       return fail(err);
     }

@@ -20,6 +20,9 @@ import { useCollectes } from "@/store/collectes";
 import { cheminAutoriseClient } from "@/components/layout/sidebar/navigation";
 import { Button } from "@/components/ui/button";
 
+const ActivationPage = lazy(() =>
+  import("@/pages/ActivationPage").then((m) => ({ default: m.ActivationPage })),
+);
 const LoginPage = lazy(() =>
   import("@/pages/LoginPage").then((m) => ({ default: m.LoginPage })),
 );
@@ -308,6 +311,7 @@ export default function App() {
       <Suspense fallback={null}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/activation" element={<ActivationPage />} />
           <Route element={<RequireAuth />}>
             <Route
               element={

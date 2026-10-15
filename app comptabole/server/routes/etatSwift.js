@@ -6,6 +6,7 @@ import { logAction } from "../journal.js";
 import { notifyMany, concernedBySociete, notifKey } from "../notifications.js";
 import { safeRouter } from "../asyncRoutes.js";
 
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 /** État SWIFT : un virement SWIFT sorti de la banque en dinars dont le détail en devise manque.
  * Le cabinet pose la date, le montant, le libellé et la banque ; le responsable ou le délégué de la société
  * justifie ce montant par ses factures d'achat (n° de facture, montant en devise, taux de change, montant en TND),
@@ -15,7 +16,6 @@ import { safeRouter } from "../asyncRoutes.js";
 export const etatSwiftRouter = safeRouter(Router());
 etatSwiftRouter.use(requireAuth);
 
-const r3 = (n) => Math.round((Number(n) + Number.EPSILON) * 1000) / 1000;
 const estClient = (s) => s.poste === "societe_employe";
 const ownSociete = (s, societeId) => (s.societeIds || []).includes(societeId);
 const peutEcrireVirements = (s, societeId) => !estClient(s) && canSeeSociete(s, societeId);

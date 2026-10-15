@@ -1,6 +1,6 @@
 import { stockMouvementDto, quantiteComparable } from "./mappers.js";
 
-const r3 = (n) => Math.round((n + Number.EPSILON) * 1000) / 1000;
+import { arrondi3 as r3 } from "../shared/arrondi.js";
 const estDevise = (code) => Boolean(code) && String(code).trim().toUpperCase() !== "TND";
 
 /** Valeur du stock restant d'un mouvement : le montant TND de l'achat, au prorata de la quantité encore en stock

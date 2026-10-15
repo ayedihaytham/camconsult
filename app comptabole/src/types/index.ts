@@ -14,10 +14,6 @@ export interface Societe {
   tva: string;
   theme: SocieteTheme;
   code: string;
-  /** @deprecated l'authentification société a été retirée */
-  identifiant?: string;
-  /** @deprecated l'authentification société a été retirée */
-  motDePasse?: string;
   statut: Statut;
   telephone: string;
   email: string;
@@ -54,7 +50,10 @@ export interface Employe {
   nom: string;
   prenom: string;
   identifiant: string;
-  motDePasse: string;
+  /** L'accès est activé : le mot de passe est choisi. Jamais le mot de passe lui-même. */
+  accesActive?: boolean;
+  /** Lien d'accès à usage unique, renvoyé une seule fois à la création ; jamais conservé. */
+  lienAcces?: string;
   type: EmployeType;
   role: EmployeRole;
   /** défini uniquement pour role = "societe_employe" */

@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { generatePassword } from "@/lib/password";
 import { IDENTIFIANT_RE, suggestIdentifiant } from "@/lib/identifiant";
 import { useSocietes } from "@/store/data";
 import type { Employe, EmployeType, Statut } from "@/types";
@@ -50,7 +49,6 @@ const schema = z.object({
       IDENTIFIANT_RE,
       "Minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre",
     ),
-  motDePasse: z.string().min(8, "8 caractères minimum"),
   type: z.enum(["Comptable", "Assistant", "Stagiaire", "Gestionnaire de paie"]),
   role: z.enum(["collaborateur", "responsable_collaborateurs"]),
   email: z.string().email("Email invalide"),
@@ -58,14 +56,8 @@ const schema = z.object({
   societesAssignees: z.array(z.string()),
 });
 
-// En modification, un mot de passe vide signifie « inchangé ». La proposition
-// d'identifiant s'arrête dès que l'utilisateur tape lui-même dans le champ
-// (voir identifiantTouched).
-const editSchema = schema.extend({
-  motDePasse: z
-    .string()
-    .refine((v) => v === "" || v.length >= 8, "8 caractères minimum"),
-});
+// Le mot de passe n'est plus saisi ici : la personne le choisit elle-même par un lien d'activation.
+const editSchema = schema;
 
 export type EmployeFormValues = z.infer<typeof schema>;
 
@@ -83,7 +75,6 @@ const emptyValues: EmployeFormValues = {
   prenom: "",
   nom: "",
   identifiant: "",
-  motDePasse: generatePassword(),
   type: "Comptable",
   role: "collaborateur",
   email: "",
@@ -126,7 +117,7 @@ export function EmployeFormSheet({
                 ? "responsable_collaborateurs"
                 : "collaborateur",
           }
-        : { ...emptyValues, motDePasse: generatePassword() },
+        : emptyValues,
     );
   }, [open, employe, canAssignRole, reset]);
 
@@ -272,24 +263,11 @@ export function EmployeFormSheet({
                     placeholder="p.nom"
                   />
                 </Field>
-                <div className="space-y-1.5">
-                  <CardField id="employe-mdp" label="Mot de passe">
-                  <input
-                    id="employe-mdp"
-                    className={CARD_FIELD_INPUT}
-                    {...register("motDePasse")}
-                    type="password"
-                    autoComplete="new-password"
-                    aria-label="Mot de passe"
-                    placeholder={isEdit ? "Laisser vide pour ne pas changer" : undefined}
-                  />
-                  </CardField>
-                  {errors.motDePasse?.message && (
-                    <p className="text-xs text-destructive">
-                      {errors.motDePasse.message}
-                    </p>
-                  )}
-                </div>
+                <p className="text-xs text-muted-foreground sm:col-span-2">
+                  {isEdit
+                    ? "Le mot de passe n'est jamais affiché. Pour en changer, utilisez « Lien d'accès » dans le menu de la ligne."
+                    : "À l'enregistrement, un lien d'accès à usage unique est créé : la personne choisit elle-même son mot de passe."}
+                </p>
               </div>
             </div>
 

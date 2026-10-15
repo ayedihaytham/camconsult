@@ -26,7 +26,6 @@ import {
 import type { ColumnDef } from "@tanstack/react-table";
 import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
 import { StatusDot, type StatusTone } from "@/components/ledger/StatusDot";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
 import { DataTablePagination } from "@/components/data-table/DataTablePagination";
@@ -95,7 +94,6 @@ const ACTION_META: Record<JournalAction, { label: string; tone: StatusTone }> = 
 export function JournalPage() {
   const entries = useJournal((s) => s.entries);
   const loading = useJournal((s) => s.loading);
-  const clear = useJournal((s) => s.clear);
   const fetchJournal = useJournal((s) => s.fetch);
 
   useEffect(() => {
@@ -103,7 +101,6 @@ export function JournalPage() {
   }, [fetchJournal]);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
-  const [clearOpen, setClearOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -279,18 +276,6 @@ export function JournalPage() {
             <DataTablePagination table={table} itemLabel="actions" variant="controls" />
           </>
         }
-        primaryAction={
-          entries.length > 0 ? (
-            <Button
-              data-tour="journal-actions"
-              variant="ledger-text"
-              className="text-destructive hover:text-destructive"
-              onClick={() => setClearOpen(true)}
-            >
-              Vider le journal
-            </Button>
-          ) : undefined
-        }
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -353,18 +338,6 @@ export function JournalPage() {
         mobileFooter={
           <DataTablePagination table={table} itemLabel="actions" variant="mobile" />
         }
-      />
-
-      <ConfirmDialog
-        open={clearOpen}
-        onOpenChange={setClearOpen}
-        title="Vider le journal d'activité ?"
-        description="Tout l'historique sera définitivement supprimé."
-        confirmLabel="Vider"
-        onConfirm={() => {
-          clear();
-          toast.success("Journal vidé");
-        }}
       />
     </div>
   );

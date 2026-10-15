@@ -23,6 +23,7 @@ import { formatDate } from "@/lib/utils";
 import type { ReglementInput } from "@/store/fournisseurs";
 import type { FactureFournisseur, ModeReglement, ReglementFournisseur } from "@/types";
 
+import { arrondi3 as round3 } from "../../../shared/arrondi.js";
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -41,7 +42,6 @@ interface Props {
   onSubmit: (data: ReglementInput) => Promise<void>;
 }
 
-const round3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
 export function ReglementFormSheet({
   open,

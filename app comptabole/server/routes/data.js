@@ -17,6 +17,7 @@ import {
   notificationDto,
 } from "../mappers.js";
 import { notifKey } from "../notifications.js";
+import { hashPassword } from "../passwords.js";
 import { tachesVisibles } from "./taches.js";
 import { taskPlanningError } from "../../shared/taskPlanning.js";
 
@@ -191,21 +192,22 @@ dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
 
     for (const s of societes) {
       await client.query(
-        `insert into societes (id, raison_sociale, rne, tva, theme, code, identifiant, mot_de_passe, statut, telephone, email, adresse, cree_le)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, coalesce($13::date, current_date))`,
+        `insert into societes (id, raison_sociale, rne, tva, theme, code, statut, telephone, email, adresse, cree_le)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, coalesce($11::date, current_date))`,
         [
           uuidOrNull(s.id), s.raisonSociale, s.rne ?? "", s.tva ?? "", s.theme ?? "PME",
-          s.code ?? "", s.identifiant ?? "", s.motDePasse ?? "", s.statut ?? "actif",
+          s.code ?? "", s.statut ?? "actif",
           s.telephone ?? "", s.email ?? "", s.adresse ?? "", s.creeLe ?? null,
         ],
       );
     }
     for (const e of employes) {
       await client.query(
-        `insert into employes (id, nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, cree_le, delegue, doit_changer_mdp)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb, coalesce($13::date, current_date), $14, $15)`,
+        `insert into employes (id, nom, prenom, identifiant, mot_de_passe, mdp_hash, type, role, societe_id, email, statut, societes_assignees, permissions, cree_le, delegue, doit_changer_mdp)
+         values ($1,$2,$3,$4,'',$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb, coalesce($13::date, current_date), $14, $15)`,
         [
-          uuidOrNull(e.id), e.nom, e.prenom, e.identifiant, e.motDePasse, e.type ?? "Assistant",
+          // Une ancienne sauvegarde peut contenir un mot de passe en clair : il est converti en empreinte, jamais réécrit tel quel.
+          uuidOrNull(e.id), e.nom, e.prenom, e.identifiant, e.motDePasse ? await hashPassword(e.motDePasse) : null, e.type ?? "Assistant",
           ["societe_employe", "responsable_collaborateurs"].includes(e.role)
             ? e.role
             : "collaborateur",
@@ -272,7 +274,10 @@ dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
 });
 
 dataRouter.post("/reset", requireAuth, requireAdmin, async (req, res) => {
-  // Action destructrice : le serveur exige lui-même la confirmation, pas seulement l'écran.
+  // Action destructrice : en production elle est désactivée tant que ALLOW_DATA_RESET=true n'est pas posé volontairement sur le serveur.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DATA_RESET !== "true")
+    return res.status(403).json({ error: "La réinitialisation est désactivée sur ce serveur (ALLOW_DATA_RESET)." });
+  // Le serveur exige lui-même la confirmation, pas seulement l'écran.
   if (req.body?.confirmation !== "RÉINITIALISER")
     return res.status(400).json({ error: "Confirmation requise pour réinitialiser les données" });
   await query(

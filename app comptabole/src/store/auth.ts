@@ -39,6 +39,8 @@ interface AuthState {
     motDePasse: string,
   ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
+  /** Activation d'un compte ou nouveau mot de passe par un lien à usage unique ; connecte la personne. */
+  activer: (jeton: string, motDePasse: string) => Promise<{ ok: boolean; error?: string }>;
   changeCredentials: (
     currentPassword: string,
     next: { identifiant?: string; motDePasse?: string },
@@ -89,6 +91,17 @@ export const useAuth = create<AuthState>((set) => ({
             ? err.message
             : "Connexion impossible (serveur injoignable).",
       };
+    }
+  },
+
+  activer: async (jeton, motDePasse) => {
+    try {
+      const { token, session } = await api.post<{ token: string; session: Session }>("/auth/activate", { token: jeton, motDePasse });
+      setToken(token);
+      set({ status: "authed", session });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof ApiError ? err.message : "Activation impossible (serveur injoignable)." };
     }
   },
 

@@ -10,6 +10,7 @@ import {
   suiviDeviseMouvementDto,
 } from "../mappers.js";
 
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 export const suiviDeviseRouter = Router();
 suiviDeviseRouter.use(requireAuth);
 
@@ -100,7 +101,6 @@ const jourLocal = (d) => {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 };
 
-const r3 = (n) => Math.round((Number(n) + Number.EPSILON) * 1000) / 1000;
 
 async function loadFull(suiviId) {
   const [suivi, lots, factures, mouvements] = await Promise.all([

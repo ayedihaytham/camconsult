@@ -1,3 +1,5 @@
+import { arrondi3 } from "../../shared/arrondi.js";
+
 /** Montants du cabinet : jusqu'à 3 décimales (millimes du dinar), la virgule
  * et le point sont acceptés comme séparateur décimal. */
 export const AMOUNT_DECIMALS = 3;
@@ -25,7 +27,7 @@ export function parseAmount(text: string): number {
 }
 
 /** Arrondi au millime — même précision que le serveur (server/mappers.js). */
-export const round3 = (n: number) => Math.round(n * 1000) / 1000;
+export const round3 = arrondi3;
 
 /** Cellule Excel/CSV → nombre : accepte « 1 234,567 », « 1234.567 » et les
  * nombres déjà typés (0 si illisible). */

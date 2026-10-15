@@ -1188,3 +1188,28 @@ create index if not exists swift_factures_virement on swift_factures (virement_i
 -- Équivalent en devise du virement, indiqué par la société : c'est avec lui que ses factures sont comparées (pas avec le dinar).
 alter table swift_virements add column if not exists equivalent_devise numeric;
 alter table swift_virements add column if not exists devise text not null default '';
+
+-- Mots de passe des employés : empreinte scrypt (voir server/passwords.js). L'ancienne colonne en clair `mot_de_passe` n'est plus
+-- écrite : un compte hérité est converti à sa prochaine connexion réussie, puis la valeur en clair est effacée.
+alter table employes add column if not exists mdp_hash text;
+create table if not exists password_tokens (
+  id         uuid primary key default gen_random_uuid(),
+  employe_id uuid not null references employes(id) on delete cascade,
+  token_hash text not null unique,
+  but        text not null check (but in ('activation', 'reset')),
+  expires_at timestamptz not null,
+  used_at    timestamptz,
+  cree_par   text not null default '',
+  cree_le    timestamptz not null default now()
+);
+create index if not exists password_tokens_employe_idx on password_tokens (employe_id);
+
+-- Le journal d'activité est en ajout seul : aucune modification ni suppression de ligne par l'application. Un administrateur de
+-- base de données peut encore retirer ce déclencheur : pour une piste d'audit infalsifiable, il faut aussi l'envoyer à un stockage externe.
+create or replace function journal_ajout_seul() returns trigger as $$
+begin
+  raise exception 'Le journal d''activité est en ajout seul';
+end;
+$$ language plpgsql;
+drop trigger if exists journal_ajout_seul_trg on journal;
+create trigger journal_ajout_seul_trg before update or delete on journal for each row execute function journal_ajout_seul();

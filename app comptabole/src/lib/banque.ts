@@ -1,8 +1,8 @@
 import { convertirNombre } from "@/lib/pdfToTables";
 import type { CompteBancaire, FactureFournisseur, MouvementBancaire, TypeMouvementBancaire } from "@/types";
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 export const TYPE_LABELS: Record<TypeMouvementBancaire, string> = {
   encaissement_client: "Encaissement client",
   paiement_fournisseur: "Paiement fournisseur",

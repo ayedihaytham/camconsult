@@ -3,14 +3,11 @@ import { toast } from "sonner";
 import {
   AlertCircle,
   AtSign,
-  Eye,
-  EyeOff,
   KeyRound,
   Info,
   Mail,
   Pencil,
   Plus,
-  RefreshCw,
   Save,
   ShieldCheck,
   Trash2,
@@ -26,10 +23,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { PasswordField } from "@/components/common/PasswordField";
+import { LienAccesDialog, type LienAcces } from "@/components/common/LienAccesDialog";
 import { Switch } from "@/components/common/Switch";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { generatePassword, scorePassword } from "@/lib/password";
 import { IDENTIFIANT_RE, suggestIdentifiant } from "@/lib/identifiant";
 import { api, ApiError } from "@/lib/api";
 import { cn, initials } from "@/lib/utils";
@@ -49,20 +45,12 @@ const emptyDraft = () => ({
   nom: "",
   identifiant: "",
   email: "",
-  motDePasse: generatePassword(),
   delegue: false,
 });
 
 type Draft = ReturnType<typeof emptyDraft>;
 type FormMode = { kind: "add" } | { kind: "edit"; employe: Employe } | null;
 
-const STRENGTH_COLOR = [
-  "bg-destructive",
-  "bg-destructive",
-  "bg-warning",
-  "bg-accent",
-  "bg-success",
-];
 
 export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { societeId: string; peutSupprimer?: boolean }) {
   const employes = useSocieteEmployes(societeId);
@@ -74,13 +62,11 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
   const [mode, setMode] = useState<FormMode>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [identifiantTouched, setIdentifiantTouched] = useState(false);
-  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [toDelete, setToDelete] = useState<Employe | null>(null);
-  const [resettingId, setResettingId] = useState<string | null>(null);
-  const [resetValue, setResetValue] = useState("");
+  const [lienAcces, setLienAcces] = useState<LienAcces | null>(null);
 
   const isEdit = mode?.kind === "edit";
 
@@ -94,19 +80,16 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
   function openAdd() {
     setDraft(emptyDraft());
     setIdentifiantTouched(false);
-    setPasswordVisible(false);
     setError(null);
     setMode({ kind: "add" });
   }
 
   function openEdit(e: Employe) {
-    setResettingId(null);
     setDraft({
       prenom: e.prenom,
       nom: e.nom,
       identifiant: e.identifiant,
       email: e.email ?? "",
-      motDePasse: "",
       delegue: Boolean(e.delegue),
     });
     setIdentifiantTouched(true);
@@ -121,8 +104,6 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
     if (identifiant.length < 3) return "Identifiant : 3 caractères minimum.";
     if (!IDENTIFIANT_RE.test(identifiant))
       return "Identifiant : minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre.";
-    if (!isEdit && draft.motDePasse.length < 8)
-      return "Mot de passe : 8 caractères minimum.";
     const email = draft.email.trim();
     if (!email) return "Email requis.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Email invalide.";
@@ -156,7 +137,6 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
           prenom,
           nom,
           identifiant,
-          motDePasse: draft.motDePasse,
           type: "Assistant",
           role: "societe_employe",
           societeId,
@@ -166,7 +146,8 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
           permissions: SOC_EMP_PERMS,
           delegue: draft.delegue,
         });
-        annonceEmail(draft.delegue ? "Délégué ajouté" : "Responsable ajouté", `${prenom} ${nom}`, email, cree?.emailEnvoi);
+        toast.success(draft.delegue ? "Délégué ajouté" : "Responsable ajouté", { description: `${prenom} ${nom}` });
+        if (cree?.lienAcces) setLienAcces({ nom: `${prenom} ${nom}`, lien: cree.lienAcces, emailEnvoi: cree.emailEnvoi, but: "activation" });
       }
       setMode(null);
     } catch (err) {
@@ -179,36 +160,17 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
     }
   }
 
-  /** Confirme l'action et dit si l'email d'identifiants est bien parti (résultat renvoyé par le serveur). */
-  function annonceEmail(titre: string, description: string, email: string | undefined, envoi: EmailEnvoi | undefined) {
-    if (envoi === "envoye") toast.success(titre, { description: `${description} — email envoyé à ${email}` });
-    else if (envoi === "smtp") toast.warning(titre, { description: `${description} — email non envoyé : l'envoi d'emails n'est pas configuré sur le serveur.` });
-    else if (envoi === "echec") toast.warning(titre, { description: `${description} — l'email n'a pas pu être envoyé à ${email}.` });
-    else toast.success(titre, { description });
-  }
-
-  /** Renvoie les identifiants par email au compte ouvert et affiche le résultat réel. */
+  /** Émet un lien d'accès à usage unique (activation ou nouveau mot de passe), l'envoie par email si possible et l'affiche une fois. */
   async function envoyerAcces(e: Employe) {
     setEnvoiEnCours(true);
     try {
-      const { emailEnvoi } = await api.post<{ emailEnvoi: EmailEnvoi }>(`/employes/${e.id}/envoyer-acces`);
-      annonceEmail("Identifiants envoyés", `${e.prenom} ${e.nom}`, e.email, emailEnvoi);
+      const r = await api.post<{ emailEnvoi: EmailEnvoi; lienAcces: string; but: "activation" | "reset" }>(`/employes/${e.id}/envoyer-acces`);
+      setLienAcces({ nom: `${e.prenom} ${e.nom}`, lien: r.lienAcces, emailEnvoi: r.emailEnvoi, but: r.but });
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Envoi impossible.");
+      toast.error(err instanceof ApiError ? err.message : "Lien d'accès impossible.");
     } finally {
       setEnvoiEnCours(false);
     }
-  }
-
-  async function confirmReset(id: string) {
-    if (resetValue.length < 8) {
-      toast.error("Mot de passe : 8 caractères minimum.");
-      return;
-    }
-    const e = await updateEmploye(id, { motDePasse: resetValue });
-    annonceEmail("Mot de passe réinitialisé", "Il devra en choisir un nouveau à sa prochaine connexion.", e?.email, e?.emailEnvoi);
-    setResettingId(null);
-    setResetValue("");
   }
 
   const responsables = employes.filter((e) => !e.delegue);
@@ -222,11 +184,11 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
         draft.delegue !== Boolean(mode.employe.delegue)
       : true;
   const probleme = mode ? validate() : null;
-  const { score, level } = scorePassword(draft.motDePasse);
   const roleLabel = draft.delegue ? "délégué" : "responsable";
 
   return (
     <div className="space-y-2.5">
+      <LienAccesDialog acces={lienAcces} onClose={() => setLienAcces(null)} />
       <div className="flex items-center justify-between gap-3">
         <h4 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
           <Users className="size-4 text-accent" aria-hidden="true" />
@@ -283,25 +245,6 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
                   </div>
                 </div>
 
-                {resettingId === e.id && (
-                  <div className="space-y-2 border-t border-border px-3 py-3">
-                    <Label className="text-xs">Nouveau mot de passe</Label>
-                    <PasswordField value={resetValue} onValueChange={setResetValue} />
-                    <p className="text-xs text-muted-foreground">
-                      Communiquez-le à {e.prenom} — il devra en choisir un nouveau,
-                      connu de lui seul, à sa prochaine connexion.
-                    </p>
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setResettingId(null)}>
-                        Annuler
-                      </Button>
-                      <Button size="sm" variant="ledger" onClick={() => confirmReset(e.id)}>
-                        Réinitialiser
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex flex-wrap items-center gap-2 border-t border-border bg-muted/40 px-3 py-2">
                   <div className="mr-auto flex items-center gap-2 text-[12.5px] font-bold text-foreground">
                     <Switch
@@ -329,14 +272,11 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
                     variant="outline"
                     size="sm"
                     className="h-7 gap-1.5 px-2.5 text-xs font-semibold shadow-none"
-                    onClick={() => {
-                      setResettingId(resettingId === e.id ? null : e.id);
-                      setResetValue(generatePassword());
-                    }}
-                    aria-label={`Réinitialiser le mot de passe de ${e.prenom}`}
+                    onClick={() => void envoyerAcces(e)}
+                    aria-label={`Lien d'accès de ${e.prenom}`}
                   >
                     <KeyRound className="size-3.5" aria-hidden="true" />
-                    Accès
+                    Lien d'accès
                   </Button>
                   {peutSupprimer && (
                     <Button
@@ -512,67 +452,10 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
                 </div>
 
                 {!isEdit && (
-                  <div className="space-y-1.5">
-                    <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-                      <div className="min-w-0 space-y-1">
-                        <Label htmlFor="emp-mdp" className="text-[11.5px] font-semibold text-muted-foreground">
-                          Mot de passe <span className="text-destructive" aria-hidden="true">*</span>
-                        </Label>
-                        <div className="relative">
-                          <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                          <Input
-                            id="emp-mdp"
-                            type={passwordVisible ? "text" : "password"}
-                            value={draft.motDePasse}
-                            onChange={(ev) => setDraft((d) => ({ ...d, motDePasse: ev.target.value }))}
-                            autoComplete="new-password"
-                            className="h-10 pl-9 pr-10 font-mono text-[13.5px]"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setPasswordVisible((v) => !v)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            aria-label={passwordVisible ? "Masquer" : "Afficher"}
-                          >
-                            {passwordVisible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-10 gap-2 px-3 text-[13px] font-semibold"
-                        onClick={() => {
-                          setDraft((d) => ({ ...d, motDePasse: generatePassword() }));
-                          setPasswordVisible(true);
-                        }}
-                        aria-label="Générer un mot de passe"
-                      >
-                        <RefreshCw className="size-4" aria-hidden="true" />
-                        Générer
-                      </Button>
-                    </div>
-                    {draft.motDePasse.length > 0 && (
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-1 gap-1">
-                          {[0, 1, 2, 3].map((i) => (
-                            <span
-                              key={i}
-                              className={cn(
-                                "h-1 flex-1 rounded-full transition-colors",
-                                i < score ? STRENGTH_COLOR[score] : "bg-border",
-                              )}
-                            />
-                          ))}
-                        </div>
-                        <span className="w-16 text-right text-xs capitalize text-muted-foreground">{level}</span>
-                      </div>
-                    )}
-                    <p className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
-                      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                      Communiquez-le à {draft.prenom || "la personne"} : elle devra en choisir un nouveau à sa première connexion.
-                    </p>
-                  </div>
+                  <p className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
+                    <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    À l'enregistrement, un lien d'accès à usage unique est créé : {draft.prenom || "la personne"} choisit elle-même son mot de passe.
+                  </p>
                 )}
 
                 <div className="space-y-1">
@@ -588,7 +471,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
                         className="inline-flex items-center gap-1 text-[11.5px] font-bold text-primary underline underline-offset-2 disabled:opacity-50"
                       >
                         <Mail className="size-3.5" aria-hidden="true" />
-                        {envoiEnCours ? "Envoi en cours…" : "Envoyer les identifiants"}
+                        {envoiEnCours ? "Création du lien…" : "Lien d'accès"}
                       </button>
                     )}
                   </div>

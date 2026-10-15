@@ -2,7 +2,7 @@ import { cleNumero } from "@/lib/facturesDoublons";
 import type { FactureClasseur, FeuilleFournisseur, ReglementClasseur } from "@/lib/etatFournisseursClasseur";
 import type { FactureFournisseur, ModeReglement } from "@/types";
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 /** En dessous, un écart est un arrondi du classeur (1 TND), pas une erreur. */
 export const TOLERANCE = 1;
 

@@ -5,6 +5,7 @@ import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { safeRouter } from "../asyncRoutes.js";
 
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 /** Suivi fournisseur : état des factures d'achat du stock et de leurs règlements.
  * Lecture : admin, collaborateurs de la société, et responsable de la société (jamais un délégué).
  * Écriture : admin et collaborateurs de la société. */
@@ -16,7 +17,6 @@ const canWrite = (s, societeId) => s.poste !== "societe_employe" && inScope(s, s
 const canRead = (s, societeId) =>
   canWrite(s, societeId) || (s.poste === "societe_employe" && inScope(s, societeId));
 
-const r3 = (n) => Math.round((Number(n) + Number.EPSILON) * 1000) / 1000;
 
 /** Clé de regroupement d'un fournisseur : sans accents, casse ni ponctuation. */
 export function cleFournisseur(nom) {
@@ -153,6 +153,8 @@ const reglementSchema = z.object({
 /** Les factures doivent appartenir à la société, au fournisseur et à la devise du règlement, et aucune
  * ne peut être payée au-delà de son montant. Renvoie le message d'erreur, ou null. */
 async function verifier(client, v, reglementId) {
+  // Deux règlements du même fournisseur ne se vérifient pas en même temps : sinon chacun voit le même solde et peut le dépasser.
+  await client.query("select pg_advisory_xact_lock(hashtext($1))", [`reglement:${v.societeId}:${v.fournisseurCle}`]);
   const ids = v.affectations.map((a) => a.mouvementId);
   if (new Set(ids).size !== ids.length) return "Une facture est choisie deux fois";
   const { rows } = await client.query(

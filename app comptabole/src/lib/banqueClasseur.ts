@@ -7,6 +7,7 @@ import {
   type MouvementImport,
 } from "@/lib/banque";
 
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 /** Fusion verticale de cellules, en indices de lignes de la feuille lue (la valeur est dans la première ligne). */
 export interface FusionVerticale {
   ligne1: number;
@@ -38,7 +39,6 @@ export interface FeuilleBancaire {
   ecartsSociete: EcartSociete[];
 }
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 const minuscule = (v: unknown) => normaliser(texte(v)).toLowerCase().replace(/\s+/g, " ").trim();
 
 const RE_DATE_OP = /^date( op(eration)?)?$/;

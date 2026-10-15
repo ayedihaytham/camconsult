@@ -5,7 +5,8 @@ import { requireAuth, requireAdmin, requireEquipeManager } from "../auth.js";
 import { logAction } from "../journal.js";
 import { notify } from "../notifications.js";
 import { employeDto, employeDtoFor } from "../mappers.js";
-import { sendCollaborateurWelcomeEmail, sendPasswordResetEmail } from "../mailer.js";
+import { sendAccessLinkEmail } from "../mailer.js";
+import { creerJeton, lienAcces } from "../passwords.js";
 import {
   defaultPermissions,
   societeEmployePermissions,
@@ -26,7 +27,6 @@ const schema = z.object({
     .min(3)
     .max(32)
     .regex(/^[a-z][a-z0-9._-]*$/, "Identifiant invalide"),
-  motDePasse: z.string().min(8),
   type: z
     .enum(["Comptable", "Assistant", "Stagiaire", "Gestionnaire de paie"])
     .default("Assistant"),
@@ -107,9 +107,9 @@ employesRouter.post("/", async (req, res) => {
   try {
     const { rows } = await query(
       `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, doit_changer_mdp, delegue)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,true,$12) returning *`,
+       values ($1,$2,$3,'',$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,true,$11) returning *`,
       [
-        v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
+        v.nom, v.prenom, v.identifiant, v.type, v.role, sc.societeId,
         v.email, v.statut, JSON.stringify(sc.societesAssignees),
         JSON.stringify(sc.permissions), v.role === "societe_employe" && v.delegue,
       ],
@@ -120,13 +120,15 @@ employesRouter.post("/", async (req, res) => {
       v.role === "societe_employe" ? "employe_societe" : "employe",
       `${v.prenom} ${v.nom}`,
     );
-    const dto = employeDto(rows[0]);
+    // L'accès se crée par un lien à usage unique (72 h) : l'employé choisit lui-même son mot de passe. Le lien est renvoyé ici
+    // une seule fois pour que le cabinet puisse le transmettre si l'envoi d'email n'est pas configuré.
+    const lien = lienAcces(await creerJeton(rows[0].id, "activation", req.session.nom));
     // Jamais bloquant : la création du compte réussit même si l'email échoue.
-    const emailEnvoi = await sendCollaborateurWelcomeEmail(dto).catch((err) => {
-      console.error("[mailer] envoi identifiants échoué", err.message);
+    const emailEnvoi = await sendAccessLinkEmail(employeDto(rows[0]), lien, "activation").catch((err) => {
+      console.error("[mailer] envoi du lien d'accès échoué", err.message);
       return "echec";
     });
-    res.status(201).json({ ...employeDtoFor(req.session)(rows[0]), emailEnvoi });
+    res.status(201).json({ ...employeDtoFor(req.session)(rows[0]), emailEnvoi, lienAcces: lien });
   } catch (err) {
     if (err.code === "23505")
       return res.status(409).json({ error: "Cet identifiant existe déjà" });
@@ -155,24 +157,18 @@ employesRouter.patch("/:id", async (req, res) => {
   if (v.role === "societe_employe" && merged.data.email !== undefined && !merged.data.email)
     return res.status(400).json({ error: "Email requis pour un responsable ou un délégué de société" });
   const sc = scopeForRole(v);
-  // Un mot de passe changé ici (admin/responsable qui réinitialise un
-  // compte oublié) force à nouveau le changement à la prochaine connexion —
-  // seul l'employé lui-même choisit son mot de passe définitif (voir
-  // POST /auth/change-password). Ne touche pas au drapeau si le mot de
-  // passe n'a pas bougé (simple modification de nom/email/statut…).
-  const passwordChanged = v.motDePasse !== existing.mot_de_passe;
-  const doitChangerMdp = passwordChanged ? true : Boolean(existing.doit_changer_mdp);
+  // Le mot de passe ne se modifie plus ici : seul l'employé le choisit, par un lien d'activation (POST /:id/envoyer-acces).
   let rows;
   try {
     ({ rows } = await query(
-      `update employes set nom=$1, prenom=$2, identifiant=$3, mot_de_passe=$4, type=$5,
-         role=$6, societe_id=$7, email=$8, statut=$9, societes_assignees=$10::jsonb, permissions=$11::jsonb,
-         doit_changer_mdp=$12, delegue=$14
-       where id=$13 returning *`,
+      `update employes set nom=$1, prenom=$2, identifiant=$3, type=$4,
+         role=$5, societe_id=$6, email=$7, statut=$8, societes_assignees=$9::jsonb, permissions=$10::jsonb,
+         delegue=$12
+       where id=$11 returning *`,
       [
-        v.nom, v.prenom, v.identifiant, v.motDePasse, v.type, v.role, sc.societeId,
+        v.nom, v.prenom, v.identifiant, v.type, v.role, sc.societeId,
         v.email, v.statut, JSON.stringify(sc.societesAssignees),
-        JSON.stringify(sc.permissions), doitChangerMdp, req.params.id,
+        JSON.stringify(sc.permissions), req.params.id,
         v.role === "societe_employe" &&
           (merged.data.delegue ?? Boolean(existing.delegue)),
       ],
@@ -190,16 +186,7 @@ employesRouter.patch("/:id", async (req, res) => {
     `Par ${req.session.nom}`,
     v.role === "societe_employe" ? "/structuration" : "/",
   );
-  const dto = employeDto(rows[0]);
-  let emailEnvoi;
-  if (passwordChanged) {
-    // Jamais bloquant : la réinitialisation réussit même si l'email échoue ; le résultat est indiqué à l'écran.
-    emailEnvoi = await sendPasswordResetEmail(dto).catch((err) => {
-      console.error("[mailer] envoi réinitialisation échoué", err.message);
-      return "echec";
-    });
-  }
-  res.json({ ...employeDtoFor(req.session)(rows[0]), ...(emailEnvoi ? { emailEnvoi } : {}) });
+  res.json(employeDtoFor(req.session)(rows[0]));
 });
 
 employesRouter.patch("/:id/acces", async (req, res) => {
@@ -230,20 +217,22 @@ employesRouter.patch("/:id/acces", async (req, res) => {
   res.json(employeDtoFor(req.session)(rows[0]));
 });
 
-// Renvoie ses identifiants par email : seulement tant que le mot de passe est provisoire
-// (le compte ne l'a pas encore changé), sinon on enverrait un mot de passe qui n'est plus le sien.
+// Émet un lien d'accès à usage unique (activation d'un nouveau compte, ou réinitialisation du mot de passe) et l'envoie par email si
+// possible. Le lien n'est renvoyé qu'ici, une seule fois, pour être transmis à la personne par un autre canal si besoin.
 employesRouter.post("/:id/envoyer-acces", async (req, res) => {
-  const existing = (await query("select * from employes where id = $1", [req.params.id])).rows[0];
-  if (!existing) return res.status(404).json({ error: "Compte introuvable" });
-  if (forbiddenRoleEscalation(req, existing.role ?? "collaborateur"))
+  const existant = (await query("select * from employes where id = $1", [req.params.id])).rows[0];
+  if (!existant) return res.status(404).json({ error: "Compte introuvable" });
+  if (forbiddenRoleEscalation(req, existant.role ?? "collaborateur"))
     return res.status(403).json({ error: "Action non autorisée pour ce compte" });
-  if (!existing.doit_changer_mdp)
-    return res.status(409).json({ error: "Cette personne a déjà choisi son mot de passe : réinitialisez-le pour lui envoyer un nouvel accès." });
-  const emailEnvoi = await sendCollaborateurWelcomeEmail(employeDto(existing)).catch((err) => {
-    console.error("[mailer] envoi identifiants échoué", err.message);
+  if (existant.statut !== "actif") return res.status(409).json({ error: "Ce compte n'est pas actif." });
+  const but = existant.mdp_hash || (existant.mot_de_passe && !existant.doit_changer_mdp) ? "reset" : "activation";
+  const lien = lienAcces(await creerJeton(existant.id, but, req.session.nom));
+  logAction(req.session.nom, "modification", "employe", `Lien d'accès émis pour ${existant.prenom} ${existant.nom}`);
+  const emailEnvoi = await sendAccessLinkEmail(employeDto(existant), lien, but).catch((err) => {
+    console.error("[mailer] envoi du lien d'accès échoué", err.message);
     return "echec";
   });
-  res.json({ emailEnvoi });
+  res.json({ emailEnvoi, lienAcces: lien, but });
 });
 
 employesRouter.post("/:id/duplicate", async (req, res) => {
@@ -262,7 +251,7 @@ employesRouter.post("/:id/duplicate", async (req, res) => {
     `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, doit_changer_mdp)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,true) returning *`,
     [
-      `${src.nom} (copie)`, src.prenom, identifiant, src.mot_de_passe, src.type,
+      `${src.nom} (copie)`, src.prenom, identifiant, "", src.type,
       src.role ?? "collaborateur", src.societe_id ?? null,
       src.email, src.statut, JSON.stringify(src.societes_assignees),
       JSON.stringify(src.permissions),

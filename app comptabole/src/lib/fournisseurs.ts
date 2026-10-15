@@ -1,7 +1,7 @@
 import type { FactureFournisseur, ModeReglement, ReglementFournisseur } from "@/types";
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 /** Règlement préparé d'après un paiement du suivi bancaire (rapprochement). */
 export interface ReglementPrefill {
   mouvementId: string;

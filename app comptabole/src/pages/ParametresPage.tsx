@@ -412,7 +412,7 @@ export function ParametresPage() {
             <Bloc danger title="Zone sensible" description="Action irréversible : à utiliser avec précaution.">
               <Action
                 titre="Réinitialiser toutes les données"
-                texte="Supprime sociétés, employés, dossiers, fichiers et messages. Le compte administrateur est conservé. Il faudra taper « RÉINITIALISER » pour confirmer."
+                texte="Supprime TOUTES les données métier : sociétés, employés, dossiers, fichiers, messages, collectes, stock, factures, honoraires, suivi fournisseur et bancaire, virements SWIFT, souches et suivis en devise. Le compte administrateur est conservé. Désactivée en production sauf autorisation du serveur ; il faudra taper « RÉINITIALISER » pour confirmer."
               >
                 <Button variant="destructive" onClick={() => setResetOpen(true)}>
                   <RotateCcw className="h-4 w-4" />
@@ -429,11 +429,11 @@ export function ParametresPage() {
         open={resetOpen}
         onOpenChange={setResetOpen}
         title="Réinitialiser toutes les données ?"
-        description="Toutes les sociétés, employés, dossiers, fichiers et messages seront définitivement supprimés. Cette action est irréversible."
+        description="Toutes les données métier (sociétés, employés, dossiers, fichiers, messages, collectes, stock, factures, honoraires, banque, SWIFT…) seront définitivement supprimées. Cette action est irréversible : faites d'abord une sauvegarde."
         confirmPhrase="RÉINITIALISER"
         confirmLabel="Tout supprimer"
-        onConfirm={() => {
-          data.resetAll();
+        onConfirm={async () => {
+          await data.resetAll();
           toast.success("Données réinitialisées");
         }}
       />

@@ -3,6 +3,7 @@ import { dateFlexible, montantCellule, normaliser, texte } from "@/lib/banque";
 import type { FusionVerticale } from "@/lib/banqueClasseur";
 import type { ModeReglement } from "@/types";
 
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 /** Proforma d'un fournisseur, telle qu'elle figure en tête d'un groupe de factures. */
 export interface ProformaClasseur {
   num: string;
@@ -59,7 +60,6 @@ export interface FeuilleFournisseur {
   avertissements: string[];
 }
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 const entete = (v: unknown) => normaliser(texte(v)).toLowerCase().replace(/[°º]/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
 
 type Role =

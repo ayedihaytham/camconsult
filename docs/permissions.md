@@ -121,3 +121,10 @@ requests and out-of-scope society IDs.
 - Le responsable ou délégué de société remplit la souche depuis son menu « Souche de chèques » (`/ma-souche`, `SoucheClientPage`) : le même tableau que celui de la collecte, une souche par période. Elle n'apparaît plus dans ses collectes (`tableauxVisiblesClient`).
 - Données : les lignes du tableau `souche_cheques` de chaque collecte de la société ; `GET /collectes/souche?societeId=` ne renvoie que ce tableau, et le client transmet au cabinet par le circuit habituel du tableau.
 - Le cabinet (admin, responsable des collaborateurs, collaborateurs) consulte la souche en lecture seule dans la collecte (le serveur refuse son écriture) ; s'il manque des informations, il les complète dans « État des chèques émis » et le renvoie au client par le Récap. Le registre admin `/souche-cheques` ne change pas.
+
+## Mots de passe et liens d'accès
+
+- Aucune réponse de l'API ne contient de mot de passe ni d'empreinte (`employeDto` : seulement `accesActive`). Identifiant et mot de passe d'une société ne sont plus renvoyés.
+- Création d'un compte : pas de mot de passe ; le lien d'activation à usage unique est renvoyé une fois à l'administrateur ou au responsable des collaborateurs
+  (et envoyé par email si le SMTP est configuré). Même contrôle de rôle que la création : un responsable des collaborateurs ne gère que les comptes collaborateur et société.
+- Le journal d'activité n'est plus effaçable ; la réinitialisation des données est réservée à l'administrateur et désactivée en production par défaut.

@@ -1,6 +1,6 @@
 import type { Facture, FactureCabinet, FactureLigne } from "@/types";
+import { calculerTotaux as calculerTotauxPartage } from "../../shared/factureTotaux.js";
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
 export const TVA_TAUX = [19, 13, 7, 0] as const;
 export const TIMBRE_DEFAUT = 1;
@@ -12,17 +12,12 @@ export interface Totaux {
   netAPayer: number;
 }
 
-/** Totaux d'une facture : même règle que le serveur (ligne = quantité x HT unitaire,
- * TVA sur le total HT, timbre fiscal ajouté après TVA). */
-export function calculerTotaux(
+/** Totaux d'une facture : règle unique partagée avec le serveur (shared/factureTotaux.js). */
+export const calculerTotaux: (
   lignes: Pick<FactureLigne, "quantite" | "montantHt">[],
   tvaTaux: number,
   timbre: number,
-): Totaux {
-  const totalHt = r3(lignes.reduce((s, l) => s + (Number(l.quantite) || 0) * (Number(l.montantHt) || 0), 0));
-  const tva = r3((totalHt * tvaTaux) / 100);
-  return { totalHt, tva, netAPayer: r3(totalHt + tva + (Number(timbre) || 0)) };
-}
+) => Totaux = calculerTotauxPartage;
 
 export const formatTnd = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });

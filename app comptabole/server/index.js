@@ -33,6 +33,7 @@ import { immobilisationsRouter } from "./routes/immobilisations.js";
 import { dataRouter } from "./routes/data.js";
 import { eventsRouter } from "./routes/events.js";
 import { startRelancesScheduler } from "./relances.js";
+import { securityHeaders } from "./securityHeaders.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -46,13 +47,7 @@ app.set("trust proxy", 1);
 
 // En-têtes de sécurité de base (sans dépendance) ; une politique CSP stricte reste à définir avec l'équipe front.
 app.disable("x-powered-by");
-app.use((_req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  next();
-});
+app.use(securityHeaders);
 
 // CORS : en prod, restreindre à l'origine du site si CORS_ORIGIN est défini
 app.use(

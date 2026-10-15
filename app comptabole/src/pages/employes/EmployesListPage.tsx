@@ -7,6 +7,7 @@ import {
   CircleDot,
   Copy,
   Eye,
+  KeyRound,
   MoreHorizontal,
   Pencil,
   Printer,
@@ -74,6 +75,9 @@ import {
 import type { Employe, EmployeType, PermissionKey, Statut } from "@/types";
 import { EmployeFormSheet, type EmployeFormValues } from "./EmployeFormSheet";
 import { EmployeAccesSheet } from "./EmployeAccesSheet";
+import { LienAccesDialog, type LienAcces } from "@/components/common/LienAccesDialog";
+import { api, ApiError } from "@/lib/api";
+import type { EmailEnvoi } from "@/types";
 import { EmployeViewSheet } from "./EmployeViewSheet";
 import {
   allowedPermissionCount,
@@ -264,6 +268,7 @@ export function EmployesListPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Employe | null>(null);
   const [accesOpen, setAccesOpen] = useState(false);
+  const [lienAcces, setLienAcces] = useState<LienAcces | null>(null);
   const [accesTarget, setAccesTarget] = useState<Employe | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewing, setViewing] = useState<Employe | null>(null);
@@ -323,25 +328,33 @@ export function EmployesListPage() {
     setViewing(e);
     setViewOpen(true);
   }
-  function handleSubmit(values: EmployeFormValues) {
+  async function handleSubmit(values: EmployeFormValues) {
     const nom = `${values.prenom} ${values.nom}`;
     if (editing) {
-      // Mot de passe vide = inchangé (hors admin, le serveur ne l'envoie
-      // jamais : le champ arrive vide en modification).
-      const { motDePasse, ...rest } = values;
-      updateEmploye(editing.id, motDePasse ? values : rest);
+      updateEmploye(editing.id, values);
       logJournal("modification", "employe", nom);
       toast.success("Collaborateur modifié", { description: nom });
     } else {
-      addEmploye({
+      const cree = await addEmploye({
         ...values,
         role: isAdmin ? values.role : "collaborateur",
         permissions: defaultPermissions(values.type),
       });
       logJournal("creation", "employe", nom);
       toast.success("Collaborateur créé", { description: nom });
+      if (cree?.lienAcces) setLienAcces({ nom, lien: cree.lienAcces, emailEnvoi: cree.emailEnvoi, but: "activation" });
     }
     setEditing(null);
+  }
+
+  /** Émet un nouveau lien d'accès à usage unique (activation ou nouveau mot de passe). */
+  async function emettreLienAcces(e: Employe) {
+    try {
+      const r = await api.post<{ emailEnvoi: EmailEnvoi; lienAcces: string; but: "activation" | "reset" }>(`/employes/${e.id}/envoyer-acces`);
+      setLienAcces({ nom: `${e.prenom} ${e.nom}`, lien: r.lienAcces, emailEnvoi: r.emailEnvoi, but: r.but });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Lien d'accès impossible.");
+    }
   }
   function duplicate(e: Employe) {
     duplicateEmploye(e.id);
@@ -473,6 +486,7 @@ export function EmployesListPage() {
           setAccesOpen(true);
         },
       },
+      { icon: KeyRound, label: "Lien d'accès", onClick: () => void emettreLienAcces(e) },
       { icon: Copy, label: "Dupliquer", onClick: () => duplicate(e) },
       {
         icon: Pencil,
@@ -1047,6 +1061,7 @@ export function EmployesListPage() {
         canAssignRole={isAdmin}
         onSubmit={handleSubmit}
       />
+      <LienAccesDialog acces={lienAcces} onClose={() => setLienAcces(null)} />
       <EmployeAccesSheet
         open={accesOpen}
         onOpenChange={setAccesOpen}

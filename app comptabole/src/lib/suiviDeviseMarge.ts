@@ -1,7 +1,7 @@
 import type { SuiviDeviseFacture } from "@/types";
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 /** Marge d'une facture reprise du stock : vente − achat, dans la devise de la fiche. Null quand la facture n'a pas
  * d'achat lié, ou quand l'achat est dans une autre devise (la différence n'aurait pas de sens). */
 export function margeFacture(f: SuiviDeviseFacture, devise: string): number | null {

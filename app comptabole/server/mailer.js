@@ -179,54 +179,10 @@ export async function sendSocieteWelcomeEmail(societe) {
   console.log(`[mailer] bienvenue société envoyée à ${societe.email}`);
 }
 
-/** Email envoyé à un collaborateur (ou employé de société) dès la création
- * de son compte, avec ses identifiants de connexion — le mot de passe est
- * stocké en clair côté appli (comparaison directe en base, voir
- * server/routes/auth.js) et déjà visible en clair par l'admin dans l'écran
- * Collaborateurs, donc l'inclure ici n'ouvre pas de nouvelle surface — mais
- * c'est un choix assumé de l'utilisateur (email en clair = un canal moins
- * sûr qu'une remise en main propre), pas une bonne pratique par défaut. */
-export async function sendCollaborateurWelcomeEmail(employe) {
-  if (!mailerAvailable()) {
-    console.log("[mailer] envoi sauté (SMTP non configuré)");
-    return "smtp";
-  }
-  if (!employe.email) {
-    console.log(`[mailer] envoi sauté : collaborateur « ${employe.prenom} ${employe.nom} » sans email`);
-    return "sans_email";
-  }
-
-  const bodyHtml = `
-    ${paragraph(`Bonjour ${escapeHtml(employe.prenom)},`)}
-    ${paragraph("Votre compte a été créé sur l'espace du cabinet CAMCONSULT. Voici vos identifiants de connexion :")}
-    ${infoCard([
-      ["Identifiant", escapeHtml(employe.identifiant)],
-      ["Mot de passe", `<span style="font-family:'Courier New',monospace;">${escapeHtml(employe.motDePasse)}</span>`],
-    ])}
-    ${ctaButton("Accéder à mon espace", "https://cabinet.camconsult.com.tn")}
-    ${paragraph(`<span style="font-size:13px;color:${BRAND.muted};">Pour votre sécurité, pensez à changer ce mot de passe après votre première connexion.</span>`)}
-  `;
-
-  await getTransport().sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: employe.email,
-    subject: "Bienvenue chez CAMCONSULT — vos identifiants",
-    html: emailShell({
-      eyebrow: "Accès créé",
-      title: `Bienvenue, ${escapeHtml(employe.prenom)}`,
-      bodyHtml,
-    }),
-  });
-  console.log(`[mailer] identifiants collaborateur envoyés à ${employe.email}`);  return "envoye";
-}
-
-/** Email envoyé quand l'admin (ou le responsable des collaborateurs)
- * réinitialise le mot de passe d'un compte — voir server/routes/employes.js
- * (déclenché dès que motDePasse change dans un PATCH). Même choix assumé
- * qu'à la création (mot de passe en clair, voir sendCollaborateurWelcomeEmail) ;
- * ce mot de passe n'est qu'un sas de passage, le compte doit en choisir un
- * autre à la prochaine connexion (voir doitChangerMotDePasse). */
-export async function sendPasswordResetEmail(employe) {
+/** Email d'accès d'un compte (activation à la création, ou réinitialisation du mot de passe) : il contient un lien à usage unique et
+ * à durée limitée, jamais un mot de passe. L'employé choisit lui-même son mot de passe en ouvrant le lien (voir server/passwords.js).
+ * Renvoie "envoye", "smtp" (envoi d'emails non configuré) ou "sans_email" ; une erreur d'envoi est levée à l'appelant. */
+export async function sendAccessLinkEmail(employe, lien, but = "activation") {
   if (!mailerAvailable()) {
     console.log("[mailer] envoi sauté (SMTP non configuré)");
     return "smtp";
@@ -235,33 +191,33 @@ export async function sendPasswordResetEmail(employe) {
     console.log(`[mailer] envoi sauté : « ${employe.prenom} ${employe.nom} » sans email`);
     return "sans_email";
   }
-
+  const reset = but === "reset";
+  const duree = reset ? "24 heures" : "72 heures";
   const bodyHtml = `
     ${paragraph(`Bonjour ${escapeHtml(employe.prenom)},`)}
-    ${paragraph("Votre mot de passe vient d'être réinitialisé par le cabinet CAMCONSULT. Voici votre nouveau mot de passe :")}
-    ${infoCard(
-      [
-        ["Identifiant", escapeHtml(employe.identifiant)],
-        ["Nouveau mot de passe", `<span style="font-family:'Courier New',monospace;">${escapeHtml(employe.motDePasse)}</span>`],
-      ],
-      BRAND.warning,
+    ${paragraph(
+      reset
+        ? "Le cabinet CAMCONSULT a préparé la réinitialisation de votre mot de passe. Cliquez sur le bouton pour en choisir un nouveau."
+        : "Votre compte a été créé sur l'espace du cabinet CAMCONSULT. Cliquez sur le bouton pour choisir votre mot de passe et accéder à votre espace.",
     )}
-    ${ctaButton("Accéder à mon espace", "https://cabinet.camconsult.com.tn")}
-    ${paragraph(`<span style="font-size:13px;color:${BRAND.muted};">Il vous sera demandé d'en choisir un autre, connu de vous seul, dès votre prochaine connexion.</span>`)}
+    ${infoCard([["Identifiant", escapeHtml(employe.identifiant)]])}
+    ${ctaButton(reset ? "Choisir un nouveau mot de passe" : "Activer mon accès", lien)}
+    ${paragraph(`<span style="font-size:13px;color:${BRAND.muted};">Ce lien ne fonctionne qu'une seule fois et expire dans ${duree}. Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.</span>`)}
   `;
 
   await getTransport().sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: employe.email,
-    subject: "CAMCONSULT — votre mot de passe a été réinitialisé",
+    subject: reset ? "CAMCONSULT — réinitialisation de votre mot de passe" : "Bienvenue chez CAMCONSULT — activez votre accès",
     html: emailShell({
-      eyebrow: "Mot de passe réinitialisé",
+      eyebrow: reset ? "Mot de passe" : "Accès créé",
       title: `Bonjour ${escapeHtml(employe.prenom)}`,
       bodyHtml,
-      accent: BRAND.warning,
+      accent: reset ? BRAND.warning : undefined,
     }),
   });
-  console.log(`[mailer] réinitialisation de mot de passe envoyée à ${employe.email}`);  return "envoye";
+  console.log(`[mailer] lien d'accès (${but}) envoyé à ${employe.email}`);
+  return "envoye";
 }
 
 /** Relance envoyée à la société cliente pour une collecte en attente

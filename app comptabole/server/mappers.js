@@ -1,3 +1,6 @@
+import { calculerTotaux } from "../shared/factureTotaux.js";
+
+import { arrondi3 as r3 } from "../shared/arrondi.js";
 // node-postgres renvoie une colonne `date` comme un Date JS à minuit HEURE
 // LOCALE du serveur — passer par toISOString() (qui convertit en UTC
 // d'abord) décale donc la date d'un jour dès que le fuseau local est en
@@ -22,8 +25,6 @@ export const societeDto = (r) => ({
   tva: r.tva,
   theme: r.theme,
   code: r.code,
-  identifiant: r.identifiant,
-  motDePasse: r.mot_de_passe,
   statut: r.statut,
   telephone: r.telephone,
   email: r.email,
@@ -39,7 +40,8 @@ export const employeDto = (r) => ({
   nom: r.nom,
   prenom: r.prenom,
   identifiant: r.identifiant,
-  motDePasse: r.mot_de_passe,
+  // Jamais de mot de passe ni d'empreinte : seulement l'état de l'accès.
+  accesActive: Boolean(r.mdp_hash) || (Boolean(r.mot_de_passe) && !r.doit_changer_mdp),
   type: r.type,
   role:
     r.role === "societe_employe" || r.role === "responsable_collaborateurs"
@@ -62,10 +64,7 @@ export const employeDto = (r) => ({
  * passe. Les autres (collaborateurs, responsable des collaborateurs,
  * employés de société) ne les voient jamais, même ceux qu'ils gèrent — ils
  * peuvent réinitialiser un mot de passe, pas le lire. */
-export const employeDtoFor = (session) => (r) => {
-  const d = employeDto(r);
-  return session?.role === "admin" ? d : { ...d, motDePasse: "" };
-};
+export const employeDtoFor = () => (r) => employeDto(r);
 
 export const tacheDto = (r) => ({
   id: r.id,
@@ -242,7 +241,6 @@ export const bordereauDto = (r) => ({
   majLe: isoOrNull(r.maj_le),
 });
 
-const r3 = (n) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
 export const factureLigneDto = (l) => ({
   id: l.id,
@@ -254,9 +252,8 @@ export const factureLigneDto = (l) => ({
 
 /** Facture avec ses totaux, toujours recalculés depuis les lignes (jamais stockés). */
 export const factureDto = (r, lignes = []) => {
-  const totalHt = r3(lignes.reduce((s, l) => s + l.quantite * l.montantHt, 0));
-  const tva = r3((totalHt * Number(r.tva_taux)) / 100);
   const timbre = Number(r.timbre);
+  const { totalHt, tva, netAPayer } = calculerTotaux(lignes, Number(r.tva_taux), timbre);
   return {
     id: r.id,
     societeId: r.societe_id,
@@ -275,7 +272,7 @@ export const factureDto = (r, lignes = []) => {
     note: r.note ?? "",
     totalHt,
     tva,
-    netAPayer: r3(totalHt + tva + timbre),
+    netAPayer,
     creeLe: isoOrNull(r.cree_le),
     lignes,
   };

@@ -1,6 +1,7 @@
 import { convertirNombre } from "@/lib/pdfToTables";
 import type { TabRow } from "./tabs";
 
+import { arrondi3 as r3 } from "../../../shared/arrondi.js";
 /** Une écriture du grand-livre d'un compte (Sage 100 : date, code journal, n° de pièce, libellé, débit, crédit). */
 export interface EcritureLivre {
   date: string;
@@ -25,7 +26,6 @@ export interface GrandLivre {
   controle: boolean | null;
 }
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 const montant = (v: string) => {
   const t = v.trim();
   if (!t) return 0;

@@ -14,8 +14,4 @@ journalRouter.get("/", async (_req, res) => {
   res.json(rows.map(journalDto));
 });
 
-journalRouter.delete("/", async (req, res) => {
-  await query("delete from journal");
-  logAction(req.session.nom, "reinitialisation", "donnees", "Journal d'activité vidé");
-  res.json({ ok: true });
-});
+// Pas de suppression : le journal est en ajout seul (voir aussi le déclencheur de schema.sql).

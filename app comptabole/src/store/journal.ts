@@ -41,7 +41,6 @@ interface JournalState {
   loading: boolean;
   error: boolean;
   fetch: () => Promise<void>;
-  clear: () => Promise<void>;
 }
 
 export const useJournal = create<JournalState>((set) => ({
@@ -56,10 +55,6 @@ export const useJournal = create<JournalState>((set) => ({
     } catch {
       set({ loading: false, error: true });
     }
-  },
-  clear: async () => {
-    await api.del("/journal");
-    set({ entries: [] });
   },
 }));
 

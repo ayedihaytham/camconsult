@@ -180,12 +180,26 @@ and route-level scope checks. See [docs/permissions.md](./docs/permissions.md).
 
 ## Sécurité et contrôles (audit du 2026-10-15)
 
-- Connexion : `server/loginGuard.js` limite les essais (8 échecs par compte et 40 par adresse sur 15 minutes, réponse 429) ; le mot de passe d'un
-  employé est comparé en temps constant. L'administrateur est vérifié avec bcrypt ; les mots de passe des employés restent en clair en base
-  (écart connu, voir le rapport d'audit).
+Rapport complet et état de chaque constat : [SECURITY_AND_PRODUCTION_READINESS_AUDIT.md](./SECURITY_AND_PRODUCTION_READINESS_AUDIT.md).
+
+- Mots de passe des employés : empreinte scrypt (`server/passwords.js`, colonne `employes.mdp_hash`), jamais renvoyée par l'API. Un compte hérité
+  (valeur en clair dans `mot_de_passe`) est converti à sa première connexion réussie. Un nouveau compte n'a pas de mot de passe : l'administrateur
+  obtient un lien d'activation à usage unique (jeton de 256 bits, 72 h, empreinte SHA-256 en base, table `password_tokens`) que la personne ouvre
+  sur `/activation`. `POST /api/employes/:id/envoyer-acces` émet un lien d'activation ou de réinitialisation (24 h). Les emails ne contiennent
+  plus de mot de passe.
+- Connexion : `server/loginGuard.js` limite les essais (8 échecs par compte et adresse, 100 par adresse, sur 15 minutes, réponse 429) en mémoire du
+  processus (une seule instance). Le temps de réponse ne révèle pas si un identifiant existe. `CLIENT_IP_HEADER` permet de lire l'adresse réelle
+  derrière un proxy de confiance.
 - Production : le serveur refuse de démarrer sans `JWT_SECRET` d'au moins 24 caractères (différent de la valeur de développement) et sans
-  `ADMIN_PASSWORD` à la première initialisation.
-- En-têtes de base dans `server/index.js` (nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy) ; pas encore de CSP.
-- `POST /api/data/reset` exige `{ confirmation: "RÉINITIALISER" }` côté serveur.
+  `ADMIN_PASSWORD` à la première initialisation. `node server/scripts/check-config.js` contrôle la configuration sans afficher de secret.
+- En-têtes (`server/securityHeaders.js`) : nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, HSTS en HTTPS, CSP en rapport seul.
+- `POST /api/data/reset` exige `{ confirmation: "RÉINITIALISER" }` et reste désactivé en production sans `ALLOW_DATA_RESET=true`.
+- Le journal d'activité est en ajout seul : plus de route de suppression et un déclencheur PostgreSQL refuse UPDATE et DELETE (un administrateur de base
+  peut le retirer ; pour une piste infalsifiable il faut un stockage externe).
+- Une société qui porte des factures, honoraires, règlements, opérations bancaires, virements SWIFT, stock, balances, souches ou suivis en devise ne se
+  supprime que par confirmation explicite (`confirmationDefinitive`) ; sinon on l'archive (statut inactif).
+- Les règlements d'un même fournisseur sont vérifiés l'un après l'autre (verrou consultatif PostgreSQL).
+- Calculs : `shared/arrondi.js` (arrondi au millime sans erreur de flottant) et `shared/factureTotaux.js` (totaux de facture) sont utilisés par le
+  serveur et par l'écran.
 - `POST /api/stock/extract` (service d'IA payant) est interdit aux comptes de société cliente.
 - Intégration continue : `.github/workflows/app-comptable.yml` exécute `npm run lint` et `npm test` avant la construction de l'image.

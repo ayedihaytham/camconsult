@@ -12,6 +12,7 @@ import { cn, formatDate } from "@/lib/utils";
 import type { BilanImportEtat, ImportEtat } from "@/store/fournisseurs";
 import type { FactureFournisseur } from "@/types";
 
+import { arrondi3 as r3 } from "../../../shared/arrondi.js";
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -34,7 +35,6 @@ const ETATS: Record<EtatPlan, { label: string; classe: string }> = {
   incomplet: { label: "Incomplet", classe: "bg-destructive/15 text-destructive" },
 };
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 const cle = (f: number, p: number) => `${f}:${p}`;
 
 /** Importe un état fournisseur Excel (une feuille par fournisseur) : règlements et suivi de proforma sont rapprochés des

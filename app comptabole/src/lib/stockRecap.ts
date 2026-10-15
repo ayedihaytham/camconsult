@@ -1,5 +1,6 @@
 import type { StockLigne, StockMouvement } from "@/types";
 
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 export interface RecapCote {
   quantite: number;
   montantDevise: number;
@@ -7,7 +8,6 @@ export interface RecapCote {
   produits: number;
 }
 
-const r3 = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
 /** Unité commune d'un ensemble de lignes : si tonnes (T) et kilos (KG) se mélangent, tout est
  * ramené en tonnes ; sinon l'unique unité utilisée, ou "" si aucune n'est précisée. */

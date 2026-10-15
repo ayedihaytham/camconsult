@@ -1,6 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { query } from "../db.js";
+import { query, withTransaction } from "../db.js";
 import {
   signToken,
   sessionFromToken,
@@ -8,7 +8,7 @@ import {
   requireAdmin,
 } from "../auth.js";
 import { logAction } from "../journal.js";
-import { loginGuard, adresseClient, egalConstant } from "../loginGuard.js";
+import { loginGuard, activationGuard, adresseClient, egalConstant } from "../loginGuard.js";
 import { hashPassword, verifyPassword, besoinDeRehash, estHash, verificationFactice, consommerJeton, lireJeton, motDePasseAcceptable } from "../passwords.js";
 
 export const authRouter = Router();
@@ -19,12 +19,22 @@ export const authRouter = Router();
 async function motDePasseValide(emp, saisi) {
   if (estHash(emp.mdp_hash)) {
     const ok = await verifyPassword(saisi, emp.mdp_hash);
+    // Mise à niveau des paramètres : conditionnelle, pour ne jamais écraser un mot de passe changé entre-temps.
     if (ok && besoinDeRehash(emp.mdp_hash))
-      await query("update employes set mdp_hash = $1 where id = $2", [await hashPassword(saisi), emp.id]);
+      await query("update employes set mdp_hash = $1 where id = $2 and mdp_hash = $3", [await hashPassword(saisi), emp.id, emp.mdp_hash]);
     return ok;
   }
   if (emp.mot_de_passe && egalConstant(saisi, emp.mot_de_passe)) {
-    await query("update employes set mdp_hash = $1, mot_de_passe = '' where id = $2", [await hashPassword(saisi), emp.id]);
+    // Période de validation d'une mise en ligne : MIGRATE_LEGACY_PASSWORDS=false laisse les comptes hérités se connecter SANS les
+    // convertir, ce qui garde un retour à l'ancienne version possible pour eux. À repasser à true (défaut) une fois la version validée.
+    if (process.env.MIGRATE_LEGACY_PASSWORDS === "false") return true;
+    // Conversion conditionnelle : deux premières connexions simultanées ne s'écrasent pas, et une conversion tardive ne remplace
+    // jamais un mot de passe défini entre-temps (activation par lien).
+    await query("update employes set mdp_hash = $1, mot_de_passe = '' where id = $2 and mdp_hash is null and mot_de_passe = $3", [
+      await hashPassword(saisi),
+      emp.id,
+      emp.mot_de_passe,
+    ]);
     return true;
   }
   await verificationFactice(saisi);
@@ -86,7 +96,7 @@ authRouter.post("/login", async (req, res) => {
 /** Activation d'un compte ou réinitialisation du mot de passe par un lien à usage unique (jeton envoyé par le cabinet). */
 authRouter.post("/activate", async (req, res) => {
   const { token, motDePasse } = req.body ?? {};
-  const attente = loginGuard.attente(adresseClient(req), "activation");
+  const attente = activationGuard.attente(adresseClient(req), "activation");
   if (attente > 0) {
     res.setHeader("Retry-After", String(attente));
     return res.status(429).json({ error: "Trop de tentatives. Réessayez plus tard." });
@@ -94,7 +104,7 @@ authRouter.post("/activate", async (req, res) => {
   const refus = motDePasseAcceptable(motDePasse);
   if (refus) return res.status(400).json({ error: refus });
   const lienInvalide = () => {
-    loginGuard.echec(adresseClient(req), "activation");
+    activationGuard.echec(adresseClient(req), "activation");
     return res.status(400).json({ error: "Ce lien est invalide ou a expiré. Demandez-en un nouveau au cabinet." });
   };
   // Les vérifications se font avant la consommation : un mot de passe refusé ne brûle pas le lien.
@@ -104,12 +114,15 @@ authRouter.post("/activate", async (req, res) => {
   if (!rows[0] || rows[0].statut !== "actif") return res.status(400).json({ error: "Ce compte n'est pas actif." });
   const refusCompte = motDePasseAcceptable(motDePasse, rows[0].identifiant);
   if (refusCompte) return res.status(400).json({ error: refusCompte });
-  const employeId = await consommerJeton(token);
+  const hash = await hashPassword(motDePasse);
+  // Une seule transaction : si l'enregistrement du mot de passe échoue, le lien n'est pas consommé et peut resservir.
+  const employeId = await withTransaction(async (client) => {
+    const id = await consommerJeton(token, (sql, params) => client.query(sql, params));
+    if (!id) return null;
+    await client.query("update employes set mdp_hash = $1, mot_de_passe = '', doit_changer_mdp = false, last_login = now() where id = $2", [hash, id]);
+    return id;
+  });
   if (!employeId) return lienInvalide();
-  await query("update employes set mdp_hash = $1, mot_de_passe = '', doit_changer_mdp = false, last_login = now() where id = $2", [
-    await hashPassword(motDePasse),
-    employeId,
-  ]);
   const session = await sessionFromToken({ role: "employe", employeId });
   logAction(session.nom, "modification", "compte", "Mot de passe défini par lien d'activation");
   res.json({ token: signToken({ role: "employe", employeId }), session });

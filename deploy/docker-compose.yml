@@ -35,6 +35,11 @@ services:
       DATABASE_URL: postgres://cabinet:${DB_PASSWORD}@db:5432/cabinet
       JWT_SECRET: ${JWT_SECRET:?Definissez JWT_SECRET dans .env}
       CORS_ORIGIN: https://cabinet.camconsult.com.tn
+      # Adresse publique utilisée dans les liens d'accès (activation, nouveau mot de passe) envoyés ou affichés.
+      APP_URL: https://cabinet.camconsult.com.tn
+      # Période de validation d'une mise en ligne : false = les anciens mots de passe ne sont pas convertis (retour arrière possible).
+      # À laisser vide (ou retirer) une fois la version validée. Voir RELEASE_CHECKLIST.md.
+      MIGRATE_LEGACY_PASSWORDS: ${MIGRATE_LEGACY_PASSWORDS:-}
       ADMIN_IDENTIFIANT: ${ADMIN_IDENTIFIANT:-mohamed.ayedi}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Definissez ADMIN_PASSWORD dans .env}
       ADMIN_NOM: ${ADMIN_NOM:-Mohamed Ayedi}

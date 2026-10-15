@@ -44,6 +44,14 @@ export function evaluerConfiguration(env = process.env) {
   const smtp = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD);
   ajouter(smtp ? "ok" : "info", "SMTP", smtp ? "Envoi d'emails configuré." : "Envoi d'emails non configuré : les liens d'accès doivent être transmis à la main.");
 
+  ajouter(
+    env.MIGRATE_LEGACY_PASSWORDS === "false" ? "alerte" : "ok",
+    "MIGRATE_LEGACY_PASSWORDS",
+    env.MIGRATE_LEGACY_PASSWORDS === "false"
+      ? "Conversion des anciens mots de passe SUSPENDUE (période de validation) : les comptes hérités restent en clair tant que ce réglage n'est pas retiré. À lever après validation de la version."
+      : "Les anciens mots de passe sont convertis à la première connexion.",
+  );
+
   ajouter(env.ALLOW_DATA_RESET === "true" ? "alerte" : "ok", "ALLOW_DATA_RESET", env.ALLOW_DATA_RESET === "true" ? "ALLOW_DATA_RESET=true : la réinitialisation totale des données est permise. À retirer en production." : "La réinitialisation totale est désactivée.");
 
   ajouter(env.CLIENT_IP_HEADER ? "info" : "alerte", "CLIENT_IP_HEADER", env.CLIENT_IP_HEADER ? `Adresse du visiteur lue dans « ${env.CLIENT_IP_HEADER} » (à ne laisser que si le serveur n'est joignable que par ce proxy).` : "CLIENT_IP_HEADER absent : si un proxy masque l'adresse des visiteurs, la limite de tentatives de connexion les traite comme une seule adresse. Vérifiez avec un test réel.");

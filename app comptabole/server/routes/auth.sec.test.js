@@ -6,7 +6,7 @@ vi.setConfig({ testTimeout: 30_000 });
 
 const db = vi.hoisted(() => ({ employes: [], tokens: [], query: null }));
 
-vi.mock("../db.js", () => ({ query: (...a) => db.query(...a) }));
+vi.mock("../db.js", () => ({ query: (...a) => db.query(...a), withTransaction: (action) => action({ query: (...a) => db.query(...a) }) }));
 vi.mock("../journal.js", () => ({ logAction: vi.fn() }));
 vi.mock("../auth.js", () => ({
   signToken: (p) => `jeton-${p.employeId ?? p.role}`,
@@ -45,6 +45,9 @@ beforeEach(() => {
       return { rows: db.employes.filter((e) => e.identifiant.toLowerCase() === params[0] && e.statut === "actif") };
     if (sql.startsWith("update employes set mdp_hash")) {
       const e = db.employes.find((x) => x.id === params[1]);
+      // Mises à jour conditionnelles : sans effet si la valeur attendue a changé.
+      if (sql.includes("and mdp_hash is null") && !(e.mdp_hash === null && e.mot_de_passe === params[2])) return { rows: [], rowCount: 0 };
+      if (sql.includes("and mdp_hash = $3") && e.mdp_hash !== params[2]) return { rows: [], rowCount: 0 };
       e.mdp_hash = params[0];
       if (sql.includes("mot_de_passe = ''")) e.mot_de_passe = "";
       if (sql.includes("doit_changer_mdp = false")) e.doit_changer_mdp = false;

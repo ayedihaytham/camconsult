@@ -6,19 +6,42 @@ import { calculerTotaux } from "../shared/factureTotaux.js";
 const workflow = readFileSync(new URL("../../.github/workflows/app-comptable.yml", import.meta.url), "utf-8");
 
 describe("chaîne de déploiement", () => {
-  it("l'image n'est publiée qu'après les contrôles (types + tests), qui sont obligatoires", () => {
-    expect(workflow).toMatch(/jobs:\s*\n\s*#[^\n]*\n\s*tests:/);
-    expect(workflow).toMatch(/docker:\s*\n\s*needs:\s*tests/);
-    expect(workflow).toContain("npm run lint");
-    expect(workflow).toContain("npm test");
-    // Aucun contournement : ni continue-on-error, ni condition qui saute les tests.
+  const indexDocker = workflow.indexOf("\n  docker:");
+
+  it("l'image n'est publiée qu'après les contrôles (types, tests, construction, intégration PostgreSQL), qui sont obligatoires", () => {
+    expect(workflow).toMatch(/\n {2}tests:/);
+    expect(workflow).toMatch(/\n {2}integration:/);
+    expect(workflow).toMatch(/docker:\s*\n\s*needs:\s*\[tests,\s*integration\]/);
+    const avant = workflow.slice(0, indexDocker);
+    expect(avant).toContain("npm run lint");
+    expect(avant).toContain("npm test");
+    expect(avant).toContain("npm run build");
+    expect(avant).toContain("npm run test:integration");
+    // Aucun contournement : ni continue-on-error, ni condition qui saute les contrôles.
     expect(workflow).not.toMatch(/continue-on-error:\s*true/);
     expect(workflow).not.toMatch(/if:\s*false/);
   });
 
-  it("le déclenchement manuel passe lui aussi par les contrôles (même fichier, même dépendance)", () => {
+  it("la publication est impossible depuis une pull request ou une autre branche que main", () => {
+    const docker = workflow.slice(indexDocker);
+    expect(docker).toMatch(/if:\s*github\.event_name != 'pull_request' && github\.ref == 'refs\/heads\/main'/);
+    expect(workflow).toMatch(/pull_request:/);
+  });
+
+  it("aucun secret n'est accessible aux contrôles (ils tournent aussi pour les pull requests) et les droits sont en lecture seule", () => {
+    expect(workflow.slice(0, indexDocker)).not.toContain("secrets.");
+    expect(workflow).toMatch(/permissions:\s*\n\s*contents:\s*read/);
+  });
+
+  it("la base de test de la CI est un conteneur de service jetable, avec un mot de passe propre au test", () => {
+    expect(workflow).toContain("services:");
+    expect(workflow).toContain("postgres:16-alpine");
+    expect(workflow).toContain("TEST_DATABASE_URL");
+  });
+
+  it("le lancement manuel passe par les mêmes contrôles (même fichier, mêmes dépendances)", () => {
     expect(workflow).toContain("workflow_dispatch");
-    expect(workflow.match(/^\s{2}(tests|docker):/gm)).toHaveLength(2);
+    expect(workflow.match(/^\s{2}(tests|integration|docker):/gm)).toHaveLength(3);
   });
 });
 

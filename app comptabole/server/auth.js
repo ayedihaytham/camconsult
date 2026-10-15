@@ -158,6 +158,13 @@ export function requireEquipeManager(req, res, next) {
   return res.status(403).json({ error: "Accès réservé" });
 }
 
+/** Sociétés visibles, pour filtrer EN SQL : null = toutes (administrateur, responsable des collaborateurs), sinon la liste des
+ * identifiants. Même règle que `canSeeSociete`, qui reste appliquée en seconde barrière sur les lignes renvoyées. */
+export function porteeSocietes(session) {
+  if (session.role === "admin" || session.poste === "responsable_collaborateurs") return null;
+  return session.societeIds || [];
+}
+
 /** true si la session peut voir/agir sur une société donnée (null = modèle générique). */
 export function canSeeSociete(session, societeId) {
   if (session.role === "admin") return true;

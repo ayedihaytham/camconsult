@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { query, withTransaction } from "../db.js";
-import { requireAuth, requireAdmin, canSeeSociete } from "../auth.js";
+import { requireAuth, requireAdmin, canSeeSociete, porteeSocietes } from "../auth.js";
 import { logAction } from "../journal.js";
 import {
   societeDto,
@@ -28,12 +28,13 @@ dataRouter.use(requireAuth);
 dataRouter.get("/bootstrap", async (req, res) => {
   const s = req.session;
 
-  const societes = (await query("select * from societes order by raison_sociale")).rows
+  const portee = porteeSocietes(s);
+  const societes = (await query("select * from societes where ($1::uuid[] is null or id = any($1::uuid[])) order by raison_sociale", [portee])).rows
     .filter((r) => canSeeSociete(s, r.id))
     .map(societeDto);
 
   // Sans le contenu des fichiers : récupéré à la demande (GET /noeuds/:id/contenu).
-  const noeuds = (await query(`select ${NOEUD_COLONNES_LEGERES} from noeuds order by maj_le desc`)).rows
+  const noeuds = (await query(`select ${NOEUD_COLONNES_LEGERES} from noeuds where ($1::uuid[] is null or societe_id is null or societe_id = any($1::uuid[])) order by maj_le desc`, [portee])).rows
     .filter((r) => canSeeSociete(s, r.societe_id))
     .map(noeudDtoLeger);
 

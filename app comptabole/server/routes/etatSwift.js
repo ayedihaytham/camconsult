@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query, withTransaction } from "../db.js";
-import { requireAuth, canSeeSociete } from "../auth.js";
+import { requireAuth, canSeeSociete, porteeSocietes } from "../auth.js";
 import { logAction } from "../journal.js";
 import { notifyMany, concernedBySociete, notifKey } from "../notifications.js";
 import { safeRouter } from "../asyncRoutes.js";
@@ -99,7 +99,7 @@ async function charger(societeId, session) {
 etatSwiftRouter.get("/resume", async (req, res) => {
   if (estClient(req.session)) return res.status(403).json({ error: "Accès non autorisé" });
   const virements = (
-    await query("select * from swift_virements order by date_operation desc nulls last, cree_le desc")
+    await query("select * from swift_virements where ($1::uuid[] is null or societe_id = any($1::uuid[])) order by date_operation desc nulls last, cree_le desc", [porteeSocietes(req.session)])
   ).rows.filter((v) => canSeeSociete(req.session, v.societe_id));
   const factures = virements.length
     ? (

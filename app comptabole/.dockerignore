@@ -9,3 +9,10 @@ DEPLOIEMENT-*.md
 README.md
 .vscode
 .idea
+
+# Documents réels et fichiers de travail : jamais copiés dans une image (même dans l etape de construction)
+samples
+ocr-transfer
+*.zip
+server_ui*.log
+server_ui.pid

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query, withTransaction } from "../db.js";
-import { requireAuth, canSeeSociete } from "../auth.js";
+import { requireAuth, canSeeSociete, porteeSocietes } from "../auth.js";
 import { can } from "../permissions.js";
 import { logAction } from "../journal.js";
 import {
@@ -61,7 +61,7 @@ function requireDelete(req, res, next) {
 
 // Listes et réponses : sans le contenu des fichiers (noeudDtoLeger).
 noeudsRouter.get("/", async (req, res) => {
-  const { rows } = await query(`select ${NOEUD_COLONNES_LEGERES} from noeuds order by maj_le desc`);
+  const { rows } = await query(`select ${NOEUD_COLONNES_LEGERES} from noeuds where ($1::uuid[] is null or societe_id is null or societe_id = any($1::uuid[])) order by maj_le desc`, [porteeSocietes(req.session)]);
   const visible = rows.filter((r) => canSeeSociete(req.session, r.societe_id));
   res.json(visible.map(noeudDtoLeger));
 });

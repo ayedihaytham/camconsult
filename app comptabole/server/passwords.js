@@ -75,9 +75,9 @@ export async function lireJeton(jeton) {
 }
 
 /** Consomme un jeton (atomique : deux requêtes simultanées ne peuvent pas l'utiliser deux fois). Renvoie l'id de l'employé, ou null. */
-export async function consommerJeton(jeton) {
+export async function consommerJeton(jeton, executer = query) {
   if (!jeton || typeof jeton !== "string" || jeton.length < 20 || jeton.length > 200) return null;
-  const { rows } = await query(
+  const { rows } = await executer(
     "update password_tokens set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() returning employe_id",
     [empreinte(jeton)],
   );

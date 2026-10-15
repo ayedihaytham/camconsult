@@ -1,12 +1,25 @@
 name: Build & push app-comptable
 
+# Publication de l'image : uniquement depuis main, et seulement après les contrôles (types, tests, construction, tests d'intégration
+# PostgreSQL). Une demande de fusion (pull request) ne lance que les contrôles : aucun secret, aucune publication.
 on:
   push:
     branches: [main]
     paths:
       - "app comptabole/**"
       - ".github/workflows/app-comptable.yml"
+  pull_request:
+    paths:
+      - "app comptabole/**"
+      - ".github/workflows/app-comptable.yml"
   workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-comptable-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Les contrôles qualité passent avant la construction de l'image : un test en échec bloque le déploiement.
@@ -31,9 +44,48 @@ jobs:
         run: npm run lint
       - name: Tests
         run: npm test
+      - name: Construction de production
+        run: npm run build
+
+  # Base PostgreSQL jetable (conteneur de service détruit en fin de tâche), données synthétiques, vrai serveur démarré en production.
+  integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: "./app comptabole"
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: mot-de-passe-ci-jetable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      TEST_DATABASE_URL: postgres://postgres:mot-de-passe-ci-jetable@localhost:5432/postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: "./app comptabole/package-lock.json"
+
+      - run: npm ci
+      - name: Tests d'intégration PostgreSQL
+        run: npm run test:integration
 
   docker:
-    needs: tests
+    needs: [tests, integration]
+    # Jamais pour une pull request, jamais depuis une autre branche (un lancement manuel sur une branche ne publie pas « latest »).
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query } from "../db.js";
-import { requireAuth, canSeeSociete } from "../auth.js";
+import { requireAuth, canSeeSociete, porteeSocietes } from "../auth.js";
 import { can } from "../permissions.js";
 import { logAction } from "../journal.js";
 import {
@@ -41,7 +41,7 @@ function requireDelete(req, res, next) {
 }
 
 societesRouter.get("/", async (req, res) => {
-  const { rows } = await query("select * from societes order by raison_sociale");
+  const { rows } = await query("select * from societes where ($1::uuid[] is null or id = any($1::uuid[])) order by raison_sociale", [porteeSocietes(req.session)]);
   const visible = rows.filter((r) => canSeeSociete(req.session, r.id));
   res.json(visible.map(societeDto));
 });
@@ -164,10 +164,18 @@ societesRouter.post("/bulk-delete", requireDelete, async (req, res) => {
       await concernedBySociete(s.id, { includeAdmin: req.session.role !== "admin" }),
     );
   }
-  const { rows } = await query(
-    "delete from societes where id = any($1::uuid[]) returning raison_sociale",
-    [ids],
-  );
+  let rows;
+  try {
+    ({ rows } = await query(
+      "delete from societes where id = any($1::uuid[]) returning raison_sociale",
+      [ids],
+    ));
+  } catch (err) {
+    // Clé étrangère protectrice (ex. factures émises) : même confirmée, la suppression est impossible et rien n'est supprimé.
+    if (err.code === "23503")
+      return res.status(409).json({ error: "Suppression impossible : la société porte des écritures qui doivent être conservées (factures). Archivez-la (statut Inactif)." });
+    throw err;
+  }
   for (const s of before) {
     notifyMany(
       (concerned.get(s.id) ?? []).filter((k) => k !== notifKey(req.session)),

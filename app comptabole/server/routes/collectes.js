@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query, withTransaction } from "../db.js";
-import { requireAuth, requireAdmin, canSeeSociete } from "../auth.js";
+import { requireAuth, requireAdmin, canSeeSociete, porteeSocietes } from "../auth.js";
 import { logAction } from "../journal.js";
 import {
   notify,
@@ -260,6 +260,12 @@ collectesRouter.get("/", async (req, res) => {
   if (req.query.societeId) {
     params.push(req.query.societeId);
     clauses.push(`societe_id = $${params.length}`);
+  }
+  // Portée de la session appliquée en SQL (le filtre par ligne plus bas reste une seconde barrière).
+  const portee = porteeSocietes(req.session);
+  if (portee) {
+    params.push(portee);
+    clauses.push(`societe_id = any($${params.length}::uuid[])`);
   }
   const where = clauses.length ? `where ${clauses.join(" and ")}` : "";
   const rows = (

@@ -203,3 +203,7 @@ Rapport complet et état de chaque constat : [SECURITY_AND_PRODUCTION_READINESS_
   serveur et par l'écran.
 - `POST /api/stock/extract` (service d'IA payant) est interdit aux comptes de société cliente.
 - Intégration continue : `.github/workflows/app-comptable.yml` exécute `npm run lint` et `npm test` avant la construction de l'image.
+- Retour arrière : `MIGRATE_LEGACY_PASSWORDS=false` suspend la conversion des anciens mots de passe pendant une période de validation (voir `RELEASE_CHECKLIST.md` §6).
+- Filtrage par société en SQL (`porteeSocietes`, `server/auth.js`) pour les listes `societes`, `noeuds`, `collectes`, `bootstrap` et `etat-swift/resume`, avec la barrière `canSeeSociete` conservée par ligne.
+- Tests d'intégration : `npm run test:integration` (vrai serveur en mode production sur une base PostgreSQL jetable créée dans le serveur de test désigné par `TEST_DATABASE_URL`) ; ils sont ignorés, avec un avertissement, si cette variable est absente ; la CI les exécute avec un service PostgreSQL jetable.
+- Contrôles d'exploitation en lecture seule : `server/scripts/check-config.js` (configuration) et `server/scripts/audit-donnees.js` (comptages) ; `server/scripts/migrate-passwords.js` (simulation par défaut) convertit les mots de passe restants.

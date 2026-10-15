@@ -4,7 +4,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
  * Protection contre la force brute sur la connexion : au-delà d'un certain nombre d'échecs, l'identifiant (depuis cette adresse)
  * ou l'adresse elle-même est bloquée pendant la fenêtre. Mémoire du processus : suffisant pour une seule instance (déploiement actuel).
  */
-export function createLoginGuard({ maxParCompte = 8, maxParAdresse = 100, fenetreMs = 15 * 60_000, maintenant = () => Date.now() } = {}) {
+export function createLoginGuard({ maxParCompte = 8, maxParIdentifiant = 30, maxParAdresse = 100, fenetreMs = 15 * 60_000, maintenant = () => Date.now() } = {}) {
   const essais = new Map();
 
   const lire = (cle) => {
@@ -19,6 +19,7 @@ export function createLoginGuard({ maxParCompte = 8, maxParAdresse = 100, fenetr
 
   const cles = (adresse, identifiant) => ({
     compte: `c:${adresse}|${String(identifiant || "").toLowerCase()}`,
+    identifiant: `i:${String(identifiant || "").toLowerCase()}`,
     adresse: `a:${adresse}`,
   });
 
@@ -28,6 +29,7 @@ export function createLoginGuard({ maxParCompte = 8, maxParAdresse = 100, fenetr
       const { compte, adresse: a } = cles(adresse, identifiant);
       const bloques = [
         [lire(compte), maxParCompte],
+        [lire(cles(adresse, identifiant).identifiant), maxParIdentifiant],
         [lire(a), maxParAdresse],
       ].filter(([e, max]) => e && e.nb >= max);
       if (bloques.length === 0) return 0;
@@ -53,7 +55,12 @@ export function createLoginGuard({ maxParCompte = 8, maxParAdresse = 100, fenetr
 }
 
 export const loginGuard = createLoginGuard();
-setInterval(() => loginGuard.nettoyer(), 5 * 60_000).unref();
+/** Activations par lien : le jeton fait 256 bits (la force brute est hors de portée), la limite ne sert qu'à freiner l'abus ; seuil plus large pour ne pas gêner un réseau partagé. */
+export const activationGuard = createLoginGuard({ maxParCompte: 40, maxParIdentifiant: 400, maxParAdresse: 400 });
+setInterval(() => {
+  loginGuard.nettoyer();
+  activationGuard.nettoyer();
+}, 5 * 60_000).unref();
 
 /** Comparaison de textes en temps constant (mot de passe), sans fuite sur la longueur. */
 export function egalConstant(a, b) {

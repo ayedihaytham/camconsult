@@ -1,131 +1,150 @@
 # Audit de sécurité et préparation à la mise en production
 
-Date : 15 octobre 2026. Périmètre : `app comptabole/` (outil de gestion de cabinet, pas une comptabilité en partie double).
-État du dépôt au moment du rapport : branche `main`, **rien n'est poussé ni déployé** ; les corrections sont dans des commits locaux (voir §3).
+Dernière mise à jour : 15 octobre 2026 (phase 3). Périmètre : `app comptabole/` (outil de gestion de cabinet, pas une comptabilité en partie double). Documents liés : `RELEASE_CHECKLIST.md`, `docs/sauvegarde-restauration.md`, `docs/plan-nettoyage-donnees-heritees.md`.
 
 ## 1. Décision
 
-**CONDITIONNELLEMENT PRÊT** (aucun défaut critique connu n'est resté ouvert dans le code, mais des conditions de mise en ligne restent à remplir).
+**CONDITIONNELLEMENT PRÊT** — aucun défaut critique connu n'est ouvert dans le code, mais la mise en ligne reste soumise à des conditions non remplies (§12) : restauration d'une sauvegarde jamais testée, contrôle de configuration jamais exécuté sur le serveur réel, pipeline jamais exécuté sur GitHub, décisions métier en attente, vulnérabilités de dépendances restantes documentées.
 
-Ce n'est pas un « prêt pour la production » : les mots de passe en clair déjà présents en base ne disparaissent qu'à la reconnexion de chaque compte (ou par le script de migration), aucun test n'a tourné contre une base de test dédiée dans la chaîne d'intégration, et 13 vulnérabilités de dépendances restent documentées (§5). Conditions de sortie : §9.
+Ce n'est pas « prêt pour la production » : des tests qui réussissent ne remplacent pas ces vérifications.
 
-## 2. Suivi des 19 constats
+## 2. État du dépôt
 
-| ID | Gravité | Disposition | Preuve et reste à faire |
-| --- | --- | --- | --- |
-| SEC-01 mots de passe en clair | Critique | **Corrigé dans le code, mise en ligne conditionnelle** | Empreinte scrypt (`server/passwords.js`), plus aucun mot de passe ni empreinte dans les réponses, liens d'activation à usage unique, conversion progressive des comptes hérités. 24 tests dédiés. Reste : conversion des comptes qui ne se reconnectent pas (script `migrate-passwords.js`), anciennes sauvegardes encore en clair, décision « forcer le changement » (§4). |
-| SEC-02 pas de limite de connexion | Haute | **Corrigé** | `server/loginGuard.js` : 8 échecs par compte et adresse, 100 par adresse, 15 min, 429 + Retry-After. Limites : mémoire d'un seul processus (pas de partage entre instances), verrouillage ciblé possible d'un compte par un attaquant (compromis assumé). |
-| SEC-03 secret JWT par défaut | Haute | **Corrigé** | Le serveur refuse de démarrer en production sans secret de 24 caractères au moins et différent de la valeur de développement (vérifié à la main et par `check-config.js`). |
-| DATA-01 réinitialisation destructrice | Haute | **Corrigé en partie** | Confirmation exigée par le serveur, désactivée en production sans `ALLOW_DATA_RESET=true`, textes d'écran alignés sur la portée réelle (2 tests). Reste : sauvegarde automatique avant l'opération. |
-| SEC-04 dépendances vulnérables | Haute | **Corrigé en partie** | Production : 17 → 13 vulnérabilités, critique 1 → 0 (§5). |
-| QA-01 CI sans tests | Haute | **Corrigé (non exécuté sur GitHub)** | Job `tests` (types + tests) requis par le job `docker` ; contrôlé par des tests statiques du fichier. Ce poste n'exécute pas GitHub Actions : le premier passage réel reste à observer. |
-| SEC-05 extraction IA ouverte | Moyenne | **Corrigé** | 403 pour un compte société, avec ou sans société précisée (3 appels testés). |
-| SEC-06 journal effaçable | Moyenne | **Corrigé en partie** | Route de suppression et bouton retirés ; déclencheur PostgreSQL qui refuse UPDATE et DELETE (vérifié dans une transaction annulée). Un administrateur de base peut retirer le déclencheur : pas d'infalsifiabilité. Reste : stockage externe pour une vraie piste d'audit, journal encore écrit « au mieux » hors transaction. |
-| SEC-07 identifiants société exposés | Moyenne | **Corrigé** | `societeDto` ne renvoie plus identifiant ni mot de passe ; écriture et restauration ne les traitent plus. Les colonnes restent en base (valeurs héritées éventuelles à purger : décision §4). |
-| SEC-08 en-têtes / jeton | Moyenne | **Corrigé en partie** | En-têtes de base, HSTS en HTTPS, CSP en rapport seul (`server/securityHeaders.js`). Constat en production (requête HEAD du 15/10, version déployée du 13/10) : aucun de ces en-têtes présent, `X-Powered-By: Express` présent. Reste : passer la CSP en blocage après observation, jeton toujours dans le navigateur (localStorage, 12 h, sans révocation). |
-| SEC-09 fichiers en base64 | Moyenne | **Ouvert** | Pas de limite par route ni de contrôle du type réel. |
-| SEC-10 fichiers clients dans git | Moyenne | **Corrigé en partie** | 19 classeurs `samples/Balance_*.xlsx` retirés de l'index (restent sur le disque), `samples/`, `ocr-transfer/`, archives et journaux locaux ignorés. L'historique git contient toujours ces fichiers (un seul commit) : purge non faite, voir §4. |
-| SEC-11 mot de passe admin par défaut | Faible | **Corrigé** | Refus en production à l'initialisation, signalé par `check-config.js`. |
-| FIN-01 sur-règlement concurrent | Moyenne | **Corrigé** | Verrou consultatif par société et fournisseur avant le contrôle du solde ; ordre vérifié par test, instruction vérifiée sur PostgreSQL. Un test de concurrence réel sur base n'a pas été exécuté. |
-| FIN-02 suppression en cascade | Moyenne | **Corrigé en partie** | Refus (409) d'une société portant des factures, honoraires, règlements, banque, SWIFT, stock, balances, souches ou suivis en devise, sauf `confirmationDefinitive` (2 tests, requête vérifiée sur PostgreSQL). Pas de suppression logique ni d'écran d'archivage dédié (le statut « Inactif » existe). |
-| FIN-03 TVA et avoirs | Moyenne | **Défaut mathématique corrigé ; avoirs bloqués** | Voir §6. Les notes de crédit ne sont pas implémentées : décision de politique comptable. |
-| FIN-04 précision et contraintes SQL | Faible | **Ouvert** | Migration à planifier (numeric(18,3), CHECK sur les statuts). |
-| QA-02 tests d'intégration | Moyenne | **Corrigé en partie** | 54 tests serveur ajoutés avec vraies requêtes HTTP et base simulée, plus une validation SQL réelle dans une transaction annulée (§7). Pas de base de test dans la CI, pas de test de bout en bout. |
-| PERF-01 filtrage en mémoire | Faible | **Ouvert** | Non traité. |
+- Branche `main`, en avance de 2 commits sur `origin/main` ; **`8db7ba2` et `414d59c` sont intacts**. Les changements de la phase 3 sont dans un troisième commit local.
+- Rien n'est poussé, fusionné, publié ni déployé. Aucune histoire git n'a été réécrite. Aucune donnée de production n'a été lue ni modifiée.
+- Un `git push` sur `main` publie `latest` et déclenche le déploiement automatique (Watchtower, 60 s) : voir le §10 de `RELEASE_CHECKLIST.md` avant tout push.
 
-## 3. Modifications réalisées
+## 3. Suivi de tous les constats
 
-Commits locaux (non poussés) : `8db7ba2` (première série) puis un second commit pour cette phase.
+Légende : **Corrigé** = corrigé dans le code et testé ; **En partie** = reste une action ; **Ouvert** ; **Décision** = décision métier requise.
 
-- **Mots de passe et accès** : `server/passwords.js` (nouveau), `routes/auth.js`, `routes/employes.js`, `routes/data.js`, `mailer.js`, `mappers.js`, `schema.sql`, `server/scripts/migrate-passwords.js` (nouveau). Écrans : `ActivationPage`, `LienAccesDialog`, `EmployeFormSheet`, `EmployesListPage`, `SocieteEmployesSection`, `store/auth.ts`, `store/data.ts`, `types`.
-- **Sociétés** : `routes/societes.js` (plus d'identifiant/mot de passe ; protection de suppression).
-- **Journal** : `routes/journal.js`, `JournalPage.tsx`, `store/journal.ts`, `schema.sql` (déclencheur).
-- **Réinitialisation** : `routes/data.js`, `ParametresPage.tsx`, `store/data.ts`.
-- **Connexion** : `loginGuard.js`, `routes/auth.js`.
-- **En-têtes** : `securityHeaders.js`, `index.js`.
-- **Calculs** : `shared/arrondi.js`, `shared/factureTotaux.js` (nouveaux) ; 15 copies locales de l'arrondi remplacées (serveur et écran) ; `lib/amount.ts`, `lib/facturation.ts`, `mappers.js`.
-- **Règlements fournisseurs** : `routes/fournisseurs.js`.
-- **Configuration** : `configCheck.js`, `scripts/check-config.js` (nouveaux).
-- **Dépôt et CI** : `.gitignore`, 19 fichiers retirés de l'index, `.github/workflows/app-comptable.yml`.
-- **Dépendances** : `package-lock.json` (express 4.22.3, body-parser 1.20.8, qs 6.16.1, proxy-addr 2.0.8).
-- **Documentation** : `ARCHITECTURE.md`, `docs/permissions.md`, ce rapport.
+| ID | Gravité | Statut | Preuve | Reste à faire | Décision métier |
+| --- | --- | --- | --- | --- | --- |
+| SEC-01 mots de passe en clair | Critique | **Corrigé dans le code ; mise en ligne conditionnelle** | Empreinte scrypt ; aucune réponse de l'API ne contient mot de passe ni empreinte ; liens d'activation à usage unique ; 21 tests d'intégration PostgreSQL + tests unitaires dédiés (empreintes, jetons, connexion, exposition) ; **défaut de concurrence trouvé et corrigé en phase 3** (§4) ; retour arrière évalué expérimentalement (§5). | Fenêtre de validation puis conversion/forçage (§8) ; sauvegardes anciennes en clair. | Oui (D1) |
+| SEC-02 connexion sans limite | Haute | **Corrigé** | 8 échecs par compte et adresse, **30 par identifiant toutes adresses confondues (nouveau)**, 100 par adresse ; temps de réponse identique pour compte inconnu, inactif ou sans accès (test) ; activation par lien avec limite plus large. Blocage réel testé (429 + `Retry-After`). | Mémoire d'un seul processus : remise à zéro à chaque redémarrage, non partagée entre instances. Un attaquant peut verrouiller un compte précis 15 min (compromis assumé). | Non |
+| SEC-03 secret JWT par défaut | Haute | **Corrigé** | Le serveur refuse de démarrer en production sans secret de 24 caractères ou avec la valeur de développement (vérifié à la main, par test unitaire de configuration et en démarrage réel en mode production). | Exécuter `check-config.js` sur le serveur réel. | Non |
+| DATA-01 réinitialisation | Haute | **Corrigé** | Confirmation exigée, **désactivée en production sans `ALLOW_DATA_RESET=true`** (testé en conditions réelles), textes d'écran alignés. | Sauvegarde automatique avant l'opération (non faite). | Non |
+| SEC-04 dépendances | Haute | **En partie** | Production : 17 → 13, critique 1 → 0 (§9). | Voir §9 (`xlsx` sans correctif npm, build Tailwind, react-router 7). | Oui (D7) |
+| QA-01 CI sans tests | Haute | **Corrigé (non observé sur GitHub)** | Jobs `tests` + `integration` requis ; **la publication est impossible depuis une pull request ou une autre branche** (contournement par lancement manuel supprimé) ; 5 tests statiques du fichier ; YAML validé. | Observer une première exécution (pull request) ; protection de branche ; épinglage des actions par empreinte. | Non |
+| SEC-05 extraction IA ouverte | Moyenne | **Corrigé** | 403 pour un compte société avec ou sans société, **vérifié sur le vrai serveur** (extract et extract-pages). | — | Non |
+| SEC-06 journal effaçable | Moyenne | **En partie** | Route et bouton supprimés ; déclencheur PostgreSQL : **UPDATE et DELETE refusés, vérifiés sur la vraie base** ; l'API répond 404 à `DELETE /api/journal`. | Un administrateur de base peut retirer le déclencheur : pas d'infalsifiabilité (stockage externe nécessaire) ; écriture du journal « au mieux » hors transaction. | Oui (politique de conservation) |
+| SEC-07 identifiants société exposés | Moyenne | **Corrigé (exposition) ; colonnes à traiter** | **Vérifié sur la vraie base** : une valeur placée en base n'apparaît dans aucune réponse. | Neutraliser puis supprimer les colonnes (`docs/plan-nettoyage-donnees-heritees.md` §B). | Oui (D2) |
+| SEC-08 en-têtes, CSP, jeton | Moyenne | **En partie** | En-têtes posés par Express (vérifiés sur le vrai serveur : pas de `X-Powered-By`, `nosniff`, CSP en rapport seul, HSTS seulement en HTTPS). Production actuelle (version du 13/10) : aucun de ces en-têtes. | CSP en blocage (§11) ; jeton en `localStorage` (§11). | Non |
+| SEC-09 fichiers en base64 | Moyenne | **Ouvert (analysé)** | §9. | Plan de sortie des fichiers de la base. | Oui (D5) |
+| SEC-10 classeurs clients dans git | Moyenne | **En partie** | 19 fichiers retirés de l'index, `.gitignore` et `.dockerignore` mis à jour ; historique analysé (§8) : aucun autre fichier sensible, aucun secret réel trouvé. | Purge de l'historique **non faite** (plan prêt). | Oui (D3) |
+| SEC-11 mot de passe admin par défaut | Faible | **Corrigé** | Refus en production à l'initialisation ; signalé par `check-config.js`. | — | Non |
+| FIN-01 sur-règlement concurrent | Moyenne | **Corrigé, défaut confirmé** | **Test réel sur PostgreSQL** : huit règlements simultanés de 300 sur une facture de 1000. Avec le verrou : 3 acceptés, total 900. **Sans le verrou (expérience) : total 2400, soit 2,4 fois la facture.** | Idempotence des requêtes dupliquées (un double clic crée deux règlements) non traitée. | Non |
+| FIN-02 suppression en cascade | Moyenne | **En partie** | Refus (409) d'une société portant des écritures à conserver ; même avec confirmation, une société qui porte une facture ne peut pas être supprimée (clé étrangère protectrice, **défaut trouvé en phase 3 : l'API répondait 500, elle répond maintenant 409**) ; société sans écriture supprimée normalement (réel). | Archivage dédié (suppression logique, écran) non fait ; le statut « Inactif » existe. | Oui |
+| FIN-03 TVA et avoirs | Moyenne | **Défaut mathématique corrigé ; avoirs bloqués** | Arrondi exact (2 000 000 de demi-millimes : 0 erreur) ; règle unique serveur et écran ; 9 cas documentés. | Avoirs et règle d'arrondi de TVA : politique comptable à faire valider (§9). | Oui (D4) |
+| FIN-04 précision monétaire | Faible | **Ouvert (analysé)** | §9 : 83 colonnes `numeric` sans précision ; 0 ligne à plus de 3 décimales sur la base de développement. | Migration contrôlée après réconciliation sur la production. | Oui (D6) |
+| QA-02 tests d'intégration | Moyenne | **Corrigé en grande partie** | **21 tests contre un PostgreSQL 16 réel et le vrai serveur** : migration, activation, concurrence, isolation, journal, réinitialisation, suppression, redémarrage, proxy. Intégrés à la CI (service PostgreSQL jetable). | Navigateur (bout en bout), charge, couverture : non faits. | Non |
+| PERF-01 filtrage en mémoire | Faible | **En partie** | 6 endpoints filtrent maintenant en SQL (`societes`, `noeuds`, `collectes`, `bootstrap`, `etat-swift/resume`) avec test d'isolation réel (§9). | Pagination ; autres routes (`taches`, `conversations`…). | Non |
+| xlsx (dépendance) | Haute | **Ouvert, bloqué** | Aucun correctif sur npm (§9, sources). | Version officielle SheetJS après essai complet, ou remplacement. | Oui (D7) |
+| CSP / stockage du jeton | Moyenne | **Analysé, plan prêt** | §11. | Mise en œuvre progressive. | Non |
 
-## 4. Stratégie de migration des mots de passe et décisions à prendre
+## 4. Migration des mots de passe : revue et défauts trouvés
 
-Conception : aucun traitement en bloc. Chaque compte hérité garde son accès : à la **première connexion réussie**, le mot de passe saisi est transformé en empreinte, enregistré, et la valeur en clair est effacée. Un mauvais mot de passe ne convertit rien. Les comptes créés après la mise à jour n'ont jamais de mot de passe : ils passent par un lien d'activation.
+Relecture complète de `passwords.js`, `routes/auth.js`, `routes/employes.js`, `mailer.js`, `routes/data.js`. Vérifié **sur le vrai serveur et la vraie base** (tests d'intégration) :
 
-Limites et risques à connaître :
-- **Retour en arrière** : une fois un compte converti, l'ancienne version du code ne peut plus le connecter (la colonne en clair est vide). En cas de retour arrière, il faut émettre un lien ou rétablir la base d'avant la mise en ligne.
-- **Comptes dormants** : tant qu'ils ne se reconnectent pas, leur mot de passe reste en clair. `node server/scripts/migrate-passwords.js` (simulation par défaut, `--apply` pour convertir, `--forcer-changement` pour imposer un nouveau mot de passe) traite le reste ; il n'a **pas** été exécuté.
-- **Sauvegardes** : toute sauvegarde antérieure contient les mots de passe en clair et doit être traitée comme sensible (accès limité, chiffrée, supprimée à terme).
-- **Exposition passée** : ces mots de passe étaient visibles de l'administrateur, présents dans des emails et dans les sauvegardes. Un changement de mot de passe forcé pour tous (`--forcer-changement`) est recommandé ; je ne l'ai pas décidé à votre place.
-- **Emails** : l'envoi d'emails n'est pas configuré en production d'après vos journaux précédents ; dans ce cas l'administrateur transmet lui-même le lien affiché une seule fois (la fenêtre le dit).
-- **Décisions pour vous** : forcer ou non le changement pour tous ; purger les valeurs `identifiant`/`mot_de_passe` héritées de la table `societes` ; purger l'historique git des classeurs clients (réécriture d'historique : tout clone et toute copie partagent l'ancien historique, une réécriture exige une coordination avec Wassim et un push forcé, je ne l'ai pas fait) ; confidentialité du dépôt GitHub (je n'ai pas pu la vérifier : l'outil `gh` est absent de ce poste).
+| Exigence | Résultat |
+| --- | --- |
+| Compte hérité : connexion puis conversion, ensuite utilisable | PASSED |
+| Huit premières connexions simultanées d'un compte hérité | PASSED (une seule empreinte cohérente, valeur en clair effacée) |
+| Échec d'authentification ne modifie pas le compte | PASSED |
+| Lien : expiré, réutilisé, inconnu, ancien lien après un nouveau | PASSED (400) |
+| Dix activations simultanées du même lien | PASSED (une seule réussit, une seule empreinte) |
+| Jeton stocké en empreinte seulement, jamais dans une réponse de liste | PASSED |
+| Mot de passe ou empreinte absents des réponses, des journaux d'activité et des emails | PASSED pour les réponses ; emails : le gabarit ne contient que l'identifiant et le lien (relu) ; journaux du serveur : relu, aucune valeur sensible (seule la première ligne de la requête SQL est journalisée, sans paramètres) |
+| Fonctionnement sans SMTP | PASSED (compte créé, lien renvoyé, état « SMTP non configuré ») |
+| Comparaison et paramètres | scrypt N=2^16, r=8, p=2 ; empreinte aux paramètres plus faibles reconnue et relevée à la connexion ; comparaison à temps constant ; travail factice pour un compte inconnu |
 
-## 5. Dépendances (production : 13 vulnérabilités restantes, aucune critique)
+**Défauts trouvés par cette revue et corrigés dans ce commit :**
+1. *Écrasement possible d'un mot de passe tout juste défini* : la conversion d'un compte hérité (et le relèvement des paramètres) faisaient un `UPDATE` sans condition ; une connexion avec l'ancien mot de passe terminée juste après une activation aurait pu remplacer le nouveau mot de passe par l'ancien. Les deux mises à jour sont maintenant conditionnelles (`mdp_hash is null and mot_de_passe = <valeur lue>`, `mdp_hash = <empreinte lue>`).
+2. *Lien consommé même si l'enregistrement échoue* : l'activation consomme le lien et écrit le mot de passe dans **une transaction**.
+3. *Force brute répartie* : compteur global par identifiant ajouté.
 
-Corrigées par mise à jour dans les limites de version : `express` 4.22.2 → 4.22.3, `body-parser` → 1.20.8, `qs` → 6.16.1, `proxy-addr` (critique, usurpation d'IP) → 2.0.8. Tests, types et construction relancés après la mise à jour (1027 tests réussis).
+Limites réelles : une panne entre la création d'un compte et l'émission du lien laisse un compte sans accès (un nouveau lien le règle) ; les sauvegardes antérieures contiennent des mots de passe en clair.
 
+## 5. Retour arrière : preuve expérimentale
+
+Ancienne version (commit `577fd81`) démarrée sur une base déjà migrée par la nouvelle, sur base jetable : l'ancienne version **démarre**, l'administrateur et les comptes hérités **non convertis** se connectent, la création d'un compte avec mot de passe fonctionne, **les comptes déjà convertis et ceux créés après la mise en ligne ne peuvent plus se connecter**, et l'ancienne version ne détruit aucune empreinte (retour à la nouvelle version : tout refonctionne). Conséquence : **correction en avançant** plutôt que retour arrière, et **fenêtre de validation** (`MIGRATE_LEGACY_PASSWORDS=false`, nouveau réglage testé en réel) pendant laquelle aucun compte hérité n'est converti, donc le retour arrière ne touche que les comptes créés pendant cette fenêtre. Détail dans `RELEASE_CHECKLIST.md` §6. Si une procédure de récupération testée n'existe pas, **la mise en ligne reste bloquée** (porte de sortie du §6.6 de la liste de contrôle).
+
+## 6. Sauvegarde et restauration
+
+`docs/sauvegarde-restauration.md` : inventaire réel (tout est dans PostgreSQL, **les documents sont dans la base**, secrets dans `/opt/camconsult/.env`, aucune clé de chiffrement des données, schéma rejoué au démarrage), commandes de sauvegarde chiffrée, restauration dans un conteneur jetable, requêtes de vérification, démarrage de l'application sur la base restaurée, procédure de mise en ligne avec Watchtower en pause. **Restauration : NOT EXECUTED** — pas de `pg_dump`/`pg_restore` sur le poste et aucune action Docker lancée ; aucune durée de restauration mesurée.
+
+## 7. Tests (résultats réels du 15 octobre)
+
+| Contrôle | Résultat |
+| --- | --- |
+| Types (`tsc`) | **PASSED** |
+| Suite complète sans base | **PASSED** : 1031 tests réussis, 0 échec, 21 ignorés (ce sont les tests d'intégration, avec avertissement explicite) |
+| Tests d'intégration PostgreSQL 16 réel (`TEST_DATABASE_URL`) | **PASSED** : 21 sur 21 (base jetable créée puis supprimée par le test, hors de la base de développement) |
+| Construction de production | **PASSED** |
+| Validation du YAML de la CI et du compose | **PASSED** (analyse syntaxique ; aucune exécution) |
+| Expérience de retour arrière (ancienne version sur base migrée) | **PASSED** (11 constats, §5) |
+| Contrôle de configuration avec valeurs synthétiques | **PASSED** (8 tests) ; exécution locale `--no-db` : signale correctement les défauts de développement |
+| Validation SQL dans une transaction annulée (phase précédente) | **PASSED** (10 contrôles) |
+| Audit des dépendances | **EXECUTED** : 13 vulnérabilités de production restantes |
+| En-têtes du site public actuel (requête HEAD) | **EXECUTED** : version du 13/10 sans en-têtes de sécurité, `X-Powered-By: Express` |
+| Mutation de contrôle : suppression du verrou des règlements | **PASSED** (le test échoue sans le verrou : 2400 pour 1000, puis la correction est rétablie) |
+| Restauration d'une sauvegarde | **NOT EXECUTED** |
+| Contrôle de configuration sur le serveur de production | **NOT EXECUTED** |
+| Exécution du pipeline sur GitHub Actions | **NOT EXECUTED** (un push déclencherait la CI, et sur `main` un déploiement) |
+| Envoi réel d'un email de lien d'accès | **NOT EXECUTED** (aucun SMTP : les serveurs de test sont lancés avec les variables d'email vidées explicitement) |
+| Tests de bout en bout dans le navigateur, charge, couverture | **NOT EXECUTED** (aucun outil installé ; aucun pourcentage de couverture n'est donné) |
+| Observation de la CSP en conditions réelles | **NOT EXECUTED** (pas de navigateur piloté) |
+
+Note : les tests d'intégration ont utilisé le serveur PostgreSQL de **développement** local (création et suppression d'une base jetable au nom aléatoire, sans toucher aux bases existantes). Ce n'est pas de la production.
+
+## 8. Nettoyage des données héritées (décisions)
+
+Détail et commandes dans `docs/plan-nettoyage-donnees-heritees.md`.
+- **A. Mots de passe** : recommandation **changement forcé pour tous**, après une fenêtre de validation, sans blocage (le compte se connecte avec son mot de passe actuel puis en choisit un nouveau).
+- **B. Identifiants de société** : plus aucun chemin du code ne les lit ni ne les écrit ; 1 société sur 3 en porte sur la base de développement, donc la production peut contenir de vrais accès : mesurer, transférer vers un gestionnaire de mots de passe si besoin, neutraliser, puis supprimer les colonnes dans une version ultérieure. Aucune colonne supprimée dans cette phase.
+- **C. Historique git** : 19 classeurs `Balance_*` (balances d'un client) dans 2 commits ; aucun autre fichier sensible, aucun secret réel trouvé (seuls des exemples factices dans les `.env.example`) ; visibilité du dépôt GitHub non vérifiable ; plan de purge prêt (coordination avec les contributeurs, nettoyage du cache de la CI, demande à GitHub) mais **non exécuté**.
+
+## 9. Intégrité financière, fichiers, performance, dépendances
+
+**FIN-04 — précision monétaire.** 83 colonnes `numeric` sans précision ni échelle. Sur la base de développement (presque vide, donc peu représentative), aucune ligne n'a plus de 3 décimales. Le calcul en JavaScript utilise des nombres flottants : l'arrondi est exact depuis la correction (`shared/arrondi.js`), et les sommes de quelques centaines de lignes restent à 1e-9 près, très en dessous du millime ; PostgreSQL somme en exact. Écarts possibles à surveiller : totaux calculés en SQL (états fournisseurs) comparés à ceux calculés en JavaScript, avec une tolérance de 0,0015 dans certains contrôles. Recommandation : **ne pas ajouter de bibliothèque décimale maintenant** ; réconcilier sur la production (le script `server/scripts/audit-donnees.js`, en lecture seule, compte les lignes à plus de 3 décimales par colonne sans afficher aucune valeur), puis migrer les colonnes de montants en TND vers `numeric(18,3)` (taux de change vers `numeric(18,6)`) par une migration réversible après sauvegarde testée. Aucune conversion en bloc n'a été faite.
+
+**FIN-03 — exemples pour validation par un professionnel local** (règle de calcul actuelle, pas une règle fiscale) :
+| Cas | Lignes | TVA | Timbre | HT | TVA | Net |
+| --- | --- | --- | --- | --- | --- | --- |
+| simple | 1 × 100,000 | 19 % | 1,000 | 100,000 | 19,000 | 120,000 |
+| demi-millime de TVA | 3 × 100,005 + 2 × 49,995 | 19 % | 1,000 | 400,005 | 76,001 | 477,006 |
+| HT en « 50 » | 1 × 100,050 | 19 % | 1,000 | 100,050 | 19,010 | 120,060 |
+| TVA sur le total, pas par ligne | 2 × 0,005 | 19 % | 0 | 0,010 | 0,002 | 0,012 |
+Questions de politique à trancher : arrondi de TVA par ligne ou sur le total, factures de montants négatifs (avoirs), corrections partielles, mentions et taux applicables.
+
+**SEC-09 — fichiers en base.** Où : `noeuds.data_url`, `collecte_fichiers.data_url`, `honoraires_lignes.piece_data_url`, `swift_factures.piece_data_url`, `messages.piece_jointe` (jsonb), pièces dans `collecte_lignes.data`. Limites : 2 Mo conservés côté écran, 15 Mo côté nginx, 24 Mo côté Express. Accès : par route, avec contrôle de société ; contenu chargé à la demande pour les listes principales. Coût : chaque sauvegarde, restauration et réplication embarque les documents ; pas de contrôle du type réel. Mesure sur la base de développement : 3,0 Mo dans `noeuds` pour 2 fichiers, base de 13 Mo (non représentatif de la production). Recommandation : stockage de fichiers dédié (volume ou objet) avec le contenu adressé par empreinte et les métadonnées en base, migration en double lecture, **à planifier avec un environnement de test dédié** ; non réalisé.
+
+**PERF-01.** Corrigé pour 6 requêtes (SQL filtré par la portée de la session, `porteeSocietes`, avec la barrière par ligne conservée) et couvert par un test d'isolation réel : un collaborateur affecté à une société ne voit aucune donnée de l'autre sur `societes`, `noeuds`, `collectes`, `bootstrap`, `etat-swift/resume`, et reçoit 403 sur l'accès direct. Index existants suffisants pour ces filtres (`noeuds_societe_idx`, `collectes_societe_idx`, `swift_virements_societe`). Reste : `taches`, `conversations`, pagination.
+
+**Dépendances de production : 13 vulnérabilités, 0 critique** (17 avant).
 | Paquet | Gravité | Usage | Décision |
 | --- | --- | --- | --- |
-| `tailwindcss`, `braces`, `micromatch`, `chokidar`, `fast-glob`, `source-map-js`, `postcss-nested`, `postcss-selector-parser` | 7 hautes, 2 moyennes | Construction du CSS (outil de build, ne tourne pas dans l'image d'exécution) | Risque accepté à court terme ; correction = Tailwind 4 (changement majeur à planifier). |
-| `react-router(-dom)` 6.30.6 | Moyenne | Navigation du navigateur (redirection ouverte via `Link`/`useNavigate` avec une URL non fiable) | Le code ne navigue pas vers des adresses saisies par l'utilisateur ; correction = version 7 (majeure). |
-| `exceljs` / `uuid` | Moyenne | Export Excel dans le navigateur | Correction proposée par npm = retour à `exceljs@3.4.0` : refusée (régression). Non exploitable tel qu'utilisé. |
-| `xlsx` (SheetJS) 0.18.5 | Haute (pollution de prototype, ReDoS) | Lecture et écriture de classeurs dans le navigateur | **Aucun correctif sur le registre npm.** Mitigation : fichiers choisis par l'utilisateur sur son propre poste. Correction possible : version officielle 0.20.x distribuée par SheetJS (hors registre npm, décision de confiance de la chaîne d'approvisionnement) ou lecture via `exceljs`. |
+| `express`, `body-parser`, `qs`, `proxy-addr` | modérée, critique | serveur | **Corrigé** (mise à jour dans les limites de version, tests relancés) |
+| `tailwindcss`, `braces`, `micromatch`, `chokidar`, `fast-glob`, `source-map-js`, `postcss-nested`, `postcss-selector-parser` | 7 hautes, 2 moyennes | outils de construction du CSS, absents de l'image d'exécution | Risque accepté à court terme ; correction = Tailwind 4 (majeur) |
+| `react-router(-dom)` 6.30.6 | moyenne | navigateur, redirection ouverte via `Link`/`useNavigate` | Pas de navigation vers une adresse saisie par l'utilisateur dans le code ; correction = v7 (majeur) |
+| `exceljs`, `uuid` | moyenne | export Excel côté navigateur | La « correction » proposée par npm est un retour à `exceljs@3.4.0` : refusée |
+| `xlsx` | haute | lecture et écriture de classeurs dans le navigateur | **Non résolu.** La copie npm n'est plus maintenue : [la base d'avis GitLab](https://advisories.gitlab.com/npm/xlsx/CVE-2024-22363/) indique qu'aucune version corrigée n'existe sur npm et que la 0.20.2 est distribuée par `cdn.sheetjs.com` ; [SheetJS le confirme](https://github.com/SheetJS/sheetjs/issues/2822) (le paquet npm ne recevra plus de mises à jour). La 0.20.2 corrige la ReDoS (GHSA-5pgg-2g8v-p4x9) ; je n'ai **pas pu confirmer auprès d'une source officielle** quelle version corrige la pollution de prototype (GHSA-4r6h-8v6p-xvw6). Mitigation actuelle : fichiers choisis par l'utilisateur sur son propre poste. Action : installer la version officielle la plus récente depuis `cdn.sheetjs.com` avec somme de contrôle fixée, relancer tous les tests d'import et d'export, ou remplacer la lecture par `exceljs`. Aucune dépendance n'a été remplacée sans essai. |
 
-## 6. Calculs de facture (FIN-03)
+## 10. Proxy, nginx et CI (résumé ; détail dans `RELEASE_CHECKLIST.md` §4 et §5)
 
-- Règle documentée dans `shared/factureTotaux.js` et utilisée par le serveur et l'écran : lignes non arrondies, total HT arrondi au millime, TVA sur le total (pas ligne par ligne), timbre ajouté après TVA, moitié vers le haut.
-- **Défaut mathématique trouvé et corrigé** : l'ancien arrondi `Math.round((n + EPSILON) * 1000) / 1000` (copié 15 fois) arrondissait mal environ 0,6 % des cas exactement au demi-millime (par exemple 2,0035 donnait 2,003 au lieu de 2,004). Mesuré sur 2 000 000 de cas : 11 778 erreurs avant, 0 après. Exemple concret : TVA 19 % sur un HT de 100,050 (19,0095) donne désormais 19,010 ; net 120,060. `lib/amount.ts` utilisait un arrondi encore plus brut, également remplacé.
-- Tests : 9 tests de calcul (exemples documentés, flottants, champs invalides, demi-millimes).
-- **Décisions de politique comptable, non inventées** : arrondi de TVA par ligne ou sur le total, traitement des avoirs et corrections partielles, règle fiscale tunisienne applicable. À confirmer par un professionnel local.
+nginx (hôte) → `127.0.0.1:5181` → conteneur : `X-Forwarded-Proto $scheme` et `X-Forwarded-For $proxy_add_x_forwarded_for` présents ; Express fait confiance à **un** saut (`trust proxy 1`) et lit l'adresse la plus à droite, celle qu'ajoute nginx ; une usurpation à gauche du `X-Forwarded-For` est inefficace (test réel) tant que le port 5181 n'est joignable que par nginx (c'est le cas dans le compose du dépôt). Les en-têtes de sécurité sont posés uniquement par Express (aucun doublon avec nginx) ; la version actuellement en ligne n'en envoie aucun. La CI : jobs `tests` et `integration` avant `docker` ; publication limitée à `main` et jamais pour une pull request ; aucun secret dans les contrôles. Aucune modification de la configuration nginx réelle.
 
-## 7. Tests
+## 11. CSP et stockage du jeton
 
-Exécutés (poste de développement, résultats réels) :
-- Vérification des types : réussie.
-- Suite complète : **1027 tests réussis sur 126 fichiers, 0 échec** (avant la phase : 973). Nouveaux : mots de passe et jetons (11), connexion et activation (8), exposition des données, suppression de société, accès réservés et réinitialisation (12), chaîne de déploiement, en-têtes et calculs (14), configuration (8), verrou des règlements (1).
-- Construction de production : réussie.
-- `git diff --check` : seuls des avertissements de fin de ligne.
-- Validation SQL sur PostgreSQL réel (base de développement locale, **dans une transaction annulée**, aucune donnée conservée, vérification faite après l'annulation) : application complète de `schema.sql`, jeton à usage unique, jeton expiré, contrainte de but, déclencheur du journal (UPDATE et DELETE refusés), requête de protection des sociétés, verrou consultatif. 10 contrôles réussis.
-- Requête HEAD sur le site public (lecture seule) pour relever les en-têtes de la version actuellement déployée.
-- Contrôle de configuration sur ce poste (sans base) : conforme à ce que fait un poste de développement (secret présent ; mot de passe administrateur par défaut et mot de passe de base faible, ce qui est le cas du développement local).
+**CSP (rapport seul, non bloquante).** Analyse du paquet de production : une page `index.html` avec un seul script de même origine, aucun script ni style en ligne ; polices Google (feuille `fonts.googleapis.com` + `fonts.gstatic.com`) ; `style-src 'unsafe-inline'` nécessaire (composants Radix) ; images en `data:`/`blob:` ; aperçus PDF dans des `iframe` en `data:`/`blob:` ; travailleurs PDF de même origine ; connexions de même origine uniquement. **Points à valider avant de passer en blocage** : `new Function(` présent une fois dans le paquet de `pdf.js` et une fois dans celui d'`exceljs` (ils échouent proprement sans `unsafe-eval` s'ils sont protégés par un essai, à confirmer au navigateur) ; toute violation apparaît dans la console grâce au mode « rapport seul ». Étapes : observer une semaine d'usage réel, corriger, puis `Content-Security-Policy` bloquante.
 
-**Non exécutés, et pourquoi** :
-- Tests d'intégration automatisés contre une base jetable dans la CI : pas d'environnement dédié ; je n'ai pas lancé de conteneur Docker (action jugée hors périmètre sans votre accord).
-- Test de concurrence réel (deux règlements simultanés) : nécessite une base de test.
-- Tests de bout en bout dans le navigateur, tests de charge, mesure de couverture (aucun outil de couverture n'est configuré, aucun pourcentage n'est donné).
-- Restauration d'une sauvegarde dans un environnement isolé : non faite, donc la récupérabilité n'est pas démontrée.
-- Première exécution du nouveau pipeline sur GitHub Actions.
-- Envoi réel d'emails avec liens d'accès (SMTP non disponible ici).
+**Jeton dans le navigateur.** Stocké dans `localStorage` (clé `cabinet-token`), 12 h, sans rafraîchissement ni révocation côté serveur ; un script injecté pourrait le lire (aucun `innerHTML` côté application). Plan proportionné : (1) CSP bloquante ; (2) durée plus courte avec renouvellement ; (3) à terme, cookie `HttpOnly; Secure; SameSite=Strict` avec contrôle d'origine/jeton anti-CSRF pour les requêtes qui modifient des données et adaptation du flux temps réel (`/api/events`, qui s'authentifie aujourd'hui par en-tête `Authorization`). Ce changement touche le client, le serveur et le temps réel : non fait dans cette phase.
 
-## 8. Risques restants
+## 12. Conditions restantes avant une revue de mise en ligne
 
-SEC-09 (stockage des fichiers), FIN-04 (précision des montants), PERF-01, jeton en localStorage, CSP non bloquante, journal modifiable par un administrateur de base, limite de connexion non partagée entre instances, dépendances du §5, avoirs absents, sauvegardes anciennes en clair, recouvrement jamais testé.
-
-## 9. Liste de contrôle avant mise en ligne
-
-À faire par la personne responsable, sans jamais coller de secret dans une conversation ni dans git :
-1. Sur le serveur : `docker exec <conteneur> node server/scripts/check-config.js` (lecture seule, n'affiche aucun secret). Aucun `[ECHEC]` ne doit rester. Le constat du 15/10 montre déjà que le site répond derrière nginx avec un `CORS_ORIGIN` défini.
-2. `JWT_SECRET` d'au moins 24 caractères aléatoires, `ADMIN_PASSWORD` défini, `ALLOW_DATA_RESET` absent, `APP_URL` défini (liens d'accès), SMTP configuré ou procédure manuelle acceptée.
-3. nginx : transmettre `X-Forwarded-Proto` (HSTS) et `X-Forwarded-For` (adresses réelles) ; vérifier par une connexion échouée répétée depuis deux postes que seules les adresses concernées sont limitées ; sinon définir `CLIENT_IP_HEADER`.
-4. Faire une sauvegarde complète de la base, la chiffrer, et **tester sa restauration** dans un environnement isolé.
-5. Décider : changement de mot de passe forcé pour tous, purge des colonnes héritées de `societes`, purge de l'historique git.
-6. Vérifier que le job `tests` passe sur GitHub avant que l'image soit publiée.
-7. Après déploiement : `curl -sI https://cabinet.camconsult.com.tn/` doit montrer les nouveaux en-têtes et ne plus montrer `X-Powered-By`.
-
-## 10. Déploiement et retour arrière recommandés
-
-1. Sauvegarde et test de restauration (§9.4).
-2. Pousser la branche : l'intégration continue exécute les contrôles, puis publie l'image ; Watchtower la déploie en 3 à 6 minutes. **Je n'ai rien poussé.**
-3. Au démarrage, le serveur applique le schéma (idempotent) : colonne `mdp_hash`, table `password_tokens`, déclencheur du journal. Aucune suppression de données.
-4. Vérifier `check-config.js`, une connexion administrateur, une connexion d'un compte hérité (puis de nouveau, pour confirmer la conversion), la création d'un compte avec lien d'activation et un flux d'activation complet.
-5. Retour arrière : redéployer l'image précédente. Les comptes déjà convertis ne pourront plus se connecter avec l'ancienne version : émettre des liens d'accès avec la nouvelle version, ou restaurer la sauvegarde d'avant la mise en ligne. Les colonnes et tables ajoutées sont ignorées par l'ancienne version.
-
-## 11. Étapes restantes recommandées, par priorité
-
-1. Valider les décisions du §4 et exécuter la liste du §9.
-2. Base de test jetable dans la CI et premiers scénarios de bout en bout (connexion, activation, règlements concurrents).
-3. Stockage des fichiers hors base et limites par route (SEC-09) ; CSP en blocage.
-4. Mise à jour majeure de Tailwind, de React Router et remplacement de `xlsx`.
-5. Archivage des sociétés (suppression logique), précision des montants et contraintes SQL (FIN-04), avoirs après décision comptable.
+1. Restaurer une sauvegarde dans un environnement isolé et noter la durée (`docs/sauvegarde-restauration.md`).
+2. Exécuter `check-config.js` sur le serveur réel : aucun `[ECHEC]`.
+3. Observer le pipeline sur une pull request ; activer la protection de branche.
+4. Décisions D1 à D3 (mots de passe hérités, colonnes de sociétés, historique git) ; D4 à D7 consignées.
+5. nginx : bloc HTTPS avec `X-Forwarded-Proto`, port 5181 non exposé, `server_tokens off`.
+6. Mettre en ligne avec Watchtower en pause et `MIGRATE_LEGACY_PASSWORDS=false`, valider, puis lever le réglage.

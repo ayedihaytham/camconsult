@@ -31,6 +31,13 @@ describe("protection contre la force brute", () => {
     expect(g.attente("autre-ip", "e")).toBe(0);
   });
 
+  it("bloque un identifiant visé depuis plusieurs adresses (essais répartis)", () => {
+    const g = createLoginGuard({ maxParCompte: 5, maxParIdentifiant: 6, maxParAdresse: 1000 });
+    for (let i = 0; i < 6; i++) g.echec(`10.0.0.${i}`, "cible");
+    expect(g.attente("10.0.0.99", "cible")).toBeGreaterThan(0);
+    expect(g.attente("10.0.0.99", "autre-compte")).toBe(0);
+  });
+
   it("compare les mots de passe en temps constant", () => {
     expect(egalConstant("Secret123!", "Secret123!")).toBe(true);
     expect(egalConstant("Secret123!", "Secret123")).toBe(false);

@@ -8,10 +8,9 @@ on:
     paths:
       - "app comptabole/**"
       - ".github/workflows/app-comptable.yml"
+  # Sans filtre de chemins : un contrôle requis par la protection de branche qui ne se lancerait pas (pull request ne touchant
+  # que la documentation) resterait « en attente » et bloquerait la fusion indéfiniment.
   pull_request:
-    paths:
-      - "app comptabole/**"
-      - ".github/workflows/app-comptable.yml"
   workflow_dispatch: {}
 
 permissions:

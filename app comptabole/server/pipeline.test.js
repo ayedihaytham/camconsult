@@ -53,6 +53,15 @@ describe("autres chemins de publication", () => {
     expect(site).toMatch(/permissions:\s*\n\s*contents:\s*read/);
   });
 
+  it("les contrôles requis se lancent pour toute pull request (pas de filtre de chemins : sinon un contrôle requis resterait en attente)", () => {
+    const declencheurs = workflow.slice(workflow.indexOf("\non:"), workflow.indexOf("\npermissions:"));
+    const pr = declencheurs.slice(declencheurs.indexOf("pull_request:"), declencheurs.indexOf("workflow_dispatch"));
+    expect(pr).not.toMatch(/paths(-ignore)?:|branches(-ignore)?:/);
+    // push : seulement main (une branche de travail poussée seule ne lance rien) ; pas de workflow_call ni de workflow imbriqué.
+    expect(declencheurs).toMatch(/push:\s*\n\s*branches:\s*\[main\]/);
+    for (const w of [workflow, site]) expect(w).not.toMatch(/workflow_call|workflow_run|pull_request_target/);
+  });
+
   it("aucun workflow ne se déclenche sur une étiquette ou une publication (release)", () => {
     for (const w of [workflow, site]) {
       // Seule la section « on: » compte (« tags: » apparaît aussi dans les étiquettes de l'image publiée).

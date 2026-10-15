@@ -8,6 +8,7 @@ import {
   requireAdmin,
 } from "../auth.js";
 import { logAction } from "../journal.js";
+import { loginGuard, egalConstant } from "../loginGuard.js";
 
 export const authRouter = Router();
 
@@ -18,11 +19,19 @@ authRouter.post("/login", async (req, res) => {
 
   const id = String(identifiant).trim().toLowerCase();
 
+  // Force brute : trop d'échecs récents pour ce compte ou depuis cette adresse.
+  const attente = loginGuard.attente(req.ip, id);
+  if (attente > 0) {
+    res.setHeader("Retry-After", String(attente));
+    return res.status(429).json({ error: `Trop de tentatives. Réessayez dans ${Math.ceil(attente / 60)} minute(s).` });
+  }
+
   // 1. Admin
   const meta = (await query("select * from app_meta where id = 1")).rows[0];
   if (meta && id === meta.admin_identifiant.toLowerCase()) {
     const ok = await bcrypt.compare(String(motDePasse), meta.admin_password_hash);
     if (ok) {
+      loginGuard.succes(req.ip, id);
       await query("update app_meta set last_login = now() where id = 1");
       const token = signToken({ role: "admin" });
       const session = await sessionFromToken({ role: "admin" });
@@ -38,7 +47,8 @@ authRouter.post("/login", async (req, res) => {
       [id],
     )
   ).rows[0];
-  if (emp && String(motDePasse) === emp.mot_de_passe) {
+  if (emp && egalConstant(motDePasse, emp.mot_de_passe)) {
+    loginGuard.succes(req.ip, id);
     await query("update employes set last_login = now() where id = $1", [emp.id]);
     const token = signToken({ role: "employe", employeId: emp.id });
     const session = await sessionFromToken({
@@ -49,6 +59,7 @@ authRouter.post("/login", async (req, res) => {
     return res.json({ token, session });
   }
 
+  loginGuard.echec(req.ip, id);
   return res.status(401).json({ error: "Identifiant ou mot de passe incorrect" });
 });
 

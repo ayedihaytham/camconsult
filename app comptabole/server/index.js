@@ -44,6 +44,16 @@ const isProd = process.env.NODE_ENV === "production";
 // Derrière le proxy Apache/cPanel : IP client et https corrects
 app.set("trust proxy", 1);
 
+// En-têtes de sécurité de base (sans dépendance) ; une politique CSP stricte reste à définir avec l'équipe front.
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
+
 // CORS : en prod, restreindre à l'origine du site si CORS_ORIGIN est défini
 app.use(
   cors({ origin: process.env.CORS_ORIGIN || (isProd ? false : true) }),

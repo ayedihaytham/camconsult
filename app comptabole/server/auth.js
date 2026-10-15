@@ -7,7 +7,12 @@ import {
   fullPermissions,
 } from "./permissions.js";
 
-const SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
+const SECRET_PAR_DEFAUT = "dev-secret-change-me";
+const SECRET = process.env.JWT_SECRET || SECRET_PAR_DEFAUT;
+// Un secret connu permettrait de forger un jeton administrateur : jamais en production.
+if (process.env.NODE_ENV === "production" && (SECRET === SECRET_PAR_DEFAUT || SECRET.length < 24)) {
+  throw new Error("JWT_SECRET doit être défini en production (24 caractères aléatoires au moins).");
+}
 
 export function signToken(payload) {
   return jwt.sign(payload, SECRET, { expiresIn: "12h" });

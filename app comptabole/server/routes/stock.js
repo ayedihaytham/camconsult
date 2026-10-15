@@ -343,6 +343,8 @@ stockRouter.post("/extract", async (req, res) => {
   const parsed = extractSchema.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
+  // L'extraction appelle un service d'IA payant : jamais pour un compte de société cliente, même sans société précisée.
+  if (req.session.poste === "societe_employe") return res.status(403).json({ error: "Accès au stock non autorisé" });
   try {
     let raisonSociale;
     if (parsed.data.societeId) {

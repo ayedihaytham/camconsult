@@ -272,6 +272,9 @@ dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
 });
 
 dataRouter.post("/reset", requireAuth, requireAdmin, async (req, res) => {
+  // Action destructrice : le serveur exige lui-même la confirmation, pas seulement l'écran.
+  if (req.body?.confirmation !== "RÉINITIALISER")
+    return res.status(400).json({ error: "Confirmation requise pour réinitialiser les données" });
   await query(
     "truncate balance_lignes, balances, immo_mouvements, financement_mouvements, tdrf_lignes, tdrf_parametres, notes_exercice, fiche_societe, notes_modele, immo_biens, immo_categories, grille_comptes, grille_affectat_codes, stock_mouvements, bordereau_lignes, bordereaux, collecte_lignes, collecte_sections, collectes, notifications, taches, messages, noeuds, employes, societes, conversations restart identity cascade",
   );

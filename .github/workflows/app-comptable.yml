@@ -9,7 +9,31 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  # Les contrôles qualité passent avant la construction de l'image : un test en échec bloque le déploiement.
+  tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: "./app comptabole"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: "./app comptabole/package-lock.json"
+
+      - run: npm ci
+      - name: Types
+        run: npm run lint
+      - name: Tests
+        run: npm test
+
   docker:
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -177,3 +177,15 @@ and route-level scope checks. See [docs/permissions.md](./docs/permissions.md).
 - [Permissions](./docs/permissions.md)
 - [Data flow](./docs/data-flow.md)
 - [Conventions](./docs/conventions.md)
+
+## Sécurité et contrôles (audit du 2026-10-15)
+
+- Connexion : `server/loginGuard.js` limite les essais (8 échecs par compte et 40 par adresse sur 15 minutes, réponse 429) ; le mot de passe d'un
+  employé est comparé en temps constant. L'administrateur est vérifié avec bcrypt ; les mots de passe des employés restent en clair en base
+  (écart connu, voir le rapport d'audit).
+- Production : le serveur refuse de démarrer sans `JWT_SECRET` d'au moins 24 caractères (différent de la valeur de développement) et sans
+  `ADMIN_PASSWORD` à la première initialisation.
+- En-têtes de base dans `server/index.js` (nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy) ; pas encore de CSP.
+- `POST /api/data/reset` exige `{ confirmation: "RÉINITIALISER" }` côté serveur.
+- `POST /api/stock/extract` (service d'IA payant) est interdit aux comptes de société cliente.
+- Intégration continue : `.github/workflows/app-comptable.yml` exécute `npm run lint` et `npm test` avant la construction de l'image.

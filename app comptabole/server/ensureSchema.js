@@ -28,6 +28,8 @@ export async function ensureSchema() {
   const { rows } = await query("select id from app_meta where id = 1");
   if (rows.length === 0) {
     const identifiant = process.env.ADMIN_IDENTIFIANT || "mohamed.ayedi";
+    if (process.env.NODE_ENV === "production" && !process.env.ADMIN_PASSWORD)
+      throw new Error("ADMIN_PASSWORD doit être défini en production pour créer le compte administrateur.");
     const password = process.env.ADMIN_PASSWORD || "Cabinet2026!";
     const nom = process.env.ADMIN_NOM || "Mohamed Ayedi";
     const role =

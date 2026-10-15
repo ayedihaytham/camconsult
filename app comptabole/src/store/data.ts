@@ -517,7 +517,7 @@ export const useData = create<DataState>((set, get) => ({
 
   resetAll: async () => {
     try {
-      await api.post("/data/reset");
+      await api.post("/data/reset", { confirmation: "RÉINITIALISER" });
       await get().hydrate();
     } catch (e) {
       fail(e);

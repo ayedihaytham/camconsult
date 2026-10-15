@@ -6,7 +6,7 @@ export function CtaBand({ lang, home }: { lang: Lang; home: ReturnType<typeof ge
   const isArabic = lang === 'ar'
   const c = home.ctaBand
   return (
-    <section dir={isArabic ? 'rtl' : 'ltr'} className="bg-gold-soft px-6 py-14 text-foreground sm:px-10 lg:px-16 lg:py-16">
+    <section dir={isArabic ? 'rtl' : 'ltr'} className="bg-accent-soft px-6 py-14 text-foreground sm:px-10 lg:px-16 lg:py-16">
       <div className="mx-auto max-w-7xl">
         <p className="flex items-center gap-4 text-xs font-semibold uppercase tracking-[0.2em]">
           <span className="hidden h-px w-12 bg-feature sm:block" aria-hidden="true" />
@@ -19,7 +19,7 @@ export function CtaBand({ lang, home }: { lang: Lang; home: ReturnType<typeof ge
 
         <a
           href={`/${lang}/contact`}
-          className="group relative mt-8 inline-flex items-center gap-4 overflow-hidden border border-foreground px-8 py-4 text-sm font-semibold uppercase tracking-[0.15em] text-foreground transition-colors duration-300 hover:text-gold-ink motion-reduce:transition-none"
+          className="group relative mt-8 inline-flex items-center gap-4 overflow-hidden border border-foreground px-8 py-4 text-sm font-semibold uppercase tracking-[0.15em] text-foreground transition-colors duration-300 hover:text-accent-ink motion-reduce:transition-none"
         >
           <span className="absolute inset-0 origin-left scale-x-0 bg-feature transition-transform duration-300 ease-out group-hover:scale-x-100 motion-reduce:transition-none" aria-hidden="true" />
           <span className="relative">{c.button}</span>

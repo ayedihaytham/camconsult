@@ -69,7 +69,7 @@ export function DeadlineSection({ lang, home }: { lang: Lang; home: Home }) {
       <span className="pointer-events-none absolute -bottom-10 end-6 select-none font-serif text-[16rem] leading-none text-feature-foreground/[0.04]" aria-hidden="true">{DUE_DAY}</span>
       <div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[auto_1fr_auto] lg:gap-14">
         <div className="relative mx-auto w-40 shrink-0 lg:mx-0">
-          <div className="absolute inset-0 translate-x-2 translate-y-2 rounded bg-gold" aria-hidden="true" />
+          <div className="absolute inset-0 translate-x-2 translate-y-2 rounded bg-accent" aria-hidden="true" />
           <div className="relative overflow-hidden rounded bg-card text-foreground shadow-lg">
             <p className="bg-feature py-1.5 text-center text-[0.6rem] font-bold uppercase tracking-[0.25em] text-feature-foreground">{dueLabel({ month: 'long' })}</p>
             <p className="pt-3 text-center font-serif text-6xl leading-none">{dueLabel({ day: 'numeric' }) || DUE_DAY}</p>
@@ -80,11 +80,11 @@ export function DeadlineSection({ lang, home }: { lang: Lang; home: Home }) {
         <div>
           <p className="eyebrow flex items-center gap-2"><CalendarDot />{home.calendarEyebrow}</p>
           <h2 className="mt-3 max-w-md font-serif text-3xl leading-tight sm:text-4xl">
-            {lead}{highlight && <>: <em className="text-gold-ink">{highlight}</em></>}
+            {lead}{highlight && <>: <em className="text-accent-ink">{highlight}</em></>}
           </h2>
           <p className="mt-3 text-sm text-feature-muted">{home.calendarText}</p>
           <div className="mt-6 flex items-center gap-3 text-[0.65rem] font-semibold text-feature-muted" aria-hidden="true">
-            <span className="flex items-center gap-2"><span className="size-2.5 rounded-full bg-gold" />{ui.today}</span>
+            <span className="flex items-center gap-2"><span className="size-2.5 rounded-full bg-accent" />{ui.today}</span>
             <span className="h-px flex-1 bg-feature-foreground/25" />
             <span className="flex items-center gap-2 text-feature-foreground"><span className="size-2.5 rotate-45 bg-card" />{ui.due}</span>
           </div>
@@ -94,15 +94,15 @@ export function DeadlineSection({ lang, home }: { lang: Lang; home: Home }) {
           <div className="grid grid-cols-3 divide-x divide-feature-foreground/15 rounded bg-feature-foreground/[0.07] py-4 text-center rtl:divide-x-reverse">
             {[[days, ui.days], [hours, ui.hours], [minutes, ui.minutes]].map(([value, label]) => (
               <div key={label}>
-                <p className="font-serif text-3xl tabular-nums text-gold-ink">{now ? pad(Number(value)) : '--'}</p>
+                <p className="font-serif text-3xl tabular-nums text-accent-ink">{now ? pad(Number(value)) : '--'}</p>
                 <p className="mt-1 text-[0.55rem] font-semibold uppercase tracking-widest text-feature-muted">{label}</p>
               </div>
             ))}
           </div>
-          <button type="button" onClick={downloadReminder} className="mt-3 flex w-full items-center justify-center gap-2 rounded-sm bg-gold px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink hover:opacity-90">
+          <button type="button" onClick={downloadReminder} className="mt-3 flex w-full items-center justify-center gap-2 rounded-sm bg-accent px-5 py-3 text-xs font-bold uppercase tracking-wider text-accent-foreground hover:opacity-90">
             <Bell className="size-4" aria-hidden="true" /> {ui.remind}
           </button>
-          <a href={`/${lang}/outils-fiscaux#calendrier-fiscal`} className="mt-4 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-feature-foreground underline-offset-4 hover:text-gold-ink hover:underline">
+          <a href={`/${lang}/outils-fiscaux#calendrier-fiscal`} className="mt-4 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-feature-foreground underline-offset-4 hover:text-accent-ink hover:underline">
             {home.calendarCta} <ArrowRight className={cn('size-3.5', isArabic && 'rtl-mirror')} aria-hidden="true" />
           </a>
         </div>
@@ -112,5 +112,5 @@ export function DeadlineSection({ lang, home }: { lang: Lang; home: Home }) {
 }
 
 function CalendarDot() {
-  return <span className="size-2 rounded-full bg-gold" aria-hidden="true" />
+  return <span className="size-2 rounded-full bg-accent" aria-hidden="true" />
 }

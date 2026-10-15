@@ -27,10 +27,10 @@ export function ClientPortalLink({ href = DEFAULT_CLIENT_PORTAL_URL, lang = 'fr'
         'client-portal-link group inline-flex items-center gap-2 transition-all duration-300',
         compact
           ? 'text-[11px] font-semibold uppercase tracking-[0.08em] text-feature-muted hover:text-feature-foreground'
-          : 'rounded-lg border border-gold bg-transparent px-4 py-3 text-xs font-bold uppercase tracking-widest text-gold-ink hover:bg-gold hover:text-ink'
+          : 'rounded-lg border border-accent bg-transparent px-4 py-3 text-xs font-bold uppercase tracking-widest text-accent-ink hover:bg-accent hover:text-accent-foreground'
       )}
     >
-      <LockKeyhole className={cn('client-portal-lock size-3.5 shrink-0 transition-transform duration-300', compact && 'text-gold-ink')} aria-hidden="true" />
+      <LockKeyhole className={cn('client-portal-lock size-3.5 shrink-0 transition-transform duration-300', compact && 'text-accent-ink')} aria-hidden="true" />
       <span>{clientPortal.label}</span>
       {!compact && <ExternalLink className="size-3 shrink-0 opacity-65 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />}
     </a>

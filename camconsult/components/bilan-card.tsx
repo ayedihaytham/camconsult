@@ -22,7 +22,7 @@ function format(n: number, sep: string) {
 
 function Seal({ label }: { label: string }) {
   return (
-    <svg viewBox="0 0 120 120" className="size-24 shrink-0 text-gold-ink" role="img" aria-label={label}>
+    <svg viewBox="0 0 120 120" className="size-24 shrink-0 text-accent-ink" role="img" aria-label={label}>
       <defs>
         <path id="seal-circle" d="M60 60 m-44 0 a44 44 0 1 1 88 0 a44 44 0 1 1 -88 0" />
       </defs>
@@ -63,7 +63,7 @@ export function BilanCard({ home }: { home: Home }) {
   return (
     <div className="relative">
       <div
-        className="relative border border-feature-foreground/15 bg-feature-raised p-7 shadow-2xl shadow-black/20 lg:mb-4 lg:p-9"
+        className="relative border border-feature-foreground/15 bg-feature-raised p-7 shadow-2xl shadow-shadow/20 lg:mb-4 lg:p-9"
         style={{ clipPath: 'polygon(0 0, calc(100% - 32px) 0, 100% 32px, 100% 100%, 0 100%)' }}
       >
         <div className="flex items-baseline justify-between gap-4 border-b border-feature-foreground/30 pb-4">
@@ -80,14 +80,14 @@ export function BilanCard({ home }: { home: Home }) {
           {rows.map((row) => (
             <li key={row.label} className="flex items-center justify-between gap-4 border-b border-feature-foreground/15 py-4">
               <span className="text-sm text-feature-foreground">{row.label}</span>
-              <span className="font-serif text-2xl tabular-nums text-gold-ink" dir="ltr">{shown(row)}</span>
+              <span className="font-serif text-2xl tabular-nums text-accent-ink" dir="ltr">{shown(row)}</span>
             </li>
           ))}
         </ul>
 
         <div className="flex items-center justify-between gap-4 border-t border-feature-foreground/60 pt-4">
           <span className="text-sm font-bold text-feature-foreground">{b.result}</span>
-          <span className="border-b-[3px] border-double border-gold font-serif text-4xl tabular-nums leading-none text-gold-ink" dir="ltr">{shown(result)}</span>
+          <span className="border-b-[3px] border-double border-accent font-serif text-4xl tabular-nums leading-none text-accent-ink" dir="ltr">{shown(result)}</span>
         </div>
 
         <div className="mt-6 flex items-center gap-4 border-t border-dotted border-feature-foreground/25 pt-6">
@@ -100,7 +100,7 @@ export function BilanCard({ home }: { home: Home }) {
       </div>
       <span
         className="pointer-events-none absolute right-0 top-0 size-8"
-        style={{ background: 'linear-gradient(225deg, transparent 50%, color-mix(in srgb, var(--feature-foreground) 28%, transparent) 50%)' }}
+        style={{ background: 'var(--fold-gradient)' }}
         aria-hidden="true"
       />
     </div>

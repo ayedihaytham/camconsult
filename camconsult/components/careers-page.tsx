@@ -12,7 +12,7 @@ function Hero({ isArabic, careers }: { isArabic: boolean; careers: ReturnType<ty
   return (
     <section className="bg-feature px-6 pb-16 pt-28 text-feature-foreground sm:px-10 lg:px-16">
       <div className="mx-auto max-w-7xl">
-        <div className="flex items-center gap-2 text-xs text-feature-muted"><span>{careers.breadcrumbHome}</span><span>/</span><span className="text-gold-ink">{careers.breadcrumbCareers}</span></div>
+        <div className="flex items-center gap-2 text-xs text-feature-muted"><span>{careers.breadcrumbHome}</span><span>/</span><span className="text-accent-ink">{careers.breadcrumbCareers}</span></div>
         <p className="eyebrow mt-12">{careers.eyebrow}</p>
         <h1 className="mt-4 font-serif text-5xl leading-none sm:text-7xl">{careers.title}</h1>
         <p className="mt-6 max-w-2xl text-base leading-7 text-feature-muted">{careers.description}</p>
@@ -25,7 +25,7 @@ const MAX_CV_BYTES = 5 * 1024 * 1024
 const CV_PATTERN = /\.(pdf|docx?)$/i
 const MESSAGE_MAX = 1000
 
-const FIELD = 'flex h-11 items-center gap-2 border border-border bg-card px-3 text-sm text-foreground transition-colors focus-within:border-gold'
+const FIELD = 'flex h-11 items-center gap-2 border border-input bg-card px-3 text-sm text-foreground transition-colors focus-within:border-ring'
 const INPUT = 'min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none'
 const LABEL = 'text-[0.7rem] font-semibold text-foreground'
 
@@ -66,7 +66,7 @@ export function CareersPage({ lang = 'fr' }: CareersPageProps) {
   const titleWords = careers.sidebarTitle.trim().split(' ')
   const lastWord = titleWords.pop()
   const titleLead = titleWords.join(' ')
-  const star = <span className="text-gold-ink"> *</span>
+  const star = <span className="text-accent-ink"> *</span>
   const [cvLabel, ...cvRest] = careers.form.cv.split(' (')
   const cvHint = cvRest.join(' (').replace(/\)$/, '')
 
@@ -81,10 +81,10 @@ export function CareersPage({ lang = 'fr' }: CareersPageProps) {
       <Hero isArabic={isArabic} careers={careers} />
       <section className="bg-muted px-6 py-14 sm:px-10 lg:px-16 lg:py-20">
         <div className="mx-auto grid max-w-6xl items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="bg-card p-6 shadow-[0_18px_60px_rgba(11,37,69,0.08)] sm:p-9">
+          <div className="bg-card p-6 shadow-panel sm:p-9">
             {status === 'success' ? (
               <div className="text-foreground" role="status">
-                <div className="grid size-12 place-items-center rounded-full bg-gold"><Check aria-hidden="true" /></div>
+                <div className="grid size-12 place-items-center rounded-full bg-accent"><Check aria-hidden="true" /></div>
                 <h2 className="mt-6 font-serif text-3xl">{careers.successTitle}</h2>
                 <p className="mt-3 text-sm leading-6">{careers.successText}</p>
                 <button type="button" onClick={() => setStatus('idle')} className="mt-6 text-xs font-bold uppercase tracking-wider underline underline-offset-4">{careers.sendAnother}</button>
@@ -94,10 +94,10 @@ export function CareersPage({ lang = 'fr' }: CareersPageProps) {
                 <div>
                   <div className="flex items-baseline justify-between gap-4">
                     <h2 className="font-serif text-3xl text-foreground">{ui.formTitle}</h2>
-                    <p className="shrink-0 text-[0.7rem] font-semibold text-gold-ink">{ui.complete.replace('{n}', String(percent))}</p>
+                    <p className="shrink-0 text-[0.7rem] font-semibold text-accent-ink">{ui.complete.replace('{n}', String(percent))}</p>
                   </div>
-                  <div className="mt-3 h-0.5 w-full bg-gold-soft" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-                    <div className="h-full bg-gold transition-all duration-300" style={{ width: `${percent}%` }} />
+                  <div className="mt-3 h-0.5 w-full bg-accent-soft" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+                    <div className="h-full bg-accent transition-all duration-300" style={{ width: `${percent}%` }} />
                   </div>
                 </div>
 
@@ -135,7 +135,7 @@ export function CareersPage({ lang = 'fr' }: CareersPageProps) {
                         type="button"
                         onClick={() => set('position')(position)}
                         aria-pressed={values.position === position}
-                        className={cn('rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors', values.position === position ? 'border-foreground bg-feature text-feature-foreground' : 'border-border bg-card text-foreground hover:border-gold')}
+                        className={cn('rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors', values.position === position ? 'border-foreground bg-feature text-feature-foreground' : 'border-border bg-card text-foreground hover:border-accent')}
                       >
                         {position}
                       </button>
@@ -152,7 +152,7 @@ export function CareersPage({ lang = 'fr' }: CareersPageProps) {
                       value={values.message}
                       onChange={(e) => set('message')(e.target.value)}
                       placeholder={careers.form.messagePlaceholder}
-                      className="block w-full resize-y border border-border bg-card p-3 pb-7 text-sm text-foreground placeholder:text-muted-foreground focus:border-gold focus:outline-none"
+                      className="block w-full resize-y border border-input bg-card p-3 pb-7 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
                     />
                     <span className="pointer-events-none absolute bottom-2 end-3 text-[0.65rem] tabular-nums text-muted-foreground">{values.message.length} / {MESSAGE_MAX}</span>
                   </span>
@@ -164,17 +164,17 @@ export function CareersPage({ lang = 'fr' }: CareersPageProps) {
                     onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
                     onDragLeave={() => setDragging(false)}
                     onDrop={(e) => { e.preventDefault(); setDragging(false); pickFile(e.dataTransfer.files?.[0]) }}
-                    className={cn('mt-1.5 flex cursor-pointer flex-col items-center gap-2 border border-dashed px-4 py-8 text-center transition-colors', dragging ? 'border-gold bg-gold-soft' : 'border-gold/50 bg-card hover:border-gold')}
+                    className={cn('mt-1.5 flex cursor-pointer flex-col items-center gap-2 border border-dashed px-4 py-8 text-center transition-colors', dragging ? 'border-accent bg-accent-soft' : 'border-accent/50 bg-card hover:border-accent')}
                   >
-                    <span className="grid size-10 place-items-center rounded-full bg-gold-soft text-gold-ink"><Upload className="size-4" aria-hidden="true" /></span>
+                    <span className="grid size-10 place-items-center rounded-full bg-accent-soft text-accent-ink"><Upload className="size-4" aria-hidden="true" /></span>
                     {file ? (
                       <>
-                        <span className="flex items-center gap-2 text-sm font-semibold text-foreground"><Paperclip className="size-3.5 text-gold-ink" aria-hidden="true" />{file.name}</span>
+                        <span className="flex items-center gap-2 text-sm font-semibold text-foreground"><Paperclip className="size-3.5 text-accent-ink" aria-hidden="true" />{file.name}</span>
                         <span className="text-xs text-muted-foreground underline underline-offset-2">{ui.replace}</span>
                       </>
                     ) : (
                       <>
-                        <span className="text-xs font-semibold text-foreground">{ui.dropTitle} <span className="text-gold-ink underline underline-offset-2">{ui.browse}</span></span>
+                        <span className="text-xs font-semibold text-foreground">{ui.dropTitle} <span className="text-accent-ink underline underline-offset-2">{ui.browse}</span></span>
                         <span className="text-[0.7rem] text-muted-foreground">{ui.formats}</span>
                       </>
                     )}
@@ -184,8 +184,8 @@ export function CareersPage({ lang = 'fr' }: CareersPageProps) {
 
                 {error && <p className="text-xs font-medium text-destructive" role="alert">{error}</p>}
 
-                <div className="flex flex-col gap-4 border-t border-gold-soft pt-5 sm:flex-row sm:items-center">
-                  <button type="submit" disabled={status === 'loading'} className="inline-flex shrink-0 items-center justify-center gap-3 bg-feature px-6 py-3.5 text-[0.7rem] font-bold uppercase tracking-widest text-feature-foreground transition-opacity hover:opacity-90 disabled:opacity-60">
+                <div className="flex flex-col gap-4 border-t border-accent-soft pt-5 sm:flex-row sm:items-center">
+                  <button type="submit" disabled={status === 'loading'} className="inline-flex shrink-0 items-center justify-center gap-3 bg-primary px-6 py-3.5 text-[0.7rem] font-bold uppercase tracking-widest text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60">
                     {status === 'loading' ? careers.form.loading : careers.form.submit}
                     <Send className={cn('size-3.5', isArabic && 'rtl-mirror')} aria-hidden="true" />
                   </button>
@@ -198,27 +198,27 @@ export function CareersPage({ lang = 'fr' }: CareersPageProps) {
           <aside className="flex flex-col gap-4 lg:sticky lg:top-24">
             <div className="bg-feature p-7 text-feature-foreground">
               <p className="eyebrow">{careers.sidebarEyebrow}</p>
-              <h2 className="mt-3 font-serif text-3xl leading-tight">{titleLead} <em className="text-gold-ink">{lastWord}</em></h2>
+              <h2 className="mt-3 font-serif text-3xl leading-tight">{titleLead} <em className="text-accent-ink">{lastWord}</em></h2>
               <ul className="mt-6 divide-y divide-feature-foreground/10 border-t border-feature-foreground/10 text-sm">
                 {contactRows.map(({ icon: Icon, href, content }, i) => {
                   const inner = (
                     <>
-                      <span className="grid size-9 shrink-0 place-items-center rounded-full border border-feature-foreground/20 text-gold-ink"><Icon className="size-3.5" aria-hidden="true" /></span>
+                      <span className="grid size-9 shrink-0 place-items-center rounded-full border border-feature-foreground/20 text-accent-ink"><Icon className="size-3.5" aria-hidden="true" /></span>
                       <span className="min-w-0 flex-1 text-feature-foreground">{content}</span>
                     </>
                   )
                   return (
                     <li key={i}>
-                      {href ? <a href={href} className="flex items-center gap-3 py-4 hover:text-gold-ink">{inner}</a> : <div className="flex items-center gap-3 py-4">{inner}</div>}
+                      {href ? <a href={href} className="flex items-center gap-3 py-4 hover:text-accent-ink">{inner}</a> : <div className="flex items-center gap-3 py-4">{inner}</div>}
                     </li>
                   )
                 })}
                 <li className="flex items-center gap-3 py-4">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full border border-feature-foreground/20 text-gold-ink"><Clock3 className="size-3.5" aria-hidden="true" /></span>
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full border border-feature-foreground/20 text-accent-ink"><Clock3 className="size-3.5" aria-hidden="true" /></span>
                   <span className="min-w-0 flex-1 text-feature-foreground">{careers.hours}</span>
                   {isOpen !== null && (
                     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-feature-foreground/20 bg-feature-foreground/5 px-2.5 py-1 text-[0.65rem] font-semibold text-feature-muted">
-                      <span className={cn('size-1.5 rounded-full', isOpen ? 'bg-emerald-400' : 'bg-gold')} aria-hidden="true" />
+                      <span className={cn('size-1.5 rounded-full', isOpen ? 'bg-success' : 'bg-accent')} aria-hidden="true" />
                       {isOpen ? footer.openShort : footer.closedShort}
                     </span>
                   )}
@@ -232,7 +232,7 @@ export function CareersPage({ lang = 'fr' }: CareersPageProps) {
                 <span className="absolute inset-y-1 start-[5px] w-px bg-border" aria-hidden="true" />
                 {ui.after.map(([title, text], i) => (
                   <li key={title} className="relative">
-                    <span className={cn('absolute -start-6 top-1 size-[11px] rounded-full border border-gold', i === 0 ? 'bg-gold' : 'bg-card')} aria-hidden="true" />
+                    <span className={cn('absolute -start-6 top-1 size-[11px] rounded-full border border-accent', i === 0 ? 'bg-accent' : 'bg-card')} aria-hidden="true" />
                     <p className="text-sm font-semibold text-foreground">{title}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">{text}</p>
                   </li>

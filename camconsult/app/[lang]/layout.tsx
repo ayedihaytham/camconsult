@@ -27,7 +27,14 @@ export const metadata: Metadata = {
   },
 }
 
-export const viewport: Viewport = { colorScheme: 'light dark', themeColor: '#E3E7E7' }
+// No-JavaScript fallback; the existing pre-paint script follows saved preferences.
+export const viewport: Viewport = {
+  colorScheme: 'light dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#E8EDF0' },
+    { media: '(prefers-color-scheme: dark)', color: '#20354D' },
+  ],
+}
 
 export default async function RootLayout({
   children,

@@ -8,6 +8,8 @@ import type { FactureFournisseur } from "@/types";
 const FICHIER = "ETAT FOURNISSEURS PETRA (1).xlsx";
 
 function feuilles() {
+  // Le classeur réel n'est pas dans le dépôt (CI) : le bloc qui en dépend est ignoré, mais son corps est évalué à la collecte.
+  if (!existsSync(`samples/${FICHIER}`)) return [];
   const wb = XLSX.read(readFileSync(`samples/${FICHIER}`), { type: "buffer", cellDates: true });
   return wb.SheetNames.map((nom) => {
     const ws = wb.Sheets[nom];

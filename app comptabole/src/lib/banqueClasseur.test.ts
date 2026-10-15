@@ -5,6 +5,8 @@ import { extraireCours, lireClasseurBancaire, lireFeuilleBancaire, type FeuilleL
 
 /** Feuilles d'un vrai classeur du cabinet (dossier d'exemples), avec leurs cellules fusionnées. */
 function feuilles(fichier: string): FeuilleLue[] {
+  // Les classeurs réels ne sont pas dans le dépôt (CI) : les blocs qui en dépendent sont ignorés, mais leur corps est évalué à la collecte.
+  if (!existsSync(`samples/${fichier}`)) return [];
   const wb = XLSX.read(readFileSync(`samples/${fichier}`), { type: "buffer", cellDates: true });
   return wb.SheetNames.map((nom) => {
     const ws = wb.Sheets[nom];

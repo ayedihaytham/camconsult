@@ -25,6 +25,8 @@ const ar: Dictionary = {
     openMenu: 'فتح القائمة',
     closeMenu: 'إغلاق القائمة',
     backToTop: 'العودة إلى الأعلى',
+    darkTheme: 'المظهر الداكن',
+    lightTheme: 'المظهر الفاتح',
   },
 
   footer: {

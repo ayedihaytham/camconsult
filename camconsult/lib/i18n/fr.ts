@@ -23,6 +23,8 @@ const fr = {
     openMenu: 'Ouvrir le menu',
     closeMenu: 'Fermer le menu',
     backToTop: 'Haut de page',
+    darkTheme: 'Thème sombre',
+    lightTheme: 'Thème clair',
   },
 
   footer: {

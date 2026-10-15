@@ -25,6 +25,8 @@ const en: Dictionary = {
     openMenu: 'Open menu',
     closeMenu: 'Close menu',
     backToTop: 'Back to top',
+    darkTheme: 'Dark theme',
+    lightTheme: 'Light theme',
   },
 
   footer: {

@@ -3,6 +3,8 @@ import { Inter, Playfair_Display } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import { LOCALES, isLang, getDictionary } from '@/lib/i18n'
 import { BackToTop } from '@/components/back-to-top'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import { SITE_INDEXABLE, SITE_URL, businessStructuredData } from '@/lib/seo'
 import '../globals.css'
 
@@ -25,7 +27,7 @@ export const metadata: Metadata = {
   },
 }
 
-export const viewport: Viewport = { colorScheme: 'light', themeColor: '#0B2545' }
+export const viewport: Viewport = { colorScheme: 'light dark', themeColor: '#D7DADB' }
 
 export default async function RootLayout({
   children,
@@ -37,13 +39,17 @@ export default async function RootLayout({
   const dict = getDictionary(lang)
 
   return (
-    <html lang={lang} dir={dir}>
+    <html lang={lang} dir={dir} suppressHydrationWarning>
+      <head>
+        <script id="theme-init" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className={`${inter.variable} ${playfair.variable} antialiased`}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(businessStructuredData()).replace(/</g, '\\u003c') }}
         />
         {children}
+        <ThemeToggle lang={lang} />
         <BackToTop label={dict.nav.backToTop} />
       </body>
     </html>

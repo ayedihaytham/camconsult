@@ -45,7 +45,7 @@ export function BlogSection({ lang, dict }: { lang: Lang; dict: ReturnType<typeo
                   <p className="mt-3 text-sm leading-6 text-muted-foreground">{text}</p>
                   <div className="mt-auto flex items-center justify-between border-t border-gold-soft pt-4">
                     <span className="mt-4 text-[0.65rem] font-bold uppercase tracking-widest text-foreground">{ui.read}</span>
-                    <span className="mt-4 grid size-8 place-items-center rounded-full border border-border text-foreground transition-colors group-hover:border-gold group-hover:bg-gold"><ArrowRight className={cn('size-3.5', isArabic && 'rtl-mirror')} aria-hidden="true" /></span>
+                    <span className="mt-4 grid size-8 place-items-center rounded-full border border-border text-foreground transition-colors group-hover:border-gold group-hover:bg-gold group-hover:text-ink"><ArrowRight className={cn('size-3.5', isArabic && 'rtl-mirror')} aria-hidden="true" /></span>
                   </div>
                 </div>
               </a>

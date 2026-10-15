@@ -83,7 +83,7 @@ export function CamconsultFooter({ lang = 'fr', clientPortalUrl }: CamconsultFoo
                 />
                 <button
                   type="submit"
-                  className="h-11 shrink-0 rounded-full bg-card px-5 text-xs font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-gold"
+                  className="h-11 shrink-0 rounded-full bg-card px-5 text-xs font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-gold hover:text-ink"
                 >
                   {dict.footer.newsletterCta}
                 </button>

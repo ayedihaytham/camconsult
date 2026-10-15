@@ -1,6 +1,6 @@
 # Audit de sécurité et préparation à la mise en production
 
-Dernière mise à jour : 15 octobre 2026 (phase 3). Périmètre : `app comptabole/` (outil de gestion de cabinet, pas une comptabilité en partie double). Documents liés : `RELEASE_CHECKLIST.md`, `docs/sauvegarde-restauration.md`, `docs/plan-nettoyage-donnees-heritees.md`.
+Dernière mise à jour : 15 octobre 2026 (phase 4 : préparation de la revue finale ; voir §13). Périmètre : `app comptabole/` (outil de gestion de cabinet, pas une comptabilité en partie double). Documents liés : `RELEASE_CHECKLIST.md`, `docs/sauvegarde-restauration.md`, `docs/plan-nettoyage-donnees-heritees.md`.
 
 ## 1. Décision
 
@@ -10,7 +10,7 @@ Ce n'est pas « prêt pour la production » : des tests qui réussissent ne remp
 
 ## 2. État du dépôt
 
-- Branche `main`, en avance de 2 commits sur `origin/main` ; **`8db7ba2` et `414d59c` sont intacts**. Les changements de la phase 3 sont dans un troisième commit local.
+- Branche `main`, en avance de 3 commits sur `origin/main` au début de la phase 4 (`8db7ba2`, `414d59c`, `8c21d6a`, **tous intacts**) ; les changements de la phase 4 sont dans un quatrième commit local (non poussé).
 - Rien n'est poussé, fusionné, publié ni déployé. Aucune histoire git n'a été réécrite. Aucune donnée de production n'a été lue ni modifiée.
 - Un `git push` sur `main` publie `latest` et déclenche le déploiement automatique (Watchtower, 60 s) : voir le §10 de `RELEASE_CHECKLIST.md` avant tout push.
 
@@ -23,7 +23,7 @@ Légende : **Corrigé** = corrigé dans le code et testé ; **En partie** = rest
 | SEC-01 mots de passe en clair | Critique | **Corrigé dans le code ; mise en ligne conditionnelle** | Empreinte scrypt ; aucune réponse de l'API ne contient mot de passe ni empreinte ; liens d'activation à usage unique ; 21 tests d'intégration PostgreSQL + tests unitaires dédiés (empreintes, jetons, connexion, exposition) ; **défaut de concurrence trouvé et corrigé en phase 3** (§4) ; retour arrière évalué expérimentalement (§5). | Fenêtre de validation puis conversion/forçage (§8) ; sauvegardes anciennes en clair. | Oui (D1) |
 | SEC-02 connexion sans limite | Haute | **Corrigé** | 8 échecs par compte et adresse, **30 par identifiant toutes adresses confondues (nouveau)**, 100 par adresse ; temps de réponse identique pour compte inconnu, inactif ou sans accès (test) ; activation par lien avec limite plus large. Blocage réel testé (429 + `Retry-After`). | Mémoire d'un seul processus : remise à zéro à chaque redémarrage, non partagée entre instances. Un attaquant peut verrouiller un compte précis 15 min (compromis assumé). | Non |
 | SEC-03 secret JWT par défaut | Haute | **Corrigé** | Le serveur refuse de démarrer en production sans secret de 24 caractères ou avec la valeur de développement (vérifié à la main, par test unitaire de configuration et en démarrage réel en mode production). | Exécuter `check-config.js` sur le serveur réel. | Non |
-| DATA-01 réinitialisation | Haute | **Corrigé** | Confirmation exigée, **désactivée en production sans `ALLOW_DATA_RESET=true`** (testé en conditions réelles), textes d'écran alignés. | Sauvegarde automatique avant l'opération (non faite). | Non |
+| DATA-01 réinitialisation et restauration JSON | Haute | **Corrigé (restauration : défaut trouvé en phase 4)** | **Phase 4 : `POST /api/data/restore` contournait toutes les protections (aucune confirmation, active en production, détruisait factures, règlements, SWIFT… absents de la sauvegarde JSON).** Maintenant : refusée en production sans `ALLOW_DATA_RESET=true`, confirmation « RESTAURER » exigée, refus (409) si des données hors sauvegarde existent sauf confirmation définitive, anciens mots de passe de la sauvegarde convertis en empreinte ; 3 tests unitaires + 5 d'intégration. Réinitialisation : confirmation exigée, **désactivée en production sans `ALLOW_DATA_RESET=true`** (testé en conditions réelles), textes d'écran alignés. | Sauvegarde automatique avant l'opération (non faite). | Non |
 | SEC-04 dépendances | Haute | **En partie** | Production : 17 → 13, critique 1 → 0 (§9). | Voir §9 (`xlsx` sans correctif npm, build Tailwind, react-router 7). | Oui (D7) |
 | QA-01 CI sans tests | Haute | **Corrigé (non observé sur GitHub)** | Jobs `tests` + `integration` requis ; **la publication est impossible depuis une pull request ou une autre branche** (contournement par lancement manuel supprimé) ; 5 tests statiques du fichier ; YAML validé. | Observer une première exécution (pull request) ; protection de branche ; épinglage des actions par empreinte. | Non |
 | SEC-05 extraction IA ouverte | Moyenne | **Corrigé** | 403 pour un compte société avec ou sans société, **vérifié sur le vrai serveur** (extract et extract-pages). | — | Non |
@@ -71,7 +71,7 @@ Ancienne version (commit `577fd81`) démarrée sur une base déjà migrée par l
 
 ## 6. Sauvegarde et restauration
 
-`docs/sauvegarde-restauration.md` : inventaire réel (tout est dans PostgreSQL, **les documents sont dans la base**, secrets dans `/opt/camconsult/.env`, aucune clé de chiffrement des données, schéma rejoué au démarrage), commandes de sauvegarde chiffrée, restauration dans un conteneur jetable, requêtes de vérification, démarrage de l'application sur la base restaurée, procédure de mise en ligne avec Watchtower en pause. **Restauration : NOT EXECUTED** — pas de `pg_dump`/`pg_restore` sur le poste et aucune action Docker lancée ; aucune durée de restauration mesurée.
+`docs/sauvegarde-restauration.md` : inventaire réel (tout est dans PostgreSQL, **les documents sont dans la base**, secrets dans `/opt/camconsult/.env`, aucune clé de chiffrement des données, schéma rejoué au démarrage), commandes de sauvegarde chiffrée, restauration dans un conteneur jetable, requêtes de vérification, démarrage de l'application sur la base restaurée, procédure de mise en ligne avec Watchtower en pause. **Restauration réelle (`pg_dump -Fc` puis `pg_restore`) : BLOCKED** — les outils clients PostgreSQL ne sont pas installés sur le poste et aucune action Docker n'a été lancée ; aucune sauvegarde de production n'a été créée, copiée ni restaurée. Ressources requises : un hôte jetable avec `pg_dump`/`pg_restore` 16, une sauvegarde chiffrée **de test** (jamais de production sans décision du propriétaire), et la procédure de `docs/sauvegarde-restauration.md` suivie de `docs/verification-restauration.sql`. **Restauration LOGIQUE : PASSED (nouveau, §13)** — ce n'est pas un test des outils.
 
 ## 7. Tests (résultats réels du 15 octobre)
 
@@ -88,7 +88,9 @@ Ancienne version (commit `577fd81`) démarrée sur une base déjà migrée par l
 | Audit des dépendances | **EXECUTED** : 13 vulnérabilités de production restantes |
 | En-têtes du site public actuel (requête HEAD) | **EXECUTED** : version du 13/10 sans en-têtes de sécurité, `X-Powered-By: Express` |
 | Mutation de contrôle : suppression du verrou des règlements | **PASSED** (le test échoue sans le verrou : 2400 pour 1000, puis la correction est rétablie) |
-| Restauration d'une sauvegarde | **NOT EXECUTED** |
+| Restauration réelle `pg_dump`/`pg_restore` | **BLOCKED** (outils clients absents, aucune base isolée équipée) |
+| Restauration logique sur deux bases jetables (phase 4) | **PASSED** (3 tests, §13) |
+| Phase 4 — tsc, 130 fichiers / 1086 tests (intégration inclus, base jetable locale), build | **PASSED** (nouveaux résultats ; ceux du tableau ci-dessus sont ceux de la phase 3) |
 | Contrôle de configuration sur le serveur de production | **NOT EXECUTED** |
 | Exécution du pipeline sur GitHub Actions | **NOT EXECUTED** (un push déclencherait la CI, et sur `main` un déploiement) |
 | Envoi réel d'un email de lien d'accès | **NOT EXECUTED** (aucun SMTP : les serveurs de test sont lancés avec les variables d'email vidées explicitement) |
@@ -142,9 +144,46 @@ nginx (hôte) → `127.0.0.1:5181` → conteneur : `X-Forwarded-Proto $scheme` e
 
 ## 12. Conditions restantes avant une revue de mise en ligne
 
-1. Restaurer une sauvegarde dans un environnement isolé et noter la durée (`docs/sauvegarde-restauration.md`).
+1. Restaurer une vraie sauvegarde (`pg_dump`/`pg_restore`) de test dans un environnement isolé, noter la durée et exécuter `docs/verification-restauration.sql` (**BLOCKED** localement).
 2. Exécuter `check-config.js` sur le serveur réel : aucun `[ECHEC]`.
 3. Observer le pipeline sur une pull request ; activer la protection de branche.
 4. Décisions D1 à D3 (mots de passe hérités, colonnes de sociétés, historique git) ; D4 à D7 consignées.
 5. nginx : bloc HTTPS avec `X-Forwarded-Proto`, port 5181 non exposé, `server_tokens off`.
 6. Mettre en ligne avec Watchtower en pause et `MIGRATE_LEGACY_PASSWORDS=false`, valider, puis lever le réglage.
+
+## 13. Phase 4 — préparation de la revue finale (15 octobre 2026)
+
+**Garde-fou de production.** Aucune connexion, requête, migration, restauration ni écriture sur la base de production ; aucun script lancé sans cible identifiée. Divulgation : les phases 2 à 4 ont utilisé le PostgreSQL de **développement** local (`localhost:5439`, identifiants triviaux du `.env` local, jamais ceux de la production) pour des transactions annulées, des bases jetables créées puis supprimées et des comptages en lecture seule. `TEST_DATABASE_URL` n'accepte plus qu'un serveur local (« n'est pas local » sinon).
+
+**État du dépôt.** `main` = `origin/main` + 3 commits locaux intacts (`8db7ba2`, `414d59c`, `8c21d6a`) + le commit de la phase 4. Rien n'est poussé, fusionné, publié ni déployé. `.vscode/` (non suivi) est laissé hors commit.
+
+**Défauts trouvés et corrigés (avec tests de non-régression ; rien de poussé).**
+| # | Défaut | Correction | Preuve |
+| --- | --- | --- | --- |
+| P4-1 | `/api/data/restore` : sans confirmation, active en production, détruisait des tables absentes de la sauvegarde JSON, rangeait les anciens mots de passe en clair | voir DATA-01 | `exposition.sec.test.js` (15) + intégration |
+| P4-2 | `check-config.js` se connectait à la base par défaut sans afficher la cible | variables seules par défaut, `--db` explicite, cible affichée (sans identifiants), aucun repli | `configuration.test.js`, intégration |
+| P4-3 | `migrate-passwords.js --apply` écrivait sans que la cible soit retapée | `--confirmer-cible=<hôte:port/base>` exigé (code 2 sinon) ; simulation par défaut | intégration |
+| P4-4 | `audit-donnees.js` sans cible affichée | cible affichée avant le chargement de la base ; comptages seulement | intégration (aucune valeur dans la sortie) |
+| P4-5 | `seed.js` stockait les comptes de démonstration en clair | empreintes (développement seulement, refuse la production) | relu |
+| P4-6 | workflow du site vitrine (même Watchtower) publiait depuis toute branche | `if: github.ref == 'refs/heads/main'`, `permissions: contents: read` | `pipeline.test.js` |
+| P4-7 | nginx : version affichée, `X-Powered-By` transmis | `server_tokens off;`, `proxy_hide_header X-Powered-By;` dans le fichier du dépôt (**nginx réel non modifié**) | test statique |
+| P4-8 | assistant de test : arrêt non idempotent (blocage de 120 s) | `signalCode` vérifié | tests d'intégration |
+
+**Revue des trois commits.** Contournements recherchés : restauration (P4-1), scripts d'exploitation (P4-2 à P4-4), second chemin de publication (P4-6), exposition d'identifiants (réponses, sauvegarde exportée : aucun mot de passe ni empreinte, testé), réinitialisation (confirmation serveur + `ALLOW_DATA_RESET`). Aucun autre contournement trouvé ; les limites du §3 demeurent.
+
+**Configuration (valeurs synthétiques uniquement).** 12 tests : secrets faibles refusés, aucune valeur secrète dans la sortie, le serveur refuse de démarrer avant tout accès à la base. Procédure opérateur : `RELEASE_CHECKLIST.md` §3 (**non exécutée**).
+
+**Restauration logique (PASSED).** Deux bases jetables locales, données synthétiques (sociétés, compte activé, facture à 3 lignes, stock et règlement, virement SWIFT, fichier de 0,4 Mo, collecte) : sauvegarde table par table en JSON, restauration dans l'ordre des clés étrangères, empreintes MD5 identiques (66 lignes), les 10 requêtes de `docs/verification-restauration.sql` donnent les résultats attendus, le serveur démarre en production sur la base restaurée, connexion de l'administrateur et du compte restauré, fichier relu octet pour octet, total de facture inchangé. Durées (66 lignes, 0,4 Mo) : sauvegarde ≈ 0,14 s, restauration ≈ 0,17 s, **non extrapolables à la production**. **Ce n'est pas un test de `pg_dump`/`pg_restore`** ni de sauvegardes chiffrées.
+
+**CI (validation locale).** YAML des deux workflows, dépendances (`docker` après `tests` et `integration`), conditions de publication et permissions testés statiquement (23 tests). Exécution sur GitHub : **NOT EXECUTED**. Étapes du propriétaire : `RELEASE_CHECKLIST.md` §5.
+
+**nginx.** Changement minimal préparé (aucun en-tête de sécurité ajouté par nginx : pas de doublon). `nginx -t` : **BLOCKED** (nginx absent, Docker non lancé). Pour l'opérateur, sur l'hôte : `sudo nginx -t` avant rechargement. Vérification HTTPS : `RELEASE_CHECKLIST.md` §4.
+
+**Recommandations (rien n'est exécuté).**
+- **A. Mot de passe forcé** : par étapes — fenêtre de validation (`MIGRATE_LEGACY_PASSWORDS=false`), conversion (`--apply --confirmer-cible`), forçage par lots (administrateurs en dernier), récupération testée (lien de réinitialisation émis par un administrateur ; compte administrateur de secours hors du lot).
+- **B. Colonnes `societes.identifiant`/`mot_de_passe`** : aucune lecture de valeurs ; comptage, transfert vers un gestionnaire de mots de passe, neutralisation, puis suppression dans une version ultérieure après sauvegarde testée.
+- **C. 19 classeurs dans l'historique** : tableau de décision dans `docs/plan-nettoyage-donnees-heritees.md` (visibilité du dépôt non vérifiée).
+- **D. Dépendances** : 13 vulnérabilités de production (7 hautes, 6 moyennes), 0 critique (`npm audit` du 15 octobre). **Vérifié par recherche** ([GitLab CVE-2023-30533](https://advisories.gitlab.com/npm/xlsx/CVE-2023-30533/), [CVE-2024-22363](https://advisories.gitlab.com/npm/xlsx/CVE-2024-22363/)) : pollution de prototype corrigée en 0.19.3, ReDoS en 0.20.2, versions distribuées par `cdn.sheetjs.com` et non par npm. **Non vérifié** : une copie tierce évoque un correctif 0.20.4, à confirmer dans le journal officiel. Le paquet npm `xlsx` n'est plus maintenu.
+- **E.** SEC-09 ouvert (planifié) ; FIN-03 arrondi corrigé, politique d'avoirs/TVA à faire valider par un professionnel local (aucune règle fiscale inventée) ; FIN-04 ouvert (migration après réconciliation) ; PERF-01 : 6 endpoints corrigés ; CSP en rapport seul ; jeton en `localStorage` (§11).
+
+**Décision de la phase 4 : CONDITIONNELLEMENT PRÊT POUR UNE REVUE DE MISE EN LIGNE** — ce n'est pas une autorisation de déployer. Bloquants : restauration réelle, `nginx -t`, contrôle de configuration sur le serveur réel, première exécution de la CI sur pull request, protection de `main`, décisions D1 à D3.

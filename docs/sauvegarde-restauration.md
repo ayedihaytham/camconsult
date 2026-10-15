@@ -108,3 +108,10 @@ Critères de réussite : tous les comptages égaux à ceux de la sauvegarde, auc
 ## 5. Récupération après un déploiement raté
 
 Voir la stratégie détaillée dans `RELEASE_CHECKLIST.md` (§ « Retour arrière et récupération »). En résumé : **corriger en avançant** ; un retour à l'ancienne image ne casse pas la base (le schéma ajouté est compatible) mais les comptes déjà convertis ne peuvent plus se connecter avec l'ancienne version. Ne jamais restaurer une ancienne sauvegarde par-dessus des données plus récentes sans avoir chiffré la perte : toute saisie faite depuis la sauvegarde disparaît.
+
+## 6. Vérification après restauration et état des essais
+
+- Requêtes de contrôle en **lecture seule** : `docs/verification-restauration.sql` (volumes par table à comparer à l'original, contraintes non validées, orphelins, fichiers vides, état des mots de passe en comptages, déclencheur du journal, administrateur présent). À exécuter uniquement sur la base de test restaurée : `psql "$URL_BASE_TEST" -f docs/verification-restauration.sql`.
+- **Restauration réelle `pg_dump -Fc` / `pg_restore` : BLOCKED** (client PostgreSQL absent du poste, Docker non lancé automatiquement). Ressources requises : hôte jetable avec client 16, sauvegarde chiffrée de test, espace disque ≈ 3 × la taille du dump. Aucune sauvegarde de production n'a été créée, copiée ni restaurée par l'audit.
+- **Restauration logique : PASSED** (`server/integration/restauration-logique.integration.test.js`, deux bases jetables locales, données synthétiques). Elle valide le schéma, l'ordre des clés étrangères, les requêtes ci-dessus et le démarrage de l'application, pas les outils ni le chiffrement.
+- La sauvegarde JSON de l'écran Paramètres ne couvre que 6 types de données (sociétés, employés, nœuds, messages, conversations, tâches) : **ce n'est pas une sauvegarde**. Sa restauration est refusée en production sans `ALLOW_DATA_RESET=true`, exige la confirmation « RESTAURER » et est refusée (409) si des factures, règlements, virements SWIFT, etc. existent.

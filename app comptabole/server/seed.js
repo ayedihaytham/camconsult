@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { hashPassword } from "./passwords.js";
 import { ensureSchema } from "./ensureSchema.js";
 import { pool, query, withTransaction } from "./db.js";
 
@@ -332,11 +333,11 @@ async function insertSeed(client) {
   }
 
   for (const employee of seededEmployees) {
-    // The current employee login compares mot_de_passe directly; this development-only value mirrors that existing behavior.
+    // Valeur de démonstration, jamais utilisable en production (le seed refuse de s'y exécuter) : stockée en empreinte comme tout mot de passe.
     await client.query(
-      `insert into employes (id, nom, prenom, identifiant, mot_de_passe, type, role, email, statut, societes_assignees, permissions, cree_le)
-       values ($1,$2,$3,$4,$5,$6,'collaborateur',$7,'actif',$8::jsonb,$9::jsonb,$10)`,
-      [employee.id, employee.nom, employee.prenom, employee.identifiant, DEMO_PASSWORD, employee.type, employee.email, JSON.stringify(employee.societesAssignees), JSON.stringify({ consulterDossiers: true, deposerFichiers: true, modifierSocietes: employee.type === "Comptable", supprimer: false, messagerie: true }), employee.creeLe],
+      `insert into employes (id, nom, prenom, identifiant, mot_de_passe, mdp_hash, type, role, email, statut, societes_assignees, permissions, cree_le)
+       values ($1,$2,$3,$4,'',$5,$6,'collaborateur',$7,'actif',$8::jsonb,$9::jsonb,$10)`,
+      [employee.id, employee.nom, employee.prenom, employee.identifiant, await hashPassword(DEMO_PASSWORD), employee.type, employee.email, JSON.stringify(employee.societesAssignees), JSON.stringify({ consulterDossiers: true, deposerFichiers: true, modifierSocietes: employee.type === "Comptable", supprimer: false, messagerie: true }), employee.creeLe],
     );
   }
 

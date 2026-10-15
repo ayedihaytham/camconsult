@@ -45,6 +45,54 @@ describe("chaîne de déploiement", () => {
   });
 });
 
+describe("autres chemins de publication", () => {
+  const site = readFileSync(new URL("../../.github/workflows/camconsult-site.yml", import.meta.url), "utf-8");
+
+  it("le workflow du site vitrine (même Watchtower) ne publie plus depuis une autre branche que main", () => {
+    expect(site).toMatch(/docker:\s*\n\s*if:\s*github\.ref == 'refs\/heads\/main'/);
+    expect(site).toMatch(/permissions:\s*\n\s*contents:\s*read/);
+  });
+
+  it("aucun workflow ne se déclenche sur une étiquette ou une publication (release)", () => {
+    for (const w of [workflow, site]) {
+      // Seule la section « on: » compte (« tags: » apparaît aussi dans les étiquettes de l'image publiée).
+      const declencheurs = w.slice(w.indexOf("\non:"), w.indexOf("\njobs:"));
+      expect(declencheurs).toMatch(/push:/);
+      expect(declencheurs).not.toMatch(/\n\s*(tags|release|registry_package|schedule|workflow_run):/);
+    }
+  });
+});
+
+describe("configuration nginx du dépôt (revue statique ; nginx n'a pas pu être lancé ici)", () => {
+  const nginx = readFileSync(new URL("../../deploy/nginx-camconsult.conf", import.meta.url), "utf-8");
+  const bloc = nginx.slice(nginx.indexOf("server_name cabinet.camconsult.com.tn"), nginx.indexOf("server_name monitor.camconsult.com.tn"));
+
+  it("masque la version de nginx et X-Powered-By pour l'application", () => {
+    expect(bloc).toContain("server_tokens off;");
+    expect(bloc).toContain("proxy_hide_header X-Powered-By;");
+  });
+
+  it("chaque emplacement transmet le protocole et la chaîne d'adresses, et ne vise que le port local de l'application", () => {
+    const emplacements = bloc.match(/location [^{]+\{[^}]*\}/g) ?? [];
+    expect(emplacements.length).toBe(3);
+    for (const e of emplacements) {
+      expect(e).toContain("proxy_set_header X-Forwarded-Proto $scheme;");
+      expect(e).toContain("proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;");
+      expect(e).toContain("proxy_pass http://127.0.0.1:5181;");
+    }
+  });
+
+  it("ne répète aucun en-tête de sécurité (ils sont posés par l'application : pas de doublon)", () => {
+    expect(nginx).not.toMatch(/add_header\s+(Strict-Transport-Security|X-Content-Type-Options|X-Frame-Options|Referrer-Policy|Permissions-Policy|Content-Security-Policy)/i);
+  });
+
+  it("le compose de production ne publie l'application que sur l'interface locale", () => {
+    const compose = readFileSync(new URL("../../deploy/docker-compose.yml", import.meta.url), "utf-8");
+    expect(compose).toContain('"127.0.0.1:5181:8080"');
+    expect(compose).not.toMatch(/-\s*"(0\.0\.0\.0:)?5181:/);
+  });
+});
+
 describe("en-têtes de sécurité", () => {
   const appliquer = (secure) => {
     const entetes = {};

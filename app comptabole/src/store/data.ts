@@ -527,7 +527,7 @@ export const useData = create<DataState>((set, get) => ({
   },
   importAll: async (payload) => {
     try {
-      await api.post("/data/restore", payload);
+      await api.post("/data/restore", { ...payload, confirmation: "RESTAURER" });
       await get().hydrate();
     } catch (e) {
       fail(e);

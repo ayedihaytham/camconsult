@@ -1,16 +1,26 @@
 // Contrôle de configuration avant mise en production (lecture seule).
-//   node server/scripts/check-config.js            variables + connexion à la base + schéma
-//   node server/scripts/check-config.js --no-db    variables seulement
-// Dans le conteneur de production : docker exec <conteneur> node server/scripts/check-config.js
+//   node server/scripts/check-config.js        variables d'environnement seulement : AUCUNE connexion à une base (défaut)
+//   node server/scripts/check-config.js --db   + contrôles en lecture seule de la base désignée par DATABASE_URL (la cible « hôte:port/base » est
+//                                              affichée avant toute connexion ; aucun repli sur une base par défaut)
+// Dans le conteneur de production (à l'initiative d'un opérateur autorisé) : docker exec <conteneur> node server/scripts/check-config.js --db
 // Ne modifie rien et n'affiche jamais la valeur d'un secret. Code de sortie 1 si un contrôle bloquant échoue.
 import "dotenv/config";
 import { aEchec, evaluerConfiguration } from "../configCheck.js";
+import { cibleBase } from "./cible.js";
 
 const ICONES = { ok: "[OK]    ", info: "[INFO]  ", alerte: "[ALERTE]", echec: "[ECHEC] " };
 const resultats = evaluerConfiguration(process.env);
 const ajouter = (niveau, code, message) => resultats.push({ niveau, code, message });
 
-if (!process.argv.includes("--no-db")) {
+if (process.argv.includes("--db")) {
+  let cible = null;
+  try {
+    cible = cibleBase();
+    console.log(`Base visée (lecture seule) : ${cible}\n`);
+  } catch (err) {
+    ajouter("echec", "BASE", err.message);
+  }
+  if (cible) {
   const { pool } = await import("../db.js");
   try {
     await pool.query("select 1");
@@ -40,6 +50,7 @@ if (!process.argv.includes("--no-db")) {
     ajouter("echec", "BASE", `Base injoignable ou non conforme : ${err.code ?? err.message}`);
   } finally {
     await pool.end();
+  }
   }
 }
 

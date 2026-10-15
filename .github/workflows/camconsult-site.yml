@@ -8,8 +8,14 @@ on:
       - ".github/workflows/camconsult-site.yml"
   workflow_dispatch: {}
 
+# Publication de l'image du site : uniquement depuis main (un lancement manuel sur une autre branche ne publie plus « latest »,
+# que Watchtower déploie automatiquement). Aucun droit d'écriture sur le dépôt.
+permissions:
+  contents: read
+
 jobs:
   docker:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

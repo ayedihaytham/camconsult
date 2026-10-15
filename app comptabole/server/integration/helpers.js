@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
 
 const require = createRequire(import.meta.url);
 const pg = require("pg");
@@ -14,6 +15,11 @@ const racine = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
  * production) ; chaque suite y crée sa propre base, au nom aléatoire, et la supprime à la fin. Aucune autre base n'est touchée.
  */
 export async function creerBaseJetable(urlServeur = process.env.TEST_DATABASE_URL) {
+  // Garde-fou : ces tests créent et suppriment des bases. Ils refusent tout serveur qui n'est pas la machine locale (ou, en CI,
+  // le conteneur de service) : jamais une base distante, donc jamais la production.
+  const hote = new URL(urlServeur).hostname;
+  if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(hote))
+    throw new Error(`TEST_DATABASE_URL refusé : l'hôte « ${hote} » n'est pas local. Les tests d'intégration ne visent jamais une base distante.`);
   const nom = `it_${randomBytes(6).toString("hex")}`;
   const admin = new pg.Client({ connectionString: urlServeur });
   await admin.connect();
@@ -64,6 +70,8 @@ export async function demarrerServeur(urlBase, extra = {}) {
     ADMIN_PASSWORD: "Mdp-Admin-De-Test-1!",
     CORS_ORIGIN: "http://localhost",
     APP_URL: "http://app.test",
+    // Aucun fichier .env n'est lu (dotenv ignore un chemin inexistant) : seul l'environnement ci-dessous existe pour le serveur de test.
+    DOTENV_CONFIG_PATH: join(tmpdir(), "aucun-fichier-env-pour-les-tests"),
     // Valeurs vides explicites : dotenv ne remplace jamais une variable déjà définie, donc le fichier .env du poste (SMTP, clés
     // d'IA…) n'est pas lu par le serveur de test et aucun email ni appel externe ne peut partir.
     SMTP_HOST: "",
@@ -99,7 +107,7 @@ export async function demarrerServeur(urlBase, extra = {}) {
     journal: () => journal.join(""),
     arreter: () =>
       new Promise((resolve) => {
-        if (enfant.exitCode !== null) return resolve();
+        if (enfant.exitCode !== null || enfant.signalCode !== null) return resolve();
         enfant.once("exit", resolve);
         enfant.kill();
       }),

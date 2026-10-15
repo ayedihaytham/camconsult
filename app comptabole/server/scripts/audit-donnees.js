@@ -3,7 +3,10 @@
 // Dans le conteneur de production : docker exec app-comptable node server/scripts/audit-donnees.js
 // Ne fait que des SELECT dans une session en lecture seule ; n'affiche que des COMPTAGES et des TAILLES, jamais une valeur.
 import "dotenv/config";
-import { pool } from "../db.js";
+import { cibleBase } from "./cible.js";
+
+console.log(`Base visée (lecture seule) : ${cibleBase()}\n`);
+const { pool } = await import("../db.js");
 
 const client = await pool.connect();
 const sortie = [];

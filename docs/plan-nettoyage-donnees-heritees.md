@@ -63,3 +63,15 @@ Plan de purge (à ne lancer qu'après autorisation explicite, jamais depuis ce p
 7. Documenter la date, la portée et les personnes informées.
 
 Si le propriétaire estime le risque faible (dépôt privé, 2 personnes), l'alternative documentée est de **ne pas réécrire l'historique** et de conserver le retrait de l'index et les règles d'ignorance : décision à consigner.
+
+### Tableau de décision (C) et étapes (A, B)
+
+| Option | Quand | Effet | Risque / coût |
+| --- | --- | --- | --- |
+| C1. Ne rien réécrire, consigner l'acceptation | Dépôt strictement privé (à vérifier sur GitHub : visibilité non vérifiée ici), balances non sensibles ou déjà connues des seuls associés | Les fichiers restent dans l'historique, retirés de l'index | Toute personne ayant accès au dépôt ou à un clone les voit |
+| C2. Purger l'historique (`git filter-repo`) | Dépôt public ou partagé, ou balances réelles de tiers | Fichiers retirés de tout l'historique | Réécriture : tous les clones à refaire, caches de pull request et Actions à purger, empreintes des commits changées (les commits d'audit aussi) ; à faire après la mise en ligne, jamais pendant |
+| C3. Dépôt rendu privé / accès réduit | Dépôt public sans nécessité | Réduit l'exposition future, pas le passé (copies et caches possibles) | Complète C1 ou C2 |
+
+**A (staging).** (1) Déployer avec `MIGRATE_LEGACY_PASSWORDS=false`. (2) Valider 1 à 3 jours. (3) `migrate-passwords.js` en simulation puis `--apply --confirmer-cible=<cible affichée>` sur la base **visée explicitement**, après sauvegarde testée. (4) Forcer le changement par lots (`--forcer-changement`), administrateurs en dernier. (5) Récupération : un administrateur émet un lien de réinitialisation ; conserver un administrateur de secours hors du lot ; tester sur une base jetable avant.
+
+**B (colonnes de société).** Aucune lecture de valeurs : `audit-donnees.js` ne donne que des comptages. Étapes : mesurer, transférer vers un gestionnaire de mots de passe si ce sont de vrais accès, neutraliser (`update … set identifiant = null`) après sauvegarde testée, supprimer les colonnes dans une version ultérieure. Aucune suppression à ce stade.

@@ -149,7 +149,41 @@ dataRouter.get("/backup", requireAdmin, async (_req, res) => {
   });
 });
 
+/** Tables que la restauration efface sans que la sauvegarde JSON les contienne (elle ne couvre que sociétés, employés, dossiers,
+ * messages, conversations et tâches) : tout ce qui s'y trouve serait perdu. */
+const HORS_SAUVEGARDE = [
+  ["collectes", "collecte(s)"],
+  ["stock_mouvements", "mouvement(s) de stock"],
+  ["balances", "balance(s)"],
+  ["bordereaux", "bordereau(x)"],
+  ["immo_biens", "immobilisation(s)"],
+  ["factures", "facture(s)"],
+  ["honoraires_lignes", "ligne(s) d'honoraires"],
+  ["fournisseur_reglements", "règlement(s) fournisseur"],
+  ["comptes_bancaires", "compte(s) bancaire(s)"],
+  ["swift_virements", "virement(s) SWIFT"],
+  ["souche_cheques", "chèque(s) de souche"],
+  ["suivi_devise", "suivi(s) en devise"],
+];
+
 dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
+  // Remplace les données : même protection que la réinitialisation (désactivée en production sans ALLOW_DATA_RESET, confirmation
+  // exigée par le serveur) et refus si des données absentes de la sauvegarde seraient détruites en cascade.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DATA_RESET !== "true")
+    return res.status(403).json({ error: "La restauration est désactivée sur ce serveur (ALLOW_DATA_RESET)." });
+  if (req.body?.confirmation !== "RESTAURER")
+    return res.status(400).json({ error: "Confirmation requise pour restaurer une sauvegarde" });
+  if (req.body?.confirmationDefinitive !== "SUPPRIMER DEFINITIVEMENT") {
+    const comptes = (
+      await query(HORS_SAUVEGARDE.map(([t]) => `select '${t}' t, count(*)::int n from ${t}`).join(" union all "))
+    ).rows.filter((r) => r.n > 0);
+    if (comptes.length > 0) {
+      const detail = comptes.map((r) => `${r.n} ${HORS_SAUVEGARDE.find(([t]) => t === r.t)[1]}`).join(", ");
+      return res.status(409).json({
+        error: `Restauration refusée : elle détruirait des données absentes de la sauvegarde (${detail}). Cette sauvegarde ne contient que les sociétés, employés, dossiers, messages et tâches.`,
+      });
+    }
+  }
   const p = req.body ?? {};
   const societes = Array.isArray(p.societes) ? p.societes : [];
   const employes = Array.isArray(p.employes) ? p.employes : [];

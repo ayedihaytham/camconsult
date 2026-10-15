@@ -184,6 +184,34 @@ describe("accès réservé : extraction IA payante, réinitialisation, journal",
     expect(etat.query).not.toHaveBeenCalled();
   });
 
+  it("la restauration exige la confirmation et un administrateur, et ne touche à rien sans elle", async () => {
+    etat.query = vi.fn(async () => ({ rows: [] }));
+    expect((await appel("POST", "/data/restore", { societes: [] })).status).toBe(400);
+    expect((await appel("POST", "/data/restore", { societes: [], confirmation: "oui" })).status).toBe(400);
+    expect(etat.query).not.toHaveBeenCalled();
+    etat.session = clientSociete;
+    expect((await appel("POST", "/data/restore", { societes: [], confirmation: "RESTAURER" })).status).toBe(403);
+    expect(etat.query).not.toHaveBeenCalled();
+  });
+
+  it("la restauration est désactivée en production sans ALLOW_DATA_RESET", async () => {
+    etat.query = vi.fn(async () => ({ rows: [] }));
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ALLOW_DATA_RESET", "");
+    const r = await appel("POST", "/data/restore", { societes: [], confirmation: "RESTAURER" });
+    vi.unstubAllEnvs();
+    expect(r.status).toBe(403);
+    expect(etat.query).not.toHaveBeenCalled();
+  });
+
+  it("la restauration est refusée (409) si elle détruirait des factures ou d'autres données absentes de la sauvegarde", async () => {
+    etat.query = vi.fn(async (sql) => ({ rows: sql.includes("from factures") ? [{ t: "factures", n: 3 }, { t: "collectes", n: 1 }] : [] }));
+    const r = await appel("POST", "/data/restore", { societes: [], confirmation: "RESTAURER" });
+    expect(r.status).toBe(409);
+    expect((await r.json()).error).toMatch(/3 facture\(s\), 1 collecte\(s\)/);
+    expect(etat.query.mock.calls.some(([sql]) => String(sql).startsWith("truncate"))).toBe(false);
+  });
+
   it("le journal ne peut plus être vidé par l'API", async () => {
     etat.query = vi.fn(async () => ({ rows: [] }));
     expect((await appel("DELETE", "/journal")).status).toBe(404);

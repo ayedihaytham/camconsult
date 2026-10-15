@@ -443,11 +443,11 @@ export function ParametresPage() {
         onOpenChange={setImportOpen}
         destructive={false}
         title="Restaurer cette sauvegarde ?"
-        description="Les données actuelles seront remplacées par le contenu du fichier importé."
+        description="Les sociétés, employés, dossiers, messages et tâches actuels seront remplacés par le contenu du fichier. Cette sauvegarde ne contient ni collectes, ni stock, ni factures, ni banque : la restauration est refusée si de telles données existent. Les employés restaurés n'ont plus de mot de passe : ils reçoivent un lien d'accès."
         confirmLabel="Restaurer"
-        onConfirm={() => {
+        onConfirm={async () => {
           if (pendingImport.current) {
-            data.importAll(pendingImport.current);
+            await data.importAll(pendingImport.current);
             pendingImport.current = null;
             toast.success("Sauvegarde restaurée");
           }

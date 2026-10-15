@@ -2,8 +2,8 @@ import type { Dictionary } from './fr'
 
 const en: Dictionary = {
   meta: {
-    title: 'CAMCONSULT — Accounting & advisory in Tunis',
-    description: 'Cabinet Ayadi Mohamed in Tunis: accounting, tax, audit, payroll and business advisory in Tunisia. Contact CAMCONSULT to discuss your business needs.',
+    title: 'CAMCONSULT | Mohamed Ayadi — Accountant in Tunis',
+    description: 'Ayadi Mohamed accounting firm in Tunis: accounting, tax, audit and payroll. Mohamed Ayadi supports businesses in Tunisia with CAMCONSULT.',
   },
 
   nav: {
@@ -66,12 +66,12 @@ const en: Dictionary = {
   clientPortal: { label: 'Client area', tooltip: 'Access reserved for clients' },
 
   home: {
-    heroEyebrow: 'AYEDI Mohamed Firm',
+    heroEyebrow: 'Ayadi Mohamed Accounting Firm',
     heroTitle: 'Financial clarity in service of your ambitions.',
     heroTitlePre: 'Financial',
     heroTitleHighlight: 'clarity',
     heroTitlePost: 'in service of your ambitions.',
-    heroText: 'CAMCONSULT supports businesses and entrepreneurs with rigorous accounting expertise, practical advice, and a long-term vision.',
+    heroText: 'Mohamed Ayadi supports businesses and entrepreneurs through CAMCONSULT with rigorous accounting expertise, practical advice, and a long-term vision.',
     ctaPrimary: 'Book an appointment',
     ctaSecondary: 'Discover our services',
     sideQuote: 'A trusted partner at every stage of your growth.',

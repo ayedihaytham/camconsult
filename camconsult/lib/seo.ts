@@ -81,7 +81,7 @@ export function businessStructuredData() {
         '@type': 'AccountingService',
         '@id': `${SITE_URL}/#business`,
         name: 'Cabinet Ayadi Mohamed',
-        alternateName: 'CAMCONSULT',
+        alternateName: ['CAMCONSULT', 'Cabinet Mohamed Ayadi'],
         url: localizedUrl(DEFAULT_LOCALE),
         logo: `${SITE_URL}/brand/logo-cabinet-navy.png`,
         image: `${SITE_URL}/brand/logo-cabinet-navy.png`,
@@ -99,7 +99,8 @@ export function businessStructuredData() {
       },
       {
         '@type': 'WebSite', '@id': `${SITE_URL}/#website`,
-        url: SITE_URL, name: 'CAMCONSULT', alternateName: 'Cabinet Ayadi Mohamed',
+        url: SITE_URL, name: 'CAMCONSULT',
+        alternateName: ['Cabinet Ayadi Mohamed', 'Cabinet Mohamed Ayadi'],
         inLanguage: [...LOCALES], publisher: { '@id': `${SITE_URL}/#business` },
       },
     ],

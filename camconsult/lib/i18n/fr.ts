@@ -1,7 +1,7 @@
 const fr = {
   meta: {
-    title: 'CAMCONSULT — Expertise comptable & conseil à Tunis',
-    description: 'Cabinet Ayadi Mohamed à Tunis : expertise comptable, fiscalité, audit, paie et conseil aux entreprises en Tunisie. Contactez CAMCONSULT pour votre projet.',
+    title: 'CAMCONSULT | Mohamed Ayadi — Expert-comptable à Tunis',
+    description: 'Cabinet Ayadi Mohamed à Tunis : expertise comptable, fiscalité, audit et paie. Mohamed Ayadi accompagne les entreprises en Tunisie avec CAMCONSULT.',
   },
 
   nav: {
@@ -64,12 +64,12 @@ const fr = {
   clientPortal: { label: 'Espace client', tooltip: 'Accès réservé aux clients' },
 
   home: {
-    heroEyebrow: 'Cabinet AYEDI Mohamed',
+    heroEyebrow: 'Cabinet Ayadi Mohamed',
     heroTitle: 'La clarté financière au service de vos ambitions.',
     heroTitlePre: 'La',
     heroTitleHighlight: 'clarté',
     heroTitlePost: 'financière au service de vos ambitions.',
-    heroText: 'CAMCONSULT accompagne les entreprises et les entrepreneurs avec une expertise comptable exigeante, un conseil concret et une vision durable.',
+    heroText: 'Mohamed Ayadi accompagne les entreprises et les entrepreneurs avec CAMCONSULT : une expertise comptable exigeante, un conseil concret et une vision durable.',
     ctaPrimary: 'Prendre rendez-vous',
     ctaSecondary: 'Découvrir nos services',
     sideQuote: 'Un partenaire de confiance pour chaque étape de votre développement.',

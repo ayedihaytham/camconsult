@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { ArrowRight, Briefcase, Check, ChevronDown, Globe2, Menu, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -26,7 +26,6 @@ function withLocale(lang: Lang, href: string) {
 export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl }: CamconsultHeaderProps) {
   const dict = getDictionary(lang)
   const pathname = usePathname()
-  const router = useRouter()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [langMenuOpen, setLangMenuOpen] = useState(false)
@@ -63,10 +62,9 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
 
-  function switchLanguage(next: Lang) {
-    setLangMenuOpen(false)
+  function languageHref(next: Lang) {
     const rest = pathname.replace(/^\/(fr|ar|en)/, '') || '/'
-    router.push(`/${next}${rest === '/' ? '' : rest}`)
+    return `/${next}${rest === '/' ? '' : rest}`
   }
 
   const sepClass = cn('h-6 w-px shrink-0', !isNavy ? 'bg-navy/15' : 'bg-white/15')
@@ -123,16 +121,18 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
             {langMenuOpen && (
               <div className="absolute end-0 top-full z-50 mt-3 w-40 overflow-hidden rounded-2xl border border-navy/10 bg-white p-1.5 shadow-pop" role="menu">
                 {LOCALES.map((code) => (
-                  <button
+                  <a
                     key={code}
-                    type="button"
+                    href={languageHref(code)}
+                    hrefLang={code}
+                    lang={code}
                     role="menuitem"
-                    onClick={() => switchLanguage(code)}
+                    onClick={() => setLangMenuOpen(false)}
                     className={cn('flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors', code === lang ? 'bg-gold/15 text-navy' : 'text-navy/70 hover:bg-navy/5 hover:text-navy')}
                   >
                     {LANGUAGE_NAMES[code]}
                     {code === lang && <Check className="size-3.5 text-gold" aria-hidden="true" />}
-                  </button>
+                  </a>
                 ))}
               </div>
             )}
@@ -199,14 +199,16 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
           })}
           <div className="mt-3 flex flex-wrap gap-2 border-b border-navy/10 px-2 py-3">
             {LOCALES.map((code) => (
-              <button
+              <a
                 key={code}
-                type="button"
-                onClick={() => { switchLanguage(code); setIsOpen(false) }}
+                href={languageHref(code)}
+                hrefLang={code}
+                lang={code}
+                onClick={() => setIsOpen(false)}
                 className={cn('rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors', code === lang ? 'border-gold bg-gold text-navy' : !isNavy ? 'border-navy/15 text-navy/60' : 'border-white/20 text-white/70')}
               >
                 {LANGUAGE_SHORT[code]}
-              </button>
+              </a>
             ))}
           </div>
           <ClientPortalLink href={clientPortalUrl} lang={lang} />

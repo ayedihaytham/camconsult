@@ -3,6 +3,7 @@ import { Inter, Playfair_Display } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import { LOCALES, isLang, getDictionary } from '@/lib/i18n'
 import { BackToTop } from '@/components/back-to-top'
+import { SITE_INDEXABLE, SITE_URL, businessStructuredData } from '@/lib/seo'
 import '../globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -12,10 +13,16 @@ export function generateStaticParams() {
   return LOCALES.map((lang) => ({ lang }))
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
-  const { lang } = await params
-  const dict = getDictionary(isLang(lang) ? lang : 'fr')
-  return { title: dict.meta.title, description: dict.meta.description, generator: 'v0.app' }
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  applicationName: 'CAMCONSULT',
+  robots: { index: SITE_INDEXABLE, follow: true },
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.BING_SITE_VERIFICATION
+      ? { 'msvalidate.01': process.env.BING_SITE_VERIFICATION }
+      : undefined,
+  },
 }
 
 export const viewport: Viewport = { colorScheme: 'light', themeColor: '#0B2545' }
@@ -32,6 +39,10 @@ export default async function RootLayout({
   return (
     <html lang={lang} dir={dir}>
       <body className={`${inter.variable} ${playfair.variable} antialiased`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(businessStructuredData()).replace(/</g, '\\u003c') }}
+        />
         {children}
         <BackToTop label={dict.nav.backToTop} />
       </body>

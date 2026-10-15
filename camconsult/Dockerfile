@@ -16,6 +16,16 @@ COPY . .
 ARG NEXT_PUBLIC_CLIENT_PORTAL_URL=https://cabinet.camconsult.com.tn/login
 ENV NEXT_PUBLIC_CLIENT_PORTAL_URL=$NEXT_PUBLIC_CLIENT_PORTAL_URL
 
+# SEO : les pages, robots.txt et sitemap.xml sont générés au build.
+ARG SITE_URL=https://camconsult.com.tn
+ARG SITE_INDEXABLE=true
+ARG GOOGLE_SITE_VERIFICATION=
+ARG BING_SITE_VERIFICATION=
+ENV SITE_URL=$SITE_URL
+ENV SITE_INDEXABLE=$SITE_INDEXABLE
+ENV GOOGLE_SITE_VERIFICATION=$GOOGLE_SITE_VERIFICATION
+ENV BING_SITE_VERIFICATION=$BING_SITE_VERIFICATION
+
 RUN pnpm run build
 
 # ---------- Étape 3 : exécution (sortie "standalone" Next.js — image légère) ----------

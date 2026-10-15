@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "check:seo": "node scripts/check-seo.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

@@ -2,8 +2,8 @@ import type { Dictionary } from './fr'
 
 const en: Dictionary = {
   meta: {
-    title: 'CAMCONSULT — Accounting expertise & advisory',
-    description: 'CAMCONSULT supports business leaders with precision, strategy and trust.',
+    title: 'CAMCONSULT — Accounting & advisory in Tunis',
+    description: 'Cabinet Ayadi Mohamed in Tunis: accounting, tax, audit, payroll and business advisory in Tunisia. Contact CAMCONSULT to discuss your business needs.',
   },
 
   nav: {

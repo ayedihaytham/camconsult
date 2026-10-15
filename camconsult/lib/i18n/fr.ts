@@ -1,7 +1,7 @@
 const fr = {
   meta: {
-    title: 'CAMCONSULT — Expertise comptable & conseil',
-    description: 'CAMCONSULT accompagne les dirigeants avec précision, stratégie et confiance.',
+    title: 'CAMCONSULT — Expertise comptable & conseil à Tunis',
+    description: 'Cabinet Ayadi Mohamed à Tunis : expertise comptable, fiscalité, audit, paie et conseil aux entreprises en Tunisie. Contactez CAMCONSULT pour votre projet.',
   },
 
   nav: {

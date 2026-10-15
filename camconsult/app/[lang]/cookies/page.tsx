@@ -2,6 +2,11 @@ import { CamconsultHeader } from '@/components/camconsult-header'
 import { CamconsultFooter } from '@/components/camconsult-footer'
 import { LegalPages } from '@/components/legal-pages'
 import { isLang, type Lang } from '@/lib/i18n'
+import { getPageMetadata } from '@/lib/seo'
+
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }) {
+  return getPageMetadata((await params).lang, '/cookies')
+}
 
 export default async function CookiesRoute({ params }: { params: Promise<{ lang: string }> }) {
   const { lang: raw } = await params

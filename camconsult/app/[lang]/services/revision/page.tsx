@@ -2,6 +2,11 @@ import { CamconsultHeader } from '@/components/camconsult-header'
 import { CamconsultFooter } from '@/components/camconsult-footer'
 import { ServiceDetailTemplate } from '@/components/service-templates'
 import { isLang, type Lang } from '@/lib/i18n'
+import { getPageMetadata } from '@/lib/seo'
+
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }) {
+  return getPageMetadata((await params).lang, '/services/revision')
+}
 
 export default async function ServiceRevisionPage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang: raw } = await params

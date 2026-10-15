@@ -2,8 +2,8 @@ import type { Dictionary } from './fr'
 
 const ar: Dictionary = {
   meta: {
-    title: 'كامكونسلت — خبرة محاسبية واستشارة',
-    description: 'ترافق كامكونسلت القيادات بدقة واستراتيجية وثقة.',
+    title: 'كامكونسلت | محمد عيادي — خبير محاسب في تونس',
+    description: 'مكتب عيادي محمد (Ayadi Mohamed) بتونس: خبرة محاسبية وجباية وتدقيق وإدارة الأجور. محمد عيادي (Mohamed Ayadi) يرافق مؤسستكم مع كامكونسلت.',
   },
 
   nav: {
@@ -25,6 +25,8 @@ const ar: Dictionary = {
     openMenu: 'فتح القائمة',
     closeMenu: 'إغلاق القائمة',
     backToTop: 'العودة إلى الأعلى',
+    darkTheme: 'المظهر الداكن',
+    lightTheme: 'المظهر الفاتح',
   },
 
   footer: {
@@ -66,12 +68,12 @@ const ar: Dictionary = {
   clientPortal: { label: 'فضاء العملاء', tooltip: 'الوصول محجوز للعملاء' },
 
   home: {
-    heroEyebrow: 'مكتب عيادي محمد',
+    heroEyebrow: 'مكتب عيادي محمد — Ayadi Mohamed',
     heroTitle: 'الوضوح المالي في خدمة طموحاتكم.',
     heroTitlePre: '',
     heroTitleHighlight: 'الوضوح',
     heroTitlePost: 'المالي في خدمة طموحاتكم.',
-    heroText: 'ترافق كامكونسلت الشركات ورواد الأعمال بخبرة محاسبية دقيقة، واستشارة عملية، ورؤية مستدامة.',
+    heroText: 'يرافق محمد عيادي (Mohamed Ayadi) الشركات ورواد الأعمال عبر كامكونسلت بخبرة محاسبية دقيقة، واستشارة عملية، ورؤية مستدامة.',
     ctaPrimary: 'احجز موعداً',
     ctaSecondary: 'اكتشف خدماتنا',
     sideQuote: 'شريك موثوق في كل مرحلة من مراحل تطور نشاطكم.',

@@ -2,6 +2,11 @@ import { CamconsultHeader } from '@/components/camconsult-header'
 import { CamconsultFooter } from '@/components/camconsult-footer'
 import { BlogPage } from '@/components/content-pages'
 import { isLang, type Lang } from '@/lib/i18n'
+import { getPageMetadata } from '@/lib/seo'
+
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }) {
+  return getPageMetadata((await params).lang, '/blog')
+}
 
 export default async function BlogRoute({ params }: { params: Promise<{ lang: string }> }) {
   const { lang: raw } = await params

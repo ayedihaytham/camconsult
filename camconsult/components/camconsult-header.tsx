@@ -70,7 +70,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
   const sepClass = cn('h-6 w-px shrink-0', !isNavy ? 'bg-foreground/15' : 'bg-feature-foreground/15')
 
   return (
-    <header dir={isArabic ? 'rtl' : 'ltr'} className={cn('sticky top-0 z-50 w-full transition-all duration-300 backdrop-blur-md', isNavy ? cn('border-b border-feature-foreground/10 bg-feature/95', isScrolled && 'shadow-[0_12px_32px_rgba(0,0,0,0.25)]') : cn('border-b border-foreground/8 bg-card/90', isScrolled && 'shadow-[0_12px_32px_rgba(11,37,69,0.12)]'))}>
+    <header dir={isArabic ? 'rtl' : 'ltr'} className={cn('sticky top-0 z-50 w-full transition-all duration-300 backdrop-blur-md', isNavy ? cn('border-b border-feature-foreground/10 bg-feature/95', isScrolled && 'shadow-header') : cn('border-b border-foreground/8 bg-card/90', isScrolled && 'shadow-header'))}>
       <div className={cn('mx-auto flex max-w-[1760px] items-center gap-6 px-4 transition-all duration-300 sm:px-6 lg:px-8 xl:px-10', isScrolled ? 'min-h-[60px]' : 'min-h-[68px]')}>
 
         {/* Logo */}
@@ -104,7 +104,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
                 className={cn('group relative shrink-0 whitespace-nowrap px-2.5 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors duration-200', !isNavy ? 'text-muted-foreground hover:text-foreground' : 'text-feature-muted hover:text-feature-foreground', isActive && cn('font-bold', !isNavy ? 'text-foreground' : 'text-feature-foreground'))}
               >
                 {item.label}
-                <span className={cn('absolute -bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-gold transition-opacity duration-200', isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-60')} aria-hidden="true" />
+                <span className={cn('absolute -bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-accent transition-opacity duration-200', isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-60')} aria-hidden="true" />
               </a>
             )
           })}
@@ -121,7 +121,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
               aria-label={dict.nav.chooseLanguage}
               aria-expanded={langMenuOpen}
             >
-              <Globe2 className="size-3.5 text-gold-ink" aria-hidden="true" />
+              <Globe2 className="size-3.5 text-accent-ink" aria-hidden="true" />
               {LANGUAGE_SHORT[lang]}
               <ChevronDown className={cn('size-3 transition-transform', langMenuOpen && 'rotate-180')} aria-hidden="true" />
             </button>
@@ -135,10 +135,10 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
                     lang={code}
                     role="menuitem"
                     onClick={() => setLangMenuOpen(false)}
-                    className={cn('flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors', code === lang ? 'bg-gold/15 text-foreground' : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground')}
+                    className={cn('flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors', code === lang ? 'bg-accent/15 text-foreground' : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground')}
                   >
                     {LANGUAGE_NAMES[code]}
-                    {code === lang && <Check className="size-3.5 text-gold-ink" aria-hidden="true" />}
+                    {code === lang && <Check className="size-3.5 text-accent-ink" aria-hidden="true" />}
                   </a>
                 ))}
               </div>
@@ -154,14 +154,14 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
             title={dict.nav.jobApplicationTooltip}
             className={cn('inline-flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors', !isNavy ? 'text-muted-foreground hover:text-foreground' : 'text-feature-muted hover:text-feature-foreground')}
           >
-            <Briefcase className="size-3.5 text-gold-ink" aria-hidden="true" />
+            <Briefcase className="size-3.5 text-accent-ink" aria-hidden="true" />
             {dict.nav.jobApplication}
           </a>
 
           {/* CTA Button */}
           <a
             href={withLocale(lang, '/contact')}
-            className="group inline-flex shrink-0 items-center gap-2 rounded-sm bg-gold px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-ink transition-opacity hover:opacity-90"
+            className="group inline-flex shrink-0 items-center gap-2 rounded-sm bg-accent px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-accent-foreground transition-opacity hover:opacity-90"
           >
             {dict.nav.bookAppointment}
             <ArrowRight className={cn('size-3.5 transition-transform duration-300 group-hover:translate-x-0.5', isArabic && 'rotate-180')} aria-hidden="true" />
@@ -172,7 +172,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={cn('ml-auto grid size-10 shrink-0 place-items-center rounded-lg border transition-all duration-300 xl:hidden', !isNavy ? 'border-foreground/15 text-foreground hover:bg-foreground/5' : 'border-feature-foreground/20 text-feature-foreground hover:bg-feature-foreground/10')}
+          className={cn('ml-auto grid size-10 shrink-0 place-items-center rounded-lg border transition-all duration-300 xl:hidden', !isNavy ? 'border-input text-foreground hover:bg-foreground/5' : 'border-feature-input text-feature-foreground hover:bg-feature-foreground/10')}
           aria-expanded={isOpen}
           aria-controls="mobile-navigation"
           aria-label={isOpen ? dict.nav.closeMenu : dict.nav.openMenu}
@@ -198,7 +198,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
                   setActiveHref(href)
                   setIsOpen(false)
                 }}
-                className={cn('border-b px-2 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-200', !isNavy ? 'border-foreground/10 text-foreground hover:bg-foreground/5' : 'border-feature-foreground/10 text-feature-foreground hover:bg-feature-foreground/10', isActive && 'text-gold-ink')}
+                className={cn('border-b px-2 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-200', !isNavy ? 'border-foreground/10 text-foreground hover:bg-foreground/5' : 'border-feature-foreground/10 text-feature-foreground hover:bg-feature-foreground/10', isActive && 'text-accent-ink')}
               >
                 {item.label}
               </a>
@@ -212,7 +212,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
                 hrefLang={code}
                 lang={code}
                 onClick={() => setIsOpen(false)}
-                className={cn('rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors', code === lang ? 'border-gold bg-gold text-ink' : !isNavy ? 'border-foreground/15 text-muted-foreground' : 'border-feature-foreground/20 text-feature-muted')}
+                className={cn('rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors', code === lang ? 'border-accent bg-accent text-accent-foreground' : !isNavy ? 'border-foreground/15 text-muted-foreground' : 'border-feature-foreground/20 text-feature-muted')}
               >
                 {LANGUAGE_SHORT[code]}
               </a>
@@ -222,7 +222,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
           <a
             href={withLocale(lang, '/candidature')}
             onClick={() => setIsOpen(false)}
-            className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg border border-gold bg-transparent px-4 py-3 text-xs font-bold uppercase tracking-widest text-gold-ink transition-colors hover:bg-gold hover:text-ink"
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg border border-accent bg-transparent px-4 py-3 text-xs font-bold uppercase tracking-widest text-accent-ink transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <Briefcase className="size-4" aria-hidden="true" />
             {dict.nav.jobApplication}
@@ -230,7 +230,7 @@ export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl 
           <a
             href={withLocale(lang, '/contact')}
             onClick={() => setIsOpen(false)}
-            className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-gold px-4 py-3 text-xs font-bold uppercase tracking-widest text-ink"
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-xs font-bold uppercase tracking-widest text-accent-foreground"
           >
             {dict.nav.bookAppointment}
             <ArrowRight className={cn('size-4', isArabic && 'rotate-180')} aria-hidden="true" />

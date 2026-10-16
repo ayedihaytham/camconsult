@@ -8,11 +8,11 @@ import { getDictionary, type Lang } from '@/lib/i18n'
 type Dict = ReturnType<typeof getDictionary>
 const RATES = [19, 13, 7]
 
-function Cell({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
+function Cell({ label, value, highlighted }: { label: string; value: string; highlighted?: boolean }) {
   return (
     <div className="px-4 py-3 first:ps-0">
       <p className="text-[0.6rem] font-semibold uppercase tracking-wider text-feature-muted">{label}</p>
-      <p className={cn('mt-1.5 font-serif text-xl tabular-nums sm:text-2xl', gold ? 'text-gold-ink' : 'text-feature-foreground')}>{value}</p>
+      <p className={cn('mt-1.5 font-serif text-xl tabular-nums sm:text-2xl', highlighted ? 'text-accent-ink' : 'text-feature-foreground')}>{value}</p>
     </div>
   )
 }
@@ -21,7 +21,7 @@ function AmountInput({ label, value, onChange, unit }: { label: string; value: s
   return (
     <label className="mt-5 block">
       <span className="text-[0.65rem] font-semibold text-feature-muted">{label}</span>
-      <span className="mt-1.5 flex items-center rounded bg-feature-foreground/[0.07] px-4">
+      <span className="mt-1.5 flex items-center rounded bg-feature-foreground/[0.07] px-4 shadow-field">
         <input
           inputMode="decimal"
           value={value}
@@ -81,13 +81,13 @@ export function HomeToolsSection({ lang, dict }: { lang: Lang; dict: Dict }) {
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
           <div>
-            <p className="eyebrow flex items-center gap-2"><span className="h-px w-8 bg-gold/60" />{home.toolsEyebrow}</p>
-            <h2 className="mt-3 max-w-xl font-serif text-4xl leading-[1.1] text-foreground sm:text-5xl">{lead} <em className="text-gold-ink">{lastWord}</em></h2>
+            <p className="eyebrow flex items-center gap-2"><span className="h-px w-8 bg-accent/60" />{home.toolsEyebrow}</p>
+            <h2 className="mt-3 max-w-xl font-serif text-4xl leading-[1.1] text-foreground sm:text-5xl">{lead} <em className="text-accent-ink">{lastWord}</em></h2>
           </div>
-          <p className="max-w-xs border-s border-gold/60 ps-4 text-sm leading-6 text-muted-foreground">{home.toolsText}</p>
+          <p className="max-w-xs border-s border-accent/60 ps-4 text-sm leading-6 text-muted-foreground">{home.toolsText}</p>
         </div>
 
-        <div className="mt-8 grid overflow-hidden rounded bg-card shadow-[0_18px_60px_rgba(11,37,69,0.12)] lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="mt-8 grid overflow-hidden rounded bg-card shadow-panel lg:grid-cols-[0.8fr_1.2fr]">
           <ul className="divide-y divide-border">
             {home.tools.map(([name, text], i) => (
               <li key={name}>
@@ -95,9 +95,9 @@ export function HomeToolsSection({ lang, dict }: { lang: Lang; dict: Dict }) {
                   type="button"
                   onClick={() => setActive(i)}
                   aria-pressed={active === i}
-                  className={cn('flex w-full items-center gap-4 border-s-[3px] px-5 py-5 text-start transition-colors', active === i ? 'border-s-gold bg-gold-soft' : 'border-s-transparent hover:bg-secondary/40')}
+                  className={cn('flex w-full items-center gap-4 border-s-[3px] px-5 py-5 text-start transition-colors', active === i ? 'border-s-accent bg-accent-soft' : 'border-s-transparent hover:bg-secondary/40')}
                 >
-                  <span className={cn('grid size-9 shrink-0 place-items-center rounded-full font-serif text-xs', active === i ? 'bg-feature text-gold-ink' : 'bg-muted text-muted-foreground')}>{String(i + 1).padStart(2, '0')}</span>
+                  <span className={cn('grid size-9 shrink-0 place-items-center rounded-full font-serif text-xs', active === i ? 'bg-feature text-accent-ink' : 'bg-muted text-muted-foreground')}>{String(i + 1).padStart(2, '0')}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block font-serif text-lg text-foreground">{name}</span>
                     <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{text}</span>
@@ -111,14 +111,14 @@ export function HomeToolsSection({ lang, dict }: { lang: Lang; dict: Dict }) {
           <div className="bg-feature p-6 text-feature-foreground sm:p-8">
             <div className="flex items-start justify-between gap-4">
               <h3 className="font-serif text-2xl sm:text-3xl">{home.tools[active][0]}</h3>
-              <span className="rounded-sm bg-gold px-2 py-1 text-[0.55rem] font-bold uppercase tracking-widest text-ink">{ui.live}</span>
+              <span className="rounded-sm bg-accent px-2 py-1 text-[0.55rem] font-bold uppercase tracking-widest text-accent-foreground">{ui.live}</span>
             </div>
 
             {active === 0 && (
               <>
                 <div className="mt-5 grid grid-cols-2 overflow-hidden rounded bg-feature-foreground/[0.07] text-xs font-bold">
                   {(['ht', 'ttc'] as const).map((m) => (
-                    <button key={m} type="button" onClick={() => setMode(m)} aria-pressed={mode === m} className={cn('py-3 transition-colors', mode === m ? 'bg-gold text-ink' : 'text-feature-muted hover:text-feature-foreground')}>
+                    <button key={m} type="button" onClick={() => setMode(m)} aria-pressed={mode === m} className={cn('py-3 transition-colors', mode === m ? 'bg-accent text-accent-foreground' : 'text-feature-muted hover:text-feature-foreground')}>
                       {m === 'ht' ? ui.htToTtc : ui.ttcToHt}
                     </button>
                   ))}
@@ -130,7 +130,7 @@ export function HomeToolsSection({ lang, dict }: { lang: Lang; dict: Dict }) {
                 </div>
                 <div className={resultsRow}>
                   <Cell label={ui.resHt} value={fmt(ht)} />
-                  <Cell label={ui.resVat.replace('{rate}', String(rate))} value={fmt(vat)} gold />
+                  <Cell label={ui.resVat.replace('{rate}', String(rate))} value={fmt(vat)} highlighted />
                   <Cell label={ui.resTtc} value={fmt(ttc)} />
                 </div>
               </>
@@ -141,7 +141,7 @@ export function HomeToolsSection({ lang, dict }: { lang: Lang; dict: Dict }) {
                 <AmountInput label={t.is.incomeLabel} value={income} onChange={setIncome} unit={unit} />
                 <div className={resultsRow}>
                   <Cell label={ui.taxable} value={fmt(incomeValue)} />
-                  <Cell label={t.is.resultTax} value={fmt(incomeTax)} gold />
+                  <Cell label={t.is.resultTax} value={fmt(incomeTax)} highlighted />
                   <Cell label={t.is.resultRate} value={`${incomeValue ? (incomeTax / incomeValue * 100).toFixed(1) : '0.0'} %`} />
                 </div>
               </>
@@ -152,7 +152,7 @@ export function HomeToolsSection({ lang, dict }: { lang: Lang; dict: Dict }) {
                 <AmountInput label={t.cnss.salaryLabel} value={salary} onChange={setSalary} unit={unit} />
                 <div className={resultsRow}>
                   <Cell label={t.cnss.resultEmployee} value={fmt(gross * 0.09)} />
-                  <Cell label={t.cnss.resultEmployer} value={fmt(gross * 0.16)} gold />
+                  <Cell label={t.cnss.resultEmployer} value={fmt(gross * 0.16)} highlighted />
                   <Cell label={t.cnss.resultCost} value={fmt(gross * 1.16)} />
                 </div>
               </>
@@ -176,7 +176,7 @@ export function HomeToolsSection({ lang, dict }: { lang: Lang; dict: Dict }) {
             )}
 
             <div className="mt-6">
-              <a href={`/${lang}/contact`} className="inline-flex items-center gap-2 rounded-sm bg-gold px-5 py-3 text-xs font-bold uppercase tracking-wider text-ink hover:opacity-90">
+              <a href={`/${lang}/contact`} className="inline-flex items-center gap-2 rounded-sm bg-accent px-5 py-3 text-xs font-bold uppercase tracking-wider text-accent-foreground hover:opacity-90">
                 {ui.doubt} <ArrowRight className={cn('size-4', isArabic && 'rtl-mirror')} aria-hidden="true" />
               </a>
             </div>

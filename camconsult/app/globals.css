@@ -5,64 +5,171 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring); --color-navy: var(--ink); --color-ink: var(--ink); --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); --color-gold-soft: var(--gold-soft); --color-feature: var(--feature); --color-feature-raised: var(--feature-raised); --color-feature-foreground: var(--feature-foreground); --color-feature-muted: var(--feature-muted); --color-scrim: var(--ink); --color-slate: var(--slate); --color-warning: var(--warning); --color-destructive: var(--destructive); --color-success: var(--success); --font-serif: var(--font-playfair); --font-sans: var(--font-inter); --radius-sm: 0.25rem; --radius-md: 0.375rem; --radius-lg: 0.5rem;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-hover: var(--accent-hover);
+  --color-border: var(--border);
+  --color-divider: var(--divider);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-feature: var(--feature);
+  --color-feature-raised: var(--feature-raised);
+  --color-feature-foreground: var(--feature-foreground);
+  --color-feature-muted: var(--feature-muted);
+  --color-feature-input: var(--feature-input);
+  --color-ink: var(--ink);
+  --color-slate: var(--slate);
+  --color-scrim: var(--scrim);
+  --color-shadow: var(--shadow);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-info: var(--info);
+  --color-disabled: var(--disabled);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-track: var(--chart-track);
+  --color-navy: var(--brand-navy);
+  --font-serif: var(--font-playfair);
+  --font-sans: var(--font-inter);
+  --radius-sm: 0.25rem; --radius-md: 0.375rem; --radius-lg: 0.5rem;
+  --shadow-sm: 0 1px 3px var(--shadow-color);
+  --shadow-lg: 0 10px 15px -3px var(--shadow-color), 0 4px 6px -4px var(--shadow-color);
+  --shadow-xl: 0 20px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
+  --shadow-2xl: 0 25px 50px -12px var(--shadow-color);
+  --shadow-panel: 0 18px 60px var(--shadow-color);
+  --shadow-header: 0 12px 32px var(--shadow-color);
+  --shadow-hover: 0 14px 40px var(--shadow-color);
+  --shadow-pop: 0 8px 30px -6px var(--shadow-color);
+  --shadow-field: inset 0 0 0 1px var(--feature-input);
 }
 
-/* Warm stone, slate ink and restrained champagne retain the cabinet's identity.
-   Each theme has composed surfaces; the accent fill and readable accent ink
-   remain separate so buttons and fine text both keep sufficient contrast. */
+/* Extracted from opaque logo pixels. Navy is the brand; ivory is its warm
+   supporting neutral. Blue tints are UI derivatives, not extra brand colors. */
 :root {
   color-scheme: light;
-  --ink: #213747;
-  --gold: #BDA478;
-  --background: #F0EEE9;
-  --foreground: #2D3E4A;
-  --card: #F6F4EF;
+  --brand-navy: #0B2545;
+  --brand-ivory: #FEF4E8;
+  --brand-white: #FFFFFF;
+  --ink: var(--brand-navy);
+  --background: #F4F3EF;
+  --foreground: #20374D;
+  --card: #FCFBF8;
   --card-foreground: var(--foreground);
-  --popover: var(--card);
+  --surface: var(--card);
+  --elevated: #FFFFFF;
+  --popover: var(--elevated);
   --popover-foreground: var(--foreground);
-  --primary: var(--gold);
-  --primary-foreground: var(--ink);
-  --secondary: #E3E5E3;
+  --primary: var(--brand-navy);
+  --primary-foreground: #F8F5EF;
+  --primary-hover: #254564;
+  --secondary: #E3E8EB;
   --secondary-foreground: var(--foreground);
-  --muted: #E9E7E1;
-  --muted-foreground: #53616A;
-  --accent: var(--gold);
-  --accent-foreground: var(--ink);
-  --border: #C9CECC;
-  --input: #7E898F;
-  --ring: var(--gold-ink);
-  --gold-ink: #6F5936;
-  --gold-soft: #E9E1D2;
-  --feature: #E3E7E7;
-  --feature-raised: #ECEEEC;
+  --muted: #ECEDE9;
+  --muted-foreground: #4B6070;
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --accent-hover: var(--primary-hover);
+  --accent-ink: #285378;
+  --accent-soft: #E2EAF0;
+  --border: #CBD3D8;
+  --divider: var(--border);
+  --input: #748695;
+  --ring: #35658D;
+  --feature: #E8EDF0;
+  --feature-raised: #F2F4F4;
   --feature-foreground: var(--foreground);
-  --feature-muted: #42525D;
-  --feature-grid: color-mix(in srgb, var(--feature-foreground) 50%, transparent);
-  --slate: #96A2A6;
-  --warning: #9C4D30;
-  --destructive: #A73F32;
-  --success: #18734F;
+  --feature-muted: #3C5265;
+  --feature-input: #607485;
+  --feature-grid: color-mix(in srgb, var(--feature-foreground) 40%, transparent);
+  --fold-gradient: linear-gradient(225deg, transparent 50%, color-mix(in srgb, var(--feature-foreground) 28%, transparent) 50%);
+  --hero-grid: linear-gradient(var(--feature-grid) 1px, transparent 1px), linear-gradient(90deg, var(--feature-grid) 1px, transparent 1px);
+  --slate: #A5B5C3;
+  --scrim: #08182A;
+  --shadow: var(--brand-navy);
+  --shadow-color: color-mix(in srgb, var(--shadow) 10%, transparent);
+  --success: #246549;
+  --success-foreground: #F5F8F5;
+  --warning: #8B4E25;
+  --destructive: #A03F3A;
+  --info: #285378;
+  --disabled: #DFE4E7;
+  --disabled-foreground: #536675;
+  --chart-1: #285378;
+  --chart-2: #526C84;
+  --chart-3: #8B4E25;
+  --chart-4: #246549;
+  --chart-track: #E6EBEF;
 }
 
-:root.dark {
+/* The footer provides a restrained navy anchor in light mode as well. */
+:root.dark, .brand-footer {
   color-scheme: dark;
-  --background: #252F37;
-  --foreground: #E4E3DE;
-  --card: #2D3840;
-  --secondary: #354149;
-  --muted: #2A343C;
-  --muted-foreground: #BFC7CA;
-  --border: #4A575F;
-  --input: #919A9C;
-  --gold-ink: #D2BE99;
-  --gold-soft: #3B3D39;
-  --feature: #303D46;
-  --feature-raised: #37434B;
-  --feature-muted: #D4D8D8;
-  --warning: #DFB19C;
-  --destructive: #DFAFA6;
-  --success: #A2C7B7;
+  --card-foreground: var(--foreground);
+  --surface: var(--card);
+  --popover: var(--elevated);
+  --popover-foreground: var(--foreground);
+  --secondary-foreground: var(--foreground);
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --accent-hover: var(--primary-hover);
+  --divider: var(--border);
+  --feature-foreground: var(--foreground);
+  --background: #101C2A;
+  --foreground: #E6EBEF;
+  --card: #192B3D;
+  --elevated: #22384E;
+  --primary: #AAC5DF;
+  --primary-foreground: var(--brand-navy);
+  --primary-hover: #C3D6E7;
+  --secondary: #263D52;
+  --muted: #162638;
+  --muted-foreground: #B6C5D1;
+  --accent-ink: #BAD0E3;
+  --accent-soft: #263B50;
+  --border: #3B5268;
+  --input: #7D95AA;
+  --ring: #A9CCE8;
+  --feature: #20354D;
+  --feature-raised: #294159;
+  --feature-muted: #D1DEE8;
+  --feature-input: #91A9BE;
+  --slate: #A5B5C3;
+  --shadow: #050E1A;
+  --shadow-color: color-mix(in srgb, var(--shadow) 28%, transparent);
+  --success: #9BCDB1;
+  --success-foreground: #102A1D;
+  --warning: #E1BD92;
+  --destructive: #E8A8A1;
+  --info: #AACBE6;
+  --disabled: #304356;
+  --disabled-foreground: #B4C3D0;
+  --chart-1: #AAC5DF;
+  --chart-2: #8FAABF;
+  --chart-3: #E1BD92;
+  --chart-4: #9BCDB1;
+  --chart-track: #30475C;
 }
 
 * { box-sizing: border-box; }
@@ -77,17 +184,17 @@ body { margin: 0; background: var(--background); color: var(--foreground); font-
    text-white` d'un formulaire sur fond marine de l'emporter sur le fond/texte
    par défaut de `.field-input` — d'où des placeholders illisibles. */
 @layer components {
-  .eyebrow { color: var(--gold-ink); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; }
+  .eyebrow { color: var(--accent-ink); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; }
   .badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.35rem 0.7rem; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-  .badge-gold { background: var(--gold); color: var(--ink); }
+  .badge-accent { background: var(--accent); color: var(--accent-foreground); }
   .field-label { display: flex; flex-direction: column; gap: 0.5rem; color: var(--muted-foreground); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; }
   .field-input { width: 100%; border: 1px solid var(--input); border-radius: 0.25rem; background: var(--background); padding: 0.7rem 0.8rem; color: var(--foreground); font: inherit; font-size: 0.85rem; outline: none; transition: border-color 200ms, box-shadow 200ms, background-color 200ms, color 200ms; }
   .field-input::placeholder { color: var(--muted-foreground); opacity: 1; }
   .field-input:focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 18%, transparent); }
-  .swatch { aspect-ratio: 1.8; border-radius: 0.2rem; border: 1px solid rgb(255 255 255 / 15%); }
-  .footer-heading { color: var(--gold-ink); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+  .swatch { aspect-ratio: 1.8; border-radius: 0.2rem; border: 1px solid var(--border); }
+  .footer-heading { color: var(--accent-ink); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
   .footer-link { color: var(--feature-muted); font-size: 0.82rem; line-height: 1.35; transition: color 200ms ease; }
-  .footer-link:hover { color: var(--gold-ink); }
+  .footer-link:hover { color: var(--accent-ink); }
   .footer-contact { display: inline-flex; align-items: center; gap: 0.65rem; transition: color 200ms ease; }
   .footer-contact:hover { color: var(--feature-foreground); }
   .client-portal-link:hover .client-portal-lock { transform: rotate(-12deg) translateY(-1px); }
@@ -106,6 +213,32 @@ body { margin: 0; background: var(--background); color: var(--foreground); font-
 
 @layer base { * { @apply border-border outline-ring/50; } }
 
-::selection { background: var(--gold); color: var(--ink); }
-input, textarea { caret-color: var(--gold-ink); }
+::selection { background: var(--accent); color: var(--accent-foreground); }
+input, textarea { caret-color: var(--accent-ink); }
 select option { background: var(--card); color: var(--foreground); }
+
+/* Visible keyboard focus also covers bespoke links, calculators and forms. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+label:has(> input.sr-only:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+:where(input, select, textarea)[aria-invalid='true'] { border-color: var(--destructive); }
+:where(button, input, select, textarea):disabled {
+  background-color: var(--disabled);
+  color: var(--disabled-foreground);
+  border-color: var(--input);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

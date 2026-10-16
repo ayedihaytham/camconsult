@@ -13,7 +13,7 @@ function ChatVisual({ ui }: { ui: Home['methodUi'] }) {
   const [msg, reply, title, sub] = ui.chat
   return (
     <div className="flex w-full max-w-sm flex-col gap-3 text-xs text-foreground">
-      <p className="ms-auto max-w-[85%] rounded-xl bg-gold px-4 py-3 leading-5 text-ink shadow-sm">{msg}</p>
+      <p className="ms-auto max-w-[85%] rounded-xl bg-accent px-4 py-3 leading-5 text-accent-foreground shadow-sm">{msg}</p>
       <p className="max-w-[80%] rounded-xl bg-card px-4 py-3 leading-5 shadow-sm">{reply}</p>
       <div className="flex items-center gap-3 rounded-xl bg-card p-3 shadow-sm">
         <span className="grid w-11 shrink-0 overflow-hidden rounded border border-foreground/20 text-center">
@@ -30,10 +30,10 @@ function ChatVisual({ ui }: { ui: Home['methodUi'] }) {
 }
 
 const PRIORITY_STYLES = [
-  { width: '90%', bar: 'bg-warning', text: 'text-warning' },
-  { width: '70%', bar: 'bg-gold', text: 'text-gold-ink' },
-  { width: '45%', bar: 'bg-feature', text: 'text-foreground' },
-  { width: '35%', bar: 'bg-emerald-700', text: 'text-success' },
+  { width: '90%', bar: 'bg-chart-3', text: 'text-warning' },
+  { width: '70%', bar: 'bg-chart-1', text: 'text-accent-ink' },
+  { width: '45%', bar: 'bg-chart-2', text: 'text-foreground' },
+  { width: '35%', bar: 'bg-chart-4', text: 'text-success' },
 ]
 
 function PrioritiesVisual({ ui }: { ui: Home['methodUi'] }) {
@@ -51,7 +51,7 @@ function PrioritiesVisual({ ui }: { ui: Home['methodUi'] }) {
               <span>{row}</span>
               <span className={cn('font-semibold', PRIORITY_STYLES[i].text)}>{levels[i]}</span>
             </div>
-            <div className="mt-1 h-1.5 w-full rounded-full bg-border">
+            <div className="mt-1 h-1.5 w-full rounded-full bg-chart-track">
               <div className={cn('h-full rounded-full', PRIORITY_STYLES[i].bar)} style={{ width: PRIORITY_STYLES[i].width }} />
             </div>
           </div>
@@ -65,9 +65,9 @@ function LetterVisual({ ui }: { ui: Home['methodUi'] }) {
   const { brand, title, fields, signed, stamp } = ui.letter
   return (
     <div className="relative w-full max-w-sm">
-      <div className="absolute inset-0 translate-x-2.5 translate-y-2.5 rounded-md bg-gold" aria-hidden="true" />
+      <div className="absolute inset-0 translate-x-2.5 translate-y-2.5 rounded-md bg-accent" aria-hidden="true" />
       <div className="relative rounded-md bg-card p-6 text-foreground shadow-lg">
-        <p className="text-[0.6rem] font-bold tracking-[0.2em] text-gold-ink">{brand}</p>
+        <p className="text-[0.6rem] font-bold tracking-[0.2em] text-accent-ink">{brand}</p>
         <p className="mt-2 font-serif text-xl">{title}</p>
         <div className="mt-4 space-y-2" aria-hidden="true">
           <div className="h-1 w-full rounded bg-border" />
@@ -81,7 +81,7 @@ function LetterVisual({ ui }: { ui: Home['methodUi'] }) {
         </div>
         <div className="mt-5 flex items-end justify-between">
           <p className="border-b border-foreground/40 pb-0.5 font-serif text-sm italic">{signed}</p>
-          <span className="grid size-12 -rotate-12 place-items-center rounded-full border border-gold-ink text-[0.5rem] font-bold uppercase tracking-wider text-gold-ink">{stamp}</span>
+          <span className="grid size-12 -rotate-12 place-items-center rounded-full border border-accent-ink text-[0.5rem] font-bold uppercase tracking-wider text-accent-ink">{stamp}</span>
         </div>
       </div>
     </div>
@@ -96,11 +96,11 @@ function MonthlyVisual({ ui }: { ui: Home['methodUi'] }) {
     <div className="w-full max-w-sm rounded-xl bg-card p-5 text-foreground shadow-lg">
       <div className="flex items-baseline justify-between">
         <p className="font-serif text-lg">{title}</p>
-        <p className="text-[0.65rem] text-gold-ink underline underline-offset-2">{example}</p>
+        <p className="text-[0.65rem] text-accent-ink underline underline-offset-2">{example}</p>
       </div>
       <div className="mt-4 flex h-28 items-end gap-2 border-b border-border pb-0">
         {BAR_HEIGHTS.map((h, i) => (
-          <span key={i} className={cn('flex-1 rounded-t', i === BAR_HEIGHTS.length - 1 ? 'bg-gold' : 'bg-border')} style={{ height: `${h}%` }} />
+          <span key={i} className={cn('flex-1 rounded-t', i === BAR_HEIGHTS.length - 1 ? 'bg-chart-1' : 'bg-chart-2')} style={{ height: `${h}%` }} />
         ))}
       </div>
       <div className="mt-1.5 flex gap-2 text-center text-[0.6rem] text-muted-foreground">
@@ -109,7 +109,7 @@ function MonthlyVisual({ ui }: { ui: Home['methodUi'] }) {
       <ul className="mt-4 space-y-2 text-xs">
         {checks.map((c) => (
           <li key={c} className="flex items-center gap-2">
-            <span className="grid size-4 place-items-center rounded-full bg-emerald-700 text-feature-foreground"><Check className="size-2.5" aria-hidden="true" /></span>
+            <span className="grid size-4 place-items-center rounded-full bg-success text-success-foreground"><Check className="size-2.5" aria-hidden="true" /></span>
             {c}
           </li>
         ))}
@@ -147,8 +147,8 @@ export function MethodSection({ lang, home }: { lang: Lang; home: Home }) {
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
           <div>
-            <p className="eyebrow flex items-center gap-2"><span className="h-px w-8 bg-gold/60" />{home.methodEyebrow}</p>
-            <h2 className="mt-3 max-w-xl font-serif text-4xl leading-[1.1] text-foreground sm:text-5xl">{lead} <em className="text-gold-ink">{lastWord}</em></h2>
+            <p className="eyebrow flex items-center gap-2"><span className="h-px w-8 bg-accent/60" />{home.methodEyebrow}</p>
+            <h2 className="mt-3 max-w-xl font-serif text-4xl leading-[1.1] text-foreground sm:text-5xl">{lead} <em className="text-accent-ink">{lastWord}</em></h2>
           </div>
           <p className="max-w-xs border-s border-foreground/25 ps-4 text-sm leading-6 text-muted-foreground">{home.methodText}</p>
         </div>
@@ -163,7 +163,7 @@ export function MethodSection({ lang, home }: { lang: Lang; home: Home }) {
                 className="group block w-full text-start"
               >
                 <span className="flex items-center gap-3">
-                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-full border font-serif text-sm transition-colors', index === active ? 'border-foreground bg-feature text-gold-ink' : 'border-gold/60 bg-card text-muted-foreground group-hover:border-foreground')}>{n}</span>
+                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-full border font-serif text-sm transition-colors', index === active ? 'border-foreground bg-feature text-accent-ink' : 'border-accent/60 bg-card text-muted-foreground group-hover:border-foreground')}>{n}</span>
                   <span className="hidden h-px flex-1 bg-foreground/15 lg:block" aria-hidden="true" />
                 </span>
                 <span className={cn('mt-3 block font-serif text-xl transition-colors', index === active ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground')}>{title}</span>
@@ -177,7 +177,7 @@ export function MethodSection({ lang, home }: { lang: Lang; home: Home }) {
           <div className="relative p-7 sm:p-10">
             <span className="pointer-events-none absolute end-6 top-2 select-none font-serif text-[8rem] leading-none text-feature-foreground/[0.06]" aria-hidden="true">{number}</span>
             <div key={active} className="relative animate-fade-up">
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-gold-ink">{ui.stepOf.replace('{n}', number).replace('{total}', String(total).padStart(2, '0'))}</p>
+              <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-accent-ink">{ui.stepOf.replace('{n}', number).replace('{total}', String(total).padStart(2, '0'))}</p>
               <h3 className="mt-4 font-serif text-3xl sm:text-4xl">{stepTitle}</h3>
               <p className="mt-3 max-w-xs text-sm leading-6 text-feature-muted">{stepText}</p>
               <div className="mt-5 border-t border-feature-foreground/15 pt-4">
@@ -187,10 +187,10 @@ export function MethodSection({ lang, home }: { lang: Lang; home: Home }) {
             </div>
             <div className="relative mt-6 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => go(active - 1)} aria-label={ui.prev} className="grid size-10 place-items-center rounded-full border border-feature-foreground/30 text-feature-foreground transition-colors hover:border-gold hover:text-gold-ink"><PrevIcon className="size-4" aria-hidden="true" /></button>
-                <button type="button" onClick={() => go(active + 1)} aria-label={ui.next} className="grid size-10 place-items-center rounded-full bg-gold text-ink transition-opacity hover:opacity-90"><NextIcon className="size-4" aria-hidden="true" /></button>
+                <button type="button" onClick={() => go(active - 1)} aria-label={ui.prev} className="grid size-10 place-items-center rounded-full border border-feature-input text-feature-foreground transition-colors hover:border-accent hover:text-accent-ink"><PrevIcon className="size-4" aria-hidden="true" /></button>
+                <button type="button" onClick={() => go(active + 1)} aria-label={ui.next} className="grid size-10 place-items-center rounded-full bg-accent text-accent-foreground transition-opacity hover:opacity-90"><NextIcon className="size-4" aria-hidden="true" /></button>
               </div>
-              <button type="button" onClick={() => go(0)} className="text-[0.7rem] font-bold uppercase tracking-widest text-gold-ink underline underline-offset-4 hover:text-feature-foreground">{ui.start} →</button>
+              <button type="button" onClick={() => go(0)} className="text-[0.7rem] font-bold uppercase tracking-widest text-accent-ink underline underline-offset-4 hover:text-feature-foreground">{ui.start} →</button>
             </div>
           </div>
           <div className="grid min-h-[17rem] place-items-center bg-feature-foreground/[0.05] p-7 sm:p-10">

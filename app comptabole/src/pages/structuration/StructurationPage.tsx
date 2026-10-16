@@ -86,6 +86,8 @@ export function StructurationPage() {
   );
 
   const addNoeud = useData((s) => s.addNoeud);
+  const refreshNoeuds = useData((s) => s.refreshNoeuds);
+  const [creationEnCours, setCreationEnCours] = useState(false);
   const updateNoeud = useData((s) => s.updateNoeud);
   const duplicateArborescence = useData((s) => s.duplicateArborescence);
   const deleteNoeudsCascade = useData((s) => s.deleteNoeudsCascade);
@@ -187,10 +189,11 @@ export function StructurationPage() {
     return direct.flatMap((d) => [d.id, ...descendantIds(d.id)]);
   }
 
-  function handleFormSubmit(values: ArboFormValues) {
+  async function handleFormSubmit(values: ArboFormValues) {
     const societeId = values.societeId === "none" ? null : values.societeId;
+    try {
     if (editing) {
-      updateNoeud(editing.id, {
+      await updateNoeud(editing.id, {
         libelle: values.libelle,
         description: values.description ?? "",
         societeId,
@@ -202,7 +205,7 @@ export function StructurationPage() {
       );
       toast.success("Arborescence modifiée");
     } else {
-      addNoeud({
+      await addNoeud({
         libelle: values.libelle,
         description: values.description ?? "",
         type: "dossier",
@@ -213,10 +216,18 @@ export function StructurationPage() {
       toast.success("Arborescence créée", { description: values.libelle });
     }
     setEditing(null);
+    } catch {
+      // le message d'erreur est déjà affiché par le store ; le formulaire reste ouvert pour réessayer
+    }
+    void refreshNoeuds();
   }
 
-  function duplicate(n: Noeud) {
-    duplicateArborescence(n.id);
+  async function duplicate(n: Noeud) {
+    try {
+      await duplicateArborescence(n.id);
+    } catch {
+      return; // message d'erreur déjà affiché par le store
+    }
     logJournal("duplication", "dossier", n.libelle);
     toast.success("Arborescence dupliquée");
   }
@@ -290,27 +301,37 @@ export function StructurationPage() {
     setSelectedIds([]);
   }
 
-  function createSubfolder() {
-    if (!subfolderName.trim()) return;
+  async function createSubfolder() {
+    if (!subfolderName.trim() || creationEnCours) return;
     const parent = subfolderParent === undefined ? null : subfolderParent;
     const parentNode = parent ? nodes.find((n) => n.id === parent) : null;
-    addNoeud({
-      libelle: subfolderName.trim(),
-      description: "",
-      type: "dossier",
-      societeId: parentNode?.societeId ?? null,
-      parentId: parent,
-    });
+    setCreationEnCours(true);
+    try {
+      await addNoeud({
+        libelle: subfolderName.trim(),
+        description: "",
+        type: "dossier",
+        societeId: parentNode?.societeId ?? null,
+        parentId: parent,
+      });
+    } catch {
+      return; // message d'erreur déjà affiché par le store ; la fenêtre reste ouverte pour réessayer
+    } finally {
+      setCreationEnCours(false);
+    }
     logJournal("creation", "dossier", subfolderName.trim());
     toast.success("Dossier créé", { description: subfolderName.trim() });
     setSubfolderName("");
     setSubfolderParent(undefined);
+    void refreshNoeuds();
   }
 
-  function handleUpload(fichiers: NewFichier[]) {
-    if (!uploadParent) return;
+  /** Renvoie true quand au moins un fichier est enregistré : la fenêtre se ferme alors. « Ajouté » n'est annoncé qu'une fois le serveur d'accord. */
+  async function handleUpload(fichiers: NewFichier[]): Promise<boolean> {
+    if (!uploadParent) return false;
     const parentNode = nodes.find((n) => n.id === uploadParent);
-    fichiers.forEach((f) =>
+    const resultats = await Promise.allSettled(
+      fichiers.map((f) =>
       addNoeud({
         libelle: f.libelle,
         description: f.description,
@@ -321,21 +342,22 @@ export function StructurationPage() {
         taille: f.taille,
         dataUrl: f.dataUrl,
       }),
+      ),
     );
+    const ajoutes = resultats.filter((r) => r.status === "fulfilled").length;
+    // Le store a déjà affiché l'erreur de chaque fichier refusé ; on relit l'arborescence pour que l'écran reflète exactement le serveur.
+    void refreshNoeuds();
+    if (ajoutes === 0) return false;
     logJournal(
       "creation",
       "fichier",
-      fichiers.length > 1
-        ? `${fichiers.length} fichiers dans « ${parentNode?.libelle ?? ""} »`
+      ajoutes > 1
+        ? `${ajoutes} fichiers dans « ${parentNode?.libelle ?? ""} »`
         : (fichiers[0]?.libelle ?? "fichier"),
     );
-    toast.success(
-      fichiers.length > 1
-        ? `${fichiers.length} fichiers ajoutés`
-        : "Fichier ajouté",
-      { description: fichiers[0]?.libelle },
-    );
-    setUploadParent(null);
+    toast.success(ajoutes > 1 ? `${ajoutes} fichiers ajoutés` : "Fichier ajouté", { description: fichiers[0]?.libelle });
+    if (ajoutes < fichiers.length) toast.warning(`${fichiers.length - ajoutes} fichier(s) n'ont pas pu être ajoutés.`);
+    return true;
   }
 
   function handleMove(nodeId: string, targetParentId: string | null) {
@@ -790,7 +812,7 @@ export function StructurationPage() {
             </Button>
             <Button
               variant="ledger"
-              disabled={!subfolderName.trim()}
+              disabled={!subfolderName.trim() || creationEnCours}
               onClick={createSubfolder}
             >
               Créer

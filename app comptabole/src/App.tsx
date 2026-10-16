@@ -234,8 +234,11 @@ function DataBoundary({ children }: { children: React.ReactNode }) {
       onNotification: () => void refreshNotifications(),
       // Collecte de pièces ouverte : mise à jour en direct quand l'autre partie (client ou cabinet) la modifie, sans rechargement.
       onCollecte: (id) => void useCollectes.getState().synchroniser(id),
+      // Structuration : un dossier ou un fichier ajouté, déplacé ou supprimé ailleurs apparaît tout de suite.
+      onNoeuds: () => void useData.getState().refreshNoeuds(),
       onResync: () => {
         void useCollectes.getState().synchroniser();
+        void useData.getState().refreshNoeuds();
         void refreshPresence();
       },
     });

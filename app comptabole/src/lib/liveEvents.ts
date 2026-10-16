@@ -5,6 +5,8 @@ interface LiveEventHandlers {
   onNotification?: () => void;
   /** Une collecte de pièces a changé chez quelqu'un d'autre (lignes saisies, tableau transmis, validé, renvoyé…). */
   onCollecte?: (id: string) => void;
+  /** L'arborescence (dossiers, fichiers) a changé chez quelqu'un d'autre : la liste se relit sans rechargement de page. */
+  onNoeuds?: () => void;
   /** Retour sur l'onglet ou filet de sécurité : tout ce qui est affiché peut avoir changé pendant l'absence. */
   onResync?: () => void;
 }
@@ -129,6 +131,7 @@ function handleFrame(frame: string, handlers: LiveEventHandlers) {
     const payload = JSON.parse(dataLine.slice(6));
     if (payload.type === "message") handlers.onMessage?.();
     else if (payload.type === "notification") handlers.onNotification?.();
+    else if (payload.type === "noeuds") handlers.onNoeuds?.();
     else if (payload.type === "collecte" && typeof payload.id === "string") handlers.onCollecte?.(payload.id);
   } catch {
     // trame malformée — ignorée

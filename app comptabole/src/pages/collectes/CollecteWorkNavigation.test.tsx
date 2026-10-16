@@ -118,7 +118,7 @@ describe("navigation de la collecte pour le cabinet", () => {
   it("garde la checklist, les documents, l'historique et tous les tableaux", () => {
     const { nav } = rendre(collecte({ bordereaux_remise_cheques: "brouillon", etat_cheques_emis: "brouillon", etat_caisse: "archive" }), false);
     const boutons = within(nav).getAllByRole("button").map((b) => b.textContent ?? "");
-    expect(boutons).toEqual(["Récap", "Checklist", "Documents", "Historique"]);
+    expect(boutons).toEqual(["Checklist", "Récap", "Documents", "Historique"]);
     const liste = tableauxProposes(nav);
     for (const present of ["Bordereaux remise de chèques", "État des chèques émis", "État de caisse"]) expect(liste.some((n) => n.startsWith(present))).toBe(true);
   });

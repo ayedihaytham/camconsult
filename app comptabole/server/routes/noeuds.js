@@ -10,6 +10,7 @@ import {
   concernedBySociete,
 } from "../notifications.js";
 import { noeudDto, noeudDtoLeger, NOEUD_COLONNES_LEGERES } from "../mappers.js";
+import { pushToUser } from "../sse.js";
 
 /** Prévient les personnes concernées par la société (sauf l'auteur). */
 async function notifyStructure(req, societeId, titre, corps) {
@@ -27,6 +28,21 @@ async function notifyStructure(req, societeId, titre, corps) {
     `${soc ? `Société ${soc.raison_sociale} — ` : ""}par ${req.session.nom}${corps ? ` — ${corps}` : ""}`,
     "/structuration",
   );
+}
+
+/** Signal temps réel : « l'arborescence a changé » (jamais son contenu : le client relit la liste habituelle). Envoyé à tous ceux qui voient la
+ * société — admin, collaborateurs affectés, responsables des collaborateurs, employés de la société — y compris l'auteur, dont l'écran se
+ * réconcilie ainsi avec le serveur. Un dossier sans société n'est visible que de l'admin et des responsables des collaborateurs. */
+async function diffuserNoeuds(societeIds) {
+  try {
+    const cibles = new Set();
+    for (const societeId of new Set(societeIds)) for (const cle of await concernedBySociete(societeId ?? null, { includeAdmin: true })) cibles.add(cle);
+    const responsables = await query("select id from employes where role = 'responsable_collaborateurs' and statut = 'actif'");
+    for (const r of responsables.rows) cibles.add(r.id);
+    for (const cle of cibles) pushToUser(cle, "noeuds");
+  } catch {
+    // le signal est un confort : son échec ne doit jamais faire échouer l'opération déjà enregistrée
+  }
 }
 
 export const noeudsRouter = Router();
@@ -103,6 +119,7 @@ noeudsRouter.post("/", requireCreate, async (req, res) => {
     rows[0].societe_id,
     `Nouveau ${v.type === "fichier" ? "fichier" : "dossier"} : ${v.libelle}`,
   );
+  void diffuserNoeuds([rows[0].societe_id]);
   res.status(201).json(noeudDtoLeger(rows[0]));
 });
 
@@ -140,6 +157,7 @@ noeudsRouter.patch("/:id", requireStructEdit, async (req, res) => {
     rows[0].societe_id,
     `${existing.type === "fichier" ? "Fichier" : "Dossier"} ${moved ? "déplacé" : "modifié"} : ${v.libelle}`,
   );
+  void diffuserNoeuds([existing.societe_id, rows[0].societe_id]);
   res.json(noeudDtoLeger(rows[0]));
 });
 
@@ -181,6 +199,7 @@ noeudsRouter.post("/:id/duplicate", requireStructEdit, async (req, res) => {
   });
 
   logAction(req.session.nom, "duplication", "dossier", root.libelle);
+  void diffuserNoeuds([root.societe_id]);
   res.status(201).json(created.map(noeudDtoLeger));
 });
 
@@ -212,5 +231,6 @@ noeudsRouter.post("/bulk-delete", requireDelete, async (req, res) => {
         : `Élément supprimé : ${libelles[0]}`,
     );
   }
+  void diffuserNoeuds(rows.map((r) => r.societe_id));
   res.json({ deleted: rows.length });
 });

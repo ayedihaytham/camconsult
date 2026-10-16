@@ -56,6 +56,10 @@ export const PERMISSION_LABELS: Record<keyof EmployePermissions, string> = {
   messagerie: "Accès à la messagerie",
 };
 
+// Relecture de l'arborescence : une seule à la fois, et une seule de plus si un signal arrive pendant ce temps.
+let noeudsEnCours: Promise<void> | null = null;
+let noeudsRelance = false;
+
 function fail(err: unknown): never {
   const msg = err instanceof ApiError ? err.message : "Opération impossible";
   toast.error(msg);
@@ -147,6 +151,8 @@ interface DataState {
   addNoeud: (data: Omit<Noeud, "id" | "majLe" | "creeLe">) => Promise<Noeud>;
   updateNoeud: (id: string, patch: Partial<Noeud>) => Promise<void>;
   duplicateArborescence: (id: string) => Promise<void>;
+  /** Relit l'arborescence auprès du serveur (temps réel, ou réconciliation après un dépôt). Les appels simultanés sont regroupés. */
+  refreshNoeuds: () => Promise<void>;
   deleteNoeudsCascade: (ids: string[]) => Promise<void>;
 
   addMessage: (msg: Omit<Message, "id">) => Promise<void>;
@@ -404,7 +410,8 @@ export const useData = create<DataState>((set, get) => ({
   addNoeud: async (data) => {
     try {
       const n = await api.post<Noeud>("/noeuds", data);
-      set((st) => ({ noeuds: [...st.noeuds, n] }));
+      // Le signal temps réel peut avoir déjà ramené ce nœud avant la réponse : jamais de doublon.
+      set((st) => ({ noeuds: [...st.noeuds.filter((x) => x.id !== n.id), n] }));
       return n;
     } catch (e) {
       return fail(e);
@@ -425,6 +432,26 @@ export const useData = create<DataState>((set, get) => ({
     } catch (e) {
       fail(e);
     }
+  },
+  refreshNoeuds: async () => {
+    if (noeudsEnCours) {
+      noeudsRelance = true;
+      return noeudsEnCours;
+    }
+    noeudsEnCours = (async () => {
+      try {
+        do {
+          noeudsRelance = false;
+          const liste = await api.get<Noeud[]>("/noeuds");
+          set({ noeuds: liste });
+        } while (noeudsRelance);
+      } catch {
+        // lecture de confort : un échec (réseau coupé) ne doit rien afficher, la prochaine relecture rattrapera
+      } finally {
+        noeudsEnCours = null;
+      }
+    })();
+    return noeudsEnCours;
   },
   deleteNoeudsCascade: async (ids) => {
     try {

@@ -805,3 +805,30 @@ describe("CollecteGrid : montant du bordereau dépassé (faute de frappe)", () =
     expect(ref.current?.ecart()).toEqual({ manque: false, depasse: false });
   });
 });
+
+describe("CollecteGrid : le cabinet ajoute les bordereaux, le client saisit les chèques", () => {
+  const bordereau = { id: "l1", collecteId: "c1", onglet: "bordereaux_remise_cheques", ordre: 0, data: { date_remise: "2026-09-16", num_bordereau: "5096519", montant: 1458, banque: "BIAT", montant_cheque: "" } } as never;
+
+  it("sans ajout de chèque dans un bordereau, mais avec « Nouveau bordereau »", () => {
+    renderGrid("bordereaux_remise_cheques", undefined, { lignes: [bordereau], bordereauSeul: true });
+    expect(screen.queryByRole("button", { name: /Ajouter un chèque/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Nouveau bordereau" })).toBeTruthy();
+    expect(screen.getByText(/le client saisit ensuite les chèques/)).toBeTruthy();
+  });
+
+  it("les cases du bordereau restent modifiables, celles du chèque ne le sont pas", () => {
+    renderGrid("bordereaux_remise_cheques", undefined, { lignes: [bordereau], bordereauSeul: true });
+    const cases = champs(lignes()[0]);
+    // date de remise, n° bordereau, montant, banque : saisies par le cabinet
+    for (const i of [0, 1, 2, 3]) expect(cases[i].disabled || cases[i].readOnly).toBe(false);
+    // n° de chèque, client émetteur, montant du chèque, échéance : saisies par le client
+    for (const i of [4, 5, 6, 7]) expect(cases[i].disabled || cases[i].readOnly).toBe(true);
+  });
+
+  it("sans ce mode, le comportement habituel est conservé (bouton d'ajout de chèque présent)", () => {
+    renderGrid("bordereaux_remise_cheques", undefined, { lignes: [bordereau] });
+    expect(screen.getAllByRole("button", { name: /Ajouter un chèque à ce bordereau/ }).length).toBeGreaterThan(0);
+    const cases = champs(lignes()[0]);
+    expect(cases[4].disabled || cases[4].readOnly).toBe(false);
+  });
+});

@@ -33,7 +33,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Libellé du dossier de destination (pour l'affichage). */
   destinationLabel: string;
-  onSubmit: (fichiers: NewFichier[]) => void;
+  /** Peut être asynchrone : la fenêtre reste ouverte (bouton occupé) jusqu'à la réponse, et ne se ferme que si le résultat n'est pas `false`. */
+  onSubmit: (fichiers: NewFichier[]) => void | boolean | Promise<void | boolean>;
 }
 
 export function FileUploadDialog({
@@ -86,14 +87,19 @@ export function FileUploadDialog({
         dataUrl,
       });
     }
-    onSubmit(result);
-    if (skippedContent > 0) {
+    let accepte: void | boolean = true;
+    try {
+      accepte = await onSubmit(result);
+    } catch {
+      accepte = false;
+    }
+    if (accepte !== false && skippedContent > 0) {
       toast.warning(
         `${skippedContent} fichier(s) > 2 Mo : enregistrés sans contenu (référence seule).`,
       );
     }
     setBusy(false);
-    onOpenChange(false);
+    if (accepte !== false) onOpenChange(false);
   }
 
   return (

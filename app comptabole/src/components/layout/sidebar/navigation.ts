@@ -99,6 +99,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Comptabilité",
     items: [
+      { label: "Apurement TVA", to: "/apurement", icon: ClipboardList, hideForSocieteEmploye: true },
       {
         label: "États financiers",
         icon: Calculator,

@@ -51,6 +51,7 @@ interface Props {
   /** Doit se terminer une fois le mouvement enregistré, et échouer sinon : la
    * fenêtre reste alors ouverte avec toutes les données saisies. */
   onSubmit: (data: StockMouvementInput) => Promise<void> | void;
+  onOpenApurement?: (mouvement: StockMouvement) => void;
 }
 
 const empty = (societeId: string): StockMouvementInput => ({
@@ -166,6 +167,7 @@ export function StockMouvementFormSheet({
   societeId,
   mouvement,
   onSubmit,
+  onOpenApurement,
 }: Props) {
   const isEdit = Boolean(mouvement);
   const societe = useSocieteById(societeId);
@@ -528,6 +530,7 @@ export function StockMouvementFormSheet({
           <DialogDescription className="mt-0.5 text-sm text-muted-foreground">
             Importez un PDF par section pour pré-remplir les champs : le document reste affiché à droite pour vérifier les chiffres avant d'enregistrer.
           </DialogDescription>
+          {mouvement&&onOpenApurement&&(mouvement.achatNumFacture||mouvement.achatLignes.length>0)&&<Button type="button" variant="link" className="mt-1 px-0" disabled={busy} onClick={()=>{if(isDirty()){toast.info("Enregistrez les modifications avant d’ouvrir Apurement.");return;}onOpenChange(false);onOpenApurement(mouvement);}}>Lier à un BC en suspension</Button>}
         </div>
 
         {/* ── Nature de la marchandise + import du document complet ──────── */}

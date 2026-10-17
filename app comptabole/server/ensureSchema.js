@@ -14,6 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export async function ensureSchema() {
   const schema = readFileSync(join(__dirname, "schema.sql"), "utf8");
   await query(schema); // toutes les instructions sont `create ... if not exists`
+  await query(readFileSync(join(__dirname, "apurement", "schema.sql"), "utf8"));
 
   // Structuration : <société> › Comptabilité générale [année] (et non plus
   // l'inverse). Transaction : en cas d'erreur rien n'est modifié, et le

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { query, withTransaction } from "../db.js";
+import { query } from "../db.js";
+import { withApurementTransaction as withTransaction } from "../apurement/notifications.js";
 import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { stockMouvementDto } from "../mappers.js";
@@ -8,8 +9,10 @@ import { syntheseStock } from "../stockSynthese.js";
 import { extractDocument, extractPages } from "../ocr.js";
 import { ruspinaApplies } from "../ruspinaOcr.js";
 import { randomUUID } from "node:crypto";
+import { safeRouter } from "../asyncRoutes.js";
+import { persistStock, deleteStock } from "../stock/stockService.js";
 
-export const stockRouter = Router();
+export const stockRouter = safeRouter(Router());
 stockRouter.use(requireAuth);
 
 /** Stock = données comptables internes : admin + responsable des collaborateurs (toutes les sociétés) + collaborateurs de la société. Jamais le client. */
@@ -35,6 +38,7 @@ const ligneSchema = z.object({
 
 const schema = z.object({
   societeId: z.string().uuid(),
+  apurementRevision: z.string().regex(/^\d+$/).optional(),
   natureMarchandise: z.string().default(""),
 
   achatDate: dateStr,
@@ -93,24 +97,6 @@ function values(v) {
     v.achatDocDataUrl || null, v.venteDocDataUrl || null, v.douaneDocDataUrl || null,
     v.note,
   ];
-}
-
-/** Remplace toutes les lignes d'une catégorie (achat ou vente) d'un
- * mouvement : supprime puis réinsère dans l'ordre donné — plus simple et
- * plus sûr que de diffier ligne à ligne (id présents ou non, réordre…). */
-async function replaceLignes(client, mouvementId, categorie, lignes) {
-  await client.query(
-    "delete from stock_lignes where mouvement_id = $1 and categorie = $2",
-    [mouvementId, categorie],
-  );
-  for (let i = 0; i < lignes.length; i++) {
-    const l = lignes[i];
-    await client.query(
-      `insert into stock_lignes (mouvement_id, categorie, ordre, designation, quantite, prix_unitaire, montant_devise, montant_tnd, unite)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [mouvementId, categorie, i, l.designation, l.quantite, l.prixUnitaire, l.montantDevise, l.montantTnd, l.unite ?? ""],
-    );
-  }
 }
 
 async function lignesOf(mouvementId) {
@@ -189,17 +175,10 @@ stockRouter.post("/mouvements", async (req, res) => {
 
   const allCols = [...COL_NAMES, "ordre"];
   const allVals = [...values(v), ordreRows[0].n];
-  const row = await withTransaction(async (client) => {
-    const { rows } = await client.query(
-      `insert into stock_mouvements (${allCols.join(", ")})
-       values (${allVals.map((_, i) => `$${i + 1}`).join(", ")})
-       returning *`,
-      allVals,
-    );
-    await replaceLignes(client, rows[0].id, "achat", v.achatLignes);
-    await replaceLignes(client, rows[0].id, "vente", v.venteLignes);
-    return rows[0];
-  });
+  const row = await withTransaction(client => persistStock(client, {
+    columns: allCols, values: allVals, achatLignes: v.achatLignes,
+    venteLignes: v.venteLignes, session: req.session, societeId: v.societeId,
+  }));
 
   logAction(
     req.session.nom,
@@ -226,20 +205,13 @@ stockRouter.patch("/mouvements/:id", async (req, res) => {
   const v = { ...existingDto, societeId: existing.societe_id, ...merged.data };
 
   const updCols = COL_NAMES.filter((c) => c !== "societe_id");
-  const updVals = values(v).slice(1); // sans societe_id (jamais réaffecté)
-  const setClause = updCols
-    .map((c, i) => `${c} = $${i + 2}`)
-    .concat("maj_le = now()")
-    .join(", ");
-  const row = await withTransaction(async (client) => {
-    const { rows } = await client.query(
-      `update stock_mouvements set ${setClause} where id = $1 returning *`,
-      [req.params.id, ...updVals],
-    );
-    await replaceLignes(client, req.params.id, "achat", v.achatLignes);
-    await replaceLignes(client, req.params.id, "vente", v.venteLignes);
-    return rows[0];
-  });
+  const row = await withTransaction(client => persistStock(client, {
+    id: req.params.id, columns: updCols, values: values(v).slice(1),
+    achatLignes: v.achatLignes, venteLignes: v.venteLignes,
+    session: req.session, expectedRevision: merged.data.apurementRevision ?? existing.apurement_revision,
+    revisionProvided: merged.data.apurementRevision !== undefined,
+    societeId: existing.societe_id,
+  }));
 
   logAction(
     req.session.nom,
@@ -257,7 +229,7 @@ stockRouter.delete("/mouvements/:id", async (req, res) => {
   if (!existing) return res.status(404).json({ error: "Mouvement introuvable" });
   if (!canAccess(req.session, existing.societe_id))
     return res.status(403).json({ error: "Accès au stock non autorisé" });
-  await query("delete from stock_mouvements where id = $1", [req.params.id]);
+  await withTransaction(client => deleteStock(client, req.params.id, existing.societe_id));
   logAction(
     req.session.nom,
     "suppression",
@@ -413,4 +385,9 @@ stockRouter.post("/extract-pages", async (req, res) => {
     console.error("[stock/extract-pages]", err);
     reponseErreurExtraction(res, err);
   }
+});
+
+stockRouter.use((err, _req, res, next) => {
+  if (!err.status) return next(err);
+  res.status(err.status).json({ error: err.message, code: err.code });
 });

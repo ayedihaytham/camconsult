@@ -49,6 +49,8 @@ interface DataTableProps<T> {
   initialSort?: { columnId: string; direction: "asc" | "desc" };
   emptyState?: ReactNode;
   isLoading?: boolean;
+  /** Hide the local footer when the caller owns server-side pagination. */
+  hidePagination?: boolean;
 }
 
 type SortState = { columnId: string; direction: "asc" | "desc" } | null;
@@ -71,6 +73,7 @@ export function DataTable<T>({
   initialSort,
   emptyState,
   isLoading = false,
+  hidePagination = false,
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortState>(initialSort ?? null);
   const [page, setPage] = useState(0);
@@ -258,7 +261,7 @@ export function DataTable<T>({
         </TableBody>
       </Table>
 
-      <div className="flex flex-col items-center justify-between gap-2 border-t border-border px-3 py-2.5 text-sm text-muted-foreground sm:flex-row sm:px-4">
+      {!hidePagination&&<div className="flex flex-col items-center justify-between gap-2 border-t border-border px-3 py-2.5 text-sm text-muted-foreground sm:flex-row sm:px-4">
         <div>
           {enableSelection && selectedIds.length > 0 ? (
             <span className="font-medium text-foreground">
@@ -295,7 +298,7 @@ export function DataTable<T>({
             <ChevronRight />
           </Button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

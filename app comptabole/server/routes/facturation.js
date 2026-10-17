@@ -4,6 +4,9 @@ import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
 import { factureDto, factureLigneDto } from "../mappers.js";
+import { ErreurTeif, genererTeif } from "../teif/genererTeif.js";
+import { aDesBloquants, controlerFactureTeif } from "../teif/validerTeif.js";
+import { TEIF_VERSION } from "../teif/constantes.js";
 
 export const facturationRouter = Router();
 facturationRouter.use(requireAuth, requireAdmin);
@@ -32,8 +35,10 @@ const patchSchema = z.object({
 });
 
 const SELECT = `select f.*, s.raison_sociale as societe_nom, s.adresse as societe_adresse,
-                       s.tva as societe_tva, s.rne as societe_rne
-                  from factures f join societes s on s.id = f.societe_id`;
+                       s.tva as societe_tva, s.rne as societe_rne,
+                       e.statut as ei_statut, e.genere_le as ei_genere_le, e.teif_sha256 as ei_sha256
+                  from factures f join societes s on s.id = f.societe_id
+                  left join facture_einvoice e on e.facture_id = f.id`;
 
 async function charger(where, params) {
   const rows = (await query(`${SELECT} ${where} order by f.date_emission desc, f.numero desc`, params)).rows;
@@ -55,10 +60,24 @@ const cabinetSchema = z.object({
   email: z.string().trim().max(120).default(""),
   rib: z.string().trim().max(80).default(""),
   mentions: z.string().trim().max(600).default(""),
+  // Identité structurée pour la facture électronique (TEIF)
+  raisonSociale: z.string().trim().max(200).default(""),
+  rue: z.string().trim().max(100).default(""),
+  ville: z.string().trim().max(100).default(""),
+  codePostal: z.string().trim().max(20).default(""),
+  pays: z.string().trim().max(6).default("TN"),
+  rc: z.string().trim().max(200).default(""),
 });
 
 const cabinetDto = (m) => ({
-  nom: m?.admin_nom ?? "",
+  // Nom imprimé en tête des factures : la raison sociale si elle est renseignée, sinon le nom de l'administrateur (comportement historique).
+  nom: m?.cabinet_nom || m?.admin_nom || "",
+  raisonSociale: m?.cabinet_nom ?? "",
+  rue: m?.cabinet_rue ?? "",
+  ville: m?.cabinet_ville ?? "",
+  codePostal: m?.cabinet_code_postal ?? "",
+  pays: m?.cabinet_pays || "TN",
+  rc: m?.cabinet_rc ?? "",
   adresse: m?.cabinet_adresse ?? "",
   matriculeFiscal: m?.cabinet_mf ?? "",
   telephone: m?.cabinet_tel ?? "",
@@ -78,9 +97,10 @@ facturationRouter.put("/cabinet", async (req, res) => {
   const v = parsed.data;
   const { rows } = await query(
     `update app_meta set cabinet_adresse = $1, cabinet_mf = $2, cabinet_tel = $3,
-            cabinet_email = $4, cabinet_rib = $5, cabinet_mentions = $6
+            cabinet_email = $4, cabinet_rib = $5, cabinet_mentions = $6,
+            cabinet_nom = $7, cabinet_rue = $8, cabinet_ville = $9, cabinet_code_postal = $10, cabinet_pays = $11, cabinet_rc = $12
       where id = 1 returning *`,
-    [v.adresse, v.matriculeFiscal, v.telephone, v.email, v.rib, v.mentions],
+    [v.adresse, v.matriculeFiscal, v.telephone, v.email, v.rib, v.mentions, v.raisonSociale, v.rue, v.ville, v.codePostal, v.pays || "TN", v.rc],
   );
   logAction(req.session.nom, "modification", "cabinet", "Coordonnées du cabinet (factures)");
   res.json(cabinetDto(rows[0]));
@@ -135,6 +155,12 @@ facturationRouter.patch("/:id", async (req, res) => {
   const existante = (await query("select numero, statut from factures where id = $1", [req.params.id])).rows[0];
   if (!existante) return res.status(404).json({ error: "Facture introuvable" });
   if (existante.statut === "annulee") return res.status(409).json({ error: "Cette facture est annulée" });
+  if (v.statut === "annulee") {
+    // Une facture déjà signée ou déposée chez TTN ne s'annule pas d'un clic : il faudra un avoir (étape ultérieure).
+    const ei = (await query("select statut from facture_einvoice where facture_id = $1", [req.params.id])).rows[0];
+    if (ei && ei.statut !== "prete")
+      return res.status(409).json({ error: "Cette facture électronique est signée ou déposée : elle ne peut plus être annulée ici (avoir requis)." });
+  }
 
   await query(
     `update factures set
@@ -154,4 +180,118 @@ facturationRouter.patch("/:id", async (req, res) => {
     req.params.id,
   );
   res.json(facture);
+});
+
+// ── Facture électronique (message TEIF) ───────────────────────────────────────────────────────────────────────
+// Étape 1 : génération, contrôle et téléchargement du XML non signé. Ni signature ni dépôt chez TTN (voir docs/facturation-electronique.md).
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Facture, cabinet et client sous la forme attendue par server/teif. */
+async function contexteEinvoice(id) {
+  const [facture] = await charger("where f.id = $1", [id]);
+  if (!facture) return null;
+  const soc = (
+    await query("select raison_sociale, tva, adresse, adresse_rue, ville, code_postal, pays from societes where id = $1", [facture.societeId])
+  ).rows[0];
+  const meta = (await query("select * from app_meta where id = 1")).rows[0] ?? {};
+  return {
+    facture,
+    cabinet: {
+      nom: meta.cabinet_nom ?? "",
+      matriculeFiscal: meta.cabinet_mf ?? "",
+      adresse: meta.cabinet_adresse ?? "",
+      rue: meta.cabinet_rue ?? "",
+      ville: meta.cabinet_ville ?? "",
+      codePostal: meta.cabinet_code_postal ?? "",
+      pays: meta.cabinet_pays || "TN",
+      rc: meta.cabinet_rc ?? "",
+      rib: meta.cabinet_rib ?? "",
+    },
+    client: {
+      nom: soc?.raison_sociale ?? "",
+      matriculeFiscal: soc?.tva ?? "",
+      adresse: soc?.adresse ?? "",
+      rue: soc?.adresse_rue ?? "",
+      ville: soc?.ville ?? "",
+      codePostal: soc?.code_postal ?? "",
+      pays: soc?.pays || "TN",
+    },
+  };
+}
+
+async function resumeEinvoice(id) {
+  const ei = (await query("select statut, teif_version, teif_sha256, genere_le from facture_einvoice where facture_id = $1", [id])).rows[0];
+  return ei ? { statut: ei.statut, version: ei.teif_version, sha256: ei.teif_sha256, genereLe: ei.genere_le?.toISOString?.() ?? null } : null;
+}
+
+facturationRouter.use("/:id/einvoice", (req, res, next) =>
+  UUID.test(req.params.id) ? next() : res.status(400).json({ error: "Identifiant de facture invalide" }),
+);
+
+// Liste de conformité, sans rien enregistrer.
+facturationRouter.get("/:id/einvoice", async (req, res) => {
+  const ctx = await contexteEinvoice(req.params.id);
+  if (!ctx) return res.status(404).json({ error: "Facture introuvable" });
+  const problemes = controlerFactureTeif(ctx);
+  res.json({ einvoice: await resumeEinvoice(req.params.id), version: TEIF_VERSION, problemes, pret: !aDesBloquants(problemes) });
+});
+
+async function preparer(req, res, regenerer) {
+  const ctx = await contexteEinvoice(req.params.id);
+  if (!ctx) return res.status(404).json({ error: "Facture introuvable" });
+  let teif;
+  try {
+    teif = genererTeif(ctx);
+  } catch (e) {
+    if (e instanceof ErreurTeif)
+      return res.status(422).json({ error: "La facture n'est pas conforme au format de la facture électronique.", problemes: e.problemes });
+    throw e;
+  }
+  const erreurs = JSON.stringify(teif.avertissements);
+  const { rowCount } = regenerer
+    ? await query(
+        `update facture_einvoice set teif_version = $2, teif_xml = $3, teif_sha256 = $4, erreurs = $5::jsonb, genere_le = now(), maj_le = now()
+          where facture_id = $1 and statut = 'prete'`,
+        [req.params.id, teif.version, teif.xml, teif.sha256, erreurs],
+      )
+    : await query(
+        `insert into facture_einvoice (facture_id, statut, teif_version, teif_xml, teif_sha256, erreurs)
+         values ($1, 'prete', $2, $3, $4, $5::jsonb) on conflict (facture_id) do nothing`,
+        [req.params.id, teif.version, teif.xml, teif.sha256, erreurs],
+      );
+  if (!rowCount)
+    return res.status(409).json({
+      error: regenerer
+        ? "Cette facture électronique n'est plus au stade « prête » : elle ne peut pas être régénérée."
+        : "Cette facture électronique est déjà préparée : utilisez « Régénérer » pour la refaire.",
+    });
+  logAction(
+    req.session.nom,
+    regenerer ? "modification" : "creation",
+    "facture",
+    `${ctx.facture.numero} — facture électronique ${regenerer ? "régénérée" : "préparée"} (TEIF ${teif.version})`,
+    req.params.id,
+  );
+  res
+    .status(regenerer ? 200 : 201)
+    .json({ einvoice: await resumeEinvoice(req.params.id), version: TEIF_VERSION, problemes: teif.avertissements, pret: true });
+}
+
+facturationRouter.post("/:id/einvoice/preparer", (req, res) => preparer(req, res, false));
+facturationRouter.post("/:id/einvoice/regenerer", (req, res) => preparer(req, res, true));
+
+// Téléchargement du XML préparé ; le nom du fichier est le numéro de facture (règle du dépôt TTN : « <numéro>.xml »).
+facturationRouter.get("/:id/einvoice/xml", async (req, res) => {
+  const ligne = (
+    await query("select e.teif_xml, f.numero, f.statut from facture_einvoice e join factures f on f.id = e.facture_id where e.facture_id = $1", [
+      req.params.id,
+    ])
+  ).rows[0];
+  if (!ligne) return res.status(404).json({ error: "Aucune facture électronique préparée pour cette facture" });
+  if (ligne.statut === "annulee") return res.status(409).json({ error: "Cette facture est annulée" });
+  res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${String(ligne.numero).replace(/[^A-Za-z0-9._-]/g, "_")}.xml"`);
+  res.setHeader("Cache-Control", "no-store");
+  res.send(ligne.teif_xml);
 });

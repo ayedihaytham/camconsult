@@ -25,9 +25,14 @@ const schema = z.object({
   telephone: z.string().default(""),
   email: z.string().default(""),
   adresse: z.string().default(""),
+  // Adresse structurée (facture électronique)
+  adresseRue: z.string().max(100).default(""),
+  ville: z.string().max(100).default(""),
+  codePostal: z.string().max(20).default(""),
+  pays: z.string().max(6).default("TN"),
 });
 
-const COLS = `raison_sociale, rne, tva, theme, code, statut, telephone, email, adresse`;
+const COLS = `raison_sociale, rne, tva, theme, code, statut, telephone, email, adresse, adresse_rue, ville, code_postal, pays`;
 
 function requireEdit(req, res, next) {
   if (req.session.role === "admin" || can(req.session, "modifierSocietes"))
@@ -52,8 +57,8 @@ societesRouter.post("/", requireEdit, async (req, res) => {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
   const { rows } = await query(
-    `insert into societes (${COLS}) values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *`,
-    [v.raisonSociale, v.rne, v.tva, v.theme, v.code, v.statut, v.telephone, v.email, v.adresse],
+    `insert into societes (${COLS}) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *`,
+    [v.raisonSociale, v.rne, v.tva, v.theme, v.code, v.statut, v.telephone, v.email, v.adresse, v.adresseRue, v.ville, v.codePostal, v.pays || "TN"],
   );
   logAction(req.session.nom, "creation", "societe", v.raisonSociale);
   const dto = societeDto(rows[0]);
@@ -76,9 +81,9 @@ societesRouter.patch("/:id", requireEdit, async (req, res) => {
   const v = { ...societeDto(existing), ...merged.data };
   const { rows } = await query(
     `update societes set raison_sociale=$1, rne=$2, tva=$3, theme=$4, code=$5,
-       statut=$6, telephone=$7, email=$8, adresse=$9
-     where id=$10 returning *`,
-    [v.raisonSociale, v.rne, v.tva, v.theme, v.code, v.statut, v.telephone, v.email, v.adresse, req.params.id],
+       statut=$6, telephone=$7, email=$8, adresse=$9, adresse_rue=$10, ville=$11, code_postal=$12, pays=$13
+     where id=$14 returning *`,
+    [v.raisonSociale, v.rne, v.tva, v.theme, v.code, v.statut, v.telephone, v.email, v.adresse, v.adresseRue, v.ville, v.codePostal, v.pays || "TN", req.params.id],
   );
   logAction(req.session.nom, "modification", "societe", v.raisonSociale);
   const targets = (
@@ -102,8 +107,8 @@ societesRouter.post("/:id/duplicate", requireEdit, async (req, res) => {
   const nextCode = String(req.body?.nextCode || `${src.code}-copie`);
   const { rows } = await query(
     `insert into societes (${COLS})
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *`,
-    [`${src.raison_sociale} (copie)`, src.rne, src.tva, src.theme, nextCode, src.statut, src.telephone, src.email, src.adresse],
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *`,
+    [`${src.raison_sociale} (copie)`, src.rne, src.tva, src.theme, nextCode, src.statut, src.telephone, src.email, src.adresse, src.adresse_rue, src.ville, src.code_postal, src.pays],
   );
   logAction(req.session.nom, "duplication", "societe", src.raison_sociale);
   res.status(201).json(societeDto(rows[0]));

@@ -18,6 +18,11 @@ export interface Societe {
   telephone: string;
   email: string;
   adresse: string;
+  /** Adresse structurée (facture électronique) ; absente des anciennes données. */
+  adresseRue?: string;
+  ville?: string;
+  codePostal?: string;
+  pays?: string;
   creeLe: string; // ISO
 }
 
@@ -315,12 +320,43 @@ export interface Facture {
   tva: number;
   netAPayer: number;
   creeLe: string;
+  /** Facture électronique (message TEIF) : résumé seulement, null tant qu'elle n'est pas préparée. */
+  einvoice?: FactureEinvoice | null;
   lignes: FactureLigne[];
+}
+
+export interface FactureEinvoice {
+  /** prete = XML non signé généré ; les stades suivants (signée, déposée, validée, rejetée) viendront avec la signature et le dépôt. */
+  statut: "prete" | "signee" | "deposee" | "validee" | "rejetee";
+  genereLe: string | null;
+  sha256: string;
+}
+
+export interface EinvoiceProbleme {
+  niveau: "bloquant" | "avertissement";
+  /** Où corriger : les informations du cabinet, la société cliente ou la facture elle-même. */
+  ou: "cabinet" | "societe" | "facture";
+  champ: string;
+  message: string;
+}
+
+export interface EinvoiceEtat {
+  einvoice: (FactureEinvoice & { version?: string }) | null;
+  version: string;
+  problemes: EinvoiceProbleme[];
+  pret: boolean;
 }
 
 /** Coordonnées du cabinet imprimées sur les factures. */
 export interface FactureCabinet {
   nom: string;
+  /** Identité structurée pour la facture électronique (absente des anciennes données). */
+  raisonSociale?: string;
+  rue?: string;
+  ville?: string;
+  codePostal?: string;
+  pays?: string;
+  rc?: string;
   adresse: string;
   matriculeFiscal: string;
   telephone: string;

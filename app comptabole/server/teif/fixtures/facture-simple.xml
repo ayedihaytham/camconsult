@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEIF controlingAgency="TTN" version="1.8.9">
+  <InvoiceHeader>
+    <MessageSenderIdentifier type="I-01">1234567ABM000</MessageSenderIdentifier>
+    <MessageRecieverIdentifier type="I-01">7654321KAM000</MessageRecieverIdentifier>
+  </InvoiceHeader>
+  <InvoiceBody>
+    <Bgm>
+      <DocumentIdentifier>2026-0001</DocumentIdentifier>
+      <DocumentType code="I-11">Facture</DocumentType>
+    </Bgm>
+    <Dtm>
+      <DateText format="ddMMyy" functionCode="I-31">171026</DateText>
+      <DateText format="ddMMyy" functionCode="I-32">161126</DateText>
+    </Dtm>
+    <PartnerSection>
+      <PartnerDetails functionCode="I-62">
+        <Nad>
+          <PartnerIdentifier type="I-01">1234567ABM000</PartnerIdentifier>
+          <PartnerName nameType="Qualification">CABINET EXEMPLE</PartnerName>
+          <PartnerAdresses lang="fr">
+            <AdressDescription>1 Rue Exemple, Tunis</AdressDescription>
+            <Street>Rue Exemple</Street>
+            <CityName>Tunis</CityName>
+            <PostalCode>1000</PostalCode>
+            <Country codeList="ISO_3166-1">TN</Country>
+          </PartnerAdresses>
+        </Nad>
+        <RffSection>
+          <Reference refID="I-815">B0000000000</Reference>
+        </RffSection>
+      </PartnerDetails>
+      <PartnerDetails functionCode="I-64">
+        <Nad>
+          <PartnerIdentifier type="I-01">7654321KAM000</PartnerIdentifier>
+          <PartnerName nameType="Qualification">CLIENT EXEMPLE SARL</PartnerName>
+          <PartnerAdresses lang="fr">
+            <AdressDescription>2 Avenue Exemple</AdressDescription>
+            <Street>Avenue Exemple</Street>
+            <CityName>Sfax</CityName>
+            <PostalCode>3000</PostalCode>
+            <Country codeList="ISO_3166-1">TN</Country>
+          </PartnerAdresses>
+        </Nad>
+      </PartnerDetails>
+    </PartnerSection>
+    <PytSection>
+      <PytSectionDetails>
+        <Pyt>
+          <PaymentTearmsTypeCode>I-114</PaymentTearmsTypeCode>
+          <PaymentTearmsDescription>Paiement par virement bancaire au RIB 00 000 0000000000000 00</PaymentTearmsDescription>
+        </Pyt>
+      </PytSectionDetails>
+    </PytSection>
+    <Ftx>
+      <FreeTextDetail subjectCode="I-48">
+        <FreeTexts>Honoraires &amp; frais &lt;octobre&gt;</FreeTexts>
+      </FreeTextDetail>
+    </Ftx>
+    <LinSection>
+      <Lin>
+        <ItemIdentifier>1</ItemIdentifier>
+        <LinImd lang="fr">
+          <ItemCode>L1</ItemCode>
+          <ItemDescription>Honoraires de tenue comptable - octobre 2026</ItemDescription>
+        </LinImd>
+        <LinQty>
+          <Quantity measurementUnit="UNIT">1.0</Quantity>
+        </LinQty>
+        <LinTax>
+          <TaxTypeName code="I-1602">TVA</TaxTypeName>
+          <TaxDetails>
+            <TaxRate>19</TaxRate>
+          </TaxDetails>
+        </LinTax>
+        <LinMoa>
+          <MoaDetails>
+            <Moa amountTypeCode="I-183" currencyCodeList="ISO_4217">
+              <Amount currencyIdentifier="TND">500.000</Amount>
+            </Moa>
+          </MoaDetails>
+          <MoaDetails>
+            <Moa amountTypeCode="I-171" currencyCodeList="ISO_4217">
+              <Amount currencyIdentifier="TND">500.000</Amount>
+            </Moa>
+          </MoaDetails>
+        </LinMoa>
+      </Lin>
+      <Lin>
+        <ItemIdentifier>2</ItemIdentifier>
+        <LinImd lang="fr">
+          <ItemCode>L2</ItemCode>
+          <ItemDescription>Déclaration fiscale mensuelle</ItemDescription>
+        </LinImd>
+        <LinQty>
+          <Quantity measurementUnit="UNIT">2.0</Quantity>
+        </LinQty>
+        <LinTax>
+          <TaxTypeName code="I-1602">TVA</TaxTypeName>
+          <TaxDetails>
+            <TaxRate>19</TaxRate>
+          </TaxDetails>
+        </LinTax>
+        <LinMoa>
+          <MoaDetails>
+            <Moa amountTypeCode="I-183" currencyCodeList="ISO_4217">
+              <Amount currencyIdentifier="TND">100.000</Amount>
+            </Moa>
+          </MoaDetails>
+          <MoaDetails>
+            <Moa amountTypeCode="I-171" currencyCodeList="ISO_4217">
+              <Amount currencyIdentifier="TND">200.000</Amount>
+            </Moa>
+          </MoaDetails>
+        </LinMoa>
+      </Lin>
+    </LinSection>
+    <InvoiceMoa>
+      <AmountDetails>
+        <Moa amountTypeCode="I-176" currencyCodeList="ISO_4217">
+          <Amount currencyIdentifier="TND">700.000</Amount>
+        </Moa>
+      </AmountDetails>
+      <AmountDetails>
+        <Moa amountTypeCode="I-182" currencyCodeList="ISO_4217">
+          <Amount currencyIdentifier="TND">700.000</Amount>
+        </Moa>
+      </AmountDetails>
+      <AmountDetails>
+        <Moa amountTypeCode="I-181" currencyCodeList="ISO_4217">
+          <Amount currencyIdentifier="TND">133.000</Amount>
+        </Moa>
+      </AmountDetails>
+      <AmountDetails>
+        <Moa amountTypeCode="I-180" currencyCodeList="ISO_4217">
+          <Amount currencyIdentifier="TND">834.000</Amount>
+          <AmountDescription lang="fr">HUIT CENT TRENTE-QUATRE DINARS</AmountDescription>
+        </Moa>
+      </AmountDetails>
+    </InvoiceMoa>
+    <InvoiceTax>
+      <InvoiceTaxDetails>
+        <Tax>
+          <TaxTypeName code="I-1601">droit de timbre</TaxTypeName>
+          <TaxDetails>
+            <TaxRate>0</TaxRate>
+          </TaxDetails>
+        </Tax>
+        <AmountDetails>
+          <Moa amountTypeCode="I-178" currencyCodeList="ISO_4217">
+            <Amount currencyIdentifier="TND">1.000</Amount>
+          </Moa>
+        </AmountDetails>
+      </InvoiceTaxDetails>
+      <InvoiceTaxDetails>
+        <Tax>
+          <TaxTypeName code="I-1602">TVA</TaxTypeName>
+          <TaxDetails>
+            <TaxRate>19</TaxRate>
+          </TaxDetails>
+        </Tax>
+        <AmountDetails>
+          <Moa amountTypeCode="I-177" currencyCodeList="ISO_4217">
+            <Amount currencyIdentifier="TND">700.000</Amount>
+          </Moa>
+        </AmountDetails>
+        <AmountDetails>
+          <Moa amountTypeCode="I-178" currencyCodeList="ISO_4217">
+            <Amount currencyIdentifier="TND">133.000</Amount>
+          </Moa>
+        </AmountDetails>
+      </InvoiceTaxDetails>
+    </InvoiceTax>
+  </InvoiceBody>
+</TEIF>

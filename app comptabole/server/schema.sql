@@ -1022,6 +1022,32 @@ alter table app_meta add column if not exists cabinet_email    text not null def
 alter table app_meta add column if not exists cabinet_rib      text not null default '';
 alter table app_meta add column if not exists cabinet_mentions text not null default '';
 
+-- Facture électronique (TEIF / El Fatoora) : identité structurée du cabinet (adresse découpée, raison sociale, registre de commerce)
+-- et adresse structurée du client. Le matricule fiscal du client reste dans societes.tva, celui du cabinet dans app_meta.cabinet_mf.
+alter table app_meta add column if not exists cabinet_nom         text not null default '';
+alter table app_meta add column if not exists cabinet_rue         text not null default '';
+alter table app_meta add column if not exists cabinet_ville       text not null default '';
+alter table app_meta add column if not exists cabinet_code_postal text not null default '';
+alter table app_meta add column if not exists cabinet_pays        text not null default 'TN';
+alter table app_meta add column if not exists cabinet_rc          text not null default '';
+alter table societes add column if not exists adresse_rue  text not null default '';
+alter table societes add column if not exists ville        text not null default '';
+alter table societes add column if not exists code_postal  text not null default '';
+alter table societes add column if not exists pays         text not null default 'TN';
+
+-- Message TEIF préparé pour une facture (une seule ligne par facture). `statut` : prete | signee | deposee | validee | rejetee
+-- (seul « prete » est utilisé tant que la signature et le dépôt ne sont pas en place). Pas de suppression en cascade : la pièce est conservée.
+create table if not exists facture_einvoice (
+  facture_id   uuid primary key references factures(id) on delete restrict,
+  statut       text not null default 'prete',
+  teif_version text not null,
+  teif_xml     text not null,
+  teif_sha256  text not null,
+  genere_le    timestamptz not null default now(),
+  erreurs      jsonb not null default '[]'::jsonb,
+  maj_le       timestamptz not null default now()
+);
+
 -- Déclaration douanière : type de déclaration (case « Type déclaration », ex. E)
 -- à la place du régime, qui n'est plus saisi (la colonne douane_regime est conservée).
 alter table stock_mouvements add column if not exists douane_type_declaration text not null default '';

@@ -4,6 +4,7 @@ import {
   Ban,
   CheckCircle2,
   Download,
+  FileCode2,
   FileText,
   PenLine,
   Plus,
@@ -32,6 +33,7 @@ import { useFacturation, type FactureInput } from "@/store/facturation";
 import { FACTURE_STATUT_LABELS } from "@/types";
 import type { Facture, FactureStatut } from "@/types";
 import { CabinetInfoDialog } from "./CabinetInfoDialog";
+import { FactureElectroniqueDialog } from "./FactureElectroniqueDialog";
 import { FactureFormSheet } from "./FactureFormSheet";
 
 const selectTriggerClass =
@@ -51,6 +53,7 @@ const CSV_COLUMNS: ExportColumn<Facture>[] = [
   { header: "Net à payer", value: (f) => f.netAPayer.toFixed(3) },
   { header: "Statut", value: (f) => FACTURE_STATUT_LABELS[f.statut] },
   { header: "Signature", value: (f) => (f.signeeLe ? "Signée" : "Non signée") },
+  { header: "Facture électronique", value: (f) => (f.einvoice?.statut === "prete" ? "Préparée" : "Non préparée") },
 ];
 
 export function FacturationPage() {
@@ -71,6 +74,7 @@ export function FacturationPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [cabinetOpen, setCabinetOpen] = useState(false);
   const [aAnnuler, setAAnnuler] = useState<Facture | null>(null);
+  const [eiFacture, setEiFacture] = useState<Facture | null>(null);
 
   useEffect(() => {
     fetchList();
@@ -236,6 +240,7 @@ export function FacturationPage() {
                   <th className="px-3 py-3.5 text-right">Montant</th>
                   <th className="px-3 py-3.5 text-left">Statut</th>
                   <th className="px-3 py-3.5 text-left">Signature</th>
+                  <th className="px-3 py-3.5 text-left">Facture électronique</th>
                   <th className="px-6 py-3.5" />
                 </tr>
               </thead>
@@ -300,6 +305,21 @@ export function FacturationPage() {
                           </button>
                         )}
                       </td>
+                      <td className="px-3 py-3.5">
+                        {f.statut === "annulee" ? (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEiFacture(f)}
+                            title="Facture électronique (El Fatoora)"
+                            className={cn("inline-flex items-center gap-2 text-sm font-medium", f.einvoice?.statut === "prete" ? "text-success" : "text-muted-foreground hover:text-primary")}
+                          >
+                            <FileCode2 className="h-4 w-4" />
+                            {f.einvoice?.statut === "prete" ? "Préparée" : "Non préparée"}
+                          </button>
+                        )}
+                      </td>
                       <td className="px-6 py-3.5">
                         <div className="flex justify-end gap-1">
                           <button type="button" className={iconButton} onClick={() => imprimer(f)} aria-label={`Imprimer la facture ${f.numero}`} title="Imprimer / PDF">
@@ -343,6 +363,14 @@ export function FacturationPage() {
         onOpenChange={setFormOpen}
         onSubmit={generer}
         defaultSocieteId={societeActive?.id ?? ""}
+      />
+      <FactureElectroniqueDialog
+        facture={eiFacture}
+        onOpenChange={(o) => !o && setEiFacture(null)}
+        onOpenCabinet={() => {
+          setEiFacture(null);
+          setCabinetOpen(true);
+        }}
       />
       <CabinetInfoDialog
         open={cabinetOpen}

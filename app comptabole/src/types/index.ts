@@ -332,6 +332,8 @@ export interface FactureEinvoice {
   sha256: string;
   /** Date de la signature (statut signee ou au-delà). */
   signeLe?: string | null;
+  /** Empreinte SHA-256 (hexadécimal) du message signé ; imprimée sur la facture avec son QR de contrôle. */
+  shaSigne?: string | null;
 }
 
 /** Certificat de signature du cabinet (métadonnées seulement : le fichier et le mot de passe ne sont jamais renvoyés). */

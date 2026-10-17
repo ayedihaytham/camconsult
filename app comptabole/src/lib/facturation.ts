@@ -1,4 +1,5 @@
 import type { Facture, FactureCabinet, FactureLigne } from "@/types";
+import qrcode from "qrcode-generator";
 import { calculerTotaux as calculerTotauxPartage } from "../../shared/factureTotaux.js";
 
 
@@ -50,6 +51,26 @@ const jjmmaaaa = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/"
 const lignesTexte = (s: string) => echapper(s).replace(/\n/g, "<br>");
 
 const quantiteTexte = (q: number) => q.toLocaleString("fr-FR", { maximumFractionDigits: 3 });
+
+/** Chaîne encodée dans le QR de contrôle d'une facture signée : de quoi retrouver et contrôler le fichier signé (ce n'est PAS le QR de la plateforme TTN). */
+export function contenuQrControle(f: Pick<Facture, "numero" | "netAPayer">, cabinet: Pick<FactureCabinet, "matriculeFiscal"> | null, shaSigne: string): string {
+  return ["FACTURE-SIGNEE", f.numero, cabinet?.matriculeFiscal ?? "", f.netAPayer.toFixed(3), shaSigne].join("|");
+}
+
+/** QR en SVG (autonome, sans canvas) ; vide si le contenu est trop long pour un QR. */
+export function qrSvg(contenu: string): string {
+  try {
+    const q = qrcode(0, "M");
+    q.addData(contenu);
+    q.make();
+    return q.createSvgTag({ cellSize: 3, margin: 0, scalable: true });
+  } catch {
+    return "";
+  }
+}
+
+/** Stades où la facture électronique est signée (le fichier signé existe et ne change plus). */
+const STADES_SIGNES = ["signee", "deposee", "validee", "rejetee"];
 
 /** Page A4 autonome de la facture (en-tête cabinet, client, lignes, totaux, montant
  * en lettres, coordonnées bancaires, mentions), prête à imprimer ou à enregistrer
@@ -109,6 +130,10 @@ export function htmlFacture(f: Facture, cabinet: FactureCabinet | null, origine 
   .paiement b{color:#1c2b3a}
   .pied{margin-top:auto;padding-top:28px;border-top:1px solid #e7e0d2;font-size:11px;color:#7a838c;text-align:center}
   .signature{margin-top:26px;display:flex;justify-content:flex-end}
+  .esign{margin-top:18px;display:flex;gap:14px;align-items:center;border:1px solid #cfe3d4;background:#f4faf5;border-radius:6px;padding:10px 14px;font-size:11px;color:#3b5a45;break-inside:avoid}
+  .esign svg{width:76px;height:76px;flex:none;background:#fff}
+  .esign b{display:block;font-size:12px;color:#1f4d2e;margin-bottom:2px}
+  .esign code{font:10px/1.4 Consolas,monospace;word-break:break-all;color:#1c2b3a}
   .signature div{width:220px;height:80px;border:1px dashed #cfc5ad;border-radius:6px;padding:8px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#8a7a52}
 </style></head><body><div class="page">
 <div class="tete">
@@ -128,9 +153,20 @@ export function htmlFacture(f: Facture, cabinet: FactureCabinet | null, origine 
 <div class="lettres">Arrêtée la présente facture à la somme de : <b>${echapper(montantEnLettres(f.netAPayer))}</b>.</div>
 ${c.rib || f.echeance ? `<div class="paiement">${f.echeance ? `Règlement avant le <b>${jjmmaaaa(f.echeance)}</b>. ` : ""}${c.rib ? `Virement : <b>${echapper(c.rib)}</b>` : ""}</div>` : ""}
 ${f.note ? `<div class="paiement">${lignesTexte(f.note)}</div>` : ""}
+${blocSignatureElectronique(f, c)}
 <div class="signature"><div>Cachet et signature</div></div>
 <div class="pied">${c.mentions ? lignesTexte(c.mentions) : `${echapper(c.nom || "Cabinet")} — Facture ${echapper(f.numero)}`}</div>
 </div></body></html>`;
+}
+
+function blocSignatureElectronique(f: Facture, c: Pick<FactureCabinet, "matriculeFiscal">): string {
+  const ei = f.einvoice;
+  if (!ei || !STADES_SIGNES.includes(ei.statut) || !ei.shaSigne) return "";
+  const qr = qrSvg(contenuQrControle(f, c, ei.shaSigne));
+  return `<div class="esign">${qr}<div><b>Facture électronique signée</b>
+    Signée${ei.signeLe ? ` le ${jjmmaaaa(ei.signeLe)}` : ""} avec le certificat du cabinet (format El Fatoora / TEIF).<br>
+    Empreinte SHA-256 du fichier signé :<br><code>${echapper(ei.shaSigne)}</code><br>
+    Le QR ci-contre permet de contrôler l'intégrité du fichier ; le QR officiel de la plateforme TTN n'est ajouté qu'après le dépôt de la facture.</div></div>`;
 }
 
 /** Imprime la facture depuis la page courante : un cadre invisible porte le

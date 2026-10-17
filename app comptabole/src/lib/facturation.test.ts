@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Facture } from "@/types";
-import { ajouterJours, calculerTotaux, estEnRetard, htmlFacture, montantEnLettres, nombreEnLettres } from "./facturation";
+import { ajouterJours, calculerTotaux, contenuQrControle, estEnRetard, htmlFacture, montantEnLettres, nombreEnLettres } from "./facturation";
 
 describe("calculerTotaux", () => {
   it("calcule HT, TVA et net à payer avec timbre", () => {
@@ -80,6 +80,23 @@ describe("htmlFacture", () => {
     expect(html).toContain("TN59 0000");
     expect(html).toContain("1234567/A");
     expect(html).toContain("1 rue du Lac<br>Tunis");
+  });
+
+  it("facture électronique signée : bloc de signature avec QR de contrôle et empreinte ; rien tant qu'elle n'est pas signée", () => {
+    const cabinet = { nom: "Cabinet X", adresse: "", matriculeFiscal: "1234567ABM000", telephone: "", email: "", rib: "", mentions: "" };
+    const sha = "ab".repeat(32);
+    const signee = { ...facture, einvoice: { statut: "signee" as const, genereLe: null, sha256: "", signeLe: "2026-10-17T11:00:00Z", shaSigne: sha } };
+    const html = htmlFacture(signee, cabinet);
+    expect(html).toContain("Facture électronique signée");
+    expect(html).toContain("17/10/2026");
+    expect(html).toContain(sha);
+    expect(html).toContain("<svg");
+    expect(html).toContain("QR officiel de la plateforme TTN");
+    expect(contenuQrControle(signee, cabinet, sha)).toBe(`FACTURE-SIGNEE|2026-0001|1234567ABM000|${facture.netAPayer.toFixed(3)}|${sha}`);
+
+    const preparee = { ...facture, einvoice: { statut: "prete" as const, genereLe: null, sha256: "", shaSigne: null } };
+    expect(htmlFacture(preparee, cabinet)).not.toContain("Facture électronique signée");
+    expect(htmlFacture(facture, cabinet)).not.toContain("<svg");
   });
 
   it("s'imprime aussi sans coordonnées de cabinet", () => {

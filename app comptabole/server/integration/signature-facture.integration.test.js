@@ -162,6 +162,53 @@ describe.skipIf(!actif)("intégration PostgreSQL : signature de la facture élec
     await admin("POST", "/api/facturation/signature/verrouiller");
   });
 
+  it("modification d'une facture : numéro conservé, lignes et totaux remplacés ; refusée si signée, payée ou annulée", async () => {
+    const corps = (extra = {}) => ({
+      societeId,
+      dateEmission: "2026-10-18",
+      echeance: "2026-11-17",
+      tvaTaux: 19,
+      timbre: 1,
+      note: "corrigée",
+      lignes: [{ description: "Honoraires corrigés", quantite: 2, montantHt: 300 }],
+      ...extra,
+    });
+    // signée : figée
+    const signee = await admin("PUT", `/api/facturation/${factures[0]}`, corps());
+    expect(signee.status).toBe(409);
+    expect(signee.json.error).toMatch(/signée ou déposée/);
+
+    // émise, sans facture électronique : modifiable
+    const id = await nouvelleFacture();
+    const avant = (await admin("GET", "/api/facturation")).json.find((f) => f.id === id);
+    const ok = await admin("PUT", `/api/facturation/${id}`, corps());
+    expect(ok.status).toBe(200);
+    expect(ok.json.numero).toBe(avant.numero);
+    expect(ok.json.lignes).toHaveLength(1);
+    expect(ok.json.lignes[0].description).toBe("Honoraires corrigés");
+    expect(ok.json.totalHt).toBe(600);
+    expect(ok.json.note).toBe("corrigée");
+    expect((await sql.query("select count(*)::int n from facture_lignes where facture_id = $1", [id])).rows[0].n).toBe(1);
+
+    // facture électronique préparée : la modification est permise mais la signature exige de régénérer
+    expect((await admin("POST", `/api/facturation/${id}/einvoice/preparer`)).status).toBe(201);
+    expect((await admin("PUT", `/api/facturation/${id}`, corps({ note: "encore" }))).status).toBe(200);
+    expect((await admin("POST", "/api/facturation/signature/deverrouiller", { motDePasse })).status).toBe(200);
+    expect((await admin("POST", `/api/facturation/${id}/einvoice/signer`)).json.code).toBe("A_REGENERER");
+    await admin("POST", "/api/facturation/signature/verrouiller");
+
+    // payée ou annulée : refus
+    await admin("PATCH", `/api/facturation/${id}`, { statut: "payee" });
+    expect((await admin("PUT", `/api/facturation/${id}`, corps())).status).toBe(409);
+    const autre = await nouvelleFacture();
+    await admin("PATCH", `/api/facturation/${autre}`, { statut: "annulee" });
+    expect((await admin("PUT", `/api/facturation/${autre}`, corps())).status).toBe(409);
+
+    // entrées invalides
+    expect((await admin("PUT", `/api/facturation/${autre}`, { societeId })).status).toBe(400);
+    expect((await admin("PUT", "/api/facturation/pas-un-uuid", corps())).status).toBe(400);
+  });
+
   it("essais limités : après 5 mots de passe incorrects, même le bon est refusé (429)", async () => {
     for (let i = 0; i < 5; i++) {
       const r = await admin("POST", "/api/facturation/signature/deverrouiller", { motDePasse: `faux-${i}-7391` });

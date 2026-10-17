@@ -27,6 +27,8 @@ interface FacturationState {
   fetchCabinet: () => Promise<void>;
   saveCabinet: (data: Omit<FactureCabinet, "nom">) => Promise<void>;
   create: (data: FactureInput) => Promise<Facture>;
+  /** Remplace l'en-tête et les lignes d'une facture émise (numéro conservé). */
+  modifier: (id: string, data: FactureInput) => Promise<Facture>;
   update: (id: string, data: { statut?: FactureStatut; signee?: boolean }) => Promise<void>;
   /** Facture électronique (TEIF) : contrôle de conformité, préparation du XML non signé, téléchargement. */
   conformite: (id: string) => Promise<EinvoiceEtat>;
@@ -88,6 +90,16 @@ export const useFacturation = create<FacturationState>((set) => ({
     try {
       const f = await api.post<Facture>("/facturation", data);
       set((st) => ({ list: [f, ...st.list] }));
+      return f;
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  modifier: async (id, data) => {
+    try {
+      const f = await api.put<Facture>(`/facturation/${id}`, data);
+      set((st) => ({ list: st.list.map((x) => (x.id === id ? f : x)) }));
       return f;
     } catch (e) {
       return fail(e);

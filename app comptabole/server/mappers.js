@@ -280,7 +280,7 @@ export const factureDto = (r, lignes = []) => {
     creeLe: isoOrNull(r.cree_le),
     // Facture électronique (TEIF) : résumé seulement, jamais le XML (téléchargé à la demande).
     einvoice: r.ei_statut
-      ? { statut: r.ei_statut, genereLe: isoOrNull(r.ei_genere_le), sha256: r.ei_sha256 ?? "", signeLe: isoOrNull(r.ei_signe_le) }
+      ? { statut: r.ei_statut, genereLe: isoOrNull(r.ei_genere_le), sha256: r.ei_sha256 ?? "", signeLe: isoOrNull(r.ei_signe_le), shaSigne: r.ei_signe_sha ?? null }
       : null,
     lignes,
   };

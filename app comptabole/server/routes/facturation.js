@@ -42,7 +42,7 @@ const patchSchema = z.object({
 
 const SELECT = `select f.*, s.raison_sociale as societe_nom, s.adresse as societe_adresse,
                        s.tva as societe_tva, s.rne as societe_rne,
-                       e.statut as ei_statut, e.genere_le as ei_genere_le, e.teif_sha256 as ei_sha256, e.signe_le as ei_signe_le
+                       e.statut as ei_statut, e.genere_le as ei_genere_le, e.teif_sha256 as ei_sha256, e.signe_le as ei_signe_le, e.teif_signe_sha256 as ei_signe_sha
                   from factures f join societes s on s.id = f.societe_id
                   left join facture_einvoice e on e.facture_id = f.id`;
 
@@ -152,6 +152,56 @@ facturationRouter.post("/", async (req, res) => {
   const [facture] = await charger("where f.id = $1", [id]);
   logAction(req.session.nom, "creation", "facture", `${facture.numero} — ${societe.raison_sociale}`, id);
   res.status(201).json(facture);
+});
+
+// Modification d'une facture émise : en-tête et lignes remplacés, numéro conservé. Refusée dès qu'elle est payée, annulée ou que sa
+// facture électronique est signée ou déposée (il faut alors un avoir). Une facture électronique seulement préparée devra être régénérée.
+facturationRouter.put("/:id", async (req, res) => {
+  if (!UUID.test(req.params.id)) return res.status(400).json({ error: "Identifiant de facture invalide" });
+  const parsed = createSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  const v = parsed.data;
+  const existante = (
+    await query(
+      `select f.numero, f.statut, e.statut as ei_statut from factures f left join facture_einvoice e on e.facture_id = f.id where f.id = $1`,
+      [req.params.id],
+    )
+  ).rows[0];
+  if (!existante) return res.status(404).json({ error: "Facture introuvable" });
+  if (existante.statut !== "emise") return res.status(409).json({ error: "Seule une facture émise et non payée peut être modifiée." });
+  if (existante.ei_statut && existante.ei_statut !== "prete")
+    return res.status(409).json({ error: "Cette facture électronique est signée ou déposée : elle ne peut plus être modifiée (avoir requis)." });
+  const societe = (await query("select raison_sociale from societes where id = $1", [v.societeId])).rows[0];
+  if (!societe) return res.status(404).json({ error: "Société introuvable" });
+
+  await withTransaction(async (client) => {
+    // Une signature ou un dépôt survenu entre-temps doit empêcher la modification : on relit le statut en verrouillant la ligne.
+    const ei = (await client.query("select statut from facture_einvoice where facture_id = $1 for update", [req.params.id])).rows[0];
+    if (ei && ei.statut !== "prete") throw Object.assign(new Error("fige"), { fige: true });
+    await client.query(
+      `update factures set societe_id = $2, date_emission = $3::date, echeance = $4::date, tva_taux = $5, timbre = $6, note = $7, maj_le = now()
+        where id = $1 and statut = 'emise'`,
+      [req.params.id, v.societeId, v.dateEmission || new Date().toISOString().slice(0, 10), v.echeance || null, v.tvaTaux, v.timbre, v.note],
+    );
+    await client.query("delete from facture_lignes where facture_id = $1", [req.params.id]);
+    let i = 0;
+    for (const l of v.lignes) {
+      await client.query("insert into facture_lignes (facture_id, ordre, description, quantite, montant_ht) values ($1,$2,$3,$4,$5)", [
+        req.params.id,
+        i++,
+        l.description,
+        l.quantite,
+        l.montantHt,
+      ]);
+    }
+  }).catch((e) => {
+    if (e?.fige) return res.status(409).json({ error: "Cette facture électronique est signée ou déposée : elle ne peut plus être modifiée (avoir requis)." });
+    throw e;
+  });
+  if (res.headersSent) return;
+  const [facture] = await charger("where f.id = $1", [req.params.id]);
+  logAction(req.session.nom, "modification", "facture", `${existante.numero} — facture modifiée (${societe.raison_sociale})`, req.params.id);
+  res.json(facture);
 });
 
 facturationRouter.patch("/:id", async (req, res) => {

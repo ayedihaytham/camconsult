@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useSocietes } from "@/store/data";
 import type { FactureInput } from "@/store/facturation";
+import type { Facture } from "@/types";
 import {
   DELAI_PAIEMENT_JOURS,
   TIMBRE_DEFAUT,
@@ -43,9 +44,12 @@ interface Props {
   onSubmit: (data: FactureInput) => Promise<void> | void;
   /** Client proposé à l'ouverture (société active). */
   defaultSocieteId?: string;
+  /** Facture de départ : « modification » la remplace (numéro conservé), « copie » en reprend client, lignes et taux avec de nouvelles dates. */
+  source?: Facture | null;
+  mode?: "nouvelle" | "modification" | "copie";
 }
 
-export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteId = "" }: Props) {
+export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteId = "", source = null, mode = "nouvelle" }: Props) {
   const societes = useSocietes();
   const [societeId, setSocieteId] = useState("");
   const [dateEmission, setDateEmission] = useState(aujourdhui());
@@ -59,6 +63,17 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteI
   useEffect(() => {
     if (!open) return;
     const jour = aujourdhui();
+    if (source && mode !== "nouvelle") {
+      const modification = mode === "modification";
+      setSocieteId(source.societeId);
+      setDateEmission(modification ? source.dateEmission : jour);
+      setEcheance(modification ? (source.echeance ?? "") : ajouterJours(jour, DELAI_PAIEMENT_JOURS));
+      setTvaTaux(source.tvaTaux);
+      setTimbre(source.timbre);
+      setNote(source.note ?? "");
+      setLignes(source.lignes.length ? source.lignes.map((l) => ({ description: l.description, quantite: l.quantite, montantHt: l.montantHt })) : [emptyLigne()]);
+      return;
+    }
     setSocieteId(defaultSocieteId);
     setDateEmission(jour);
     setEcheance(ajouterJours(jour, DELAI_PAIEMENT_JOURS));
@@ -116,10 +131,14 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteI
       <DialogContent className="flex max-h-[92vh] max-w-4xl flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
         <div className="shrink-0 border-b border-accent/30 px-6 pb-5 pt-6 sm:px-8">
           <DialogTitle className="pr-8 font-serif text-3xl font-medium text-primary">
-            Nouvelle facture d'honoraires
+            {mode === "modification" ? `Modifier la facture ${source?.numero ?? ""}` : mode === "copie" ? "Dupliquer la facture" : "Nouvelle facture d'honoraires"}
           </DialogTitle>
           <DialogDescription className="mt-1 text-sm text-muted-foreground">
-            Le numéro est attribué à la génération ; les totaux se calculent tout seuls.
+            {mode === "modification"
+              ? "Le numéro est conservé. Si la facture électronique était déjà préparée, il faudra la régénérer avant de la signer."
+              : mode === "copie"
+                ? `Client, lignes et taux repris de la facture ${source?.numero ?? ""} ; dates mises à jour, nouveau numéro attribué à la génération.`
+                : "Le numéro est attribué à la génération ; les totaux se calculent tout seuls."}
           </DialogDescription>
         </div>
 
@@ -302,7 +321,7 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteI
               disabled={!peutGenerer}
               onClick={submit}
             >
-              Générer la facture
+              {mode === "modification" ? "Enregistrer les modifications" : "Générer la facture"}
             </Button>
           </div>
         </div>

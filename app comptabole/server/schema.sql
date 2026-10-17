@@ -1278,3 +1278,48 @@ end;
 $$ language plpgsql;
 drop trigger if exists facture_einvoice_pieces_figees_trg on facture_einvoice;
 create trigger facture_einvoice_pieces_figees_trg before update on facture_einvoice for each row execute function facture_einvoice_pieces_figees();
+
+-- ── Dépôt chez TTN et suivi (El Fatoora, étape 3) ───────────────────────────────────────────────────────────────
+-- Accès au service web de TTN : adresse, identifiant, mot de passe (CHIFFRÉ comme le certificat de signature), matricule déclaré chez TTN.
+-- `environnement` : « test » ou « reel » (bandeau d'avertissement dans l'application). Une seule ligne (id = 1).
+create table if not exists ttn_connexion (
+  id           int primary key default 1 check (id = 1),
+  url          text        not null,
+  login        text        not null,
+  mdp_chiffre  bytea       not null,
+  matricule    text        not null default '',
+  environnement text       not null default 'test' check (environnement in ('test', 'reel')),
+  maj_le       timestamptz not null default now(),
+  maj_par      text        not null default ''
+);
+
+alter table facture_einvoice add column if not exists depose_le           timestamptz;
+alter table facture_einvoice add column if not exists ttn_message         text;
+alter table facture_einvoice add column if not exists ttn_ref             text;
+alter table facture_einvoice add column if not exists ttn_ref_date        timestamptz;
+alter table facture_einvoice add column if not exists ttn_qr_png          text;
+alter table facture_einvoice add column if not exists ttn_xml             text;
+alter table facture_einvoice add column if not exists ttn_acquittements   jsonb;
+alter table facture_einvoice add column if not exists ttn_derniere_erreur text;
+alter table facture_einvoice add column if not exists ttn_verifie_le      timestamptz;
+
+-- Règle d'immutabilité complétée : le message TTN, une fois reçu, ne change plus, et une facture REJETÉE (jamais acceptée) peut
+-- seulement revenir à « prête » (réouverture), ce qui efface signature et dépôt pour corriger puis signer à nouveau.
+create or replace function facture_einvoice_pieces_figees() returns trigger as $$
+begin
+  if old.statut = 'rejetee' and new.statut = 'prete' then
+    return new;
+  end if;
+  if old.statut <> 'prete' and (
+       new.teif_xml is distinct from old.teif_xml
+    or new.teif_sha256 is distinct from old.teif_sha256
+    or new.teif_signe_xml is distinct from old.teif_signe_xml
+    or new.teif_signe_sha256 is distinct from old.teif_signe_sha256
+    or new.signe_le is distinct from old.signe_le
+    or new.signe_empreinte_certificat is distinct from old.signe_empreinte_certificat
+    or (old.ttn_xml is not null and new.ttn_xml is distinct from old.ttn_xml)) then
+    raise exception 'Une facture électronique signée ou déposée ne peut plus être modifiée';
+  end if;
+  return new;
+end;
+$$ language plpgsql;

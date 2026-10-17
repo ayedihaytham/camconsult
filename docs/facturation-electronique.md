@@ -1,7 +1,7 @@
 # Facturation électronique (El Fatoora / TEIF)
 
-Statut : **étapes 1 et 2 réalisées** — génération, contrôle, **signature XAdES** avec le certificat du cabinet et téléchargement du message TEIF. Aucun dépôt
-automatique chez TTN (étape 3) : le fichier signé se dépose à la main sur le portail El Fatoora.
+Statut : **étapes 1, 2 et 3 réalisées** — génération, contrôle, **signature XAdES**, **dépôt chez TTN** et suivi (validation, QR officiel). L'étape 3 est testée contre un faux service local
+et n'a pas encore été essayée contre le vrai service TTN (voir « Dépôt chez TTN et suivi »).
 Plan complet et décisions : voir la conversation d'origine ; ce document décrit ce qui existe et ce qui reste à confirmer.
 
 ## Ce que fait l'étape 1
@@ -108,7 +108,48 @@ Conforme à la spécification TTN « Signature électronique, plateforme El Fato
 3. `SigningCertificateV2` avec une empreinte SHA-1 (reprise de l'exemple officiel) et rôle « Fournisseur » : suivis à la lettre ; à reconfirmer si TTN refuse.
 4. Le chiffrement `.p12` « moderne » (PBES2/AES) est pris en charge ; un certificat dont le fichier utiliserait un algorithme rare pourrait être refusé au chargement avec un message explicite.
 
+## Dépôt chez TTN et suivi (étape 3)
+Code prêt et testé contre un **faux service TTN local** ; **jamais essayé contre le vrai service** (aucun accès de test n'était disponible). Le premier dépôt réel se fera ensemble, avec les valeurs ci-dessous.
+
+### Parcours (administrateur)
+1. **Facturation › TTN** : saisir l'adresse du service (https), l'identifiant et le mot de passe El Fatoora, le matricule fiscal déclaré chez TTN (vide = celui du cabinet) et l'environnement
+   **Test** ou **Réel**. Le mot de passe est chiffré en base (même coffre et même clé `SIGNATURE_CLE_SECRET` que le certificat), jamais renvoyé ni journalisé. **Tester la connexion** interroge le
+   service sur un numéro inexistant : rien n'est déposé.
+2. **Facture électronique › Déposer chez TTN** (facture signée) : confirmation (le texte change en environnement réel), puis envoi des octets exacts du fichier signé.
+3. **Suivi** : le serveur interroge TTN toutes les 5 minutes pour les factures déposées ; **Actualiser** le fait tout de suite. États : *signée → déposée → validée* (référence TTN, date, QR officiel,
+   XML validé téléchargeable) ou *rejetée* (acquittements affichés).
+4. **Rejet** : *Rouvrir pour corriger* efface signature et dépôt (la facture redevient « préparée »), puis Modifier → Régénérer → Signer → Déposer. Une facture rejetée peut aussi être annulée.
+5. **Impression** : une facture validée affiche le **QR officiel renvoyé par TTN**, la référence et la date de validation (jamais un QR fabriqué par l'application).
+
+### Contrat supposé (spécification « Web Services El Fatoora v5 », mai 2016)
+- SOAP 1.1 document/littéral, espace de noms `http://services.elfatoura.tradenet.com.tn/`. `saveEfact(login, password, matricule, documentEfact: byte[])` renvoie un message ;
+  `consultEfact(login, password, matricule, efactCriteria)` renvoie des `EfactCriteria` (`documentNumber`, `generatedRef`, `listAcknowlegments`, `xmlContent`, …).
+- Le message de `saveEfact` n'est **jamais interprété** : la décision vient de `consultEfact` (référence TTN ou bloc `RefTtnVal` → validée ; acquittements sans référence → rejetée).
+- **Garde anti-doublon** : avant tout dépôt, TTN est interrogé ; un numéro déjà connu n'est pas redéposé (sauf s'il a été rejeté). Une coupure réseau laisse la facture « signée » avec l'erreur enregistrée.
+- **HTTPS obligatoire**, pas d'identifiant dans l'adresse, adresses locales ou privées refusées (le serveur ne doit pas servir à atteindre son réseau interne). Le WSDL du pack annonce encore une adresse HTTP:80 : à ignorer.
+- Fichiers : `server/ttn/` (soap, refTtn, connexion, suivi), `server/routes/ttn.js`, routes de dépôt dans `server/routes/facturation.js`, écrans `TtnConnexionDialog` et `FactureElectroniqueDialog`.
+
+### Prérequis côté TTN (vérifiés sur tradenet.com.tn le 2026-10-17)
+- Le pack technique publié sur le site de TTN est **identique** à celui de `samples/` (mêmes 10 fichiers, mêmes empreintes) : la spécification web service v5 (2016) et la signature V3.0 restent les références en ligne.
+- **Adhésion préalable** (en ligne : `adhesion.elfatoora.tn`) : contrat d'abonnement, fiche de renseignements, déclaration d'adhésion à la DGI. Abonnement web service : environ 10 DT HT par mois et par compte, plus un tarif par facture.
+- **Pour lancer la phase de test**, TTN demande : une **adresse IP fixe** (c'est celle du serveur qui appellera le service : le VPS), les personnes habilitées à signer, le **numéro de série du certificat** et l'e-mail associé, et le choix du mode de connexion (web service ou SFTP).
+- TTN fournit ensuite les paramètres d'accès (identifiant, mot de passe, adresses). Certains accès passent par un **VPN SSL** (Cisco AnyConnect, certificat TunTrust ou code SMS) : à demander à TTN pour le web service.
+- Le service `elfatoora.tn` refuse les connexions depuis le poste de développement (connexion refusée) : le premier essai doit se faire **depuis le serveur** une fois son IP déclarée.
+- TTN écrit que la signature se fait « via une application fournie par un **fournisseur agréé TTN** » : l'acceptation de notre signature intégrée est **à confirmer par un essai réel** (point déjà listé pour l'ANCE).
+
+### Ce qu'il faut fournir pour le premier essai réel
+1. L'**adresse du service de test** TTN (`https://…/EfactService`) ; plus tard celle du service réel.
+2. L'identifiant et le mot de passe El Fatoora : à saisir **dans l'écran TTN uniquement**, jamais dans une conversation.
+3. Le matricule fiscal exactement tel que déclaré chez TTN.
+4. Le **WSDL** (`…/EfactService?wsdl`) et le **schéma** (`…?xsd=1`), enregistrés depuis un navigateur dans `samples/` (non versionné) : le service n'est pas joignable depuis le poste de développement.
+   Ils fixent les noms exacts des éléments, déduits ici de la spécification ; je les compare avant le premier dépôt.
+5. Un exemple de **réponse réelle** de `saveEfact` (succès et échec) après le premier essai.
+
+### Points à confirmer avec TTN
+- Redépôt d'un numéro **rejeté** après correction : accepté tel quel, ou nouveau numéro exigé ?
+- Délai habituel de validation, et libellés exacts des acquittements.
+- Le message de `saveEfact` annonce-t-il un refus immédiat (hors Fault SOAP) ? Aujourd'hui une facture « déposée » que TTN ne prend jamais en compte reste en attente (visible : message de TTN et dernière erreur affichés).
+- Format attendu du `matricule` envoyé (13 caractères normalisés, comme dans le TEIF, par défaut).
+
 ## Étapes suivantes (non réalisées)
-- **Dépôt et suivi** : web service SOAP `saveEfact` / `consultEfact` (adresse du WSDL en HTTP : HTTPS à confirmer), identifiants TTN en variables d'environnement,
-  stockage de la référence TTN et du QR (`RefTtnVal`), copie de facture avec QR, états déposée / validée / rejetée.
-- **Avoirs** et **retenue à la source** après confirmation.
+- **Avoirs** (`I-12`, référence `I-89`) et **retenue à la source** après confirmation.

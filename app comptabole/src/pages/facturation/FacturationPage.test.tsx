@@ -105,7 +105,7 @@ describe("FacturationPage (registre)", () => {
     const l2 = ligne("AUTRE CLIENT");
     expect(within(l2).getByText("Payée")).toBeTruthy();
     expect(within(l2).getByText("Signée")).toBeTruthy();
-    expect(within(l2).getByRole("button", { name: "Voir" })).toBeTruthy();
+    expect(within(l2).getByRole("button", { name: "Déposer" })).toBeTruthy();
 
     const l3 = ligne("TROISIEME");
     expect(within(l3).getByText("En retard")).toBeTruthy();
@@ -129,9 +129,9 @@ describe("FacturationPage (registre)", () => {
     expect(screen.getAllByText("CLIENT EXEMPLE SARL").length).toBeGreaterThan(0);
   });
 
-  it("indicateurs cliquables : « À signer » compte les factures préparées et filtre", () => {
+  it("indicateurs cliquables : « À traiter » compte les factures à signer, à déposer ou rejetées et filtre", () => {
     monter([facture(), facture({ id: "f3", numero: "2026-0003", societeNom: "TROISIEME", einvoice: { statut: "prete", genereLe: null, sha256: "" } })]);
-    fireEvent.click(screen.getByRole("button", { name: /À signer/ }));
+    fireEvent.click(screen.getByRole("button", { name: /À traiter/ }));
     expect(screen.queryAllByText("CLIENT EXEMPLE SARL")).toHaveLength(0);
     expect(screen.getAllByText("TROISIEME").length).toBeGreaterThan(0);
   });

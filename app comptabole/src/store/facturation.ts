@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { download } from "@/lib/export";
-import type { EinvoiceEtat, Facture, FactureCabinet, FactureStatut, SignatureEtat } from "@/types";
+import type { EinvoiceEtat, Facture, FactureCabinet, FactureStatut, SignatureEtat, TtnBilan, TtnEnvironnement, TtnEtat } from "@/types";
 
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
@@ -34,7 +34,17 @@ interface FacturationState {
   conformite: (id: string) => Promise<EinvoiceEtat>;
   preparer: (id: string, regenerer?: boolean) => Promise<EinvoiceEtat>;
   /** version : « signe » ou « non-signe » ; par défaut le message signé s'il existe. */
-  telechargerXml: (id: string, numero: string, version?: "signe" | "non-signe") => Promise<void>;
+  telechargerXml: (id: string, numero: string, version?: "signe" | "non-signe" | "ttn") => Promise<void>;
+  /** Accès au service TTN et dépôt des factures signées. */
+  ttn: TtnEtat | null;
+  fetchTtn: () => Promise<TtnEtat>;
+  enregistrerTtn: (data: { url: string; login: string; motDePasse?: string; matricule?: string; environnement: TtnEnvironnement }) => Promise<void>;
+  supprimerTtn: () => Promise<void>;
+  testerTtn: () => Promise<string>;
+  deposer: (id: string) => Promise<EinvoiceEtat>;
+  actualiser: (id: string) => Promise<EinvoiceEtat>;
+  actualiserTout: () => Promise<TtnBilan>;
+  rouvrir: (id: string) => Promise<EinvoiceEtat>;
   /** Signature électronique : certificat du cabinet, déverrouillage par mot de passe, signature d'une facture. */
   signature: SignatureEtat | null;
   fetchSignature: () => Promise<SignatureEtat>;
@@ -58,6 +68,7 @@ export const useFacturation = create<FacturationState>((set) => ({
   cabinet: null,
   loading: false,
   signature: null,
+  ttn: null,
 
   fetchCabinet: async () => {
     try {
@@ -137,7 +148,7 @@ export const useFacturation = create<FacturationState>((set) => ({
     try {
       const xml = await api.get<string>(`/facturation/${id}/einvoice/xml${version ? `?version=${version}` : ""}`);
       const nom = numero.replace(/[^A-Za-z0-9._-]/g, "_");
-      download(new Blob([xml], { type: "application/xml;charset=utf-8" }), `${nom}${version === "non-signe" ? "-non-signe" : ""}.xml`);
+      download(new Blob([xml], { type: "application/xml;charset=utf-8" }), `${nom}${version === "non-signe" ? "-non-signe" : version === "ttn" ? "-ttn" : ""}.xml`);
     } catch (e) {
       fail(e);
     }
@@ -184,6 +195,80 @@ export const useFacturation = create<FacturationState>((set) => ({
       set({ signature: await api.post<SignatureEtat>("/facturation/signature/verrouiller") });
     } catch (e) {
       fail(e);
+    }
+  },
+
+  fetchTtn: async () => {
+    try {
+      const ttn = await api.get<TtnEtat>("/facturation/ttn");
+      set({ ttn });
+      return ttn;
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  enregistrerTtn: async (data) => {
+    try {
+      set({ ttn: await api.put<TtnEtat>("/facturation/ttn", data) });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  supprimerTtn: async () => {
+    try {
+      set({ ttn: await api.del<TtnEtat>("/facturation/ttn") });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  testerTtn: async () => {
+    try {
+      return (await api.post<{ ok: boolean; message: string }>("/facturation/ttn/tester")).message;
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  deposer: async (id) => {
+    try {
+      const etat = await api.post<EinvoiceEtat>(`/facturation/${id}/einvoice/deposer`);
+      set((st) => ({ list: st.list.map((x) => (x.id === id ? { ...x, einvoice: etat.einvoice } : x)) }));
+      return etat;
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  actualiser: async (id) => {
+    try {
+      const etat = await api.post<EinvoiceEtat>(`/facturation/${id}/einvoice/actualiser`);
+      set((st) => ({ list: st.list.map((x) => (x.id === id ? { ...x, einvoice: etat.einvoice } : x)) }));
+      return etat;
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  actualiserTout: async () => {
+    try {
+      const bilan = await api.post<TtnBilan>("/facturation/ttn/actualiser");
+      if (bilan.changees > 0) await useFacturation.getState().fetchList();
+      return bilan;
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  rouvrir: async (id) => {
+    try {
+      const etat = await api.post<EinvoiceEtat>(`/facturation/${id}/einvoice/rouvrir`);
+      set((st) => ({ list: st.list.map((x) => (x.id === id ? { ...x, einvoice: etat.einvoice } : x)) }));
+      return etat;
+    } catch (e) {
+      return fail(e);
     }
   },
 

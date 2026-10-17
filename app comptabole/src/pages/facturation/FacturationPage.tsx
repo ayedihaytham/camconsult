@@ -13,6 +13,7 @@ import {
   FileKey2,
   FileText,
   MoreHorizontal,
+  Network,
   Pencil,
   PenLine,
   Plus,
@@ -66,6 +67,7 @@ import { FACTURE_STATUT_LABELS, type Facture, type FactureStatut } from "@/types
 import { CabinetInfoDialog } from "./CabinetInfoDialog";
 import { FactureElectroniqueDialog } from "./FactureElectroniqueDialog";
 import { SignatureElectroniqueDialog } from "./SignatureElectroniqueDialog";
+import { TtnConnexionDialog } from "./TtnConnexionDialog";
 import { FactureFormSheet } from "./FactureFormSheet";
 
 /** Libellé de la colonne « Facture électronique » (écran, CSV et filtre). */
@@ -78,7 +80,7 @@ const LIBELLE_EINVOICE: Record<string, string> = {
 };
 const libelleEinvoice = (statut: string | undefined) => (statut ? (LIBELLE_EINVOICE[statut] ?? statut) : "Non préparée");
 
-type FiltreEinvoice = "all" | "aucune" | "prete" | "signee";
+type FiltreEinvoice = "all" | "traiter" | "aucune" | "prete" | "signee" | "deposee" | "validee" | "rejetee";
 
 const MONOGRAM_TONES = [
   "border-primary/15 bg-primary/[0.07] text-primary",
@@ -180,9 +182,13 @@ function FiltresFactures({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Toutes</SelectItem>
+            <SelectItem value="traiter">À traiter (à signer, à déposer, rejetées)</SelectItem>
             <SelectItem value="aucune">Non préparées</SelectItem>
             <SelectItem value="prete">Préparées, à signer</SelectItem>
-            <SelectItem value="signee">Signées</SelectItem>
+            <SelectItem value="signee">Signées, à déposer</SelectItem>
+            <SelectItem value="deposee">Déposées chez TTN</SelectItem>
+            <SelectItem value="validee">Validées par TTN</SelectItem>
+            <SelectItem value="rejetee">Rejetées par TTN</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -275,6 +281,7 @@ export function FacturationPage() {
   const [aAnnuler, setAAnnuler] = useState<Facture | null>(null);
   const [eiFacture, setEiFacture] = useState<Facture | null>(null);
   const [signatureOpen, setSignatureOpen] = useState(false);
+  const [ttnOpen, setTtnOpen] = useState(false);
 
   useEffect(() => {
     fetchList();
@@ -289,8 +296,9 @@ export function FacturationPage() {
       if (retardSeul && !estEnRetard(f)) return false;
       const ei = f.einvoice?.statut;
       if (filtreEi === "aucune" && ei) return false;
-      if (filtreEi === "prete" && ei !== "prete") return false;
-      if (filtreEi === "signee" && ei !== "signee" && ei !== "deposee" && ei !== "validee") return false;
+      if (filtreEi === "traiter" && !(ei === "prete" || ei === "signee" || ei === "rejetee")) return false;
+      if (["prete", "signee", "deposee", "validee", "rejetee"].includes(filtreEi) && ei !== filtreEi) return false;
+      if (f.statut === "annulee" && filtreEi !== "all" && filtreEi !== "aucune") return false;
       if (q && !`${f.societeNom} ${f.numero}`.toLocaleLowerCase("fr").includes(q)) return false;
       return true;
     });
@@ -302,7 +310,7 @@ export function FacturationPage() {
   const facture = actives.reduce((s, f) => s + f.netAPayer, 0);
   const encaisse = portee.filter((f) => f.statut === "payee").reduce((s, f) => s + f.netAPayer, 0);
   const nbRetard = portee.filter((f) => estEnRetard(f)).length;
-  const nbASigner = portee.filter((f) => f.statut !== "annulee" && f.einvoice?.statut === "prete").length;
+  const nbATraiter = portee.filter((f) => f.statut !== "annulee" && ["prete", "signee", "rejetee"].includes(f.einvoice?.statut ?? "")).length;
   const totalAffiche = filtered.filter((f) => f.statut !== "annulee").reduce((s, f) => s + f.netAPayer, 0);
 
   function ouvrirFormulaire(mode: "nouvelle" | "modification" | "copie", source: Facture | null = null) {
@@ -379,7 +387,9 @@ export function FacturationPage() {
     const actions: RowAction[] = [{ icon: Printer, label: "Imprimer / PDF", onClick: () => imprimer(f) }];
     if (modifiable(f)) actions.push({ icon: Pencil, label: "Modifier", onClick: () => ouvrirFormulaire("modification", f) });
     actions.push(copier);
-    if (ei === "signee") actions.push({ icon: Download, label: "Télécharger le XML signé", onClick: () => void telechargerXml(f.id, f.numero, "signe").catch(() => undefined) });
+    if (ei === "signee" || ei === "deposee" || ei === "validee" || ei === "rejetee")
+      actions.push({ icon: Download, label: "Télécharger le XML signé", onClick: () => void telechargerXml(f.id, f.numero, "signe").catch(() => undefined) });
+    if (ei === "validee") actions.push({ icon: Download, label: "Télécharger le XML validé TTN", onClick: () => void telechargerXml(f.id, f.numero, "ttn").catch(() => undefined) });
     else if (ei === "prete") actions.push({ icon: Download, label: "Télécharger le XML", onClick: () => void telechargerXml(f.id, f.numero).catch(() => undefined) });
     actions.push(
       { icon: f.statut === "payee" ? RotateCcw : Wallet, label: f.statut === "payee" ? "Retirer le paiement" : "Marquer payée", onClick: () => void basculerPaiement(f) },
@@ -391,7 +401,7 @@ export function FacturationPage() {
 
   const libelleBoutonEi = (f: Facture) => {
     const ei = f.einvoice?.statut;
-    return ei === "signee" || ei === "deposee" || ei === "validee" ? "Voir" : ei === "prete" ? "Signer" : "Préparer";
+    return ei === "deposee" || ei === "validee" ? "Voir" : ei === "signee" ? "Déposer" : ei === "rejetee" ? "Corriger" : ei === "prete" ? "Signer" : "Préparer";
   };
 
   const colonnes: ColumnDef<Facture>[] = [
@@ -595,7 +605,7 @@ export function FacturationPage() {
           { label: "Facturé", icon: Wallet, value: formatTnd(facture), loading },
           { label: "Encaissé", icon: CheckCircle2, value: formatTnd(encaisse), tone: "success", loading, onSelect: () => { setStatut("payee"); setRetardSeul(false); }, active: statut === "payee" },
           { label: "En retard", icon: AlertCircle, value: nbRetard, tone: nbRetard > 0 ? "warning" : "default", loading, onSelect: () => { setStatut("all"); setRetardSeul(true); }, active: retardSeul },
-          { label: "À signer", icon: FileKey2, value: nbASigner, tone: nbASigner > 0 ? "warning" : "default", loading, onSelect: () => { setFiltreEi("prete"); }, active: filtreEi === "prete" },
+          { label: "À traiter", icon: FileKey2, value: nbATraiter, tone: nbATraiter > 0 ? "warning" : "default", loading, onSelect: () => { setFiltreEi("traiter"); }, active: filtreEi === "traiter" },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -606,6 +616,10 @@ export function FacturationPage() {
             <Button variant="outline" className="signature-ledger__action" onClick={() => setSignatureOpen(true)}>
               <FileKey2 className="h-4 w-4" />
               Signature
+            </Button>
+            <Button variant="outline" className="signature-ledger__action" onClick={() => setTtnOpen(true)}>
+              <Network className="h-4 w-4" />
+              TTN
             </Button>
             <Button variant="ledger" onClick={() => ouvrirFormulaire("nouvelle")}>
               <Plus className="h-4 w-4" />
@@ -711,7 +725,12 @@ export function FacturationPage() {
           setEiFacture(null);
           setSignatureOpen(true);
         }}
+        onOpenTtn={() => {
+          setEiFacture(null);
+          setTtnOpen(true);
+        }}
       />
+      <TtnConnexionDialog open={ttnOpen} onOpenChange={setTtnOpen} />
       <SignatureElectroniqueDialog open={signatureOpen} onOpenChange={setSignatureOpen} />
       <CabinetInfoDialog
         open={cabinetOpen}

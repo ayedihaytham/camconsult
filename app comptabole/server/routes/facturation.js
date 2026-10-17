@@ -9,6 +9,12 @@ import { obtenir as materielDeverrouille } from "../signature/deverrouillage.js"
 import { ErreurSignature } from "../signature/erreur.js";
 import { signerTeif } from "../signature/signerTeif.js";
 import { signatureRouter } from "./signature.js";
+import { ttnRouter } from "./ttn.js";
+import { autoriserLocal, lireConnexion } from "../ttn/connexion.js";
+import { ErreurTtn } from "../ttn/erreur.js";
+import { consulterFacture, deposerFacture } from "../ttn/soap.js";
+import { actualiserFacture } from "../ttn/suivi.js";
+import { lireRefTtn } from "../ttn/refTtn.js";
 import { aDesBloquants, controlerFactureTeif } from "../teif/validerTeif.js";
 import { TEIF_VERSION } from "../teif/constantes.js";
 
@@ -16,6 +22,8 @@ export const facturationRouter = Router();
 facturationRouter.use(requireAuth, requireAdmin);
 // Certificat de signature électronique (déclaré avant les routes /:id).
 facturationRouter.use("/signature", signatureRouter);
+// Accès au service web TTN (adresse, identifiants chiffrés, essai de connexion, actualisation globale).
+facturationRouter.use("/ttn", ttnRouter);
 
 const STATUTS = ["emise", "payee", "annulee"];
 
@@ -42,7 +50,9 @@ const patchSchema = z.object({
 
 const SELECT = `select f.*, s.raison_sociale as societe_nom, s.adresse as societe_adresse,
                        s.tva as societe_tva, s.rne as societe_rne,
-                       e.statut as ei_statut, e.genere_le as ei_genere_le, e.teif_sha256 as ei_sha256, e.signe_le as ei_signe_le, e.teif_signe_sha256 as ei_signe_sha
+                       e.statut as ei_statut, e.genere_le as ei_genere_le, e.teif_sha256 as ei_sha256, e.signe_le as ei_signe_le, e.teif_signe_sha256 as ei_signe_sha,
+                       e.depose_le as ei_depose_le, e.ttn_message as ei_ttn_message, e.ttn_ref as ei_ttn_ref, e.ttn_ref_date as ei_ttn_ref_date,
+                       e.ttn_qr_png as ei_ttn_qr, e.ttn_acquittements as ei_ttn_acq, e.ttn_derniere_erreur as ei_ttn_erreur
                   from factures f join societes s on s.id = f.societe_id
                   left join facture_einvoice e on e.facture_id = f.id`;
 
@@ -214,7 +224,8 @@ facturationRouter.patch("/:id", async (req, res) => {
   if (v.statut === "annulee") {
     // Une facture déjà signée ou déposée chez TTN ne s'annule pas d'un clic : il faudra un avoir (étape ultérieure).
     const ei = (await query("select statut from facture_einvoice where facture_id = $1", [req.params.id])).rows[0];
-    if (ei && ei.statut !== "prete")
+    // Une facture électronique REJETÉE par TTN n'a jamais été acceptée : elle peut être annulée.
+    if (ei && ei.statut !== "prete" && ei.statut !== "rejetee")
       return res.status(409).json({ error: "Cette facture électronique est signée ou déposée : elle ne peut plus être annulée ici (avoir requis)." });
   }
 
@@ -277,7 +288,13 @@ async function contexteEinvoice(id) {
 }
 
 async function resumeEinvoice(id) {
-  const ei = (await query("select statut, teif_version, teif_sha256, genere_le, signe_le, teif_signe_sha256 from facture_einvoice where facture_id = $1", [id])).rows[0];
+  const ei = (
+    await query(
+      `select statut, teif_version, teif_sha256, genere_le, signe_le, teif_signe_sha256, depose_le, ttn_message, ttn_ref, ttn_ref_date, ttn_qr_png, ttn_acquittements, ttn_derniere_erreur
+         from facture_einvoice where facture_id = $1`,
+      [id],
+    )
+  ).rows[0];
   return ei
     ? {
         statut: ei.statut,
@@ -286,6 +303,13 @@ async function resumeEinvoice(id) {
         genereLe: ei.genere_le?.toISOString?.() ?? null,
         signeLe: ei.signe_le?.toISOString?.() ?? null,
         shaSigne: ei.teif_signe_sha256 ?? null,
+        deposeLe: ei.depose_le?.toISOString?.() ?? null,
+        messageTtn: ei.ttn_message ?? null,
+        refTtn: ei.ttn_ref ?? null,
+        refTtnDate: ei.ttn_ref_date?.toISOString?.() ?? null,
+        qrPng: ei.statut === "validee" ? (ei.ttn_qr_png ?? null) : null,
+        acquittements: ei.ttn_acquittements ?? [],
+        erreurTtn: ei.ttn_derniere_erreur ?? null,
       }
     : null;
 }
@@ -351,7 +375,7 @@ facturationRouter.post("/:id/einvoice/regenerer", (req, res) => preparer(req, re
 facturationRouter.get("/:id/einvoice/xml", async (req, res) => {
   const ligne = (
     await query(
-      `select e.teif_xml, e.teif_signe_xml, f.numero, f.statut
+      `select e.teif_xml, e.teif_signe_xml, e.ttn_xml, f.numero, f.statut
          from facture_einvoice e join factures f on f.id = e.facture_id where e.facture_id = $1`,
       [req.params.id],
     )
@@ -359,14 +383,115 @@ facturationRouter.get("/:id/einvoice/xml", async (req, res) => {
   if (!ligne) return res.status(404).json({ error: "Aucune facture électronique préparée pour cette facture" });
   if (ligne.statut === "annulee") return res.status(409).json({ error: "Cette facture est annulée" });
   const version = req.query.version;
-  if (version !== undefined && version !== "signe" && version !== "non-signe") return res.status(400).json({ error: "Version inconnue" });
+  if (version !== undefined && version !== "signe" && version !== "non-signe" && version !== "ttn") return res.status(400).json({ error: "Version inconnue" });
+  if (version === "ttn" && !ligne.ttn_xml) return res.status(404).json({ error: "TTN n'a pas encore renvoyé le message validé" });
   if (version === "signe" && !ligne.teif_signe_xml) return res.status(404).json({ error: "Cette facture électronique n'est pas encore signée" });
   const signe = version !== "non-signe" && Boolean(ligne.teif_signe_xml);
   const nom = String(ligne.numero).replace(/[^A-Za-z0-9._-]/g, "_");
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${nom}${version === "non-signe" && ligne.teif_signe_xml ? "-non-signe" : ""}.xml"`);
   res.setHeader("Cache-Control", "no-store");
-  res.send(signe ? ligne.teif_signe_xml : ligne.teif_xml);
+  res.send(version === "ttn" ? ligne.ttn_xml : signe ? ligne.teif_signe_xml : ligne.teif_xml);
+});
+
+// ── Dépôt chez TTN ───────────────────────────────────────────────────────────────────────────────────────────────
+const repondreErreur = (res, e, journal) => {
+  if (e instanceof ErreurTtn || e instanceof ErreurSignature) return res.status(e.statut ?? 502).json({ error: e.message, code: e.code });
+  console.error(journal, e?.name, e?.message);
+  return res.status(500).json({ error: "Erreur interne lors de l'opération TTN" });
+};
+
+// Dépôt de la facture SIGNÉE : les octets envoyés sont exactement ceux du fichier signé enregistré. Garde anti-doublon : on interroge
+// TTN d'abord, et on ne redépose jamais un numéro qu'il connaît déjà. Une coupure réseau laisse la facture « signée » (rien n'est perdu).
+facturationRouter.post("/:id/einvoice/deposer", async (req, res) => {
+  try {
+    const ctx = await contexteEinvoice(req.params.id);
+    if (!ctx) return res.status(404).json({ error: "Facture introuvable" });
+    if (ctx.facture.statut === "annulee") return res.status(409).json({ error: "Cette facture est annulée" });
+    const ei = (await query("select statut, teif_signe_xml from facture_einvoice where facture_id = $1", [req.params.id])).rows[0];
+    if (!ei) return res.status(409).json({ error: "Préparez et signez d'abord la facture électronique.", code: "NON_PREPAREE" });
+    if (ei.statut === "prete") return res.status(409).json({ error: "Signez d'abord la facture électronique.", code: "NON_SIGNEE" });
+    if (ei.statut === "rejetee") return res.status(409).json({ error: "TTN a rejeté cette facture : rouvrez-la pour la corriger.", code: "REJETEE" });
+    if (ei.statut !== "signee") return res.status(409).json({ error: "Cette facture électronique est déjà déposée.", code: "DEJA_DEPOSEE" });
+    const config = await lireConnexion();
+    if (!config) return res.status(409).json({ error: "Enregistrez d'abord les accès TTN (bouton « TTN »).", code: "SANS_CONNEXION" });
+    const options = { autoriserLocal: autoriserLocal() };
+    const numero = ctx.facture.numero;
+
+    let deja;
+    let rejeteeAvant = false;
+    try {
+      const connue = (await consulterFacture(config, numero, options)).find((r) => r.documentNumber === numero || !r.documentNumber);
+      // Un numéro que TTN a REJETÉ (acquittements, aucune référence) peut être redéposé après correction ; sinon on ne redépose jamais.
+      rejeteeAvant = Boolean(connue) && !connue.generatedRef && !lireRefTtn(connue.xml) && connue.acquittements.length > 0;
+      deja = rejeteeAvant ? undefined : connue;
+    } catch (e) {
+      await query("update facture_einvoice set ttn_derniere_erreur = $2 where facture_id = $1 and statut = 'signee'", [req.params.id, String(e.message).slice(0, 500)]);
+      return repondreErreur(res, e, "[ttn] consultation avant dépôt");
+    }
+    let message = "";
+    if (deja) {
+      message = "Facture déjà connue de TTN : elle n'a pas été déposée une seconde fois.";
+    } else {
+      try {
+        message = await deposerFacture(config, ei.teif_signe_xml, options);
+      } catch (e) {
+        await query("update facture_einvoice set ttn_derniere_erreur = $2 where facture_id = $1 and statut = 'signee'", [req.params.id, String(e.message).slice(0, 500)]);
+        return repondreErreur(res, e, "[ttn] dépôt");
+      }
+    }
+    const { rowCount } = await query(
+      `update facture_einvoice set statut = 'deposee', depose_le = now(), ttn_message = $2, ttn_derniere_erreur = null, maj_le = now()
+        where facture_id = $1 and statut = 'signee'`,
+      [req.params.id, message],
+    );
+    if (!rowCount) return res.status(409).json({ error: "La facture électronique a changé pendant le dépôt : actualisez.", code: "CONFLIT" });
+    logAction(req.session.nom, "modification", "facture", `${numero} — facture électronique déposée chez TTN (environnement ${config.environnement})`, req.params.id);
+    // Vérification immédiate (TTN valide souvent en quelques secondes) ; un échec ici n'annule pas le dépôt.
+    // (Sauf après un rejet antérieur : les anciens acquittements risqueraient d'être relus avant le nouveau traitement.)
+    if (!rejeteeAvant) await actualiserFacture(req.params.id, config, options, req.session.nom).catch(() => undefined);
+    res.json({ einvoice: await resumeEinvoice(req.params.id), version: TEIF_VERSION, problemes: [], pret: true });
+  } catch (e) {
+    repondreErreur(res, e, "[ttn] déposer");
+  }
+});
+
+// Actualisation d'une facture déposée : interroge TTN et met à jour l'état (validée avec référence et QR, ou rejetée avec acquittements).
+facturationRouter.post("/:id/einvoice/actualiser", async (req, res) => {
+  try {
+    const ei = (await query("select statut from facture_einvoice where facture_id = $1", [req.params.id])).rows[0];
+    if (!ei) return res.status(404).json({ error: "Aucune facture électronique pour cette facture" });
+    if (ei.statut === "deposee") {
+      const config = await lireConnexion();
+      if (!config) return res.status(409).json({ error: "Enregistrez d'abord les accès TTN (bouton « TTN »).", code: "SANS_CONNEXION" });
+      try {
+        await actualiserFacture(req.params.id, config, { autoriserLocal: autoriserLocal() }, req.session.nom);
+      } catch (e) {
+        await query("update facture_einvoice set ttn_derniere_erreur = $2, ttn_verifie_le = now() where facture_id = $1 and statut = 'deposee'", [req.params.id, String(e.message).slice(0, 500)]);
+        return repondreErreur(res, e, "[ttn] actualiser");
+      }
+    }
+    res.json({ einvoice: await resumeEinvoice(req.params.id), version: TEIF_VERSION, problemes: [], pret: true });
+  } catch (e) {
+    repondreErreur(res, e, "[ttn] actualiser");
+  }
+});
+
+// Réouverture d'une facture REJETÉE : retour à « prête » (signature et dépôt effacés) pour corriger, régénérer, signer et redéposer.
+facturationRouter.post("/:id/einvoice/rouvrir", async (req, res) => {
+  const ligne = (await query("select e.statut, f.numero, e.ttn_acquittements from facture_einvoice e join factures f on f.id = e.facture_id where e.facture_id = $1", [req.params.id])).rows[0];
+  if (!ligne) return res.status(404).json({ error: "Aucune facture électronique pour cette facture" });
+  if (ligne.statut !== "rejetee") return res.status(409).json({ error: "Seule une facture rejetée par TTN peut être rouverte.", code: "NON_REJETEE" });
+  await query(
+    `update facture_einvoice set statut = 'prete', teif_signe_xml = null, teif_signe_sha256 = null, signe_le = null, signe_empreinte_certificat = null,
+            depose_le = null, ttn_message = null, ttn_ref = null, ttn_ref_date = null, ttn_qr_png = null, ttn_xml = null,
+            ttn_acquittements = null, ttn_derniere_erreur = null, ttn_verifie_le = null, maj_le = now()
+      where facture_id = $1 and statut = 'rejetee'`,
+    [req.params.id],
+  );
+  const motifs = (ligne.ttn_acquittements ?? []).map((a) => Object.values(a).join(" ")).join(" | ").slice(0, 300);
+  logAction(req.session.nom, "modification", "facture", `${ligne.numero} — facture électronique rouverte après rejet TTN${motifs ? ` (${motifs})` : ""}`, req.params.id);
+  res.json({ einvoice: await resumeEinvoice(req.params.id), version: TEIF_VERSION, problemes: [], pret: true });
 });
 
 // Signature XAdES du message préparé (certificat du cabinet, déverrouillé auparavant par son mot de passe). Voir server/signature.

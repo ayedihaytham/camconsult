@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Download, FileCode2, LoaderCircle, PenLine, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FileCode2, LoaderCircle, PenLine, RefreshCw, RotateCcw, Send, ShieldCheck } from "lucide-react";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,6 +18,8 @@ interface Props {
   onOpenCabinet: () => void;
   /** Ouvre la fenêtre « Signature électronique » (certificat à charger). */
   onOpenSignature: () => void;
+  /** Ouvre la fenêtre « Accès TTN » (adresse et identifiants à saisir). */
+  onOpenTtn: () => void;
 }
 
 const OU: Record<EinvoiceProbleme["ou"], string> = { cabinet: "Cabinet", societe: "Client", facture: "Facture" };
@@ -26,13 +28,18 @@ const OU: Record<EinvoiceProbleme["ou"], string> = { cabinet: "Cabinet", societe
  * Facture électronique (El Fatoora) : contrôle de conformité, préparation du message TEIF, signature XAdES avec le certificat du cabinet
  * et téléchargement du XML. Le dépôt automatique chez TTN n'est pas encore pris en charge : le fichier se dépose sur le portail El Fatoora.
  */
-export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet, onOpenSignature }: Props) {
+export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet, onOpenSignature, onOpenTtn }: Props) {
   const conformite = useFacturation((s) => s.conformite);
   const preparer = useFacturation((s) => s.preparer);
   const telechargerXml = useFacturation((s) => s.telechargerXml);
   const signature = useFacturation((s) => s.signature);
   const fetchSignature = useFacturation((s) => s.fetchSignature);
   const signer = useFacturation((s) => s.signer);
+  const ttn = useFacturation((s) => s.ttn);
+  const fetchTtn = useFacturation((s) => s.fetchTtn);
+  const deposer = useFacturation((s) => s.deposer);
+  const actualiser = useFacturation((s) => s.actualiser);
+  const rouvrir = useFacturation((s) => s.rouvrir);
   // La ligne du magasin suit les changements (préparation) sans rouvrir la fenêtre.
   const courante = useFacturation((s) => s.list.find((f) => f.id === facture?.id)) ?? facture;
 
@@ -41,6 +48,8 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
   const [occupe, setOccupe] = useState(false);
   const [confirmerRegeneration, setConfirmerRegeneration] = useState(false);
   const [confirmerSignature, setConfirmerSignature] = useState(false);
+  const [confirmerDepot, setConfirmerDepot] = useState(false);
+  const [confirmerReouverture, setConfirmerReouverture] = useState(false);
 
   const id = facture?.id ?? null;
   const statutEi = (useFacturation((s) => s.list.find((f) => f.id === id)) ?? facture)?.einvoice?.statut;
@@ -65,6 +74,24 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
   useEffect(() => {
     if (id && statutEi === "prete") fetchSignature().catch(() => undefined);
   }, [id, statutEi, fetchSignature]);
+
+  // L'état de l'accès TTN (adresse, environnement) sert dès que la facture est signée.
+  useEffect(() => {
+    if (id && (statutEi === "signee" || statutEi === "deposee")) fetchTtn().catch(() => undefined);
+  }, [id, statutEi, fetchTtn]);
+
+  /** Exécute une opération TTN ; en cas de refus (déjà déposée, accès absents, service injoignable…), on remontre l'état réel. */
+  async function operationTtn(action: () => Promise<EinvoiceEtat>, succes: string) {
+    setOccupe(true);
+    try {
+      setEtat(await action());
+      toast.success(succes);
+    } catch {
+      await verifier();
+    } finally {
+      setOccupe(false);
+    }
+  }
 
   async function lancerSignature() {
     if (!id) return;
@@ -97,6 +124,12 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
   const avertissements = etat?.problemes.filter((p) => p.niveau === "avertissement") ?? [];
   const prete = courante?.einvoice?.statut === "prete";
   const signee = courante?.einvoice?.statut === "signee";
+  const deposee = courante?.einvoice?.statut === "deposee";
+  const validee = courante?.einvoice?.statut === "validee";
+  const rejetee = courante?.einvoice?.statut === "rejetee";
+  const estSignee = signee || deposee || validee || rejetee;
+  const ei = courante?.einvoice ?? null;
+  const reel = ttn?.connexion?.environnement === "reel";
   const annulee = courante?.statut === "annulee";
   const certificat = signature?.certificat ?? null;
   const peutSigner = prete && !annulee && Boolean(signature?.configuree) && Boolean(certificat) && !certificat?.expire && Boolean(signature?.deverrouille);
@@ -111,8 +144,8 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
               Facture électronique {facture?.numero}
             </DialogTitle>
             <DialogDescription>
-              Message TEIF {etat?.version ?? ""} au format El Fatoora, {signee ? <strong>signé</strong> : <strong>non signé</strong>}. Le dépôt automatique
-              n'est pas encore disponible : le fichier se dépose sur le portail El Fatoora.
+              Message TEIF {etat?.version ?? ""} au format El Fatoora, {estSignee ? <strong>signé</strong> : <strong>non signé</strong>}.{" "}
+              {validee ? "Validé par TTN." : deposee ? "Déposé chez TTN, en attente de validation." : rejetee ? "Rejeté par TTN." : estSignee ? "Il peut être déposé chez TTN." : "À signer avant le dépôt chez TTN."}
             </DialogDescription>
           </DialogHeader>
 
@@ -211,14 +244,65 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
                 </section>
               )}
 
-              {signee && courante?.einvoice && (
+              {estSignee && ei && (
                 <section aria-label="Facture signée" className="space-y-1 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-sm">
                   <p className="flex items-center gap-2 font-semibold text-success">
                     <ShieldCheck className="size-4" aria-hidden="true" /> Facture électronique signée
                   </p>
                   <p className="text-muted-foreground">
-                    Signée le {courante.einvoice.signeLe ? formatDate(courante.einvoice.signeLe) : "—"}. Le fichier est figé : toute correction passera par un avoir.
+                    Signée le {ei.signeLe ? formatDate(ei.signeLe) : "—"}. Le fichier est figé : toute correction passera par un avoir{rejetee ? " (sauf rejet par TTN : voir ci-dessous)" : ""}.
                   </p>
+                </section>
+              )}
+
+              {estSignee && !annulee && (
+                <section aria-label="Dépôt chez TTN" className="space-y-2 rounded-md border border-border px-3 py-2 text-sm">
+                  <h3 className="flex items-center gap-2 font-semibold text-primary">
+                    <Send className="size-4" aria-hidden="true" /> Dépôt chez TTN
+                    {ttn?.connexion && (
+                      <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${reel ? "bg-primary/10 text-primary" : "bg-warning/15 text-warning"}`}>
+                        {reel ? "Réel" : "Test"}
+                      </span>
+                    )}
+                  </h3>
+                  {signee && !ttn?.connexion && (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-muted-foreground">{ttn && !ttn.configuree ? "L'accès à TTN n'est pas activé sur ce serveur." : "Les accès TTN ne sont pas encore enregistrés."}</p>
+                      {(!ttn || ttn.configuree) && (
+                        <Button type="button" variant="outline" size="sm" onClick={onOpenTtn}>
+                          Configurer l'accès TTN
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {signee && ttn?.connexion && <p className="text-muted-foreground">Prête à être déposée sur {reel ? "le service RÉEL" : "le service de TEST"} de TTN.</p>}
+                  {deposee && (
+                    <p className="text-muted-foreground">
+                      Déposée le {ei?.deposeLe ? formatDate(ei.deposeLe) : "—"}. TTN n'a pas encore rendu sa décision : la vérification est automatique (toutes les 5 minutes) ou immédiate avec « Actualiser ».
+                    </p>
+                  )}
+                  {validee && (
+                    <p className="text-success">
+                      Validée par TTN{ei?.refTtnDate ? ` le ${formatDate(ei.refTtnDate)}` : ""}. Référence : <code className="break-all">{ei?.refTtn}</code>. Le QR officiel s'imprime sur la facture.
+                    </p>
+                  )}
+                  {rejetee && (
+                    <div className="space-y-1">
+                      <p className="font-semibold text-destructive">TTN a rejeté cette facture.</p>
+                      {(ei?.acquittements ?? []).length > 0 ? (
+                        <ul className="list-disc space-y-0.5 pl-5 text-destructive">
+                          {(ei?.acquittements ?? []).map((a, i) => (
+                            <li key={i}>{Object.values(a).join(" — ")}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-muted-foreground">Aucun motif détaillé n'a été renvoyé.</p>
+                      )}
+                      <p className="text-muted-foreground">Rouvrez la facture pour la corriger, la régénérer, la signer de nouveau et la redéposer.</p>
+                    </div>
+                  )}
+                  {ei?.messageTtn && <p className="text-xs text-muted-foreground">Message de TTN : « {ei.messageTtn} »</p>}
+                  {ei?.erreurTtn && <p className="text-xs text-destructive">Dernier échec de communication : {ei.erreurTtn}</p>}
                 </section>
               )}
             </div>
@@ -227,14 +311,34 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
           )}
 
           <div className="flex flex-wrap justify-end gap-2 pt-2">
-            {signee ? (
+            {estSignee ? (
               <>
                 <Button type="button" variant="outline" disabled={annulee} onClick={() => facture && void telechargerXml(facture.id, facture.numero, "non-signe")}>
-                  Télécharger sans signature
+                  Sans signature
                 </Button>
-                <Button type="button" variant="ledger" disabled={annulee} onClick={() => facture && void telechargerXml(facture.id, facture.numero, "signe")}>
+                {validee && (
+                  <Button type="button" variant="outline" onClick={() => facture && void telechargerXml(facture.id, facture.numero, "ttn")}>
+                    <Download className="mr-1 size-4" aria-hidden="true" /> XML validé TTN
+                  </Button>
+                )}
+                <Button type="button" variant={signee || validee ? "outline" : "ledger"} disabled={annulee} onClick={() => facture && void telechargerXml(facture.id, facture.numero, "signe")}>
                   <Download className="mr-1 size-4" aria-hidden="true" /> Télécharger le XML signé
                 </Button>
+                {deposee && (
+                  <Button type="button" variant="ledger" disabled={occupe} onClick={() => id && void operationTtn(() => actualiser(id), "État vérifié auprès de TTN")}>
+                    <RefreshCw className="mr-1 size-4" aria-hidden="true" /> {occupe ? "Vérification…" : "Actualiser"}
+                  </Button>
+                )}
+                {rejetee && (
+                  <Button type="button" variant="ledger" disabled={occupe || annulee} onClick={() => setConfirmerReouverture(true)}>
+                    <RotateCcw className="mr-1 size-4" aria-hidden="true" /> Rouvrir pour corriger
+                  </Button>
+                )}
+                {signee && (
+                  <Button type="button" variant="ledger" disabled={occupe || annulee || !ttn?.connexion} onClick={() => setConfirmerDepot(true)}>
+                    <Send className="mr-1 size-4" aria-hidden="true" /> {occupe ? "Dépôt…" : "Déposer chez TTN"}
+                  </Button>
+                )}
               </>
             ) : prete ? (
               <>
@@ -267,6 +371,36 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
         onConfirm={async () => {
           setConfirmerRegeneration(false);
           await lancer(true);
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmerDepot}
+        onOpenChange={setConfirmerDepot}
+        title={reel ? "Déposer cette facture chez TTN (RÉEL) ?" : "Déposer cette facture chez TTN (test) ?"}
+        destructive={false}
+        description={
+          reel
+            ? "ENVIRONNEMENT RÉEL : le dépôt est définitif. Une facture déposée ne peut plus être modifiée ni annulée ici ; en cas d'erreur, TTN peut la rejeter ou un avoir sera nécessaire."
+            : "Environnement de TEST : la facture est envoyée au service de test de TTN. Elle ne peut plus être modifiée ici une fois déposée."
+        }
+        confirmLabel="Déposer"
+        onConfirm={async () => {
+          setConfirmerDepot(false);
+          if (id) await operationTtn(() => deposer(id), "Facture déposée chez TTN");
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmerReouverture}
+        onOpenChange={setConfirmerReouverture}
+        title="Rouvrir la facture pour correction ?"
+        destructive={false}
+        description="La signature et le dépôt sont effacés ; la facture redevient « préparée ». Corrigez-la (menu ⋯ › Modifier), régénérez le fichier, signez-le de nouveau puis redéposez-le."
+        confirmLabel="Rouvrir"
+        onConfirm={async () => {
+          setConfirmerReouverture(false);
+          if (id) await operationTtn(() => rouvrir(id), "Facture rouverte : elle peut être corrigée");
         }}
       />
 

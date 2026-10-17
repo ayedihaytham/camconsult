@@ -47,7 +47,7 @@ scope.
 - `notes.ts`: note models, company sheet and exercise notes.
 - `bordereaux.ts`: bank remittance registry.
 - `honoraires.ts`: client account (état client) per société, plus the all-clients recap (`GET /api/honoraires/recap`, one grouped query).
-- `facturation.ts`: admin fee invoices (`/api/facturation`); e-invoice actions `conformite`, `preparer` and `telechargerXml` call `/api/facturation/:id/einvoice[...]` (TEIF XML, stored in `facture_einvoice`); signature actions `fetchSignature`, `chargerCertificat`, `deverrouiller`, `verrouiller`, `supprimerCertificat` and `signer` call `/api/facturation/signature[...]` and `/:id/einvoice/signer` (the certificate is stored encrypted in `signature_certificat`; the password is never stored).
+- `facturation.ts`: admin fee invoices (`/api/facturation`); e-invoice actions `conformite`, `preparer` and `telechargerXml` call `/api/facturation/:id/einvoice[...]` (TEIF XML, stored in `facture_einvoice`); TTN actions `fetchTtn`, `enregistrerTtn`, `testerTtn`, `deposer`, `actualiser`, `actualiserTout`, `rouvrir` call `/api/facturation/ttn[...]` and `/:id/einvoice/{deposer,actualiser,rouvrir}` (access stored encrypted in `ttn_connexion`); signature actions `fetchSignature`, `chargerCertificat`, `deverrouiller`, `verrouiller`, `supprimerCertificat` and `signer` call `/api/facturation/signature[...]` and `/:id/einvoice/signer` (the certificate is stored encrypted in `signature_certificat`; the password is never stored).
 - `journal.ts`: admin audit entries.
 - `ui.ts`: persisted desktop sidebar collapse preference, not domain data.
 

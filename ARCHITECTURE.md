@@ -148,7 +148,7 @@ details.
 - `balances.ts`: balances, AFFECTAT and financial-statement inputs.
 - `immobilisations.ts`, `notes.ts`: financial-statement supporting domains.
 - `bordereaux.ts`, `journal.ts`: admin banking registry and audit journal.
-- `facturation.ts`: admin fee invoices (totals computed server-side; no delete, invoices are cancelled), plus the El Fatoora e-invoice steps 1-2 (conformity check, TEIF XML prepared, XAdES signature with the cabinet's encrypted .p12 certificate, download; see `docs/facturation-electronique.md`, server code in `server/teif/` and `server/signature/`).
+- `facturation.ts`: admin fee invoices (totals computed server-side; no delete, invoices are cancelled), plus the El Fatoora e-invoice steps 1-2 (conformity check, TEIF XML prepared, XAdES signature with the cabinet's encrypted .p12 certificate, deposit at TTN with follow-up and official QR, download; see `docs/facturation-electronique.md`, server code in `server/teif/`, `server/signature/` and `server/ttn/`).
 - `ui.ts`: persisted desktop sidebar preference only.
 
 ## Backend communication

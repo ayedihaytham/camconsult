@@ -33,6 +33,7 @@ import { immobilisationsRouter } from "./routes/immobilisations.js";
 import { dataRouter } from "./routes/data.js";
 import { eventsRouter } from "./routes/events.js";
 import { startRelancesScheduler } from "./relances.js";
+import { demarrerSuiviTtn } from "./ttn/suivi.js";
 import { securityHeaders } from "./securityHeaders.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -145,6 +146,7 @@ async function start() {
     );
   });
   startRelancesScheduler();
+  demarrerSuiviTtn();
   server.on("error", (err) => {
     if (err.code === "EADDRINUSE") {
       console.error(

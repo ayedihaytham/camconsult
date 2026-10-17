@@ -442,19 +442,19 @@ export function FacturationPage() {
           </div>
         );
       },
-      meta: { label: "Client" },
+      meta: { label: "Client", headerClassName: "min-w-[200px]", cellClassName: "min-w-[200px]" },
     },
     {
       accessorKey: "numero",
       header: ({ column }) => <DataTableColumnHeader column={column} title="N°" />,
       cell: ({ row }) => <span className="font-mono text-[13px] font-semibold text-primary">{row.original.numero}</span>,
-      meta: { label: "N°", headerClassName: "w-[110px]" },
+      meta: { label: "N°", headerClassName: "w-[96px]" },
     },
     {
       accessorKey: "dateEmission",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Émission" />,
       cell: ({ row }) => <span className="text-[13px] text-muted-foreground">{formatDate(row.original.dateEmission)}</span>,
-      meta: { label: "Émission", headerClassName: "w-[110px]" },
+      meta: { label: "Émission", headerClassName: "w-[100px]" },
     },
     {
       id: "echeance",
@@ -464,20 +464,20 @@ export function FacturationPage() {
         const f = row.original;
         return <span className={cn("text-[13px]", estEnRetard(f) ? "font-semibold text-warning" : "text-muted-foreground")}>{f.echeance ? formatDate(f.echeance) : "—"}</span>;
       },
-      meta: { label: "Échéance", headerClassName: "w-[110px]" },
+      meta: { label: "Échéance", headerClassName: "w-[100px]" },
     },
     {
       accessorKey: "netAPayer",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Montant" />,
       cell: ({ row }) => <span className="text-[13px] font-bold tabular-nums text-primary">{formatTnd(row.original.netAPayer)}</span>,
-      meta: { label: "Montant", headerClassName: "w-[130px] text-right", cellClassName: "text-right" },
+      meta: { label: "Montant", headerClassName: "w-[116px] text-right", cellClassName: "text-right" },
     },
     {
       id: "statut",
       accessorFn: (f) => statutAffiche(f).libelle,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Statut" />,
       cell: ({ row }) => <StatutFacture facture={row.original} />,
-      meta: { label: "Statut", headerClassName: "w-[130px]" },
+      meta: { label: "Statut", headerClassName: "w-[112px]" },
     },
     {
       id: "signature",
@@ -493,22 +493,22 @@ export function FacturationPage() {
               e.stopPropagation();
               void basculerSignature(f);
             }}
-            title={f.signeeLe ? "Retirer la signature papier" : "Marquer comme signée (papier)"}
+            title={f.signeeLe ? `Signée le ${formatDate(f.signeeLe)} — cliquer pour retirer` : "Marquer comme signée (papier)"}
             className={cn("inline-flex items-center gap-2 whitespace-nowrap text-[13px] font-semibold", f.signeeLe ? "text-foreground" : "text-muted-foreground hover:text-primary")}
           >
             <PenLine className={cn("size-4 shrink-0", f.signeeLe ? "text-success" : "text-muted-foreground")} aria-hidden="true" />
-            {f.signeeLe ? `Signée le ${formatDate(f.signeeLe)}` : "Non signée"}
+            {f.signeeLe ? "Signée" : "Non signée"}
           </button>
         );
       },
-      meta: { label: "Signature papier", headerClassName: "w-[170px]" },
+      meta: { label: "Signature papier", headerClassName: "w-[116px]" },
     },
     {
       id: "einvoice",
       accessorFn: (f) => libelleEinvoice(f.einvoice?.statut),
       header: ({ column }) => <DataTableColumnHeader column={column} title="Facture électronique" />,
       cell: ({ row }) => <EtatEinvoice facture={row.original} />,
-      meta: { label: "Facture électronique", headerClassName: "w-[170px]" },
+      meta: { label: "Facture électronique", headerClassName: "w-[150px]" },
     },
     {
       id: "actions",
@@ -532,16 +532,15 @@ export function FacturationPage() {
                   {libelleBoutonEi(f)}
                 </Button>
               )}
-              <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-semibold shadow-none" onClick={() => imprimer(f)}>
+              <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 shadow-none" onClick={() => imprimer(f)} aria-label="Imprimer" title="Imprimer / PDF">
                 <Printer className="size-3.5" aria-hidden="true" />
-                Imprimer
               </Button>
             </span>
             <LedgerRowMenu actions={actionsLigne(f)} />
           </div>
         );
       },
-      meta: { headerClassName: "w-[270px]", cellClassName: "w-[270px]" },
+      meta: { headerClassName: "w-[190px]", cellClassName: "w-[190px]" },
     },
   ];
 
@@ -657,7 +656,7 @@ export function FacturationPage() {
           )}
 
           <DataTable
-            className="ledger-work-table societes-ledger-table bg-transparent [&>div:last-child]:space-y-0"
+            className="ledger-work-table societes-ledger-table facturation-ledger-table bg-transparent [&>div:last-child]:space-y-0"
             desktopDensity="ledger"
             desktopVariant="register"
             showSelectionHeader

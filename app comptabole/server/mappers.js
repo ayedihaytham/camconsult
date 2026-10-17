@@ -359,6 +359,7 @@ export const stockMouvementDto = (r, lignes = []) => {
 
   return {
     id: r.id,
+    apurementRevision: String(r.apurement_revision ?? 0),
     societeId: r.societe_id,
     ordre: r.ordre ?? 0,
     natureMarchandise: r.nature_marchandise ?? "",

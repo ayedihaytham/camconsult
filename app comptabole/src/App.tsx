@@ -76,6 +76,7 @@ const EtatSwiftSocietePage = lazy(() =>
 const SoucheClientPage = lazy(() =>
   import("@/pages/soucheCheques/SoucheClientPage").then((m) => ({ default: m.SoucheClientPage })),
 );
+const ApurementPage = lazy(() => import("@/pages/apurement/ApurementPage").then(m => ({ default: m.ApurementPage })));
 const StockPage = lazy(() =>
   import("@/pages/stock/StockPage").then((m) => ({ default: m.StockPage })),
 );
@@ -348,6 +349,12 @@ export default function App() {
                 }
               />
               <Route element={<RequireEquipe />}>
+                <Route path="/apurement" element={<Suspense fallback={<PageFallback />}><ApurementPage /></Suspense>} />
+                <Route path="/apurement/:societeId" element={<Suspense fallback={<PageFallback />}><ApurementPage /></Suspense>} />
+                <Route path="/apurement/:societeId/bcs/:bcId" element={<Suspense fallback={<PageFallback />}><ApurementPage /></Suspense>} />
+                <Route path="/apurement/:societeId/factures/:factureId" element={<Suspense fallback={<PageFallback />}><ApurementPage /></Suspense>} />
+                <Route path="/apurement/:societeId/imports" element={<Suspense fallback={<PageFallback />}><ApurementPage /></Suspense>} />
+                <Route path="/apurement/:societeId/declarations/:declarationId" element={<Suspense fallback={<PageFallback />}><ApurementPage /></Suspense>} />
                 <Route
                   path="/cours-change"
                   element={

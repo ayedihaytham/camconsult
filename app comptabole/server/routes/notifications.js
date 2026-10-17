@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { query } from "../db.js";
 import { requireAuth } from "../auth.js";
+import { porteeSocietes } from "../auth.js";
+import { isCabinet } from "../apurement/permissions.js";
 import { notifKey } from "../notifications.js";
 import { notificationDto } from "../mappers.js";
 
@@ -9,8 +11,8 @@ notificationsRouter.use(requireAuth);
 
 notificationsRouter.get("/", async (req, res) => {
   const { rows } = await query(
-    "select * from notifications where user_key = $1 order by cree_le desc limit 50",
-    [notifKey(req.session)],
+    "select * from notifications where user_key = $1 and (type <> 'apurement' or ($2::boolean and ($3::text[] is null or split_part(lien,'/',3)=any($3)))) order by cree_le desc limit 50",
+    [notifKey(req.session),isCabinet(req.session),porteeSocietes(req.session)],
   );
   res.json(rows.map(notificationDto));
 });

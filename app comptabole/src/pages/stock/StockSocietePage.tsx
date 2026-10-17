@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { AlertTriangle, Boxes, Download, Plus } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
@@ -18,6 +18,7 @@ import { DocPreviewDialog } from "./DocPreviewDialog";
 
 export function StockSocietePage() {
   const { societeId = "" } = useParams();
+  const navigate=useNavigate();
   const societe = useSocieteById(societeId);
 
   const list = useStock((s) => s.list);
@@ -279,6 +280,7 @@ export function StockSocietePage() {
         societeId={societeId}
         mouvement={editing}
         onSubmit={handleSubmit}
+        onOpenApurement={m=>{const date=m.achatDate;const period=date?`&annee=${date.slice(0,4)}&trimestre=T${Math.ceil(Number(date.slice(5,7))/3)}`:"";navigate(`/apurement/${societeId}?vue=registre&registre=factures&stockId=${m.id}${period}`);}}
       />
 
       <ConfirmDialog

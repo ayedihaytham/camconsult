@@ -124,6 +124,7 @@ export type NotificationType =
   | "acces"
   | "message"
   | "collecte"
+  | "apurement"
   | "swift";
 
 // ── Collecte de pièces ────────────────────────────
@@ -528,6 +529,8 @@ export interface StockEcartLigne {
 
 export interface StockMouvement {
   id: string;
+  /** Optimistic revision; optional for legacy responses. */
+  apurementRevision?: string;
   societeId: string;
   ordre: number;
   natureMarchandise: string;

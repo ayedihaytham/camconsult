@@ -648,6 +648,12 @@ export function getPageTour(
   _session: Session | null,
   search = "",
 ): Tour | null {
+  if(pathname==="/apurement"||pathname.startsWith("/apurement/"))return _session?.poste==="societe_employe"?null:{id:"apurement",version:1,title:"Apurement des achats en suspension",steps:[
+    {target:"apurement-identity",title:"Vérifier le dossier",body:"Le dossier regroupe uniquement les achats en suspension de TVA et leurs contrôles internes."},
+    {target:"apurement-period",title:"Choisir le trimestre",body:"Vérifiez l’année et le trimestre avant la saisie ou l’import."},
+    {target:"apurement-sections",title:"Préparer et contrôler",body:"Gérez fournisseurs, autorisations, BC et factures. Les pièces et anomalies sont revues avant validation."},
+    {target:"apurement-declarations",title:"Figer puis suivre le dépôt",body:"Une version validée reste figée. Le dépôt et l’acceptation sont enregistrés séparément avec leurs preuves. Le BCD officiel reste bloqué tant que son format n’est pas validé."},
+  ]};
   if (pathname === "/") {
     if (_session?.poste === "societe_employe") return TOURS.dashboard;
     if (_session?.role === "admin") return new URLSearchParams(search).get("tab") === "tasks" ? {

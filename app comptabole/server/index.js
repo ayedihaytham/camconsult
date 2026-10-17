@@ -6,6 +6,8 @@ import express from "express";
 import cors from "cors";
 import { pool } from "./db.js";
 import { ensureSchema } from "./ensureSchema.js";
+import { apurementRouter } from "./routes/apurement.js";
+import { startApurementReminders } from "./apurement/reminders.js";
 import { authRouter } from "./routes/auth.js";
 import { societesRouter } from "./routes/societes.js";
 import { employesRouter } from "./routes/employes.js";
@@ -79,6 +81,7 @@ app.use("/api/collectes", collectesRouter);
 app.use("/api/bordereaux", bordereauxRouter);
 app.use("/api/facturation", facturationRouter);
 app.use("/api/stock", stockRouter);
+app.use("/api/apurement", apurementRouter);
 app.use("/api/honoraires", honorairesRouter);
 app.use("/api/fournisseurs", fournisseursRouter);
 app.use("/api/etat-swift", etatSwiftRouter);
@@ -130,6 +133,7 @@ process.on("unhandledRejection", (reason) => {
 async function start() {
   try {
     await ensureSchema();
+    startApurementReminders();
   } catch (err) {
     console.error(
       "\n[api] ⛔ Impossible de préparer la base de données.\n" +

@@ -111,8 +111,8 @@ dataRouter.get("/bootstrap", async (req, res) => {
 
   const notifications = (
     await query(
-      "select * from notifications where user_key = $1 order by cree_le desc limit 50",
-      [notifKey(s)],
+      "select * from notifications where user_key = $1 and (type <> 'apurement' or ($2::boolean and ($3::text[] is null or split_part(lien,'/',3)=any($3)))) order by cree_le desc limit 50",
+      [notifKey(s),s.role==='admin'||['collaborateur','responsable_collaborateurs'].includes(s.poste),porteeSocietes(s)],
     )
   ).rows.map(notificationDto);
 

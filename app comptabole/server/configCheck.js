@@ -52,6 +52,11 @@ export function evaluerConfiguration(env = process.env) {
       : "Les anciens mots de passe sont convertis à la première connexion.",
   );
 
+  const cleSignature = env.SIGNATURE_CLE_SECRET ?? "";
+  if (!cleSignature) ajouter("info", "SIGNATURE_CLE_SECRET", "SIGNATURE_CLE_SECRET absent : la signature électronique des factures El Fatoora est désactivée (aucun certificat ne peut être enregistré).");
+  else if (cleSignature.length < 32 || new Set(cleSignature).size < 10) ajouter("alerte", "SIGNATURE_CLE_SECRET", "SIGNATURE_CLE_SECRET est trop court ou trop répétitif (32 caractères aléatoires au moins : openssl rand -hex 32) : la signature restera désactivée.");
+  else ajouter("ok", "SIGNATURE_CLE_SECRET", `SIGNATURE_CLE_SECRET défini (${cleSignature.length} caractères) : le certificat de signature est chiffré en base.`);
+
   ajouter(env.ALLOW_DATA_RESET === "true" ? "alerte" : "ok", "ALLOW_DATA_RESET", env.ALLOW_DATA_RESET === "true" ? "ALLOW_DATA_RESET=true : la réinitialisation totale des données est permise. À retirer en production." : "La réinitialisation totale est désactivée.");
 
   ajouter(env.CLIENT_IP_HEADER ? "info" : "alerte", "CLIENT_IP_HEADER", env.CLIENT_IP_HEADER ? `Adresse du visiteur lue dans « ${env.CLIENT_IP_HEADER} » (à ne laisser que si le serveur n'est joignable que par ce proxy).` : "CLIENT_IP_HEADER absent : si un proxy masque l'adresse des visiteurs, la limite de tentatives de connexion les traite comme une seule adresse. Vérifiez avec un test réel.");

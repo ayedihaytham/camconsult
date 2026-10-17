@@ -43,6 +43,17 @@ describe("contrôle de configuration de production", () => {
     expect(niveau(res, "CLIENT_IP_HEADER")).toBe("alerte");
   });
 
+  it("clé de chiffrement du certificat de signature : absente = info, trop courte ou répétitive = alerte, valide = ok, sans jamais l'afficher", () => {
+    const solide = "k7Qp2xV9mT4wZ8nB3cF6hJ1sD5gL0rYa";
+    expect(niveau(evaluerConfiguration(bonne), "SIGNATURE_CLE_SECRET")).toBe("info");
+    expect(niveau(evaluerConfiguration({ ...bonne, SIGNATURE_CLE_SECRET: "court" }), "SIGNATURE_CLE_SECRET")).toBe("alerte");
+    expect(niveau(evaluerConfiguration({ ...bonne, SIGNATURE_CLE_SECRET: "a".repeat(40) }), "SIGNATURE_CLE_SECRET")).toBe("alerte");
+    const res = evaluerConfiguration({ ...bonne, SIGNATURE_CLE_SECRET: solide });
+    expect(niveau(res, "SIGNATURE_CLE_SECRET")).toBe("ok");
+    expect(aEchec(res)).toBe(false);
+    expect(JSON.stringify(res)).not.toContain(solide);
+  });
+
   it("n'affiche jamais la valeur d'un secret", () => {
     const texte = JSON.stringify(evaluerConfiguration(bonne));
     expect(texte).not.toContain(bonne.JWT_SECRET);

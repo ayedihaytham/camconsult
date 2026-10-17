@@ -326,10 +326,36 @@ export interface Facture {
 }
 
 export interface FactureEinvoice {
-  /** prete = XML non signé généré ; les stades suivants (signée, déposée, validée, rejetée) viendront avec la signature et le dépôt. */
+  /** prete = XML non signé généré ; signee = signé avec le certificat du cabinet ; les stades suivants (déposée, validée, rejetée) viendront avec le dépôt. */
   statut: "prete" | "signee" | "deposee" | "validee" | "rejetee";
   genereLe: string | null;
   sha256: string;
+  /** Date de la signature (statut signee ou au-delà). */
+  signeLe?: string | null;
+}
+
+/** Certificat de signature du cabinet (métadonnées seulement : le fichier et le mot de passe ne sont jamais renvoyés). */
+export interface SignatureCertificat {
+  sujet: string;
+  emetteur: string;
+  serie: string;
+  validDu: string;
+  validAu: string;
+  /** Empreinte SHA-256 du certificat (hexadécimal). */
+  empreinte: string;
+  chargeLe: string;
+  chargePar: string;
+  expire: boolean;
+}
+
+export interface SignatureEtat {
+  /** false = clé de chiffrement absente côté serveur : la signature est désactivée. */
+  configuree: boolean;
+  certificat: SignatureCertificat | null;
+  /** true = la clé est en mémoire du serveur (15 minutes après la saisie du mot de passe). */
+  deverrouille: boolean;
+  expireLe: string | null;
+  avertissements?: string[];
 }
 
 export interface EinvoiceProbleme {

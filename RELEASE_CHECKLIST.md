@@ -49,6 +49,7 @@ Scripts d'exploitation : `migrate-passwords.js` simule par défaut ; l'écriture
 | SMTP | configuré si les liens d'accès doivent partir par email ; sinon l'administrateur les transmet lui-même |
 | `ALLOW_DATA_RESET` | absent (ou différent de `true`) |
 | `MIGRATE_LEGACY_PASSWORDS` | `false` pendant la fenêtre de validation, puis retiré |
+| `SIGNATURE_CLE_SECRET` | facultatif (facture électronique El Fatoora) : 32 caractères aléatoires au moins (`openssl rand -hex 32`), présent dans `.env` ET transmis par `docker-compose.yml`, sauvegardé séparément de la base. Absent = signature désactivée. Voir `docs/facturation-electronique.md` |
 | Base | table `password_tokens`, colonne `mdp_hash`, déclencheur `journal_ajout_seul_trg` présents après le premier démarrage de la nouvelle version |
 
 **Ce qui a été réellement exécuté** : le contrôle a tourné sur le poste de développement avec ses variables locales (sans base : `--no-db`) et a correctement signalé les défauts de développement (mot de passe administrateur par défaut, mot de passe de base faible) ; la logique est couverte par 12 tests (valeurs synthétiques uniquement, sans base) et 10 tests d'exploitation sur base jetable. **Aucune exécution sur le serveur de production.**

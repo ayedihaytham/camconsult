@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Download, FileCode2, LoaderCircle, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FileCode2, LoaderCircle, PenLine, RefreshCw, ShieldCheck } from "lucide-react";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { useFacturation } from "@/store/facturation";
 import type { EinvoiceEtat, EinvoiceProbleme, Facture } from "@/types";
+import { SignatureDeverrouillage } from "./SignatureDeverrouillage";
 
 interface Props {
   /** Facture concernée ; null = fenêtre fermée. */
@@ -15,18 +16,23 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Ouvre la fenêtre « Informations du cabinet » (identité à compléter). */
   onOpenCabinet: () => void;
+  /** Ouvre la fenêtre « Signature électronique » (certificat à charger). */
+  onOpenSignature: () => void;
 }
 
 const OU: Record<EinvoiceProbleme["ou"], string> = { cabinet: "Cabinet", societe: "Client", facture: "Facture" };
 
 /**
- * Facture électronique (El Fatoora) — étape 1 : contrôle de conformité, préparation du message TEIF non signé et téléchargement du XML.
- * La signature électronique et le dépôt chez TTN ne sont pas encore pris en charge : le fichier se dépose sur le portail El Fatoora.
+ * Facture électronique (El Fatoora) : contrôle de conformité, préparation du message TEIF, signature XAdES avec le certificat du cabinet
+ * et téléchargement du XML. Le dépôt automatique chez TTN n'est pas encore pris en charge : le fichier se dépose sur le portail El Fatoora.
  */
-export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet }: Props) {
+export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet, onOpenSignature }: Props) {
   const conformite = useFacturation((s) => s.conformite);
   const preparer = useFacturation((s) => s.preparer);
   const telechargerXml = useFacturation((s) => s.telechargerXml);
+  const signature = useFacturation((s) => s.signature);
+  const fetchSignature = useFacturation((s) => s.fetchSignature);
+  const signer = useFacturation((s) => s.signer);
   // La ligne du magasin suit les changements (préparation) sans rouvrir la fenêtre.
   const courante = useFacturation((s) => s.list.find((f) => f.id === facture?.id)) ?? facture;
 
@@ -34,8 +40,10 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
   const [chargement, setChargement] = useState(false);
   const [occupe, setOccupe] = useState(false);
   const [confirmerRegeneration, setConfirmerRegeneration] = useState(false);
+  const [confirmerSignature, setConfirmerSignature] = useState(false);
 
   const id = facture?.id ?? null;
+  const statutEi = (useFacturation((s) => s.list.find((f) => f.id === id)) ?? facture)?.einvoice?.statut;
   const verifier = useCallback(async () => {
     if (!id) return;
     setChargement(true);
@@ -52,6 +60,24 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
     setEtat(null);
     if (id) void verifier();
   }, [id, verifier]);
+
+  // L'état de la signature (certificat, verrouillage) n'est utile que pour une facture préparée.
+  useEffect(() => {
+    if (id && statutEi === "prete") fetchSignature().catch(() => undefined);
+  }, [id, statutEi, fetchSignature]);
+
+  async function lancerSignature() {
+    if (!id) return;
+    setOccupe(true);
+    try {
+      setEtat(await signer(id));
+      toast.success("Facture électronique signée");
+    } catch {
+      await verifier(); // refus (verrouillée, données modifiées…) : on remontre l'état réel
+    } finally {
+      setOccupe(false);
+    }
+  }
 
   async function lancer(regenerer: boolean) {
     if (!id) return;
@@ -70,7 +96,10 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
   const bloquants = etat?.problemes.filter((p) => p.niveau === "bloquant") ?? [];
   const avertissements = etat?.problemes.filter((p) => p.niveau === "avertissement") ?? [];
   const prete = courante?.einvoice?.statut === "prete";
+  const signee = courante?.einvoice?.statut === "signee";
   const annulee = courante?.statut === "annulee";
+  const certificat = signature?.certificat ?? null;
+  const peutSigner = prete && !annulee && Boolean(signature?.configuree) && Boolean(certificat) && !certificat?.expire && Boolean(signature?.deverrouille);
 
   return (
     <>
@@ -82,8 +111,8 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
               Facture électronique {facture?.numero}
             </DialogTitle>
             <DialogDescription>
-              Message TEIF {etat?.version ?? ""} au format El Fatoora, <strong>non signé</strong>. La signature et le dépôt automatique ne sont pas encore
-              disponibles : le fichier se dépose sur le portail El Fatoora.
+              Message TEIF {etat?.version ?? ""} au format El Fatoora, {signee ? <strong>signé</strong> : <strong>non signé</strong>}. Le dépôt automatique
+              n'est pas encore disponible : le fichier se dépose sur le portail El Fatoora.
             </DialogDescription>
           </DialogHeader>
 
@@ -152,19 +181,71 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
                   </p>
                 </section>
               )}
+
+              {prete && !annulee && (
+                <section aria-label="Signature électronique" className="space-y-2 rounded-md border border-border px-3 py-2 text-sm">
+                  <h3 className="flex items-center gap-2 font-semibold text-primary">
+                    <PenLine className="size-4" aria-hidden="true" /> Signature électronique
+                  </h3>
+                  {!signature ? (
+                    <p className="text-muted-foreground">Vérification de l'état de la signature…</p>
+                  ) : !signature.configuree ? (
+                    <p className="text-muted-foreground">La signature n'est pas activée sur ce serveur (clé de chiffrement absente).</p>
+                  ) : !certificat ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-muted-foreground">Aucun certificat de signature n'est enregistré.</p>
+                      <Button type="button" variant="outline" size="sm" onClick={onOpenSignature}>
+                        Charger le certificat
+                      </Button>
+                    </div>
+                  ) : certificat.expire ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-destructive">Le certificat de signature est expiré.</p>
+                      <Button type="button" variant="outline" size="sm" onClick={onOpenSignature}>
+                        Remplacer le certificat
+                      </Button>
+                    </div>
+                  ) : (
+                    <SignatureDeverrouillage idPrefixe="ei-sig" />
+                  )}
+                </section>
+              )}
+
+              {signee && courante?.einvoice && (
+                <section aria-label="Facture signée" className="space-y-1 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-sm">
+                  <p className="flex items-center gap-2 font-semibold text-success">
+                    <ShieldCheck className="size-4" aria-hidden="true" /> Facture électronique signée
+                  </p>
+                  <p className="text-muted-foreground">
+                    Signée le {courante.einvoice.signeLe ? formatDate(courante.einvoice.signeLe) : "—"}. Le fichier est figé : toute correction passera par un avoir.
+                  </p>
+                </section>
+              )}
             </div>
           ) : (
             <p className="py-4 text-sm text-destructive">Impossible de vérifier la facture pour le moment.</p>
           )}
 
           <div className="flex flex-wrap justify-end gap-2 pt-2">
-            {prete ? (
+            {signee ? (
+              <>
+                <Button type="button" variant="outline" disabled={annulee} onClick={() => facture && void telechargerXml(facture.id, facture.numero, "non-signe")}>
+                  Télécharger sans signature
+                </Button>
+                <Button type="button" variant="ledger" disabled={annulee} onClick={() => facture && void telechargerXml(facture.id, facture.numero, "signe")}>
+                  <Download className="mr-1 size-4" aria-hidden="true" /> Télécharger le XML signé
+                </Button>
+              </>
+            ) : prete ? (
               <>
                 <Button type="button" variant="outline" disabled={occupe || annulee || !etat?.pret} onClick={() => setConfirmerRegeneration(true)}>
                   Régénérer
                 </Button>
-                <Button type="button" variant="ledger" disabled={occupe || annulee} onClick={() => facture && void telechargerXml(facture.id, facture.numero)}>
+                <Button type="button" variant="outline" disabled={occupe || annulee} onClick={() => facture && void telechargerXml(facture.id, facture.numero)}>
                   <Download className="mr-1 size-4" aria-hidden="true" /> Télécharger le XML
+                </Button>
+                <Button type="button" variant="ledger" disabled={occupe || !peutSigner || !etat?.pret} onClick={() => setConfirmerSignature(true)}>
+                  {occupe ? "Signature…" : "Signer la facture"}
                 </Button>
               </>
             ) : (
@@ -186,6 +267,19 @@ export function FactureElectroniqueDialog({ facture, onOpenChange, onOpenCabinet
         onConfirm={async () => {
           setConfirmerRegeneration(false);
           await lancer(true);
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmerSignature}
+        onOpenChange={setConfirmerSignature}
+        title="Signer la facture électronique ?"
+        destructive={false}
+        description="La facture est signée avec le certificat du cabinet. Une fois signée, elle ne peut plus être régénérée, modifiée ni annulée ici : toute correction passera par un avoir."
+        confirmLabel="Signer"
+        onConfirm={async () => {
+          setConfirmerSignature(false);
+          await lancerSignature();
         }}
       />
     </>

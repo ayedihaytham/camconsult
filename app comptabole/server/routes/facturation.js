@@ -4,12 +4,18 @@ import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin } from "../auth.js";
 import { logAction } from "../journal.js";
 import { factureDto, factureLigneDto } from "../mappers.js";
-import { ErreurTeif, genererTeif } from "../teif/genererTeif.js";
+import { ErreurTeif, construireTeif, genererTeif, texteTeif } from "../teif/genererTeif.js";
+import { obtenir as materielDeverrouille } from "../signature/deverrouillage.js";
+import { ErreurSignature } from "../signature/erreur.js";
+import { signerTeif } from "../signature/signerTeif.js";
+import { signatureRouter } from "./signature.js";
 import { aDesBloquants, controlerFactureTeif } from "../teif/validerTeif.js";
 import { TEIF_VERSION } from "../teif/constantes.js";
 
 export const facturationRouter = Router();
 facturationRouter.use(requireAuth, requireAdmin);
+// Certificat de signature électronique (déclaré avant les routes /:id).
+facturationRouter.use("/signature", signatureRouter);
 
 const STATUTS = ["emise", "payee", "annulee"];
 
@@ -36,7 +42,7 @@ const patchSchema = z.object({
 
 const SELECT = `select f.*, s.raison_sociale as societe_nom, s.adresse as societe_adresse,
                        s.tva as societe_tva, s.rne as societe_rne,
-                       e.statut as ei_statut, e.genere_le as ei_genere_le, e.teif_sha256 as ei_sha256
+                       e.statut as ei_statut, e.genere_le as ei_genere_le, e.teif_sha256 as ei_sha256, e.signe_le as ei_signe_le
                   from factures f join societes s on s.id = f.societe_id
                   left join facture_einvoice e on e.facture_id = f.id`;
 
@@ -221,8 +227,17 @@ async function contexteEinvoice(id) {
 }
 
 async function resumeEinvoice(id) {
-  const ei = (await query("select statut, teif_version, teif_sha256, genere_le from facture_einvoice where facture_id = $1", [id])).rows[0];
-  return ei ? { statut: ei.statut, version: ei.teif_version, sha256: ei.teif_sha256, genereLe: ei.genere_le?.toISOString?.() ?? null } : null;
+  const ei = (await query("select statut, teif_version, teif_sha256, genere_le, signe_le, teif_signe_sha256 from facture_einvoice where facture_id = $1", [id])).rows[0];
+  return ei
+    ? {
+        statut: ei.statut,
+        version: ei.teif_version,
+        sha256: ei.teif_sha256,
+        genereLe: ei.genere_le?.toISOString?.() ?? null,
+        signeLe: ei.signe_le?.toISOString?.() ?? null,
+        shaSigne: ei.teif_signe_sha256 ?? null,
+      }
+    : null;
 }
 
 facturationRouter.use("/:id/einvoice", (req, res, next) =>
@@ -281,17 +296,71 @@ async function preparer(req, res, regenerer) {
 facturationRouter.post("/:id/einvoice/preparer", (req, res) => preparer(req, res, false));
 facturationRouter.post("/:id/einvoice/regenerer", (req, res) => preparer(req, res, true));
 
-// Téléchargement du XML préparé ; le nom du fichier est le numéro de facture (règle du dépôt TTN : « <numéro>.xml »).
+// Téléchargement du XML ; le nom du fichier est le numéro de facture (règle du dépôt TTN : « <numéro>.xml »).
+// Par défaut : le message SIGNÉ s'il existe, sinon le message préparé. `?version=non-signe` force le message sans signature, `?version=signe` exige le signé.
 facturationRouter.get("/:id/einvoice/xml", async (req, res) => {
   const ligne = (
-    await query("select e.teif_xml, f.numero, f.statut from facture_einvoice e join factures f on f.id = e.facture_id where e.facture_id = $1", [
-      req.params.id,
-    ])
+    await query(
+      `select e.teif_xml, e.teif_signe_xml, f.numero, f.statut
+         from facture_einvoice e join factures f on f.id = e.facture_id where e.facture_id = $1`,
+      [req.params.id],
+    )
   ).rows[0];
   if (!ligne) return res.status(404).json({ error: "Aucune facture électronique préparée pour cette facture" });
   if (ligne.statut === "annulee") return res.status(409).json({ error: "Cette facture est annulée" });
+  const version = req.query.version;
+  if (version !== undefined && version !== "signe" && version !== "non-signe") return res.status(400).json({ error: "Version inconnue" });
+  if (version === "signe" && !ligne.teif_signe_xml) return res.status(404).json({ error: "Cette facture électronique n'est pas encore signée" });
+  const signe = version !== "non-signe" && Boolean(ligne.teif_signe_xml);
+  const nom = String(ligne.numero).replace(/[^A-Za-z0-9._-]/g, "_");
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="${String(ligne.numero).replace(/[^A-Za-z0-9._-]/g, "_")}.xml"`);
+  res.setHeader("Content-Disposition", `attachment; filename="${nom}${version === "non-signe" && ligne.teif_signe_xml ? "-non-signe" : ""}.xml"`);
   res.setHeader("Cache-Control", "no-store");
-  res.send(ligne.teif_xml);
+  res.send(signe ? ligne.teif_signe_xml : ligne.teif_xml);
+});
+
+// Signature XAdES du message préparé (certificat du cabinet, déverrouillé auparavant par son mot de passe). Voir server/signature.
+facturationRouter.post("/:id/einvoice/signer", async (req, res) => {
+  try {
+    const ctx = await contexteEinvoice(req.params.id);
+    if (!ctx) return res.status(404).json({ error: "Facture introuvable" });
+    if (ctx.facture.statut === "annulee") return res.status(409).json({ error: "Cette facture est annulée" });
+    const ei = (await query("select statut, teif_xml from facture_einvoice where facture_id = $1", [req.params.id])).rows[0];
+    if (!ei) return res.status(409).json({ error: "Préparez d'abord la facture électronique.", code: "NON_PREPAREE" });
+    if (ei.statut !== "prete") return res.status(409).json({ error: "Cette facture électronique est déjà signée.", code: "DEJA_SIGNEE" });
+    const materiel = materielDeverrouille();
+    if (!materiel)
+      return res.status(409).json({ error: "La signature est verrouillée : saisissez le mot de passe du certificat pour la déverrouiller.", code: "SIGNATURE_VERROUILLEE" });
+
+    let racine;
+    try {
+      ({ racine } = construireTeif(ctx));
+    } catch (e) {
+      if (e instanceof ErreurTeif)
+        return res.status(422).json({ error: "La facture n'est pas conforme au format de la facture électronique.", problemes: e.problemes });
+      throw e;
+    }
+    const xml = texteTeif(racine);
+    // On ne signe que le fichier préparé : si les données ont changé depuis, il faut le régénérer (et le relire) avant de le signer.
+    if (xml !== ei.teif_xml)
+      return res.status(409).json({
+        error: "Les informations de la facture, du cabinet ou du client ont changé depuis la préparation : régénérez le fichier avant de le signer.",
+        code: "A_REGENERER",
+      });
+
+    const signe = signerTeif({ racine, xml, materiel, maintenant: new Date() });
+    const { rowCount } = await query(
+      `update facture_einvoice
+          set statut = 'signee', teif_signe_xml = $2, teif_signe_sha256 = $3, signe_le = $4, signe_empreinte_certificat = $5, maj_le = now()
+        where facture_id = $1 and statut = 'prete' and teif_xml = $6`,
+      [req.params.id, signe.xmlSigne, signe.sha256, signe.signeLe, signe.empreinteCertificat, ei.teif_xml],
+    );
+    if (!rowCount) return res.status(409).json({ error: "La facture électronique a changé pendant la signature : réessayez.", code: "CONFLIT" });
+    logAction(req.session.nom, "modification", "facture", `${ctx.facture.numero} — facture électronique signée (certificat ${signe.empreinteCertificat.slice(0, 16)}…)`, req.params.id);
+    res.json({ einvoice: await resumeEinvoice(req.params.id), version: TEIF_VERSION, problemes: [], pret: true });
+  } catch (e) {
+    if (e instanceof ErreurSignature) return res.status(e.statut).json({ error: e.message, code: e.code });
+    console.error("[signature] signer", e?.name, e?.message);
+    res.status(500).json({ error: "Erreur interne lors de la signature de la facture électronique" });
+  }
 });

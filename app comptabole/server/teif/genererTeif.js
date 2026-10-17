@@ -80,7 +80,11 @@ function partenaire(code, p, extra = []) {
   );
 }
 
-export function genererTeif({ facture, cabinet, client }) {
+/**
+ * Construit l'arbre du message (sans signature) : même source pour le fichier préparé et pour la signature, qui canonise cet arbre.
+ * Lève ErreurTeif si un contrôle bloquant échoue.
+ */
+export function construireTeif({ facture, cabinet, client }) {
   const problemes = controlerFactureTeif({ facture, cabinet, client });
   if (aDesBloquants(problemes)) throw new ErreurTeif(problemes);
 
@@ -165,7 +169,15 @@ export function genererTeif({ facture, cabinet, client }) {
     { controlingAgency: TEIF_AGENCE, version: TEIF_VERSION },
   );
 
-  const xml = `${DECLARATION_XML}\n${serialiser(racine)}\n`;
+  return { racine, problemes };
+}
+
+/** Texte du message non signé (déclaration XML + arbre sérialisé). */
+export const texteTeif = (racine) => `${DECLARATION_XML}\n${serialiser(racine)}\n`;
+
+export function genererTeif({ facture, cabinet, client }) {
+  const { racine, problemes } = construireTeif({ facture, cabinet, client });
+  const xml = texteTeif(racine);
   return {
     xml,
     sha256: createHash("sha256").update(xml, "utf8").digest("hex"),

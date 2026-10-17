@@ -7,9 +7,11 @@
 // eslint-disable-next-line no-control-regex
 const CARACTERES_INTERDITS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g;
 
+/** Texte tel qu'il sera écrit : caractères interdits retirés (partagé avec la canonicalisation de la signature). */
+export const nettoyer = (valeur) => String(valeur ?? "").replace(CARACTERES_INTERDITS, "");
+
 export function echapper(valeur) {
-  return String(valeur ?? "")
-    .replace(CARACTERES_INTERDITS, "")
+  return nettoyer(valeur)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -36,6 +38,16 @@ export function serialiser(n, niveau = 0) {
   }
   if (n.texte === "") return `${retrait}<${n.nom}${attributs(n.attrs)}/>`;
   return `${retrait}<${n.nom}${attributs(n.attrs)}>${echapper(n.texte)}</${n.nom}>`;
+}
+
+/** Même document sans aucun retrait ni saut de ligne : sert au bloc de signature (voir server/signature). */
+export function serialiserCompact(n) {
+  if (n.enfants) {
+    if (n.enfants.length === 0) return `<${n.nom}${attributs(n.attrs)}/>`;
+    return `<${n.nom}${attributs(n.attrs)}>${n.enfants.map(serialiserCompact).join("")}</${n.nom}>`;
+  }
+  if (n.texte === "") return `<${n.nom}${attributs(n.attrs)}/>`;
+  return `<${n.nom}${attributs(n.attrs)}>${echapper(n.texte)}</${n.nom}>`;
 }
 
 export const DECLARATION_XML = '<?xml version="1.0" encoding="UTF-8"?>';

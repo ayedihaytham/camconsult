@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Download,
   FileCode2,
+  FileKey2,
   FileText,
   PenLine,
   Plus,
@@ -34,10 +35,21 @@ import { FACTURE_STATUT_LABELS } from "@/types";
 import type { Facture, FactureStatut } from "@/types";
 import { CabinetInfoDialog } from "./CabinetInfoDialog";
 import { FactureElectroniqueDialog } from "./FactureElectroniqueDialog";
+import { SignatureElectroniqueDialog } from "./SignatureElectroniqueDialog";
 import { FactureFormSheet } from "./FactureFormSheet";
 
 const selectTriggerClass =
   "h-11 w-auto min-w-[10rem] gap-2 rounded-lg border border-accent/35 bg-card px-4 text-base text-primary shadow-none focus:ring-0 data-[placeholder]:text-muted-foreground";
+
+/** Libellé de la colonne « Facture électronique » (écran et CSV). */
+const LIBELLE_EINVOICE: Record<string, string> = {
+  prete: "Préparée",
+  signee: "Signée",
+  deposee: "Déposée",
+  validee: "Validée",
+  rejetee: "Rejetée",
+};
+const libelleEinvoice = (statut: string | undefined) => (statut ? (LIBELLE_EINVOICE[statut] ?? statut) : "Non préparée");
 
 const iconButton =
   "flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/15 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -53,7 +65,7 @@ const CSV_COLUMNS: ExportColumn<Facture>[] = [
   { header: "Net à payer", value: (f) => f.netAPayer.toFixed(3) },
   { header: "Statut", value: (f) => FACTURE_STATUT_LABELS[f.statut] },
   { header: "Signature", value: (f) => (f.signeeLe ? "Signée" : "Non signée") },
-  { header: "Facture électronique", value: (f) => (f.einvoice?.statut === "prete" ? "Préparée" : "Non préparée") },
+  { header: "Facture électronique", value: (f) => libelleEinvoice(f.einvoice?.statut) },
 ];
 
 export function FacturationPage() {
@@ -75,6 +87,7 @@ export function FacturationPage() {
   const [cabinetOpen, setCabinetOpen] = useState(false);
   const [aAnnuler, setAAnnuler] = useState<Facture | null>(null);
   const [eiFacture, setEiFacture] = useState<Facture | null>(null);
+  const [signatureOpen, setSignatureOpen] = useState(false);
 
   useEffect(() => {
     fetchList();
@@ -147,6 +160,10 @@ export function FacturationPage() {
             <Button variant="outline" className="signature-ledger__action" onClick={() => setCabinetOpen(true)}>
               <Settings2 className="h-4 w-4" />
               Cabinet
+            </Button>
+            <Button variant="outline" className="signature-ledger__action" onClick={() => setSignatureOpen(true)}>
+              <FileKey2 className="h-4 w-4" />
+              Signature
             </Button>
             <Button variant="outline" className="signature-ledger__action" onClick={exporter}>
               <Download className="h-4 w-4" />
@@ -313,10 +330,10 @@ export function FacturationPage() {
                             type="button"
                             onClick={() => setEiFacture(f)}
                             title="Facture électronique (El Fatoora)"
-                            className={cn("inline-flex items-center gap-2 text-sm font-medium", f.einvoice?.statut === "prete" ? "text-success" : "text-muted-foreground hover:text-primary")}
+                            className={cn("inline-flex items-center gap-2 text-sm font-medium", f.einvoice ? "text-success" : "text-muted-foreground hover:text-primary")}
                           >
                             <FileCode2 className="h-4 w-4" />
-                            {f.einvoice?.statut === "prete" ? "Préparée" : "Non préparée"}
+                            {libelleEinvoice(f.einvoice?.statut)}
                           </button>
                         )}
                       </td>
@@ -371,7 +388,12 @@ export function FacturationPage() {
           setEiFacture(null);
           setCabinetOpen(true);
         }}
+        onOpenSignature={() => {
+          setEiFacture(null);
+          setSignatureOpen(true);
+        }}
       />
+      <SignatureElectroniqueDialog open={signatureOpen} onOpenChange={setSignatureOpen} />
       <CabinetInfoDialog
         open={cabinetOpen}
         onOpenChange={setCabinetOpen}

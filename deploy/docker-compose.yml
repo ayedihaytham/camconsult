@@ -40,6 +40,9 @@ services:
       # Période de validation d'une mise en ligne : false = les anciens mots de passe ne sont pas convertis (retour arrière possible).
       # À laisser vide (ou retirer) une fois la version validée. Voir RELEASE_CHECKLIST.md.
       MIGRATE_LEGACY_PASSWORDS: ${MIGRATE_LEGACY_PASSWORDS:-}
+      # Clé qui chiffre le certificat de signature électronique (facture électronique El Fatoora) enregistré en base : 32 caractères
+      # au moins, aléatoire, à sauvegarder SÉPARÉMENT de la base. Vide = signature désactivée. La perdre ou la changer impose de recharger le certificat.
+      SIGNATURE_CLE_SECRET: ${SIGNATURE_CLE_SECRET:-}
       ADMIN_IDENTIFIANT: ${ADMIN_IDENTIFIANT:-mohamed.ayedi}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Definissez ADMIN_PASSWORD dans .env}
       ADMIN_NOM: ${ADMIN_NOM:-Mohamed Ayedi}

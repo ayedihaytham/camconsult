@@ -1239,3 +1239,42 @@ end;
 $$ language plpgsql;
 drop trigger if exists journal_ajout_seul_trg on journal;
 create trigger journal_ajout_seul_trg before update or delete on journal for each row execute function journal_ajout_seul();
+
+-- ── Signature électronique des factures (El Fatoora, étape 2) ───────────────────────────────────────────────────
+-- Certificat du cabinet (.p12/.pfx) : conservé CHIFFRÉ (AES-256-GCM, clé = SIGNATURE_CLE_SECRET du serveur, jamais en base). Le mot de
+-- passe du certificat n'est jamais enregistré. Une seule ligne (id = 1). Les métadonnées en clair (sujet, validité, empreinte) servent à l'écran.
+create table if not exists signature_certificat (
+  id          int primary key default 1 check (id = 1),
+  p12_chiffre bytea       not null,
+  sujet       text        not null,
+  emetteur    text        not null,
+  serie       text        not null,
+  valide_du   timestamptz not null,
+  valide_au   timestamptz not null,
+  empreinte   text        not null,
+  charge_le   timestamptz not null default now(),
+  charge_par  text        not null default ''
+);
+
+alter table facture_einvoice add column if not exists teif_signe_xml            text;
+alter table facture_einvoice add column if not exists teif_signe_sha256         text;
+alter table facture_einvoice add column if not exists signe_le                  timestamptz;
+alter table facture_einvoice add column if not exists signe_empreinte_certificat text;
+
+-- Une fois la facture électronique sortie du stade « prête », les messages (non signé et signé) ne changent plus : toute correction passe par un avoir.
+create or replace function facture_einvoice_pieces_figees() returns trigger as $$
+begin
+  if old.statut <> 'prete' and (
+       new.teif_xml is distinct from old.teif_xml
+    or new.teif_sha256 is distinct from old.teif_sha256
+    or new.teif_signe_xml is distinct from old.teif_signe_xml
+    or new.teif_signe_sha256 is distinct from old.teif_signe_sha256
+    or new.signe_le is distinct from old.signe_le
+    or new.signe_empreinte_certificat is distinct from old.signe_empreinte_certificat) then
+    raise exception 'Une facture électronique signée ou déposée ne peut plus être modifiée';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+drop trigger if exists facture_einvoice_pieces_figees_trg on facture_einvoice;
+create trigger facture_einvoice_pieces_figees_trg before update on facture_einvoice for each row execute function facture_einvoice_pieces_figees();

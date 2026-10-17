@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { download } from "@/lib/export";
-import type { EinvoiceEtat, Facture, FactureCabinet, FactureStatut } from "@/types";
+import type { EinvoiceEtat, Facture, FactureCabinet, FactureStatut, SignatureEtat } from "@/types";
 
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
@@ -31,13 +31,31 @@ interface FacturationState {
   /** Facture électronique (TEIF) : contrôle de conformité, préparation du XML non signé, téléchargement. */
   conformite: (id: string) => Promise<EinvoiceEtat>;
   preparer: (id: string, regenerer?: boolean) => Promise<EinvoiceEtat>;
-  telechargerXml: (id: string, numero: string) => Promise<void>;
+  /** version : « signe » ou « non-signe » ; par défaut le message signé s'il existe. */
+  telechargerXml: (id: string, numero: string, version?: "signe" | "non-signe") => Promise<void>;
+  /** Signature électronique : certificat du cabinet, déverrouillage par mot de passe, signature d'une facture. */
+  signature: SignatureEtat | null;
+  fetchSignature: () => Promise<SignatureEtat>;
+  chargerCertificat: (fichier: File, motDePasse: string) => Promise<SignatureEtat>;
+  supprimerCertificat: () => Promise<void>;
+  deverrouiller: (motDePasse: string) => Promise<void>;
+  verrouiller: () => Promise<void>;
+  signer: (id: string) => Promise<EinvoiceEtat>;
+}
+
+/** Contenu binaire d'un fichier en base64 (sans préfixe data:). */
+async function enBase64(fichier: File): Promise<string> {
+  const octets = new Uint8Array(await fichier.arrayBuffer());
+  let binaire = "";
+  for (let i = 0; i < octets.length; i += 0x8000) binaire += String.fromCharCode(...octets.subarray(i, i + 0x8000));
+  return btoa(binaire);
 }
 
 export const useFacturation = create<FacturationState>((set) => ({
   list: [],
   cabinet: null,
   loading: false,
+  signature: null,
 
   fetchCabinet: async () => {
     try {
@@ -103,12 +121,69 @@ export const useFacturation = create<FacturationState>((set) => ({
     }
   },
 
-  telechargerXml: async (id, numero) => {
+  telechargerXml: async (id, numero, version) => {
     try {
-      const xml = await api.get<string>(`/facturation/${id}/einvoice/xml`);
-      download(new Blob([xml], { type: "application/xml;charset=utf-8" }), `${numero.replace(/[^A-Za-z0-9._-]/g, "_")}.xml`);
+      const xml = await api.get<string>(`/facturation/${id}/einvoice/xml${version ? `?version=${version}` : ""}`);
+      const nom = numero.replace(/[^A-Za-z0-9._-]/g, "_");
+      download(new Blob([xml], { type: "application/xml;charset=utf-8" }), `${nom}${version === "non-signe" ? "-non-signe" : ""}.xml`);
     } catch (e) {
       fail(e);
+    }
+  },
+
+  fetchSignature: async () => {
+    try {
+      const signature = await api.get<SignatureEtat>("/facturation/signature");
+      set({ signature });
+      return signature;
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  chargerCertificat: async (fichier, motDePasse) => {
+    try {
+      const signature = await api.put<SignatureEtat>("/facturation/signature/certificat", { fichier: await enBase64(fichier), motDePasse });
+      set({ signature });
+      return signature;
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  supprimerCertificat: async () => {
+    try {
+      set({ signature: await api.del<SignatureEtat>("/facturation/signature/certificat") });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  deverrouiller: async (motDePasse) => {
+    try {
+      set({ signature: await api.post<SignatureEtat>("/facturation/signature/deverrouiller", { motDePasse }) });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  verrouiller: async () => {
+    try {
+      set({ signature: await api.post<SignatureEtat>("/facturation/signature/verrouiller") });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  signer: async (id) => {
+    try {
+      const etat = await api.post<EinvoiceEtat>(`/facturation/${id}/einvoice/signer`);
+      set((st) => ({ list: st.list.map((x) => (x.id === id ? { ...x, einvoice: etat.einvoice } : x)) }));
+      return etat;
+    } catch (e) {
+      // Verrouillée ou expirée entre-temps : on remet l'état réel pour que l'écran propose le déverrouillage.
+      if (e instanceof ApiError && e.status === 409) void useFacturation.getState().fetchSignature().catch(() => undefined);
+      return fail(e);
     }
   },
 }));

@@ -1022,6 +1022,32 @@ alter table app_meta add column if not exists cabinet_email    text not null def
 alter table app_meta add column if not exists cabinet_rib      text not null default '';
 alter table app_meta add column if not exists cabinet_mentions text not null default '';
 
+-- Facture électronique (TEIF / El Fatoora) : identité structurée du cabinet (adresse découpée, raison sociale, registre de commerce)
+-- et adresse structurée du client. Le matricule fiscal du client reste dans societes.tva, celui du cabinet dans app_meta.cabinet_mf.
+alter table app_meta add column if not exists cabinet_nom         text not null default '';
+alter table app_meta add column if not exists cabinet_rue         text not null default '';
+alter table app_meta add column if not exists cabinet_ville       text not null default '';
+alter table app_meta add column if not exists cabinet_code_postal text not null default '';
+alter table app_meta add column if not exists cabinet_pays        text not null default 'TN';
+alter table app_meta add column if not exists cabinet_rc          text not null default '';
+alter table societes add column if not exists adresse_rue  text not null default '';
+alter table societes add column if not exists ville        text not null default '';
+alter table societes add column if not exists code_postal  text not null default '';
+alter table societes add column if not exists pays         text not null default 'TN';
+
+-- Message TEIF préparé pour une facture (une seule ligne par facture). `statut` : prete | signee | deposee | validee | rejetee
+-- (seul « prete » est utilisé tant que la signature et le dépôt ne sont pas en place). Pas de suppression en cascade : la pièce est conservée.
+create table if not exists facture_einvoice (
+  facture_id   uuid primary key references factures(id) on delete restrict,
+  statut       text not null default 'prete',
+  teif_version text not null,
+  teif_xml     text not null,
+  teif_sha256  text not null,
+  genere_le    timestamptz not null default now(),
+  erreurs      jsonb not null default '[]'::jsonb,
+  maj_le       timestamptz not null default now()
+);
+
 -- Déclaration douanière : type de déclaration (case « Type déclaration », ex. E)
 -- à la place du régime, qui n'est plus saisi (la colonne douane_regime est conservée).
 alter table stock_mouvements add column if not exists douane_type_declaration text not null default '';
@@ -1213,3 +1239,42 @@ end;
 $$ language plpgsql;
 drop trigger if exists journal_ajout_seul_trg on journal;
 create trigger journal_ajout_seul_trg before update or delete on journal for each row execute function journal_ajout_seul();
+
+-- ── Signature électronique des factures (El Fatoora, étape 2) ───────────────────────────────────────────────────
+-- Certificat du cabinet (.p12/.pfx) : conservé CHIFFRÉ (AES-256-GCM, clé = SIGNATURE_CLE_SECRET du serveur, jamais en base). Le mot de
+-- passe du certificat n'est jamais enregistré. Une seule ligne (id = 1). Les métadonnées en clair (sujet, validité, empreinte) servent à l'écran.
+create table if not exists signature_certificat (
+  id          int primary key default 1 check (id = 1),
+  p12_chiffre bytea       not null,
+  sujet       text        not null,
+  emetteur    text        not null,
+  serie       text        not null,
+  valide_du   timestamptz not null,
+  valide_au   timestamptz not null,
+  empreinte   text        not null,
+  charge_le   timestamptz not null default now(),
+  charge_par  text        not null default ''
+);
+
+alter table facture_einvoice add column if not exists teif_signe_xml            text;
+alter table facture_einvoice add column if not exists teif_signe_sha256         text;
+alter table facture_einvoice add column if not exists signe_le                  timestamptz;
+alter table facture_einvoice add column if not exists signe_empreinte_certificat text;
+
+-- Une fois la facture électronique sortie du stade « prête », les messages (non signé et signé) ne changent plus : toute correction passe par un avoir.
+create or replace function facture_einvoice_pieces_figees() returns trigger as $$
+begin
+  if old.statut <> 'prete' and (
+       new.teif_xml is distinct from old.teif_xml
+    or new.teif_sha256 is distinct from old.teif_sha256
+    or new.teif_signe_xml is distinct from old.teif_signe_xml
+    or new.teif_signe_sha256 is distinct from old.teif_signe_sha256
+    or new.signe_le is distinct from old.signe_le
+    or new.signe_empreinte_certificat is distinct from old.signe_empreinte_certificat) then
+    raise exception 'Une facture électronique signée ou déposée ne peut plus être modifiée';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+drop trigger if exists facture_einvoice_pieces_figees_trg on facture_einvoice;
+create trigger facture_einvoice_pieces_figees_trg before update on facture_einvoice for each row execute function facture_einvoice_pieces_figees();

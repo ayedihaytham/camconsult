@@ -47,7 +47,7 @@ scope.
 - `notes.ts`: note models, company sheet and exercise notes.
 - `bordereaux.ts`: bank remittance registry.
 - `honoraires.ts`: client account (état client) per société, plus the all-clients recap (`GET /api/honoraires/recap`, one grouped query).
-- `facturation.ts`: admin fee invoices (`/api/facturation`).
+- `facturation.ts`: admin fee invoices (`/api/facturation`); e-invoice actions `conformite`, `preparer` and `telechargerXml` call `/api/facturation/:id/einvoice[...]` (TEIF XML, stored in `facture_einvoice`); signature actions `fetchSignature`, `chargerCertificat`, `deverrouiller`, `verrouiller`, `supprimerCertificat` and `signer` call `/api/facturation/signature[...]` and `/:id/einvoice/signer` (the certificate is stored encrypted in `signature_certificat`; the password is never stored).
 - `journal.ts`: admin audit entries.
 - `ui.ts`: persisted desktop sidebar collapse preference, not domain data.
 
@@ -112,3 +112,15 @@ Never loop through all companies and issue one specialized request per company
 to populate the Dashboard. Use already-scoped bootstrap entities, existing list
 endpoints or a purpose-built aggregate endpoint if the model genuinely requires
 one. This prevents N+1 latency and permission inconsistencies.
+
+## Live signals
+
+`src/lib/liveEvents.ts` keeps one server-sent-event stream per session
+(`GET /api/events`). The server only pushes a *signal*, never business data; the
+client then repeats its usual REST read. Signals: `message`, `notification`,
+`collecte` (one collection changed) and `noeuds` (the Structuration tree changed:
+upload, folder, move, rename, duplicate or delete, sent to everyone who sees the
+société, the author included). `useData.refreshNoeuds()` re-reads `GET /api/noeuds`,
+coalescing simultaneous calls; it also runs on tab return and on the 30 s safety
+resync. UI actions that create nodes must await the store action and announce
+success only after the server answered.

@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { montantFixe } from "@/lib/amount";
-import { ArrowUpRight, CheckCircle2, LoaderCircle, MoreHorizontal, Pencil } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, LoaderCircle, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,6 +57,10 @@ interface Props {
   exportMenu?: ReactNode;
   /** Ajout de tableau fourni par la page avec ses droits existants. */
   actions?: ReactNode;
+  /** Retire un tableau de la collecte : il retourne dans « Ajouter des tableaux ». Absent = aucune suppression proposée. */
+  onRemove?: (key: string) => Promise<void>;
+  /** Tableaux que l'on peut retirer (pas ceux déjà validés ou archivés). */
+  removable?: (key: string) => boolean;
   /** Message affiché quand la liste n'est pas modifiable (collecte validée, archivée…). */
   notice?: string;
 }
@@ -315,8 +319,37 @@ function ChampTotal({ row, devise, editable, onSaveSuivi, compact = false }: Cha
   );
 }
 
-export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveComment, onSaveSuivi, onMarkAll, exports, exportMenu, actions, notice }: Props) {
+export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveComment, onSaveSuivi, onMarkAll, exports, exportMenu, actions, onRemove, removable, notice }: Props) {
   const [filtre, setFiltre] = useState<Filtre>("toutes");
+  const [aRetirer, setARetirer] = useState<ChecklistRow | null>(null);
+  const [retrait, setRetrait] = useState(false);
+  const peutRetirer = (row: ChecklistRow) => Boolean(editable && onRemove && (removable ? removable(row.onglet) : true));
+  const boutonRetirer = (row: ChecklistRow) =>
+    peutRetirer(row) ? (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+        aria-label={`Retirer « ${row.tabLabel} » de la collecte`}
+        title="Retirer ce tableau de la collecte"
+        onClick={() => setARetirer(row)}
+      >
+        <Trash2 className="size-4" aria-hidden="true" />
+      </Button>
+    ) : null;
+  async function confirmerRetrait() {
+    if (!aRetirer || !onRemove) return;
+    setRetrait(true);
+    try {
+      await onRemove(aRetirer.onglet);
+      setARetirer(null);
+    } catch {
+      // le message d'erreur est affiché par l'appelant ; la fenêtre reste ouverte pour réessayer
+    } finally {
+      setRetrait(false);
+    }
+  }
   const [marquage, setMarquage] = useState(false);
   const recus = rows.filter((row) => row.recu).length;
   const enAttente = rows.filter((row) => !row.recu);
@@ -423,6 +456,7 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
                         {lien(row)}
                         <RowStatus row={row} />
                       </div>
+                      <span className="ml-auto">{boutonRetirer(row)}</span>
                     </div>
                   </td>
                   <td className="px-2 py-3 [&>input]:max-w-44"><ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
@@ -452,12 +486,32 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
             editable={editable}
             coche={coche(row)}
             lien={lien(row)}
+            retirer={boutonRetirer(row)}
             onSaveSuivi={onSaveSuivi}
             onSaveComment={onSaveComment}
           />
         ))}
         {visibles.length === 0 && <p className="px-4 py-6 text-center text-sm text-muted-foreground">Aucune pièce dans ce filtre.</p>}
       </div>
+      <Dialog open={aRetirer !== null} onOpenChange={(ouvert) => !ouvert && !retrait && setARetirer(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Retirer ce tableau de la collecte ?</DialogTitle>
+            <DialogDescription>
+              « {aRetirer?.tabLabel} » retourne dans la liste « Ajouter des tableaux » : vous pourrez le demander de nouveau.
+              {aRetirer && aRetirer.nbLignes > 0
+                ? ` Ses ${aRetirer.nbLignes} ligne(s) déjà saisie(s) seront supprimées définitivement.`
+                : " Aucune ligne n'est saisie dans ce tableau."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" disabled={retrait} onClick={() => setARetirer(null)}>Annuler</Button>
+            <Button type="button" variant="destructive" disabled={retrait} onClick={() => void confirmerRetrait()}>
+              {retrait ? "Retrait…" : "Retirer le tableau"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -468,6 +522,7 @@ function MobileChecklistRow({
   editable,
   coche,
   lien,
+  retirer,
   onSaveSuivi,
   onSaveComment,
 }: {
@@ -476,6 +531,7 @@ function MobileChecklistRow({
   editable: boolean;
   coche: ReactNode;
   lien: ReactNode;
+  retirer?: ReactNode;
   onSaveSuivi?: Props["onSaveSuivi"];
   onSaveComment: (key: string, value: string) => Promise<void>;
 }) {
@@ -487,6 +543,7 @@ function MobileChecklistRow({
           {lien}
           <RowStatus row={row} />
         </div>
+        {retirer && <span className="ml-auto">{retirer}</span>}
       </div>
       <div className="mt-2 grid min-w-0 grid-cols-2 items-center gap-3">
         <div className="min-w-0 space-y-1"><p className="text-[11px] text-muted-foreground">Date de suivi</p><ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} /></div>

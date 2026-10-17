@@ -184,7 +184,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     // La navigation reste visible avant la longue zone de saisie.
     expect(nav.compareDocumentPosition(contenu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent);
-    expect(noms.slice(0, 3)).toEqual(["Récap", "Checklist", "Documents"]);
+    expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);
     expect(screen.getByRole("heading", { name: "Récap" })).toBeTruthy();
     // Les 14 tableaux sont accessibles dans un sélecteur groupé sans seconde barre latérale.
     optionTableau("Bordereaux remise de chèques");
@@ -788,7 +788,7 @@ describe("Collecte : espace limité du responsable de société", () => {
     expect(within(bandeau).getByRole("button", { name: "Quitter" })).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
     const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent ?? "");
-    expect(noms.slice(0, 3)).toEqual(["Récap", "Checklist", "Documents"]);
+    expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);
   });
 });
 

@@ -521,6 +521,11 @@ export function CollecteEditorPage() {
                 onMarkAll={(keys) => marquerRecu(id, keys, true)}
                 exports={<SectionExport collecte={collecte} section="checklist" societeNom={socNom} toolbar />}
                 exportMenu={<SectionExport collecte={collecte} section="checklist" societeNom={socNom} menu />}
+                onRemove={canManageCollaborateurs && !archivee ? async (key) => {
+                  await update(id, { onglets: collecte.onglets.filter((k) => k !== key) });
+                  toast.success(`« ${TAB_BY_KEY[key]?.label ?? key} » retiré de la collecte`, { description: "Il est de nouveau dans « Ajouter des tableaux »." });
+                } : undefined}
+                removable={(key) => !["valide", "archive"].includes(sectionStatut(collecte, key))}
                 actions={canManageCollaborateurs && !archivee && (
                   <TableauxNonDemandes
                     demandes={collecte.onglets}
@@ -743,6 +748,7 @@ export function CollecteEditorPage() {
                           )}
                           readOnly={clientRecapForTab ? !inRecap : !editableTab(key)}
                           ligneBordereauFigee={isClient}
+                          bordereauSeul={!isClient && key === "bordereaux_remise_cheques"}
                           sansSuppression={isClient}
                           recapClient={inRecap}
                           highlight={hl}

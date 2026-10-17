@@ -23,7 +23,7 @@ concurrency:
 jobs:
   # Les contrôles qualité passent avant la construction de l'image : un test en échec bloque le déploiement.
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: "./app comptabole"
@@ -48,7 +48,7 @@ jobs:
 
   # Base PostgreSQL jetable (conteneur de service détruit en fin de tâche), données synthétiques, vrai serveur démarré en production.
   integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: "./app comptabole"
@@ -85,7 +85,7 @@ jobs:
     needs: [tests, integration]
     # Jamais pour une pull request, jamais depuis une autre branche (un lancement manuel sur une branche ne publie pas « latest »).
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -36,6 +36,9 @@ interface Props {
   /** Côté client : la ligne d'un bordereau envoyée par le cabinet (n°, montant, banque, sans chèque) reste telle quelle, et une
    * ligne vierge du même bordereau est proposée dessous pour y saisir les chèques jusqu'au montant. */
   ligneBordereauFigee?: boolean;
+  /** Côté cabinet, tableau à bordereaux : le cabinet ajoute les bordereaux (date, n°, montant, banque) ; les lignes qui les composent (chèques) sont saisies par le client,
+   * donc ni bouton d'ajout de ligne dans un bordereau, ni saisie des colonnes de ces lignes. */
+  bordereauSeul?: boolean;
   /** Côté client : on modifie les cases et on ajoute des lignes, mais une ligne déjà enregistrée ne se supprime pas. */
   sansSuppression?: boolean;
   /** Envoie un fichier joint à une case « pièce jointe » et renvoie son id et son nom. */
@@ -98,6 +101,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   flagged,
   onDirtyChange,
   ligneBordereauFigee = false,
+  bordereauSeul = false,
   sansSuppression = false,
   onJoindre,
   onVoirPiece,
@@ -108,9 +112,15 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   exportActions,
   exportButtons,
 }, ref) {
+  /** Colonne propre aux lignes d'un bordereau (n° de chèque, client, montant du chèque, échéance, pièce) par opposition à celles du bordereau lui-même. */
+  const colonneDeLigne = (key: string) => {
+    const g = def.groupe;
+    return Boolean(g) && ![g!.cle, g!.totalCol, ...g!.prefill].includes(key);
+  };
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
     if (estEntete(i)) return true;
+    if (bordereauSeul && colonneDeLigne(key)) return true;
     if (!recapClient || wholeEditable) return false;
     return !highlight?.has(`${i}:${key}`);
   };
@@ -477,7 +487,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                   <span className="hidden lg:inline">Nouveau {def.groupe.libelle.toLowerCase()}</span>
                 </Button>
               )}
-              {canAdd && groupes.length === 1 && (
+              {canAdd && !bordereauSeul && groupes.length === 1 && (
                 <Button type="button" variant="outline" size="icon" className={commandButtonClass}
                   aria-label={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${groupes[0].nom}`}
                   title={`${def.groupe?.ajout} à ce ${def.groupe?.libelle.toLowerCase()} ${groupes[0].nom}`}
@@ -609,7 +619,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                         {groupes.length === 1 && commands}
                       </div>
                     </div>
-                    {canAdd && groupes.length > 1 && (
+                    {canAdd && !bordereauSeul && groupes.length > 1 && (
                       <Button
                         type="button"
                         variant="outline"
@@ -684,7 +694,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         );
       })()}
 
-      {canAdd && (
+      {canAdd && bordereauSeul && (
+        <p className="text-xs text-muted-foreground">
+          Ajoutez les bordereaux à remplir (date de remise, n°, montant, banque) : le client saisit ensuite les chèques de chaque bordereau, ce sont les cases « ? ».
+        </p>
+      )}
+      {canAdd && !bordereauSeul && (
         <p className="text-xs text-muted-foreground">
           Saisissez directement dans le tableau : <kbd className="rounded border border-border px-1">Entrée</kbd> dans la dernière case ajoute la ligne suivante.
         </p>

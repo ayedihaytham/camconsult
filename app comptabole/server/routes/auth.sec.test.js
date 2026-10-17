@@ -1,5 +1,5 @@
 import express from "express";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // scrypt est volontairement lent : on laisse de la marge quand toute la suite tourne en parallèle.
 vi.setConfig({ testTimeout: 30_000 });
@@ -97,6 +97,60 @@ describe("connexion d'un employé", () => {
     expect((await post("/login", { identifiant: "h.test", motDePasse: "autre-chose-1" })).status).toBe(401);
     expect(db.employes[0].mot_de_passe).toBe("Ancien-Mdp-1234");
     expect(db.employes[0].mdp_hash).toBeNull();
+  });
+
+  describe("réglage MIGRATE_LEGACY_PASSWORDS (comptes fictifs ; seule la chaîne exacte « false » suspend la conversion)", () => {
+    const avant = process.env.MIGRATE_LEGACY_PASSWORDS;
+    afterEach(() => {
+      if (avant === undefined) delete process.env.MIGRATE_LEGACY_PASSWORDS;
+      else process.env.MIGRATE_LEGACY_PASSWORDS = avant;
+    });
+    const regler = (v) => (v === undefined ? delete process.env.MIGRATE_LEGACY_PASSWORDS : (process.env.MIGRATE_LEGACY_PASSWORDS = v));
+
+    it.each([
+      ["false", false],
+      [undefined, true],
+      ["", true],
+      ["true", true],
+      ["False", true],
+      ["FALSE", true],
+      ["0", true],
+      ["non", true],
+      [" false", true],
+    ])("valeur %j : conversion à la connexion = %s", async (valeur, convertit) => {
+      regler(valeur);
+      db.employes.push(employe({ mot_de_passe: "Ancien-Mdp-1234" }));
+      expect((await post("/login", { identifiant: "h.test", motDePasse: "Ancien-Mdp-1234" })).status).toBe(200);
+      expect(estHash(db.employes[0].mdp_hash)).toBe(convertit);
+      expect(db.employes[0].mot_de_passe).toBe(convertit ? "" : "Ancien-Mdp-1234");
+    });
+
+    it("avec « false » : le compte hérité reste intact après plusieurs connexions, et un mauvais mot de passe reste refusé", async () => {
+      regler("false");
+      db.employes.push(employe({ mot_de_passe: "Ancien-Mdp-1234" }));
+      for (let i = 0; i < 3; i++) expect((await post("/login", { identifiant: "h.test", motDePasse: "Ancien-Mdp-1234" })).status).toBe(200);
+      expect((await post("/login", { identifiant: "h.test", motDePasse: "autre-chose-1" })).status).toBe(401);
+      expect(db.employes[0]).toMatchObject({ mdp_hash: null, mot_de_passe: "Ancien-Mdp-1234" });
+    });
+
+    it("le réglage est lu à chaque connexion (pas au démarrage) : le repasser à autre chose reprend la conversion", async () => {
+      regler("false");
+      db.employes.push(employe({ mot_de_passe: "Ancien-Mdp-1234" }));
+      await post("/login", { identifiant: "h.test", motDePasse: "Ancien-Mdp-1234" });
+      expect(db.employes[0].mdp_hash).toBeNull();
+      regler(undefined);
+      await post("/login", { identifiant: "h.test", motDePasse: "Ancien-Mdp-1234" });
+      expect(estHash(db.employes[0].mdp_hash)).toBe(true);
+    });
+
+    it("« false » ne suspend PAS l'activation par lien : le compte reçoit une empreinte, que l'ancienne version ne sait pas lire", async () => {
+      regler("false");
+      db.employes.push(employe({ mot_de_passe: "Ancien-Mdp-1234" }));
+      const jeton = await creerJeton("e1", "activation", "Admin");
+      expect((await post("/activate", { token: jeton, motDePasse: "Nouveau-Mdp-9012" })).status).toBe(200);
+      expect(estHash(db.employes[0].mdp_hash)).toBe(true);
+      expect(db.employes[0].mot_de_passe).toBe("");
+    });
   });
 
   it("connecte un compte à empreinte, refuse un mauvais mot de passe, ne renvoie jamais de secret", async () => {

@@ -108,3 +108,49 @@ describe("CollecteChecklist", () => {
     expect(screen.getByText("Collecte validée : rouvrez-la pour modifier les pièces.")).toBeTruthy();
   });
 });
+
+describe("CollecteChecklist : retirer un tableau de la collecte", () => {
+  const retirables = ["achats"];
+
+  it("propose le retrait seulement quand la page le permet, et pas pour un tableau verrouillé", () => {
+    monter({ onRemove: vi.fn().mockResolvedValue(undefined), removable: (k) => retirables.includes(k) });
+    expect(screen.getAllByRole("button", { name: "Retirer « Détail des achats » de la collecte" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Retirer « État de caisse » de la collecte" })).toBeNull();
+  });
+
+  it("sans droit (pas de onRemove) ou en lecture seule : aucun bouton de retrait", () => {
+    monter();
+    expect(screen.queryByRole("button", { name: /Retirer .* de la collecte/ })).toBeNull();
+    cleanup();
+    monter({ editable: false, onRemove: vi.fn() });
+    expect(screen.queryByRole("button", { name: /Retirer .* de la collecte/ })).toBeNull();
+  });
+
+  it("demande confirmation, annonce les lignes perdues, et ne retire qu'à la confirmation", async () => {
+    const onRemove = vi.fn().mockResolvedValue(undefined);
+    monter({ onRemove });
+    fireEvent.click(screen.getAllByRole("button", { name: "Retirer « Virements reçus » de la collecte" })[0]);
+    expect(screen.getByText(/Ses 1 ligne\(s\) déjà saisie\(s\) seront supprimées définitivement/)).toBeTruthy();
+    expect(onRemove).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Retirer le tableau" }));
+    await waitFor(() => expect(onRemove).toHaveBeenCalledWith("virements_recus"));
+  });
+
+  it("Annuler ne retire rien, et un tableau vide n'annonce aucune perte", () => {
+    const onRemove = vi.fn().mockResolvedValue(undefined);
+    monter({ onRemove });
+    fireEvent.click(screen.getAllByRole("button", { name: "Retirer « Détail des achats » de la collecte" })[0]);
+    expect(screen.getByText(/Aucune ligne n'est saisie dans ce tableau/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it("si le retrait échoue, la fenêtre reste ouverte pour réessayer", async () => {
+    const onRemove = vi.fn().mockRejectedValue(new Error("refusé"));
+    monter({ onRemove });
+    fireEvent.click(screen.getAllByRole("button", { name: "Retirer « Détail des achats » de la collecte" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Retirer le tableau" }));
+    await waitFor(() => expect(onRemove).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Retirer le tableau" })).toBeTruthy();
+  });
+});

@@ -61,6 +61,11 @@ const schema = z.object({
     .default(""),
   email: z.string().email("Email invalide").or(z.literal("")).default(""),
   adresse: z.string().optional().default(""),
+  // Adresse structurée (facture électronique El Fatoora)
+  adresseRue: z.string().max(100, "100 caractères au plus").optional().default(""),
+  ville: z.string().max(100, "100 caractères au plus").optional().default(""),
+  codePostal: z.string().max(20, "20 caractères au plus").optional().default(""),
+  pays: z.string().max(6, "Code pays à 2 lettres").optional().default("TN"),
 });
 
 export type SocieteFormValues = z.infer<typeof schema>;
@@ -174,13 +179,17 @@ export function SocieteFormSheet({
       telephone: "",
       email: "",
       adresse: "",
+      adresseRue: "",
+      ville: "",
+      codePostal: "",
+      pays: "TN",
     },
   });
 
   useEffect(() => {
     if (!open) return;
     if (societe) {
-      reset({ ...societe });
+      reset({ adresseRue: "", ville: "", codePostal: "", pays: "TN", ...societe });
     } else {
       reset({
         raisonSociale: "",
@@ -192,6 +201,10 @@ export function SocieteFormSheet({
         telephone: "",
         email: "",
         adresse: "",
+        adresseRue: "",
+        ville: "",
+        codePostal: "",
+        pays: "TN",
       });
     }
   }, [open, societe, nextCode, reset]);
@@ -287,7 +300,7 @@ export function SocieteFormSheet({
                     />
                   )}
                 </Champ>
-                <Champ id="societe-tva" label="N° TVA" requis icone={FileText} erreur={errors.tva?.message}>
+                <Champ id="societe-tva" label="Matricule fiscal (N° TVA)" requis icone={FileText} erreur={errors.tva?.message}>
                   {(classe) => (
                     <Input
                       id="societe-tva"
@@ -411,6 +424,21 @@ export function SocieteFormSheet({
                   />
                 )}
               </Champ>
+              <p className="text-xs text-muted-foreground">Pour la facture électronique (El Fatoora), détaillez aussi l'adresse :</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Champ id="societe-rue" label="Rue" icone={MapPin} erreur={errors.adresseRue?.message}>
+                  {(classe) => <Input id="societe-rue" {...register("adresseRue")} placeholder="Rue (35 caractères au plus)" className={classe} />}
+                </Champ>
+                <Champ id="societe-ville" label="Ville" icone={MapPin} erreur={errors.ville?.message}>
+                  {(classe) => <Input id="societe-ville" {...register("ville")} className={classe} />}
+                </Champ>
+                <Champ id="societe-cp" label="Code postal" icone={MapPin} erreur={errors.codePostal?.message}>
+                  {(classe) => <Input id="societe-cp" {...register("codePostal")} className={classe} />}
+                </Champ>
+                <Champ id="societe-pays" label="Pays (code)" icone={MapPin} erreur={errors.pays?.message}>
+                  {(classe) => <Input id="societe-pays" {...register("pays")} maxLength={2} placeholder="TN" className={classe} />}
+                </Champ>
+              </div>
             </Rubrique>
 
             {errors.root?.message && (

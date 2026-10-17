@@ -29,6 +29,10 @@ export const societeDto = (r) => ({
   telephone: r.telephone,
   email: r.email,
   adresse: r.adresse,
+  adresseRue: r.adresse_rue ?? "",
+  ville: r.ville ?? "",
+  codePostal: r.code_postal ?? "",
+  pays: r.pays || "TN",
   creeLe: dateStr(r.cree_le),
 });
 
@@ -274,6 +278,10 @@ export const factureDto = (r, lignes = []) => {
     tva,
     netAPayer,
     creeLe: isoOrNull(r.cree_le),
+    // Facture électronique (TEIF) : résumé seulement, jamais le XML (téléchargé à la demande).
+    einvoice: r.ei_statut
+      ? { statut: r.ei_statut, genereLe: isoOrNull(r.ei_genere_le), sha256: r.ei_sha256 ?? "", signeLe: isoOrNull(r.ei_signe_le), shaSigne: r.ei_signe_sha ?? null }
+      : null,
     lignes,
   };
 };

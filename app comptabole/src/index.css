@@ -891,3 +891,11 @@
 .card-field input.pr-8 {
   padding-right: 2rem !important;
 }
+
+/* Registre des factures : bande de couleur à gauche de la ligne selon le statut affiché (même grammaire que les sociétés). */
+.societes-ledger-page tbody tr.ledger-row--payee > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--success)); }
+.societes-ledger-page tbody tr.ledger-row--retard > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--warning)); }
+.societes-ledger-page tbody tr.ledger-row--emise > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--primary) / 0.55); }
+.societes-ledger-page tbody tr.ledger-row--annulee > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--muted-foreground) / 0.45); }
+/* Registre des factures : le tableau garde une largeur minimale (défilement horizontal en dessous) pour que la colonne « Client » ne soit jamais écrasée. */
+.facturation-ledger-table table { min-width: 1080px; }

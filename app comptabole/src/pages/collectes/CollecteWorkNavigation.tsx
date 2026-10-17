@@ -123,8 +123,8 @@ export function CollecteWorkNavigation({
       )}
       {!isClient && (
         <div className="flex min-w-0 items-center gap-1">
-          {canSeeRecap && navButton("recap", "Récap", MessageSquareText, recapCount)}
           {navButton("checklist", "Checklist", ClipboardList)}
+          {canSeeRecap && navButton("recap", "Récap", MessageSquareText, recapCount)}
           {navButton("documents", "Documents", Paperclip, collecte.fichiers.length)}
           {canVerify && navButton("verification", "Vérification", CheckCircle2)}
           {canSeeHistory && navButton("historique", "Historique", History)}

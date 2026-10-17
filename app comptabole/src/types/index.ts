@@ -18,6 +18,11 @@ export interface Societe {
   telephone: string;
   email: string;
   adresse: string;
+  /** Adresse structurée (facture électronique) ; absente des anciennes données. */
+  adresseRue?: string;
+  ville?: string;
+  codePostal?: string;
+  pays?: string;
   creeLe: string; // ISO
 }
 
@@ -316,12 +321,71 @@ export interface Facture {
   tva: number;
   netAPayer: number;
   creeLe: string;
+  /** Facture électronique (message TEIF) : résumé seulement, null tant qu'elle n'est pas préparée. */
+  einvoice?: FactureEinvoice | null;
   lignes: FactureLigne[];
+}
+
+export interface FactureEinvoice {
+  /** prete = XML non signé généré ; signee = signé avec le certificat du cabinet ; les stades suivants (déposée, validée, rejetée) viendront avec le dépôt. */
+  statut: "prete" | "signee" | "deposee" | "validee" | "rejetee";
+  genereLe: string | null;
+  sha256: string;
+  /** Date de la signature (statut signee ou au-delà). */
+  signeLe?: string | null;
+  /** Empreinte SHA-256 (hexadécimal) du message signé ; imprimée sur la facture avec son QR de contrôle. */
+  shaSigne?: string | null;
+}
+
+/** Certificat de signature du cabinet (métadonnées seulement : le fichier et le mot de passe ne sont jamais renvoyés). */
+export interface SignatureCertificat {
+  sujet: string;
+  emetteur: string;
+  serie: string;
+  validDu: string;
+  validAu: string;
+  /** Empreinte SHA-256 du certificat (hexadécimal). */
+  empreinte: string;
+  chargeLe: string;
+  chargePar: string;
+  expire: boolean;
+}
+
+export interface SignatureEtat {
+  /** false = clé de chiffrement absente côté serveur : la signature est désactivée. */
+  configuree: boolean;
+  certificat: SignatureCertificat | null;
+  /** true = la clé est en mémoire du serveur (15 minutes après la saisie du mot de passe). */
+  deverrouille: boolean;
+  expireLe: string | null;
+  avertissements?: string[];
+}
+
+export interface EinvoiceProbleme {
+  niveau: "bloquant" | "avertissement";
+  /** Où corriger : les informations du cabinet, la société cliente ou la facture elle-même. */
+  ou: "cabinet" | "societe" | "facture";
+  champ: string;
+  message: string;
+}
+
+export interface EinvoiceEtat {
+  einvoice: (FactureEinvoice & { version?: string }) | null;
+  version: string;
+  problemes: EinvoiceProbleme[];
+  pret: boolean;
 }
 
 /** Coordonnées du cabinet imprimées sur les factures. */
 export interface FactureCabinet {
   nom: string;
+  /** Identité structurée pour la facture électronique (absente des anciennes données). */
+  raisonSociale?: string;
+  rue?: string;
+  ville?: string;
+  codePostal?: string;
+  pays?: string;
+  rc?: string;
   adresse: string;
   matriculeFiscal: string;
   telephone: string;

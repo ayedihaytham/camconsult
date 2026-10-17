@@ -227,12 +227,12 @@ dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
 
     for (const s of societes) {
       await client.query(
-        `insert into societes (id, raison_sociale, rne, tva, theme, code, statut, telephone, email, adresse, cree_le)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, coalesce($11::date, current_date))`,
+        `insert into societes (id, raison_sociale, rne, tva, theme, code, statut, telephone, email, adresse, adresse_rue, ville, code_postal, pays, cree_le)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, coalesce($15::date, current_date))`,
         [
           uuidOrNull(s.id), s.raisonSociale, s.rne ?? "", s.tva ?? "", s.theme ?? "PME",
           s.code ?? "", s.statut ?? "actif",
-          s.telephone ?? "", s.email ?? "", s.adresse ?? "", s.creeLe ?? null,
+          s.telephone ?? "", s.email ?? "", s.adresse ?? "", s.adresseRue ?? "", s.ville ?? "", s.codePostal ?? "", s.pays || "TN", s.creeLe ?? null,
         ],
       );
     }

@@ -1,3 +1,5 @@
+import { ApurementSelect } from "./ApurementSelect";
+import { Badge } from "@/components/ui/badge";
 import { useCallback, useEffect, useState } from "react";
 import {
   Link,
@@ -19,6 +21,7 @@ import {
   Users,
   ShieldCheck,
   ShoppingBag,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { tnd } from "@/lib/apurement";
@@ -402,33 +405,37 @@ export function ApurementPage() {
         </label>
         <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
           Trimestre
-          <select
-            className="block h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          <ApurementSelect
             aria-label="Trimestre"
             value={trimestre}
-            onChange={(e) => patchParams("trimestre", e.target.value)}
-          >
-            {["T1", "T2", "T3", "T4"].map((x) => (
-              <option key={x} value={x}>
-                {x} ·{" "}
-                {
-                  {
-                    T1: "Janvier – mars",
-                    T2: "Avril – juin",
-                    T3: "Juillet – septembre",
-                    T4: "Octobre – décembre",
-                  }[x]
-                }
-              </option>
-            ))}
-          </select>
+            onValueChange={(value) => patchParams("trimestre", value)}
+            className="w-full sm:min-w-60"
+            groupLabel="Trimestre"
+            options={[
+              ...["T1", "T2", "T3", "T4"].map((x) => ({
+                value: x,
+                label: (
+                  <>
+                    {x} ·{" "}
+                    {
+                      {
+                        T1: "Janvier – mars",
+                        T2: "Avril – juin",
+                        T3: "Juillet – septembre",
+                        T4: "Octobre – décembre",
+                      }[x]
+                    }
+                  </>
+                ),
+              })),
+            ]}
+          />
         </label>
         {societeId && (
           <label className="apurement-dossier-selector flex min-w-0 items-center gap-2 text-sm">
             <span className="sr-only">Dossier</span>
-            <select
+            <ApurementSelect
               aria-label="Dossier : références et réglages"
-              className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
               value={
                 view === "documents"
                   ? "documents"
@@ -436,21 +443,22 @@ export function ApurementPage() {
                     ? activeKind
                     : ""
               }
-              onChange={(e) =>
+              onValueChange={(value) =>
                 selectView(
-                  e.target.value === "documents" ? "documents" : "registre",
-                  e.target.value === "documents" ? undefined : e.target.value,
+                  value === "documents" ? "documents" : "registre",
+                  value === "documents" ? undefined : value,
                 )
               }
-            >
-              <option value="" disabled>
-                Dossier…
-              </option>
-              <option value="fournisseurs">Fournisseurs</option>
-              <option value="autorisations">Autorisations</option>
-              <option value="bcs">Bons de commande</option>
-              <option value="documents">Profil fiscal et rappels</option>
-            </select>
+              className="w-full sm:w-64"
+              groupLabel="Dossier : références et réglages"
+              options={[
+                { value: "", label: <>Dossier…</>, disabled: true },
+                { value: "fournisseurs", label: <>Fournisseurs</> },
+                { value: "autorisations", label: <>Autorisations</> },
+                { value: "bcs", label: <>Bons de commande</> },
+                { value: "documents", label: <>Profil fiscal et rappels</> },
+              ]}
+            />
           </label>
         )}
       </div>
@@ -807,36 +815,37 @@ export function ApurementPage() {
                     {activeKind === "factures" ? (
                       <label className="space-y-1 text-sm">
                         Origine de la facture
-                        <select
-                          className="h-10 w-full rounded border bg-background px-2"
+                        <ApurementSelect
                           value={sourceFilter}
-                          onChange={(e) =>
-                            patchParams("source", e.target.value)
+                          onValueChange={(value) =>
+                            patchParams("source", value)
                           }
-                        >
-                          <option value="">Toutes les origines</option>
-                          <option value="manuel">Saisie manuelle</option>
-                          <option value="stock">Reprise de Stock</option>
-                          <option value="import">Import</option>
-                        </select>
+                          className="w-full sm:w-56"
+                          options={[
+                            { value: "", label: <>Toutes les origines</> },
+                            { value: "manuel", label: <>Saisie manuelle</> },
+                            { value: "stock", label: <>Reprise de Stock</> },
+                            { value: "import", label: <>Import</> },
+                          ]}
+                        />
                       </label>
                     ) : (
                       <label className="space-y-1 text-sm">
                         Autorisation
-                        <select
-                          className="h-10 w-full rounded border bg-background px-2"
+                        <ApurementSelect
                           value={authorizationId || ""}
-                          onChange={(e) =>
-                            patchParams("autorisationId", e.target.value)
+                          onValueChange={(value) =>
+                            patchParams("autorisationId", value)
                           }
-                        >
-                          <option value="">Toutes les autorisations</option>
-                          {refs.autorisations.map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.numero}
-                            </option>
-                          ))}
-                        </select>
+                          className="w-full sm:w-56"
+                          options={[
+                            { value: "", label: <>Toutes les autorisations</> },
+                            ...refs.autorisations.map((a) => ({
+                              value: a.id,
+                              label: <>{a.numero}</>,
+                            })),
+                          ]}
+                        />
                       </label>
                     )}
                   </LedgerSearchFilter>
@@ -983,22 +992,44 @@ export function ApurementPage() {
                 </p>
               </div>
               <Button variant="outline" onClick={check}>
+                <RefreshCw className="mr-2 size-4" aria-hidden="true" />
                 Relancer les contrôles
               </Button>
             </div>
           )}
           {view === "controls" && controls && (
-            <section className="space-y-3 border-t pt-4">
-              <p className="text-sm">
+            <section className="apurement-controls overflow-hidden rounded-xl border bg-card">
+              <p className="border-b bg-muted/30 px-5 py-3 text-sm font-medium">
                 {controls.total} contrôle(s) · page {controls.page}
               </p>
-              <p className="text-sm tabular-nums">
-                TVA détaillée {tnd(controls.totals.tvaLignes)} · TVA sur HT
-                global {tnd(controls.totals.tvaGlobale)} · Écart{" "}
-                {tnd(controls.totals.ecart)}
-              </p>
+              <dl className="grid gap-4 border-b px-5 py-4 text-sm sm:grid-cols-3">
+                <div>
+                  <dt className="text-xs text-muted-foreground">
+                    TVA détaillée
+                  </dt>
+                  <dd className="mt-1 font-semibold tabular-nums">
+                    {tnd(controls.totals.tvaLignes)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">
+                    TVA sur HT global
+                  </dt>
+                  <dd className="mt-1 font-semibold tabular-nums">
+                    {tnd(controls.totals.tvaGlobale)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">
+                    Écart à examiner
+                  </dt>
+                  <dd className="mt-1 font-semibold tabular-nums">
+                    {tnd(controls.totals.ecart)}
+                  </dd>
+                </div>
+              </dl>
               {!controls.total && (
-                <p>
+                <p className="px-5 py-6 text-sm">
                   Aucune anomalie de facture détectée. La validation fiscale
                   reste conditionnée aux règles d’arrondi approuvées.
                 </p>
@@ -1006,13 +1037,16 @@ export function ApurementPage() {
               {controls.controls.map((c) => (
                 <div
                   key={`${c.factureId}-${c.code}`}
-                  className="flex flex-wrap items-center gap-2 border-b py-2 text-sm"
+                  className="apurement-control-row grid gap-3 border-b px-5 py-4 text-sm last:border-b-0 md:grid-cols-[8rem_minmax(0,1fr)]"
                 >
-                  <span
-                    className={
-                      c.severity === "blocage"
-                        ? "text-destructive"
-                        : "text-foreground"
+                  <Badge
+                    className="w-fit self-start"
+                    variant={
+                      c.ack
+                        ? "success"
+                        : c.severity === "blocage"
+                          ? "destructive"
+                          : "warning"
                     }
                   >
                     {c.ack
@@ -1020,37 +1054,39 @@ export function ApurementPage() {
                       : c.severity === "blocage"
                         ? "À corriger"
                         : "À faire revoir"}
-                  </span>
-                  <Link
-                    className="underline"
-                    to={`/apurement/${societeId}/factures/${c.factureId}?${period}`}
-                  >
-                    {c.numeroFacture && (
-                      <span className="mr-2 font-semibold">
-                        {c.numeroFacture}
+                  </Badge>
+                  <div className="min-w-0 space-y-2">
+                    <Link
+                      className="block break-words text-primary hover:underline focus-visible:underline"
+                      to={`/apurement/${societeId}/factures/${c.factureId}?${period}`}
+                    >
+                      {c.numeroFacture && (
+                        <span className="mb-1 block font-semibold">
+                          {c.numeroFacture}
+                        </span>
+                      )}
+                      {c.message}
+                    </Link>
+                    {c.fournisseur && (
+                      <span className="text-xs text-muted-foreground">
+                        {c.fournisseur}
                       </span>
                     )}
-                    {c.message}
-                  </Link>
-                  {c.fournisseur && (
-                    <span className="text-xs text-muted-foreground">
-                      {c.fournisseur}
-                    </span>
-                  )}
-                  {c.ack ? (
-                    <span>Revu : {c.ack.motif}</span>
-                  ) : (
-                    permissions.canManageCollaborateurs &&
-                    c.severity === "avertissement" && (
-                      <ReviewControl control={c} onDone={check} />
-                    )
-                  )}
+                    {c.ack ? (
+                      <span>Revu : {c.ack.motif}</span>
+                    ) : (
+                      permissions.canManageCollaborateurs &&
+                      c.severity === "avertissement" && (
+                        <ReviewControl control={c} onDone={check} />
+                      )
+                    )}
+                  </div>
                 </div>
               ))}
             </section>
           )}
           {view === "controls" && controls && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button
                 variant="outline"
                 disabled={controlsPage === 1}

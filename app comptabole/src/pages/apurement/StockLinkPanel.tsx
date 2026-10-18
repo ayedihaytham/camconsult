@@ -1,3 +1,4 @@
+import { ApurementSelect } from "./ApurementSelect";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -92,18 +93,14 @@ export function StockLinkPanel({
       )}
       <label className="block text-sm">
         BC à confirmer pour ce rapprochement
-        <select
-          className="mt-1 h-10 w-full rounded border bg-background px-2"
+        <ApurementSelect
           value={chosenBc}
-          onChange={(e) => setChosenBc(e.target.value)}
-        >
-          <option value="">Conserver l’affectation actuelle</option>
-          {bcs.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.numero}
-            </option>
-          ))}
-        </select>
+          onValueChange={(value) => setChosenBc(value)}
+          options={[
+            { value: "", label: <>Conserver l’affectation actuelle</> },
+            ...bcs.map((b) => ({ value: b.id, label: <>{b.numero}</> })),
+          ]}
+        />
       </label>
       {invoice.stockMouvementId && (
         <Link className="text-sm underline" to={`/stock/${invoice.societeId}`}>
@@ -149,18 +146,19 @@ export function StockLinkPanel({
           <label className="block text-sm" htmlFor="stock-resolution">
             Résolution à confirmer
           </label>
-          <select
+          <ApurementSelect
             id="stock-resolution"
-            className="h-10 w-full rounded border bg-background px-2"
             value={resolution}
-            onChange={(e) => setResolution(e.target.value)}
-          >
-            <option value="stock">Reprendre les valeurs Stock</option>
-            <option value="apurement">
-              Reprendre Apurement (en-tête seulement)
-            </option>
-            <option value="conflit">Conserver et ouvrir un conflit</option>
-          </select>
+            onValueChange={(value) => setResolution(value)}
+            options={[
+              { value: "stock", label: <>Reprendre les valeurs Stock</> },
+              {
+                value: "apurement",
+                label: <>Reprendre Apurement (en-tête seulement)</>,
+              },
+              { value: "conflit", label: <>Conserver et ouvrir un conflit</> },
+            ]}
+          />
           {sources.map((s) => (
             <div key={s.id} className="space-y-2 border-b py-2 text-sm">
               <p>

@@ -398,14 +398,15 @@ correspondant dans la comparaison ; une modification générique liée est refus
 
 Créer une Collecte de test dans la même société avec une pièce PDF fictive,
 puis dans une facture Apurement choisir **Associer une pièce existante**.
-Choisir cette source et confirmer. Attendu : téléchargement identique à l’original.
+  Dans **Emplacement**, choisir **Tous les documents de la société**, sélectionner
+  cette source et confirmer. Attendu : téléchargement identique à l’original.
 Supprimer uniquement la source fictive de Collecte : la copie Apurement reste
 téléchargeable et affiche « Original supprimé ; copie conservée ».
 Une pièce d’une autre société ne doit jamais être proposée ni accessible.
 
 ### T20 — pièce manquante et demande facultative au client
 
-Dans une facture, saisir :
+Dans une facture, ouvrir **Une pièce manque ?**, puis saisir :
 
 ```text
 Copie lisible de la facture fictive DEMO-STOCK-001
@@ -489,6 +490,37 @@ pour migration additive et retour au code précédent sans suppression des archi
 | 403/404 | Droit ou périmètre absent | Vérifier compte/société, ne pas contourner par un autre identifiant |
 | 423 export officiel | Verrou de conformité maintenu | Utiliser rapports internes / test ; obtenir une validation officielle avant évolution du code |
 
+### T26 — Structuration, sélection et classement automatique
+
+Utiliser une facture ou un brouillon de déclaration de **SOCIETE DEMO MANUELLE**.
+
+1. Dans **Justificatifs**, cliquer **Associer une pièce existante**. Attendu :
+   fenêtre centrée, chemin de la société affiché ; si le dossier est vide,
+   message **Aucun document compatible trouvé**, jamais une zone silencieuse.
+2. Choisir **Ouvrir ce dossier dans Structuration**. Attendu : nouvel onglet,
+   vue **Documents**, dossier exact ouvert pour la société de recette.
+3. Y déposer `preuve-facture.pdf` du kit. Revenir à Apurement et choisir
+   **Actualiser**, rechercher `preuve-facture`, cocher le fichier et cliquer
+   **Associer le document**. Attendu : la fenêtre se ferme après réussite,
+   le document reste visible dans les justificatifs ; téléchargement identique.
+4. Importer `preuve-depot-TEST.pdf` directement dans les justificatifs Apurement.
+   Attendu : le fichier existe aussi dans le même dossier Structuration, sans
+   déplacer ni remplacer le fichier ajouté à l'étape 3.
+5. Dans le sélecteur, changer **Emplacement** vers **Tous les documents de la
+   société** : les autres pièces de Structuration/Collecte/Stock sont proposées,
+   avec leur chemin. Une pièce d'une autre société n'apparaît jamais.
+6. Vérifier avec un compte société que les nouveaux dossiers et fichiers internes
+   Apurement sont absents du bootstrap et de la liste des documents ; leur
+   téléchargement par identifiant est refusé. Après déplacement ou duplication
+   par l'admin, cette restriction demeure.
+7. Supprimer uniquement l'original fictif d'une pièce déjà associée. Attendu :
+   la preuve conservée dans Apurement reste téléchargeable ; aucune modification
+   de la déclaration figée. Ne supprimer aucune donnée réelle.
+
+Chemin des factures/déclarations :
+`Société / Apurement TVA / Année / Trimestre / Factures|Déclarations`.
+Autorisations et BC : dossiers de références sous `Apurement TVA`.
+
 ## 7. Fiche de résultat à copier
 
 ```text
@@ -504,6 +536,6 @@ Réussi / anomalie :
 Heure, URL, capture et code d’erreur (sans secret) :
 ```
 
-La recette est complète lorsque T01–T25 sont renseignés, avec les restrictions
+La recette est complète lorsque T01–T26 sont renseignés, avec les restrictions
 attendues confirmées. Une recette réussie ne débloque pas B1/B2 officiels :
 format légal, arrondis, rétention, preuves et échéances réelles restent à valider.

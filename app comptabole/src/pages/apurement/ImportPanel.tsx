@@ -1,4 +1,5 @@
-﻿import { useState } from "react";
+import { ApurementSelect } from "./ApurementSelect";
+import { useState } from "react";
 import {
   Upload,
   FileCheck2,
@@ -23,8 +24,6 @@ import { LedgerTable as DataTable } from "@/components/ledger/LedgerTable";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import type { ApurementRecord, Quarter } from "@/types/apurement";
 
-const selectClass =
-  "h-10 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 export function ImportPanel({
   societeId,
   societeName,
@@ -185,23 +184,29 @@ export function ImportPanel({
         {!!r.matches?.length && (
           <label className="block text-xs">
             Action sur la facture
-            <select
+            <ApurementSelect
               aria-label={`Action ligne ${r.row}`}
-              className={selectClass}
               disabled={locked}
               value={targets[r.row] || ""}
-              onChange={(e) =>
-                setTargets((t) => ({ ...t, [r.row]: e.target.value }))
+              onValueChange={(value) =>
+                setTargets((t) => ({ ...t, [r.row]: value }))
               }
-            >
-              <option value="">Créer une facture distincte (justifier)</option>
-              {r.matches.map((m) => (
-                <option key={m.id} value={m.id}>
-                  Mettre à jour · {m.date || "date incomplète"} · HT {tnd(m.ht)}{" "}
-                  · v{m.version}
-                </option>
-              ))}
-            </select>
+              options={[
+                {
+                  value: "",
+                  label: <>Créer une facture distincte (justifier)</>,
+                },
+                ...r.matches.map((m) => ({
+                  value: m.id,
+                  label: (
+                    <>
+                      Mettre à jour · {m.date || "date incomplète"} · HT{" "}
+                      {tnd(m.ht)} · v{m.version}
+                    </>
+                  ),
+                })),
+              ]}
+            />
           </label>
         )}
         {needsNote && (
@@ -225,22 +230,18 @@ export function ImportPanel({
           </summary>
           <label className="my-2 block">
             Bon de commande
-            <select
+            <ApurementSelect
               aria-label={`BC ligne ${r.row}`}
-              className={selectClass}
               disabled={locked}
               value={mapping[r.row] || ""}
-              onChange={(e) =>
-                setMapping((m) => ({ ...m, [r.row]: e.target.value }))
+              onValueChange={(value) =>
+                setMapping((m) => ({ ...m, [r.row]: value }))
               }
-            >
-              <option value="">Créer / rapprocher BC {r.bcNumero}</option>
-              {bcs.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.numero}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: <>Créer / rapprocher BC {r.bcNumero}</> },
+                ...bcs.map((b) => ({ value: b.id, label: <>{b.numero}</> })),
+              ]}
+            />
           </label>
           <pre className="max-w-64 whitespace-pre-wrap break-all bg-muted p-2">
             {JSON.stringify(r.raw, null, 2)}
@@ -473,7 +474,7 @@ export function ImportPanel({
             </div>
           )}
           {desktop ? (
-          <div className="apurement-data-table min-w-0">
+            <div className="apurement-data-table min-w-0">
               <DataTable
                 data={preview.rows}
                 getRowId={(r) => String(r.row)}

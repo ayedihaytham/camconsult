@@ -982,6 +982,7 @@ export interface AppNotification {
 export type NoeudType = "dossier" | "fichier";
 
 export interface Noeud {
+  cabinetOnly?: boolean;
   id: string;
   libelle: string;
   description: string;

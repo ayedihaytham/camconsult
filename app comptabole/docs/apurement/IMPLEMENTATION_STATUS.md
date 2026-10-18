@@ -1,5 +1,77 @@
 # Checkpoint Apurement — 17 octobre 2026
 
+## Contrôles, déclarations et documents Structuration — 18 octobre 2026
+
+- Contrôles présentés sur une surface dédiée : badges de gravité, facture et
+  fournisseur séparés, montants alignés, revue et pagination conservées.
+- Versions de déclaration et circuit de traitement réorganisés, bandeau bleu
+  lisible, synthèse HT/TVA/écart et actions espacées. Les justificatifs ne se
+  replient plus automatiquement lorsqu'une pièce est associée.
+- Sélecteur de pièces centré avec chargement, erreurs, état vide, recherche,
+  chemin et actualisation. Ouverture sur le dossier Apurement de la société ;
+  recherche élargissable aux autres pièces Structuration, Collecte et Stock.
+  Aucune écriture ni association lors d'une simple sélection : confirmation
+  explicite. Les réponses de liste sont privées et non stockées en cache.
+- Nouveaux uploads classés transactionnellement dans la Structuration :
+  `Société / Apurement TVA / Année / Trimestre / Factures|Déclarations|Dépôts`,
+  dossiers de références pour autorisations et BC. Les fichiers déposés depuis
+  Structuration y sont proposés au retour via **Actualiser**. Lien profond vers
+  le dossier exact et l'onglet Documents. Aucun déplacement des originaux
+  réutilisés ; preuves immuables et archives conservées, sans reclassement massif.
+- Ajout idempotent de `noeuds.cabinet_only` : les nouveaux dossiers/fichiers
+  Apurement sont internes, avec héritage à l'import et conservation lors d'un
+  déplacement/duplication. Listes, bootstrap, contenu et opérations sur les
+  arborescences contrôlent cet accès. Sauvegarde/restauration préserve ce champ.
+  Signal Structuration aux internes après commit uniquement.
+
+Fichiers : panneaux `ApurementPage`, `DeclarationPanel`, `DocumentsPanel`,
+nouveau `ExistingDocumentPicker`, CSS du module, lien profond Structuration ;
+services `documents`, `documentFolders`, `notifications`, `noeudAccess`, schéma,
+mappers, routes `noeuds`/`data`, type `Noeud` et tests ciblés. Guides et copies
+publiques mis à jour ; scénario T26 ajouté au manuel.
+
+Vérification : build TypeScript/Vite et lint réussis. Suite globale : **1440 tests
+réussis, 42 préexistants ignorés** ; 40 tests PostgreSQL/frontend ciblés réussis.
+`git diff --check` réussi. Chrome :
+onze parcours existants validés, association d'un import Structuration jusqu'à
+la preuve conservée vérifiée, menus/documents inspectés à 375/768/1024/1440 px,
+lien vers le dossier exact validé. Aucune erreur JavaScript. Journaux
+`%TEMP%/apurement-documents-*.log`. Base locale jetable exclusivement ; aucune
+production modifiée, aucun verrou fiscal désactivé.
+
+---
+
+## Sélecteurs harmonisés avec Collecte — 18 octobre 2026
+
+Les 14 sélecteurs natifs des six écrans Apurement utilisent désormais
+`ApurementSelect`, fondé sur le composant Radix partagé déjà utilisé par Collecte.
+Déclencheur avec icône et chevron, menu blanc aligné sur sa largeur, options
+survolées et sélectionnées, libellés longs repliés dans le menu, défilement et
+navigation clavier. Même présentation dans les filtres, formulaires centrés,
+imports, rapprochement Stock, pièces et déclaration. Aucun sélecteur natif
+visible ne subsiste dans le module.
+
+Valeurs envoyées inchangées, y compris les champs obligatoires, le statut initial,
+les contrôles désactivés, la création de références dans la facture et les choix
+vides permettant de retirer une affectation. La valeur technique de l'option
+vide du menu n'est jamais transmise dans les données du formulaire.
+
+Fichiers : `src/pages/apurement/ApurementSelect.tsx` et son test,
+`ApurementPage.tsx`, `EntitySheet.tsx`, `ImportPanel.tsx`, `DeclarationPanel.tsx`,
+`DocumentsPanel.tsx`, `StockLinkPanel.tsx`, `apurement.css`.
+
+Validation : lint TypeScript et build réussis ; **7 tests ciblés réussis**,
+dont validation native obligatoire et contenu exact de `FormData`. Les onze
+contrôles fonctionnels Chrome existants passent (saisie, preuves, imports et
+préparation de déclaration). Vérification dédiée des menus à 375 et 1440 px
+réussie : limites du viewport, fermeture du menu seul par Échap et navigation
+Trimestre/Dossier. Captures inspectées ; aucune erreur JavaScript. Surfaces
+Apurement également contenues aux quatre largeurs du parcours existant.
+Journaux `%TEMP%/apurement-select-*.log`. `git diff --check` réussi.
+Vérifications sur base locale jetable uniquement ; aucune production modifiée.
+
+---
+
 ## Onglets en blocs et typographie — 18 octobre 2026
 
 En complément des modifications de présentation en cours, onglets principaux

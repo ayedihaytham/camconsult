@@ -145,6 +145,16 @@ export function StructurationPage() {
 
   // Vue arborescence
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
+  const dossierParam = searchParams.get("dossier");
+  const dossierOuvert = useRef<string | null>(null);
+  useEffect(() => {
+    if (dossierParam && dossierOuvert.current !== dossierParam && nodes.some(n => n.id === dossierParam && n.type === "dossier")) {
+      setCurrentFolder(dossierParam);
+      setTab("documents");
+      dossierOuvert.current = dossierParam;
+    }
+  }, [dossierParam, nodes]);
+
   const [subfolderParent, setSubfolderParent] = useState<string | null | undefined>(
     undefined,
   );

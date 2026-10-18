@@ -36,14 +36,24 @@ export async function notifyInternal(
 // Rows are transactional; realtime signals are emitted only after COMMIT.
 export async function withApurementTransaction(fn) {
   const recipients = new Set();
+  const structures = new Set();
+  const structureRecipients = new Set();
   const result = await withTransaction(async (c) => {
     c.apurementNotifications = recipients;
+    c.apurementStructureSocietes = structures;
     try {
-      return await fn(c);
+      const result = await fn(c);
+      for (const societeId of structures) {
+        for (const key of await internalRecipients(c, societeId))
+          structureRecipients.add(key);
+      }
+      return result;
     } finally {
       delete c.apurementNotifications;
+      delete c.apurementStructureSocietes;
     }
   });
   for (const key of recipients) pushToUser(key, "notification");
+  for (const key of structureRecipients) pushToUser(key, "noeuds");
   return result;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Download, FileSpreadsheet, FileText, Save, TriangleAlert, X } from "lucide-react";
+import { CheckCircle2, Download, FileSpreadsheet, FileText, LoaderCircle, RotateCcw, TriangleAlert, X } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { Button } from "@/components/ui/button";
@@ -16,39 +16,45 @@ import {
   nombreDeCaracteres,
   type PdfTextItem,
 } from "@/lib/pdfToTables";
+import { texteDepuisFeuilles } from "@/lib/texteBrut";
+import { cn } from "@/lib/utils";
 import { ZoneDepot } from "./ZoneDepot";
 import type { StatsConversion } from "./types";
 
+type Mode = "pdf" | "both" | "xls";
+
 interface PdfItem {
   id: string;
+  file: File;
   name: string;
   baseName: string;
-  status: "ok" | "erreur";
+  status: "cours" | "ok" | "erreur";
   detail: string;
   /** Texte positionné de chaque page : permet de recalculer le tableau quand une option change. */
   pages: PdfTextItem[][];
   pdfUrl: string | null;
-  /** Vrai une fois la conversion enregistrée : l'aperçu et le téléchargement ne sont proposés qu'ensuite. */
-  enregistre: boolean;
 }
 
 const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const PARAMETRES_APERCU = "#navpanes=0&view=FitH";
+const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 
-/** Conversion PDF vers Excel : lecture du texte du PDF dans le navigateur, reconstruction des lignes et
- * colonnes d'après la position du texte, puis export .xlsx. Un PDF scanné (image) n'a pas de texte : il
+/** Conversion PDF vers Excel ou texte : lecture du texte du PDF dans le navigateur, reconstruction des lignes et
+ * colonnes d'après la position du texte, puis export .xlsx ou .txt. Un PDF scanné (image) n'a pas de texte : il
  * est refusé avec un message clair plutôt que converti en classeur vide. */
 export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => void }) {
-  const [converting, setConverting] = useState(false);
-  const [mode, setMode] = useState<"both" | "pdf" | "xls">("both");
   const [items, setItems] = useState<PdfItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeSheet, setActiveSheet] = useState(0);
+  const [mode, setMode] = useState<Mode>("both");
   const [nombres, setNombres] = useState(true);
   const [uneSeuleFeuille, setUneSeuleFeuille] = useState(false);
   const [tableauSeul, setTableauSeul] = useState(true);
   const [compte, setCompte] = useState(COMPTE_BANQUE);
-  const urlsRef = useRef<string[]>([]);
+  const occupe = items.some((i) => i.status === "cours");
 
+  // Les adresses temporaires des PDF d'origine vivent tant que la page est ouverte, puis sont libérées.
+  const urlsRef = useRef<string[]>([]);
   useEffect(() => {
     const urls = urlsRef.current;
     return () => urls.forEach((u) => URL.revokeObjectURL(u));
@@ -56,47 +62,11 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
 
   useEffect(() => {
     const ok = items.filter((i) => i.status === "ok");
-    onStats({ fichiers: items.length, convertis: ok.length, erreurs: items.length - ok.length, elements: ok.filter((i) => i.enregistre).length, libelleElements: "Enregistrés" });
+    onStats({ fichiers: items.length, convertis: ok.length, erreurs: items.filter((i) => i.status === "erreur").length, elements: ok.reduce((n, i) => n + i.pages.length, 0), libelleElements: "Pages lues" });
   }, [items, onStats]);
 
-  function retirer(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    if (activeId === id) setActiveId(null);
-  }
-
-  async function handleFiles(files: File[]) {
-    setConverting(true);
-    const results: PdfItem[] = [];
-    for (const file of files) {
-      const baseName = file.name.replace(/\.pdf$/i, "");
-      const erreur = (detail: string): PdfItem => ({
-        id: crypto.randomUUID(), name: file.name, baseName, status: "erreur", detail, pages: [], pdfUrl: null, enregistre: false,
-      });
-      try {
-        const pages = await lireFichierPdf(file);
-        if (nombreDeCaracteres(pages) === 0) {
-          results.push(erreur("PDF scanné (image) : il ne contient pas de texte à extraire"));
-          continue;
-        }
-        const pdfUrl = URL.createObjectURL(file);
-        urlsRef.current.push(pdfUrl);
-        results.push({
-          id: crypto.randomUUID(), name: file.name, baseName, status: "ok",
-          detail: `${pages.length} page${pages.length > 1 ? "s" : ""} lue${pages.length > 1 ? "s" : ""}`,
-          pages, pdfUrl, enregistre: false,
-        });
-      } catch {
-        results.push(erreur("Fichier illisible — PDF protégé ou endommagé"));
-      }
-    }
-    setItems((prev) => [...results, ...prev]);
-    setConverting(false);
-    const echecs = results.filter((r) => r.status !== "ok").length;
-    if (echecs > 0) toast.error(`${echecs} fichier${echecs > 1 ? "s" : ""} non converti${echecs > 1 ? "s" : ""}`);
-  }
-
   const options = useMemo(() => ({ nombres, uneSeuleFeuille, tableauSeul }), [nombres, uneSeuleFeuille, tableauSeul]);
-  const active = items.find((i) => i.id === activeId && i.enregistre) ?? null;
+  const active = items.find((i) => i.id === activeId && i.status === "ok") ?? null;
   const feuilles = useMemo(() => (active ? feuillesDePdf(active.pages, options) : []), [active, options]);
   const feuille = feuilles[Math.min(activeSheet, Math.max(0, feuilles.length - 1))] ?? null;
 
@@ -104,15 +74,45 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
   const ecritures = useMemo(() => (tableauSeul && feuilles[0] ? ecrituresDepuisReleve(feuilles[0].rows, compte.trim() || COMPTE_BANQUE) : null), [tableauSeul, feuilles, compte]);
   const ecrituresTexte = useMemo(() => (ecritures ? texteEcritures(ecritures) : null), [ecritures]);
 
-  function enregistrer(item: PdfItem) {
-    if (feuillesDePdf(item.pages, options).length === 0) {
-      toast.error("Aucun tableau à enregistrer");
-      return;
+  async function convertir(fichiers: File[]) {
+    const nouveaux: PdfItem[] = fichiers.map((file) => ({
+      id: crypto.randomUUID(), file, name: file.name, baseName: file.name.replace(/\.pdf$/i, ""), status: "cours", detail: "Lecture du PDF…", pages: [], pdfUrl: null,
+    }));
+    setItems((prev) => [...nouveaux, ...prev]);
+    let premier: string | null = null;
+    let echecs = 0;
+    for (const n of nouveaux) {
+      let maj: Partial<PdfItem>;
+      try {
+        const pages = await lireFichierPdf(n.file);
+        if (nombreDeCaracteres(pages) === 0) maj = { status: "erreur", detail: "PDF scanné (image) : il ne contient pas de texte à extraire" };
+        else {
+          const pdfUrl = URL.createObjectURL(n.file);
+          urlsRef.current.push(pdfUrl);
+          maj = { status: "ok", pages, pdfUrl, detail: `${pluriel(pages.length, "page")} lue${pages.length > 1 ? "s" : ""}` };
+        }
+      } catch {
+        maj = { status: "erreur", detail: "Fichier illisible — PDF protégé ou endommagé" };
+      }
+      if (maj.status === "ok") premier ??= n.id;
+      else echecs++;
+      setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, ...maj } : i)));
     }
-    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, enregistre: true, detail: `${i.detail} · enregistré` } : i)));
-    setActiveId(item.id);
-    setActiveSheet(0);
-    toast.success("Conversion enregistrée — vérifiez l'aperçu puis téléchargez si besoin");
+    if (premier) {
+      setActiveId(premier);
+      setActiveSheet(0);
+    }
+    if (echecs > 0) toast.error(`${pluriel(echecs, "fichier")} non converti${echecs > 1 ? "s" : ""}`);
+  }
+
+  function reessayer(item: PdfItem) {
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    void convertir([item.file]);
+  }
+
+  function retirer(id: string) {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    if (activeId === id) setActiveId(null);
   }
 
   async function telecharger(item: PdfItem) {
@@ -128,231 +128,175 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
     }
   }
 
+  /** Texte brut du PDF : tout le contenu lu (pas seulement les mouvements bancaires), colonnes séparées par une tabulation. */
+  function telechargerTexte(item: PdfItem) {
+    const f = feuillesDePdf(item.pages, { ...options, tableauSeul: false });
+    if (f.length === 0) {
+      toast.error("Aucun texte à enregistrer");
+      return;
+    }
+    download(new Blob([texteDepuisFeuilles(f)], { type: "text/plain;charset=utf-8" }), `${item.baseName}.txt`);
+  }
+
   function telechargerEcritures(item: PdfItem) {
     const f = feuillesDePdf(item.pages, { ...options, tableauSeul: true });
     const lignes = f[0] ? ecrituresDepuisReleve(f[0].rows, compte.trim() || COMPTE_BANQUE) : null;
     if (!lignes) {
-      toast.error("Aucun mouvement bancaire reconnu : le fichier .txt n'a pas pu être créé");
+      toast.error("Aucun mouvement bancaire reconnu : le fichier d'écritures n'a pas pu être créé");
       return;
     }
-    download(new Blob([texteEcritures(lignes)], { type: "text/plain;charset=utf-8" }), `${item.baseName}.txt`);
+    download(new Blob([texteEcritures(lignes)], { type: "text/plain;charset=utf-8" }), `${item.baseName}-ecritures.txt`);
   }
 
   return (
-    <>
-      <LedgerSheet className="mt-4">
-        <div className="border-b border-border px-[18px] py-3.5">
-          <h2 className="flex items-center gap-2 text-[0.86rem] font-bold text-foreground">
-            <FileSpreadsheet className="h-4 w-4 text-accent" />
-            PDF vers Excel
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Traitement entièrement local dans le navigateur — le fichier n'est jamais envoyé au serveur. Fonctionne avec les PDF
-            qui contiennent du texte (relevés, balances, états) ; un PDF scanné n'est pas lisible. Cliquez sur Enregistrer pour afficher l'aperçu, puis téléchargez si le résultat vous convient.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-[18px] py-3">
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground">
-            <Checkbox checked={tableauSeul} onCheckedChange={(c) => setTableauSeul(Boolean(c))} />
-            Mouvements bancaires seulement (lignes du tableau)
-          </label>
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground">
-            <Checkbox checked={nombres} onCheckedChange={(c) => setNombres(Boolean(c))} />
-            Convertir les montants en nombres
-          </label>
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground">
-            <Checkbox checked={uneSeuleFeuille} onCheckedChange={(c) => setUneSeuleFeuille(Boolean(c))} />
-            Toutes les pages dans une seule feuille
-          </label>
-        </div>
-
-        <div className="p-[18px]">
-          <ZoneDepot accept=".pdf,application/pdf" extensions={["pdf"]} types=".pdf" occupe={converting} libelleOccupe="Lecture en cours…" onFiles={(f) => void handleFiles(f)} />
-        </div>
-
-        {items.length > 0 && (
-          <div className="flex items-center justify-between border-t border-border px-[18px] py-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">File de conversion</p>
-            <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
+    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start">
+      <div className="grid min-w-0 gap-4">
+        <LedgerSheet>
+          <div className="border-b border-border px-[18px] py-3">
+            <h2 className="text-[0.86rem] font-bold text-foreground">Fichiers à convertir</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Fonctionne avec les PDF qui contiennent du texte (relevés, balances, états) ; un PDF scanné n'est pas lisible.</p>
           </div>
-        )}
-        {items.length > 0 && (
-          <ul className="divide-y divide-border border-t border-border">
-            {items.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (item.status !== "ok" || !item.enregistre) return;
-                    setActiveId(item.id);
-                    setActiveSheet(0);
-                  }}
-                  className={`flex w-full items-center gap-3 px-[18px] py-2.5 text-left transition-colors ${
-                    item.status === "ok" ? "hover:bg-secondary/40" : "cursor-default"
-                  } ${activeId === item.id ? "bg-secondary/60" : ""}`}
-                >
-                  {item.status === "ok" ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                  ) : (
-                    <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{item.detail}</p>
+          <div className="p-[18px]">
+            <ZoneDepot accept=".pdf,application/pdf" extensions={["pdf"]} types=".pdf" occupe={occupe} libelleOccupe="Lecture en cours…" onFiles={(f) => void convertir(f)} />
+          </div>
+        </LedgerSheet>
+
+        <LedgerSheet>
+          <div className="border-b border-border px-[18px] py-3">
+            <h2 className="flex items-center gap-2 text-[0.86rem] font-bold text-foreground">
+              <FileSpreadsheet className="h-4 w-4 text-accent" aria-hidden="true" /> Options de l'Excel
+            </h2>
+          </div>
+          <div className="grid gap-4 p-[18px] text-sm">
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <Checkbox checked={tableauSeul} onCheckedChange={(c) => setTableauSeul(Boolean(c))} className="mt-0.5" />
+              <span>Mouvements bancaires seulement (lignes du tableau)<span className="block text-xs text-muted-foreground">Ignore l'en-tête et le pied de page du relevé.</span></span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <Checkbox checked={nombres} onCheckedChange={(c) => setNombres(Boolean(c))} className="mt-0.5" />
+              <span>Convertir les montants en nombres<span className="block text-xs text-muted-foreground">Sinon, ils restent du texte tel qu'imprimé.</span></span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <Checkbox checked={uneSeuleFeuille} onCheckedChange={(c) => setUneSeuleFeuille(Boolean(c))} className="mt-0.5" />
+              <span>Toutes les pages dans une seule feuille<span className="block text-xs text-muted-foreground">Sinon, une feuille par page du PDF.</span></span>
+            </label>
+            <label className="flex flex-wrap items-center justify-between gap-2">
+              <span>Compte de banque <span className="block text-xs text-muted-foreground">Utilisé par le fichier d'écritures (.txt).</span></span>
+              <Input value={compte} onChange={(e) => setCompte(e.target.value)} className="h-8 w-36 text-sm" inputMode="numeric" />
+            </label>
+          </div>
+        </LedgerSheet>
+      </div>
+
+      <LedgerSheet data-tour="conversions-results" className="min-w-0 lg:sticky lg:top-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-[18px] py-3">
+          <h2 className="text-[0.86rem] font-bold text-foreground">Aperçu</h2>
+          <LedgerSegmented<Mode> value={mode} onChange={setMode} ariaLabel="Mode d'aperçu" options={[{ value: "pdf", label: "PDF" }, { value: "both", label: "Côte à côte" }, { value: "xls", label: "Excel" }]} />
+        </div>
+        {active && feuille ? (
+          <>
+            {tableauSeul && !aUnTableauDeMouvements(active.pages) && (
+              <p className="mx-[18px] mt-3 rounded-lg border border-destructive/30 px-3 py-2 text-xs font-medium text-destructive" role="alert">
+                Aucun tableau de mouvements reconnu (en-tête Date / Libellé / Débit / Crédit…) : le document complet est converti.
+              </p>
+            )}
+            {feuilles.length > 1 && (
+              <div className="px-[18px] pt-3">
+                <LedgerSegmented value={String(activeSheet)} onChange={(v) => setActiveSheet(Number(v))} options={feuilles.map((f, i) => ({ value: String(i), label: f.name }))} ariaLabel="Choisir une feuille" />
+              </div>
+            )}
+            <div className={cn("grid gap-3 p-[18px]", mode === "both" && "xl:grid-cols-2")}>
+              {mode !== "xls" && (
+                <div className="min-w-0">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu PDF</p>
+                  <iframe src={active.pdfUrl ? `${active.pdfUrl}${PARAMETRES_APERCU}` : undefined} title="Aperçu PDF" className="h-[560px] w-full rounded-lg border border-border bg-muted" />
+                </div>
+              )}
+              {mode !== "pdf" && (
+                <div className="min-w-0">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu Excel — {pluriel(feuille.rows.length, "ligne")}</p>
+                  <div className="max-h-[560px] overflow-auto rounded-lg border border-border">
+                    <table className="w-full border-collapse text-xs">
+                      <tbody>
+                        {feuille.rows.map((row, ri) => (
+                          <tr key={ri}>
+                            {row.map((cell, ci) => (
+                              <td key={ci} className={cn("whitespace-nowrap border border-border px-2 py-1", typeof cell === "number" && "text-right tabular-nums")}>
+                                {typeof cell === "number" ? cell.toLocaleString("fr-FR", { maximumFractionDigits: 6 }) : String(cell ?? "")}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  {item.status === "ok" && !item.enregistre && (
-                    <Button
-                      type="button"
-                      variant="ledger"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        enregistrer(item);
-                      }}
-                    >
-                      <Save className="h-3.5 w-3.5" />
-                      Enregistrer
-                    </Button>
-                  )}
-                  {item.status === "ok" && item.enregistre && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void telecharger(item);
-                      }}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      Télécharger l'Excel
-                    </Button>
-                  )}
-                  {item.status === "ok" && item.enregistre && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        telechargerEcritures(item);
-                      }}
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      Télécharger le .txt
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8"
-                    aria-label={`Retirer ${item.name}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      retirer(item.id);
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </button>
-              </li>
-            ))}
-          </ul>
+                </div>
+              )}
+            </div>
+            {ecrituresTexte && (
+              <div className="border-t border-border p-[18px]">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Fichier .txt des écritures — {(ecritures?.length ?? 0) / 2} mouvements, deux lignes chacun
+                </p>
+                <pre aria-label="Aperçu du fichier texte" className="max-h-[320px] overflow-auto rounded-lg border border-border bg-secondary/30 p-3 font-mono text-xs [tab-size:12]">
+                  {ecrituresTexte}
+                </pre>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="p-8 text-center text-sm text-muted-foreground">Ajoutez un fichier, puis cliquez sur sa ligne pour voir l'aperçu.</p>
         )}
       </LedgerSheet>
 
-      {active && feuille && (
-        <LedgerSheet data-tour="conversions-results" className="mt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-[18px] py-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">{active.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {tableauSeul && !aUnTableauDeMouvements(active.pages) && (
-                  <span className="mb-1 block font-medium text-destructive">
-                    Aucun tableau de mouvements reconnu (en-tête Date / Libellé / Débit / Crédit…) : le document complet est converti.
-                  </span>
-                )}
-                Comparez le PDF d'origine (gauche) et le tableau reconstruit (droite) : les lignes qui se répartissent sur plusieurs
-                lignes du PDF restent séparées.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => telechargerEcritures(active)}>
-                <FileText className="h-4 w-4" />
-                Télécharger le .txt
-              </Button>
-              <Button type="button" variant="ledger" size="sm" onClick={() => void telecharger(active)}>
-                <Download className="h-4 w-4" />
-                Télécharger l'Excel
-              </Button>
-            </div>
+      {items.length > 0 && (
+        <LedgerSheet className="lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-[18px] py-3">
+            <h2 className="text-[0.86rem] font-bold text-foreground">File de conversion</h2>
+            <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
           </div>
-          {feuilles.length > 1 && (
-            <div className="px-[18px] pt-3">
-              <LedgerSegmented
-                value={String(activeSheet)}
-                onChange={(v) => setActiveSheet(Number(v))}
-                options={feuilles.map((f, i) => ({ value: String(i), label: f.name }))}
-                ariaLabel="Choisir une feuille"
-              />
-            </div>
-          )}
-          <div className="px-[18px] pt-3">
-            <LedgerSegmented<"both" | "pdf" | "xls"> value={mode} onChange={setMode} ariaLabel="Mode d'aperçu" options={[{ value: "pdf", label: "PDF" }, { value: "both", label: "Côte à côte" }, { value: "xls", label: "Excel" }]} />
-          </div>
-          <div className={`grid gap-4 p-[18px] ${mode === "both" ? "lg:grid-cols-2" : ""}`}>
-            {mode !== "xls" && (
-              <div className="min-w-0">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu PDF</p>
-                <iframe src={active.pdfUrl ? `${active.pdfUrl}#navpanes=0&view=FitH` : undefined} title="Aperçu PDF" className="h-[600px] w-full rounded-lg border border-border bg-muted" />
-              </div>
-            )}
-            {mode !== "pdf" && (
-            <div className="min-w-0">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Aperçu Excel — {feuille.rows.length} ligne{feuille.rows.length > 1 ? "s" : ""}
-              </p>
-              <div className="max-h-[600px] overflow-auto rounded-lg border border-border">
-                <table className="w-full border-collapse text-xs">
-                  <tbody>
-                    {feuille.rows.map((row, ri) => (
-                      <tr key={ri}>
-                        {row.map((cell, ci) => (
-                          <td
-                            key={ci}
-                            className={`whitespace-nowrap border border-border px-2 py-1 ${typeof cell === "number" ? "text-right tabular-nums" : ""}`}
-                          >
-                            {typeof cell === "number" ? cell.toLocaleString("fr-FR", { maximumFractionDigits: 6 }) : String(cell ?? "")}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            )}
-          </div>
-          {ecrituresTexte && (
-            <div className="border-t border-border p-[18px]">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Fichier .txt des écritures — {(ecritures?.length ?? 0) / 2} mouvements, deux lignes chacun
-                </p>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  Compte de banque
-                  <Input value={compte} onChange={(e) => setCompte(e.target.value)} className="h-7 w-32 text-xs" inputMode="numeric" />
-                </label>
-              </div>
-              <pre aria-label="Aperçu du fichier texte" className="max-h-[420px] overflow-auto rounded-lg border border-border bg-secondary/30 p-3 font-mono text-xs [tab-size:12]">
-                {ecrituresTexte}
-              </pre>
-            </div>
-          )}
+          <ul className="divide-y divide-border">
+            {items.map((item) => (
+              <li key={item.id}>
+                <div
+                  role={item.status === "ok" ? "button" : undefined}
+                  tabIndex={item.status === "ok" ? 0 : undefined}
+                  onClick={() => { if (item.status === "ok") { setActiveId(item.id); setActiveSheet(0); } }}
+                  onKeyDown={(e) => { if (item.status === "ok" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setActiveId(item.id); setActiveSheet(0); } }}
+                  className={cn("flex flex-wrap items-center gap-3 border-l-4 px-[18px] py-2.5", item.status === "ok" ? "cursor-pointer border-l-success hover:bg-accent/10" : item.status === "erreur" ? "border-l-destructive" : "border-l-accent", activeId === item.id && "bg-accent/15")}
+                >
+                  {item.status === "ok" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" /> : item.status === "erreur" ? <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" /> : <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
+                    <p className={cn("text-xs", item.status === "erreur" ? "text-destructive" : "text-muted-foreground")}>{item.detail}</p>
+                  </div>
+                  {item.status === "ok" && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); telechargerEcritures(item); }}>
+                        <FileText className="h-3.5 w-3.5" /> Écritures (.txt)
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); telechargerTexte(item); }}>
+                        <FileText className="h-3.5 w-3.5" /> Texte brut (.txt)
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telecharger(item); }}>
+                        <Download className="h-3.5 w-3.5" /> Télécharger l'Excel
+                      </Button>
+                    </div>
+                  )}
+                  {item.status === "erreur" && (
+                    <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); reessayer(item); }}>
+                      <RotateCcw className="h-3.5 w-3.5" /> Réessayer
+                    </Button>
+                  )}
+                  <Button type="button" variant="ghost" size="icon" className="size-8" aria-label={`Retirer ${item.name}`} onClick={(e) => { e.stopPropagation(); retirer(item.id); }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
         </LedgerSheet>
       )}
-    </>
+    </div>
   );
 }

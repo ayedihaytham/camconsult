@@ -10,10 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { CollecteLigne } from "@/types";
 import { cellNumber, estColonneMontant, repartitionGroupes, saisieNombre, type TabDef, type TabRow } from "@/lib/collecte/tabs";
 import { montantAffiche } from "@/lib/amount";
+import { ecrireBrouillon, effacerBrouillon, lireBrouillon } from "@/lib/brouillons";
 import { TABLEAUX_GRAND_LIVRE } from "@/lib/collecte/grandLivre";
 import { plageNumeros } from "@/lib/collecte/souche";
 import { ImportDocumentDialog } from "./ImportDocumentDialog";
@@ -22,6 +24,8 @@ interface Props {
   def: TabDef;
   lignes: CollecteLigne[];
   readOnly: boolean;
+  /** Clé du brouillon : sans elle, les modifications non enregistrées ne survivent pas à un changement de page. */
+  brouillonCle?: string;
   devise: string;
   onSave: (rows: { data: TabRow; ordre: number }[]) => Promise<void>;
   /** mode « complétion récap » : seules les cases marquées ci-dessous sont modifiables */
@@ -94,6 +98,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   lignes,
   readOnly,
   devise,
+  brouillonCle,
   onSave,
   recapClient = false,
   highlight,
@@ -136,7 +141,17 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         .map((l) => ({ ...l.data }) as TabRow),
     [lignes],
   );
-  const [rows, setRows] = useState<TabRow[]>(initial);
+  // Brouillon retrouvé : des modifications non enregistrées, laissées en quittant la page (retour/suivant, lien), reviennent telles quelles.
+  // Il n'est repris que si le tableau enregistré n'a pas changé depuis : sinon il écraserait le travail de quelqu'un d'autre.
+  const restaure = useRef<TabRow[] | null | undefined>(undefined);
+  if (restaure.current === undefined) {
+    const b = brouillonCle ? lireBrouillon<{ rows: TabRow[]; base: string }>(brouillonCle) : null;
+    restaure.current = b && b.base === sansLignesVides(initial) ? b.rows : null;
+  }
+  const [rows, setRows] = useState<TabRow[]>(() => restaure.current ?? initial);
+  useEffect(() => {
+    if (restaure.current) toast.info("Modifications non enregistrées retrouvées : enregistrez-les ou annulez-les.");
+  }, []);
   const [saving, setSaving] = useState(false);
   /** Case de montant en cours de saisie (texte tapé gardé tel quel) ; les autres montants s'affichent à 3 décimales. */
   const [enSaisie, setEnSaisie] = useState<string | null>(null);
@@ -161,6 +176,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
   const dirty = sansLignesVides(rows) !== sansLignesVides(baseline.current);
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  // Le brouillon suit la saisie : gardé tant que le tableau diffère de l'enregistré, effacé dès l'enregistrement ou l'annulation.
+  useEffect(() => {
+    if (!brouillonCle || readOnly) return;
+    if (dirty) ecrireBrouillon(brouillonCle, { rows, base: sansLignesVides(baseline.current) });
+    else effacerBrouillon(brouillonCle);
+  }, [brouillonCle, readOnly, dirty, rows]);
   const derived = useMemo(
     () => (def.derive ? def.derive(rows) : rows),
     [rows, def],

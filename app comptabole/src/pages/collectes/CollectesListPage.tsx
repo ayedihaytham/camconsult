@@ -29,6 +29,8 @@ import {
   type CollecteLens,
 } from "@/lib/collecte/collectionList";
 import type { Collecte, CollecteStatut } from "@/types";
+import { lignesEnregistrables } from "@/lib/collecte/grandLivre";
+import { TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { CollectesClientPage } from "./CollectesClientPage";
 import { CollectesRegistre } from "./CollectesRegistre";
@@ -50,6 +52,7 @@ export function CollectesListPage() {
   const loading = useCollectes((s) => s.loadingList);
   const fetchList = useCollectes((s) => s.fetchList);
   const create = useCollectes((s) => s.create);
+  const saveLignes = useCollectes((s) => s.saveLignes);
   const remove = useCollectes((s) => s.remove);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -238,8 +241,18 @@ export function CollectesListPage() {
       </section>
 
       {canCreate && <OperationalFab label="Nouvelle collecte" onClick={() => setCreateOpen(true)} />}
-      {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} defaultSocieteId={societeActive?.id} onCreate={async (data) => {
+      {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} defaultSocieteId={societeActive?.id} onCreate={async (data, prerempli) => {
         const collecte = await create(data);
+        // Grand-livre importé à la création : chaque tableau détecté est rempli et enregistré avant d'ouvrir la collecte.
+        const echecs: string[] = [];
+        for (const [onglet, lignes] of Object.entries(prerempli ?? {})) {
+          try {
+            await saveLignes(collecte.id, onglet, lignesEnregistrables(onglet, [], lignes));
+          } catch {
+            echecs.push(TAB_BY_KEY[onglet]?.label ?? onglet);
+          }
+        }
+        if (echecs.length > 0) toast.error(`Collecte créée, mais ces tableaux n'ont pas pu être pré-remplis : ${echecs.join(", ")}. Importez le grand-livre depuis Outils.`);
         // La nouvelle collecte est chez le client : elle se retrouve dans les collectes actives, pas dans « À examiner ».
         vueChoisie.current = true;
         setVue("chez_client");

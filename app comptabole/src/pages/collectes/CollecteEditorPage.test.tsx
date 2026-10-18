@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { CollecteFull } from "@/types";
 import { COLLECTE_TAB_KEYS, TAB_BY_KEY } from "@/lib/collecte/tabs";
+import { effacerTousLesBrouillons } from "@/lib/brouillons";
 import { CollecteEditorPage } from "./CollecteEditorPage";
 
 const { saveLignes, fetchOne, clearCurrent, collecte, perms, update, setStatut, submitRecap, transmettreSection, exportSectionXlsx, downloadSectionPdf, printSection, exportAllXlsx } = vi.hoisted(() => {
@@ -64,6 +65,7 @@ vi.mock("@/store/collectes", () => {
 });
 
 beforeEach(() => {
+  effacerTousLesBrouillons(); // un brouillon laissé par un test ne doit pas être repris par le suivant
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: false,

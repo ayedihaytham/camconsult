@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Coins, FileText, Hash, Paperclip, Plus, Repeat, Save, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { AmountInput } from "@/components/common/AmountInput";
 import { api } from "@/lib/api";
 import { round3 } from "@/lib/amount";
+import { ecrireBrouillon, effacerBrouillon, lireBrouillon } from "@/lib/brouillons";
 import { MAX_INLINE_FILE_BYTES, downloadDataUrl, readFileAsDataUrl } from "@/lib/file";
 import { cn } from "@/lib/utils";
 import { montantSwift } from "./SwiftStatut";
@@ -19,7 +20,7 @@ interface Ligne extends SwiftFacture {
 }
 
 let compteur = 0;
-const nouvelleCle = () => `l${++compteur}`;
+const nouvelleCle = () => `l${++compteur}-${Date.now().toString(36)}`; // l'horodatage évite une collision avec les clés d'un brouillon repris après rechargement
 
 const vide = (devise: string): Ligne => ({ cle: nouvelleCle(), numFacture: "", montantDevise: 0, devise, taux: 0, montantTnd: 0, tndManuel: false });
 
@@ -33,14 +34,28 @@ export function SwiftFacturesEditor({
   onSave: (factures: SwiftFacture[], reference: { equivalentDevise: number; devise: string }) => Promise<void>;
   libelleBouton?: string;
 }) {
+  // Brouillon retrouvé : saisie non envoyée laissée en quittant la page ; repris seulement si le virement n'a pas changé entre-temps.
+  const cleBrouillon = `swift:${virement.id}`;
+  const base = JSON.stringify([virement.factures, virement.equivalentDevise ?? 0, virement.devise]);
+  const [brouillon] = useState(() => {
+    const b = lireBrouillon<{ base: string; lignes: Ligne[]; equivalent: number; deviseRef: string }>(cleBrouillon);
+    return b && b.base === base ? b : null;
+  });
   const [lignes, setLignes] = useState<Ligne[]>(() =>
-    virement.factures.map((f) => ({ ...f, cle: nouvelleCle(), tndManuel: f.montantTnd !== round3(f.montantDevise * f.taux) })),
+    brouillon?.lignes ?? virement.factures.map((f) => ({ ...f, cle: nouvelleCle(), tndManuel: f.montantTnd !== round3(f.montantDevise * f.taux) })),
   );
   // Équivalent du virement en devise, indiqué par la société : les factures sont comparées à ce montant, pas au dinar.
-  const [equivalent, setEquivalent] = useState(virement.equivalentDevise ?? 0);
-  const [deviseRef, setDeviseRef] = useState(virement.devise || virement.factures[0]?.devise || "EUR");
+  const [equivalent, setEquivalent] = useState(brouillon?.equivalent ?? virement.equivalentDevise ?? 0);
+  const [deviseRef, setDeviseRef] = useState(brouillon?.deviseRef ?? (virement.devise || virement.factures[0]?.devise || "EUR"));
   const [busy, setBusy] = useState(false);
-  const [modifie, setModifie] = useState(false);
+  const [modifie, setModifie] = useState(Boolean(brouillon));
+  useEffect(() => {
+    if (brouillon) toast.info("Saisie non envoyée retrouvée : envoyez-la ou modifiez-la.");
+  }, [brouillon]);
+  useEffect(() => {
+    if (modifie) ecrireBrouillon(cleBrouillon, { base, lignes, equivalent, deviseRef });
+    else effacerBrouillon(cleBrouillon);
+  }, [modifie, cleBrouillon, base, lignes, equivalent, deviseRef]);
   const fichierRef = useRef<HTMLInputElement>(null);
   const [pieceCible, setPieceCible] = useState<string | null>(null);
 

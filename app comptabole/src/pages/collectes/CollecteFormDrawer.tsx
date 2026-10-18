@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { FileUp, LoaderCircle, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { lignesParTableau, type EcritureLivre } from "@/lib/collecte/grandLivre";
+import { lireGrandLivrePdf } from "@/lib/collecte/lireGrandLivrePdf";
 import { periodesSuggerees } from "@/lib/collecte/periodes";
+import { TAB_BY_KEY, type TabRow } from "@/lib/collecte/tabs";
 import { useSocietes } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
 import { CollecteTableSelection } from "./CollecteTableSelection";
@@ -34,7 +37,8 @@ interface CollecteFormData {
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onCreate: (data: CollecteFormData) => Promise<void>;
+  /** `prerempli` : lignes à enregistrer dans chaque tableau de la nouvelle collecte (grand-livre importé à la création). */
+  onCreate: (data: CollecteFormData, prerempli?: Record<string, TabRow[]>) => Promise<void>;
   /** présent = mode édition (société figée) */
   initial?: CollecteFormData;
   /** Société proposée à la création (société active). */
@@ -64,6 +68,10 @@ export function CollecteFormDrawer({
       ? error
       : null;
   const [submitting, setSubmitting] = useState(false);
+  /** Grand-livre(s) importé(s) à la création : les écritures indiquent quels tableaux seront remplis. */
+  const [livres, setLivres] = useState<{ nom: string; ecritures: EcritureLivre[] }[]>([]);
+  const [lectureLivre, setLectureLivre] = useState(false);
+  const [erreurLivre, setErreurLivre] = useState("");
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -75,7 +83,37 @@ export function CollecteFormDrawer({
     setRelanceCadenceJours(initial?.relanceCadenceJours ?? 3);
     setOnglets(initial?.onglets ?? []);
     setError(null);
+    setLivres([]);
+    setErreurLivre("");
   }, [open]);
+
+  // Une écriture lue deux fois (même fichier choisi deux fois) ne compte qu'une fois.
+  const ecritures = [...new Map(livres.flatMap((l) => l.ecritures).map((e) => [e.origine, e])).values()];
+  const detectes = Object.entries(lignesParTableau(ecritures)).map(([onglet, lignes]) => ({ onglet, n: lignes.length }));
+  const nonImportables = ecritures.filter((e) => e.nature === "report" || e.nature === "autre").length;
+
+  async function choisirLivres(e: React.ChangeEvent<HTMLInputElement>) {
+    const fichiers = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (fichiers.length === 0) return;
+    setLectureLivre(true);
+    setErreurLivre("");
+    const lus: { nom: string; ecritures: EcritureLivre[] }[] = [];
+    for (const f of fichiers) {
+      try {
+        lus.push({ nom: f.name, ecritures: (await lireGrandLivrePdf(f)).ecritures });
+      } catch (err) {
+        setErreurLivre(`${f.name} : ${err instanceof Error ? err.message : "fichier illisible."}`);
+      }
+    }
+    setLectureLivre(false);
+    if (lus.length === 0) return;
+    setLivres((courants) => [...courants, ...lus]);
+    // Les tableaux que le grand-livre va remplir sont demandés d'office ; la sélection reste modifiable.
+    const trouves = Object.keys(lignesParTableau(lus.flatMap((l) => l.ecritures)));
+    setOnglets((courants) => [...new Set([...courants, ...trouves])]);
+    setError(null);
+  }
 
   async function submit() {
     if (submitting) return;
@@ -88,14 +126,11 @@ export function CollecteFormDrawer({
     setError(null);
     setSubmitting(true);
     try {
-      await onCreate({
-        societeId,
-        periode: periode.trim(),
-        onglets,
-        devise,
-        echeance: echeance || null,
-        relanceCadenceJours,
-      });
+      const data = { societeId, periode: periode.trim(), onglets, devise, echeance: echeance || null, relanceCadenceJours };
+      // Seuls les tableaux finalement demandés sont pré-remplis.
+      const prerempli = lignesParTableau(ecritures, onglets);
+      if (Object.keys(prerempli).length > 0) await onCreate(data, prerempli);
+      else await onCreate(data);
       onOpenChange(false);
     } catch {
       setError("Enregistrement impossible. Vérifiez votre connexion puis réessayez.");
@@ -255,6 +290,46 @@ export function CollecteFormDrawer({
           )}
             </div>
           </section>
+
+          {!isEdit && (
+            <section className="space-y-3 rounded-lg border border-accent/30 bg-muted/10 p-3.5" aria-label="Grand-livre des comptes">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Grand-livre des comptes (facultatif)</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Importez le grand-livre (PDF Sage 100) : d'après les libellés, les tableaux à remplir (chèques, virements, effets) sont détectés, ajoutés à la sélection
+                  ci-dessous et pré-remplis dès la création. Le document est lu dans votre navigateur, jamais envoyé au serveur.
+                </p>
+              </div>
+              <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-ring hover:border-accent/60 hover:bg-secondary">
+                {lectureLivre ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <FileUp className="size-4" aria-hidden="true" />}
+                {lectureLivre ? "Lecture en cours…" : livres.length > 0 ? "Ajouter un autre grand-livre" : "Choisir un grand-livre (.pdf)"}
+                <input type="file" accept=".pdf,application/pdf" multiple disabled={submitting || lectureLivre} className="sr-only" onChange={choisirLivres} />
+              </label>
+              {erreurLivre && <p role="alert" className="text-xs text-destructive">{erreurLivre}</p>}
+              {livres.length > 0 && (
+                <div className="space-y-2">
+                  <ul className="flex flex-wrap gap-2">
+                    {livres.map((l, i) => (
+                      <li key={`${l.nom}-${i}`} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-xs">
+                        {l.nom} · {l.ecritures.length} écritures
+                        <button type="button" aria-label={`Retirer ${l.nom}`} disabled={submitting} className="rounded-sm text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setLivres((courants) => courants.filter((_, j) => j !== i))}>
+                          <X className="size-3.5" aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {detectes.length > 0 ? (
+                    <p className="text-xs text-foreground" role="status">
+                      Tableaux détectés : {detectes.map((d) => `${TAB_BY_KEY[d.onglet].label} (${d.n})`).join(" · ")}.
+                      {nonImportables > 0 && ` ${nonImportables} écriture${nonImportables > 1 ? "s" : ""} (solde antérieur ou à classer) ne ${nonImportables > 1 ? "seront" : "sera"} pas importée${nonImportables > 1 ? "s" : ""}.`}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-warning" role="status">Aucune écriture de ce grand-livre ne correspond à un tableau de la collecte.</p>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
           <CollecteTableSelection
             selected={onglets}

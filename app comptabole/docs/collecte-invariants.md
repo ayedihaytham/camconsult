@@ -46,3 +46,8 @@ Les 14 clés persistées sont définies dans `src/lib/collecte/tabs.ts` :
 | Employé de société cliente (responsable ou délégué) | Société autorisée seulement; remplit/corrige les tableaux demandés, ajoute des pièces et transmet chaque tableau. Ne supprime pas les lignes déjà enregistrées. Aucun Récap, Checklist, Documents, historique, export ou tableau cabinet-seul, y compris par lien direct. |
 
 L’interface utilise `usePermissions()` et `src/store/collectes.ts`; les routes Express refont les contrôles de session, société et état. Ne pas ajouter de faux état métier ni de contrat API parallèle.
+
+## Brouillons et création avec grand-livre
+
+- **Création :** « Nouvelle collecte » propose en option l'import d'un ou plusieurs grand-livres (PDF Sage 100). Les tableaux détectés (`TABLEAU_PAR_NATURE`) sont ajoutés à la sélection, restent décochables, et seuls ceux finalement demandés sont pré-remplis : chaque tableau est enregistré juste après la création (`saveLignes`), puis la collecte s'ouvre. Un échec d'enregistrement n'annule pas la collecte ; il est signalé.
+- **Brouillons (`src/lib/brouillons.ts`) :** les modifications non enregistrées d'un tableau (`CollecteGrid`, prop `brouillonCle`) et d'un justificatif SWIFT survivent à un changement de page (boutons précédent/suivant, lien) et à un rechargement de l'onglet (mémoire + `sessionStorage`, jamais envoyés au serveur). Le brouillon n'est repris que si le tableau enregistré n'a pas changé depuis ; il est effacé à l'enregistrement, à l'annulation et à la déconnexion.

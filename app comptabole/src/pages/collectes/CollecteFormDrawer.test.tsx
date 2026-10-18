@@ -83,3 +83,63 @@ describe("CollecteFormDrawer : période obligatoire", () => {
     expect(champ.value).toBe(raccourci.textContent);
   });
 });
+
+describe("CollecteFormDrawer : grand-livre importé à la création", () => {
+  const rows = [
+    ["I CARGO LINE", "Grand-livre des comptes"],
+    ["Date C.j N° pièce", "Libellé écriture", "Mouvement débit", "Mouvement crédit", "Solde"],
+    ["461000 COMPTES D'ATTENTE"],
+    ["010126 RAN 5", "SOLDE ANTERIEURE", "", "1 000,000", ""],
+    ["060126 ZITO 3", "REG CHQ N°4001511 BATTERIE", "820,000", "", ""],
+    ["300126 BTK 169", "ENC CHQ N°8431", "", "2 680,089", ""],
+    ["020226 BTK 2", "VIR ETRANGER", "", "6 208,274", ""],
+  ];
+  const importer = async () => {
+    const entree = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(entree, { target: { files: [new File(["x"], "461.pdf", { type: "application/pdf" })] } });
+    await screen.findByText(/461\.pdf · 4 écritures/);
+  };
+
+  it("détecte les tableaux à remplir, les ajoute à la sélection et envoie les lignes pré-remplies avec la création", async () => {
+    const { lireGrandLivre } = await import("@/lib/collecte/grandLivre");
+    vi.spyOn(await import("@/lib/collecte/lireGrandLivrePdf"), "lireGrandLivrePdf").mockResolvedValue(lireGrandLivre([rows])!);
+    const { onCreate } = renderForm();
+    remplirPeriode();
+    await importer();
+    expect(screen.getByText(/Tableaux détectés : État des chèques émis \(1\) · Bordereaux remise de chèques \(1\) · Virements reçus \(1\)/)).toBeTruthy();
+    expect(screen.getByText(/1 écriture \(solde antérieur ou à classer\) ne sera pas importée/)).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Virements reçus" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("checkbox", { name: "État des chèques émis" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Créer la collecte" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    const [data, prerempli] = onCreate.mock.calls[0];
+    expect([...data.onglets].sort()).toEqual(["bordereaux_remise_cheques", "etat_cheques_emis", "virements_recus"]);
+    expect(Object.keys(prerempli).sort()).toEqual(["bordereaux_remise_cheques", "etat_cheques_emis", "virements_recus"]);
+    expect(prerempli.etat_cheques_emis[0]).toMatchObject({ num_cheque: "4001511", beneficiaire: "BATTERIE", montant: 820 });
+  });
+
+  it("un tableau décoché n'est pas pré-rempli ; sans grand-livre, la création est inchangée (un seul argument)", async () => {
+    const { lireGrandLivre } = await import("@/lib/collecte/grandLivre");
+    vi.spyOn(await import("@/lib/collecte/lireGrandLivrePdf"), "lireGrandLivrePdf").mockResolvedValue(lireGrandLivre([rows])!);
+    const { onCreate } = renderForm();
+    remplirPeriode();
+    await importer();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Virements reçus" }));
+    fireEvent.click(screen.getByRole("button", { name: "Créer la collecte" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(Object.keys(onCreate.mock.calls[0][1]).sort()).toEqual(["bordereaux_remise_cheques", "etat_cheques_emis"]);
+  });
+
+  it("un fichier illisible affiche l'erreur sans bloquer la création", async () => {
+    vi.spyOn(await import("@/lib/collecte/lireGrandLivrePdf"), "lireGrandLivrePdf").mockRejectedValue(new Error("Document non reconnu."));
+    renderForm();
+    const entree = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(entree, { target: { files: [new File(["x"], "a.pdf", { type: "application/pdf" })] } });
+    expect((await screen.findByText(/a\.pdf : Document non reconnu\./)).getAttribute("role")).toBe("alert");
+  });
+
+  it("n'est pas proposé en mode édition", () => {
+    renderForm({ initial: { societeId: "soc-1", periode: "T3 2026", onglets: ["virements_recus"], devise: "TND", echeance: null, relanceCadenceJours: 3 } });
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+  });
+});

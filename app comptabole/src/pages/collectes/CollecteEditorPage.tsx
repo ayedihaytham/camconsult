@@ -750,6 +750,7 @@ export function CollecteEditorPage() {
                       return (
                         <CollecteGrid
                           ref={tab === key ? gridRef : undefined}
+                          brouillonCle={`collecte:${id}:${key}`}
                           def={def}
                           lignes={collecte.lignes.filter(
                             (l) => l.onglet === key,

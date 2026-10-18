@@ -1,5 +1,5 @@
 import { convertirNombre } from "@/lib/pdfToTables";
-import type { TabRow } from "./tabs";
+import { TAB_BY_KEY, type TabRow } from "./tabs";
 
 import { arrondi3 as r3 } from "../../../shared/arrondi.js";
 /** Une écriture du grand-livre d'un compte (Sage 100 : date, code journal, n° de pièce, libellé, débit, crédit). */
@@ -298,4 +298,24 @@ export function dejaPresente(onglet: string, e: EcritureLivre, existantes: TabRo
     }
     return String(r.date ?? "") === e.date && cleMontant(r.montant) === montantLigne && String(r.compte_bancaire ?? "") === e.journal;
   });
+}
+
+/** Lignes à ajouter à chaque tableau pour des écritures : chacune est rangée dans son tableau (`TABLEAU_PAR_NATURE`), colonnes manquantes
+ * remplies par leur valeur par défaut. `seulement` limite aux tableaux voulus (les tableaux de la collecte). */
+export function lignesParTableau(ecritures: EcritureLivre[], seulement?: string[]): Record<string, TabRow[]> {
+  const sortie: Record<string, TabRow[]> = {};
+  for (const e of ecritures) {
+    const onglet = TABLEAU_PAR_NATURE[e.nature];
+    if (!onglet || (seulement && !seulement.includes(onglet))) continue;
+    const vide = Object.fromEntries((TAB_BY_KEY[onglet]?.columns ?? []).map((c) => [c.key, c.defaut ?? ""]));
+    (sortie[onglet] ??= []).push({ ...vide, ...ligneDepuisEcriture(onglet, e) });
+  }
+  return sortie;
+}
+
+/** Contenu complet d'un tableau à enregistrer : lignes existantes, puis nouvelles lignes, colonnes calculées recalculées. */
+export function lignesEnregistrables(onglet: string, existantes: TabRow[], nouvelles: TabRow[]): { data: TabRow; ordre: number }[] {
+  const toutes = [...existantes, ...nouvelles];
+  const def = TAB_BY_KEY[onglet];
+  return (def?.derive ? def.derive(toutes) : toutes).map((data, ordre) => ({ data, ordre }));
 }

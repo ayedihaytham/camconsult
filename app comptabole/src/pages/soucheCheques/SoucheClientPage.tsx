@@ -110,6 +110,7 @@ export function SoucheClientPage() {
             <div className="p-2 sm:p-3">
               <CollecteGrid
                 key={souche.collecteId}
+                brouillonCle={`souche:${souche.collecteId}`}
                 ref={gridRef}
                 def={def}
                 lignes={souche.lignes}

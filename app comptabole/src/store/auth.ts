@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api, setToken, getToken, ApiError } from "@/lib/api";
+import { effacerTousLesBrouillons } from "@/lib/brouillons";
 import type { EmployePermissions, EmployeRole } from "@/types";
 
 export interface Session {
@@ -111,6 +112,7 @@ export const useAuth = create<AuthState>((set) => ({
     } catch {
       /* ignore */
     }
+    effacerTousLesBrouillons();
     setToken(null);
     set({ status: "anon", session: null });
   },

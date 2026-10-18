@@ -12,13 +12,29 @@ export interface EcritureLivre {
   debit: number;
   credit: number;
   nature: NatureEcriture;
+  /** Sens précis, lisible : « Chèque encaissé », « Règlement par chèque », « Virement étranger »… */
+  sousType: string;
+  /** Compte du grand-livre d'où vient l'écriture (code à 6 chiffres) et son type, qui fixe le sens débit/crédit. */
+  compte: string;
+  classe: ClasseCompte;
+  /** Client ou fournisseur du compte (grand-livre d'un compte de tiers) : l'émetteur ou le bénéficiaire que le libellé ne donne pas. */
+  tiers: string;
+  /** Repère imprimé dans « Observations » : retrouve l'écriture d'origine et évite de l'importer deux fois. */
+  origine: string;
+  /** Montant de l'opération : le côté du compte qui représente l'argent reçu ou payé (le crédit d'un compte d'attente, le débit d'une banque…). */
+  montant: number;
 }
 
 export type NatureEcriture = "cheque_emis" | "cheque_recu" | "effet_recu" | "virement_emis" | "virement_recu" | "report" | "autre";
 
+/** Type de compte : fixe quel côté (débit ou crédit) est un encaissement et lequel un paiement. */
+export type ClasseCompte = "attente" | "banque" | "client" | "fournisseur" | "inconnue";
+
 export interface GrandLivre {
   societe: string;
   compte: string;
+  /** Tous les comptes du document (un grand-livre « complet » en contient plusieurs) ; `compte` est le premier. */
+  comptes: { compte: string; classe: ClasseCompte; ecritures: number; totaux: { debit: number; credit: number } | null }[];
   ecritures: EcritureLivre[];
   /** Totaux « À reporter » / « Total » imprimés au pied du document. */
   totaux: { debit: number; credit: number } | null;
@@ -48,20 +64,79 @@ const maj = (s: string) =>
     .replace(/[̀-ͯ]/g, "")
     .toUpperCase();
 
-/** Nature d'une écriture d'après son libellé et son sens : chèque émis (débit), chèque ou effet encaissé (crédit), virement… */
-export function natureEcriture(libelle: string, debit: number, credit: number, journal = ""): NatureEcriture {
+/** Type d'un compte d'après son numéro (plan comptable tunisien) : 46/47 attente, 51/52 banque, 41 clients, 40 fournisseurs. */
+export function classeCompte(numero: string): ClasseCompte {
+  if (/^(46|47)/.test(numero)) return "attente";
+  if (/^(51|52)/.test(numero)) return "banque";
+  if (/^41/.test(numero)) return "client";
+  if (/^40/.test(numero)) return "fournisseur";
+  return "inconnue";
+}
+
+/** Côté du compte où se lit un encaissement (entrée d'argent) et un paiement (sortie). Compte d'attente : le crédit est une somme reçue,
+ * le débit une somme payée. Banque : l'inverse. Client : seul le règlement (crédit) compte, le débit est une facture. Fournisseur :
+ * seul le paiement (débit) compte, le crédit est une facture. Compte non reconnu : lu comme un compte d'attente. */
+const SENS: Record<ClasseCompte, { entrant: "debit" | "credit" | null; sortant: "debit" | "credit" | null }> = {
+  attente: { entrant: "credit", sortant: "debit" },
+  banque: { entrant: "debit", sortant: "credit" },
+  client: { entrant: "credit", sortant: null },
+  fournisseur: { entrant: null, sortant: "debit" },
+  inconnue: { entrant: "credit", sortant: "debit" },
+};
+
+/** Nature d'une écriture d'après son libellé et son sens : chèque émis, chèque ou effet encaissé, virement… */
+export function natureEcriture(libelle: string, debit: number, credit: number, journal = "", classe: ClasseCompte = "attente"): NatureEcriture {
   const l = maj(libelle);
   if (/^RAN$/.test(maj(journal)) || /SOLDE ANTERIEUR|REPORT A NOUVEAU/.test(l)) return "report";
+  const sens = SENS[classe];
+  const entrant = sens.entrant === "credit" ? credit : sens.entrant === "debit" ? debit : 0;
+  const sortant = sens.sortant === "credit" ? credit : sens.sortant === "debit" ? debit : 0;
+  const recu = entrant > 0 && sortant === 0;
+  const paye = sortant > 0 && entrant === 0;
   if (/\bVIR\w*\s+EMIS\b|\bVIREMENT\s+EMIS\b/.test(l)) return "virement_emis";
-  if (/\bEFFET\b/.test(l) && credit > 0) return "effet_recu";
-  if (debit > 0 && credit === 0 && /\bBLOCAGE\b/.test(l)) return "cheque_emis";
+  if (/\bEFFET\b/.test(l) && entrant > 0) return "effet_recu";
+  if (paye && /\bBLOCAGE\b/.test(l)) return "cheque_emis";
   if (/\bCHQ\b|\bCHEQUE\b/.test(l)) {
-    if (credit > 0 && debit === 0 && /ENC/.test(l)) return "cheque_recu";
-    if (debit > 0 && credit === 0) return "cheque_emis";
-    return credit > 0 ? "cheque_recu" : "cheque_emis";
+    if (recu) return "cheque_recu";
+    if (paye) return "cheque_emis";
+    return entrant > 0 ? "cheque_recu" : "autre";
   }
-  if (credit > 0 && debit === 0 && /\bVIR|TRANSPFET|TRANSFERT/.test(l)) return "virement_recu";
+  if (/\bVIR|TRANSPFET|TRANSFERT/.test(l)) {
+    if (recu) return "virement_recu";
+    if (paye) return "virement_emis";
+  }
   return "autre";
+}
+
+/** Sens précis d'une écriture, pour la revue avant import : chèque encaissé, règlement par chèque, virement étranger… */
+export function sousTypeEcriture(libelle: string, nature: NatureEcriture): string {
+  const l = maj(libelle);
+  const etranger = /ETRANGER|ETRNAGER/.test(l);
+  switch (nature) {
+    case "report":
+      return "Solde antérieur";
+    case "cheque_emis":
+      if (/\bREG(LEMENT)?\s+(CHQ|CHEQUE)/.test(l)) return "Règlement par chèque";
+      if (/PAIEMENT/.test(l)) return "Paiement par chèque";
+      if (/BLOCAGE/.test(l)) return "Chèque bloqué";
+      if (/RESERV/.test(l)) return "Chèque réservé";
+      return "Chèque émis";
+    case "cheque_recu":
+      if (/\bENC/.test(l)) return "Chèque encaissé";
+      if (/REMISE/.test(l)) return "Chèque remis à la banque";
+      return "Chèque reçu";
+    case "effet_recu":
+      if (/REMISE/.test(l)) return "Effet remis à l'encaissement";
+      if (/\bENC/.test(l)) return "Effet encaissé";
+      return "Effet reçu";
+    case "virement_recu":
+      if (/TRANSPFET|TRANSFERT/.test(l)) return etranger ? "Transfert de l'étranger" : "Transfert reçu";
+      return etranger ? "Virement de l'étranger" : "Virement reçu";
+    case "virement_emis":
+      return etranger ? "Virement vers l'étranger" : "Virement émis";
+    default:
+      return "À classer";
+  }
 }
 
 /** Lit le grand-livre d'un compte d'après le tableau reconstruit d'un PDF Sage 100 (cellules : « date journal pièce », libellé,
@@ -72,21 +147,42 @@ export function lireGrandLivre(pages: string[][][]): GrandLivre | null {
   if (enTete < 0 || !rows.some((r) => r.some((c) => /^grand-?livre/i.test(c)))) return null;
 
   const societe = (rows[0]?.[0] ?? "").trim();
-  const compte = rows.map((r) => r[0] ?? "").find((c) => /^\d{6}\s+\S/.test(c) && !/^\d{6}\s+[A-Z]{2,5}\s+\d+$/.test(c)) ?? "";
+  const estCompte = (c: string) => /^\d{6}\s+\S/.test(c) && !/^\d{6}\s+[A-Z]{2,5}\s+\d+$/.test(c);
 
   const ecritures: EcritureLivre[] = [];
-  let totaux: GrandLivre["totaux"] = null;
+  // Un grand-livre « complet » enchaîne plusieurs comptes : chacun a son en-tête (« 461000 COMPTES D'ATTENTE »), son sens et ses totaux.
+  const comptes: (GrandLivre["comptes"][number] & { libelle: string })[] = [];
+  let courant = null as (typeof comptes)[number] | null; // modifié par ouvrir() : le `as` évite que TypeScript le croie toujours nul
+  const ouvrir = (intitule: string) => {
+    const numero = intitule.slice(0, 6);
+    courant = { compte: intitule.trim(), libelle: intitule.slice(6).trim(), classe: classeCompte(numero), ecritures: 0, totaux: null };
+    comptes.push(courant);
+  };
+  const premier = rows.slice(enTete + 1).map((r) => (r[0] ?? "").trim()).find(estCompte) ?? rows.map((r) => (r[0] ?? "").trim()).find(estCompte);
+  if (premier) ouvrir(premier);
   for (const r of rows.slice(enTete + 1)) {
     const [c0 = "", c1 = "", c2 = "", c3 = ""] = r.map((c) => c ?? "");
     const m = /^(\d{6})\s+(\S+)\s+(\d+)$/.exec(c0.trim());
     if (m && dateSage(m[1])) {
+      if (!courant) ouvrir("000000");
+      const cpt = courant!;
       const debit = montant(c2);
       const credit = montant(c3);
-      ecritures.push({ date: dateSage(m[1])!, journal: m[2], piece: m[3], libelle: c1.trim(), debit, credit, nature: "autre" });
+      const numero = cpt.compte.slice(0, 6);
+      const tiers = cpt.classe === "client" || cpt.classe === "fournisseur" ? cpt.libelle : "";
+      cpt.ecritures += 1;
+      ecritures.push({
+        date: dateSage(m[1])!, journal: m[2], piece: m[3], libelle: c1.trim(), debit, credit, nature: "autre", montant: 0, sousType: "",
+        compte: numero, classe: cpt.classe, tiers, origine: `GL ${numero} · ${m[2]} · p.${m[3]}`,
+      });
+      continue;
+    }
+    if (estCompte(c0.trim()) && !m) {
+      if (!courant || courant.compte !== c0.trim()) ouvrir(c0.trim());
       continue;
     }
     if (!c0.trim() && /^(a reporter|report|total)\b/i.test(c1.trim())) {
-      totaux = { debit: montant(c2), credit: montant(c3) };
+      if (courant) courant.totaux = { debit: montant(c2), credit: montant(c3) };
       continue;
     }
     // Suite du libellé de l'écriture précédente (« N°144167 ADEL » puis « EDHAWTHI »), sans montant.
@@ -96,16 +192,31 @@ export function lireGrandLivre(pages: string[][][]): GrandLivre | null {
     }
   }
   if (ecritures.length === 0) return null;
-  for (const e of ecritures) e.nature = natureEcriture(e.libelle, e.debit, e.credit, e.journal);
+  for (const e of ecritures) {
+    e.nature = natureEcriture(e.libelle, e.debit, e.credit, e.journal, e.classe);
+    e.sousType = sousTypeEcriture(e.libelle, e.nature);
+    const sens = SENS[e.classe];
+    const entrant = sens.entrant === "credit" ? e.credit : sens.entrant === "debit" ? e.debit : 0;
+    const sortant = sens.sortant === "credit" ? e.credit : sens.sortant === "debit" ? e.debit : 0;
+    e.montant = entrant > 0 ? entrant : sortant > 0 ? sortant : Math.max(e.debit, e.credit);
+  }
 
-  const sd = r3(ecritures.reduce((s, e) => s + e.debit, 0));
-  const sc = r3(ecritures.reduce((s, e) => s + e.credit, 0));
+  // Contrôle : pour chaque compte qui imprime ses totaux, les écritures lues doivent les retrouver (aucune ligne perdue à la lecture).
+  const verifies = comptes.map((c) => {
+    if (!c.totaux) return null;
+    const lues = ecritures.filter((e) => e.compte === c.compte.slice(0, 6));
+    const sd = r3(lues.reduce((s, e) => s + e.debit, 0));
+    const sc = r3(lues.reduce((s, e) => s + e.credit, 0));
+    return Math.abs(sd - c.totaux.debit) < 0.005 && Math.abs(sc - c.totaux.credit) < 0.005;
+  });
+  const avecTotaux = verifies.filter((v): v is boolean => v !== null);
   return {
     societe,
-    compte,
+    compte: comptes[0]?.compte ?? "",
+    comptes: comptes.map(({ compte, classe, ecritures: n, totaux }) => ({ compte, classe, ecritures: n, totaux })),
     ecritures,
-    totaux,
-    controle: totaux ? Math.abs(sd - totaux.debit) < 0.005 && Math.abs(sc - totaux.credit) < 0.005 : null,
+    totaux: comptes.length === 1 ? comptes[0].totaux : null,
+    controle: avecTotaux.length > 0 ? avecTotaux.every(Boolean) : null,
   };
 }
 
@@ -135,22 +246,56 @@ export function decouperLibelle(libelle: string): { base: string; numero: string
 export function lignesPourTableau(onglet: string, ecritures: EcritureLivre[]): TabRow[] {
   const cible = TABLEAUX_GRAND_LIVRE[onglet];
   if (!cible) return [];
-  return ecritures
-    .filter((e) => cible.natures.includes(e.nature))
-    .map((e): TabRow => {
-      const { base, numero, reste } = decouperLibelle(e.libelle);
-      switch (onglet) {
-        case "souche_cheques":
-        case "etat_cheques_emis":
-          return { date: e.date, num_cheque: numero, beneficiaire: reste, motif: MOTIFS[maj(base)] ?? base, montant: e.debit, banque: e.journal, observations: "" };
-        case "bordereaux_remise_cheques":
-          return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_cheque: numero, client_emetteur: reste, montant_cheque: e.credit, date_echeance: "", observations: "" };
-        case "bordereaux_traites_recues":
-          return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_traite: numero, client_emetteur: reste, montant_traite: e.credit, date_echeance: "", observations: "" };
-        case "virements_recus":
-          return { date: e.date, emetteur: reste, reference: base, montant: e.credit, compte_bancaire: e.journal, observations: "" };
-        default:
-          return { date: e.date, beneficiaire: reste, reference: base, montant: e.debit, compte_bancaire: e.journal, observations: "" };
-      }
-    });
+  return ecritures.filter((e) => cible.natures.includes(e.nature)).map((e) => ligneDepuisEcriture(onglet, e));
+}
+
+/** Ligne d'un tableau de la collecte pour une écriture. Le nom lu dans le libellé prime ; à défaut, le client ou fournisseur du compte. */
+export function ligneDepuisEcriture(onglet: string, e: EcritureLivre): TabRow {
+  const { base, numero, reste } = decouperLibelle(e.libelle);
+  const nom = reste || e.tiers;
+  // « Observations » garde le sens précis et le repère de l'écriture d'origine : on retrouve la ligne dans le grand-livre, et on ne l'importe pas deux fois.
+  const observations = `${e.sousType} · ${e.origine}`;
+  switch (onglet) {
+    case "souche_cheques":
+    case "etat_cheques_emis":
+      return { date: e.date, num_cheque: numero, beneficiaire: nom, motif: MOTIFS[maj(base)] ?? base, montant: e.montant, banque: e.journal, observations };
+    case "bordereaux_remise_cheques":
+      return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_cheque: numero, client_emetteur: nom, montant_cheque: e.montant, date_echeance: "", observations };
+    case "bordereaux_traites_recues":
+      return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_traite: numero, client_emetteur: nom, montant_traite: e.montant, date_echeance: "", observations };
+    case "virements_recus":
+      return { date: e.date, emetteur: nom, reference: base, montant: e.montant, compte_bancaire: e.journal, observations };
+    default:
+      return { date: e.date, beneficiaire: nom, reference: base, montant: e.montant, compte_bancaire: e.journal, observations };
+  }
+}
+
+/** Tableau de la collecte où le cabinet range chaque nature d'écriture. Les chèques émis vont dans « État des chèques émis » (tenu par
+ * le cabinet) : la souche est remplie par la société elle-même et reste fermée au cabinet. Report et écritures à classer : aucun tableau. */
+export const TABLEAU_PAR_NATURE: Record<NatureEcriture, string | null> = {
+  cheque_emis: "etat_cheques_emis",
+  cheque_recu: "bordereaux_remise_cheques",
+  effet_recu: "bordereaux_traites_recues",
+  virement_recu: "virements_recus",
+  virement_emis: "virements_emis",
+  report: null,
+  autre: null,
+};
+
+/** Vrai si une ligne déjà dans le tableau vient de cette écriture : même repère dans « Observations », ou, pour une ligne saisie à la main,
+ * même numéro de chèque ou d'effet avec le même montant (virements : même date, banque et montant). */
+export function dejaPresente(onglet: string, e: EcritureLivre, existantes: TabRow[]): boolean {
+  const ligne = ligneDepuisEcriture(onglet, e);
+  const num = String(ligne.num_cheque ?? ligne.num_traite ?? "").trim();
+  const cleMontant = (v: unknown) => Math.round(Number(String(v ?? "").replace(/\s/g, "").replace(",", ".")) * 1000);
+  const montantLigne = cleMontant(e.montant);
+  return existantes.some((r) => {
+    if (String(r.observations ?? "").includes(e.origine)) return true;
+    if (num) {
+      const autre = String(r.num_cheque ?? r.num_traite ?? "").trim();
+      const m = cleMontant(r.montant_cheque ?? r.montant_traite ?? r.montant);
+      return autre === num && m === montantLigne;
+    }
+    return String(r.date ?? "") === e.date && cleMontant(r.montant) === montantLigne && String(r.compte_bancaire ?? "") === e.journal;
+  });
 }

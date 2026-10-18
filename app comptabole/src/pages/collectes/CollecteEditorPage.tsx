@@ -10,6 +10,7 @@ import {
   Eye,
   File as FileIcon,
   FileText,
+  FileUp,
   History,
   LogOut,
   Paperclip,
@@ -44,6 +45,7 @@ import { PiecesDemandees } from "./PiecesDemandees";
 import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { CollecteFull, CollecteJournalEntry, CollecteStatut } from "@/types";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
+import { ImportGrandLivreDialog } from "./ImportGrandLivreDialog";
 import { CollecteChecklist } from "./CollecteChecklist";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { RecapTab } from "./RecapTab";
@@ -105,6 +107,7 @@ export function CollecteEditorPage() {
     null | "valide" | "a_corriger" | "archive" | "reopen"
   >(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [livreOpen, setLivreOpen] = useState(false);
   const [tab, setTab] = useState("checklist");
   const [focusTarget, setFocusTarget] = useState<{ table: string; ordre: number | null; col: string | null; revision: number } | undefined>();
   const focusRevision = useRef(0);
@@ -404,6 +407,11 @@ export function CollecteEditorPage() {
                   {canRecap && !archivee && liveManques.length > 0 && (
                     <DropdownMenuItem onSelect={() => requestTab("__preview__")}>
                       <Eye className="size-4" /> {preview ? "Quitter l'aperçu client" : "Aperçu client"}
+                    </DropdownMenuItem>
+                  )}
+                  {editable && (
+                    <DropdownMenuItem onSelect={() => setLivreOpen(true)}>
+                      <FileUp className="size-4" /> Importer un grand-livre
                     </DropdownMenuItem>
                   )}
                   {canManageCollaborateurs && (
@@ -901,6 +909,10 @@ export function CollecteEditorPage() {
           </main>
         </div>
       </Tabs>
+
+      {!isClient && editable && (
+        <ImportGrandLivreDialog open={livreOpen} onOpenChange={setLivreOpen} collecte={collecte} editableTab={editableTab} brouillonOuvert={dirtyTableau} />
+      )}
 
       {canManageCollaborateurs && (
         <CollecteFormDrawer

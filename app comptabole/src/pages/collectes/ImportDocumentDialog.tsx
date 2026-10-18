@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Upload } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { lireGrandLivre, lignesPourTableau, TABLEAUX_GRAND_LIVRE, type GrandLivre, type NatureEcriture } from "@/lib/collecte/grandLivre";
+import { dejaPresente, ligneDepuisEcriture, lireGrandLivre, TABLEAUX_GRAND_LIVRE, type GrandLivre, type NatureEcriture } from "@/lib/collecte/grandLivre";
 import type { TabDef, TabRow } from "@/lib/collecte/tabs";
 import { lireFichierPdf, nombreDeCaracteres, reconstruireTableau } from "@/lib/pdfToTables";
 import { formatDate } from "@/lib/utils";
@@ -13,6 +13,8 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   def: TabDef;
   devise: string;
+  /** Lignes déjà dans le tableau (enregistrées ou non) : une écriture déjà importée n'est pas proposée une seconde fois. */
+  existantes?: TabRow[];
   /** Lignes à ajouter au tableau (comme si on les avait saisies : rien n'est enregistré avant « Enregistrer »). */
   onAjouter: (lignes: TabRow[]) => void;
 }
@@ -38,7 +40,7 @@ function afficher(v: unknown, type: string): string {
 
 /** Importe dans le tableau les lignes d'un document : pour l'instant le grand-livre d'un compte (PDF Sage 100). Le document est lu
  * dans le navigateur, jamais envoyé au serveur ; les lignes se vérifient ici avant d'être ajoutées au tableau. */
-export function ImportDocumentDialog({ open, onOpenChange, def, devise, onAjouter }: Props) {
+export function ImportDocumentDialog({ open, onOpenChange, def, devise, existantes = [], onAjouter }: Props) {
   const [livre, setLivre] = useState<GrandLivre | null>(null);
   const [nomFichier, setNomFichier] = useState("");
   const [erreur, setErreur] = useState("");
@@ -54,7 +56,10 @@ export function ImportDocumentDialog({ open, onOpenChange, def, devise, onAjoute
   }, [open]);
 
   const cible = TABLEAUX_GRAND_LIVRE[def.key];
-  const lignes = useMemo(() => (livre ? lignesPourTableau(def.key, livre.ecritures) : []), [livre, def.key]);
+  const ecrituresCibles = useMemo(() => (livre && cible ? livre.ecritures.filter((e) => cible.natures.includes(e.nature)) : []), [livre, cible]);
+  const lignes = useMemo(() => ecrituresCibles.map((e) => ligneDepuisEcriture(def.key, e)), [ecrituresCibles, def.key]);
+  /** Écritures déjà présentes dans le tableau : cochées jamais d'office. */
+  const doublons = useMemo(() => new Set(ecrituresCibles.flatMap((e, i) => (dejaPresente(def.key, e, existantes) ? [i] : []))), [ecrituresCibles, def.key, existantes]);
   const ailleurs = useMemo(() => {
     if (!livre || !cible) return [];
     const par = new Map<NatureEcriture, number>();
@@ -77,7 +82,8 @@ export function ImportDocumentDialog({ open, onOpenChange, def, devise, onAjoute
       if (!lu) throw new Error("Document non reconnu. Pour l'instant, seul le grand-livre d'un compte au format PDF de Sage 100 est lu (colonnes Date, Journal, N° pièce, Libellé, Débit, Crédit).");
       setNomFichier(file.name);
       setLivre(lu);
-      setChoix(new Set(lignesPourTableau(def.key, lu.ecritures).map((_, i) => i)));
+      const cibles = lu.ecritures.filter((e) => cible?.natures.includes(e.nature));
+      setChoix(new Set(cibles.flatMap((e, i) => (dejaPresente(def.key, e, existantes) ? [] : [i]))));
     } catch (err) {
       setErreur(err instanceof Error ? err.message : "Fichier illisible.");
     } finally {
@@ -147,6 +153,7 @@ export function ImportDocumentDialog({ open, onOpenChange, def, devise, onAjoute
                           onCheckedChange={(c) => setChoix(c ? new Set(lignes.map((_, i) => i)) : new Set())}
                         />
                       </th>
+                      <th className="px-2 py-1.5">Sens</th>
                       {colonnes.map((c) => (
                         <th key={c.key} className={c.type === "number" ? "px-2 py-1.5 text-right" : "px-2 py-1.5"}>
                           {c.label}
@@ -170,6 +177,10 @@ export function ImportDocumentDialog({ open, onOpenChange, def, devise, onAjoute
                               })
                             }
                           />
+                        </td>
+                        <td className="whitespace-nowrap px-2 py-1">
+                          {ecrituresCibles[i].sousType}
+                          {doublons.has(i) && <span className="ml-1.5 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">déjà dans le tableau</span>}
                         </td>
                         {colonnes.map((c) => (
                           <td key={c.key} className={c.type === "number" ? "whitespace-nowrap px-2 py-1 text-right tabular-nums" : "whitespace-nowrap px-2 py-1"}>

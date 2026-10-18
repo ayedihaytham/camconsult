@@ -997,7 +997,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
 
       {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
-        <ImportDocumentDialog open={importOpen} onOpenChange={setImportOpen} def={def} devise={devise} onAjouter={addRows} />
+        <ImportDocumentDialog open={importOpen} onOpenChange={setImportOpen} def={def} devise={devise} existantes={rows} onAjouter={addRows} />
       )}
     </fieldset>
   );

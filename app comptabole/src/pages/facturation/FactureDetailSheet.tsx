@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Download, Eye, FileCode2, LoaderCircle, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { construireFacturePdf, chargerLogo } from "@/lib/facturePdf";
+import { PARAMETRES_APERCU, chargerLogo, construireFacturePdf } from "@/lib/facturePdf";
 import { formatTnd } from "@/lib/facturation";
 import { cn, formatDate } from "@/lib/utils";
 import { useFacturation } from "@/store/facturation";
@@ -179,7 +179,7 @@ export function FactureDetailSheet({ facture, cabinet, onOpenChange, onOpenEinvo
               <section aria-label="Aperçu du PDF">
                 <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Aperçu du PDF</h3>
                 {apercu ? (
-                  <iframe src={apercu} title={`Aperçu de la facture ${f.numero}`} className="h-[420px] w-full rounded-lg border border-accent/30 bg-card" />
+                  <iframe src={`${apercu}${PARAMETRES_APERCU}`} title={`Aperçu de la facture ${f.numero}`} className="aspect-[1/1.4142] max-h-[70vh] w-full rounded-lg border border-accent/30 bg-card" />
                 ) : (
                   <Button type="button" variant="outline" size="sm" onClick={() => void afficherApercu()} disabled={apercuEnCours}>
                     {apercuEnCours ? <LoaderCircle className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : <Eye className="mr-1.5 size-4" aria-hidden="true" />}

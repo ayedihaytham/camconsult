@@ -29,6 +29,13 @@ const jjmmaaaa = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/"
 const heureTunis = (iso: string) => new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Tunis" });
 const STADES_SIGNES = ["signee", "deposee", "validee", "rejetee"];
 
+/**
+ * Paramètres d'ouverture du visualiseur PDF du navigateur pour un aperçu : page entière visible (ajustée à la fenêtre), sans barre d'outils,
+ * sans panneau de miniatures, sans ascenseur. Ils s'ajoutent à l'adresse du PDF (« #… ») ; un navigateur qui ne les connaît pas affiche son
+ * visualiseur habituel.
+ */
+export const PARAMETRES_APERCU = "#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit";
+
 /** Logo du cabinet : image de l'application (null si elle est introuvable : la facture reste valable sans logo). */
 export async function chargerLogo(origine = ""): Promise<string | null> {
   try {

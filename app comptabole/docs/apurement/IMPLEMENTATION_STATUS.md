@@ -1,5 +1,36 @@
 # Checkpoint Apurement — 17 octobre 2026
 
+## Sélecteurs harmonisés avec Collecte — 18 octobre 2026
+
+Les 14 sélecteurs natifs des six écrans Apurement utilisent désormais
+`ApurementSelect`, fondé sur le composant Radix partagé déjà utilisé par Collecte.
+Déclencheur avec icône et chevron, menu blanc aligné sur sa largeur, options
+survolées et sélectionnées, libellés longs repliés dans le menu, défilement et
+navigation clavier. Même présentation dans les filtres, formulaires centrés,
+imports, rapprochement Stock, pièces et déclaration. Aucun sélecteur natif
+visible ne subsiste dans le module.
+
+Valeurs envoyées inchangées, y compris les champs obligatoires, le statut initial,
+les contrôles désactivés, la création de références dans la facture et les choix
+vides permettant de retirer une affectation. La valeur technique de l'option
+vide du menu n'est jamais transmise dans les données du formulaire.
+
+Fichiers : `src/pages/apurement/ApurementSelect.tsx` et son test,
+`ApurementPage.tsx`, `EntitySheet.tsx`, `ImportPanel.tsx`, `DeclarationPanel.tsx`,
+`DocumentsPanel.tsx`, `StockLinkPanel.tsx`, `apurement.css`.
+
+Validation : lint TypeScript et build réussis ; **7 tests ciblés réussis**,
+dont validation native obligatoire et contenu exact de `FormData`. Les onze
+contrôles fonctionnels Chrome existants passent (saisie, preuves, imports et
+préparation de déclaration). Vérification dédiée des menus à 375 et 1440 px
+réussie : limites du viewport, fermeture du menu seul par Échap et navigation
+Trimestre/Dossier. Captures inspectées ; aucune erreur JavaScript. Surfaces
+Apurement également contenues aux quatre largeurs du parcours existant.
+Journaux `%TEMP%/apurement-select-*.log`. `git diff --check` réussi.
+Vérifications sur base locale jetable uniquement ; aucune production modifiée.
+
+---
+
 ## Onglets en blocs et typographie — 18 octobre 2026
 
 En complément des modifications de présentation en cours, onglets principaux

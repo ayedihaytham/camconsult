@@ -1,3 +1,4 @@
+import { ApurementSelect } from "./ApurementSelect";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -538,18 +539,14 @@ function ProofSelect({
   return (
     <label className="block space-y-1 text-sm">
       Preuve associée à la déclaration
-      <select
-        className="h-10 w-full rounded border bg-background px-2"
+      <ApurementSelect
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">Choisir la preuve</option>
-        {pieces.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.nom}
-          </option>
-        ))}
-      </select>
+        onValueChange={(value) => onChange(value)}
+        options={[
+          { value: "", label: <>Choisir la preuve</> },
+          ...pieces.map((p) => ({ value: p.id, label: <>{p.nom}</> })),
+        ]}
+      />
     </label>
   );
 }

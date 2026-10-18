@@ -1,3 +1,4 @@
+import { ApurementSelect } from "./ApurementSelect";
 import { useCallback, useEffect, useState } from "react";
 import { api, getToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -57,18 +58,18 @@ export function DocumentsPanel({
   const loadMissing = useCallback(
     () =>
       api
-        .get<
-          Missing[]
-        >(`/apurement/pieces-manquantes?societeId=${societeId}&parentId=${parentId}`)
+        .get<Missing[]>(
+          `/apurement/pieces-manquantes?societeId=${societeId}&parentId=${parentId}`,
+        )
         .then(setMissingList),
     [societeId, parentId],
   );
   const load = useCallback(
     () =>
       api
-        .get<
-          Piece[]
-        >(`/apurement/pieces?societeId=${societeId}&parentType=${parentType}&parentId=${parentId}`)
+        .get<Piece[]>(
+          `/apurement/pieces?societeId=${societeId}&parentType=${parentType}&parentId=${parentId}`,
+        )
         .then((rows) => {
           setPieces(rows);
           return rows;
@@ -159,19 +160,22 @@ export function DocumentsPanel({
           <label className="text-sm" htmlFor={`source-${parentId}`}>
             Pièce de cette société
           </label>
-          <select
+          <ApurementSelect
             id={`source-${parentId}`}
-            className="h-10 w-full rounded border bg-background"
             value={sourceId}
-            onChange={(e) => setSourceId(e.target.value)}
-          >
-            <option value="">Choisir…</option>
-            {sources.map((s) => (
-              <option key={`${s.source}-${s.id}`} value={s.id}>
-                {s.nom} ({s.source})
-              </option>
-            ))}
-          </select>
+            onValueChange={(value) => setSourceId(value)}
+            options={[
+              { value: "", label: <>Choisir…</> },
+              ...sources.map((s) => ({
+                value: s.id,
+                label: (
+                  <>
+                    {s.nom} ({s.source})
+                  </>
+                ),
+              })),
+            ]}
+          />
           <Button
             type="button"
             disabled={!sourceId || busy}
@@ -287,19 +291,19 @@ export function DocumentsPanel({
           </div>
           {collectes.length > 0 && !m.collecteDemandeId && (
             <div className="space-y-2">
-              <select
+              <ApurementSelect
                 aria-label="Collecte de cette société"
                 value={collecteId}
-                className="h-10 w-full rounded border bg-background"
-                onChange={(e) => setCollecteId(e.target.value)}
-              >
-                <option value="">Choisir une collecte</option>
-                {collectes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.periode}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(value) => setCollecteId(value)}
+                groupLabel="Collecte de cette société"
+                options={[
+                  { value: "", label: <>Choisir une collecte</> },
+                  ...collectes.map((c) => ({
+                    value: c.id,
+                    label: <>{c.periode}</>,
+                  })),
+                ]}
+              />
               <p className="text-xs text-muted-foreground">
                 Le client recevra une demande de justificatif neutre dans
                 Collecte, sans montant ni mention d’Apurement.

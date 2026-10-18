@@ -1,3 +1,4 @@
+import { ApurementSelect } from "./ApurementSelect";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -204,8 +205,6 @@ export function EntitySheet({
       />
     </div>
   );
-  const selectClass =
-    "flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const select = (
     name: string,
     label: string,
@@ -215,34 +214,44 @@ export function EntitySheet({
   ) => (
     <div className="space-y-1.5">
       <Label htmlFor={`ap-${name}`}>{label}</Label>
-      <select
+      <ApurementSelect
         id={`ap-${name}`}
-        className={selectClass}
         name={name}
+        groupLabel={label}
         value={value}
-        onChange={(e) => onChange?.(e.target.value)}
+        onValueChange={(value) => onChange?.(value)}
         required={name !== "bcId"}
-      >
-        <option value="">
-          {name === "bcId" ? "À affecter (brouillon)" : "Choisir…"}
-        </option>
-        {options.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.numero || o.raisonSociale}
-          </option>
-        ))}
-        {kind === "factures" && !record && (
-          <option value="new">
-            + Créer{" "}
-            {name === "bcId"
-              ? "un bon de commande"
-              : name === "newAutorisationId"
-                ? "une autorisation"
-                : "un fournisseur"}{" "}
-            ici
-          </option>
-        )}
-      </select>
+        options={[
+          {
+            value: "",
+            label: (
+              <>{name === "bcId" ? "À affecter (brouillon)" : "Choisir…"}</>
+            ),
+          },
+          ...options.map((o) => ({
+            value: o.id,
+            label: <>{o.numero || o.raisonSociale}</>,
+          })),
+          ...(kind === "factures" && !record
+            ? [
+                {
+                  value: "new",
+                  label: (
+                    <>
+                      + Créer{" "}
+                      {name === "bcId"
+                        ? "un bon de commande"
+                        : name === "newAutorisationId"
+                          ? "une autorisation"
+                          : "un fournisseur"}{" "}
+                      ici
+                    </>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
     </div>
   );
   const [auth, setAuth] = useState(record?.autorisationId || "");
@@ -455,22 +464,24 @@ export function EntitySheet({
                 )}
                 <div className="space-y-1.5">
                   <Label htmlFor="ap-tvaMode">Calcul TVA</Label>
-                  <select
-                    className={selectClass}
+                  <ApurementSelect
                     id="ap-tvaMode"
                     name="tvaMode"
                     value={vatMode}
-                    onChange={(e) =>
-                      setVatMode(e.target.value as "auto" | "manuel")
+                    onValueChange={(value) =>
+                      setVatMode(value as "auto" | "manuel")
                     }
-                  >
-                    <option value="auto">
-                      Automatique (arrondi provisoire)
-                    </option>
-                    <option value="manuel">
-                      Correction manuelle justifiée
-                    </option>
-                  </select>
+                    options={[
+                      {
+                        value: "auto",
+                        label: <>Automatique (arrondi provisoire)</>,
+                      },
+                      {
+                        value: "manuel",
+                        label: <>Correction manuelle justifiée</>,
+                      },
+                    ]}
+                  />
                 </div>
                 {vatMode === "manuel" && (
                   <div className="space-y-3 rounded-md border border-warning/30 bg-warning/5 p-3">
@@ -555,17 +566,17 @@ export function EntitySheet({
                       "date",
                     )}
                     <Label htmlFor="ap-statutInterne">État interne</Label>
-                    <select
+                    <ApurementSelect
                       id="ap-statutInterne"
                       name="statutInterne"
-                      className={selectClass}
                       defaultValue={record?.statutInterne || "brouillon"}
-                    >
-                      <option value="brouillon">Brouillon</option>
-                      <option value="active">Active</option>
-                      <option value="fermee">Fermée</option>
-                      <option value="annulee">Annulée</option>
-                    </select>
+                      options={[
+                        { value: "brouillon", label: <>Brouillon</> },
+                        { value: "active", label: <>Active</> },
+                        { value: "fermee", label: <>Fermée</> },
+                        { value: "annulee", label: <>Annulée</> },
+                      ]}
+                    />
                   </>
                 )}
                 {field(

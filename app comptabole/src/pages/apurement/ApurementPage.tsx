@@ -1,3 +1,4 @@
+import { ApurementSelect } from "./ApurementSelect";
 import { useCallback, useEffect, useState } from "react";
 import {
   Link,
@@ -402,33 +403,37 @@ export function ApurementPage() {
         </label>
         <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
           Trimestre
-          <select
-            className="block h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          <ApurementSelect
             aria-label="Trimestre"
             value={trimestre}
-            onChange={(e) => patchParams("trimestre", e.target.value)}
-          >
-            {["T1", "T2", "T3", "T4"].map((x) => (
-              <option key={x} value={x}>
-                {x} ·{" "}
-                {
-                  {
-                    T1: "Janvier – mars",
-                    T2: "Avril – juin",
-                    T3: "Juillet – septembre",
-                    T4: "Octobre – décembre",
-                  }[x]
-                }
-              </option>
-            ))}
-          </select>
+            onValueChange={(value) => patchParams("trimestre", value)}
+            className="w-full sm:min-w-60"
+            groupLabel="Trimestre"
+            options={[
+              ...["T1", "T2", "T3", "T4"].map((x) => ({
+                value: x,
+                label: (
+                  <>
+                    {x} ·{" "}
+                    {
+                      {
+                        T1: "Janvier – mars",
+                        T2: "Avril – juin",
+                        T3: "Juillet – septembre",
+                        T4: "Octobre – décembre",
+                      }[x]
+                    }
+                  </>
+                ),
+              })),
+            ]}
+          />
         </label>
         {societeId && (
           <label className="apurement-dossier-selector flex min-w-0 items-center gap-2 text-sm">
             <span className="sr-only">Dossier</span>
-            <select
+            <ApurementSelect
               aria-label="Dossier : références et réglages"
-              className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
               value={
                 view === "documents"
                   ? "documents"
@@ -436,21 +441,22 @@ export function ApurementPage() {
                     ? activeKind
                     : ""
               }
-              onChange={(e) =>
+              onValueChange={(value) =>
                 selectView(
-                  e.target.value === "documents" ? "documents" : "registre",
-                  e.target.value === "documents" ? undefined : e.target.value,
+                  value === "documents" ? "documents" : "registre",
+                  value === "documents" ? undefined : value,
                 )
               }
-            >
-              <option value="" disabled>
-                Dossier…
-              </option>
-              <option value="fournisseurs">Fournisseurs</option>
-              <option value="autorisations">Autorisations</option>
-              <option value="bcs">Bons de commande</option>
-              <option value="documents">Profil fiscal et rappels</option>
-            </select>
+              className="w-full sm:w-64"
+              groupLabel="Dossier : références et réglages"
+              options={[
+                { value: "", label: <>Dossier…</>, disabled: true },
+                { value: "fournisseurs", label: <>Fournisseurs</> },
+                { value: "autorisations", label: <>Autorisations</> },
+                { value: "bcs", label: <>Bons de commande</> },
+                { value: "documents", label: <>Profil fiscal et rappels</> },
+              ]}
+            />
           </label>
         )}
       </div>
@@ -807,36 +813,37 @@ export function ApurementPage() {
                     {activeKind === "factures" ? (
                       <label className="space-y-1 text-sm">
                         Origine de la facture
-                        <select
-                          className="h-10 w-full rounded border bg-background px-2"
+                        <ApurementSelect
                           value={sourceFilter}
-                          onChange={(e) =>
-                            patchParams("source", e.target.value)
+                          onValueChange={(value) =>
+                            patchParams("source", value)
                           }
-                        >
-                          <option value="">Toutes les origines</option>
-                          <option value="manuel">Saisie manuelle</option>
-                          <option value="stock">Reprise de Stock</option>
-                          <option value="import">Import</option>
-                        </select>
+                          className="w-full sm:w-56"
+                          options={[
+                            { value: "", label: <>Toutes les origines</> },
+                            { value: "manuel", label: <>Saisie manuelle</> },
+                            { value: "stock", label: <>Reprise de Stock</> },
+                            { value: "import", label: <>Import</> },
+                          ]}
+                        />
                       </label>
                     ) : (
                       <label className="space-y-1 text-sm">
                         Autorisation
-                        <select
-                          className="h-10 w-full rounded border bg-background px-2"
+                        <ApurementSelect
                           value={authorizationId || ""}
-                          onChange={(e) =>
-                            patchParams("autorisationId", e.target.value)
+                          onValueChange={(value) =>
+                            patchParams("autorisationId", value)
                           }
-                        >
-                          <option value="">Toutes les autorisations</option>
-                          {refs.autorisations.map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.numero}
-                            </option>
-                          ))}
-                        </select>
+                          className="w-full sm:w-56"
+                          options={[
+                            { value: "", label: <>Toutes les autorisations</> },
+                            ...refs.autorisations.map((a) => ({
+                              value: a.id,
+                              label: <>{a.numero}</>,
+                            })),
+                          ]}
+                        />
                       </label>
                     )}
                   </LedgerSearchFilter>

@@ -183,7 +183,7 @@
   color: hsl(var(--primary));
 }
 .apurement-form-grid input,
-.apurement-form-grid select {
+.apurement-form-grid .apurement-select {
   min-height: 44px;
 }
 @media (min-width: 768px) {
@@ -226,7 +226,7 @@
     min-width: 0;
   }
   .apurement-period input,
-  .apurement-period select {
+  .apurement-period .apurement-select {
     width: 100%;
   }
 }

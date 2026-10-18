@@ -10,6 +10,7 @@ import {
   Copy,
   Download,
   FileCode2,
+  FileDown,
   FileKey2,
   FileText,
   MoreHorizontal,
@@ -59,6 +60,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { estEnRetard, formatTnd, imprimerFacture } from "@/lib/facturation";
+import { telechargerFacturePdf } from "@/lib/facturePdf";
 import { printTable } from "@/lib/print";
 import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { cn, formatDate } from "@/lib/utils";
@@ -376,15 +378,39 @@ export function FacturationPage() {
     });
   }
 
+  /** Télécharge le PDF de la facture (vrai fichier, sans fenêtre d'impression). */
+  async function telechargerPdf(f: Facture, silencieux = false) {
+    try {
+      await telechargerFacturePdf(f, cabinet);
+      if (!silencieux) toast.success(`PDF de la facture ${f.numero} téléchargé`);
+      return true;
+    } catch {
+      toast.error(`Le PDF de la facture ${f.numero} n'a pas pu être généré`);
+      return false;
+    }
+  }
+
+  /** PDF de toutes les factures sélectionnées (20 au plus, l'un après l'autre : le navigateur peut demander d'autoriser les téléchargements multiples). */
+  async function telechargerSelectionPdf() {
+    const lignes = list.filter((f) => selection.includes(f.id)).slice(0, 20);
+    if (!lignes.length) return;
+    let ok = 0;
+    for (const f of lignes) {
+      if (await telechargerPdf(f, true)) ok++;
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    if (ok) toast.success(`${ok} PDF téléchargé${ok > 1 ? "s" : ""}${selection.length > 20 ? " (20 au maximum à la fois)" : ""}`);
+  }
+
   function imprimer(f: Facture) {
     if (!imprimerFacture(f, cabinet)) toast.error("Autorisez les fenêtres pop-up pour imprimer la facture");
   }
 
   const actionsLigne = (f: Facture): RowAction[] => {
     const copier: RowAction = { icon: Copy, label: "Dupliquer", onClick: () => ouvrirFormulaire("copie", f) };
-    if (f.statut === "annulee") return [{ icon: Printer, label: "Imprimer / PDF", onClick: () => imprimer(f) }, copier];
+    if (f.statut === "annulee") return [{ icon: Printer, label: "Imprimer", onClick: () => imprimer(f) }, { icon: FileDown, label: "Télécharger le PDF", onClick: () => void telechargerPdf(f) }, copier];
     const ei = f.einvoice?.statut;
-    const actions: RowAction[] = [{ icon: Printer, label: "Imprimer / PDF", onClick: () => imprimer(f) }];
+    const actions: RowAction[] = [{ icon: Printer, label: "Imprimer", onClick: () => imprimer(f) }, { icon: FileDown, label: "Télécharger le PDF", onClick: () => void telechargerPdf(f) }];
     if (modifiable(f)) actions.push({ icon: Pencil, label: "Modifier", onClick: () => ouvrirFormulaire("modification", f) });
     actions.push(copier);
     if (ei === "signee" || ei === "deposee" || ei === "validee" || ei === "rejetee")
@@ -542,15 +568,18 @@ export function FacturationPage() {
                   {libelleBoutonEi(f)}
                 </Button>
               )}
-              <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 shadow-none" onClick={() => imprimer(f)} aria-label="Imprimer" title="Imprimer / PDF">
+              <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 shadow-none" onClick={() => imprimer(f)} aria-label="Imprimer" title="Imprimer">
                 <Printer className="size-3.5" aria-hidden="true" />
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 shadow-none" onClick={() => void telechargerPdf(f)} aria-label="Télécharger le PDF" title="Télécharger le PDF">
+                <FileDown className="size-3.5" aria-hidden="true" />
               </Button>
             </span>
             <LedgerRowMenu actions={actionsLigne(f)} />
           </div>
         );
       },
-      meta: { headerClassName: "w-[190px]", cellClassName: "w-[190px]" },
+      meta: { headerClassName: "w-[232px]", cellClassName: "w-[232px]" },
     },
   ];
 
@@ -659,6 +688,9 @@ export function FacturationPage() {
                 {selection.length} facture{selection.length > 1 ? "s" : ""} sélectionnée{selection.length > 1 ? "s" : ""}
               </span>
               <div className="flex items-center gap-1">
+                <Button type="button" variant="ghost" size="sm" className="text-primary hover:bg-primary/5 hover:text-primary" onClick={() => void telechargerSelectionPdf()}>
+                  <FileDown className="mr-1 size-4" aria-hidden="true" /> PDF
+                </Button>
                 <Button type="button" variant="ghost" size="sm" className="text-primary hover:bg-primary/5 hover:text-primary" onClick={() => exporter("xlsx")}>
                   Exporter
                 </Button>

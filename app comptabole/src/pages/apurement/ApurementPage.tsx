@@ -15,6 +15,10 @@ import {
   Settings2,
   FileText,
   ListChecks,
+  LayoutDashboard,
+  Users,
+  ShieldCheck,
+  ShoppingBag,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { tnd } from "@/lib/apurement";
@@ -27,6 +31,7 @@ import { useSocietes } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useApurement } from "@/store/apurement";
 import { EntitySheet } from "./EntitySheet";
+import "./apurement.css";
 import { RemindersPanel } from "./RemindersPanel";
 import { ImportPanel } from "./ImportPanel";
 import { DeclarationPanel } from "./DeclarationPanel";
@@ -46,6 +51,52 @@ const labels = {
   bcs: "Bons de commande",
   factures: "Factures",
 };
+const sections = [
+  {
+    id: "overview",
+    label: "Mon trimestre",
+    description: "Vue d’ensemble et prochaines actions",
+    icon: LayoutDashboard,
+  },
+  {
+    id: "factures",
+    label: "Factures",
+    description: "Saisie, imports et justificatifs",
+    icon: FileText,
+  },
+  {
+    id: "controls",
+    label: "À compléter",
+    description: "Informations manquantes et revue",
+    icon: ListChecks,
+  },
+  {
+    id: "declarations",
+    label: "Déclaration",
+    description: "Validation et suivi du dépôt",
+    icon: ClipboardCheck,
+  },
+];
+const referenceSections = [
+  {
+    id: "fournisseurs",
+    label: "Fournisseurs",
+    description: "Identités fiscales des fournisseurs",
+    icon: Users,
+  },
+  {
+    id: "autorisations",
+    label: "Autorisations",
+    description: "Références et conditions",
+    icon: ShieldCheck,
+  },
+  {
+    id: "bcs",
+    label: "Bons de commande",
+    description: "Commandes et rattachements",
+    icon: ShoppingBag,
+  },
+];
 const initialYear = Number(
   new Intl.DateTimeFormat("en", {
     year: "numeric",
@@ -274,7 +325,7 @@ export function ApurementPage() {
   if (societeId && !permissions.canSeeSociete(societeId))
     return <p role="alert">Société hors périmètre.</p>;
   return (
-    <div className="min-w-0 space-y-4">
+    <div className="apurement-page min-w-0 space-y-4">
       <div data-tour="apurement-identity">
         <SignatureLedgerBanner
           icon={ClipboardCheck}
@@ -326,10 +377,18 @@ export function ApurementPage() {
         />
       </div>
       <div
-        className="flex flex-wrap items-end gap-3 border-t pt-3"
+        className="apurement-period flex flex-wrap items-end gap-4"
         data-tour="apurement-period"
       >
-        <label className="text-sm">
+        <div className="mr-auto min-w-0 self-center">
+          <h2 className="text-sm font-semibold text-primary">
+            Période de travail
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Choisissez la période des factures et de la déclaration.
+          </p>
+        </div>
+        <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
           Année
           <Input
             aria-label="Année"
@@ -341,23 +400,58 @@ export function ApurementPage() {
             className="w-28"
           />
         </label>
-        <label className="text-sm">
+        <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
           Trimestre
           <select
-            className="block h-10 rounded border bg-background px-3"
+            className="block h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
             aria-label="Trimestre"
             value={trimestre}
             onChange={(e) => patchParams("trimestre", e.target.value)}
           >
             {["T1", "T2", "T3", "T4"].map((x) => (
-              <option key={x}>{x}</option>
+              <option key={x} value={x}>
+                {x} ·{" "}
+                {
+                  {
+                    T1: "Janvier – mars",
+                    T2: "Avril – juin",
+                    T3: "Juillet – septembre",
+                    T4: "Octobre – décembre",
+                  }[x]
+                }
+              </option>
             ))}
           </select>
         </label>
         {societeId && (
-          <Link className="text-sm underline" to={`/apurement?${period}`}>
-            Toutes les sociétés
-          </Link>
+          <label className="apurement-dossier-selector flex min-w-0 items-center gap-2 text-sm">
+            <span className="sr-only">Dossier</span>
+            <select
+              aria-label="Dossier : références et réglages"
+              className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
+              value={
+                view === "documents"
+                  ? "documents"
+                  : view === "registre" && activeKind !== "factures"
+                    ? activeKind
+                    : ""
+              }
+              onChange={(e) =>
+                selectView(
+                  e.target.value === "documents" ? "documents" : "registre",
+                  e.target.value === "documents" ? undefined : e.target.value,
+                )
+              }
+            >
+              <option value="" disabled>
+                Dossier…
+              </option>
+              <option value="fournisseurs">Fournisseurs</option>
+              <option value="autorisations">Autorisations</option>
+              <option value="bcs">Bons de commande</option>
+              <option value="documents">Profil fiscal et rappels</option>
+            </select>
+          </label>
         )}
       </div>
       {help && (
@@ -425,7 +519,7 @@ export function ApurementPage() {
             onChange={(e) => setCompanyQuery(e.target.value)}
             className="max-w-lg"
           />
-          <div className="hidden md:block">
+          <div className="apurement-data-table hidden md:block">
             <DataTable
               data={shownCompanies}
               getRowId={(s) => s.id}
@@ -486,19 +580,15 @@ export function ApurementPage() {
       ) : (
         <>
           <nav
-            className="grid min-w-0 grid-cols-2 gap-1 border-b pb-2 sm:flex sm:max-w-full sm:overflow-x-auto"
+            className="apurement-navigation"
             aria-label="Dossier Apurement"
             data-tour="apurement-sections"
           >
-            {[
-              ["overview", "Mon trimestre"],
-              ["factures", "Factures"],
-              ["controls", "À compléter"],
-              ["declarations", "Déclaration"],
-            ].map(([v, label]) => (
+            {sections.map(({ id: v, label, description, icon: Icon }) => (
               <Button
                 key={v}
-                className="shrink-0"
+                className="apurement-tab"
+                aria-label={label}
                 aria-current={
                   (
                     v === "factures"
@@ -534,37 +624,17 @@ export function ApurementPage() {
                   )
                 }
               >
-                {label}
+                <span className="apurement-tab-icon" aria-hidden="true">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="apurement-tab-copy">
+                  <span className="apurement-tab-title">{label}</span>
+                  <span className="apurement-tab-description">
+                    {description}
+                  </span>
+                </span>
               </Button>
             ))}
-            <label className="col-span-2 flex min-w-0 items-center gap-2 text-sm sm:ml-auto sm:shrink-0">
-              <span className="sr-only">Dossier</span>
-              <select
-                aria-label="Dossier : références et réglages"
-                className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
-                value={
-                  view === "documents"
-                    ? "documents"
-                    : view === "registre" && activeKind !== "factures"
-                      ? activeKind
-                      : ""
-                }
-                onChange={(e) =>
-                  selectView(
-                    e.target.value === "documents" ? "documents" : "registre",
-                    e.target.value === "documents" ? undefined : e.target.value,
-                  )
-                }
-              >
-                <option value="" disabled>
-                  Dossier…
-                </option>
-                <option value="fournisseurs">Fournisseurs</option>
-                <option value="autorisations">Autorisations</option>
-                <option value="bcs">Bons de commande</option>
-                <option value="documents">Profil fiscal et rappels</option>
-              </select>
-            </label>
           </nav>
           {stockSource && (
             <p className="border-l pl-3 text-sm">
@@ -678,21 +748,32 @@ export function ApurementPage() {
               </div>
               {activeKind !== "factures" && (
                 <nav
-                  className="flex flex-wrap gap-1 border-b pb-2"
+                  className="apurement-navigation apurement-navigation--references"
                   aria-label="Registres Apurement"
                   data-tour="apurement-registers"
                 >
-                  {Object.entries(labels)
-                    .filter(([key]) => key !== "factures")
-                    .map(([key, label]) => (
+                  {referenceSections.map(
+                    ({ id: key, label, description, icon: Icon }) => (
                       <Button
                         key={key}
+                        className="apurement-tab"
+                        aria-label={label}
+                        aria-current={key === activeKind ? "page" : undefined}
                         variant={key === activeKind ? "secondary" : "ghost"}
                         onClick={() => patchParams("registre", key)}
                       >
-                        {label}
+                        <span className="apurement-tab-icon" aria-hidden="true">
+                          <Icon className="h-5 w-5" />
+                        </span>
+                        <span className="apurement-tab-copy">
+                          <span className="apurement-tab-title">{label}</span>
+                          <span className="apurement-tab-description">
+                            {description}
+                          </span>
+                        </span>
                       </Button>
-                    ))}
+                    ),
+                  )}
                 </nav>
               )}
               <div className="flex flex-wrap gap-2">
@@ -772,7 +853,7 @@ export function ApurementPage() {
                   />
                 )}
               </div>
-              <div className="hidden md:block">
+              <div className="apurement-data-table hidden md:block">
                 <DataTable
                   key={`${activeKind}-${page}`}
                   data={result.items}

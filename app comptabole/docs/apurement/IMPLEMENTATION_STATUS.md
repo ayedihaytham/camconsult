@@ -1,5 +1,54 @@
 # Checkpoint Apurement — 17 octobre 2026
 
+## Onglets en blocs et typographie — 18 octobre 2026
+
+En complément des modifications de présentation en cours, onglets principaux
+et registres de références habillés en blocs avec icône, titre et description,
+répartis sur toute la largeur. État actif bleu marine, icône dorée et focus
+visible ; grille deux colonnes sur téléphone, quatre sur grand écran. Sélecteur
+Dossier déplacé dans la barre de période pour laisser toute la ligne aux onglets.
+Typographie sans uniforme et hiérarchie h1/h2/h3/h4 appliquées aux sections et
+aux quatre dialogues, avec titres blancs conservés dans leurs bandeaux bleus.
+
+Vérification rapide : build TypeScript/Vite réussi, cinq tests frontend ciblés
+réussis et onze parcours Chrome réussis, dont saisie combinée, preuves et imports.
+Surfaces inspectées à 375/768/1024/1440 px et quatre types de dialogue contrôlés.
+Aucune erreur JavaScript ; surfaces Apurement contenues. Le débordement du Topbar
+global, déjà documenté, reste distinct et inchangé. `git diff --check` réussi.
+Journaux `%TEMP%/apurement-tabs-*.log`. Aucun changement métier ou backend.
+
+---
+
+## Présentation et formulaires centrés — 18 octobre 2026
+
+- Barre de période reconstruite : surface dédiée, intitulé explicite, contrôles
+  alignés et mois du trimestre lisibles ; lien « Toutes les sociétés » supprimé
+  de cette section. Navigation sur surface blanche et sélection bleu marine.
+- Quatre formulaires fournisseur/autorisation/BC/facture, en création comme en
+  modification, convertis du tiroir en dialogue centré Radix existant : largeur
+  maximale 1024 px, grille deux colonnes sur grand écran, une sur téléphone,
+  contenu défilant, titre bleu et actions fixes. Focus et fermeture conservés.
+- Tables des sociétés, registres et imports : fond blanc, cadre arrondi, en-têtes
+  bleu/slate, lignes alternées, survol calme et montants alignés. CSS limité aux
+  classes Apurement ; aucune modification du composant partagé ou du backend.
+
+Fichiers : `ApurementPage.tsx`, `EntitySheet.tsx`, `ImportPanel.tsx` et
+`src/pages/apurement/apurement.css`.
+Lint, build et `git diff --check` réussis. Suite globale : **1426 tests réussis,
+42 préexistants ignorés**, 163 fichiers réussis et un ignoré. Chrome : onze
+parcours réussis dont saisie combinée puis upload ; 28 mesures des surfaces à
+375/768/1024/1440 px et positions centrées des quatre types de formulaire
+vérifiées. Deux passes visuelles, aucune erreur JavaScript.
+
+Limite indépendante observée : à 375 px, les contrôles d’historique du Topbar
+global dépassent la largeur. Diagnostic DOM : largeur document 431 px, ramenée
+à 375 px lorsque le seul Topbar est temporairement masqué dans le navigateur.
+Les surfaces Apurement restent contenues et les dialogues respectent le viewport.
+Topbar partagé laissé intact, hors demande de cette modification.
+Journaux `%TEMP%/apurement-dialog-*.log`. Aucune production modifiée.
+
+---
+
 ## Simplification supplémentaire — 18 octobre 2026
 
 - Bandeau bleu et typographie `SignatureLedgerBanner` rétablis ; tableaux

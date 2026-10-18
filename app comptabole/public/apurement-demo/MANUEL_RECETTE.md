@@ -1,5 +1,10 @@
 # Apurement TVA — manuel de recette complet
 
+Pour l’utilisation courante, commencez par le [guide simple](GUIDE_UTILISATION.md).
+Ce document reste un manuel de recette avancée. Les actions de démonstration et
+BCD de test ont été retirées des écrans courants ; le scénario technique T08
+reste vérifiable par l’API de recette, sans déblocage de l’export officiel.
+
 Version du 18 octobre 2026. Interface française. Tests exclusivement fictifs,
 à réaliser dans un environnement de recette et avec des sociétés dédiées.
 Ne jamais utiliser les preuves simulées pour un dossier réel ou un dépôt fiscal.
@@ -181,7 +186,7 @@ existant ; elle ne doit pas créer deux versions éditables concurrentes.
 ### T07 — règle interne et approbation simulée
 
 Dans **Justificatifs de cette déclaration**, joindre `decision-arrondi-TEST.pdf`.
-Cliquer **Actualiser les justificatifs de dépôt** pour actualiser le sélecteur.
+Le sélecteur de preuve se met à jour automatiquement après l’ajout.
 Ouvrir **Règle d’arrondi**, saisir :
 
 ```text
@@ -202,7 +207,10 @@ de réessayer : ne pas chercher à contourner le conflit.
 
 ### T08 — génération BCD de test et verrou officiel
 
-Télécharger **BCD de test — non officiel** : deux DF, EF/DF/TF de largeurs
+Ce scénario est réservé à l’API technique : POST `/api/apurement/declarations/:id/exports`
+avec `{"type":"bcd-test"}`, dans une session interne autorisée de recette.
+Il n’existe plus de bouton de test dans le parcours courant.
+Attendu dans le fichier : deux DF, EF/DF/TF de largeurs
 220/521/198 et sommes T04. Tous les BC doivent être numériques, les dates
 complètes et les MF conformes au profil observé ; le modèle de T02/T03 le permet.
 Attendu : nom TEST_NON_OFFICIEL, aucun dépôt créé. Le bouton officiel reste
@@ -211,8 +219,8 @@ utilisable et le serveur continue à le refuser.
 
 ### T09 — dépôt manuel puis acceptation
 
-Joindre `preuve-depot-TEST.pdf` à **cette déclaration**, puis actualiser les
-justificatifs. Dans **Registre des dépôts manuels** :
+Joindre `preuve-depot-TEST.pdf` à **cette déclaration** ; le sélecteur se met
+à jour automatiquement. Dans **Registre des dépôts manuels** :
 
 ```text
 Date de dépôt : 2026-10-18

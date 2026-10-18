@@ -35,9 +35,13 @@ import { registerDocuments } from "../apurement/documents.js";
 import { registerReminders } from "../apurement/reminders.js";
 import { registerImports } from "../apurement/imports.js";
 import { registerDeclarations } from "../apurement/declarations.js";
+import { enterPurchase } from "../apurement/intake.js";
 
 export const apurementRouter = safeRouter(Router());
 apurementRouter.use(requireAuth, requireCabinet);
+apurementRouter.post("/achats", async (req, res) =>
+  res.status(201).json(dto(await enterPurchase(req.session, req.body))),
+);
 registerDocuments(apurementRouter);
 registerReminders(apurementRouter);
 registerImports(apurementRouter);

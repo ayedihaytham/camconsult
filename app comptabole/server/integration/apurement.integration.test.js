@@ -1324,6 +1324,118 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)(
         montant_tnd: "1250.123",
       });
     });
+    it("enters an entire purchase once from one form without silently verifying its new supplier", async () => {
+      const body = {
+        societeId: soc,
+        requestId: "00000000-0000-4000-8000-000000000101",
+        fournisseur: {
+          raisonSociale: "SAISIE UNIQUE SYNTHETIQUE",
+          matriculeFiscalRaw: "1111111ABC000",
+        },
+        bc: {
+          numero: "000901",
+          dateBc: "2025-01-01",
+          autorisation: { numero: "AUT-SAISIE-UNIQUE" },
+        },
+        facture: {
+          numeroFacture: "FAC-SAISIE-UNIQUE",
+          dateFacture: "2025-01-15",
+          datePrecision: "day",
+          montantHtMillimes: "1234567",
+          tauxTvaBps: 1900,
+          annee: 2025,
+          trimestre: "T1",
+        },
+      };
+      const first = await admin("POST", "/api/apurement/achats", body);
+      expect(first.status, first.texte).toBe(201);
+      expect(first.json).toMatchObject({
+        montantHtMillimes: "1234567",
+        tvaSuspendueMillimes: "234568",
+      });
+      const repeated = await admin("POST", "/api/apurement/achats", body);
+      expect(repeated.status).toBe(201);
+      expect(repeated.json.id).toBe(first.json.id);
+      expect(
+        (
+          await sql.query(
+            "select count(*)::int n from apurement_factures where numero_facture='FAC-SAISIE-UNIQUE'",
+          )
+        ).rows[0].n,
+      ).toBe(1);
+      expect(
+        (
+          await sql.query(
+            "select matricule_fiscal_normalise from apurement_fournisseurs where id=$1",
+            [first.json.fournisseurId],
+          )
+        ).rows[0].matricule_fiscal_normalise,
+      ).toBeNull();
+      expect(
+        (
+          await admin("POST", "/api/apurement/achats", {
+            ...body,
+            facture: { ...body.facture, montantHtMillimes: "2000000" },
+          })
+        ).status,
+      ).toBe(409);
+    });
+    it("rolls back all new purchase references on invalid money and keeps existing role and tenant guards", async () => {
+      const before = (
+        await sql.query(
+          "select (select count(*) from apurement_factures)::int f,(select count(*) from apurement_bons_commande)::int b,(select count(*) from apurement_autorisations)::int a,(select count(*) from apurement_fournisseurs)::int s,(select count(*) from apurement_audit)::int audit",
+        )
+      ).rows[0];
+      const body = {
+        societeId: soc,
+        requestId: "00000000-0000-4000-8000-000000000102",
+        fournisseur: { raisonSociale: "ROLLBACK SYNTHETIQUE" },
+        bc: {
+          numero: "000902",
+          dateBc: "2025-01-01",
+          autorisation: { numero: "ROLLBACK AUT" },
+        },
+        facture: {
+          numeroFacture: "ROLLBACK FAC",
+          montantHtMillimes: "-1",
+          tauxTvaBps: 1900,
+          annee: 2025,
+          trimestre: "T1",
+        },
+      };
+      expect((await admin("POST", "/api/apurement/achats", body)).status).toBe(
+        400,
+      );
+      expect(
+        (
+          await sql.query(
+            "select (select count(*) from apurement_factures)::int f,(select count(*) from apurement_bons_commande)::int b,(select count(*) from apurement_autorisations)::int a,(select count(*) from apurement_fournisseurs)::int s,(select count(*) from apurement_audit)::int audit",
+          )
+        ).rows[0],
+      ).toEqual(before);
+      expect((await client("POST", "/api/apurement/achats", body)).status).toBe(
+        403,
+      );
+      expect(
+        (
+          await collab("POST", "/api/apurement/achats", {
+            ...body,
+            societeId: other,
+          })
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await admin("POST", "/api/apurement/achats", {
+            ...body,
+            societeId: other,
+            fournisseur: supplier.id,
+            bc: bc.id,
+            facture: { ...body.facture, montantHtMillimes: "1000" },
+          })
+        ).status,
+      ).toBe(422);
+    });
     it("paginates 10000 synthetic invoices and bounded controls without leaking another company", async () => {
       const supplierPerf = await create("fournisseurs", {
         societeId: other,

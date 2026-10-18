@@ -15,13 +15,13 @@ import {
   Settings2,
   FileText,
   ListChecks,
-  FolderOpen,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { tnd } from "@/lib/apurement";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DataTable } from "@/components/common/DataTable";
+import { LedgerTable as DataTable } from "@/components/ledger/LedgerTable";
+import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import { useSocietes } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -275,164 +275,130 @@ export function ApurementPage() {
     return <p role="alert">Société hors périmètre.</p>;
   return (
     <div className="min-w-0 space-y-4">
-      <header
-        className="space-y-4 rounded-lg border bg-background p-4 sm:p-5"
-        data-tour="apurement-identity"
-      >
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <ClipboardCheck className="mt-1 h-6 w-6 shrink-0 text-primary" />
-            <div className="min-w-0">
-              <h1 className="text-xl font-semibold text-primary sm:text-2xl">
-                Apurement TVA
-              </h1>
-              <p className="mt-1 break-words text-sm text-muted-foreground">
-                {society ? society.raisonSociale : "Choisir un dossier société"}{" "}
-                · Achats en suspension de TVA
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => setHelp((v) => !v)}
-              aria-expanded={help}
-            >
-              <BookOpen className="mr-2 h-4 w-4" />
-              Mode d’emploi
-            </Button>
-            {societeId && view === "registre" && (
-              <>
-                {activeKind === "factures" && (
-                  <Button
-                    variant="outline"
-                    onClick={() => selectView("imports")}
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Importer
-                  </Button>
-                )}
-                <Button onClick={() => setEditing("new")}>
+      <div data-tour="apurement-identity">
+        <SignatureLedgerBanner
+          icon={ClipboardCheck}
+          eyebrow="Comptabilité · achats"
+          title="Apurement TVA"
+          description={
+            society
+              ? `${society.raisonSociale} · Achats en suspension de TVA`
+              : "Retrouvez les achats et la déclaration de chaque société"
+          }
+          metrics={
+            stats
+              ? [
+                  { label: "Factures", value: stats.factures },
+                  { label: "HT", value: tnd(stats.ht) },
+                  { label: "TVA suspendue", value: tnd(stats.tva) },
+                ]
+              : []
+          }
+          actions={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setHelp((v) => !v)}
+                aria-expanded={help}
+              >
+                <BookOpen className="mr-2 h-4 w-4" />
+                Comment ça marche ?
+              </Button>
+              {societeId && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (view === "registre") setEditing("new");
+                    else {
+                      selectView("registre", "factures");
+                      setEditing("new");
+                    }
+                  }}
+                >
                   <Plus className="mr-2 h-4 w-4" />
-                  Ajouter{" "}
-                  {activeKind === "bcs"
-                    ? "un BC"
-                    : activeKind === "factures"
-                      ? "une facture"
-                      : activeKind === "autorisations"
-                        ? "une autorisation"
-                        : "un fournisseur"}
+                  {view === "registre" && activeKind !== "factures"
+                    ? `Ajouter ${activeKind === "bcs" ? "un BC" : activeKind === "autorisations" ? "une autorisation" : "un fournisseur"}`
+                    : "Ajouter une facture"}
                 </Button>
-              </>
-            )}
-          </div>
-        </div>
-        <div
-          className="flex flex-wrap items-end gap-3 border-t pt-3"
-          data-tour="apurement-period"
-        >
-          <label className="text-sm">
-            Année
-            <Input
-              aria-label="Année"
-              type="number"
-              min={2000}
-              max={2100}
-              value={annee}
-              onChange={(e) => patchParams("annee", e.target.value)}
-              className="w-28"
-            />
-          </label>
-          <label className="text-sm">
-            Trimestre
-            <select
-              className="block h-10 rounded border bg-background px-3"
-              aria-label="Trimestre"
-              value={trimestre}
-              onChange={(e) => patchParams("trimestre", e.target.value)}
-            >
-              {["T1", "T2", "T3", "T4"].map((x) => (
-                <option key={x}>{x}</option>
-              ))}
-            </select>
-          </label>
-          {societeId && (
-            <Link className="text-sm underline" to={`/apurement?${period}`}>
-              Toutes les sociétés
-            </Link>
-          )}
-        </div>
-        {stats && (
-          <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t pt-3 text-sm">
-            <div>
-              <dt className="inline text-muted-foreground">BC </dt>
-              <dd className="inline font-medium tabular-nums">{stats.bcs}</dd>
-            </div>
-            <div>
-              <dt className="inline text-muted-foreground">Factures </dt>
-              <dd className="inline font-medium tabular-nums">
-                {stats.factures}
-              </dd>
-            </div>
-            <div>
-              <dt className="inline text-muted-foreground">HT </dt>
-              <dd className="inline font-medium tabular-nums">
-                {tnd(stats.ht)}
-              </dd>
-            </div>
-            <div>
-              <dt className="inline text-muted-foreground">TVA suspendue </dt>
-              <dd className="inline font-semibold tabular-nums">
-                {tnd(stats.tva)}
-              </dd>
-            </div>
-          </dl>
+              )}
+            </>
+          }
+        />
+      </div>
+      <div
+        className="flex flex-wrap items-end gap-3 border-t pt-3"
+        data-tour="apurement-period"
+      >
+        <label className="text-sm">
+          Année
+          <Input
+            aria-label="Année"
+            type="number"
+            min={2000}
+            max={2100}
+            value={annee}
+            onChange={(e) => patchParams("annee", e.target.value)}
+            className="w-28"
+          />
+        </label>
+        <label className="text-sm">
+          Trimestre
+          <select
+            className="block h-10 rounded border bg-background px-3"
+            aria-label="Trimestre"
+            value={trimestre}
+            onChange={(e) => patchParams("trimestre", e.target.value)}
+          >
+            {["T1", "T2", "T3", "T4"].map((x) => (
+              <option key={x}>{x}</option>
+            ))}
+          </select>
+        </label>
+        {societeId && (
+          <Link className="text-sm underline" to={`/apurement?${period}`}>
+            Toutes les sociétés
+          </Link>
         )}
-      </header>
+      </div>
       {help && (
         <section className="space-y-3 rounded-lg border bg-background p-4">
-          <h2 className="font-semibold">Comment préparer un trimestre ?</h2>
+          <h2 className="font-semibold">À quoi sert ce module ?</h2>
+          <p className="text-sm">
+            Certains achats sont réalisés sans payer immédiatement la TVA au
+            fournisseur. Ce dossier rassemble les factures et les documents qui
+            justifient cette suspension, puis prépare leur récapitulatif
+            trimestriel.
+          </p>
           <ol className="list-inside list-decimal space-y-2 text-sm">
             <li>
-              <strong>Préparer les références :</strong> fournisseur,
-              autorisation puis BC.
+              <strong>Ajoutez vos factures.</strong> Recopiez le fournisseur, la
+              date et les montants. Les références manquantes peuvent être
+              créées dans le même formulaire.
             </li>
             <li>
-              <strong>Enregistrer les achats :</strong> saisir, importer ou
-              rapprocher une facture de Stock. Le taux s’écrit 19 pour 19 %.
+              <strong>Complétez ce qui manque.</strong> Joignez les documents et
+              suivez les indications dans « À compléter ».
             </li>
             <li>
-              <strong>Joindre les preuves :</strong> facture, BC et autorisation
-              ; compléter dates et identités.
-            </li>
-            <li>
-              <strong>Contrôler puis déclarer :</strong> corriger les blocages,
-              faire revoir les avertissements, valider et suivre le dépôt.
+              <strong>Passez au responsable.</strong> Il vérifie le dossier,
+              approuve le récapitulatif et renseigne le dépôt avec sa preuve.
             </li>
           </ol>
           <p className="text-sm text-muted-foreground">
-            BC : bon de commande. Une autorisation peut couvrir plusieurs BC ;
-            une facture ne peut relever que d’un seul BC.
+            HT = montant avant TVA. TVA suspendue = taxe suivie dans ce dossier.
+            BC = bon de commande. Une autorisation peut couvrir plusieurs bons ;
+            une facture relève d’un seul bon. Ne devinez pas une référence
+            absente : enregistrez pour la compléter plus tard.
           </p>
           <a
-            className="inline-block text-sm font-medium text-primary underline"
-            href="/apurement-demo/MANUEL_RECETTE.md"
+            className="text-sm font-medium text-primary underline"
+            href="/apurement-aide/GUIDE_UTILISATION.md"
             download
           >
-            Télécharger le manuel de test complet et les valeurs fictives
+            Télécharger le guide simple
           </a>
         </section>
       )}
-      <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer py-1">
-          Calcul provisoire · Export BCD officiel désactivé
-        </summary>
-        <p className="pt-2">
-          Les règles d’arrondi doivent être approuvées avant validation
-          financière. Excel/PDF sont des rapports internes ; le BCD de test ne
-          doit pas être déposé comme officiel.
-        </p>
-      </details>
       {error && (
         <div
           role="alert"
@@ -520,17 +486,15 @@ export function ApurementPage() {
       ) : (
         <>
           <nav
-            className="flex max-w-full gap-1 overflow-x-auto border-b pb-2"
+            className="grid min-w-0 grid-cols-2 gap-1 border-b pb-2 sm:flex sm:max-w-full sm:overflow-x-auto"
             aria-label="Dossier Apurement"
             data-tour="apurement-sections"
           >
             {[
-              ["overview", "Vue d’ensemble"],
-              ["factures", "Achats"],
-              ["registre", "Fournisseurs & BC"],
-              ["controls", "Contrôles"],
-              ["declarations", "Déclarations"],
-              ["documents", "Réglages"],
+              ["overview", "Mon trimestre"],
+              ["factures", "Factures"],
+              ["controls", "À compléter"],
+              ["declarations", "Déclaration"],
             ].map(([v, label]) => (
               <Button
                 key={v}
@@ -573,6 +537,34 @@ export function ApurementPage() {
                 {label}
               </Button>
             ))}
+            <label className="col-span-2 flex min-w-0 items-center gap-2 text-sm sm:ml-auto sm:shrink-0">
+              <span className="sr-only">Dossier</span>
+              <select
+                aria-label="Dossier : références et réglages"
+                className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
+                value={
+                  view === "documents"
+                    ? "documents"
+                    : view === "registre" && activeKind !== "factures"
+                      ? activeKind
+                      : ""
+                }
+                onChange={(e) =>
+                  selectView(
+                    e.target.value === "documents" ? "documents" : "registre",
+                    e.target.value === "documents" ? undefined : e.target.value,
+                  )
+                }
+              >
+                <option value="" disabled>
+                  Dossier…
+                </option>
+                <option value="fournisseurs">Fournisseurs</option>
+                <option value="autorisations">Autorisations</option>
+                <option value="bcs">Bons de commande</option>
+                <option value="documents">Profil fiscal et rappels</option>
+              </select>
+            </label>
           </nav>
           {stockSource && (
             <p className="border-l pl-3 text-sm">
@@ -608,53 +600,39 @@ export function ApurementPage() {
                 Préparer {trimestre} {annee}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {stats?.factures ?? "—"} facture(s) affectée(s) à{" "}
-                {stats?.bcs ?? "—"} BC sur cette période. La revue des
-                justificatifs, la déclaration et le dépôt sont suivis
-                séparément.
+                Ajoutez vos achats, complétez les documents demandés puis
+                transmettez le dossier au responsable pour vérification.
               </p>
               <div className="divide-y rounded-lg border bg-background">
                 {[
                   {
-                    icon: FolderOpen,
-                    title: "Préparer les fournisseurs et BC",
-                    text: `${refs.fournisseurs.length} fournisseur(s), ${refs.autorisations.length} autorisation(s) et ${refs.bcs.length} BC dans le dossier.`,
-                    action: "Ouvrir les références",
-                    click: () =>
-                      selectView(
-                        "registre",
-                        refs.fournisseurs.length
-                          ? refs.autorisations.length
-                            ? "bcs"
-                            : "autorisations"
-                          : "fournisseurs",
-                      ),
-                  },
-                  {
                     icon: FileText,
-                    title: "Enregistrer les achats du trimestre",
-                    text: "Saisissez une facture ou importez votre fichier. Ajoutez les justificatifs depuis chaque fiche.",
-                    action: "Ouvrir les factures",
-                    click: () => selectView("registre", "factures"),
+                    title: "Ajouter mes factures",
+                    text: "Recopiez votre facture. Vous pouvez créer son fournisseur et son bon de commande sans quitter la saisie.",
+                    action: "Ajouter une facture",
+                    click: () => {
+                      selectView("registre", "factures");
+                      setEditing("new");
+                    },
                   },
                   {
                     icon: ListChecks,
-                    title: "Vérifier avant validation",
+                    title: "Compléter ce qui manque",
                     text: "Complétez les dates, les identités fiscales et les preuves. Faites revoir les exceptions.",
-                    action: "Contrôler ce trimestre",
+                    action: "Voir ce qui manque",
                     click: () => selectView("controls"),
                   },
                   {
                     icon: ClipboardCheck,
-                    title: "Préparer la déclaration et suivre le dépôt",
+                    title: "Faire vérifier et déposer le récapitulatif",
                     text: "Une version validée reste figée. Le dépôt se renseigne séparément avec sa preuve.",
-                    action: "Ouvrir les déclarations",
+                    action: "Ouvrir la déclaration",
                     click: () => selectView("declarations"),
                   },
                 ].map((step) => (
                   <div
                     key={step.title}
-                    className="flex flex-wrap items-center justify-between gap-3 p-4"
+                    className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex min-w-0 flex-1 items-start gap-3">
                       <step.icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
@@ -667,7 +645,7 @@ export function ApurementPage() {
                     </div>
                     <Button
                       variant="outline"
-                      className="max-w-full whitespace-normal"
+                      className="max-w-full self-start whitespace-normal sm:self-auto"
                       onClick={step.click}
                     >
                       {step.action}
@@ -1038,7 +1016,17 @@ export function ApurementPage() {
                 if (factureId || bcId)
                   navigate(`/apurement/${societeId}?${period}`);
               }}
-              onSaved={refresh}
+              onSaved={(created) => {
+                refresh();
+                if (created) {
+                  setEditing(created);
+                  requestAnimationFrame(() =>
+                    document
+                      .getElementById("apurement-record-documents")
+                      ?.scrollIntoView({ block: "start" }),
+                  );
+                }
+              }}
             />
           )}
           {view === "imports" && (

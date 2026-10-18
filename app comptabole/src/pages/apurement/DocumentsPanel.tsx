@@ -35,10 +35,12 @@ export function DocumentsPanel({
   societeId,
   parentType,
   parentId,
+  onPiecesChanged,
 }: {
   societeId: string;
   parentType: string;
   parentId: string;
+  onPiecesChanged?: (pieces: Piece[]) => void;
 }) {
   const [pieces, setPieces] = useState<Piece[]>([]),
     [sources, setSources] = useState<Source[]>([]),
@@ -67,7 +69,10 @@ export function DocumentsPanel({
         .get<
           Piece[]
         >(`/apurement/pieces?societeId=${societeId}&parentType=${parentType}&parentId=${parentId}`)
-        .then(setPieces),
+        .then((rows) => {
+          setPieces(rows);
+          return rows;
+        }),
     [societeId, parentType, parentId],
   );
   useEffect(() => {
@@ -96,7 +101,8 @@ export function DocumentsPanel({
         parentId,
         ...data,
       });
-      await load();
+      const rows = await load();
+      onPiecesChanged?.(rows);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Association impossible.");
     } finally {

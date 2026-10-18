@@ -8,14 +8,23 @@ collaborateurs revoient les anomalies, valident et enregistrent les dépôts.
 Les comptes société n’ont aucun accès, y compris aux téléchargements.
 
 Pour tester depuis zéro : [manuel de recette complet](MANUEL_RECETTE.md),
-25 scénarios avec valeurs à copier et résultats attendus. Le bouton **Mode
-d’emploi** du module donne accès au manuel et le formulaire d’import propose
-un classeur fictif. Le kit complet est dans `public/apurement-demo/`.
+25 scénarios avec valeurs à copier et résultats attendus, conservés pour la
+recette technique. Le kit est dans `public/apurement-demo/`, sans lien de
+démonstration dans le parcours courant.
 
-Organisation : **Vue d’ensemble** guide le parcours ; **Fournisseurs & BC**
-prépare les références ; **Achats** regroupe saisie et import ; **Contrôles**
-identifie les corrections ; **Déclarations** suit validation et dépôt ;
-**Réglages** contient profil fiscal et rappels. Les preuves se joignent aux fiches.
+**Parcours courant simplifié :** consulter le [guide sans prérequis comptables](GUIDE_UTILISATION.md).
+Le bandeau bleu et les tables Ledger sont rétablis. L’accueil propose trois
+actions : ajouter des factures, compléter les informations, faire vérifier la
+déclaration. Les références et réglages passent par **Dossier…**.
+La première facture peut créer fournisseur, autorisation et BC dans une seule
+transaction. Après enregistrement, la fiche reste ouverte sur les justificatifs.
+Les sélecteurs de preuve se mettent à jour après upload, sans actualisation manuelle.
+Les liens de démonstration et l’action d’export BCD de test ne sont plus présentés
+dans le parcours courant ; les archives et garde-fous fiscaux sont conservés.
+
+Organisation : **Mon trimestre**, **Factures**, **À compléter**, **Déclaration**.
+Le menu **Dossier…** contient les références, le profil fiscal et les rappels.
+Les preuves se joignent aux fiches ; **Comment ça marche ?** donne accès au guide.
 
 1. Choisir société, année et trimestre. Le contexte société de la barre supérieure
    reste partagé avec les autres modules.
@@ -36,7 +45,7 @@ identifie les corrections ; **Déclarations** suit validation et dépôt ;
    monétaire Stock ; corriger et rapprocher la source avant de réessayer.
 6. Dans **Contrôles**, compléter les blocages et faire revoir individuellement
    les avertissements. Les acquittements sont liés à l’empreinte des données.
-7. Dans **Réglages**, vérifier le profil déclarant et configurer
+7. Dans **Dossier… → Profil fiscal et rappels**, vérifier le profil déclarant et configurer
    l’échéance interne. Aucune date limite légale n’est présumée.
 8. Préparer une déclaration, contrôler son aperçu puis soumettre à validation.
    Le validateur doit disposer d’une décision d’arrondi interne documentée et

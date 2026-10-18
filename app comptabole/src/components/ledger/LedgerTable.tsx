@@ -58,6 +58,7 @@ interface LedgerTableProps<T> {
   onSelectedIdsChange?: (ids: string[]) => void;
   onRowClick?: (row: T) => void;
   pageSize?: number;
+  hidePagination?: boolean;
   initialSort?: { columnId: string; direction: "asc" | "desc" };
   emptyState?: ReactNode;
   isLoading?: boolean;
@@ -200,6 +201,7 @@ export function LedgerTable<T>({
   onSelectedIdsChange,
   onRowClick,
   pageSize = 8,
+  hidePagination = false,
   initialSort,
   emptyState,
   isLoading = false,
@@ -585,7 +587,7 @@ export function LedgerTable<T>({
         </table>
       </div>
 
-      <div className="flex flex-col items-center justify-between gap-2 border-t border-border bg-secondary/30 px-3 py-2.5 text-xs text-muted-foreground sm:flex-row sm:px-4">
+      {!hidePagination && <div className="flex flex-col items-center justify-between gap-2 border-t border-border bg-secondary/30 px-3 py-2.5 text-xs text-muted-foreground sm:flex-row sm:px-4">
         <div>
           {enableSelection && selectedIds.length > 0 ? (
             <span className="font-semibold text-foreground">
@@ -620,7 +622,7 @@ export function LedgerTable<T>({
             Suivant ›
           </button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

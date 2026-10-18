@@ -335,6 +335,44 @@ export interface FactureEinvoice {
   signeLe?: string | null;
   /** Empreinte SHA-256 (hexadécimal) du message signé ; imprimée sur la facture avec son QR de contrôle. */
   shaSigne?: string | null;
+  /** Dépôt chez TTN (étape 3). */
+  deposeLe?: string | null;
+  /** Message renvoyé par TTN au dépôt, tel quel. */
+  messageTtn?: string | null;
+  /** Référence TTN et date de validation (facture validée). */
+  refTtn?: string | null;
+  refTtnDate?: string | null;
+  /** QR officiel TTN (PNG en base64), seulement pour une facture validée. */
+  qrPng?: string | null;
+  /** Acquittements négatifs renvoyés par TTN (facture rejetée). */
+  acquittements?: Record<string, string>[];
+  /** Dernière erreur de communication avec TTN (le dépôt ou la vérification sera retenté). */
+  erreurTtn?: string | null;
+}
+
+export type TtnEnvironnement = "test" | "reel";
+
+/** Accès au service web TTN (le mot de passe n'est jamais renvoyé : seulement « défini »). */
+export interface TtnConnexion {
+  url: string;
+  login: string;
+  matricule: string;
+  environnement: TtnEnvironnement;
+  motDePasseDefini: boolean;
+  majLe: string;
+  majPar: string;
+}
+
+export interface TtnEtat {
+  /** false = clé de chiffrement absente côté serveur : l'accès TTN est désactivé. */
+  configuree: boolean;
+  connexion: TtnConnexion | null;
+}
+
+export interface TtnBilan {
+  verifiees: number;
+  changees: number;
+  erreur: string | null;
 }
 
 /** Certificat de signature du cabinet (métadonnées seulement : le fichier et le mot de passe ne sont jamais renvoyés). */

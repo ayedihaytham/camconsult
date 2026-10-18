@@ -99,6 +99,44 @@ describe("htmlFacture", () => {
     expect(htmlFacture(facture, cabinet)).not.toContain("<svg");
   });
 
+  it("facture validée par TTN : QR officiel (PNG de TTN), référence et date ; un QR douteux n'est jamais injecté dans la page", () => {
+    const cabinet = { nom: "Cabinet X", adresse: "", matriculeFiscal: "1234567ABM000", telephone: "", email: "", rib: "", mentions: "" };
+    const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const validee = (qrPng: string | null) => ({
+      ...facture,
+      einvoice: { statut: "validee" as const, genereLe: null, sha256: "", signeLe: "2026-10-17T10:00:00Z", shaSigne: "ab".repeat(32), refTtn: "REF-<42>", refTtnDate: "2026-10-17T10:42:00.000Z", qrPng },
+    });
+    const html = htmlFacture(validee(png), cabinet);
+    expect(html).toContain("validée par TTN");
+    expect(html).toContain(`src="data:image/png;base64,${png}"`);
+    expect(html).toContain("REF-&lt;42&gt;");
+    expect(html).toContain("17/10/2026");
+    expect(html).not.toContain("QR officiel de la plateforme TTN n'est ajouté"); // plus de mention « à venir »
+    expect(htmlFacture(validee('x" onerror="alert(1)'), cabinet)).not.toContain("onerror");
+    expect(htmlFacture(validee(null), cabinet)).not.toContain("data:image/png");
+  });
+
+  it("modèle « Registre » : logo, identifiants fiscaux et RC des deux parties, TVA par ligne, récapitulatif de TVA, devise", () => {
+    const cabinet = {
+      nom: "Cabinet X", raisonSociale: "CABINET X SARL", adresse: "", rue: "12 rue du Lac", ville: "Tunis", codePostal: "1053",
+      matriculeFiscal: "1234567ABM000", rc: "B0123452026", telephone: "71 000 000", email: "a@b.tn", rib: "04 123 0123456789012 45", mentions: "",
+    };
+    const html = htmlFacture({ ...facture, clientRne: "B0987652019" }, cabinet, "https://app.test");
+    expect(html).toContain('src="https://app.test/brand/logo-cabinet-navy.png"');
+    expect(html).toContain("CABINET X SARL");
+    expect(html).toContain("12 rue du Lac, 1053 Tunis");
+    expect(html).toContain("1234567ABM000");
+    expect(html).toContain("B0123452026");
+    expect(html).toContain("B0987652019");
+    expect(html).toContain("04 123 0123456789012 45");
+    expect(html).toContain("Taux TVA");
+    expect(html).toContain("Devise");
+    expect(html).toContain("Droit de timbre");
+    expect(html).toContain("Cachet et signature");
+    // pied de page sans mentions saisies : identité légale du cabinet
+    expect(html).toContain("CABINET X SARL · RC B0123452026 · MF 1234567ABM000");
+  });
+
   it("s'imprime aussi sans coordonnées de cabinet", () => {
     expect(htmlFacture(facture, null)).toContain("2026-0001");
   });

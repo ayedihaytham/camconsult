@@ -15,6 +15,11 @@ const magasin = vi.hoisted(() => ({
   signer: vi.fn(),
   deverrouiller: vi.fn(),
   verrouiller: vi.fn(),
+  ttn: null as unknown,
+  fetchTtn: vi.fn(),
+  deposer: vi.fn(),
+  actualiser: vi.fn(),
+  rouvrir: vi.fn(),
 }));
 vi.mock("@/store/facturation", () => ({ useFacturation: (selecteur: (s: typeof magasin) => unknown) => selecteur(magasin) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -49,14 +54,17 @@ const certificat = {
 };
 const etatSignature = (extra: Record<string, unknown> = {}) => ({ configuree: true, certificat, deverrouille: false, expireLe: null, ...extra });
 
-function monter(f: Facture | null, onOpenCabinet = vi.fn(), onOpenSignature = vi.fn()) {
+const connexionTtn = { url: "https://ttn.exemple/EfactService", login: "compte", matricule: "", environnement: "test", motDePasseDefini: true, majLe: "2026-10-17T10:00:00Z", majPar: "Admin" };
+const etatTtn = (extra: Record<string, unknown> = {}) => ({ configuree: true, connexion: connexionTtn, ...extra });
+
+function monter(f: Facture | null, onOpenCabinet = vi.fn(), onOpenSignature = vi.fn(), onOpenTtn = vi.fn()) {
   magasin.list = f ? [f] : [];
   render(
     <MemoryRouter>
-      <FactureElectroniqueDialog facture={f} onOpenChange={vi.fn()} onOpenCabinet={onOpenCabinet} onOpenSignature={onOpenSignature} />
+      <FactureElectroniqueDialog facture={f} onOpenChange={vi.fn()} onOpenCabinet={onOpenCabinet} onOpenSignature={onOpenSignature} onOpenTtn={onOpenTtn} />
     </MemoryRouter>,
   );
-  return { onOpenCabinet, onOpenSignature };
+  return { onOpenCabinet, onOpenSignature, onOpenTtn };
 }
 
 beforeEach(() => {
@@ -69,6 +77,11 @@ beforeEach(() => {
   magasin.signer.mockReset();
   magasin.deverrouiller.mockReset().mockResolvedValue(undefined);
   magasin.verrouiller.mockReset().mockResolvedValue(undefined);
+  magasin.ttn = etatTtn();
+  magasin.fetchTtn.mockReset().mockResolvedValue(magasin.ttn);
+  magasin.deposer.mockReset();
+  magasin.actualiser.mockReset();
+  magasin.rouvrir.mockReset();
 });
 afterEach(() => {
   cleanup();
@@ -193,9 +206,76 @@ describe("FactureElectroniqueDialog", () => {
       expect(screen.queryByRole("button", { name: "Régénérer" })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: /Télécharger le XML signé/ }));
       expect(magasin.telechargerXml).toHaveBeenCalledWith("f1", "2026-0001", "signe");
-      fireEvent.click(screen.getByRole("button", { name: "Télécharger sans signature" }));
+      fireEvent.click(screen.getByRole("button", { name: "Sans signature" }));
       expect(magasin.telechargerXml).toHaveBeenCalledWith("f1", "2026-0001", "non-signe");
       expect(magasin.fetchSignature).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("dépôt chez TTN", () => {
+    const eiSignee = (extra: Record<string, unknown> = {}) =>
+      facture({ einvoice: { statut: "signee", genereLe: null, sha256: "", signeLe: "2026-10-17T11:00:00Z", shaSigne: "a".repeat(64), ...extra } as never });
+
+    it("signée sans accès TTN : invite à les configurer et ne permet pas de déposer", async () => {
+      magasin.ttn = etatTtn({ connexion: null });
+      magasin.conformite.mockResolvedValue(etatPret);
+      const { onOpenTtn } = monter(eiSignee());
+      fireEvent.click(await screen.findByRole("button", { name: "Configurer l'accès TTN" }));
+      expect(onOpenTtn).toHaveBeenCalled();
+      expect((screen.getByRole("button", { name: "Déposer chez TTN" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("signée avec accès de TEST : environnement visible, confirmation puis dépôt de la bonne facture", async () => {
+      magasin.conformite.mockResolvedValue(etatPret);
+      magasin.deposer.mockResolvedValue({ ...etatPret, einvoice: { statut: "deposee", genereLe: null, sha256: "" } });
+      monter(eiSignee());
+      expect(await screen.findByText(/Prête à être déposée sur le service de TEST/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Déposer chez TTN" }));
+      expect(magasin.deposer).not.toHaveBeenCalled();
+      expect(await screen.findByText(/Environnement de TEST/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Déposer" }));
+      await waitFor(() => expect(magasin.deposer).toHaveBeenCalledWith("f1"));
+    });
+
+    it("environnement RÉEL : la confirmation prévient que le dépôt est définitif", async () => {
+      magasin.ttn = etatTtn({ connexion: { ...connexionTtn, environnement: "reel" } });
+      magasin.conformite.mockResolvedValue(etatPret);
+      monter(eiSignee());
+      expect(await screen.findByText(/le service RÉEL de TTN/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Déposer chez TTN" }));
+      expect(await screen.findByText(/ENVIRONNEMENT RÉEL : le dépôt est définitif/)).toBeTruthy();
+    });
+
+    it("déposée : attente de décision, message de TTN affiché, bouton Actualiser", async () => {
+      magasin.conformite.mockResolvedValue(etatPret);
+      magasin.actualiser.mockResolvedValue(etatPret);
+      monter(eiSignee({ statut: "deposee", deposeLe: "2026-10-17T12:00:00Z", messageTtn: "Facture reçue" }));
+      expect(await screen.findByText(/TTN n'a pas encore rendu sa décision/)).toBeTruthy();
+      expect(screen.getByText(/Message de TTN : « Facture reçue »/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /Actualiser/ }));
+      await waitFor(() => expect(magasin.actualiser).toHaveBeenCalledWith("f1"));
+      expect(screen.queryByRole("button", { name: /Déposer chez TTN/ })).toBeNull();
+    });
+
+    it("validée : référence TTN, téléchargement du XML validé, plus aucune action de dépôt", async () => {
+      magasin.conformite.mockResolvedValue(etatPret);
+      monter(eiSignee({ statut: "validee", refTtn: "REF-TTN-42", refTtnDate: "2026-10-17T10:42:00Z", qrPng: "AAAA" }));
+      expect(await screen.findByText("REF-TTN-42")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /XML validé TTN/ }));
+      expect(magasin.telechargerXml).toHaveBeenCalledWith("f1", "2026-0001", "ttn");
+      expect(screen.queryByRole("button", { name: /Déposer chez TTN|Actualiser|Rouvrir/ })).toBeNull();
+    });
+
+    it("rejetée : motifs de TTN affichés, réouverture après confirmation", async () => {
+      magasin.conformite.mockResolvedValue(etatPret);
+      magasin.rouvrir.mockResolvedValue({ ...etatPret, einvoice: { statut: "prete", genereLe: null, sha256: "" } });
+      monter(eiSignee({ statut: "rejetee", acquittements: [{ message: "Matricule fiscal du client invalide" }] }));
+      expect(await screen.findByText("TTN a rejeté cette facture.")).toBeTruthy();
+      expect(screen.getByText("Matricule fiscal du client invalide")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Rouvrir pour corriger" }));
+      expect(magasin.rouvrir).not.toHaveBeenCalled();
+      fireEvent.click(await screen.findByRole("button", { name: "Rouvrir" }));
+      await waitFor(() => expect(magasin.rouvrir).toHaveBeenCalledWith("f1"));
     });
   });
 });

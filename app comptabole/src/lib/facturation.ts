@@ -72,95 +72,139 @@ export function qrSvg(contenu: string): string {
 /** Stades où la facture électronique est signée (le fichier signé existe et ne change plus). */
 const STADES_SIGNES = ["signee", "deposee", "validee", "rejetee"];
 
-/** Page A4 autonome de la facture (en-tête cabinet, client, lignes, totaux, montant
- * en lettres, coordonnées bancaires, mentions), prête à imprimer ou à enregistrer
- * en PDF. `origine` sert à charger le logo depuis l'application. */
+/** Page A4 autonome de la facture (modèle « Registre » : logo et coordonnées du cabinet, émetteur et client côte à côte avec leurs
+ * identifiants fiscaux, lignes avec taux de TVA, règlement, totaux et récapitulatif de TVA, bloc de facture électronique signée),
+ * prête à imprimer ou à enregistrer en PDF. `origine` sert à charger le logo depuis l'application. */
 export function htmlFacture(f: Facture, cabinet: FactureCabinet | null, origine = ""): string {
   const c = cabinet ?? { nom: "", adresse: "", matriculeFiscal: "", telephone: "", email: "", rib: "", mentions: "" };
+  const nomCabinet = (c.raisonSociale || c.nom || "").trim();
+  const villeCabinet = [c.codePostal, c.ville].filter(Boolean).join(" ");
+  const adresseCabinet = c.adresse?.trim() || [c.rue, villeCabinet].filter(Boolean).join(", ");
+  const tauxTexte = `${f.tvaTaux.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} %`;
   const lignes = f.lignes
     .map(
       (l, i) => `<tr><td class="num">${i + 1}</td><td>${lignesTexte(l.description)}</td>
         <td class="n">${quantiteTexte(l.quantite)}</td><td class="n">${formatTnd(l.montantHt)}</td>
-        <td class="n">${formatTnd(l.quantite * l.montantHt)}</td></tr>`,
+        <td class="n">${tauxTexte}</td><td class="n">${formatTnd(l.quantite * l.montantHt)}</td></tr>`,
     )
     .join("");
   const coordCabinet = [
-    c.adresse && lignesTexte(c.adresse),
-    c.matriculeFiscal && `MF : ${echapper(c.matriculeFiscal)}`,
+    adresseCabinet && lignesTexte(adresseCabinet),
     c.telephone && `Tél. : ${echapper(c.telephone)}`,
     c.email && echapper(c.email),
   ].filter(Boolean);
-  const coordClient = [
-    f.clientAdresse && lignesTexte(f.clientAdresse),
-    f.clientTva && `MF / TVA : ${echapper(f.clientTva)}`,
-    f.clientRne && `RNE : ${echapper(f.clientRne)}`,
-  ].filter(Boolean);
+  const identiteCabinet = [
+    c.matriculeFiscal && ["MF", c.matriculeFiscal],
+    c.rc && ["RC", c.rc],
+    adresseCabinet && ["Adresse", adresseCabinet],
+  ].filter(Boolean) as [string, string][];
+  const identiteClient = [
+    f.clientTva && ["MF", f.clientTva],
+    f.clientRne && ["RNE / RC", f.clientRne],
+    f.clientAdresse && ["Adresse", f.clientAdresse],
+  ].filter(Boolean) as [string, string][];
+  const champs = (l: [string, string][]) => (l.length ? `<dl>${l.map(([k, v]) => `<dt>${echapper(k)}</dt><dd>${lignesTexte(v)}</dd>`).join("")}</dl>` : "");
+  const reglement =
+    c.rib || f.echeance
+      ? `<div class="reglement">${f.echeance ? `<p><b>Règlement avant le ${jjmmaaaa(f.echeance)}</b>${c.rib ? " par virement :" : "."}</p>` : ""}${c.rib ? `<p>RIB / IBAN <b>${echapper(c.rib)}</b></p>` : ""}</div>`
+      : "";
+  const pied = c.mentions
+    ? lignesTexte(c.mentions)
+    : [nomCabinet, c.rc && `RC ${echapper(c.rc)}`, c.matriculeFiscal && `MF ${echapper(c.matriculeFiscal)}`].filter(Boolean).join(" · ") || `Facture ${echapper(f.numero)}`;
 
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Facture ${echapper(f.numero)}</title>
 <style>
   /* Marge 0 : le navigateur n'imprime plus son en-tête/pied (URL, date) ; les marges sont dans .page. */
   @page{size:A4;margin:0}
   *{box-sizing:border-box}
-  body{font:13px/1.5 Inter,Arial,sans-serif;color:#1c2b3a;margin:0}
-  .page{min-height:296mm;padding:16mm 14mm;display:flex;flex-direction:column}
-  .tete{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:14px;border-bottom:2px solid #c8a96a}
-  .tete img{height:46px;display:block;margin-bottom:8px}
-  .cabinet{font-size:12px;color:#55606b}
-  .cabinet b{display:block;font:600 16px Georgia,serif;color:#1c2b3a}
+  body{font:12.5px/1.45 Inter,Arial,sans-serif;color:#1b2a3d;margin:0;font-variant-numeric:tabular-nums}
+  .page{min-height:296mm;padding:12mm 13mm 10mm;display:flex;flex-direction:column;gap:12px}
+  .eyebrow{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#5a6676}
+  .tete{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:12px;border-bottom:2px solid #c8a96a}
+  .tete img{height:46px;display:block;margin-bottom:6px}
+  .cabinet{font-size:11px;color:#55606b}
+  .cabinet b{display:block;font:600 14px Georgia,serif;color:#17325c;margin-bottom:2px}
   .titre{text-align:right}
-  .titre h1{font:600 26px Georgia,serif;margin:0;letter-spacing:.02em}
-  .titre .no{font-size:15px;margin-top:2px}
-  .titre .dates{margin-top:6px;color:#55606b;font-size:12px}
-  .blocs{display:flex;justify-content:flex-end;margin:22px 0 18px}
-  .client{width:48%;border:1px solid #e3d9c2;background:#faf7f0;border-radius:6px;padding:12px 14px}
-  .client small{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#8a7a52;margin-bottom:4px}
-  .client b{font-size:14px}
-  .client div{color:#55606b;font-size:12px}
+  .titre h1{font:600 25px Georgia,serif;margin:0 0 6px;letter-spacing:.06em;color:#17325c}
+  .meta{display:grid;grid-template-columns:auto auto;gap:1px 14px;justify-content:end;margin:0;font-size:11.5px}
+  .meta dt{color:#5a6676;text-align:left}.meta dd{margin:0;font-weight:600;text-align:right}
+  .parties{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .partie{border:1px solid #dfe3e8;border-radius:4px;padding:9px 11px}
+  .partie.client{background:#faf7f0;border-color:#e6dcc3}
+  .partie b{display:block;font-size:13px;margin:2px 0 4px}
+  .partie dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:1px 9px;font-size:11px;color:#5a6676}
+  .partie dd{margin:0;color:#1b2a3d}
   table{width:100%;border-collapse:collapse}
-  th{background:#1c2b3a;color:#fff;text-align:left;padding:8px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em}
-  td{padding:9px 10px;border-bottom:1px solid #e7e0d2;vertical-align:top}
-  .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  .num{width:28px;color:#8a7a52}
+  th{background:#17325c;color:#fff;text-align:left;padding:7px 8px;font-size:9.5px;text-transform:uppercase;letter-spacing:.08em}
+  td{padding:8px;border-bottom:1px solid #dfe3e8;vertical-align:top}
+  .n{text-align:right;white-space:nowrap}
+  .num{width:26px;color:#8a7a52}
   th.n{text-align:right}
-  .totaux{margin:18px 0 0 auto;width:300px}
-  .totaux div{display:flex;justify-content:space-between;padding:4px 0;color:#55606b}
-  .totaux .net{border-top:2px solid #1c2b3a;margin-top:6px;padding-top:8px;color:#1c2b3a;font-weight:700;font-size:15px}
-  .lettres{margin-top:18px;padding:10px 14px;border-left:3px solid #c8a96a;background:#faf7f0;font-size:12px}
-  .paiement{margin-top:14px;font-size:12px;color:#55606b}
-  .paiement b{color:#1c2b3a}
-  .pied{margin-top:auto;padding-top:28px;border-top:1px solid #e7e0d2;font-size:11px;color:#7a838c;text-align:center}
-  .signature{margin-top:26px;display:flex;justify-content:flex-end}
-  .esign{margin-top:18px;display:flex;gap:14px;align-items:center;border:1px solid #cfe3d4;background:#f4faf5;border-radius:6px;padding:10px 14px;font-size:11px;color:#3b5a45;break-inside:avoid}
+  .bas{display:grid;grid-template-columns:1fr 255px;gap:18px;align-items:start;break-inside:avoid}
+  .gauche{display:grid;gap:10px}
+  .reglement{border-left:3px solid #c8a96a;background:#faf7f0;padding:9px 12px;font-size:11.5px}
+  .reglement p{margin:2px 0}
+  .lettres{font-size:12px}
+  .note{font-size:11.5px;color:#55606b}
+  .totaux div{display:flex;justify-content:space-between;padding:3px 0;color:#5a6676}
+  .totaux .net{margin-top:5px;padding:8px 10px;background:#17325c;color:#fff;font-weight:700;font-size:14px;border-radius:3px}
+  .recap{margin-top:10px;font-size:10.5px}
+  .recap th{background:none;color:#5a6676;border-bottom:1px solid #dfe3e8;padding:4px 0}
+  .recap td{padding:4px 0;border:0}
+  .esign{display:flex;gap:14px;align-items:center;border:1px solid #cfe3d4;background:#f4faf5;border-radius:4px;padding:10px 14px;font-size:10.5px;color:#3b5a45;break-inside:avoid}
   .esign svg{width:76px;height:76px;flex:none;background:#fff}
   .esign b{display:block;font-size:12px;color:#1f4d2e;margin-bottom:2px}
   .esign code{font:10px/1.4 Consolas,monospace;word-break:break-all;color:#1c2b3a}
-  .signature div{width:220px;height:80px;border:1px dashed #cfc5ad;border-radius:6px;padding:8px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#8a7a52}
+  .bas-page{margin-top:auto;display:grid;gap:10px}
+  .pied-ligne{display:grid;grid-template-columns:1fr 200px;gap:14px;align-items:end}
+  .legal{font-size:9.5px;line-height:1.4;color:#7a838c;border-top:1px solid #dfe3e8;padding-top:8px}
+  .signature{height:58px;border:1px dashed #c4ccd6;border-radius:4px;padding:6px 8px}
 </style></head><body><div class="page">
 <div class="tete">
   <div class="cabinet"><img src="${echapper(origine)}/brand/logo-cabinet-navy.png" alt="">
-    ${c.nom ? `<b>${echapper(c.nom)}</b>` : ""}${coordCabinet.map((l) => `<div>${l}</div>`).join("")}</div>
-  <div class="titre"><h1>FACTURE</h1><div class="no">N° <b>${echapper(f.numero)}</b></div>
-    <div class="dates">Date : ${jjmmaaaa(f.dateEmission)}${f.echeance ? `<br>Échéance : ${jjmmaaaa(f.echeance)}` : ""}</div></div>
+    ${nomCabinet ? `<b>${echapper(nomCabinet)}</b>` : ""}${coordCabinet.map((l) => `<div>${l}</div>`).join("")}</div>
+  <div class="titre"><h1>FACTURE</h1>
+    <dl class="meta"><dt>N°</dt><dd>${echapper(f.numero)}</dd><dt>Date d'émission</dt><dd>${jjmmaaaa(f.dateEmission)}</dd>${f.echeance ? `<dt>Échéance</dt><dd>${jjmmaaaa(f.echeance)}</dd>` : ""}<dt>Devise</dt><dd>TND</dd></dl></div>
 </div>
-<div class="blocs"><div class="client"><small>Facturé à</small><b>${echapper(f.societeNom)}</b>
-  ${coordClient.map((l) => `<div>${l}</div>`).join("")}</div></div>
-<table><thead><tr><th>#</th><th>Désignation</th><th class="n">Qté</th><th class="n">P.U. HT</th><th class="n">Total HT</th></tr></thead>
+<div class="parties">
+  <div class="partie"><span class="eyebrow">Émetteur</span><b>${echapper(nomCabinet || "Cabinet")}</b>${champs(identiteCabinet.filter(([k]) => k !== "Adresse"))}</div>
+  <div class="partie client"><span class="eyebrow">Facturé à</span><b>${echapper(f.societeNom)}</b>${champs(identiteClient)}</div>
+</div>
+<table><thead><tr><th>#</th><th>Désignation</th><th class="n">Qté</th><th class="n">P.U. HT</th><th class="n">TVA</th><th class="n">Total HT</th></tr></thead>
 <tbody>${lignes}</tbody></table>
-<div class="totaux"><div><span>Total HT</span><span>${formatTnd(f.totalHt)} TND</span></div>
-<div><span>TVA (${f.tvaTaux} %)</span><span>${formatTnd(f.tva)} TND</span></div>
-<div><span>Timbre fiscal</span><span>${formatTnd(f.timbre)} TND</span></div>
-<div class="net"><span>Net à payer</span><span>${formatTnd(f.netAPayer)} TND</span></div></div>
-<div class="lettres">Arrêtée la présente facture à la somme de : <b>${echapper(montantEnLettres(f.netAPayer))}</b>.</div>
-${c.rib || f.echeance ? `<div class="paiement">${f.echeance ? `Règlement avant le <b>${jjmmaaaa(f.echeance)}</b>. ` : ""}${c.rib ? `Virement : <b>${echapper(c.rib)}</b>` : ""}</div>` : ""}
-${f.note ? `<div class="paiement">${lignesTexte(f.note)}</div>` : ""}
+<div class="bas">
+  <div class="gauche">${reglement}
+    <div class="lettres"><span class="eyebrow">Arrêtée la présente facture à la somme de</span><br><b>${echapper(montantEnLettres(f.netAPayer))}</b>.</div>
+    ${f.note ? `<div class="note">${lignesTexte(f.note)}</div>` : ""}</div>
+  <div>
+    <div class="totaux"><div><span>Total HT</span><span>${formatTnd(f.totalHt)} TND</span></div>
+    <div><span>TVA (${tauxTexte})</span><span>${formatTnd(f.tva)} TND</span></div>
+    <div><span>Droit de timbre</span><span>${formatTnd(f.timbre)} TND</span></div>
+    <div class="net"><span>Net à payer</span><span>${formatTnd(f.netAPayer)} TND</span></div></div>
+    <table class="recap"><thead><tr><th>Taux TVA</th><th class="n">Base HT</th><th class="n">Montant TVA</th></tr></thead>
+    <tbody><tr><td>${tauxTexte}</td><td class="n">${formatTnd(f.totalHt)}</td><td class="n">${formatTnd(f.tva)}</td></tr></tbody></table>
+  </div>
+</div>
+<div class="bas-page">
 ${blocSignatureElectronique(f, c)}
-<div class="signature"><div>Cachet et signature</div></div>
-<div class="pied">${c.mentions ? lignesTexte(c.mentions) : `${echapper(c.nom || "Cabinet")} — Facture ${echapper(f.numero)}`}</div>
+<div class="pied-ligne"><div class="legal">${pied}</div><div class="signature"><span class="eyebrow">Cachet et signature</span></div></div>
+</div>
 </div></body></html>`;
+}
+
+/** Facture VALIDÉE par TTN : référence, date de validation et QR officiel (PNG renvoyé par TTN, jamais fabriqué ici). */
+function blocValideTtn(f: Facture): string {
+  const ei = f.einvoice;
+  if (!ei || ei.statut !== "validee" || !ei.refTtn) return "";
+  const qr = ei.qrPng && /^[A-Za-z0-9+/=]+$/.test(ei.qrPng) ? `<img src="data:image/png;base64,${ei.qrPng}" alt="QR code El Fatoora" style="width:84px;height:84px;flex:none;background:#fff">` : "";
+  return `<div class="esign">${qr}<div><b>Facture électronique validée par TTN (El Fatoora)</b>
+    Référence TTN : <b style="display:inline">${echapper(ei.refTtn)}</b>${ei.refTtnDate ? `<br>Validée le ${jjmmaaaa(ei.refTtnDate)} à ${new Date(ei.refTtnDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Tunis" })}` : ""}
+    ${ei.shaSigne ? `<br>Empreinte SHA-256 du fichier signé :<br><code>${echapper(ei.shaSigne)}</code>` : ""}</div></div>`;
 }
 
 function blocSignatureElectronique(f: Facture, c: Pick<FactureCabinet, "matriculeFiscal">): string {
   const ei = f.einvoice;
+  if (ei?.statut === "validee" && ei.refTtn) return blocValideTtn(f);
   if (!ei || !STADES_SIGNES.includes(ei.statut) || !ei.shaSigne) return "";
   const qr = qrSvg(contenuQrControle(f, c, ei.shaSigne));
   return `<div class="esign">${qr}<div><b>Facture électronique signée</b>

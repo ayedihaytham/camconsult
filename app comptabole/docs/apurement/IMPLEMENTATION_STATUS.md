@@ -1,5 +1,53 @@
 # Checkpoint Apurement — 17 octobre 2026
 
+## Mise à jour du 18 octobre 2026 — ergonomie et recette
+
+Demande traitée : clarifier le refus 422 d’import, réorganiser les parcours pour
+les comptables et fournir une recette complète avec fichiers fictifs.
+
+- Le 422 de la capture correspond à la garde existante `IMPORT_REVUE_SOURCE` :
+  écart de pied et identité déclarant différents sans justification. La garde
+  serveur est conservée. L’interface indique maintenant les exigences avant
+  envoi et interdit la confirmation tant qu’elles manquent. L’identité différente
+  nécessite aussi une confirmation explicite dans l’interface ; jamais de choix
+  automatique ni de correction silencieuse des montants.
+- En-tête compact, parcours du trimestre guidé, Achats avec saisie/import,
+  références Fournisseurs/Autorisations/BC, contrôles identifiés par numéro de
+  facture et fournisseur, déclarations structurées, profil et rappels en Réglages.
+  Champs de correction TVA conditionnels ; exceptions de date et période repliées.
+  Import en trois étapes, résumés et messages lisibles, rendu mobile paginé.
+- Correction du profil fiscal neuf : champs facultatifs initialisés en chaînes
+  vides et exigences raison sociale/MF/référence visibles. Les champs non touchés
+  ne provoquent plus de rejet de validation pour valeur absente.
+- [MANUEL_RECETTE.md](MANUEL_RECETTE.md) : T01–T25, valeurs à copier, totaux
+  attendus, approbation et dépôts simulés, Stock/Collecte, droits, conflits,
+  rappels, responsive et restauration. Kit public synthétique dans
+  `public/apurement-demo/` ; XLS/XLSX, BCD cohérent et écart +13, PDF fictifs.
+  Générateur sans accès base : `server/scripts/generate-apurement-demo.mjs`.
+  Manuel téléchargeable depuis Mode d’emploi et modèle depuis l’import.
+
+Fichiers principaux : `src/pages/apurement/{ApurementPage,ImportPanel,EntitySheet,
+DeclarationPanel,ProfilePanel}.tsx`, `src/lib/apurementImport.ts`, DTO contrôles
+et `server/apurement/controls.js`, tour version 2, manuel/kit et runbook.
+
+Vérification finale : lint et build réussis ; **1332 tests réussis, 41 tests
+préexistants ignorés**, dans 155 fichiers réussis et un fichier ignoré. Six
+nouveaux tests vérifient la garde de revue dans l’interface, la conservation
+après conflit, le profil neuf et tous les modèles fournis. Aucun nouveau test
+ignoré. PostgreSQL jetable utilisé, migration/restauration réelle incluses.
+Chrome : huit parcours interface→API→SQL réussis, dont le scénario +0.013 / MF
+différent, ainsi que 28 contrôles de largeur sur sept surfaces à
+375/768/1024/1440 px ; aucune erreur JavaScript ni débordement global.
+Deux passes visuelles bornées ; correction de l’empiètement du résumé sur mobile.
+`git diff --check` réussi. Journaux locaux `%TEMP%/apurement-ux-*.log`.
+
+Aucune dépendance ou configuration de paquet modifiée. Une dépendance déjà
+déclarée (`qrcode-generator@1.4.4`) manquait dans `node_modules` et a été installée
+localement pour exécuter les vérifications existantes. Aucun déploiement ou accès
+production, aucune migration supplémentaire. Verrous officiels B1/B2 inchangés.
+
+---
+
 Implémentation livrée dans `app comptabole` uniquement. Phases techniques 0–8
 réalisées avec verrous fiscaux maintenus. Recette métier et mise en production
 restent à effectuer. Aucune base de production ni aucun fichier du site public

@@ -57,6 +57,7 @@ export function EntitySheet({
     record?.fournisseurId || initialValues?.fournisseurId || "",
   );
   const [bc, setBc] = useState(record?.bcId || "");
+  const [vatMode, setVatMode] = useState(record?.tvaMode || "auto");
   const save = useApurement((s) => s.save);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -206,7 +207,7 @@ export function EntitySheet({
     >
       <SheetContent className="w-full sm:max-w-xl">
         <SheetHeader className="px-4 sm:px-6">
-          <SheetTitle>
+          <SheetTitle className="font-sans">
             {record ? "Modifier" : "Ajouter"} {names[kind]}
           </SheetTitle>
           <SheetDescription>
@@ -254,6 +255,9 @@ export function EntitySheet({
               </>
             ) : kind === "factures" ? (
               <>
+                <h3 className="border-b pb-2 text-sm font-semibold">
+                  Facture et rattachement
+                </h3>
                 {field(
                   "numeroFacture",
                   "Numéro de facture",
@@ -270,17 +274,52 @@ export function EntitySheet({
                     supplier,
                     setSupplier,
                   )}
+                {!refs.fournisseurs.length && (
+                  <p className="rounded-md bg-muted p-3 text-sm">
+                    Créez d’abord un fournisseur dans « Fournisseurs & BC ».
+                    Vous pourrez ensuite saisir une facture autonome ou choisir
+                    son BC.
+                  </p>
+                )}
+                {bc && (
+                  <p className="text-xs text-muted-foreground">
+                    Fournisseur du BC :{" "}
+                    {refs.fournisseurs.find(
+                      (f) =>
+                        f.id ===
+                        refs.bcs.find((b) => b.id === bc)?.fournisseurId,
+                    )?.raisonSociale || "fourni par le BC"}
+                    . Une facture est rattachée à un seul BC.
+                  </p>
+                )}
                 {field(
                   "dateFacture",
                   "Date complète",
                   record?.dateFacture || initialValues?.dateFacture || "",
                   "date",
                 )}
-                {field(
-                  "dateBrute",
-                  "Mois seul (MM/AAAA), si jour inconnu",
-                  record?.dateBrute,
-                )}
+                <details
+                  open={Boolean(record?.dateBrute && !record.dateFacture)}
+                  className="text-sm"
+                >
+                  <summary className="cursor-pointer text-muted-foreground">
+                    Je connais seulement le mois de la facture
+                  </summary>
+                  <div className="pt-2">
+                    {field(
+                      "dateBrute",
+                      "Mois seul (MM/AAAA), si jour inconnu",
+                      record?.dateBrute,
+                    )}
+                  </div>
+                </details>
+                <h3 className="border-b pb-2 pt-2 text-sm font-semibold">
+                  Montants en dinars tunisiens
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Saisissez jusqu’à 3 décimales, par exemple 1234.567. Le taux
+                  19 signifie 19 %.
+                </p>
                 {field(
                   "ht",
                   "Montant HT (TND)",
@@ -316,7 +355,10 @@ export function EntitySheet({
                     className={selectClass}
                     id="ap-tvaMode"
                     name="tvaMode"
-                    defaultValue={record?.tvaMode || "auto"}
+                    value={vatMode}
+                    onChange={(e) =>
+                      setVatMode(e.target.value as "auto" | "manuel")
+                    }
                   >
                     <option value="auto">
                       Automatique (arrondi provisoire)
@@ -326,21 +368,45 @@ export function EntitySheet({
                     </option>
                   </select>
                 </div>
-                {field(
-                  "tva",
-                  "TVA suspendue corrigée (TND)",
-                  decimalTnd(record?.tvaSuspendueMillimes),
+                {vatMode === "manuel" && (
+                  <div className="space-y-3 rounded-md border border-warning/30 bg-warning/5 p-3">
+                    {field(
+                      "tva",
+                      "TVA suspendue corrigée (TND)",
+                      decimalTnd(record?.tvaSuspendueMillimes),
+                      "text",
+                      true,
+                    )}
+                    {field(
+                      "motifCorrection",
+                      "Justification de correction",
+                      record?.motifCorrection,
+                      "text",
+                      true,
+                    )}
+                  </div>
                 )}
-                {field(
-                  "motifCorrection",
-                  "Justification de correction",
-                  record?.motifCorrection,
+                {vatMode === "auto" && (
+                  <p className="text-xs text-muted-foreground">
+                    La TVA est calculée à l’enregistrement. Aucune correction
+                    manuelle à renseigner.
+                  </p>
                 )}
-                {field(
-                  "motifPeriode",
-                  "Justification de période exceptionnelle",
-                  record?.motifPeriode,
-                )}
+                <details
+                  open={Boolean(record?.motifPeriode)}
+                  className="text-sm"
+                >
+                  <summary className="cursor-pointer text-muted-foreground">
+                    Facture affectée à un autre trimestre
+                  </summary>
+                  <div className="pt-2">
+                    {field(
+                      "motifPeriode",
+                      "Justification de période exceptionnelle",
+                      record?.motifPeriode,
+                    )}
+                  </div>
+                </details>
                 {field("objet", "Objet", record?.objet)}
               </>
             ) : (

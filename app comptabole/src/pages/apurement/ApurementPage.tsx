@@ -6,13 +6,22 @@ import {
   useSearchParams,
   useLocation,
 } from "react-router-dom";
-import { ClipboardCheck } from "lucide-react";
+import {
+  ClipboardCheck,
+  Plus,
+  Upload,
+  ArrowRight,
+  BookOpen,
+  Settings2,
+  FileText,
+  ListChecks,
+  FolderOpen,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { tnd } from "@/lib/apurement";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/common/DataTable";
-import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import { useSocietes } from "@/store/data";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -32,8 +41,8 @@ import type {
 } from "@/types/apurement";
 
 const labels = {
-  autorisations: "Autorisations",
   fournisseurs: "Fournisseurs",
+  autorisations: "Autorisations",
   bcs: "Bons de commande",
   factures: "Factures",
 };
@@ -72,6 +81,7 @@ export function ApurementPage() {
       .includes(companyQuery.toLocaleLowerCase("fr")),
   );
   const [error, setError] = useState("");
+  const [help, setHelp] = useState(false);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
@@ -265,75 +275,164 @@ export function ApurementPage() {
     return <p role="alert">Société hors périmètre.</p>;
   return (
     <div className="min-w-0 space-y-4">
-      <div data-tour="apurement-identity">
-        <SignatureLedgerBanner
-          icon={ClipboardCheck}
-          eyebrow="Comptabilité · achats"
-          title="Apurement TVA"
-          description={
-            society
-              ? `${society.raisonSociale} · Achats en suspension de TVA`
-              : "Autorisations, bons de commande et déclarations trimestrielles"
-          }
-          metrics={
-            stats
-              ? [
-                  { label: "BC", value: stats.bcs },
-                  { label: "Factures", value: stats.factures },
-                  { label: "HT", value: tnd(stats.ht) },
-                  { label: "TVA suspendue", value: tnd(stats.tva) },
-                ]
-              : []
-          }
-          action={
-            societeId
-              ? {
-                  label: `Ajouter ${activeKind === "bcs" ? "un BC" : activeKind === "factures" ? "une facture" : activeKind === "autorisations" ? "une autorisation" : "un fournisseur"}`,
-                  onClick: () => setEditing("new"),
-                }
-              : undefined
-          }
-        />
-      </div>
-      <div
-        className="flex flex-wrap items-end gap-3"
-        data-tour="apurement-period"
+      <header
+        className="space-y-4 rounded-lg border bg-background p-4 sm:p-5"
+        data-tour="apurement-identity"
       >
-        <label className="text-sm">
-          Année
-          <Input
-            aria-label="Année"
-            type="number"
-            min={2000}
-            max={2100}
-            value={annee}
-            onChange={(e) => patchParams("annee", e.target.value)}
-            className="w-28"
-          />
-        </label>
-        <label className="text-sm">
-          Trimestre
-          <select
-            className="ml-2 h-10 rounded border bg-background px-3"
-            aria-label="Trimestre"
-            value={trimestre}
-            onChange={(e) => patchParams("trimestre", e.target.value)}
-          >
-            {["T1", "T2", "T3", "T4"].map((x) => (
-              <option key={x}>{x}</option>
-            ))}
-          </select>
-        </label>
-        {societeId && (
-          <Link className="text-sm underline" to={`/apurement?${period}`}>
-            Toutes les sociétés
-          </Link>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <ClipboardCheck className="mt-1 h-6 w-6 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-primary sm:text-2xl">
+                Apurement TVA
+              </h1>
+              <p className="mt-1 break-words text-sm text-muted-foreground">
+                {society ? society.raisonSociale : "Choisir un dossier société"}{" "}
+                · Achats en suspension de TVA
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setHelp((v) => !v)}
+              aria-expanded={help}
+            >
+              <BookOpen className="mr-2 h-4 w-4" />
+              Mode d’emploi
+            </Button>
+            {societeId && view === "registre" && (
+              <>
+                {activeKind === "factures" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => selectView("imports")}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Importer
+                  </Button>
+                )}
+                <Button onClick={() => setEditing("new")}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Ajouter{" "}
+                  {activeKind === "bcs"
+                    ? "un BC"
+                    : activeKind === "factures"
+                      ? "une facture"
+                      : activeKind === "autorisations"
+                        ? "une autorisation"
+                        : "un fournisseur"}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        <div
+          className="flex flex-wrap items-end gap-3 border-t pt-3"
+          data-tour="apurement-period"
+        >
+          <label className="text-sm">
+            Année
+            <Input
+              aria-label="Année"
+              type="number"
+              min={2000}
+              max={2100}
+              value={annee}
+              onChange={(e) => patchParams("annee", e.target.value)}
+              className="w-28"
+            />
+          </label>
+          <label className="text-sm">
+            Trimestre
+            <select
+              className="block h-10 rounded border bg-background px-3"
+              aria-label="Trimestre"
+              value={trimestre}
+              onChange={(e) => patchParams("trimestre", e.target.value)}
+            >
+              {["T1", "T2", "T3", "T4"].map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          {societeId && (
+            <Link className="text-sm underline" to={`/apurement?${period}`}>
+              Toutes les sociétés
+            </Link>
+          )}
+        </div>
+        {stats && (
+          <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t pt-3 text-sm">
+            <div>
+              <dt className="inline text-muted-foreground">BC </dt>
+              <dd className="inline font-medium tabular-nums">{stats.bcs}</dd>
+            </div>
+            <div>
+              <dt className="inline text-muted-foreground">Factures </dt>
+              <dd className="inline font-medium tabular-nums">
+                {stats.factures}
+              </dd>
+            </div>
+            <div>
+              <dt className="inline text-muted-foreground">HT </dt>
+              <dd className="inline font-medium tabular-nums">
+                {tnd(stats.ht)}
+              </dd>
+            </div>
+            <div>
+              <dt className="inline text-muted-foreground">TVA suspendue </dt>
+              <dd className="inline font-semibold tabular-nums">
+                {tnd(stats.tva)}
+              </dd>
+            </div>
+          </dl>
         )}
-      </div>
-      <p className="border-l border-amber-500 pl-3 text-sm text-muted-foreground">
-        Calculs provisoires. Le format BCD officiel et les règles d’arrondi
-        restent à valider ; l’export officiel est désactivé.
-      </p>
+      </header>
+      {help && (
+        <section className="space-y-3 rounded-lg border bg-background p-4">
+          <h2 className="font-semibold">Comment préparer un trimestre ?</h2>
+          <ol className="list-inside list-decimal space-y-2 text-sm">
+            <li>
+              <strong>Préparer les références :</strong> fournisseur,
+              autorisation puis BC.
+            </li>
+            <li>
+              <strong>Enregistrer les achats :</strong> saisir, importer ou
+              rapprocher une facture de Stock. Le taux s’écrit 19 pour 19 %.
+            </li>
+            <li>
+              <strong>Joindre les preuves :</strong> facture, BC et autorisation
+              ; compléter dates et identités.
+            </li>
+            <li>
+              <strong>Contrôler puis déclarer :</strong> corriger les blocages,
+              faire revoir les avertissements, valider et suivre le dépôt.
+            </li>
+          </ol>
+          <p className="text-sm text-muted-foreground">
+            BC : bon de commande. Une autorisation peut couvrir plusieurs BC ;
+            une facture ne peut relever que d’un seul BC.
+          </p>
+          <a
+            className="inline-block text-sm font-medium text-primary underline"
+            href="/apurement-demo/MANUEL_RECETTE.md"
+            download
+          >
+            Télécharger le manuel de test complet et les valeurs fictives
+          </a>
+        </section>
+      )}
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer py-1">
+          Calcul provisoire · Export BCD officiel désactivé
+        </summary>
+        <p className="pt-2">
+          Les règles d’arrondi doivent être approuvées avant validation
+          financière. Excel/PDF sont des rapports internes ; le BCD de test ne
+          doit pas être déposé comme officiel.
+        </p>
+      </details>
       {error && (
         <div
           role="alert"
@@ -427,20 +526,32 @@ export function ApurementPage() {
           >
             {[
               ["overview", "Vue d’ensemble"],
-              ["registre", "Autorisations & BC"],
-              ["factures", "Factures"],
+              ["factures", "Achats"],
+              ["registre", "Fournisseurs & BC"],
               ["controls", "Contrôles"],
               ["declarations", "Déclarations"],
-              ["documents", "Documents & rappels"],
-              ["imports", "Importer"],
+              ["documents", "Réglages"],
             ].map(([v, label]) => (
               <Button
                 key={v}
                 className="shrink-0"
+                aria-current={
+                  (
+                    v === "factures"
+                      ? (view === "registre" && activeKind === "factures") ||
+                        view === "imports"
+                      : v === "registre"
+                        ? view === "registre" && activeKind !== "factures"
+                        : view === v
+                  )
+                    ? "page"
+                    : undefined
+                }
                 variant={
                   (
                     v === "factures"
-                      ? view === "registre" && activeKind === "factures"
+                      ? (view === "registre" && activeKind === "factures") ||
+                        view === "imports"
                       : v === "registre"
                         ? view === "registre" && activeKind !== "factures"
                         : view === v
@@ -493,8 +604,8 @@ export function ApurementPage() {
           )}
           {view === "overview" && (
             <section className="space-y-4">
-              <h2 className="font-semibold">
-                Dossier {annee} {trimestre}
+              <h2 className="text-lg font-semibold">
+                Préparer {trimestre} {annee}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {stats?.factures ?? "—"} facture(s) affectée(s) à{" "}
@@ -502,33 +613,91 @@ export function ApurementPage() {
                 justificatifs, la déclaration et le dépôt sont suivis
                 séparément.
               </p>
+              <div className="divide-y rounded-lg border bg-background">
+                {[
+                  {
+                    icon: FolderOpen,
+                    title: "Préparer les fournisseurs et BC",
+                    text: `${refs.fournisseurs.length} fournisseur(s), ${refs.autorisations.length} autorisation(s) et ${refs.bcs.length} BC dans le dossier.`,
+                    action: "Ouvrir les références",
+                    click: () =>
+                      selectView(
+                        "registre",
+                        refs.fournisseurs.length
+                          ? refs.autorisations.length
+                            ? "bcs"
+                            : "autorisations"
+                          : "fournisseurs",
+                      ),
+                  },
+                  {
+                    icon: FileText,
+                    title: "Enregistrer les achats du trimestre",
+                    text: "Saisissez une facture ou importez votre fichier. Ajoutez les justificatifs depuis chaque fiche.",
+                    action: "Ouvrir les factures",
+                    click: () => selectView("registre", "factures"),
+                  },
+                  {
+                    icon: ListChecks,
+                    title: "Vérifier avant validation",
+                    text: "Complétez les dates, les identités fiscales et les preuves. Faites revoir les exceptions.",
+                    action: "Contrôler ce trimestre",
+                    click: () => selectView("controls"),
+                  },
+                  {
+                    icon: ClipboardCheck,
+                    title: "Préparer la déclaration et suivre le dépôt",
+                    text: "Une version validée reste figée. Le dépôt se renseigne séparément avec sa preuve.",
+                    action: "Ouvrir les déclarations",
+                    click: () => selectView("declarations"),
+                  },
+                ].map((step) => (
+                  <div
+                    key={step.title}
+                    className="flex flex-wrap items-center justify-between gap-3 p-4"
+                  >
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <step.icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                      <div>
+                        <h3 className="text-sm font-semibold">{step.title}</h3>
+                        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                          {step.text}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="max-w-full whitespace-normal"
+                      onClick={step.click}
+                    >
+                      {step.action}
+                      <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
               <div className="flex flex-wrap gap-2">
-                <Button onClick={() => selectView("registre", "bcs")}>
-                  Gérer les autorisations et BC
+                <Button onClick={() => selectView("imports")}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Importer un fichier d’achats
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => selectView("registre", "factures")}
-                >
-                  Ouvrir les factures
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => selectView("controls")}
-                >
-                  Contrôler ce trimestre
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => selectView("declarations")}
-                >
-                  Préparer une déclaration
+                <Button variant="ghost" onClick={() => selectView("documents")}>
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Profil fiscal et rappels
                 </Button>
               </div>
             </section>
           )}
           {view === "registre" && (
             <>
+              <div>
+                <h2 className="text-lg font-semibold">{labels[activeKind]}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {activeKind === "factures"
+                    ? "Saisissez ou importez les achats, puis ouvrez une facture pour ses justificatifs et son rapprochement Stock."
+                    : "Commencez par le fournisseur, puis l’autorisation et enfin le bon de commande."}
+                </p>
+              </div>
               {activeKind !== "factures" && (
                 <nav
                   className="flex flex-wrap gap-1 border-b pb-2"
@@ -746,13 +915,21 @@ export function ApurementPage() {
             </>
           )}
           {view === "controls" && (
-            <Button variant="outline" onClick={check}>
-              Relancer les contrôles
-            </Button>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Vérifier le trimestre</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Ouvrez chaque facture pour corriger un blocage. Seul un
+                  responsable peut justifier la revue d’un avertissement.
+                </p>
+              </div>
+              <Button variant="outline" onClick={check}>
+                Relancer les contrôles
+              </Button>
+            </div>
           )}
           {view === "controls" && controls && (
             <section className="space-y-3 border-t pt-4">
-              <h2 className="font-semibold">Contrôles du trimestre</h2>
               <p className="text-sm">
                 {controls.total} contrôle(s) · page {controls.page}
               </p>
@@ -776,17 +953,31 @@ export function ApurementPage() {
                     className={
                       c.severity === "blocage"
                         ? "text-destructive"
-                        : "text-amber-700"
+                        : "text-foreground"
                     }
                   >
-                    {c.severity === "blocage" ? "Bloquant" : "À revoir"}
+                    {c.ack
+                      ? "Revu"
+                      : c.severity === "blocage"
+                        ? "À corriger"
+                        : "À faire revoir"}
                   </span>
                   <Link
                     className="underline"
                     to={`/apurement/${societeId}/factures/${c.factureId}?${period}`}
                   >
+                    {c.numeroFacture && (
+                      <span className="mr-2 font-semibold">
+                        {c.numeroFacture}
+                      </span>
+                    )}
                     {c.message}
                   </Link>
+                  {c.fournisseur && (
+                    <span className="text-xs text-muted-foreground">
+                      {c.fournisseur}
+                    </span>
+                  )}
                   {c.ack ? (
                     <span>Revu : {c.ack.motif}</span>
                   ) : (
@@ -854,6 +1045,7 @@ export function ApurementPage() {
             <ImportPanel
               key={`${societeId}-${period}`}
               societeId={societeId}
+              societeName={society?.raisonSociale}
               annee={annee}
               trimestre={trimestre}
               bcs={refs.bcs}
@@ -862,12 +1054,19 @@ export function ApurementPage() {
           )}
           {view === "documents" && (
             <>
+              <h2 className="text-lg font-semibold">Réglages du dossier</h2>
+              <p className="text-sm text-muted-foreground">
+                Vérifiez l’identité du déclarant et programmez les rappels
+                internes. Les justificatifs se joignent à chaque autorisation,
+                BC, facture ou déclaration.
+              </p>
+              <ProfilePanel key={societeId} societeId={societeId} />
               <RemindersPanel
+                key={`${societeId}-${period}`}
                 societeId={societeId}
                 annee={annee}
                 trimestre={trimestre}
               />
-              <ProfilePanel societeId={societeId} />
             </>
           )}
           {view === "declarations" && (

@@ -115,11 +115,11 @@ export function DeclarationPanel({
   }
   return (
     <section
-      className="space-y-4 border-t pt-4 [&_button]:max-w-full [&_button]:whitespace-normal [&_button]:h-auto [&_button]:min-h-10"
+      className="space-y-4 [&_button]:max-w-full [&_button]:whitespace-normal [&_button]:h-auto [&_button]:min-h-10"
       data-tour="apurement-declarations"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold">
+        <h2 className="text-lg font-semibold">
           Déclarations {annee} {trimestre}
         </h2>
         <Button
@@ -140,6 +140,16 @@ export function DeclarationPanel({
           Préparer une déclaration
         </Button>
       </div>
+      <p className="text-sm text-muted-foreground">
+        Préparez une version, faites-la valider puis renseignez le dépôt. Une
+        génération Excel ou PDF ne vaut jamais dépôt.
+      </p>
+      {!list.length && (
+        <p className="rounded-lg border border-dashed bg-background p-5 text-sm">
+          Aucune déclaration pour ce trimestre. Commencez par les factures et
+          leurs contrôles, puis choisissez « Préparer une déclaration ».
+        </p>
+      )}
       {error && (
         <p
           role="alert"
@@ -186,10 +196,34 @@ export function DeclarationPanel({
         ))}
       </div>
       {selected && (
-        <div className="space-y-4">
-          <h3 className="font-semibold">
-            Version {selected.version} · {selected.statut}
+        <div className="space-y-4 rounded-lg border bg-background p-4">
+          <h3 className="text-lg font-semibold">
+            Version {selected.version} ·{" "}
+            {selected.statut === "valide"
+              ? "Validée et figée"
+              : selected.statut === "pret_a_valider"
+                ? "À valider par le responsable"
+                : "Brouillon"}
           </h3>
+          <ol
+            aria-label="Circuit de la déclaration"
+            className="flex flex-wrap gap-x-5 gap-y-2 border-b pb-3 text-sm"
+          >
+            <li className="font-medium">Préparation</li>
+            <li
+              className={
+                selected.statut !== "brouillon"
+                  ? "font-medium"
+                  : "text-muted-foreground"
+              }
+            >
+              Validation{" "}
+              {selected.statut === "valide" ? "effectuée" : "à obtenir"}
+            </li>
+            <li className="text-muted-foreground">
+              Dépôt {selected.depots?.length ? "enregistré" : "à renseigner"}
+            </li>
+          </ol>
           {selected.apercu && (
             <p className="text-sm tabular-nums">
               Aperçu courant : HT {tnd(selected.apercu.totals.ht)} · TVA{" "}
@@ -205,27 +239,46 @@ export function DeclarationPanel({
             </p>
           )}
           {selected.snapshotHash && (
-            <p className="break-all text-xs text-muted-foreground">
-              SHA-256 : {selected.snapshotHash}
-            </p>
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer">
+                Empreinte de la version figée
+              </summary>
+              <p className="break-all pt-2">
+                SHA-256 : {selected.snapshotHash}
+              </p>
+            </details>
           )}
-          <DocumentsPanel
-            key={selected.id}
-            societeId={societeId}
-            parentType="declaration"
-            parentId={selected.id}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => action(() => load(selected.id))}
+          <details
+            className="rounded-md border p-3"
+            open={!pieces.length && selected.statut !== "valide"}
           >
-            Actualiser les justificatifs de dépôt
-          </Button>
-          <div className="space-y-2 border-t pt-3">
-            <h4 className="text-sm font-semibold">
-              Règle interne d’arrondi (B2)
-            </h4>
+            <summary className="cursor-pointer text-sm font-semibold">
+              Justificatifs de cette déclaration · {pieces.length} pièce(s)
+            </summary>
+            <DocumentsPanel
+              key={selected.id}
+              societeId={societeId}
+              parentType="declaration"
+              parentId={selected.id}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => action(() => load(selected.id))}
+            >
+              Actualiser les justificatifs de dépôt
+            </Button>
+          </details>
+          <details
+            className="space-y-2 rounded-md border p-3"
+            open={!policy.length && selected.statut !== "valide"}
+          >
+            <summary className="cursor-pointer text-sm font-semibold">
+              Règle d’arrondi ·{" "}
+              {policy.length
+                ? "décision interne documentée"
+                : "décision requise avant validation"}
+            </summary>
             <p className="text-xs text-muted-foreground">
               {policy[0]
                 ? `Référence approuvée : ${policy[0].reference}`
@@ -266,9 +319,11 @@ export function DeclarationPanel({
                 </Button>
               </>
             )}
-          </div>
+          </details>
           <label className="block text-sm">
-            Justification de l’écart détaillé/global ou motif de dépôt
+            {selected.statut === "valide"
+              ? "Motif ou observation du dépôt"
+              : "Justification si la TVA détaillée diffère du calcul global"}
             <Input value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
           <div className="flex flex-wrap gap-2">
@@ -366,7 +421,7 @@ export function DeclarationPanel({
             <Button
               variant="outline"
               disabled
-              title="B1/B2 : format officiel non validé"
+              title="Le format et les arrondis officiels restent à vérifier"
             >
               BCD officiel indisponible
             </Button>

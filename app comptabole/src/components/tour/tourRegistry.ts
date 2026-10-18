@@ -648,10 +648,11 @@ export function getPageTour(
   _session: Session | null,
   search = "",
 ): Tour | null {
-  if(pathname==="/apurement"||pathname.startsWith("/apurement/"))return _session?.poste==="societe_employe"?null:{id:"apurement",version:1,title:"Apurement des achats en suspension",steps:[
+  if(pathname==="/apurement"||pathname.startsWith("/apurement/"))return _session?.poste==="societe_employe"?null:{id:"apurement",version:2,title:"Apurement des achats en suspension",steps:[
     {target:"apurement-identity",title:"Vérifier le dossier",body:"Le dossier regroupe uniquement les achats en suspension de TVA et leurs contrôles internes."},
     {target:"apurement-period",title:"Choisir le trimestre",body:"Vérifiez l’année et le trimestre avant la saisie ou l’import."},
-    {target:"apurement-sections",title:"Préparer et contrôler",body:"Gérez fournisseurs, autorisations, BC et factures. Les pièces et anomalies sont revues avant validation."},
+    {target:"apurement-sections",title:"Suivre le parcours du trimestre",body:"Fournisseurs & BC prépare les références. Achats permet de saisir ou importer les factures. Passez ensuite aux contrôles et déclarations ; Réglages contient le profil fiscal et les rappels."},
+    {target:"apurement-import",title:"Importer sans surprise",body:"Prévisualisez le fichier, vérifiez la société et justifiez les écarts signalés. La confirmation devient disponible quand la sélection et les revues nécessaires sont complètes."},
     {target:"apurement-declarations",title:"Figer puis suivre le dépôt",body:"Une version validée reste figée. Le dépôt et l’acceptation sont enregistrés séparément avec leurs preuves. Le BCD officiel reste bloqué tant que son format n’est pas validé."},
   ]};
   if (pathname === "/") {

@@ -61,6 +61,8 @@ export interface ApurementControl {
   severity: "blocage" | "avertissement";
   message: string;
   factureId: string;
+  numeroFacture?: string;
+  fournisseur?: string;
   fingerprint: string;
   ack: { motif: string; acteur: string } | null;
 }

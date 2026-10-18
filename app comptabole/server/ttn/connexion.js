@@ -20,7 +20,7 @@ const exigerSecret = () => {
 };
 
 export async function etatConnexion() {
-  const r = (await query("select url, login, matricule, environnement, maj_le, maj_par from ttn_connexion where id = 1")).rows[0];
+  const r = (await query("select url, login, matricule, environnement, maj_le, maj_par, dernier_essai_le, dernier_essai_ok from ttn_connexion where id = 1")).rows[0];
   return {
     configuree: Boolean(secretConfigure()),
     connexion: r
@@ -32,6 +32,7 @@ export async function etatConnexion() {
           motDePasseDefini: true,
           majLe: r.maj_le instanceof Date ? r.maj_le.toISOString() : r.maj_le,
           majPar: r.maj_par,
+          dernierEssai: r.dernier_essai_le ? { ok: Boolean(r.dernier_essai_ok), le: r.dernier_essai_le instanceof Date ? r.dernier_essai_le.toISOString() : r.dernier_essai_le } : null,
         }
       : null,
   };
@@ -68,11 +69,12 @@ export async function enregistrerConnexion({ url, login, motDePasse, matricule, 
       `insert into ttn_connexion (id, url, login, mdp_chiffre, matricule, environnement, maj_le, maj_par)
        values (1, $1, $2, $3, $4, $5, now(), $6)
        on conflict (id) do update set url = excluded.url, login = excluded.login, mdp_chiffre = excluded.mdp_chiffre,
-         matricule = excluded.matricule, environnement = excluded.environnement, maj_le = now(), maj_par = excluded.maj_par`,
+         matricule = excluded.matricule, environnement = excluded.environnement, maj_le = now(), maj_par = excluded.maj_par,
+         dernier_essai_le = null, dernier_essai_ok = null`,
       [adresse, login, chiffrer(Buffer.from(motDePasse, "utf8"), secret), mf, environnement, par ?? ""],
     );
   } else {
-    await query("update ttn_connexion set url = $1, login = $2, matricule = $3, environnement = $4, maj_le = now(), maj_par = $5 where id = 1", [
+    await query("update ttn_connexion set url = $1, login = $2, matricule = $3, environnement = $4, maj_le = now(), maj_par = $5, dernier_essai_le = null, dernier_essai_ok = null where id = 1", [
       adresse,
       login,
       mf,
@@ -80,6 +82,11 @@ export async function enregistrerConnexion({ url, login, motDePasse, matricule, 
       par ?? "",
     ]);
   }
+}
+
+/** Mémorise le résultat du dernier essai de connexion (affiché dans la liste de mise en route). */
+export async function enregistrerEssai(ok) {
+  await query("update ttn_connexion set dernier_essai_le = now(), dernier_essai_ok = $1 where id = 1", [Boolean(ok)]);
 }
 
 export async function supprimerConnexion() {

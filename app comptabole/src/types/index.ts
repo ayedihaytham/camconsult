@@ -361,6 +361,17 @@ export interface TtnConnexion {
   motDePasseDefini: boolean;
   majLe: string;
   majPar: string;
+  /** Dernier essai de connexion (null : jamais essayé avec ces accès). */
+  dernierEssai?: { ok: boolean; le: string } | null;
+}
+
+/** Ligne de l'historique d'une facture (journal d'activité filtré sur elle). */
+export interface FactureJournalEntry {
+  id: string;
+  at: string;
+  actor: string;
+  action: string;
+  label: string;
 }
 
 export interface TtnEtat {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAdmin, requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { ErreurSignature } from "../signature/erreur.js";
-import { autoriserLocal, enregistrerConnexion, etatConnexion, lireConnexion, supprimerConnexion } from "../ttn/connexion.js";
+import { autoriserLocal, enregistrerConnexion, enregistrerEssai, etatConnexion, lireConnexion, supprimerConnexion } from "../ttn/connexion.js";
 import { ErreurTtn } from "../ttn/erreur.js";
 import { actualiserToutes } from "../ttn/suivi.js";
 import { consulterFacture } from "../ttn/soap.js";
@@ -57,7 +57,14 @@ ttnRouter.delete("/", route(async (req, res) => {
 ttnRouter.post("/tester", route(async (req, res) => {
   const config = await lireConnexion();
   if (!config) return res.status(409).json({ error: "Enregistrez d'abord les accès TTN.", code: "SANS_CONNEXION" });
-  const resultats = await consulterFacture(config, "ESSAI-CONNEXION-INEXISTANT", { autoriserLocal: autoriserLocal() });
+  let resultats;
+  try {
+    resultats = await consulterFacture(config, "ESSAI-CONNEXION-INEXISTANT", { autoriserLocal: autoriserLocal() });
+  } catch (e) {
+    await enregistrerEssai(false).catch(() => undefined);
+    throw e;
+  }
+  await enregistrerEssai(true);
   logAction(req.session.nom, "modification", "facture", `Essai de connexion TTN réussi (environnement ${config.environnement})`);
   res.json({ ok: true, environnement: config.environnement, message: `Le service TTN a répondu (${resultats.length} résultat pour le numéro d'essai).` });
 }));

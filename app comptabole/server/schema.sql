@@ -1293,6 +1293,10 @@ create table if not exists ttn_connexion (
   maj_par      text        not null default ''
 );
 
+-- Dernier essai de connexion (réussi ou non) : sert à la liste de mise en route de l'écran Facturation. Remis à zéro quand les accès changent.
+alter table ttn_connexion add column if not exists dernier_essai_le timestamptz;
+alter table ttn_connexion add column if not exists dernier_essai_ok  boolean;
+
 alter table facture_einvoice add column if not exists depose_le           timestamptz;
 alter table facture_einvoice add column if not exists ttn_message         text;
 alter table facture_einvoice add column if not exists ttn_ref             text;

@@ -63,6 +63,18 @@ describe("PDF de la facture", () => {
     expect(sansLogo.brut).toContain("2026-0002");
   });
 
+  it("filigrane « Aperçu » : présent sur chaque page quand il est demandé, absent de la vraie facture", async () => {
+    const avec = await construireFacturePdf(facture(), cabinet, { filigrane: "Aperçu" });
+    expect(avec.output()).toContain("APER");
+    expect(avec.output()).toContain("/ca 0.08");
+    const sans = await construireFacturePdf(facture(), cabinet, {});
+    expect(sans.output()).not.toContain("APER");
+    const longue = await construireFacturePdf(facture({ lignes: Array.from({ length: 40 }, (_, i) => ({ ordre: i, description: `Prestation ${i + 1}`, quantite: 1, montantHt: 10 })) }), cabinet, { filigrane: "Aperçu" });
+    expect(longue.getNumberOfPages()).toBeGreaterThan(1);
+    // le motif transparent est défini une fois mais appliqué sur chaque page (opérateur « gs » avant et après le texte)
+    expect((longue.output().match(/\/GS\d+ gs/g) ?? []).length).toBeGreaterThanOrEqual(longue.getNumberOfPages() * 2);
+  });
+
   it("nettoyage du texte : espaces fines remplacées, sauts de ligne conservés, caractères non pris en charge neutralisés", () => {
     expect(propre("10 115 001,000")).toBe("10 115 001,000");
     expect(propre("a\nb\r\nc")).toBe("a\nb\nc");

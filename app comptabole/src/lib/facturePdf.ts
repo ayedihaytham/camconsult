@@ -49,6 +49,8 @@ export async function chargerLogo(origine = ""): Promise<string | null> {
 interface Options {
   /** Logo en data URL PNG (voir chargerLogo) ; sans logo, seul le nom du cabinet est imprimé. */
   logo?: string | null;
+  /** Mot affiché en grand, en filigrane clair, sur chaque page (ex. « Aperçu ») : un aperçu ne doit jamais passer pour la vraie facture. */
+  filigrane?: string;
 }
 
 /** Construit le PDF de la facture (sans le télécharger). */
@@ -268,6 +270,18 @@ export async function construireFacturePdf(f: Facture, cabinet: FactureCabinet |
   ecrire(pied, MARGE, piedY + 16, { taille: 7.5, couleur: GRIS, maxLargeur: utile - 170 });
   doc.setDrawColor(196, 204, 214).setLineDashPattern([2, 2], 0).roundedRect(L - MARGE - 140, piedY - 6, 140, 52, 3, 3, "S").setLineDashPattern([], 0);
   etiquette("Cachet et signature", L - MARGE - 132, piedY + 6);
+
+  if (options.filigrane) {
+    const GState = (doc as unknown as { GState: new (o: { opacity: number }) => unknown }).GState;
+    const setGState = (doc as unknown as { setGState: (g: unknown) => void }).setGState.bind(doc);
+    for (let page = 1; page <= doc.getNumberOfPages(); page++) {
+      doc.setPage(page);
+      setGState(new GState({ opacity: 0.08 }));
+      doc.setFont("helvetica", "bold").setFontSize(92).setTextColor(...MARINE);
+      doc.text(propre(options.filigrane).toUpperCase(), L / 2, H / 2, { align: "center", angle: 35 });
+      setGState(new GState({ opacity: 1 }));
+    }
+  }
 
   doc.setProperties({ title: `Facture ${f.numero}`, subject: `Facture d'honoraires ${f.numero}`, author: nomCabinet || "Cabinet" });
   return doc;

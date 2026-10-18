@@ -20,6 +20,16 @@ export const calculerTotaux: (
   timbre: number,
 ) => Totaux = calculerTotauxPartage;
 
+/** Numéro qu'aura la prochaine facture : AAAA-0001… par année d'émission (même règle que le serveur, qui reste seul maître du numéro). */
+export function prochainNumero(numeros: string[], dateEmission: string): string {
+  const annee = (dateEmission || new Date().toISOString().slice(0, 10)).slice(0, 4);
+  const dernier = numeros.reduce((max, n) => {
+    const m = new RegExp(`^${annee}-(\\d+)$`).exec(n);
+    return m ? Math.max(max, Number(m[1])) : max;
+  }, 0);
+  return `${annee}-${String(dernier + 1).padStart(4, "0")}`;
+}
+
 export const formatTnd = (n: number) =>
   n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 

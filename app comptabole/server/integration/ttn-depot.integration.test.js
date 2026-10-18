@@ -83,18 +83,22 @@ describe.skipIf(!actif)("intégration PostgreSQL : dépôt chez TTN (faux servic
   });
 
   it("essai de connexion : réussi avec les bons accès ; mauvais mot de passe → message clair sans le mot de passe ; modification sans retaper le mot de passe", async () => {
+    expect((await admin("GET", "/api/facturation/ttn")).json.connexion.dernierEssai).toBeNull(); // accès jamais essayés
     expect((await admin("POST", "/api/facturation/ttn/tester")).json).toMatchObject({ ok: true, environnement: "test" });
+    expect((await admin("GET", "/api/facturation/ttn")).json.connexion.dernierEssai).toMatchObject({ ok: true });
     await admin("PUT", "/api/facturation/ttn", { url: ttn.url, login: ttn.login, motDePasse: "mauvais-mdp-ttn-5521" });
     const refus = await admin("POST", "/api/facturation/ttn/tester");
     expect(refus.status).toBe(502);
     expect(refus.json.code).toBe("FAULT");
     expect(refus.texte).not.toContain("mauvais-mdp-ttn-5521");
+    expect((await admin("GET", "/api/facturation/ttn")).json.connexion.dernierEssai).toMatchObject({ ok: false }); // l'échec est mémorisé
     // changer l'environnement sans ressaisir le mot de passe conserve le mot de passe enregistré (ici : le mauvais)
     await admin("PUT", "/api/facturation/ttn", { url: ttn.url, login: ttn.login, environnement: "reel" });
     expect((await admin("GET", "/api/facturation/ttn")).json.connexion.environnement).toBe("reel");
     expect((await admin("POST", "/api/facturation/ttn/tester")).status).toBe(502);
-    // retour aux bons accès
+    // retour aux bons accès : le résultat du dernier essai est remis à zéro (nouveaux accès, jamais essayés)
     await admin("PUT", "/api/facturation/ttn", { url: ttn.url, login: ttn.login, motDePasse: ttn.motDePasse, environnement: "test" });
+    expect((await admin("GET", "/api/facturation/ttn")).json.connexion.dernierEssai).toBeNull();
     expect((await admin("POST", "/api/facturation/ttn/tester")).json.ok).toBe(true);
   });
 
@@ -207,6 +211,31 @@ describe.skipIf(!actif)("intégration PostgreSQL : dépôt chez TTN (faux servic
     expect(r.status).toBe(200);
     expect(r.json).toMatchObject({ verifiees: deposees.length, changees: deposees.length, erreur: null });
     expect((await sql.query("select count(*)::int n from facture_einvoice where statut = 'deposee'")).rows[0].n).toBe(0);
+  });
+
+  it("historique d'une facture : le journal filtré sur elle, du plus récent au plus ancien, sans secret", async () => {
+    const id = (await sql.query("select facture_id from facture_einvoice where statut = 'validee' limit 1")).rows[0].facture_id;
+    const r = await admin("GET", `/api/facturation/${id}/journal`);
+    expect(r.status).toBe(200);
+    const labels = r.json.map((e) => e.label).join(" | ");
+    expect(labels).toContain("facture électronique préparée");
+    expect(labels).toContain("facture électronique signée");
+    expect(labels).toContain("déposée chez TTN");
+    expect(labels).toContain("validée par TTN");
+    expect(new Date(r.json[0].at).getTime()).toBeGreaterThanOrEqual(new Date(r.json.at(-1).at).getTime());
+    expect(r.json[0]).toMatchObject({ actor: expect.any(String), action: expect.any(String) });
+    for (const secret of [ttn.motDePasse, SECRET]) expect(r.texte).not.toContain(secret);
+    expect((await admin("GET", "/api/facturation/pas-un-uuid/journal")).status).toBe(400);
+  });
+
+  it("échéance antérieure à l'émission : refusée à la création comme à la modification (400)", async () => {
+    const corps = { societeId, dateEmission: "2026-10-18", echeance: "2026-10-01", tvaTaux: 19, timbre: 1, note: "", lignes: [{ description: "H", quantite: 1, montantHt: 100 }] };
+    const refus = await admin("POST", "/api/facturation", corps);
+    expect(refus.status).toBe(400);
+    expect(refus.json.error).toMatch(/échéance/);
+    const id = (await admin("POST", "/api/facturation", { ...corps, echeance: "2026-11-01" })).json.id;
+    expect((await admin("PUT", `/api/facturation/${id}`, corps)).status).toBe(400);
+    expect((await admin("PUT", `/api/facturation/${id}`, { ...corps, echeance: "2026-10-18" })).status).toBe(200); // le même jour reste permis
   });
 
   it("une facture rejetée peut être annulée (elle n'a jamais été acceptée)", async () => {

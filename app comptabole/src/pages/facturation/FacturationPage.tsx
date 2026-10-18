@@ -9,6 +9,7 @@ import {
   Clock,
   Copy,
   Download,
+  Eye,
   FileCode2,
   FileDown,
   FileKey2,
@@ -19,9 +20,9 @@ import {
   PenLine,
   Plus,
   Printer,
+  Send,
   RotateCcw,
   Settings2,
-  ShieldCheck,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -69,6 +70,10 @@ import { FACTURE_STATUT_LABELS, type Facture, type FactureStatut } from "@/types
 import { CabinetInfoDialog } from "./CabinetInfoDialog";
 import { FactureElectroniqueDialog } from "./FactureElectroniqueDialog";
 import { SignatureElectroniqueDialog } from "./SignatureElectroniqueDialog";
+import { EinvoiceProgression } from "./EinvoiceProgression";
+import { FactureDetailSheet } from "./FactureDetailSheet";
+import { FacturationMiseEnRoute } from "./FacturationMiseEnRoute";
+import { JOURS_AVANT_EXPIRATION, etapesMiseEnRoute, joursRestants, type CibleEtape } from "./miseEnRoute";
 import { TtnConnexionDialog } from "./TtnConnexionDialog";
 import { FactureFormSheet } from "./FactureFormSheet";
 
@@ -112,19 +117,6 @@ function StatutFacture({ facture }: { facture: Facture }) {
     <span className={cn("inline-flex items-center gap-2 whitespace-nowrap text-[13px] font-semibold", facture.statut === "annulee" ? "text-muted-foreground" : "text-foreground")}>
       <Icone className={cn("size-4 shrink-0", classe)} aria-hidden="true" />
       {libelle}
-    </span>
-  );
-}
-
-function EtatEinvoice({ facture }: { facture: Facture }) {
-  if (facture.statut === "annulee") return <span className="text-xs text-muted-foreground">—</span>;
-  const statut = facture.einvoice?.statut;
-  const Icone = statut === "signee" || statut === "deposee" || statut === "validee" ? ShieldCheck : statut === "prete" ? Clock : FileCode2;
-  const classe = statut === "prete" ? "text-warning" : statut ? "text-success" : "text-muted-foreground";
-  return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap text-[13px] font-semibold text-foreground">
-      <Icone className={cn("size-4 shrink-0", classe)} aria-hidden="true" />
-      {libelleEinvoice(statut)}
     </span>
   );
 }
@@ -270,6 +262,13 @@ export function FacturationPage() {
   const cabinet = useFacturation((s) => s.cabinet);
   const fetchCabinet = useFacturation((s) => s.fetchCabinet);
   const saveCabinet = useFacturation((s) => s.saveCabinet);
+  const signature = useFacturation((s) => s.signature);
+  const fetchSignature = useFacturation((s) => s.fetchSignature);
+  const ttn = useFacturation((s) => s.ttn);
+  const fetchTtn = useFacturation((s) => s.fetchTtn);
+  const testerTtn = useFacturation((s) => s.testerTtn);
+  const signer = useFacturation((s) => s.signer);
+  const deposer = useFacturation((s) => s.deposer);
 
   const [statut, setStatut] = useState<"all" | FactureStatut>("all");
   const [filtreEi, setFiltreEi] = useState<FiltreEinvoice>("all");
@@ -284,11 +283,18 @@ export function FacturationPage() {
   const [eiFacture, setEiFacture] = useState<Facture | null>(null);
   const [signatureOpen, setSignatureOpen] = useState(false);
   const [ttnOpen, setTtnOpen] = useState(false);
+  const [detail, setDetail] = useState<Facture | null>(null);
+  const [confirmerLot, setConfirmerLot] = useState<"signer" | "deposer" | null>(null);
+  const [lotEnCours, setLotEnCours] = useState<"signer" | "deposer" | null>(null);
+  const [essai, setEssai] = useState<CibleEtape | null>(null);
 
   useEffect(() => {
     fetchList();
     fetchCabinet();
-  }, [fetchList, fetchCabinet]);
+    // État du certificat et des accès TTN : alimente la liste de mise en route et les badges du bandeau.
+    fetchSignature().catch(() => undefined);
+    fetchTtn().catch(() => undefined);
+  }, [fetchList, fetchCabinet, fetchSignature, fetchTtn]);
 
   const filtered = useMemo(() => {
     const q = recherche.trim().toLocaleLowerCase("fr");
@@ -314,6 +320,94 @@ export function FacturationPage() {
   const nbRetard = portee.filter((f) => estEnRetard(f)).length;
   const nbATraiter = portee.filter((f) => f.statut !== "annulee" && ["prete", "signee", "rejetee"].includes(f.einvoice?.statut ?? "")).length;
   const totalAffiche = filtered.filter((f) => f.statut !== "annulee").reduce((s, f) => s + f.netAPayer, 0);
+
+  // Pastilles de filtre rapide : raccourcis vers les trois filtres existants (statut, e-facture, retard).
+  const compteEi = (e: string) => portee.filter((f) => f.statut !== "annulee" && f.einvoice?.statut === e).length;
+  const pastilles: { id: string; label: string; n: number; alerte: boolean }[] = [
+    { id: "all", label: "Toutes", n: portee.length, alerte: false },
+    { id: "prete", label: "À signer", n: compteEi("prete"), alerte: true },
+    { id: "signee", label: "À déposer", n: compteEi("signee"), alerte: true },
+    { id: "deposee", label: "Déposées", n: compteEi("deposee"), alerte: false },
+    { id: "rejetee", label: "Rejetées", n: compteEi("rejetee"), alerte: true },
+    { id: "retard", label: "En retard", n: nbRetard, alerte: true },
+    { id: "impayees", label: "Impayées", n: portee.filter((f) => f.statut === "emise").length, alerte: false },
+  ];
+  const FILTRES_EI = ["prete", "signee", "deposee", "rejetee"];
+  const pastilleActive =
+    statut === "all" && filtreEi === "all" && !retardSeul
+      ? "all"
+      : statut === "all" && !retardSeul && FILTRES_EI.includes(filtreEi)
+        ? filtreEi
+        : statut === "all" && retardSeul && filtreEi === "all"
+          ? "retard"
+          : statut === "emise" && !retardSeul && filtreEi === "all"
+            ? "impayees"
+            : null;
+  function choisirPastille(id: string) {
+    setStatut(id === "impayees" ? "emise" : "all");
+    setFiltreEi(FILTRES_EI.includes(id) ? (id as FiltreEinvoice) : "all");
+    setRetardSeul(id === "retard");
+  }
+
+  // Liste de mise en route et badges d'alerte du bandeau (certificat bientôt expiré, environnement TTN).
+  const etapes = useMemo(() => etapesMiseEnRoute({ cabinet, signature, ttn }), [cabinet, signature, ttn]);
+  const joursCertificat = signature?.certificat && !signature.certificat.expire ? joursRestants(signature.certificat.validAu) : null;
+  const badgeSignature = signature?.certificat?.expire
+    ? { texte: "expiré", classe: "bg-destructive text-destructive-foreground" }
+    : joursCertificat !== null && joursCertificat <= JOURS_AVANT_EXPIRATION
+      ? { texte: `expire dans ${joursCertificat} j`, classe: "bg-warning text-warning-foreground" }
+      : null;
+  const badgeTtn = ttn?.connexion ? (ttn.connexion.environnement === "reel" ? { texte: "réel", classe: "bg-primary-foreground/20 text-primary-foreground" } : { texte: "test", classe: "bg-warning text-warning-foreground" }) : null;
+
+  async function actionEtape(cible: CibleEtape) {
+    if (cible === "cabinet") return setCabinetOpen(true);
+    if (cible === "signature") return setSignatureOpen(true);
+    if (cible === "ttn") return setTtnOpen(true);
+    setEssai("tester");
+    try {
+      await testerTtn();
+      toast.success("Connexion TTN réussie");
+    } catch {
+      // Message déjà affiché par le magasin ; l'échec est mémorisé côté serveur et relu ci-dessous.
+    } finally {
+      await fetchTtn().catch(() => undefined);
+      setEssai(null);
+    }
+  }
+
+  // Actions groupées : seules les factures dans le bon état sont traitées (préparée → signer, signée → déposer).
+  const ciblesLot = (type: "signer" | "deposer") => list.filter((f) => selection.includes(f.id) && f.statut !== "annulee" && f.einvoice?.statut === (type === "signer" ? "prete" : "signee"));
+  const nbASigner = ciblesLot("signer").length;
+  const nbADeposer = ciblesLot("deposer").length;
+
+  async function executerLot(type: "signer" | "deposer") {
+    const cibles = ciblesLot(type);
+    if (!cibles.length) return;
+    if (type === "signer" && !signature?.deverrouille) {
+      toast.error("La signature est verrouillée : déverrouillez-la d'abord (bouton Signature).");
+      setSignatureOpen(true);
+      return;
+    }
+    if (type === "deposer" && !ttn?.connexion) {
+      toast.error("Enregistrez d'abord les accès TTN.");
+      setTtnOpen(true);
+      return;
+    }
+    setLotEnCours(type);
+    let ok = 0;
+    const echecs: string[] = [];
+    for (const f of cibles) {
+      try {
+        await (type === "signer" ? signer(f.id) : deposer(f.id));
+        ok++;
+      } catch {
+        echecs.push(f.numero); // le magasin a déjà affiché la raison de cet échec
+      }
+    }
+    setLotEnCours(null);
+    if (ok) toast.success(`${ok} facture${ok > 1 ? "s" : ""} ${type === "signer" ? "signée" : "déposée"}${ok > 1 ? "s" : ""}${type === "deposer" ? " chez TTN" : ""}`);
+    if (echecs.length) toast.error(`${echecs.length} facture${echecs.length > 1 ? "s" : ""} en échec : ${echecs.join(", ")}`);
+  }
 
   function ouvrirFormulaire(mode: "nouvelle" | "modification" | "copie", source: Facture | null = null) {
     setFormMode(mode);
@@ -408,9 +502,9 @@ export function FacturationPage() {
 
   const actionsLigne = (f: Facture): RowAction[] => {
     const copier: RowAction = { icon: Copy, label: "Dupliquer", onClick: () => ouvrirFormulaire("copie", f) };
-    if (f.statut === "annulee") return [{ icon: Printer, label: "Imprimer", onClick: () => imprimer(f) }, { icon: FileDown, label: "Télécharger le PDF", onClick: () => void telechargerPdf(f) }, copier];
+    if (f.statut === "annulee") return [{ icon: Eye, label: "Voir le détail", onClick: () => setDetail(f) }, { icon: Printer, label: "Imprimer", onClick: () => imprimer(f) }, { icon: FileDown, label: "Télécharger le PDF", onClick: () => void telechargerPdf(f) }, copier];
     const ei = f.einvoice?.statut;
-    const actions: RowAction[] = [{ icon: Printer, label: "Imprimer", onClick: () => imprimer(f) }, { icon: FileDown, label: "Télécharger le PDF", onClick: () => void telechargerPdf(f) }];
+    const actions: RowAction[] = [{ icon: Eye, label: "Voir le détail", onClick: () => setDetail(f) }, { icon: Printer, label: "Imprimer", onClick: () => imprimer(f) }, { icon: FileDown, label: "Télécharger le PDF", onClick: () => void telechargerPdf(f) }];
     if (modifiable(f)) actions.push({ icon: Pencil, label: "Modifier", onClick: () => ouvrirFormulaire("modification", f) });
     actions.push(copier);
     if (ei === "signee" || ei === "deposee" || ei === "validee" || ei === "rejetee")
@@ -483,7 +577,7 @@ export function FacturationPage() {
     {
       accessorKey: "numero",
       header: ({ column }) => <DataTableColumnHeader column={column} title="N°" />,
-      cell: ({ row }) => <span className="font-mono text-[13px] font-semibold text-primary">{row.original.numero}</span>,
+      cell: ({ row }) => <span className="text-[13px] font-semibold tabular-nums text-primary">{row.original.numero}</span>,
       meta: { label: "N°", headerClassName: "w-[96px]" },
     },
     {
@@ -518,7 +612,7 @@ export function FacturationPage() {
     {
       id: "signature",
       accessorFn: (f) => f.signeeLe ?? "",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Signature papier" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Papier" />,
       cell: ({ row }) => {
         const f = row.original;
         if (f.statut === "annulee") return <span className="text-xs text-muted-foreground">—</span>;
@@ -537,14 +631,14 @@ export function FacturationPage() {
           </button>
         );
       },
-      meta: { label: "Signature papier", headerClassName: "w-[116px]" },
+      meta: { label: "Signature papier", headerClassName: "w-[108px]" },
     },
     {
       id: "einvoice",
       accessorFn: (f) => libelleEinvoice(f.einvoice?.statut),
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Facture électronique" />,
-      cell: ({ row }) => <EtatEinvoice facture={row.original} />,
-      meta: { label: "Facture électronique", headerClassName: "w-[150px]" },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="E-facture" />,
+      cell: ({ row }) => (row.original.statut === "annulee" ? <span className="text-xs text-muted-foreground">—</span> : <EinvoiceProgression statut={row.original.einvoice?.statut} />),
+      meta: { label: "Facture électronique", headerClassName: "w-[176px]" },
     },
     {
       id: "actions",
@@ -561,7 +655,7 @@ export function FacturationPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-1.5 border-accent bg-accent/15 px-2.5 text-xs font-semibold shadow-none hover:bg-accent/30"
+                  className="h-8 min-w-[92px] justify-center gap-1.5 border-accent bg-accent/15 px-2.5 text-xs font-semibold shadow-none hover:bg-accent/30"
                   onClick={() => setEiFacture(f)}
                 >
                   <FileCode2 className="size-3.5" aria-hidden="true" />
@@ -591,6 +685,8 @@ export function FacturationPage() {
     initialSorting: [{ id: "dateEmission", desc: true }],
     pageSize,
     resetKey: `${recherche}\u0000${statut}\u0000${filtreEi}\u0000${retardSeul}`,
+    // La signature papier est secondaire : colonne masquée au départ, réaffichable par Outils › Colonnes.
+    initialColumnVisibility: { signature: false },
   });
 
   const nbFiltres = (statut !== "all" ? 1 : 0) + (filtreEi !== "all" ? 1 : 0) + (retardSeul ? 1 : 0);
@@ -645,10 +741,12 @@ export function FacturationPage() {
             <Button variant="outline" className="signature-ledger__action" onClick={() => setSignatureOpen(true)}>
               <FileKey2 className="h-4 w-4" />
               Signature
+              {badgeSignature && <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase leading-none", badgeSignature.classe)}>{badgeSignature.texte}</span>}
             </Button>
             <Button variant="outline" className="signature-ledger__action" onClick={() => setTtnOpen(true)}>
               <Network className="h-4 w-4" />
               TTN
+              {badgeTtn && <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase leading-none", badgeTtn.classe)}>{badgeTtn.texte}</span>}
             </Button>
             <Button variant="ledger" onClick={() => ouvrirFormulaire("nouvelle")}>
               <Plus className="h-4 w-4" />
@@ -657,6 +755,8 @@ export function FacturationPage() {
           </div>
         }
       />
+
+      <FacturationMiseEnRoute etapes={etapes} occupe={essai} onAction={(c) => void actionEtape(c)} />
 
       <LedgerWorkSurface className="societes-ledger-surface">
         {selection.length === 0 && (
@@ -669,6 +769,27 @@ export function FacturationPage() {
         )}
 
         <OperationalMobileUtility label="Recherche et filtres du registre des factures">{rechercheFiltres()}</OperationalMobileUtility>
+
+        <div role="group" aria-label="Filtres rapides" className="flex flex-wrap gap-2 border-b border-accent/25 px-3 py-2.5">
+          {pastilles.map((c) => {
+            const actif = pastilleActive === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                aria-pressed={actif}
+                onClick={() => choisirPastille(c.id)}
+                className={cn(
+                  "inline-flex h-8 items-center gap-2 rounded-full px-3.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  actif ? "bg-primary text-primary-foreground" : "bg-accent/10 text-primary hover:bg-accent/20",
+                )}
+              >
+                {c.label}
+                <span className={cn("tabular-nums", actif ? "opacity-80" : c.alerte && c.n > 0 ? "font-bold text-warning" : "opacity-70")}>{c.n}</span>
+              </button>
+            );
+          })}
+        </div>
 
         <div className="societes-ledger-register">
           <OperationalMobileHeader>
@@ -683,11 +804,17 @@ export function FacturationPage() {
           </OperationalMobileHeader>
 
           {selection.length > 0 && (
-            <div className="ledger-selection-strip flex items-center justify-between gap-4 px-3 py-1.5">
+            <div className="ledger-selection-strip flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-1.5">
               <span className="text-sm font-semibold">
                 {selection.length} facture{selection.length > 1 ? "s" : ""} sélectionnée{selection.length > 1 ? "s" : ""}
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
+                <Button type="button" variant="ghost" size="sm" className="text-primary hover:bg-primary/5 hover:text-primary" disabled={nbASigner === 0 || lotEnCours !== null} onClick={() => setConfirmerLot("signer")}>
+                  <PenLine className="mr-1 size-4" aria-hidden="true" /> {lotEnCours === "signer" ? "Signature…" : `Signer (${nbASigner})`}
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="border-accent bg-accent/20 text-primary shadow-none hover:bg-accent/30" disabled={nbADeposer === 0 || lotEnCours !== null} onClick={() => setConfirmerLot("deposer")}>
+                  <Send className="mr-1 size-4" aria-hidden="true" /> {lotEnCours === "deposer" ? "Dépôt…" : `Déposer chez TTN (${nbADeposer})`}
+                </Button>
                 <Button type="button" variant="ghost" size="sm" className="text-primary hover:bg-primary/5 hover:text-primary" onClick={() => void telechargerSelectionPdf()}>
                   <FileDown className="mr-1 size-4" aria-hidden="true" /> PDF
                 </Button>
@@ -712,7 +839,7 @@ export function FacturationPage() {
             footer={<OperationalLedgerFooter table={table} itemLabel="factures" />}
             getRowClassName={(row) => cn(`ledger-row--${statutAffiche(row.original).cle}`, selection.includes(row.original.id) && "bg-accent/[0.14] hover:bg-accent/[0.18]")}
             getRowAriaLabel={(row) => `Facture ${row.original.numero} de ${row.original.societeNom}`}
-            onRowClick={(row) => row.original.statut !== "annulee" && setEiFacture(row.original)}
+            onRowClick={(row) => setDetail(row.original)}
             mobileRow={(row) => {
               const f = row.original;
               return (
@@ -760,6 +887,45 @@ export function FacturationPage() {
         onOpenTtn={() => {
           setEiFacture(null);
           setTtnOpen(true);
+        }}
+      />
+      <FactureDetailSheet
+        facture={detail}
+        cabinet={cabinet}
+        onOpenChange={(o) => !o && setDetail(null)}
+        onOpenEinvoice={(f) => {
+          setDetail(null);
+          setEiFacture(f);
+        }}
+        onTelechargerPdf={(f) => void telechargerPdf(f)}
+        onImprimer={imprimer}
+      />
+      <ConfirmDialog
+        open={confirmerLot === "signer"}
+        onOpenChange={(o) => !o && setConfirmerLot(null)}
+        title={`Signer ${nbASigner} facture${nbASigner > 1 ? "s" : ""} ?`}
+        destructive={false}
+        description={`Les ${nbASigner} facture${nbASigner > 1 ? "s" : ""} préparée${nbASigner > 1 ? "s" : ""} de la sélection seront signées avec le certificat du cabinet. Une fois signée, une facture ne peut plus être modifiée, régénérée ni annulée ici.${selection.length > nbASigner ? " Les autres factures sélectionnées ne sont pas concernées." : ""}`}
+        confirmLabel="Signer"
+        onConfirm={async () => {
+          setConfirmerLot(null);
+          await executerLot("signer");
+        }}
+      />
+      <ConfirmDialog
+        open={confirmerLot === "deposer"}
+        onOpenChange={(o) => !o && setConfirmerLot(null)}
+        title={`Déposer ${nbADeposer} facture${nbADeposer > 1 ? "s" : ""} chez TTN${ttn?.connexion?.environnement === "reel" ? " (RÉEL)" : " (test)"} ?`}
+        destructive={false}
+        description={
+          ttn?.connexion?.environnement === "reel"
+            ? `ENVIRONNEMENT RÉEL : le dépôt de ${nbADeposer} facture${nbADeposer > 1 ? "s" : ""} est définitif. Une facture déposée ne peut plus être modifiée ni annulée ici.`
+            : `Environnement de TEST : ${nbADeposer} facture${nbADeposer > 1 ? "s sont envoyées" : " est envoyée"} au service de test de TTN. Elles ne peuvent plus être modifiées ici une fois déposées.`
+        }
+        confirmLabel="Déposer"
+        onConfirm={async () => {
+          setConfirmerLot(null);
+          await executerLot("deposer");
         }}
       />
       <TtnConnexionDialog open={ttnOpen} onOpenChange={setTtnOpen} />

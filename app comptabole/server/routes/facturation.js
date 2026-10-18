@@ -130,6 +130,7 @@ facturationRouter.post("/", async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
+  if (v.echeance && v.dateEmission && v.echeance < v.dateEmission) return res.status(400).json({ error: "L'échéance ne peut pas précéder la date d'émission" });
   const societe = (await query("select raison_sociale from societes where id = $1", [v.societeId])).rows[0];
   if (!societe) return res.status(404).json({ error: "Société introuvable" });
 
@@ -171,6 +172,7 @@ facturationRouter.put("/:id", async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
+  if (v.echeance && v.dateEmission && v.echeance < v.dateEmission) return res.status(400).json({ error: "L'échéance ne peut pas précéder la date d'émission" });
   const existante = (
     await query(
       `select f.numero, f.statut, e.statut as ei_statut from factures f left join facture_einvoice e on e.facture_id = f.id where f.id = $1`,
@@ -392,6 +394,13 @@ facturationRouter.get("/:id/einvoice/xml", async (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename="${nom}${version === "non-signe" && ligne.teif_signe_xml ? "-non-signe" : ""}.xml"`);
   res.setHeader("Cache-Control", "no-store");
   res.send(version === "ttn" ? ligne.ttn_xml : signe ? ligne.teif_signe_xml : ligne.teif_xml);
+});
+
+// Historique d'une facture : le journal d'activité filtré sur elle (création, modification, signature, dépôt, validation, rejet…).
+facturationRouter.get("/:id/journal", async (req, res) => {
+  if (!UUID.test(req.params.id)) return res.status(400).json({ error: "Identifiant de facture invalide" });
+  const { rows } = await query("select id, at, actor, action, label from journal where entity = 'facture' and entity_id = $1 order by at desc limit 100", [req.params.id]);
+  res.json(rows.map((r) => ({ id: r.id, at: r.at instanceof Date ? r.at.toISOString() : r.at, actor: r.actor, action: r.action, label: r.label })));
 });
 
 // ── Dépôt chez TTN ───────────────────────────────────────────────────────────────────────────────────────────────

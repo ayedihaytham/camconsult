@@ -1,0 +1,232 @@
+.apurement-period {
+  min-width: 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+}
+.apurement-period {
+  padding: 16px 20px;
+}
+.apurement-navigation {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+}
+.apurement-navigation .apurement-tab {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  height: auto;
+  min-height: 84px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+  color: hsl(var(--primary));
+  text-align: left;
+  white-space: normal;
+}
+.apurement-navigation .apurement-tab[aria-current="page"] {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.apurement-tab-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: hsl(var(--secondary));
+}
+.apurement-tab-copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.apurement-tab-title {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.apurement-tab-description {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.45;
+}
+.apurement-tab[aria-current="page"] .apurement-tab-icon {
+  background: hsl(var(--primary-foreground) / 0.1);
+  color: hsl(var(--accent));
+}
+.apurement-tab[aria-current="page"] .apurement-tab-description {
+  color: hsl(var(--primary-foreground) / 0.8);
+}
+.apurement-tab:not([aria-current="page"]):hover {
+  border-color: hsl(var(--accent));
+  background: hsl(var(--secondary) / 0.6);
+}
+.apurement-tab:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+.apurement-page,
+.apurement-dialog {
+  font-family: var(--font-sans, Inter, Arial, sans-serif);
+}
+.apurement-page :is(h1, h2, h3, h4),
+.apurement-dialog :is(h2, h3, h4) {
+  font-family: inherit;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+}
+.apurement-page h1 {
+  font-size: 24px;
+  font-weight: 700;
+}
+.apurement-page h2,
+.apurement-dialog h2 {
+  font-size: 20px;
+}
+.apurement-page h3,
+.apurement-dialog h3 {
+  font-size: 15px;
+}
+.apurement-page h4,
+.apurement-dialog h4 {
+  font-size: 14px;
+}
+.apurement-page :is(h2, h3, h4),
+.apurement-dialog :is(h3, h4) {
+  color: hsl(var(--primary));
+}
+.apurement-period h2 {
+  font-size: 14px;
+  letter-spacing: 0;
+}
+.apurement-dialog .apurement-dialog-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: hsl(var(--primary-foreground));
+}
+@media (min-width: 1280px) {
+  .apurement-navigation {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 768px) {
+  .apurement-navigation--references {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.apurement-data-table {
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+}
+.apurement-data-table thead th {
+  padding: 14px 16px;
+  background: hsl(var(--primary) / 0.055);
+  border-bottom: 1px solid hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+}
+.apurement-data-table tbody td {
+  padding: 12px 16px;
+  font-variant-numeric: tabular-nums;
+}
+.apurement-data-table tbody tr:nth-child(even) {
+  background: hsl(var(--secondary) / 0.25);
+}
+.apurement-data-table tbody tr:hover {
+  transform: none;
+  background: hsl(var(--primary) / 0.045);
+  box-shadow: none;
+}
+.apurement-dialog > button:last-child {
+  color: hsl(var(--primary-foreground));
+  opacity: 0.85;
+}
+.apurement-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 20px;
+}
+.apurement-form-grid > * {
+  min-width: 0;
+}
+.apurement-form-grid
+  > :is(
+    h3,
+    p,
+    section,
+    details,
+    label,
+    .bg-muted,
+    #apurement-record-documents
+  ) {
+  grid-column: 1 / -1;
+}
+.apurement-form-grid > h3 {
+  padding-top: 8px;
+  color: hsl(var(--primary));
+}
+.apurement-form-grid input,
+.apurement-form-grid select {
+  min-height: 44px;
+}
+@media (min-width: 768px) {
+  .apurement-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 28px;
+  }
+}
+@media (max-width: 639px) {
+  .apurement-navigation {
+    gap: 8px;
+  }
+  .apurement-navigation .apurement-tab {
+    padding: 12px;
+    gap: 10px;
+    min-height: 64px;
+  }
+  .apurement-tab-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .apurement-tab-title {
+    font-size: 14px;
+  }
+  .apurement-tab-description {
+    display: none;
+  }
+  .apurement-period > .apurement-dossier-selector {
+    flex-basis: 100%;
+  }
+  .apurement-period {
+    padding: 14px;
+    gap: 12px;
+  }
+  .apurement-period > div {
+    flex-basis: 100%;
+  }
+  .apurement-period > label {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .apurement-period input,
+  .apurement-period select {
+    width: 100%;
+  }
+}

@@ -1,14 +1,14 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetBody,
-  SheetFooter,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import "./apurement.css";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -247,23 +247,26 @@ export function EntitySheet({
   );
   const [auth, setAuth] = useState(record?.autorisationId || "");
   return (
-    <Sheet
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open && !busy) onClose();
       }}
     >
-      <SheetContent className="w-full sm:max-w-xl">
-        <SheetHeader className="px-4 sm:px-6">
-          <SheetTitle>
+      <DialogContent className="apurement-dialog flex w-[calc(100vw-1.5rem)] max-w-5xl max-h-[calc(100dvh-1.5rem)] flex-col gap-0 overflow-hidden rounded-xl p-0">
+        <DialogHeader className="shrink-0 border-b border-primary-foreground/15 bg-primary px-5 py-5 pr-14 text-primary-foreground sm:px-8 sm:py-6">
+          <DialogTitle className="apurement-dialog-title text-2xl text-primary-foreground">
             {record ? "Modifier" : "Ajouter"} {names[kind]}
-          </SheetTitle>
-          <SheetDescription>
+          </DialogTitle>
+          <DialogDescription className="text-primary-foreground/80">
             Achats en suspension de TVA · {annee} {trimestre}
-          </SheetDescription>
-        </SheetHeader>
-        <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-          <SheetBody className="space-y-4 px-4 sm:px-6">
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={submit}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <div className="apurement-form-grid min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8">
             {error && (
               <p
                 role="alert"
@@ -636,8 +639,8 @@ export function EntitySheet({
                 />
               </div>
             )}
-          </SheetBody>
-          <SheetFooter className="px-4 sm:px-6">
+          </div>
+          <DialogFooter className="shrink-0 border-t bg-secondary/30 px-5 py-4 sm:px-8">
             <Button
               type="button"
               variant="outline"
@@ -653,9 +656,9 @@ export function EntitySheet({
                   ? "Enregistrer et ajouter les pièces"
                   : "Enregistrer"}
             </Button>
-          </SheetFooter>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

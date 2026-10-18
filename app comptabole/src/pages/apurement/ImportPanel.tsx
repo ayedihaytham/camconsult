@@ -473,7 +473,7 @@ export function ImportPanel({
             </div>
           )}
           {desktop ? (
-            <div className="min-w-0">
+          <div className="apurement-data-table min-w-0">
               <DataTable
                 data={preview.rows}
                 getRowId={(r) => String(r.row)}

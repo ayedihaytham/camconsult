@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { download } from "@/lib/export";
-import type { EinvoiceEtat, Facture, FactureCabinet, FactureStatut, SignatureEtat, TtnBilan, TtnEnvironnement, TtnEtat } from "@/types";
+import type { EinvoiceEtat, Facture, FactureCabinet, FactureJournalEntry, FactureStatut, SignatureEtat, TtnBilan, TtnEnvironnement, TtnEtat } from "@/types";
 
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
@@ -45,6 +45,8 @@ interface FacturationState {
   actualiser: (id: string) => Promise<EinvoiceEtat>;
   actualiserTout: () => Promise<TtnBilan>;
   rouvrir: (id: string) => Promise<EinvoiceEtat>;
+  /** Historique d'une facture (journal d'activité filtré sur elle), du plus récent au plus ancien. */
+  journal: (id: string) => Promise<FactureJournalEntry[]>;
   /** Signature électronique : certificat du cabinet, déverrouillage par mot de passe, signature d'une facture. */
   signature: SignatureEtat | null;
   fetchSignature: () => Promise<SignatureEtat>;
@@ -257,6 +259,14 @@ export const useFacturation = create<FacturationState>((set) => ({
       const bilan = await api.post<TtnBilan>("/facturation/ttn/actualiser");
       if (bilan.changees > 0) await useFacturation.getState().fetchList();
       return bilan;
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  journal: async (id) => {
+    try {
+      return await api.get<FactureJournalEntry[]>(`/facturation/${id}/journal`);
     } catch (e) {
       return fail(e);
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Facture } from "@/types";
-import { ajouterJours, calculerTotaux, contenuQrControle, estEnRetard, htmlFacture, montantEnLettres, nombreEnLettres } from "./facturation";
+import { ajouterJours, calculerTotaux, contenuQrControle, estEnRetard, htmlFacture, montantEnLettres, nombreEnLettres, prochainNumero } from "./facturation";
 
 describe("calculerTotaux", () => {
   it("calcule HT, TVA et net à payer avec timbre", () => {
@@ -41,6 +41,16 @@ describe("ajouterJours", () => {
   it("passe d'un mois à l'autre", () => {
     expect(ajouterJours("2026-10-06", 30)).toBe("2026-11-05");
     expect(ajouterJours("2026-12-20", 30)).toBe("2027-01-19");
+  });
+});
+
+describe("prochainNumero", () => {
+  it("suite de l'année de la date d'émission, sans trou ni dépendance à l'ordre", () => {
+    expect(prochainNumero(["2026-0006", "2026-0007", "2025-0099"], "2026-10-18")).toBe("2026-0008");
+    expect(prochainNumero(["2026-0010", "2026-0002"], "2026-01-05")).toBe("2026-0011");
+    expect(prochainNumero(["2025-0099"], "2026-01-05")).toBe("2026-0001");
+    expect(prochainNumero([], "2027-03-01")).toBe("2027-0001");
+    expect(prochainNumero(["2026-0003", "n'importe quoi", "2026-12"], "2026-06-01")).toBe("2026-0013");
   });
 });
 

@@ -32,6 +32,7 @@ const STATIC_ROUTES: Record<string, string> = {
   "/etat-swift": "État SWIFT",
   "/structuration": "Structuration",
   "/messagerie": "Messagerie",
+  "/conversions": "Conversions",
   "/journal": "Journal",
   "/parametres": "Paramètres",
 };

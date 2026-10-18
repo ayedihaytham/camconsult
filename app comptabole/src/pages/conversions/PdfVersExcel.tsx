@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Download, FileSpreadsheet, FileText, Save, TriangleAlert, Upload } from "lucide-react";
+import { CheckCircle2, Download, FileSpreadsheet, FileText, Save, TriangleAlert, X } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import {
   nombreDeCaracteres,
   type PdfTextItem,
 } from "@/lib/pdfToTables";
+import { ZoneDepot } from "./ZoneDepot";
+import type { StatsConversion } from "./types";
 
 interface PdfItem {
   id: string;
@@ -35,8 +37,9 @@ const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 /** Conversion PDF vers Excel : lecture du texte du PDF dans le navigateur, reconstruction des lignes et
  * colonnes d'après la position du texte, puis export .xlsx. Un PDF scanné (image) n'a pas de texte : il
  * est refusé avec un message clair plutôt que converti en classeur vide. */
-export function PdfVersExcel() {
+export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => void }) {
   const [converting, setConverting] = useState(false);
+  const [mode, setMode] = useState<"both" | "pdf" | "xls">("both");
   const [items, setItems] = useState<PdfItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeSheet, setActiveSheet] = useState(0);
@@ -51,10 +54,17 @@ export function PdfVersExcel() {
     return () => urls.forEach((u) => URL.revokeObjectURL(u));
   }, []);
 
-  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    if (files.length === 0) return;
+  useEffect(() => {
+    const ok = items.filter((i) => i.status === "ok");
+    onStats({ fichiers: items.length, convertis: ok.length, erreurs: items.length - ok.length, elements: ok.filter((i) => i.enregistre).length, libelleElements: "Enregistrés" });
+  }, [items, onStats]);
+
+  function retirer(id: string) {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    if (activeId === id) setActiveId(null);
+  }
+
+  async function handleFiles(files: File[]) {
     setConverting(true);
     const results: PdfItem[] = [];
     for (const file of files) {
@@ -158,24 +168,15 @@ export function PdfVersExcel() {
         </div>
 
         <div className="p-[18px]">
-          <label
-            data-tour="conversions-upload"
-            className="flex flex-col items-center gap-3 rounded-sm border border-dashed border-input px-4 py-10 text-center transition-colors hover:border-accent/50 hover:bg-secondary/40"
-          >
-            <Upload className="h-6 w-6 text-muted-foreground" />
-            <p className="text-sm text-foreground">
-              {converting ? (
-                "Lecture en cours…"
-              ) : (
-                <>
-                  Cliquez pour choisir un ou plusieurs fichiers <span className="font-semibold underline underline-offset-2">.pdf</span>
-                </>
-              )}
-            </p>
-            <input type="file" accept=".pdf,application/pdf" multiple disabled={converting} className="hidden" onChange={handleFiles} />
-          </label>
+          <ZoneDepot accept=".pdf,application/pdf" extensions={["pdf"]} types=".pdf" occupe={converting} libelleOccupe="Lecture en cours…" onFiles={(f) => void handleFiles(f)} />
         </div>
 
+        {items.length > 0 && (
+          <div className="flex items-center justify-between border-t border-border px-[18px] py-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">File de conversion</p>
+            <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
+          </div>
+        )}
         {items.length > 0 && (
           <ul className="divide-y divide-border border-t border-border">
             {items.map((item) => (
@@ -242,6 +243,19 @@ export function PdfVersExcel() {
                       Télécharger le .txt
                     </Button>
                   )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label={`Retirer ${item.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      retirer(item.id);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </button>
               </li>
             ))}
@@ -285,11 +299,17 @@ export function PdfVersExcel() {
               />
             </div>
           )}
-          <div className="grid gap-4 p-[18px] lg:grid-cols-2">
-            <div className="min-w-0">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu PDF</p>
-              <iframe src={active.pdfUrl ?? undefined} title="Aperçu PDF" className="h-[600px] w-full rounded-lg border border-border" />
-            </div>
+          <div className="px-[18px] pt-3">
+            <LedgerSegmented<"both" | "pdf" | "xls"> value={mode} onChange={setMode} ariaLabel="Mode d'aperçu" options={[{ value: "pdf", label: "PDF" }, { value: "both", label: "Côte à côte" }, { value: "xls", label: "Excel" }]} />
+          </div>
+          <div className={`grid gap-4 p-[18px] ${mode === "both" ? "lg:grid-cols-2" : ""}`}>
+            {mode !== "xls" && (
+              <div className="min-w-0">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu PDF</p>
+                <iframe src={active.pdfUrl ? `${active.pdfUrl}#navpanes=0&view=FitH` : undefined} title="Aperçu PDF" className="h-[600px] w-full rounded-lg border border-border bg-muted" />
+              </div>
+            )}
+            {mode !== "pdf" && (
             <div className="min-w-0">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Aperçu Excel — {feuille.rows.length} ligne{feuille.rows.length > 1 ? "s" : ""}
@@ -313,6 +333,7 @@ export function PdfVersExcel() {
                 </table>
               </div>
             </div>
+            )}
           </div>
           {ecrituresTexte && (
             <div className="border-t border-border p-[18px]">

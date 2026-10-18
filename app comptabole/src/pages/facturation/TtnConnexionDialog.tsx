@@ -1,26 +1,30 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, LoaderCircle, Network, ShieldAlert } from "lucide-react";
+import { Check } from "lucide-react";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { CARD_FIELD_INPUT, CardField } from "@/components/common/CardField";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatDate } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { normaliserMatriculeFiscal } from "../../../shared/mf.js";
+import { cn, formatDate } from "@/lib/utils";
 import { useFacturation } from "@/store/facturation";
 import type { TtnEnvironnement } from "@/types";
+import { AIDE, CHAMP, Carte, ETIQUETTE, FenetreFacturation, Puce, Rubrique, Valeurs } from "./FenetreFacturation";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+const dateHeure = (iso: string) => new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+
 /**
- * Accès au service web El Fatoora de TTN : adresse, identifiant, mot de passe (chiffré côté serveur, jamais relu), matricule fiscal déclaré
- * chez TTN et environnement (test / réel). « Tester la connexion » interroge le service sans rien déposer.
+ * Accès au service web El Fatoora de TTN : adresse, environnement (test / réel), identifiants, matricule déclaré chez TTN.
+ * Le mot de passe est chiffré côté serveur et n'est jamais relu. La carte d'état montre ce qui est enregistré et le dernier essai ;
+ * « Tester la connexion » interroge le service sans rien déposer (il porte sur les accès ENREGISTRÉS).
  */
 export function TtnConnexionDialog({ open, onOpenChange }: Props) {
   const ttn = useFacturation((s) => s.ttn);
+  const cabinet = useFacturation((s) => s.cabinet);
   const fetchTtn = useFacturation((s) => s.fetchTtn);
   const enregistrerTtn = useFacturation((s) => s.enregistrerTtn);
   const supprimerTtn = useFacturation((s) => s.supprimerTtn);
@@ -29,6 +33,7 @@ export function TtnConnexionDialog({ open, onOpenChange }: Props) {
   const [url, setUrl] = useState("");
   const [login, setLogin] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
+  const [changerMdp, setChangerMdp] = useState(false);
   const [matricule, setMatricule] = useState("");
   const [environnement, setEnvironnement] = useState<TtnEnvironnement>("test");
   const [chargement, setChargement] = useState(false);
@@ -39,6 +44,7 @@ export function TtnConnexionDialog({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (!open) return;
     setMotDePasse("");
+    setChangerMdp(false);
     setResultatTest(null);
     setChargement(true);
     fetchTtn()
@@ -53,12 +59,17 @@ export function TtnConnexionDialog({ open, onOpenChange }: Props) {
   }, [open, fetchTtn]);
 
   const connexion = ttn?.connexion ?? null;
-  const peutEnregistrer = Boolean(url.trim() && login.trim() && (motDePasse || connexion)) && !occupe;
+  const demandeMdp = !connexion || changerMdp;
+  const peutEnregistrer = Boolean(url.trim() && login.trim() && (!demandeMdp || motDePasse)) && !occupe;
+  // Des modifications non enregistrées : l'essai de connexion porterait sur d'anciens accès.
+  const modifie = Boolean(connexion) && (url.trim() !== connexion!.url || login.trim() !== connexion!.login || matricule.trim() !== connexion!.matricule || environnement !== connexion!.environnement || motDePasse !== "");
+  const matriculeEnvoye = matricule.trim() || normaliserMatriculeFiscal(cabinet?.matriculeFiscal ?? "");
 
   async function enregistrer() {
     if (!peutEnregistrer) return;
     const saisi = motDePasse;
     setMotDePasse("");
+    setChangerMdp(false);
     setOccupe(true);
     setResultatTest(null);
     try {
@@ -79,120 +90,176 @@ export function TtnConnexionDialog({ open, onOpenChange }: Props) {
     } catch (e) {
       setResultatTest({ ok: false, message: e instanceof Error ? e.message : "Essai impossible" });
     } finally {
+      await fetchTtn().catch(() => undefined); // le résultat est mémorisé côté serveur : on le relit pour la carte d'état
       setOccupe(false);
     }
   }
 
+  const essai = connexion?.dernierEssai ?? null;
+  const reel = environnement === "reel";
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Network className="size-5 text-accent" aria-hidden="true" />
-              Accès TTN (El Fatoora)
-            </DialogTitle>
-            <DialogDescription>
-              Adresse du service web et identifiants El Fatoora, utilisés pour déposer les factures signées et suivre leur validation. Le mot de passe est{" "}
-              <strong>chiffré</strong> avant d'être enregistré et n'est jamais réaffiché.
-            </DialogDescription>
-          </DialogHeader>
-
-          {chargement && !ttn ? (
-            <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-              <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> Chargement…
-            </p>
-          ) : !ttn ? (
-            <p className="py-4 text-sm text-destructive">Impossible de lire les accès TTN pour le moment.</p>
-          ) : !ttn.configuree ? (
-            <p className="flex gap-2 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-sm">
-              <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-              <span>
-                L'accès à TTN n'est pas activé sur ce serveur : la clé de chiffrement (<code>SIGNATURE_CLE_SECRET</code>) n'est pas définie.
-              </span>
-            </p>
-          ) : (
-            <form
-              className="space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void enregistrer();
-              }}
-            >
-              {environnement === "test" && (
-                <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm font-semibold text-warning">
-                  ENVIRONNEMENT DE TEST : les factures déposées ici ne sont pas des factures réelles.
-                </p>
-              )}
-              <CardField id="ttn-url" label="Adresse du service TTN" hint="Commence par https:// (ex. l'adresse du service EfactService fournie par TTN).">
-                <input id="ttn-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/ElfatouraServices/EfactService" autoComplete="off" className={CARD_FIELD_INPUT} />
-              </CardField>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <CardField id="ttn-login" label="Identifiant El Fatoora">
-                  <input id="ttn-login" value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="off" className={CARD_FIELD_INPUT} />
-                </CardField>
-                <CardField id="ttn-mdp" label="Mot de passe" hint={connexion?.motDePasseDefini ? "Déjà enregistré : laissez vide pour le conserver." : undefined}>
-                  <input
-                    id="ttn-mdp"
-                    type="password"
-                    autoComplete="new-password"
-                    value={motDePasse}
-                    onChange={(e) => setMotDePasse(e.target.value)}
-                    placeholder={connexion?.motDePasseDefini ? "••••••••" : ""}
-                    className={CARD_FIELD_INPUT}
-                  />
-                </CardField>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <CardField id="ttn-matricule" label="Matricule fiscal déclaré chez TTN" hint="Vide : celui du cabinet (Facturation › Cabinet).">
-                  <input id="ttn-matricule" value={matricule} onChange={(e) => setMatricule(e.target.value)} autoComplete="off" className={CARD_FIELD_INPUT} />
-                </CardField>
-                <CardField id="ttn-env" label="Environnement">
-                  <Select value={environnement} onValueChange={(v) => setEnvironnement(v as TtnEnvironnement)}>
-                    <SelectTrigger id="ttn-env" className="mt-1 h-auto w-full border-0 bg-transparent p-0 text-base shadow-none focus:ring-0 focus:ring-offset-0" aria-label="Environnement">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="test">Test</SelectItem>
-                      <SelectItem value="reel">Réel (production)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </CardField>
-              </div>
-
-              {connexion && (
-                <p className="text-xs text-muted-foreground">
-                  Enregistré le {formatDate(connexion.majLe)}
-                  {connexion.majPar ? ` par ${connexion.majPar}` : ""}.
-                </p>
-              )}
-              {resultatTest && (
-                <p
-                  role="status"
-                  className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${resultatTest.ok ? "border-success/30 bg-success/5 text-success" : "border-destructive/30 bg-destructive/5 text-destructive"}`}
-                >
-                  {resultatTest.ok && <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
-                  <span>{resultatTest.message}</span>
-                </p>
-              )}
-
-              <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-                {connexion && (
-                  <Button type="button" variant="outline" className="mr-auto text-destructive hover:bg-destructive/10" disabled={occupe} onClick={() => setConfirmerSuppression(true)}>
-                    Supprimer
-                  </Button>
-                )}
-                <Button type="button" variant="outline" disabled={!connexion || occupe} onClick={() => void tester()}>
+      <FenetreFacturation
+        open={open}
+        onOpenChange={onOpenChange}
+        titre="Accès TTN (El Fatoora)"
+        description="Adresse du service web et identifiants El Fatoora, utilisés pour déposer les factures signées et suivre leur validation. Le mot de passe est chiffré et n'est jamais réaffiché."
+        enTete={
+          ttn?.configuree !== false && (
+            <span className={cn("inline-flex h-7 items-center gap-2 rounded-full px-3 text-[11px] font-bold uppercase tracking-[0.08em]", reel ? "bg-primary text-primary-foreground" : "bg-warning/15 text-warning")}>
+              <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+              {reel ? "Environnement réel" : "Environnement de test"}
+            </span>
+          )
+        }
+        aside={
+          ttn?.configuree ? (
+            <>
+              <Carte titre="État de la connexion">
+                <Valeurs
+                  lignes={[
+                    ["Environnement", connexion ? (connexion.environnement === "reel" ? "Réel" : "Test") : "—"],
+                    ["Enregistrés", connexion ? `${formatDate(connexion.majLe)}${connexion.majPar ? ` · ${connexion.majPar}` : ""}` : "Pas encore"],
+                    ["Dernier essai", !connexion ? "—" : essai ? <Puce ton={essai.ok ? "ok" : "erreur"}>{essai.ok ? "Réussi" : "Échoué"} · {dateHeure(essai.le)}</Puce> : <Puce ton="neutre">Jamais essayé</Puce>],
+                  ]}
+                />
+                <Button type="button" variant="outline" className="w-full border-accent bg-accent/15 font-semibold text-primary shadow-none hover:bg-accent/30" disabled={!connexion || modifie || occupe} onClick={() => void tester()}>
                   {occupe ? "En cours…" : "Tester la connexion"}
                 </Button>
-                <Button type="submit" variant="ledger" disabled={!peutEnregistrer}>
-                  Enregistrer
-                </Button>
+                {modifie && <p className={AIDE}>Enregistrez d'abord vos modifications : l'essai porte sur les accès enregistrés.</p>}
+                {resultatTest && (
+                  <p
+                    role="status"
+                    className={cn("rounded-lg px-2.5 py-2 text-xs", resultatTest.ok ? "bg-success/10 text-success" : "bg-destructive/[0.08] text-destructive")}
+                  >
+                    {resultatTest.message}
+                  </p>
+                )}
+                <p className={AIDE}>L'essai interroge TTN sur un numéro qui n'existe pas : rien n'est déposé.</p>
+              </Carte>
+              <Carte titre="Avant le premier dépôt" serif={false}>
+                <ol className={cn(AIDE, "space-y-1.5")}>
+                  <li>① L'adresse IP de votre serveur doit être déclarée chez TTN.</li>
+                  <li>② Testez d'abord en environnement de test.</li>
+                  <li>③ Passez en « Réel » seulement après un dépôt de test validé.</li>
+                </ol>
+              </Carte>
+            </>
+          ) : undefined
+        }
+        pied={
+          <>
+            {connexion && (
+              <Button type="button" variant="ghost" className="h-auto px-1 text-sm font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={occupe} onClick={() => setConfirmerSuppression(true)}>
+                Supprimer les accès
+              </Button>
+            )}
+            <p className={cn("text-sm", reel ? "font-semibold text-primary" : "text-muted-foreground")} role="status">
+              {reel ? "Réel : les factures déposées seront définitives." : ""}
+            </p>
+            <div className="ml-auto flex gap-3">
+              <Button type="button" variant="outline" className="h-11 rounded-lg px-6" onClick={() => onOpenChange(false)}>
+                Annuler
+              </Button>
+              <Button type="button" variant="ledger" className="h-11 rounded-lg px-6 text-sm uppercase tracking-[0.14em]" disabled={!peutEnregistrer || ttn?.configuree === false} onClick={() => void enregistrer()}>
+                Enregistrer
+              </Button>
+            </div>
+          </>
+        }
+      >
+        {chargement && !ttn ? (
+          <p className="py-6 text-sm text-muted-foreground">Chargement…</p>
+        ) : !ttn ? (
+          <p className="py-4 text-sm text-destructive">Impossible de lire les accès TTN pour le moment.</p>
+        ) : !ttn.configuree ? (
+          <p className="rounded-lg border border-warning/30 bg-warning/5 px-3.5 py-3 text-sm">
+            L'accès à TTN n'est pas activé sur ce serveur : la clé de chiffrement (<code>SIGNATURE_CLE_SECRET</code>) n'est pas définie. Demandez à l'administrateur technique de la configurer.
+          </p>
+        ) : (
+          <form
+            className="space-y-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void enregistrer();
+            }}
+          >
+            <Rubrique titre="Service">
+              <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
+                <label className={ETIQUETTE}>
+                  Adresse du service TTN
+                  <Input id="ttn-url" aria-label="Adresse du service TTN" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/ElfatouraServices/EfactService" autoComplete="off" className={CHAMP} />
+                  <span className={AIDE}>Commence par https:// — adresse fournie par TTN.</span>
+                </label>
+                <div className={ETIQUETTE}>
+                  Environnement
+                  <div role="group" aria-label="Environnement" className="inline-grid h-10 grid-flow-col overflow-hidden rounded-lg border border-input bg-card">
+                    {(["test", "reel"] as const).map((e) => (
+                      <button
+                        key={e}
+                        type="button"
+                        aria-pressed={environnement === e}
+                        onClick={() => setEnvironnement(e)}
+                        className={cn(
+                          "border-r border-input px-5 text-sm font-semibold transition-colors last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                          environnement === e ? "bg-primary text-primary-foreground" : "hover:bg-accent/15",
+                        )}
+                      >
+                        {e === "test" ? "Test" : "Réel"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
+            </Rubrique>
+
+            <Rubrique titre="Identifiants">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className={ETIQUETTE}>
+                  Identifiant El Fatoora
+                  <Input id="ttn-login" aria-label="Identifiant El Fatoora" value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="off" className={CHAMP} />
+                </label>
+                {demandeMdp ? (
+                  <label className={ETIQUETTE}>
+                    Mot de passe
+                    <Input id="ttn-mdp" aria-label="Mot de passe" type="password" autoComplete="new-password" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} className={CHAMP} placeholder={connexion ? "Nouveau mot de passe" : ""} />
+                  </label>
+                ) : (
+                  <div className={ETIQUETTE}>
+                    Mot de passe
+                    <div className="flex h-10 items-center gap-3">
+                      <Puce ton="ok">Enregistré (chiffré)</Puce>
+                      <button type="button" className="text-xs font-semibold text-primary underline underline-offset-4" onClick={() => setChangerMdp(true)}>
+                        Changer
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <label className={ETIQUETTE}>
+                Matricule fiscal déclaré chez TTN
+                <Input id="ttn-matricule" aria-label="Matricule fiscal déclaré chez TTN" value={matricule} onChange={(e) => setMatricule(e.target.value)} autoComplete="off" className={CHAMP} placeholder="Vide : celui du cabinet" />
+                <span className={AIDE}>
+                  {matriculeEnvoye ? (
+                    <>
+                      Envoyé à TTN : <b className="text-foreground">{matriculeEnvoye}</b>
+                      {!matricule.trim() && " (matricule du cabinet)"}.
+                    </>
+                  ) : (
+                    "Aucun matricule : renseignez-le ici ou dans Facturation › Cabinet."
+                  )}
+                </span>
+              </label>
+            </Rubrique>
+            {connexion && !modifie && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Check className="size-3.5 text-success" strokeWidth={3} aria-hidden="true" /> Les champs ci-dessus correspondent aux accès enregistrés.
+              </p>
+            )}
+          </form>
+        )}
+      </FenetreFacturation>
 
       <ConfirmDialog
         open={confirmerSuppression}

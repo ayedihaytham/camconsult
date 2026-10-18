@@ -106,7 +106,7 @@ describe("les huit écrans d'import passent tous par le contrôle commun (vérif
     "pages/honoraires/HonoraireImportDialog.tsx",
     "pages/soucheCheques/SoucheChequeImportDialog.tsx",
     "pages/suiviDevise/SuiviDeviseImportDialog.tsx",
-    "pages/ConversionsPage.tsx",
+    "pages/conversions/ExcelVersPdf.tsx",
   ];
 
   it.each(directs)("%s lit le classeur via lireTamponClasseur, jamais directement", (chemin) => {

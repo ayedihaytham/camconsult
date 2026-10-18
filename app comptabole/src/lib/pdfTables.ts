@@ -45,6 +45,11 @@ interface TablesPdfOpts {
    * etc.) : pour un tableur quelconque (voir la page Conversions), ces
    * heuristiques produisent des faux positifs. Tableau simple à la place. */
   plain?: boolean;
+  /** Sens de la page : « auto » passe en paysage dès 6 colonnes (comportement historique). */
+  orientation?: "auto" | "portrait" | "landscape";
+  format?: "a4" | "a3";
+  /** Faux : pas de bloc CAMCONSULT / titre / sous-titre en tête du document. */
+  entete?: boolean;
 }
 
 /** Construit le document sans le télécharger — pour un aperçu (iframe,
@@ -55,20 +60,29 @@ interface TablesPdfOpts {
 export async function buildTablesPdf(opts: TablesPdfOpts): Promise<JsPDF> {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const maxCols = Math.max(1, ...opts.sheets.flatMap((s) => s.rows.map((r) => r.length)));
-  const doc = new jsPDF({ orientation: maxCols >= 6 ? "landscape" : "portrait", unit: "pt", format: "a4" });
+  const orientation = opts.orientation ?? "auto";
+  const doc = new jsPDF({
+    orientation: orientation === "auto" ? (maxCols >= 6 ? "landscape" : "portrait") : orientation,
+    unit: "pt",
+    format: opts.format ?? "a4",
+  });
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
   const utile = largeur - 2 * MARGE;
+  const entete = opts.entete !== false;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(201, 162, 75);
-  doc.text("CAMCONSULT", MARGE, MARGE + 4);
-  doc.setFontSize(15);
-  doc.setTextColor(...BLEU);
-  doc.text(clean(opts.title), MARGE, MARGE + 26, { maxWidth: utile });
-  let y = MARGE + 34;
-  if (opts.subtitle) {
+  let y = MARGE;
+  if (entete) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(201, 162, 75);
+    doc.text("CAMCONSULT", MARGE, MARGE + 4);
+    doc.setFontSize(15);
+    doc.setTextColor(...BLEU);
+    doc.text(clean(opts.title), MARGE, MARGE + 26, { maxWidth: utile });
+    y = MARGE + 34;
+  }
+  if (entete && opts.subtitle) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(...GRIS);

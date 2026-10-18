@@ -37,6 +37,7 @@ describe("getAppBreadcrumbs", () => {
     ["/suivi-devise", "Suivi client devise"],
     ["/structuration", "Structuration"],
     ["/messagerie", "Messagerie"],
+    ["/conversions", "Conversions"],
     ["/journal", "Journal"],
     ["/parametres", "Paramètres"],
   ])("résout %s vers %s", (pathname, label) => {

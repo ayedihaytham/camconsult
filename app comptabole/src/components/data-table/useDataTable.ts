@@ -20,6 +20,8 @@ interface UseDataTableOptions<TData> {
   initialSorting?: SortingState;
   pageSize?: number;
   resetKey?: string;
+  /** Colonnes masquées au départ (id → false) ; l'utilisateur peut les réafficher par le menu des colonnes. */
+  initialColumnVisibility?: VisibilityState;
 }
 
 export function useDataTable<TData>({
@@ -29,9 +31,10 @@ export function useDataTable<TData>({
   initialSorting = [],
   pageSize = DATA_TABLE_PAGE_SIZE,
   resetKey,
+  initialColumnVisibility = {},
 }: UseDataTableOptions<TData>) {
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize,

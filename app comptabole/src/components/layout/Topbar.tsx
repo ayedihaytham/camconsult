@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { AppBreadcrumbs } from "./AppBreadcrumbs";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useHistoriqueNavigation } from "@/hooks/useHistoriqueNavigation";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
 import { SocieteActiveSelect } from "./SocieteActiveSelect";
@@ -48,6 +49,8 @@ export function Topbar() {
           className="h-10 w-10 shrink-0 lg:h-9 lg:w-9"
           aria-label="Afficher ou réduire le menu"
         />
+
+        <NavigationHistorique />
 
         <Separator orientation="vertical" className="h-4" />
         <AppBreadcrumbs />
@@ -99,6 +102,23 @@ export function Topbar() {
         </div>
       </div>
     </header>
+  );
+}
+
+/** Page précédente / suivante (même effet que les flèches du navigateur, Alt + ← / Alt + →). Grisés quand il n'y a pas de page de ce côté. */
+function NavigationHistorique() {
+  const { peutReculer, peutAvancer, reculer, avancer } = useHistoriqueNavigation();
+  const bouton =
+    "flex h-10 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-35 lg:h-9 lg:w-8";
+  return (
+    <div className="flex shrink-0 items-center" role="group" aria-label="Navigation dans l'historique">
+      <button type="button" className={bouton} onClick={reculer} disabled={!peutReculer} aria-label="Page précédente" title="Page précédente (Alt + ←)">
+        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+      </button>
+      <button type="button" className={bouton} onClick={avancer} disabled={!peutAvancer} aria-label="Page suivante" title="Page suivante (Alt + →)">
+        <ChevronRight className="h-5 w-5" aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 

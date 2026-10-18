@@ -1,3 +1,4 @@
+import { canReadNoeud } from "../noeudAccess.js";
 import { Router } from "express";
 import { z } from "zod";
 import { query, withTransaction } from "../db.js";
@@ -78,17 +79,17 @@ function requireDelete(req, res, next) {
 // Listes et réponses : sans le contenu des fichiers (noeudDtoLeger).
 noeudsRouter.get("/", async (req, res) => {
   const { rows } = await query(`select ${NOEUD_COLONNES_LEGERES} from noeuds where ($1::uuid[] is null or societe_id is null or societe_id = any($1::uuid[])) order by maj_le desc`, [porteeSocietes(req.session)]);
-  const visible = rows.filter((r) => canSeeSociete(req.session, r.societe_id));
+  const visible = rows.filter((r) => canReadNoeud(req.session, r));
   res.json(visible.map(noeudDtoLeger));
 });
 
 /** Contenu d'un fichier (data URL), à la demande — aperçu / téléchargement. */
 noeudsRouter.get("/:id/contenu", async (req, res) => {
   const n = (
-    await query("select societe_id, data_url from noeuds where id = $1", [req.params.id])
+    await query("select societe_id, data_url, cabinet_only from noeuds where id = $1", [req.params.id])
   ).rows[0];
   if (!n?.data_url) return res.status(404).json({ error: "Contenu introuvable" });
-  if (!canSeeSociete(req.session, n.societe_id))
+  if (!canReadNoeud(req.session, n))
     return res.status(403).json({ error: "Élément hors périmètre" });
   res.json({ dataUrl: n.data_url });
 });
@@ -100,12 +101,15 @@ noeudsRouter.post("/", requireCreate, async (req, res) => {
   const v = parsed.data;
   if (!canSeeSociete(req.session, v.societeId ?? null))
     return res.status(403).json({ error: "Société hors périmètre" });
+  const parent = v.parentId ? (await query("select * from noeuds where id=$1", [v.parentId])).rows[0] : null;
+  if (v.parentId && (!parent || parent.type !== "dossier" || parent.societe_id !== v.societeId || !canReadNoeud(req.session, parent)))
+    return res.status(403).json({ error: "Dossier parent inaccessible dans cette société" });
   const { rows } = await query(
-    `insert into noeuds (libelle, description, type, societe_id, parent_id, format, taille, data_url, maj_le)
-     values ($1,$2,$3,$4,$5,$6,$7,$8, current_date) returning *`,
+    `insert into noeuds (libelle, description, type, societe_id, parent_id, format, taille, data_url, maj_le, cabinet_only)
+     values ($1,$2,$3,$4,$5,$6,$7,$8, current_date,$9) returning *`,
     [
       v.libelle, v.description, v.type, v.societeId, v.parentId,
-      v.format ?? null, v.taille ?? null, v.dataUrl ?? null,
+      v.format ?? null, v.taille ?? null, v.dataUrl ?? null, Boolean(parent?.cabinet_only),
     ],
   );
   logAction(
@@ -114,7 +118,7 @@ noeudsRouter.post("/", requireCreate, async (req, res) => {
     v.type === "fichier" ? "fichier" : "dossier",
     v.libelle,
   );
-  await notifyStructure(
+  if (!parent?.cabinet_only) await notifyStructure(
     req,
     rows[0].societe_id,
     `Nouveau ${v.type === "fichier" ? "fichier" : "dossier"} : ${v.libelle}`,
@@ -126,7 +130,7 @@ noeudsRouter.post("/", requireCreate, async (req, res) => {
 noeudsRouter.patch("/:id", requireStructEdit, async (req, res) => {
   const existing = (await query("select * from noeuds where id = $1", [req.params.id])).rows[0];
   if (!existing) return res.status(404).json({ error: "Élément introuvable" });
-  if (!canSeeSociete(req.session, existing.societe_id))
+  if (!canReadNoeud(req.session, existing))
     return res.status(403).json({ error: "Élément hors périmètre" });
 
   const wants = schema.partial().safeParse(req.body);
@@ -136,15 +140,22 @@ noeudsRouter.patch("/:id", requireStructEdit, async (req, res) => {
   // renommage/déplacement, qui n'envoie pas de dataUrl, ne l'efface jamais.
   const v = { ...noeudDto(existing), ...wants.data };
   if (v.dataUrl === undefined) v.dataUrl = existing.data_url ?? undefined;
+  const targetParent = v.parentId ? (await query("select * from noeuds where id=$1", [v.parentId])).rows[0] : null;
+  if (v.parentId && (!targetParent || targetParent.type !== "dossier" || targetParent.societe_id !== v.societeId || !canReadNoeud(req.session, targetParent)))
+    return res.status(403).json({ error: "Dossier parent inaccessible dans cette société" });
+  const cabinetOnly = Boolean(existing.cabinet_only || targetParent?.cabinet_only);
   const { rows } = await query(
     `update noeuds set libelle=$1, description=$2, societe_id=$3, parent_id=$4,
-       format=$5, taille=$6, data_url=$7, maj_le=current_date
+       format=$5, taille=$6, data_url=$7, maj_le=current_date, cabinet_only=$9
      where id=$8 returning *`,
     [
       v.libelle, v.description, v.societeId, v.parentId,
-      v.format ?? null, v.taille ?? null, v.dataUrl ?? null, req.params.id,
+      v.format ?? null, v.taille ?? null, v.dataUrl ?? null, req.params.id, cabinetOnly,
     ],
   );
+  if (cabinetOnly) await query(`with recursive subtree as (
+    select id from noeuds where parent_id=$1 union select n.id from noeuds n join subtree s on n.parent_id=s.id
+  ) update noeuds set cabinet_only=true where id in (select id from subtree)`, [existing.id]);
   const moved = existing.parent_id !== rows[0].parent_id;
   logAction(
     req.session.nom,
@@ -152,7 +163,7 @@ noeudsRouter.patch("/:id", requireStructEdit, async (req, res) => {
     existing.type === "fichier" ? "fichier" : "dossier",
     moved ? `Déplacement de « ${v.libelle} »` : v.libelle,
   );
-  await notifyStructure(
+  if (!cabinetOnly) await notifyStructure(
     req,
     rows[0].societe_id,
     `${existing.type === "fichier" ? "Fichier" : "Dossier"} ${moved ? "déplacé" : "modifié"} : ${v.libelle}`,
@@ -167,6 +178,7 @@ noeudsRouter.post("/:id/duplicate", requireStructEdit, async (req, res) => {
   const root = byId.get(req.params.id);
   if (!root) return res.status(404).json({ error: "Élément introuvable" });
 
+  if (!canReadNoeud(req.session, root)) return res.status(403).json({ error: "Élément hors périmètre" });
   const subtree = [];
   const collect = (id) => {
     const node = byId.get(id);
@@ -175,6 +187,8 @@ noeudsRouter.post("/:id/duplicate", requireStructEdit, async (req, res) => {
     all.filter((n) => n.parent_id === id).forEach((c) => collect(c.id));
   };
   collect(root.id);
+  if (subtree.some(n => !canReadNoeud(req.session, n)))
+    return res.status(403).json({ error: "Cette arborescence contient des documents hors de votre périmètre" });
 
   const created = await withTransaction(async (client) => {
     const idMap = new Map();
@@ -185,11 +199,11 @@ noeudsRouter.post("/:id/duplicate", requireStructEdit, async (req, res) => {
         i === 0 ? null : (idMap.get(n.parent_id) ?? null);
       const libelle = i === 0 ? `${n.libelle} (copie)` : n.libelle;
       const { rows } = await client.query(
-        `insert into noeuds (libelle, description, type, societe_id, parent_id, format, taille, data_url, maj_le)
-         values ($1,$2,$3,$4,$5,$6,$7,$8, current_date) returning *`,
+        `insert into noeuds (libelle, description, type, societe_id, parent_id, format, taille, data_url, maj_le, cabinet_only)
+         values ($1,$2,$3,$4,$5,$6,$7,$8, current_date,$9) returning *`,
         [
           libelle, n.description, n.type, n.societe_id, newParent,
-          n.format, n.taille, n.data_url,
+          n.format, n.taille, n.data_url, Boolean(n.cabinet_only),
         ],
       );
       idMap.set(n.id, rows[0].id);
@@ -206,9 +220,15 @@ noeudsRouter.post("/:id/duplicate", requireStructEdit, async (req, res) => {
 noeudsRouter.post("/bulk-delete", requireDelete, async (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
   if (ids.length === 0) return res.json({ deleted: 0 });
+  const subtree = (await query(`with recursive tree as (
+    select id,societe_id,cabinet_only from noeuds where id=any($1::uuid[])
+    union select n.id,n.societe_id,n.cabinet_only from noeuds n join tree t on n.parent_id=t.id
+  ) select * from tree`, [ids])).rows;
+  if (subtree.some(n => !canReadNoeud(req.session, n)))
+    return res.status(403).json({ error: "Cette arborescence contient des documents hors de votre périmètre" });
   // ON DELETE CASCADE gère les descendants
   const { rows } = await query(
-    "delete from noeuds where id = any($1::uuid[]) returning libelle, type, societe_id",
+    "delete from noeuds where id = any($1::uuid[]) returning libelle, type, societe_id, cabinet_only",
     [ids],
   );
   logAction(
@@ -219,7 +239,7 @@ noeudsRouter.post("/bulk-delete", requireDelete, async (req, res) => {
   );
   const bySoc = new Map();
   for (const r of rows) {
-    if (r.societe_id)
+    if (r.societe_id && !r.cabinet_only)
       bySoc.set(r.societe_id, [...(bySoc.get(r.societe_id) ?? []), r.libelle]);
   }
   for (const [socId, libelles] of bySoc) {

@@ -1,3 +1,12 @@
+import { Badge } from "@/components/ui/badge";
+import {
+  FileText,
+  LockKeyhole,
+  ArrowRight,
+  Check,
+  Send,
+  ClipboardCheck,
+} from "lucide-react";
 import { ApurementSelect } from "./ApurementSelect";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -51,6 +60,7 @@ export function DeclarationPanel({
   const [policyReference, setPolicyReference] = useState(""),
     [policy, setPolicy] = useState<{ reference: string }[]>([]);
   const { canManageCollaborateurs } = usePermissions();
+  const [documentsOpen, setDocumentsOpen] = useState(true);
   const load = useCallback(
     async (id?: string) => {
       let loaded: Declaration | null = null;
@@ -114,6 +124,7 @@ export function DeclarationPanel({
       await downloadApurement(`/exports/${e.id}/telecharger`, e.nom);
     });
   }
+  const totals = selected?.snapshot?.totals || selected?.apercu?.totals;
   return (
     <section
       className="space-y-4 [&_button]:max-w-full [&_button]:whitespace-normal [&_button]:h-auto [&_button]:min-h-10"
@@ -159,46 +170,74 @@ export function DeclarationPanel({
           {error}
         </p>
       )}
-      <div className="divide-y">
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="border-b bg-muted/30 px-5 py-3 text-sm font-semibold text-primary">
+          Versions du trimestre{" "}
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            {list.length} version(s)
+          </span>
+        </div>
         {list.map((d) => (
           <div
             key={d.id}
-            className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
+            className={`flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4 text-sm last:border-b-0 ${selected?.id === d.id ? "bg-primary/5" : "hover:bg-muted/30"}`}
           >
-            <div>
-              <Link
-                className="font-medium underline"
-                to={`/apurement/${societeId}/declarations/${d.id}?annee=${annee}&trimestre=${trimestre}`}
-              >
-                Version {d.version}
-              </Link>
-              <p>
-                {d.statut === "valide"
-                  ? "Validée — figée"
-                  : d.statut === "pret_a_valider"
-                    ? "À valider"
-                    : "Brouillon"}{" "}
-                · {d.depot || "Non déposé"}
-              </p>
-              {d.supersedeDeclarationId && (
-                <p className="text-xs text-muted-foreground">
-                  Rectificative d’une version antérieure
+            <div className="flex min-w-0 items-start gap-3">
+              <FileText
+                className="mt-1 size-5 shrink-0 text-primary"
+                aria-hidden="true"
+              />
+              <div className="min-w-0">
+                <Link
+                  className="font-semibold text-primary hover:underline"
+                  to={`/apurement/${societeId}/declarations/${d.id}?annee=${annee}&trimestre=${trimestre}`}
+                >
+                  Version {d.version}
+                </Link>
+                <p className="mt-2 flex flex-wrap gap-2">
+                  <Badge
+                    variant={
+                      d.statut === "valide"
+                        ? "success"
+                        : d.statut === "pret_a_valider"
+                          ? "warning"
+                          : "muted"
+                    }
+                  >
+                    {d.statut === "valide"
+                      ? "Validée — figée"
+                      : d.statut === "pret_a_valider"
+                        ? "À valider"
+                        : "Brouillon"}
+                  </Badge>
+                  <Badge variant="outline">{d.depot || "Non déposé"}</Badge>
                 </p>
-              )}
+                {d.supersedeDeclarationId && (
+                  <p className="text-xs text-muted-foreground">
+                    Rectificative d’une version antérieure
+                  </p>
+                )}
+              </div>
             </div>
             <Button
               variant="outline"
               disabled={busy}
               onClick={() => action(() => load(d.id))}
             >
-              Ouvrir
+              {selected?.id === d.id ? "Version ouverte" : "Ouvrir"}
+              <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
         ))}
       </div>
       {selected && (
-        <div className="space-y-4 rounded-lg border bg-background p-4">
-          <h3 className="text-lg font-semibold">
+        <div className="apurement-declaration-detail space-y-5 overflow-hidden rounded-xl border bg-card p-5 sm:p-6">
+          <h3 className="apurement-declaration-title -mx-5 -mt-5 flex items-center gap-3 bg-primary px-5 py-5 text-lg font-semibold text-primary-foreground sm:-mx-6 sm:-mt-6 sm:px-6">
+            {selected.statut === "valide" ? (
+              <LockKeyhole className="size-5 shrink-0" />
+            ) : (
+              <FileText className="size-5 shrink-0" />
+            )}
             Version {selected.version} ·{" "}
             {selected.statut === "valide"
               ? "Validée et figée"
@@ -208,36 +247,51 @@ export function DeclarationPanel({
           </h3>
           <ol
             aria-label="Circuit de la déclaration"
-            className="flex flex-wrap gap-x-5 gap-y-2 border-b pb-3 text-sm"
+            className="apurement-declaration-steps grid gap-2 text-sm sm:grid-cols-3"
           >
-            <li className="font-medium">Préparation</li>
+            <li className="flex items-center gap-2 rounded-md bg-primary/10 px-3 py-3 font-medium text-primary">
+              <Check className="size-4 shrink-0" />
+              Préparation
+            </li>
             <li
               className={
                 selected.statut !== "brouillon"
-                  ? "font-medium"
-                  : "text-muted-foreground"
+                  ? "flex items-center gap-2 rounded-md bg-primary/10 px-3 py-3 font-medium text-primary"
+                  : "flex items-center gap-2 rounded-md bg-muted/50 px-3 py-3 text-muted-foreground"
               }
             >
+              <ClipboardCheck className="size-4 shrink-0" />
               Validation{" "}
               {selected.statut === "valide" ? "effectuée" : "à obtenir"}
             </li>
-            <li className="text-muted-foreground">
+            <li className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-3 text-muted-foreground">
+              <Send className="size-4 shrink-0" />
               Dépôt {selected.depots?.length ? "enregistré" : "à renseigner"}
             </li>
           </ol>
-          {selected.apercu && (
-            <p className="text-sm tabular-nums">
-              Aperçu courant : HT {tnd(selected.apercu.totals.ht)} · TVA{" "}
-              {tnd(selected.apercu.totals.tvaLignes)} · Écart{" "}
-              {tnd(selected.apercu.totals.ecart)}
-            </p>
-          )}
-          {selected.snapshot && (
-            <p className="text-sm tabular-nums">
-              HT {tnd(selected.snapshot.totals.ht)} · TVA{" "}
-              {tnd(selected.snapshot.totals.tvaLignes)} · Écart{" "}
-              {tnd(selected.snapshot.totals.ecart)}
-            </p>
+          {totals && (
+            <dl className="grid gap-4 rounded-md border bg-muted/20 p-4 sm:grid-cols-3">
+              <div>
+                <dt className="text-xs text-muted-foreground">Total HT</dt>
+                <dd className="mt-1 text-base font-semibold tabular-nums">
+                  {tnd(totals.ht)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">TVA suspendue</dt>
+                <dd className="mt-1 text-base font-semibold tabular-nums">
+                  {tnd(totals.tvaLignes)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">
+                  Écart de calcul
+                </dt>
+                <dd className="mt-1 text-base font-semibold tabular-nums">
+                  {tnd(totals.ecart)}
+                </dd>
+              </div>
+            </dl>
           )}
           {selected.snapshotHash && (
             <details className="text-xs text-muted-foreground">
@@ -250,8 +304,9 @@ export function DeclarationPanel({
             </details>
           )}
           <details
-            className="rounded-md border p-3"
-            open={!pieces.length && selected.statut !== "valide"}
+            className="rounded-lg border bg-muted/10 p-4"
+            open={documentsOpen}
+            onToggle={(event) => setDocumentsOpen(event.currentTarget.open)}
           >
             <summary className="cursor-pointer text-sm font-semibold">
               Justificatifs de cette déclaration · {pieces.length} pièce(s)
@@ -265,7 +320,7 @@ export function DeclarationPanel({
             />
           </details>
           <details
-            className="space-y-2 rounded-md border p-3"
+            className="space-y-3 rounded-lg border bg-muted/10 p-4"
             open={!policy.length && selected.statut !== "valide"}
           >
             <summary className="cursor-pointer text-sm font-semibold">
@@ -324,7 +379,7 @@ export function DeclarationPanel({
               <Input value={note} onChange={(e) => setNote(e.target.value)} />
             </label>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3 border-t pt-5">
             {selected.statut === "brouillon" && (
               <Button
                 disabled={busy}

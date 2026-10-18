@@ -1,4 +1,5 @@
 import { ApurementSelect } from "./ApurementSelect";
+import { Badge } from "@/components/ui/badge";
 import { useCallback, useEffect, useState } from "react";
 import {
   Link,
@@ -20,6 +21,7 @@ import {
   Users,
   ShieldCheck,
   ShoppingBag,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { tnd } from "@/lib/apurement";
@@ -990,22 +992,44 @@ export function ApurementPage() {
                 </p>
               </div>
               <Button variant="outline" onClick={check}>
+                <RefreshCw className="mr-2 size-4" aria-hidden="true" />
                 Relancer les contrôles
               </Button>
             </div>
           )}
           {view === "controls" && controls && (
-            <section className="space-y-3 border-t pt-4">
-              <p className="text-sm">
+            <section className="apurement-controls overflow-hidden rounded-xl border bg-card">
+              <p className="border-b bg-muted/30 px-5 py-3 text-sm font-medium">
                 {controls.total} contrôle(s) · page {controls.page}
               </p>
-              <p className="text-sm tabular-nums">
-                TVA détaillée {tnd(controls.totals.tvaLignes)} · TVA sur HT
-                global {tnd(controls.totals.tvaGlobale)} · Écart{" "}
-                {tnd(controls.totals.ecart)}
-              </p>
+              <dl className="grid gap-4 border-b px-5 py-4 text-sm sm:grid-cols-3">
+                <div>
+                  <dt className="text-xs text-muted-foreground">
+                    TVA détaillée
+                  </dt>
+                  <dd className="mt-1 font-semibold tabular-nums">
+                    {tnd(controls.totals.tvaLignes)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">
+                    TVA sur HT global
+                  </dt>
+                  <dd className="mt-1 font-semibold tabular-nums">
+                    {tnd(controls.totals.tvaGlobale)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">
+                    Écart à examiner
+                  </dt>
+                  <dd className="mt-1 font-semibold tabular-nums">
+                    {tnd(controls.totals.ecart)}
+                  </dd>
+                </div>
+              </dl>
               {!controls.total && (
-                <p>
+                <p className="px-5 py-6 text-sm">
                   Aucune anomalie de facture détectée. La validation fiscale
                   reste conditionnée aux règles d’arrondi approuvées.
                 </p>
@@ -1013,13 +1037,16 @@ export function ApurementPage() {
               {controls.controls.map((c) => (
                 <div
                   key={`${c.factureId}-${c.code}`}
-                  className="flex flex-wrap items-center gap-2 border-b py-2 text-sm"
+                  className="apurement-control-row grid gap-3 border-b px-5 py-4 text-sm last:border-b-0 md:grid-cols-[8rem_minmax(0,1fr)]"
                 >
-                  <span
-                    className={
-                      c.severity === "blocage"
-                        ? "text-destructive"
-                        : "text-foreground"
+                  <Badge
+                    className="w-fit self-start"
+                    variant={
+                      c.ack
+                        ? "success"
+                        : c.severity === "blocage"
+                          ? "destructive"
+                          : "warning"
                     }
                   >
                     {c.ack
@@ -1027,37 +1054,39 @@ export function ApurementPage() {
                       : c.severity === "blocage"
                         ? "À corriger"
                         : "À faire revoir"}
-                  </span>
-                  <Link
-                    className="underline"
-                    to={`/apurement/${societeId}/factures/${c.factureId}?${period}`}
-                  >
-                    {c.numeroFacture && (
-                      <span className="mr-2 font-semibold">
-                        {c.numeroFacture}
+                  </Badge>
+                  <div className="min-w-0 space-y-2">
+                    <Link
+                      className="block break-words text-primary hover:underline focus-visible:underline"
+                      to={`/apurement/${societeId}/factures/${c.factureId}?${period}`}
+                    >
+                      {c.numeroFacture && (
+                        <span className="mb-1 block font-semibold">
+                          {c.numeroFacture}
+                        </span>
+                      )}
+                      {c.message}
+                    </Link>
+                    {c.fournisseur && (
+                      <span className="text-xs text-muted-foreground">
+                        {c.fournisseur}
                       </span>
                     )}
-                    {c.message}
-                  </Link>
-                  {c.fournisseur && (
-                    <span className="text-xs text-muted-foreground">
-                      {c.fournisseur}
-                    </span>
-                  )}
-                  {c.ack ? (
-                    <span>Revu : {c.ack.motif}</span>
-                  ) : (
-                    permissions.canManageCollaborateurs &&
-                    c.severity === "avertissement" && (
-                      <ReviewControl control={c} onDone={check} />
-                    )
-                  )}
+                    {c.ack ? (
+                      <span>Revu : {c.ack.motif}</span>
+                    ) : (
+                      permissions.canManageCollaborateurs &&
+                      c.severity === "avertissement" && (
+                        <ReviewControl control={c} onDone={check} />
+                      )
+                    )}
+                  </div>
                 </div>
               ))}
             </section>
           )}
           {view === "controls" && controls && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button
                 variant="outline"
                 disabled={controlsPage === 1}

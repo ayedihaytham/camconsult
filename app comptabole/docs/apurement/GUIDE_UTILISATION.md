@@ -45,7 +45,21 @@ ou à payer automatiquement : le module ne réalise aucun paiement.
    nouvelles sont enregistrées ensemble. Si une donnée est refusée, rien de
    cette nouvelle saisie n’est enregistré : corrigez le champ indiqué.
 8. Dans **Justificatifs**, joignez la facture PDF/image ou associez une pièce
-   déjà présente dans Collecte ou Stock. Fermez la fiche une fois terminé.
+   déjà présente dans Structuration, Collecte ou Stock. Fermez la fiche une fois terminé.
+
+**Réutiliser un document :** cliquez sur **Associer une pièce existante**.
+La fenêtre affiche le dossier Apurement de cette société. Sélectionnez un
+fichier, puis **Associer le document**. Si la pièce est ailleurs, choisissez
+**Tous les documents de la société** dans **Emplacement** et recherchez son nom.
+Le lien **Ouvrir ce dossier dans Structuration** permet d'y importer directement
+un PDF, PNG ou JPEG ; revenez ensuite dans la fenêtre et cliquez **Actualiser**.
+
+Un nouvel import depuis Apurement est classé automatiquement dans
+**Société / Apurement TVA / Année / Trimestre / Factures** ou **Déclarations**,
+selon la fiche ouverte. Les autorisations et BC ont leurs dossiers de références
+sous **Apurement TVA**. Ces nouveaux dossiers et leurs fichiers sont réservés
+au cabinet. L'original d'une pièce déjà existante reste à son emplacement ;
+Apurement en garde une copie de preuve indépendante.
 
 Si vous ne connaissez pas encore le bon de commande, laissez **À affecter
 (brouillon)** et choisissez le fournisseur. La facture est enregistrée pour être

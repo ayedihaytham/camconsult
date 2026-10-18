@@ -1,10 +1,11 @@
+import { ExistingDocumentPicker } from "./ExistingDocumentPicker";
+import { Paperclip, Upload, FileText, Download } from "lucide-react";
 import { ApurementSelect } from "./ApurementSelect";
 import { useCallback, useEffect, useState } from "react";
 import { api, getToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
-type Source = { id: string; source: string; nom: string };
 type Piece = {
   id: string;
   nom: string;
@@ -44,10 +45,9 @@ export function DocumentsPanel({
   onPiecesChanged?: (pieces: Piece[]) => void;
 }) {
   const [pieces, setPieces] = useState<Piece[]>([]),
-    [sources, setSources] = useState<Source[]>([]),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
-  const [sourceId, setSourceId] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [missing, setMissing] = useState("");
   const [missingList, setMissingList] = useState<Missing[]>([]);
   const [collectes, setCollectes] = useState<{ id: string; periode: string }[]>(
@@ -104,14 +104,16 @@ export function DocumentsPanel({
       });
       const rows = await load();
       onPiecesChanged?.(rows);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Association impossible.");
+      return false;
     } finally {
       setBusy(false);
     }
   }
   return (
-    <section className="space-y-3 border-t pt-4 [&_button]:max-w-full [&_button]:whitespace-normal [&_button]:h-auto [&_button]:min-h-10">
+    <section className="space-y-4 pt-4 [&_button]:max-w-full [&_button]:whitespace-normal [&_button]:h-auto [&_button]:min-h-10">
       <h3 className="font-semibold">Justificatifs</h3>
       <p className="text-xs text-muted-foreground">
         Copie conservée avec empreinte. PDF, PNG ou JPEG, 8 Mo maximum.
@@ -119,9 +121,10 @@ export function DocumentsPanel({
       {pieces.map((p) => (
         <div
           key={p.id}
-          className="flex flex-wrap items-center justify-between border-b py-2 text-sm"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-background px-4 py-3 text-sm"
         >
-          <span>
+          <span className="min-w-0 break-words">
+            <FileText className="mr-2 inline size-4 text-primary" />
             {p.nom} · {p.source}
             {!p.sourceDisponible && (
               <span className="block text-xs text-muted-foreground">
@@ -138,112 +141,116 @@ export function DocumentsPanel({
               )
             }
           >
+            <Download className="mr-2 size-4" />
             Télécharger
           </Button>
         </div>
       ))}
-      <Button
-        variant="outline"
-        type="button"
-        disabled={busy}
-        onClick={() =>
-          api
-            .get<Source[]>(`/apurement/pieces/sources?societeId=${societeId}`)
-            .then(setSources)
-            .catch((e) => setError(e.message))
-        }
-      >
-        Associer une pièce existante
-      </Button>
-      {sources.length > 0 && (
-        <div className="space-y-2">
-          <label className="text-sm" htmlFor={`source-${parentId}`}>
-            Pièce de cette société
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-3 rounded-lg border bg-background p-4">
+          <div className="flex items-center gap-2 font-semibold text-primary">
+            <Paperclip className="size-4" />
+            Réutiliser un document
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Retrouvez les fichiers du dossier Apurement dans Structuration, ou
+            une pièce de cette société déjà présente dans Collecte ou Stock.
+          </p>
+          <Button
+            variant="outline"
+            type="button"
+            disabled={busy}
+            onClick={() => setPickerOpen(true)}
+          >
+            Associer une pièce existante
+          </Button>
+        </div>
+        {pickerOpen && (
+          <ExistingDocumentPicker
+            societeId={societeId}
+            parentType={parentType}
+            parentId={parentId}
+            busy={busy}
+            onClose={() => setPickerOpen(false)}
+            onSelect={(s) => associate({ source: s.source, sourceId: s.id })}
+          />
+        )}
+        <div className="space-y-3 rounded-lg border bg-background p-4">
+          <div className="flex items-center gap-2 font-semibold text-primary">
+            <Upload className="size-4" />
+            Importer un nouveau document
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Le fichier sera classé dans le dossier Apurement de cette société
+            dans Structuration. Une copie de preuve est conservée ici.
+          </p>
+          <label className="block text-sm">
+            Ajouter un justificatif
+            <Input
+              type="file"
+              className="mt-2 h-auto min-h-11 bg-muted/30 file:mr-3 file:rounded-sm file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-primary"
+              accept="application/pdf,image/png,image/jpeg"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 8388608) {
+                  setError("Pièce limitée à 8 Mo.");
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onerror = () => setError("Lecture impossible.");
+                reader.onload = () =>
+                  void associate({
+                    source: "apurement_upload",
+                    nom: file.name,
+                    dataUrl: reader.result,
+                  });
+                reader.readAsDataURL(file);
+                e.target.value = "";
+              }}
+            />
           </label>
-          <ApurementSelect
-            id={`source-${parentId}`}
-            value={sourceId}
-            onValueChange={(value) => setSourceId(value)}
-            options={[
-              { value: "", label: <>Choisir…</> },
-              ...sources.map((s) => ({
-                value: s.id,
-                label: (
-                  <>
-                    {s.nom} ({s.source})
-                  </>
-                ),
-              })),
-            ]}
+        </div>
+      </div>
+      <details className="rounded-lg border bg-muted/20 p-4">
+        <summary className="cursor-pointer text-sm font-semibold">
+          Une pièce manque ?
+        </summary>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <Input
+            className="min-w-0 flex-1 basis-64"
+            aria-label="Justificatif manquant"
+            placeholder="Justificatif manquant à suivre en interne"
+            value={missing}
+            onChange={(e) => setMissing(e.target.value)}
           />
           <Button
             type="button"
-            disabled={!sourceId || busy}
-            onClick={() => {
-              const s = sources.find((x) => x.id === sourceId);
-              if (s) void associate({ source: s.source, sourceId: s.id });
+            variant="outline"
+            disabled={!missing.trim() || busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await api.post("/apurement/pieces-manquantes", {
+                  societeId,
+                  parentType,
+                  parentId,
+                  libelle: missing,
+                });
+                setMissing("");
+                await loadMissing();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Demande impossible");
+              } finally {
+                setBusy(false);
+              }
             }}
           >
-            Confirmer l’association
+            Signaler la pièce manquante
           </Button>
         </div>
-      )}
-      <label className="block text-sm">
-        Ajouter un justificatif
-        <Input
-          type="file"
-          accept="application/pdf,image/png,image/jpeg"
-          disabled={busy}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            if (file.size > 8388608) {
-              setError("Pièce limitée à 8 Mo.");
-              return;
-            }
-            const reader = new FileReader();
-            reader.onerror = () => setError("Lecture impossible.");
-            reader.onload = () =>
-              void associate({
-                source: "apurement_upload",
-                nom: file.name,
-                dataUrl: reader.result,
-              });
-            reader.readAsDataURL(file);
-            e.target.value = "";
-          }}
-        />
-      </label>
-      <Input
-        aria-label="Justificatif manquant"
-        placeholder="Justificatif manquant à suivre en interne"
-        value={missing}
-        onChange={(e) => setMissing(e.target.value)}
-      />
-      <Button
-        type="button"
-        variant="outline"
-        disabled={!missing.trim() || busy}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            await api.post("/apurement/pieces-manquantes", {
-              societeId,
-              parentType,
-              parentId,
-              libelle: missing,
-            });
-            setMissing("");
-            await loadMissing();
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Demande impossible");
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        Signaler la pièce manquante
-      </Button>
+      </details>
       {missingList.map((m) => (
         <div key={m.id} className="space-y-2 border-b py-2 text-sm">
           <p>

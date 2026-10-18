@@ -88,6 +88,7 @@ export const tacheDto = (r) => ({
 });
 
 export const noeudDto = (r) => ({
+  cabinetOnly: Boolean(r.cabinet_only),
   id: r.id,
   libelle: r.libelle,
   description: r.description,
@@ -112,7 +113,7 @@ export const noeudDtoLeger = (r) => {
 
 /** Colonnes d'un nœud SANS son contenu, + a_contenu — pour les listes. */
 export const NOEUD_COLONNES_LEGERES =
-  "id, libelle, description, type, societe_id, parent_id, format, taille, maj_le, cree_le, (data_url is not null) as a_contenu";
+  "id, libelle, description, type, societe_id, parent_id, format, taille, maj_le, cree_le, cabinet_only, (data_url is not null) as a_contenu";
 
 export const conversationDto = (r) => ({
   id: r.id,

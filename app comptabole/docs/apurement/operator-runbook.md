@@ -8,7 +8,7 @@ collaborateurs revoient les anomalies, valident et enregistrent les dépôts.
 Les comptes société n’ont aucun accès, y compris aux téléchargements.
 
 Pour tester depuis zéro : [manuel de recette complet](MANUEL_RECETTE.md),
-25 scénarios avec valeurs à copier et résultats attendus, conservés pour la
+26 scénarios avec valeurs à copier et résultats attendus, conservés pour la
 recette technique. Le kit est dans `public/apurement-demo/`, sans lien de
 démonstration dans le parcours courant.
 
@@ -25,6 +25,35 @@ dans le parcours courant ; les archives et garde-fous fiscaux sont conservés.
 Organisation : **Mon trimestre**, **Factures**, **À compléter**, **Déclaration**.
 Le menu **Dossier…** contient les références, le profil fiscal et les rappels.
 Les preuves se joignent aux fiches ; **Comment ça marche ?** donne accès au guide.
+
+### Justificatifs et Structuration
+
+**Associer une pièce existante** ouvre un sélecteur avec chargement, recherche,
+état vide et erreurs explicites. Le dossier par défaut est
+`Société / Apurement TVA / Année / Trimestre / Factures|Déclarations|Dépôts` ;
+les autorisations et BC sont dans `Apurement TVA / Autorisations|Bons de commande`.
+**Tous les documents de la société** permet aussi de réutiliser les autres
+pièces de Structuration, Collecte et Stock. PDF/PNG/JPEG uniquement, 8 Mo maximum.
+Le lien vers Structuration ouvre le dossier exact dans l'onglet Documents.
+Après un import dans cet onglet, revenir au sélecteur et choisir **Actualiser**.
+
+Les nouveaux uploads Apurement sont aussi enregistrés dans `noeuds`, dans ce
+dossier. Les originaux existants ne sont ni déplacés ni écrasés ; chaque liaison
+conserve sa preuve immuable. Les anciens uploads demeurent téléchargeables via
+leurs preuves ; aucun reclassement massif des archives n'est exécuté.
+
+Le schéma ajoute seulement `noeuds.cabinet_only`, faux par défaut pour les
+éléments existants. Les dossiers Apurement créés et les fichiers déposés dedans
+sont internes. Cette restriction est héritée lors d'un dépôt et conservée après
+déplacement ou duplication ; listes, bootstrap et téléchargement la vérifient.
+Elle est conservée dans la sauvegarde/restauration. Les signaux Structuration
+des nouveaux uploads Apurement partent après validation de la transaction.
+
+Un `304 Not Modified` dans les outils réseau signifie normalement une
+revalidation du cache HTTP : le navigateur réutilise le contenu déjà reçu.
+L'ancien bouton masquait le résultat quand la liste était vide. Le sélecteur
+affiche désormais cet état ; sa réponse de liste porte `Cache-Control: private,
+no-store`. Un refus d'association est affiché et ne ferme pas la fenêtre.
 
 1. Choisir société, année et trimestre. Le contexte société de la barre supérieure
    reste partagé avec les autres modules.

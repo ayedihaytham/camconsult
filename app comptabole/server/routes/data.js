@@ -1,3 +1,4 @@
+import { canReadNoeud } from "../noeudAccess.js";
 import { Router } from "express";
 import { query, withTransaction } from "../db.js";
 import { requireAuth, requireAdmin, canSeeSociete, porteeSocietes } from "../auth.js";
@@ -35,7 +36,7 @@ dataRouter.get("/bootstrap", async (req, res) => {
 
   // Sans le contenu des fichiers : récupéré à la demande (GET /noeuds/:id/contenu).
   const noeuds = (await query(`select ${NOEUD_COLONNES_LEGERES} from noeuds where ($1::uuid[] is null or societe_id is null or societe_id = any($1::uuid[])) order by maj_le desc`, [portee])).rows
-    .filter((r) => canSeeSociete(s, r.societe_id))
+    .filter((r) => canReadNoeud(s, r))
     .map(noeudDtoLeger);
 
   const allGroups = (
@@ -258,12 +259,12 @@ dataRouter.post("/restore", requireAuth, requireAdmin, async (req, res) => {
     // Noeuds : insérer sans parent d'abord, puis mettre à jour les parents (FK)
     for (const n of noeuds) {
       await client.query(
-        `insert into noeuds (id, libelle, description, type, societe_id, parent_id, format, taille, data_url, maj_le)
-         values ($1,$2,$3,$4,$5,null,$6,$7,$8, coalesce($9::date, current_date))`,
+        `insert into noeuds (id, libelle, description, type, societe_id, parent_id, format, taille, data_url, maj_le, cabinet_only)
+         values ($1,$2,$3,$4,$5,null,$6,$7,$8, coalesce($9::date, current_date),$10)`,
         [
           uuidOrNull(n.id), n.libelle, n.description ?? "", n.type ?? "dossier",
           uuidOrNull(n.societeId), n.format ?? null, n.taille ?? null,
-          n.dataUrl ?? null, n.majLe ?? null,
+          n.dataUrl ?? null, n.majLe ?? null, Boolean(n.cabinetOnly),
         ],
       );
     }

@@ -6,6 +6,7 @@ import { parse, uuid, text, day, fail, checkVersion } from "./domain.js";
 import { audit, hash } from "./audit.js";
 import { manager } from "./permissions.js";
 import { notifyInternal } from "./notifications.js";
+import { documentFolder } from "./documentFolders.js";
 
 const parentTables = {
   autorisation: "apurement_autorisations",
@@ -56,7 +57,13 @@ export function decodeEvidence(dataUrl) {
 }
 export async function attach(c, session, v) {
   await company(c, session, v.societeId, true);
-  await parent(c, session, v.parentType, v.parentId, v.societeId);
+  const record = await parent(
+    c,
+    session,
+    v.parentType,
+    v.parentId,
+    v.societeId,
+  );
   let source;
   if (v.source === "collecte_fichier")
     source = (
@@ -88,6 +95,31 @@ export async function attach(c, session, v) {
       "Pièce source introuvable dans cette société.",
     );
   const evidence = decodeEvidence(source.data_url);
+  // An upload is also a real Structuration file. Existing originals are never
+  // moved or rewritten; evidence below remains an independent immutable copy.
+  let sourceId = v.sourceId || null;
+  if (v.source === "apurement_upload") {
+    const folder = await documentFolder(c, session, v, record);
+    sourceId = (
+      await c.query(
+        `insert into noeuds(libelle,description,type,societe_id,parent_id,format,taille,data_url,cabinet_only)
+       values($1,'Justificatif Apurement','fichier',$2,$3,$4,$5,$6,true) returning id`,
+        [
+          String(source.nom).slice(0, 240),
+          v.societeId,
+          folder.id,
+          evidence.mime === "application/pdf"
+            ? "pdf"
+            : evidence.mime === "image/png"
+              ? "png"
+              : "jpg",
+          `${evidence.content.length} octets`,
+          source.data_url,
+        ],
+      )
+    ).rows[0].id;
+    c.apurementStructureSocietes?.add(v.societeId);
+  }
   await c.query(
     "insert into apurement_preuves(hash,contenu,mime,taille) values($1,$2,$3,$4) on conflict do nothing",
     [evidence.hash, evidence.content, evidence.mime, evidence.content.length],
@@ -100,7 +132,7 @@ export async function attach(c, session, v) {
         v.parentType,
         v.parentId,
         v.source,
-        v.sourceId || null,
+        sourceId,
         String(source.nom || v.nom || "Justificatif").slice(0, 240),
         evidence.hash,
       ],
@@ -119,19 +151,53 @@ const attachment = z.object({
   dataUrl: z.string().max(11200000).optional(),
 });
 export function registerDocuments(router) {
+  router.post("/pieces/dossier", async (req, res) => {
+    const v = parse(
+      attachment.pick({ societeId: true, parentType: true, parentId: true }),
+      req.body,
+    );
+    res.json(
+      await withTransaction(async (c) => {
+        const record = await parent(
+          c,
+          req.session,
+          v.parentType,
+          v.parentId,
+          v.societeId,
+        );
+        return documentFolder(c, req.session, v, record);
+      }),
+    );
+  });
   router.get("/pieces/sources", async (req, res) => {
     const societeId = parse(uuid, req.query.societeId);
     await company({ query }, req.session, societeId);
+    const folderId = req.query.folderId
+      ? parse(uuid, req.query.folderId)
+      : null;
+    if (folderId) {
+      const folder = await relation({ query }, "noeuds", folderId, societeId);
+      if (folder.type !== "dossier")
+        fail(422, "DOSSIER_INVALIDE", "Choisir un dossier de cette société.");
+    }
     const rows = (
       await query(
-        `select f.id,'collecte_fichier' as source,f.nom from collecte_fichiers f join collectes c on c.id=f.collecte_id where c.societe_id=$1
-      union all select id,'noeud',libelle from noeuds where societe_id=$1 and type='fichier' and data_url is not null
-      union all select id,'stock',achat_num_facture from stock_mouvements where societe_id=$1 and achat_doc_data_url is not null
-      order by nom,id limit 500`,
-        [societeId],
+        `with recursive tree as (
+          select n.*,array[n.id] as ids,n.libelle::text as chemin from noeuds n where n.societe_id=$1 and n.parent_id is null
+          union all select n.*,t.ids||n.id,t.chemin||' / '||n.libelle from noeuds n join tree t on n.parent_id=t.id
+          where n.societe_id=$1 and not n.id=any(t.ids)
+        ), sources as (
+          select id,'noeud' as source,libelle as nom,chemin from tree where type='fichier'
+          and data_url ~ '^data:(application/pdf|image/png|image/jpeg);base64,' and ($2::uuid is null or $2=any(ids))
+          union all select f.id,'collecte_fichier',f.nom,'Collecte / '||c.periode||' / '||f.nom from collecte_fichiers f join collectes c on c.id=f.collecte_id
+          where c.societe_id=$1 and $2::uuid is null and f.data_url ~ '^data:(application/pdf|image/png|image/jpeg);base64,'
+          union all select id,'stock',achat_num_facture,'Stock / '||coalesce(achat_num_facture,'Justificatif') from stock_mouvements
+          where societe_id=$1 and $2::uuid is null and achat_doc_data_url ~ '^data:(application/pdf|image/png|image/jpeg);base64,'
+        ) select * from sources where nom ilike $3 order by nom,id limit 200`,
+        [societeId, folderId, `%${String(req.query.q || "").slice(0, 150)}%`],
       )
     ).rows;
-    res.json(rows);
+    res.set("Cache-Control", "private, no-store").json(rows);
   });
   router.get("/pieces", async (req, res) => {
     const v = parse(

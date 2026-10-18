@@ -449,6 +449,7 @@ alter table collectes add column if not exists rappel_avant_envoye boolean not n
 alter table journal add column if not exists entity_id uuid;
 
 create index if not exists noeuds_parent_idx on noeuds(parent_id);
+alter table noeuds add column if not exists cabinet_only boolean not null default false;
 create index if not exists noeuds_societe_idx on noeuds(societe_id);
 create index if not exists messages_conv_idx on messages(conversation_id);
 create index if not exists journal_at_idx on journal(at desc);

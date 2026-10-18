@@ -116,6 +116,10 @@
   font-weight: 700;
   color: hsl(var(--primary-foreground));
 }
+.apurement-page .apurement-declaration-title {
+  color: hsl(var(--primary-foreground));
+  font-size: 18px;
+}
 @media (min-width: 1280px) {
   .apurement-navigation {
     grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Download, LoaderCircle, RotateCcw, TriangleAlert, X } from "lucide-react";
+import { CheckCircle2, Download, FileText, LoaderCircle, RotateCcw, TriangleAlert, X } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { download } from "@/lib/export";
 import { lireTamponClasseur, messageImport } from "@/lib/fichierImport";
+import { texteDepuisFeuilles } from "@/lib/texteBrut";
 import { buildTablesPdf, type PdfSheet } from "@/lib/pdfTables";
 import { cn } from "@/lib/utils";
 import { ZoneDepot } from "./ZoneDepot";
 import type { StatsConversion } from "./types";
+import { useIdentiteCabinet } from "./useIdentiteCabinet";
 
 type Mode = "pdf" | "both" | "xls";
 type Orientation = "auto" | "portrait" | "landscape";
@@ -61,7 +64,8 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
 
   const active = items.find((i) => i.id === activeId && i.status === "ok") ?? null;
   const activeSheetData = active ? (active.sheets[Math.min(activeSheet, active.sheets.length - 1)] ?? null) : null;
-  const optionsPdf = useMemo(() => ({ orientation, format, entete }), [orientation, format, entete]);
+  const { logo, cabinet } = useIdentiteCabinet();
+  const optionsPdf = useMemo(() => ({ orientation, format, entete, logo, cabinet }), [orientation, format, entete, logo, cabinet]);
 
   useEffect(() => {
     const ok = items.filter((i) => i.status === "ok");
@@ -70,7 +74,7 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
 
   async function fabriquer(entrees: ConvItem[]) {
     const multi = entrees.length > 1;
-    const sheets = entrees.flatMap((e) => retenues(e).map((s) => ({ ...s, name: multi ? `${e.baseName} — ${s.name}` : s.name })));
+    const sheets = entrees.flatMap((e) => retenues(e).map((s) => ({ ...s, name: multi ? `${e.baseName} · ${s.name}` : s.name })));
     if (sheets.length === 0) return null;
     return buildTablesPdf({
       title: multi ? "Conversions regroupées" : entrees[0].baseName,
@@ -161,6 +165,15 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
     } catch {
       toast.error("Le PDF n'a pas pu être créé");
     }
+  }
+
+  function telechargerTexte(item: ConvItem) {
+    const feuilles = retenues(item);
+    if (feuilles.length === 0) {
+      toast.error("Aucune feuille retenue : cochez au moins une feuille");
+      return;
+    }
+    download(new Blob([texteDepuisFeuilles(feuilles)], { type: "text/plain;charset=utf-8" }), `${item.baseName}.txt`);
   }
 
   async function toutTelecharger() {
@@ -307,9 +320,14 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
                     <p className={cn("text-xs", item.status === "erreur" ? "text-destructive" : "text-muted-foreground")}>{item.detail}</p>
                   </div>
                   {item.status === "ok" && (
-                    <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telecharger([item]); }}>
-                      <Download className="h-3.5 w-3.5" /> Télécharger le PDF
-                    </Button>
+                    <>
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); telechargerTexte(item); }}>
+                        <FileText className="h-3.5 w-3.5" /> Texte (.txt)
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telecharger([item]); }}>
+                        <Download className="h-3.5 w-3.5" /> Télécharger le PDF
+                      </Button>
+                    </>
                   )}
                   {item.status === "erreur" && (
                     <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); reessayer(item); }}>

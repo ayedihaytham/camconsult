@@ -1,12 +1,17 @@
 import { useState } from "react";
-import { FileOutput, Lock } from "lucide-react";
+import { FileOutput, FileSpreadsheet, Lock, type LucideIcon } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
-import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
+import { cn } from "@/lib/utils";
 import { ExcelVersPdf } from "./conversions/ExcelVersPdf";
 import { PdfVersExcel } from "./conversions/PdfVersExcel";
 import { STATS_VIDES, type StatsConversion } from "./conversions/types";
 
 type Sens = "excel-pdf" | "pdf-excel";
+
+const SENS: { value: Sens; titre: string; detail: string; icone: LucideIcon }[] = [
+  { value: "excel-pdf", titre: "Excel vers PDF", detail: "Classeurs .xlsx / .xls en PDF mis en page, ou en texte (.txt)", icone: FileOutput },
+  { value: "pdf-excel", titre: "PDF vers Excel", detail: "PDF contenant du texte en Excel (.xlsx) ou en texte (.txt)", icone: FileSpreadsheet },
+];
 
 export function ConversionsPage() {
   const [sens, setSens] = useState<Sens>("excel-pdf");
@@ -39,16 +44,31 @@ export function ConversionsPage() {
         }
       />
 
-      <div className="mt-4">
-        <LedgerSegmented<Sens>
-          value={sens}
-          onChange={changerSens}
-          ariaLabel="Sens de la conversion"
-          options={[
-            { value: "excel-pdf", label: "Excel vers PDF" },
-            { value: "pdf-excel", label: "PDF vers Excel" },
-          ]}
-        />
+      <div role="group" aria-label="Sens de la conversion" className="mt-4 grid gap-3 sm:grid-cols-2">
+        {SENS.map((s) => {
+          const actif = sens === s.value;
+          return (
+            <button
+              key={s.value}
+              type="button"
+              aria-label={s.titre}
+              aria-pressed={actif}
+              onClick={() => changerSens(s.value)}
+              className={cn(
+                "flex items-center gap-3 rounded-xl border border-accent/30 bg-card px-4 py-3 text-left transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                actif && "border-primary bg-primary text-primary-foreground hover:bg-primary",
+              )}
+            >
+              <span className={cn("grid size-10 shrink-0 place-items-center rounded-lg", actif ? "bg-primary-foreground/10 text-accent" : "bg-accent/15 text-primary")}>
+                <s.icone className="size-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold">{s.titre}</span>
+                <span className={cn("block text-xs", actif ? "text-primary-foreground/80" : "text-muted-foreground")}>{s.detail}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {sens === "pdf-excel" ? <PdfVersExcel onStats={setStats} /> : <ExcelVersPdf onStats={setStats} />}

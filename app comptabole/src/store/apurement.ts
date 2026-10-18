@@ -16,6 +16,7 @@ interface State {
     id?: string,
   ) => Promise<ApurementRecord>;
   clear: () => void;
+  enterPurchase: (input: unknown) => Promise<ApurementRecord>;
 }
 const empty: ApurementList = {
   items: [],
@@ -44,6 +45,7 @@ export const useApurement = create<State>((set, get) => ({
     id
       ? api.patch(`/apurement/${kind}/${id}`, input)
       : api.post(`/apurement/${kind}`, input),
+  enterPurchase: (input) => api.post("/apurement/achats", input),
   clear: () =>
     set((s) => ({ result: empty, loading: false, requestId: s.requestId + 1 })),
 }));

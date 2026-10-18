@@ -38,7 +38,7 @@ type Props = {
   initialValues?: Partial<ApurementRecord>;
   refs: Record<"autorisations" | "fournisseurs" | "bcs", ApurementRecord[]>;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (created?: ApurementRecord) => void;
 };
 export function EntitySheet({
   kind,
@@ -58,7 +58,9 @@ export function EntitySheet({
   );
   const [bc, setBc] = useState(record?.bcId || "");
   const [vatMode, setVatMode] = useState(record?.tvaMode || "auto");
+  const [requestId] = useState(() => crypto.randomUUID());
   const save = useApurement((s) => s.save);
+  const enterPurchase = useApurement((s) => s.enterPurchase);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -115,9 +117,10 @@ export function EntitySheet({
                   form.get("confirmerMontantStock") === "on",
               }
             : {}),
-          fournisseurId: bc
-            ? refs.bcs.find((x) => x.id === bc)?.fournisseurId
-            : supplier,
+          fournisseurId:
+            bc && bc !== "new"
+              ? refs.bcs.find((x) => x.id === bc)?.fournisseurId
+              : supplier,
           numeroFacture: s("numeroFacture"),
           dateFacture: nullable("dateFacture"),
           datePrecision: s("dateFacture")
@@ -138,7 +141,41 @@ export function EntitySheet({
           trimestre,
           motifPeriode: s("motifPeriode"),
         };
-      await save(kind, input, record?.id);
+      if (kind === "factures" && !record) {
+        const {
+          societeId: _soc,
+          fournisseurId: _supplier,
+          bcId: _bc,
+          ...facture
+        } = input;
+        const created = await enterPurchase({
+          societeId,
+          requestId,
+          facture,
+          fournisseur:
+            bc && bc !== "new"
+              ? refs.bcs.find((b) => b.id === bc)?.fournisseurId
+              : supplier === "new"
+                ? {
+                    raisonSociale: s("newSupplierName"),
+                    matriculeFiscalRaw: s("newSupplierMf"),
+                  }
+                : supplier,
+          bc:
+            bc === "new"
+              ? {
+                  numero: s("newBcNumero"),
+                  dateBc: nullable("newBcDate"),
+                  autorisation:
+                    auth === "new"
+                      ? { numero: s("newAutorisationNumero") }
+                      : auth,
+                }
+              : bc || null,
+        });
+        onSaved(created);
+        return;
+      } else await save(kind, input, record?.id);
       onSaved();
       onClose();
     } catch (err) {
@@ -194,6 +231,17 @@ export function EntitySheet({
             {o.numero || o.raisonSociale}
           </option>
         ))}
+        {kind === "factures" && !record && (
+          <option value="new">
+            + Créer{" "}
+            {name === "bcId"
+              ? "un bon de commande"
+              : name === "newAutorisationId"
+                ? "une autorisation"
+                : "un fournisseur"}{" "}
+            ici
+          </option>
+        )}
       </select>
     </div>
   );
@@ -207,7 +255,7 @@ export function EntitySheet({
     >
       <SheetContent className="w-full sm:max-w-xl">
         <SheetHeader className="px-4 sm:px-6">
-          <SheetTitle className="font-sans">
+          <SheetTitle>
             {record ? "Modifier" : "Ajouter"} {names[kind]}
           </SheetTitle>
           <SheetDescription>
@@ -266,7 +314,7 @@ export function EntitySheet({
                   true,
                 )}
                 {select("bcId", "Bon de commande", refs.bcs, bc, setBc)}
-                {!bc &&
+                {(!bc || bc === "new") &&
                   select(
                     "fournisseurId",
                     "Fournisseur",
@@ -274,14 +322,67 @@ export function EntitySheet({
                     supplier,
                     setSupplier,
                   )}
-                {!refs.fournisseurs.length && (
-                  <p className="rounded-md bg-muted p-3 text-sm">
-                    Créez d’abord un fournisseur dans « Fournisseurs & BC ».
-                    Vous pourrez ensuite saisir une facture autonome ou choisir
-                    son BC.
-                  </p>
+                {supplier === "new" && (!bc || bc === "new") && (
+                  <div className="space-y-3 rounded-md bg-muted p-3">
+                    {field(
+                      "newSupplierName",
+                      "Nom du nouveau fournisseur",
+                      "",
+                      "text",
+                      true,
+                    )}
+                    {field(
+                      "newSupplierMf",
+                      "Matricule fiscal figurant sur la facture",
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Le responsable vérifiera cette identité avant la
+                      déclaration.
+                    </p>
+                  </div>
                 )}
-                {bc && (
+                {bc === "new" && (
+                  <div className="space-y-3 rounded-md bg-muted p-3">
+                    <p className="text-sm font-medium">
+                      Recopiez les références de votre bon de commande
+                    </p>
+                    {field(
+                      "newBcNumero",
+                      "Numéro du nouveau bon de commande",
+                      "",
+                      "text",
+                      true,
+                    )}
+                    {field(
+                      "newBcDate",
+                      "Date du nouveau bon de commande",
+                      "",
+                      "date",
+                      true,
+                    )}
+                    {select(
+                      "newAutorisationId",
+                      "Autorisation couvrant ce bon",
+                      refs.autorisations,
+                      auth,
+                      setAuth,
+                    )}
+                    {auth === "new" &&
+                      field(
+                        "newAutorisationNumero",
+                        "Numéro de la nouvelle autorisation",
+                        "",
+                        "text",
+                        true,
+                      )}
+                    <p className="text-xs text-muted-foreground">
+                      La facture, le fournisseur et ces références seront
+                      enregistrés ensemble. Vous joindrez ensuite leurs
+                      documents.
+                    </p>
+                  </div>
+                )}
+                {bc && bc !== "new" && (
                   <p className="text-xs text-muted-foreground">
                     Fournisseur du BC :{" "}
                     {refs.fournisseurs.find(
@@ -521,17 +622,19 @@ export function EntitySheet({
               <RecordHistory societeId={societeId} recordId={record.id} />
             )}
             {record && kind !== "fournisseurs" && (
-              <DocumentsPanel
-                societeId={societeId}
-                parentType={
-                  kind === "factures"
-                    ? "facture"
-                    : kind === "bcs"
-                      ? "bc"
-                      : "autorisation"
-                }
-                parentId={record.id}
-              />
+              <div id="apurement-record-documents" className="scroll-mt-4">
+                <DocumentsPanel
+                  societeId={societeId}
+                  parentType={
+                    kind === "factures"
+                      ? "facture"
+                      : kind === "bcs"
+                        ? "bc"
+                        : "autorisation"
+                  }
+                  parentId={record.id}
+                />
+              </div>
             )}
           </SheetBody>
           <SheetFooter className="px-4 sm:px-6">
@@ -544,7 +647,11 @@ export function EntitySheet({
               Annuler
             </Button>
             <Button disabled={busy} type="submit">
-              {busy ? "Enregistrement…" : "Enregistrer"}
+              {busy
+                ? "Enregistrement…"
+                : kind === "factures" && !record
+                  ? "Enregistrer et ajouter les pièces"
+                  : "Enregistrer"}
             </Button>
           </SheetFooter>
         </form>

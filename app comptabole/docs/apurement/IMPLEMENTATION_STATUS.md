@@ -1,5 +1,45 @@
 # Checkpoint Apurement — 17 octobre 2026
 
+## Simplification supplémentaire — 18 octobre 2026
+
+- Bandeau bleu et typographie `SignatureLedgerBanner` rétablis ; tableaux
+  `LedgerTable` partagés, avec pagination serveur unique. Aucun changement de
+  style imposé aux autres pages ; l’option de masquage du pied est facultative.
+- Parcours courant : **Mon trimestre → Factures → À compléter → Déclaration**.
+  Références et réglages dans **Dossier…**. Accueil à trois actions, aide en
+  langage courant et [guide sans prérequis](GUIDE_UTILISATION.md).
+- Saisie depuis zéro dans une seule fiche : fournisseur, autorisation et BC
+  peuvent être créés avec la facture. Service `intake.js`, API `POST /achats`,
+  validateurs et audit existants réutilisés ; verrou société et transaction
+  uniques. Tout est annulé en cas d’erreur. Identifiant de soumission audité :
+  nouvelle tentative identique sans doublon, contenu différent refusé en 409.
+  Aucune vérification fiscale implicite du fournisseur.
+- Après création, fiche maintenue ouverte sur les pièces. Listes de preuves
+  actualisées après upload, sans bouton d’actualisation à manipuler.
+- Liens de démonstration et action BCD de test retirés des écrans courants.
+  Modèle Excel vierge sans données d’exemple disponible. Tests techniques,
+  archives, véritables statuts de brouillon et verrous fiscaux B1/B2 conservés.
+  Aucun export non vérifié renommé en export officiel.
+
+Vérification : lint/build réussis ; suite globale **1373 tests réussis, 42 ignorés
+préexistants**, 159 fichiers réussis et un ignoré. Après ajout du modèle vierge,
+30 tests ciblés réussis (24 scénarios PostgreSQL, imports/interface et fichiers),
+dont création combinée, répétition idempotente, refus des droits/sociétés et
+rollback sans référence ni audit partiel. Migration et restauration réelles
+réexécutées dans la base temporaire. Chrome : dix parcours complets réussis,
+création des quatre entités puis upload comprise, et 28 contrôles de largeur sur
+sept surfaces à 375/768/1024/1440 px. Deux passes visuelles ; navigation mobile
+corrigée. Aucun débordement global ni erreur JavaScript au passage final.
+
+Fichiers principaux : `server/apurement/intake.js`, route et store Apurement,
+formulaire, page, documents et déclaration, table partagée (option compatible),
+tour version 3, guide/publications statiques et générateur du modèle vierge.
+Journaux `%TEMP%/apurement-simple-*.log`. Une dépendance déjà déclarée manquante
+(`fast-xml-parser`) a été réinstallée localement ; manifests et lockfile inchangés.
+Aucune migration supplémentaire, base ou publication de production modifiée.
+
+---
+
 ## Mise à jour du 18 octobre 2026 — ergonomie et recette
 
 Demande traitée : clarifier le refus 422 d’import, réorganiser les parcours pour

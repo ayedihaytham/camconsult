@@ -10,6 +10,15 @@ Factures : filtres BC, année et trimestre ; BC : filtre autorisation.
 Réponse `{items,page,size,total,hasMore}`. PATCH exige `expectedVersion`.
 La société d’une entité ne peut pas être réaffectée.
 
+`POST /achats` simplifie une première saisie : `{societeId,requestId,fournisseur,
+bc,facture}`. Fournisseur = UUID existant ou nouvel objet (nom/MF source, aucune
+vérification implicite). BC = UUID, null, ou `{numero,dateBc,autorisation}` ;
+autorisation = UUID ou nouvel objet. Les validateurs métier existants s’appliquent
+à chaque entité dans une seule transaction sous verrou société. Une erreur
+annule toutes les créations. `requestId` UUID rend une répétition identique
+idempotente ; réutilisation avec contenu différent : 409. Les documents sont
+associés aux fiches enregistrées via le service existant.
+
 | Ressource | Fonction |
 | --- | --- |
 | GET `/synthese?annee=&trimestre=` | Synthèse groupée des sociétés autorisées |

@@ -260,14 +260,8 @@ export function DeclarationPanel({
               societeId={societeId}
               parentType="declaration"
               parentId={selected.id}
+              onPiecesChanged={setPieces}
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => action(() => load(selected.id))}
-            >
-              Actualiser les justificatifs de dépôt
-            </Button>
           </details>
           <details
             className="space-y-2 rounded-md border p-3"
@@ -320,12 +314,15 @@ export function DeclarationPanel({
               </>
             )}
           </details>
-          <label className="block text-sm">
-            {selected.statut === "valide"
-              ? "Motif ou observation du dépôt"
-              : "Justification si la TVA détaillée diffère du calcul global"}
-            <Input value={note} onChange={(e) => setNote(e.target.value)} />
-          </label>
+          {(selected.statut === "valide" ||
+            (selected.apercu && selected.apercu.totals.ecart !== "0")) && (
+            <label className="block text-sm">
+              {selected.statut === "valide"
+                ? "Motif ou observation du dépôt"
+                : "Justification si la TVA détaillée diffère du calcul global"}
+              <Input value={note} onChange={(e) => setNote(e.target.value)} />
+            </label>
+          )}
           <div className="flex flex-wrap gap-2">
             {selected.statut === "brouillon" && (
               <Button
@@ -411,21 +408,12 @@ export function DeclarationPanel({
                 </Button>
               </>
             )}
-            <Button
-              disabled={busy}
-              variant="outline"
-              onClick={() => exportFile("bcd-test")}
-            >
-              BCD de test — non officiel
-            </Button>
-            <Button
-              variant="outline"
-              disabled
-              title="Le format et les arrondis officiels restent à vérifier"
-            >
-              BCD officiel indisponible
-            </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Les rapports Excel/PDF sont destinés au suivi interne. Le dépôt
+            officiel n’est pas effectué par l’application ; le format BCD reste
+            indisponible tant qu’il n’a pas été vérifié.
+          </p>
           {!!selected.exports?.length && (
             <div className="space-y-1">
               <h4 className="text-sm font-semibold">Fichiers conservés</h4>

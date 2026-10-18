@@ -19,7 +19,7 @@ import {
 } from "@/lib/apurementImport";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DataTable } from "@/components/common/DataTable";
+import { LedgerTable as DataTable } from "@/components/ledger/LedgerTable";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import type { ApurementRecord, Quarter } from "@/types/apurement";
 
@@ -332,12 +332,12 @@ export function ImportPanel({
           </Button>
         </div>
         <a
-          href="/apurement-demo/achats-valides.xlsx"
+          href="/apurement-aide/modele-achats.xlsx"
           download
-          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-4"
+          className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary underline underline-offset-4"
         >
-          <Download className="h-3 w-3" />
-          Télécharger un modèle rempli avec des données fictives
+          <Download className="h-4 w-4" />
+          Télécharger le modèle Excel vierge
         </a>
       </div>
       {error && (

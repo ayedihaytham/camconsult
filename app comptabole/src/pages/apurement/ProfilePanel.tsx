@@ -29,7 +29,14 @@ export function ProfilePanel({ societeId }: { societeId: string }) {
     api
       .get<Profile>(`/apurement/societes/${societeId}/profil`)
       .then((p) => {
-        if (live) setProfile(p);
+        if (live)
+          setProfile({
+            ...p,
+            donnees: {
+              ...Object.fromEntries(Object.keys(fields).map((k) => [k, ""])),
+              ...p.donnees,
+            },
+          });
       })
       .catch((e) => {
         if (live) setError(e.message);
@@ -56,6 +63,9 @@ export function ProfilePanel({ societeId }: { societeId: string }) {
       setBusy(false);
     }
   }
+  const incomplete = ["raisonSociale", "matriculeFiscal", "reference"].some(
+    (k) => !profile?.donnees[k]?.trim(),
+  );
   return (
     <section className="space-y-3 border-t pt-4">
       <h2 className="font-semibold">Profil fiscal déclarant</h2>
@@ -77,6 +87,11 @@ export function ProfilePanel({ societeId }: { societeId: string }) {
             <label key={key} className="space-y-1 text-sm">
               {label}
               <Input
+                required={[
+                  "raisonSociale",
+                  "matriculeFiscal",
+                  "reference",
+                ].includes(key)}
                 value={profile.donnees[key] || ""}
                 onChange={(e) =>
                   setProfile({
@@ -90,18 +105,27 @@ export function ProfilePanel({ societeId }: { societeId: string }) {
       </div>
       <div className="flex flex-wrap gap-2">
         <Button
-          disabled={!profile || busy}
+          disabled={!profile || busy || incomplete}
           variant="outline"
           onClick={() => save(false)}
         >
           Enregistrer le profil
         </Button>
         {canManageCollaborateurs && (
-          <Button disabled={!profile || busy} onClick={() => save(true)}>
+          <Button
+            disabled={!profile || busy || incomplete}
+            onClick={() => save(true)}
+          >
             Confirmer la vérification du profil
           </Button>
         )}
       </div>
+      {profile && incomplete && (
+        <p className="text-xs text-muted-foreground">
+          Renseignez la raison sociale, le matricule fiscal et la référence de
+          vérification pour enregistrer.
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}

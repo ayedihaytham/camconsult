@@ -7,6 +7,16 @@ L’équipe prépare sur son périmètre ; administrateur et responsable des
 collaborateurs revoient les anomalies, valident et enregistrent les dépôts.
 Les comptes société n’ont aucun accès, y compris aux téléchargements.
 
+Pour tester depuis zéro : [manuel de recette complet](MANUEL_RECETTE.md),
+25 scénarios avec valeurs à copier et résultats attendus. Le bouton **Mode
+d’emploi** du module donne accès au manuel et le formulaire d’import propose
+un classeur fictif. Le kit complet est dans `public/apurement-demo/`.
+
+Organisation : **Vue d’ensemble** guide le parcours ; **Fournisseurs & BC**
+prépare les références ; **Achats** regroupe saisie et import ; **Contrôles**
+identifie les corrections ; **Déclarations** suit validation et dépôt ;
+**Réglages** contient profil fiscal et rappels. Les preuves se joignent aux fiches.
+
 1. Choisir société, année et trimestre. Le contexte société de la barre supérieure
    reste partagé avec les autres modules.
 2. Vérifier les fournisseurs et leurs identités fiscales, puis créer une
@@ -26,7 +36,7 @@ Les comptes société n’ont aucun accès, y compris aux téléchargements.
    monétaire Stock ; corriger et rapprocher la source avant de réessayer.
 6. Dans **Contrôles**, compléter les blocages et faire revoir individuellement
    les avertissements. Les acquittements sont liés à l’empreinte des données.
-7. Dans **Documents & rappels**, vérifier le profil déclarant et configurer
+7. Dans **Réglages**, vérifier le profil déclarant et configurer
    l’échéance interne. Aucune date limite légale n’est présumée.
 8. Préparer une déclaration, contrôler son aperçu puis soumettre à validation.
    Le validateur doit disposer d’une décision d’arrondi interne documentée et

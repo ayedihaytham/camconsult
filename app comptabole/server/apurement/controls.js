@@ -8,6 +8,8 @@ export function invoiceControls(row) {
       severity,
       message,
       factureId: row.id,
+      numeroFacture: row.numero_facture,
+      fournisseur: row.raison_sociale,
       version: row.version,
     });
   if (!row.bc_id) add("BC_MANQUANT", "blocage", "Affecter un BC.");

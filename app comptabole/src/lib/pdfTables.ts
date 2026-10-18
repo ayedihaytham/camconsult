@@ -65,8 +65,11 @@ const DORE: [number, number, number] = [201, 162, 75];
  * téléchargement (voir ConversionsPage.tsx). `downloadTablesPdf`
  * ci-dessous reste le raccourci "construire + télécharger" pour les
  * appelants qui n'ont pas besoin d'aperçu. */
-export async function buildTablesPdf(opts: TablesPdfOpts): Promise<JsPDF> {
+export async function buildTablesPdf(input: TablesPdfOpts): Promise<JsPDF> {
+  // Sans logo ni coordonnées fournis par l'appelant, tous les PDF de tableaux reçoivent le modèle du cabinet.
+  const identite = input.logo === undefined && input.cabinet === undefined && input.entete !== false ? (await import("./pdfIdentite")).identiteCabinetPdf() : null;
   const [{ jsPDF }, { autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  const opts = identite ? { ...input, ...(await identite) } : input;
   const maxCols = Math.max(1, ...opts.sheets.flatMap((s) => s.rows.map((r) => r.length)));
   const orientation = opts.orientation ?? "auto";
   const doc = new jsPDF({

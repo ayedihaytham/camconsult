@@ -85,6 +85,18 @@ describe("ImportGrandLivreDialog", () => {
     expect(screen.getByRole("button", { name: "Importer 2 lignes" })).toBeTruthy();
   });
 
+  it("la sélection de l'utilisateur survit au rendu du parent (qui recrée editableTab à chaque fois)", async () => {
+    const props = { onOpenChange: vi.fn(), collecte: collecte(), brouillonOuvert: false };
+    const { rerender } = render(<ImportGrandLivreDialog open {...props} editableTab={() => true} />);
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [new File(["x"], "461.pdf", { type: "application/pdf" })] } });
+    await screen.findByText("461.pdf — choisir un autre fichier");
+    expect(screen.getByRole("button", { name: "Importer 3 lignes" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Écriture 169/ }));
+    expect(screen.getByRole("button", { name: "Importer 2 lignes" })).toBeTruthy();
+    rerender(<ImportGrandLivreDialog open {...props} editableTab={() => true} />);
+    expect(screen.getByRole("button", { name: "Importer 2 lignes" })).toBeTruthy();
+  });
+
   it("un tableau non demandé ou fermé n'est pas importé, et les autres le sont", async () => {
     await ouvrir({ collecte: collecte({ onglets: ["etat_cheques_emis"] }), editableTab: (o) => o !== "etat_cheques_emis" });
     expect(screen.getByText("Tableau fermé à la modification")).toBeTruthy();

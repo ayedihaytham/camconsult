@@ -57,20 +57,20 @@ export function ImportGrandLivreDialog({ open, onOpenChange, collecte, editableT
   const lignesDe = (onglet: string): TabRow[] => collecte.lignes.filter((l) => l.onglet === onglet).sort((a, b) => a.ordre - b.ordre).map((l) => l.data as TabRow);
 
   /** Pour chaque écriture : son tableau et pourquoi elle peut (ou non) être importée. */
-  const lignes = useMemo(() => {
-    if (!livre) return [];
-    return livre.ecritures.map((e): { e: EcritureLivre; table: string | null; etat: Etat } => {
+  const classer = (l: GrandLivre) =>
+    l.ecritures.map((e): { e: EcritureLivre; table: string | null; etat: Etat } => {
       const table = TABLEAU_PAR_NATURE[e.nature];
       if (e.nature === "report") return { e, table: null, etat: "report" };
       if (!table) return { e, table: null, etat: "aclasser" };
       if (!collecte.onglets.includes(table)) return { e, table, etat: "absent" };
       if (!editableTab(table)) return { e, table, etat: "ferme" };
-      if (dejaPresente(table, e, collecte.lignes.filter((l) => l.onglet === table).map((l) => l.data as TabRow))) return { e, table, etat: "doublon" };
+      if (dejaPresente(table, e, collecte.lignes.filter((x) => x.onglet === table).map((x) => x.data as TabRow))) return { e, table, etat: "doublon" };
       return { e, table, etat: "prete" };
     });
-  }, [livre, collecte.onglets, collecte.lignes, editableTab]);
+  // editableTab est recréée à chaque rendu du parent : la classification est recalculée, mais la sélection de l'utilisateur, elle, ne l'est jamais.
+  const lignes = livre ? classer(livre) : [];
 
-  const preparees = useMemo(() => new Set(lignes.flatMap((l, i) => (l.etat === "prete" ? [i] : []))), [lignes]);
+  const preparees = new Set(lignes.flatMap((l, i) => (l.etat === "prete" ? [i] : [])));
 
   async function choisir(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -87,17 +87,14 @@ export function ImportGrandLivreDialog({ open, onOpenChange, collecte, editableT
       if (!lu) throw new Error("Document non reconnu. Seul le grand-livre au format PDF de Sage 100 est lu (colonnes Date, Journal, N° pièce, Libellé, Débit, Crédit).");
       setNomFichier(file.name);
       setLivre(lu);
+      // Sélection de départ : toutes les écritures prêtes (ni déjà importées, ni dans un tableau fermé).
+      setChoix(new Set(classer(lu).flatMap((l, i) => (l.etat === "prete" ? [i] : []))));
     } catch (err) {
       setErreur(err instanceof Error ? err.message : "Fichier illisible.");
     } finally {
       setLecture(false);
     }
   }
-
-  // La sélection de départ : toutes les écritures prêtes (rien d'déjà importé, rien de fermé).
-  useEffect(() => {
-    setChoix(new Set(preparees));
-  }, [preparees]);
 
   const selection = lignes.flatMap((l, i) => (choix.has(i) && l.etat === "prete" ? [l] : []));
   const parTable = useMemo(() => {

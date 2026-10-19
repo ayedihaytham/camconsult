@@ -3,6 +3,7 @@
 // d'impression. Charte : CAMCONSULT, titre bleu, bandeaux bleus, montants
 // « 1 200,50 ». jsPDF est chargé à la demande.
 import type { jsPDF as JsPDF } from "jspdf";
+import { BLEU, DORE, ENTETE_COURANT, GRIS, MARGE, dessinerEntete, dessinerPages, type CabinetPdf } from "./pdfModele";
 
 export type PdfCell = string | number;
 
@@ -18,9 +19,6 @@ export interface PdfSheet {
   totalRows?: number;
 }
 
-const BLEU: [number, number, number] = [31, 78, 121];
-const GRIS: [number, number, number] = [110, 110, 110];
-const MARGE = 36;
 
 /** Espaces normales : les polices PDF standard n'ont pas l'espace fine insécable. */
 const clean = (s: string) => s.replace(/[  ]/g, " ");
@@ -53,12 +51,11 @@ interface TablesPdfOpts {
   /** Logo en data URL PNG (voir chargerLogo dans facturePdf) ; sans logo, le mot CAMCONSULT le remplace. */
   logo?: string | null;
   /** Coordonnées imprimées dans l'en-tête et le pied de page. */
-  cabinet?: { nom?: string; adresse?: string; matriculeFiscal?: string; telephone?: string; email?: string } | null;
+  cabinet?: CabinetPdf | null;
+  /** Mention sous le nom du cabinet, en haut à droite (ex. « Document converti ») ; aucune par défaut. */
+  mention?: string;
 }
 
-/** Hauteur réservée en haut des pages suivantes pour l'en-tête courant (logo réduit + titre). */
-const ENTETE_COURANT = 78;
-const DORE: [number, number, number] = [201, 162, 75];
 
 /** Construit le document sans le télécharger — pour un aperçu (iframe,
  * blob URL) avant de laisser l'utilisateur déclencher lui-même le
@@ -82,56 +79,14 @@ export async function buildTablesPdf(input: TablesPdfOpts): Promise<JsPDF> {
   const utile = largeur - 2 * MARGE;
   const entete = opts.entete !== false;
 
-  // Modèle complet (page Conversions) : logo, coordonnées du cabinet, en-tête courant et pied de page. Les autres exports gardent leur mise en page.
+  // Modèle du cabinet (logo, coordonnées, en-tête courant, pied de page) dès que l'identité est connue ; sinon la mise en page historique.
   const complet = entete && (opts.logo !== undefined || opts.cabinet !== undefined);
   const hautPages = complet ? ENTETE_COURANT : MARGE;
-  const cab = opts.cabinet ?? null;
-  const nomCabinet = clean((cab?.nom ?? "").trim()) || "CAMCONSULT";
-
-  /** Logo à la hauteur voulue ; faux si absent ou illisible (le nom du cabinet le remplace). */
-  const poserLogo = (h: number): boolean => {
-    if (!opts.logo) return false;
-    try {
-      const p = doc.getImageProperties(opts.logo);
-      doc.addImage(opts.logo, "PNG", MARGE, MARGE, (p.width / p.height) * h, h);
-      return true;
-    } catch {
-      return false;
-    }
-  };
+  const modele = { titre: opts.title, sousTitre: opts.subtitle, logo: opts.logo, cabinet: opts.cabinet, mention: opts.mention };
 
   let y = MARGE;
   if (complet) {
-    const logoPose = poserLogo(34);
-    if (!logoPose) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.setTextColor(...BLEU);
-      doc.text(nomCabinet, MARGE, MARGE + 16);
-    }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(...BLEU);
-    doc.text(nomCabinet, largeur - MARGE, MARGE + 10, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...GRIS);
-    doc.text("Document converti", largeur - MARGE, MARGE + 22, { align: "right" });
-    doc.setDrawColor(...DORE);
-    doc.setLineWidth(1.2);
-    doc.line(MARGE, MARGE + 44, largeur - MARGE, MARGE + 44);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    doc.setTextColor(...BLEU);
-    doc.text(clean(opts.title), MARGE, MARGE + 66, { maxWidth: utile });
-    y = MARGE + 74;
-    if (opts.subtitle) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(...GRIS);
-      doc.text(clean(opts.subtitle), MARGE, MARGE + 82, { maxWidth: utile });
-      y = MARGE + 90;
-    }
+    y = dessinerEntete(doc, modele);
   } else if (entete) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
@@ -242,45 +197,14 @@ export async function buildTablesPdf(input: TablesPdfOpts): Promise<JsPDF> {
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
   });
 
-  const edite = clean(
-    new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeStyle: "short" }).format(new Date()),
-  );
+  if (complet) {
+    dessinerPages(doc, modele);
+    return doc;
+  }
+  const edite = clean(new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeStyle: "short" }).format(new Date()));
   const pages = doc.getNumberOfPages();
-  const coordonnees = clean(
-    [cab?.nom, cab?.adresse, cab?.matriculeFiscal && `MF ${cab.matriculeFiscal}`, cab?.telephone && `Tél. ${cab.telephone}`, cab?.email]
-      .filter((v) => v && String(v).trim())
-      .join("  ·  "),
-  );
   for (let p = 1; p <= pages; p++) {
     doc.setPage(p);
-    if (complet) {
-      if (p > 1) {
-        // en-tête courant des pages suivantes : logo réduit, titre, filet doré
-        if (!poserLogo(22)) {
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(10);
-          doc.setTextColor(...BLEU);
-          doc.text(nomCabinet, MARGE, MARGE + 14);
-        }
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(...GRIS);
-        doc.text(clean(opts.title), largeur - MARGE, MARGE + 14, { align: "right", maxWidth: utile - 120 });
-        doc.setDrawColor(...DORE);
-        doc.setLineWidth(0.8);
-        doc.line(MARGE, MARGE + 30, largeur - MARGE, MARGE + 30);
-      }
-      doc.setDrawColor(...DORE);
-      doc.setLineWidth(0.8);
-      doc.line(MARGE, hauteur - 38, largeur - MARGE, hauteur - 38);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(...GRIS);
-      if (coordonnees) doc.text(coordonnees, largeur / 2, hauteur - 27, { align: "center", maxWidth: utile });
-      doc.text(`Édité le ${edite}`, MARGE, hauteur - 14);
-      doc.text(`Page ${p} / ${pages}`, largeur - MARGE, hauteur - 14, { align: "right" });
-      continue;
-    }
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...GRIS);

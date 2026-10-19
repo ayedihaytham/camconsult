@@ -65,7 +65,7 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
   const active = items.find((i) => i.id === activeId && i.status === "ok") ?? null;
   const activeSheetData = active ? (active.sheets[Math.min(activeSheet, active.sheets.length - 1)] ?? null) : null;
   const { logo, cabinet } = useIdentiteCabinet();
-  const optionsPdf = useMemo(() => ({ orientation, format, entete, logo, cabinet }), [orientation, format, entete, logo, cabinet]);
+  const optionsPdf = useMemo(() => ({ orientation, format, entete, logo, cabinet, mention: "Document converti" }), [orientation, format, entete, logo, cabinet]);
 
   useEffect(() => {
     const ok = items.filter((i) => i.status === "ok");

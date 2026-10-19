@@ -33,6 +33,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Libellé du dossier de destination (pour l'affichage). */
   destinationLabel: string;
+  /** Fichiers déjà choisis à l'ouverture (déposés sur un tiroir de la vue générale). */
+  initialFiles?: File[];
   /** Peut être asynchrone : la fenêtre reste ouverte (bouton occupé) jusqu'à la réponse, et ne se ferme que si le résultat n'est pas `false`. */
   onSubmit: (fichiers: NewFichier[]) => void | boolean | Promise<void | boolean>;
 }
@@ -41,6 +43,7 @@ export function FileUploadDialog({
   open,
   onOpenChange,
   destinationLabel,
+  initialFiles,
   onSubmit,
 }: Props) {
   const [files, setFiles] = useState<File[]>([]);
@@ -50,12 +53,16 @@ export function FileUploadDialog({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!open) {
-      setFiles([]);
-      setDescription("");
-      setDragOver(false);
-      setBusy(false);
+    if (open) {
+      if (initialFiles && initialFiles.length > 0) setFiles(initialFiles);
+      return;
     }
+    setFiles([]);
+    setDescription("");
+    setDragOver(false);
+    setBusy(false);
+    // initialFiles ne compte qu'à l'ouverture
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   function addFiles(list: FileList | null) {

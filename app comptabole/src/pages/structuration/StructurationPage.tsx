@@ -160,6 +160,8 @@ export function StructurationPage() {
   );
   const [subfolderName, setSubfolderName] = useState("");
   const [uploadParent, setUploadParent] = useState<string | null>(null);
+  /** Fichiers déposés sur un tiroir de la vue générale : ils arrivent déjà choisis dans la fenêtre d'ajout. */
+  const [uploadFiles, setUploadFiles] = useState<File[] | undefined>(undefined);
   const [moveNode, setMoveNode] = useState<Noeud | null>(null);
   const [previewNode, setPreviewNode] = useState<Noeud | null>(null);
 
@@ -744,7 +746,15 @@ export function StructurationPage() {
               />
             </LedgerSheet>
           ) : (
-            <VueGenerale nodes={nodes} roots={roots} getSocieteById={getSocieteById} onOpenNode={openFolder} actions={actionsStructure} />
+            <VueGenerale
+              nodes={nodes}
+              roots={roots}
+              getSocieteById={getSocieteById}
+              onOpenNode={openFolder}
+              onPreview={setPreviewNode}
+              onDeposer={canCreate ? (dossier, fichiers) => { setUploadFiles(fichiers); setUploadParent(dossier.id); } : undefined}
+              actions={actionsStructure}
+            />
           )}
         </div>
       )}
@@ -762,7 +772,13 @@ export function StructurationPage() {
 
       <FileUploadDialog
         open={uploadParent !== null}
-        onOpenChange={(o) => !o && setUploadParent(null)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setUploadParent(null);
+            setUploadFiles(undefined);
+          }
+        }}
+        initialFiles={uploadFiles}
         destinationLabel={
           nodes.find((n) => n.id === uploadParent)?.libelle ?? "Dossier"
         }

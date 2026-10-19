@@ -49,3 +49,17 @@ describe("FileUploadDialog : fermeture après la réponse du serveur", () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 });
+
+describe("FileUploadDialog : fichiers déposés sur un tiroir", () => {
+  it("s'ouvre avec les fichiers déjà choisis, prêts à être ajoutés", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    const f1 = new File(["a"], "releve.pdf", { type: "application/pdf" });
+    const f2 = new File(["b"], "virements.xlsx");
+    render(<FileUploadDialog open onOpenChange={vi.fn()} destinationLabel="BANQUE" initialFiles={[f1, f2]} onSubmit={onSubmit} />);
+    expect(screen.getByText("releve.pdf")).toBeTruthy();
+    expect(screen.getByText("virements.xlsx")).toBeTruthy();
+    valider();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].map((f: { libelle: string }) => f.libelle)).toEqual(["releve.pdf", "virements.xlsx"]);
+  });
+});

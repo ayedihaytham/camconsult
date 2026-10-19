@@ -1,0 +1,50 @@
+/* Armoire de classement (vue générale de Structuration) : la société est l'armoire, chaque dossier un tiroir. Couleurs du thème. */
+.armoire { border-radius: 16px; padding: 18px 18px 20px; color: hsl(var(--primary-foreground)); background: linear-gradient(180deg, hsl(var(--primary)) 0%, color-mix(in srgb, hsl(var(--primary)) 82%, #000) 100%); box-shadow: 0 10px 30px rgb(0 0 0 / .16), inset 0 1px 0 rgb(255 255 255 / .12); }
+.armoire__haut { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 20px; }
+.armoire__plaque { border: 1px solid hsl(var(--accent) / .7); border-radius: 6px; padding: 4px 12px; color: hsl(var(--accent)); font-family: 'Playfair Display', Georgia, serif; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; overflow-wrap: anywhere; }
+.armoire__chiffres { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; font-size: 12px; color: hsl(var(--primary-foreground) / .8); }
+.armoire__chiffres div { display: flex; align-items: baseline; gap: 6px; }
+.armoire__chiffres dd { margin: 0; order: -1; font-family: 'Playfair Display', Georgia, serif; font-size: 18px; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; color: hsl(var(--primary-foreground)); }
+.armoire__tiroirs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 24px 16px; margin: 0; padding: 0; list-style: none; }
+
+.tiroir { position: relative; display: block; width: 100%; padding: 16px 0 0; border: 0; background: none; text-align: left; transition: transform .25s ease; }
+.tiroir:hover { transform: translateY(-3px); }
+.tiroir:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 4px; border-radius: 12px; }
+.tiroir__onglets { position: absolute; left: 16px; right: 16px; top: 0; display: flex; height: 18px; align-items: flex-end; gap: 5px; overflow: hidden; pointer-events: none; }
+.tiroir__onglets i { display: block; flex: none; width: 26px; height: var(--h, 14px); border-radius: 4px 4px 0 0; background: hsl(var(--card)); box-shadow: inset 0 -2px 0 rgb(0 0 0 / .08); animation: tiroir-pop .35s ease both; animation-delay: calc(var(--i) * 40ms); }
+.tiroir__onglets i:nth-child(3n) { background: hsl(var(--accent)); }
+.tiroir__onglets i:nth-child(3n + 1) { background: color-mix(in srgb, hsl(var(--card)) 88%, hsl(var(--accent))); }
+@keyframes tiroir-pop { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+.tiroir__face { position: relative; display: grid; height: 112px; place-items: center; padding: 10px 12px 26px; border: 1px solid rgb(255 255 255 / .6); border-radius: 10px; color: hsl(var(--foreground)); background: linear-gradient(180deg, hsl(var(--card)), color-mix(in srgb, hsl(var(--card)) 92%, hsl(var(--muted)))); box-shadow: 0 4px 0 rgb(0 0 0 / .28), 0 8px 14px rgb(0 0 0 / .22); transition: transform .3s cubic-bezier(.3, 1.4, .5, 1), box-shadow .3s; }
+.tiroir__plaque { width: 100%; max-width: 190px; border: 1.5px solid hsl(var(--accent)); border-radius: 6px; padding: 6px 10px; text-align: center; background: hsl(var(--accent) / .1); }
+.tiroir__plaque b { display: block; font-size: 13px; line-height: 1.2; letter-spacing: .08em; text-transform: uppercase; color: hsl(var(--primary)); overflow-wrap: anywhere; }
+.tiroir__plaque small { font-size: 11px; color: hsl(var(--muted-foreground)); }
+.tiroir__poignee { position: absolute; left: 50%; bottom: 8px; width: 74px; height: 10px; margin-left: -37px; border-radius: 6px; background: linear-gradient(180deg, color-mix(in srgb, hsl(var(--accent)) 70%, #fff), hsl(var(--accent))); box-shadow: 0 2px 0 rgb(0 0 0 / .25); }
+.tiroir--vide .tiroir__plaque { border-style: dashed; border-color: hsl(var(--input)); background: transparent; }
+.tiroir--vide .tiroir__plaque b { color: hsl(var(--muted-foreground)); }
+.tiroir--vide .tiroir__poignee { background: linear-gradient(180deg, hsl(var(--input)), color-mix(in srgb, hsl(var(--input)) 80%, #000)); }
+.tiroir[aria-expanded="true"] .tiroir__face { transform: translateY(10px) scale(1.04); border-color: hsl(var(--accent)); box-shadow: 0 10px 0 rgb(0 0 0 / .22), 0 18px 28px rgb(0 0 0 / .35); }
+.tiroir--trouve .tiroir__face { box-shadow: 0 0 0 3px hsl(var(--accent)), 0 8px 14px rgb(0 0 0 / .22); }
+.tiroir--survol .tiroir__face { background: hsl(var(--accent) / .25); }
+.tiroir--estompe { opacity: .35; }
+.tiroir__pastille { position: absolute; right: -6px; top: 8px; z-index: 2; display: grid; height: 26px; min-width: 26px; place-items: center; padding-inline: 7px; border-radius: 999px; background: hsl(var(--success)); color: #fff; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; box-shadow: 0 2px 6px rgb(0 0 0 / .3); }
+
+.armoire__legende { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 18px 0 0; padding: 0; list-style: none; font-size: 12px; color: hsl(var(--primary-foreground) / .8); }
+.armoire__legende li { display: inline-flex; align-items: center; gap: 6px; }
+.armoire__legende i { display: inline-block; width: 14px; height: 8px; border-radius: 3px 3px 0 0; }
+
+.ouvert { margin-top: 26px; overflow: hidden; border: 1px solid hsl(var(--accent) / .6); border-radius: 12px; background: hsl(var(--card)); color: hsl(var(--foreground)); animation: tiroir-ouvre .3s ease both; }
+@keyframes tiroir-ouvre { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.ouvert__suspendus { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 18px 0; }
+.ouvert__sus { border: 1px solid hsl(var(--border)); border-bottom: 0; border-radius: 8px 8px 0 0; background: hsl(var(--muted)); padding: 7px 14px; font-size: 12.5px; font-weight: 600; }
+.ouvert__sus[aria-pressed="true"] { position: relative; z-index: 1; border-color: hsl(var(--accent)); background: hsl(var(--card)); color: hsl(var(--primary)); box-shadow: 0 2px 0 hsl(var(--card)); }
+.ouvert__sus i { margin-left: 5px; font-style: normal; font-variant-numeric: tabular-nums; opacity: .65; }
+.ouvert__doc { display: flex; align-items: center; gap: 10px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--background)); padding: 10px 12px; text-align: left; animation: tiroir-pop .35s ease both; }
+button.ouvert__doc:hover { border-color: hsl(var(--accent)); }
+.ouvert__fi { display: grid; width: 34px; height: 40px; flex: none; place-items: center; border: 1px solid hsl(var(--primary) / .15); border-radius: 4px 10px 4px 4px; background: hsl(var(--primary) / .08); color: hsl(var(--primary)); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.ouvert__depot { display: grid; min-height: 150px; align-content: center; justify-items: center; gap: 4px; border: 2px dashed hsl(var(--input)); border-radius: 12px; background: color-mix(in srgb, hsl(var(--background)) 55%, hsl(var(--card))); padding: 18px 12px; text-align: center; transition: border-color .15s, background .15s; }
+.ouvert__depot:hover, .ouvert__depot--survol { border-color: hsl(var(--accent)); background: hsl(var(--accent) / .1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .armoire *, .ouvert, .ouvert * { animation: none !important; transition: none !important; }
+}

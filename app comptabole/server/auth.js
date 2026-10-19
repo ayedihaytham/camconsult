@@ -14,17 +14,48 @@ if (process.env.NODE_ENV === "production" && (SECRET === SECRET_PAR_DEFAUT || SE
   throw new Error("JWT_SECRET doit être défini en production (24 caractères aléatoires au moins).");
 }
 
+const ALGORITHME = "HS256";
+/** Une session active se prolonge : au-delà de cet âge, la réponse porte un jeton neuf (en-tête X-Token-Renouvele). Inactive 12 h, elle expire. */
+const RENOUVELLEMENT_APRES_S = 3 * 3600;
+
 export function signToken(payload) {
-  return jwt.sign(payload, SECRET, { expiresIn: "12h" });
+  return jwt.sign(payload, SECRET, { expiresIn: "12h", algorithm: ALGORITHME });
+}
+
+/** Vrai si le jeton date d'avant le dernier changement de mot de passe du compte : il porte l'ancienne version des sessions.
+ * Un jeton sans version (émis avant cette protection) vaut la version 0, celle de tout compte jamais modifié. */
+function jetonRevoque(payload, versionCompte) {
+  return (payload?.v ?? 0) !== (versionCompte ?? 0);
+}
+
+/** Jeton neuf d'un compte, à la version courante de ses sessions (relue en base : après un changement de mot de passe, c'est la nouvelle). */
+export async function jetonAdmin() {
+  const { rows } = await query("select session_version from app_meta where id = 1");
+  return signToken({ role: "admin", v: rows[0]?.session_version ?? 0 });
+}
+export async function jetonEmploye(employeId) {
+  const { rows } = await query("select session_version from employes where id = $1", [employeId]);
+  return signToken({ role: "employe", employeId, v: rows[0]?.session_version ?? 0 });
+}
+
+/** Session à jour d'un compte (relue en base, version des sessions comprise), pour les réponses qui suivent une connexion ou un changement. */
+export async function sessionAdmin() {
+  const { rows } = await query("select session_version from app_meta where id = 1");
+  return sessionFromToken({ role: "admin", v: rows[0]?.session_version ?? 0 });
+}
+export async function sessionEmploye(employeId) {
+  const { rows } = await query("select session_version from employes where id = $1", [employeId]);
+  return sessionFromToken({ role: "employe", employeId, v: rows[0]?.session_version ?? 0 });
 }
 
 /** Reconstruit la session (droits à jour) à partir du payload du jeton. */
 export async function sessionFromToken(payload) {
   if (payload.role === "admin") {
     const { rows } = await query(
-      "select admin_nom, admin_role, admin_identifiant, last_login from app_meta where id = 1",
+      "select admin_nom, admin_role, admin_identifiant, last_login, session_version from app_meta where id = 1",
     );
     const meta = rows[0] ?? {};
+    if (jetonRevoque(payload, meta.session_version)) return null;
     return {
       role: "admin",
       identifiant: meta.admin_identifiant ?? "",
@@ -58,6 +89,7 @@ export async function sessionFromToken(payload) {
   );
   const e = rows[0];
   if (!e || e.statut !== "actif") return null;
+  if (jetonRevoque(payload, e.session_version)) return null;
   const meta = (
     await query("select admin_nom, last_login from app_meta where id = 1")
   ).rows[0];
@@ -126,11 +158,20 @@ export function requireAuth(req, res, next) {
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: "Non authentifié" });
   try {
-    const payload = jwt.verify(token, SECRET);
+    // Algorithme imposé : jamais celui que le jeton annonce (attaque « alg: none » ou changement d'algorithme).
+    const payload = jwt.verify(token, SECRET, { algorithms: [ALGORITHME] });
     sessionFromToken(payload)
       .then((session) => {
         if (!session) return res.status(401).json({ error: "Session invalide" });
+        // Mot de passe provisoire : tant qu'il n'est pas changé, seules les routes d'authentification répondent (le changement forcé
+        // ne repose pas seulement sur l'écran).
+        if (session.doitChangerMotDePasse && req.baseUrl !== "/api/auth")
+          return res.status(403).json({ error: "Vous devez d'abord choisir votre mot de passe.", code: "CHANGER_MOT_DE_PASSE" });
         req.session = session;
+        // Session active : un jeton neuf est proposé une fois le premier à moitié écoulé (le client le garde), au lieu de couper en pleine journée.
+        if (payload.iat && Math.floor(Date.now() / 1000) - payload.iat > RENOUVELLEMENT_APRES_S) {
+          res.setHeader("X-Token-Renouvele", signToken(payload.role === "admin" ? { role: "admin", v: payload.v ?? 0 } : { role: "employe", employeId: payload.employeId, v: payload.v ?? 0 }));
+        }
         next();
       })
       .catch((err) => {

@@ -52,6 +52,30 @@
   but no folder creation.
 - Internal-team routes and navigation are unavailable.
 
+## Sessions et authentification
+
+- **Jeton** (JWT HS256, 12 h) : l'algorithme est imposé à la vérification (`server/auth.js`). Il porte `role`, `employeId` et `v`, la **version
+  des sessions** du compte (`employes.session_version`, `app_meta.session_version`). Un jeton sans `v` vaut 0 (comptes jamais modifiés).
+- **Révocation** : un changement de mot de passe (activation ou réinitialisation par lien, `POST /auth/change-password`,
+  `PATCH /auth/credentials` avec nouveau mot de passe) incrémente la version : tous les anciens jetons (autres appareils, session volée)
+  sont refusés (401) ; la réponse porte un jeton neuf qui garde l'appareil courant connecté. Un compte désactivé perd l'accès
+  immédiatement (la session est relue en base à chaque requête).
+- **Renouvellement** : une session active n'est pas coupée en pleine journée. Au-delà de 3 h d'âge, la réponse porte l'en-tête
+  `X-Token-Renouvele` (jeton neuf de 12 h, même version) que `src/lib/api.ts` enregistre. Inactive plus de 12 h, la session expire.
+- **Mot de passe provisoire** : tant que `doitChangerMotDePasse` est vrai, `requireAuth` ne laisse passer que `/api/auth/*`
+  (403 `CHANGER_MOT_DE_PASSE` ailleurs) : le changement forcé ne repose pas seulement sur l'écran.
+- **Politique de mot de passe** : `motDePasseAcceptable` (8 caractères, pas l'identifiant) pour les employés **et** l'administrateur.
+- **Force brute** : `server/loginGuard.js` (par compte+adresse, identifiant, adresse), mémoire du processus.
+- **Chargement de la page** (`useAuth.restore`) : seul un refus du serveur (401/403) met fin à la session. Une panne passagère
+  (redémarrage, réseau coupé) conserve le jeton et affiche « Serveur momentanément indisponible » avec un bouton Réessayer.
+- **Sans session**, `usePermissions` ne donne aucun droit (jamais le contexte administrateur).
+- **Tests** : `server/integration/routesProtegees` (toute route relevée dans le code refuse l'absence de jeton, hors santé / connexion /
+  activation ; jetons forgés ou expirés), `server/integration/sessions` (jetons, révocation, mot de passe provisoire, matrice des rôles,
+  société étrangère), `src/store/auth.test.ts`, `src/hooks/usePermissions.test.tsx`.
+- **Politique d'accès par société figée par les tests** : le responsable des collaborateurs voit toutes les sociétés pour les collectes,
+  l'état SWIFT et le stock ; pour la banque, les fournisseurs, les états financiers, le suivi devise et les honoraires, son accès reste
+  celui des sociétés qui lui sont assignées. Changer cela est une décision de politique, à faire route par route.
+
 ## Frontend concepts
 
 - `RequireAuth`: restores/protects the authenticated shell; unauthenticated users

@@ -10,6 +10,10 @@ vi.mock("../db.js", () => ({ query: (...a) => db.query(...a), withTransaction: (
 vi.mock("../journal.js", () => ({ logAction: vi.fn() }));
 vi.mock("../auth.js", () => ({
   signToken: (p) => `jeton-${p.employeId ?? p.role}`,
+  jetonAdmin: async () => "jeton-admin",
+  jetonEmploye: async (id) => `jeton-${id}`,
+  sessionAdmin: async () => ({ role: "admin", employeId: null, nom: "Test" }),
+  sessionEmploye: async (id) => ({ role: "employe", employeId: id, nom: "Test" }),
   sessionFromToken: async (p) => ({ role: p.role, employeId: p.employeId ?? null, nom: "Test" }),
   requireAuth: (req, _res, next) => {
     req.session = { role: "employe", employeId: "e1", nom: "Test", identifiant: "h.test" };

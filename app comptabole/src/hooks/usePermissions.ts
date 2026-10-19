@@ -30,7 +30,24 @@ export interface PermissionContext {
 export function usePermissions(): PermissionContext {
   const session = useAuth((s) => s.session);
 
-  if (!session || session.role === "admin") {
+  // Sans session (écran de connexion, chargement) : aucun droit. Jamais le contexte administrateur par défaut.
+  if (!session) {
+    return {
+      isAdmin: false,
+      can: () => false,
+      societeIds: [],
+      canSeeSociete: (id) => id === null,
+      employeId: null,
+      poste: null,
+      lectureSeule: true,
+      isCollaborateur: false,
+      canManageCollaborateurs: false,
+      isResponsableSociete: false,
+      isDelegue: false,
+    };
+  }
+
+  if (session.role === "admin") {
     return {
       isAdmin: true,
       can: () => true,

@@ -92,6 +92,9 @@ async function request<T>(
   }
 
   if (minuteur) clearTimeout(minuteur);
+  // Session active : le serveur propose un jeton neuf avant que l'ancien n'expire (voir server/auth.js), pour ne pas déconnecter en pleine journée.
+  const renouvele = res.headers.get("X-Token-Renouvele");
+  if (renouvele && token) setToken(renouvele);
   if (res.status === 204) return undefined as T;
 
   let payload: unknown = null;

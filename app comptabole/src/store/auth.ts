@@ -29,7 +29,8 @@ export interface Session {
   delegue?: boolean;
 }
 
-type Status = "loading" | "authed" | "anon";
+/** `indisponible` : le serveur ne répond pas (redémarrage, réseau coupé). La session n'est PAS perdue : le jeton est gardé et on peut réessayer. */
+type Status = "loading" | "authed" | "anon" | "indisponible";
 
 interface AuthState {
   status: Status;
@@ -69,9 +70,15 @@ export const useAuth = create<AuthState>((set) => ({
     try {
       const { session } = await api.get<{ session: Session }>("/auth/me");
       set({ status: "authed", session });
-    } catch {
-      setToken(null);
-      set({ status: "anon", session: null });
+    } catch (err) {
+      // Seul un refus du serveur (jeton expiré, compte désactivé, mot de passe changé ailleurs) met fin à la session. Une panne passagère
+      // (redémarrage, réseau coupé) ne déconnecte personne : le jeton reste, l'écran propose de réessayer.
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        setToken(null);
+        set({ status: "anon", session: null });
+      } else {
+        set({ status: "indisponible", session: null });
+      }
     }
   },
 
@@ -119,7 +126,8 @@ export const useAuth = create<AuthState>((set) => ({
 
   changeCredentials: async (currentPassword, next) => {
     try {
-      await api.patch("/auth/credentials", { currentPassword, ...next });
+      const r = await api.patch<{ ok: boolean; token?: string }>("/auth/credentials", { currentPassword, ...next });
+      if (r?.token) setToken(r.token); // un nouveau mot de passe annule les anciens jetons : celui-ci garde cette session ouverte
       return { ok: true };
     } catch (err) {
       return {
@@ -147,10 +155,12 @@ export const useAuth = create<AuthState>((set) => ({
 
   changePassword: async (motDePasse) => {
     try {
-      const { session } = await api.post<{ session: Session }>(
+      const { session, token } = await api.post<{ session: Session; token?: string }>(
         "/auth/change-password",
         { motDePasse },
       );
+      // Le changement de mot de passe annule les anciens jetons : celui-ci les remplace pour cet appareil.
+      if (token) setToken(token);
       set({ session });
       return { ok: true };
     } catch (err) {

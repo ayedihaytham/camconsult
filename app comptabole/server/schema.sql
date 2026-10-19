@@ -1219,6 +1219,10 @@ alter table swift_virements add column if not exists devise text not null defaul
 -- Mots de passe des employés : empreinte scrypt (voir server/passwords.js). L'ancienne colonne en clair `mot_de_passe` n'est plus
 -- écrite : un compte hérité est converti à sa prochaine connexion réussie, puis la valeur en clair est effacée.
 alter table employes add column if not exists mdp_hash text;
+-- Version des sessions du compte : chaque jeton porte la version courante ; un changement de mot de passe l'incrémente, ce qui
+-- déconnecte toutes les anciennes sessions, sans dépendre d'aucune horloge (voir server/auth.js).
+alter table employes add column if not exists session_version integer not null default 0;
+alter table app_meta add column if not exists session_version integer not null default 0;
 create table if not exists password_tokens (
   id         uuid primary key default gen_random_uuid(),
   employe_id uuid not null references employes(id) on delete cascade,

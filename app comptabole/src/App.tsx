@@ -309,6 +309,19 @@ export default function App() {
   if (status === "loading") {
     return <FullScreenLoader label="Connexion…" />;
   }
+  if (status === "indisponible") {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background px-4">
+        <div role="alert" className="w-full max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-sm">
+          <h1 className="font-serif text-xl font-semibold text-primary">Serveur momentanément indisponible</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Votre session est conservée. Vérifiez votre connexion, puis réessayez : vous reprendrez là où vous en étiez.</p>
+          <Button type="button" variant="ledger" className="mt-4" onClick={() => { useAuth.setState({ status: "loading" }); void restore(); }}>
+            Réessayer
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={200}>

@@ -2,8 +2,10 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { query, withTransaction } from "../db.js";
 import {
-  signToken,
-  sessionFromToken,
+  jetonAdmin,
+  jetonEmploye,
+  sessionAdmin,
+  sessionEmploye,
   requireAuth,
   requireAdmin,
 } from "../auth.js";
@@ -62,8 +64,8 @@ authRouter.post("/login", async (req, res) => {
     if (ok) {
       loginGuard.succes(adresseClient(req), id);
       await query("update app_meta set last_login = now() where id = 1");
-      const token = signToken({ role: "admin" });
-      const session = await sessionFromToken({ role: "admin" });
+      const token = await jetonAdmin();
+      const session = await sessionAdmin();
       logAction(session.nom, "connexion", "compte", `${session.nom} (administrateur)`);
       return res.json({ token, session });
     }
@@ -80,11 +82,8 @@ authRouter.post("/login", async (req, res) => {
   else if (await motDePasseValide(emp, motDePasse)) {
     loginGuard.succes(adresseClient(req), id);
     await query("update employes set last_login = now() where id = $1", [emp.id]);
-    const token = signToken({ role: "employe", employeId: emp.id });
-    const session = await sessionFromToken({
-      role: "employe",
-      employeId: emp.id,
-    });
+    const token = await jetonEmploye(emp.id);
+    const session = await sessionEmploye(emp.id);
     logAction(session.nom, "connexion", "compte", `${session.nom} (${emp.type})`);
     return res.json({ token, session });
   }
@@ -119,13 +118,14 @@ authRouter.post("/activate", async (req, res) => {
   const employeId = await withTransaction(async (client) => {
     const id = await consommerJeton(token, (sql, params) => client.query(sql, params));
     if (!id) return null;
-    await client.query("update employes set mdp_hash = $1, mot_de_passe = '', doit_changer_mdp = false, last_login = now() where id = $2", [hash, id]);
+    await client.query("update employes set mdp_hash = $1, mot_de_passe = '', doit_changer_mdp = false, last_login = now(), session_version = session_version + 1 where id = $2", [hash, id]);
     return id;
   });
   if (!employeId) return lienInvalide();
-  const session = await sessionFromToken({ role: "employe", employeId });
+  const nouveau = await jetonEmploye(employeId);
+  const session = await sessionEmploye(employeId);
   logAction(session.nom, "modification", "compte", "Mot de passe défini par lien d'activation");
-  res.json({ token: signToken({ role: "employe", employeId }), session });
+  res.json({ token: nouveau, session });
 });
 
 authRouter.get("/me", requireAuth, (req, res) => {
@@ -143,15 +143,14 @@ authRouter.post("/change-password", requireAuth, async (req, res) => {
   const refus = motDePasseAcceptable(motDePasse, req.session.identifiant);
   if (refus) return res.status(400).json({ error: refus });
   await query(
-    "update employes set mdp_hash = $1, mot_de_passe = '', doit_changer_mdp = false where id = $2",
+    "update employes set mdp_hash = $1, mot_de_passe = '', doit_changer_mdp = false, session_version = session_version + 1 where id = $2",
     [await hashPassword(motDePasse), req.session.employeId],
   );
   logAction(req.session.nom, "modification", "compte", "Mot de passe changé");
-  const session = await sessionFromToken({
-    role: "employe",
-    employeId: req.session.employeId,
-  });
-  res.json({ session });
+  // Les anciens jetons (autres appareils, session volée) sont désormais refusés : celui-ci les remplace pour cet appareil.
+  const token = await jetonEmploye(req.session.employeId);
+  const session = await sessionEmploye(req.session.employeId);
+  res.json({ session, token });
 });
 
 authRouter.post("/logout", requireAuth, (req, res) => {
@@ -173,16 +172,18 @@ authRouter.patch("/credentials", requireAuth, requireAdmin, async (req, res) => 
     return res.status(400).json({ error: "Identifiant trop court." });
   let hash = meta.admin_password_hash;
   if (motDePasse) {
-    if (String(motDePasse).length < 8)
-      return res.status(400).json({ error: "Mot de passe : 8 caractères minimum." });
+    // Même règle que pour les employés (longueur, ne contient pas l'identifiant).
+    const refus = motDePasseAcceptable(motDePasse, nextId);
+    if (refus) return res.status(400).json({ error: refus });
     hash = await bcrypt.hash(String(motDePasse), 10);
   }
+  // Un nouveau mot de passe déconnecte les autres sessions de l'administrateur ; un jeton neuf garde celle-ci ouverte.
   await query(
-    "update app_meta set admin_identifiant = $1, admin_password_hash = $2 where id = 1",
-    [nextId, hash],
+    "update app_meta set admin_identifiant = $1, admin_password_hash = $2, session_version = session_version + (case when $3 then 1 else 0 end) where id = 1",
+    [nextId, hash, Boolean(motDePasse)],
   );
   logAction(req.session.nom, "modification", "compte", "Identifiants de connexion administrateur");
-  res.json({ ok: true });
+  res.json({ ok: true, ...(motDePasse ? { token: await jetonAdmin() } : {}) });
 });
 
 authRouter.patch("/profile", requireAuth, requireAdmin, async (req, res) => {
@@ -192,6 +193,5 @@ authRouter.patch("/profile", requireAuth, requireAdmin, async (req, res) => {
     [nom ?? null, role ?? null],
   );
   logAction(req.session.nom, "modification", "compte", "Profil administrateur");
-  const session = await sessionFromToken({ role: "admin" });
-  res.json({ session });
+  res.json({ session: await sessionAdmin() });
 });

@@ -207,10 +207,10 @@ describe.skipIf(!actif)("intégration PostgreSQL : sessions et rôles", () => {
     });
 
     it("société étrangère : refusée (403) à tout compte qui n'y est pas rattaché, sur toutes les données par société", async () => {
-      // Politique actuelle : le responsable des collaborateurs voit toutes les sociétés pour les collectes, l'état SWIFT et le stock ; pour
-      // la banque, les fournisseurs, les états financiers, le suivi devise et les honoraires, l'accès reste celui des sociétés assignées
-      // (voir docs/permissions.md). Ce test fige cette politique : la changer est une décision, pas un effet de bord.
-      const adminSeul = new Set(["/api/honoraires", "/api/fournisseurs", "/api/banque", "/api/balances", "/api/suivi-devise", "/api/immobilisations/biens"]);
+      // Le responsable des collaborateurs supervise tout le cabinet : il accède à toutes les sociétés (comme l'administrateur) pour les
+      // collectes, l'état SWIFT, le stock, la banque, les fournisseurs, les états financiers et le suivi devise. Seul l'état client
+      // (honoraires) reste à l'administrateur et aux comptes de la société concernée (voir docs/permissions.md).
+      const adminSeul = new Set(["/api/honoraires"]);
       const chemins = ["/api/collectes/souche", "/api/honoraires", "/api/fournisseurs", "/api/etat-swift", "/api/banque", "/api/stock/mouvements", "/api/balances", "/api/suivi-devise", "/api/immobilisations/biens"];
       for (const chemin of chemins) {
         for (const [nom, c] of Object.entries({ collaborateur: roles.collaborateur, societe: roles.societe, delegue: roles.delegue })) {

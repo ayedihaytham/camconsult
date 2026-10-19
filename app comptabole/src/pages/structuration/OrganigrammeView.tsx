@@ -61,7 +61,7 @@ export function OrganigrammeView({
   actions?: ReactNode;
 }) {
   // Un organigramme par société (choisie en haut) plutôt que toutes côte à côte : chaque schéma reste lisible.
-  const { groupes, groupe, setChoix, annees, annee, setAnneeChoix } = useGroupeAnnee(nodes, roots, getSocieteById);
+  const { groupes, groupe, setChoix, annees, annee, setAnneeChoix, sansArborescence } = useGroupeAnnee(nodes, roots, getSocieteById);
   const [moisChoisi, setMoisChoisi] = useState<MoisChoisi | null>(null);
 
   const fichiersDuChoix = moisChoisi ? fichiersDuMois(moisChoisi.node.id, nodes, moisChoisi.annee, moisChoisi.mois) : [];
@@ -86,6 +86,7 @@ export function OrganigrammeView({
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-h-0 overflow-y-auto px-4 py-3">
+          {sansArborescence && <p className="py-3 text-sm text-muted-foreground">La société active n'a pas encore d'arborescence : choisissez une autre société ou créez-en une.</p>}
           {(groupe?.roots ?? []).map((root, i) => {
             const societe = getSocieteById(root.societeId);
             const barre = societe ? THEME_BAR[societe.theme] : GENERIC_BAR[i % GENERIC_BAR.length];

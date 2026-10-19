@@ -18,7 +18,7 @@ suiviDeviseRouter.use(requireAuth);
  * financiers : admin + collaborateurs de la société uniquement, jamais
  * l'employé de société cliente. */
 function canAccess(session, societeId) {
-  if (session.role === "admin") return true;
+  if (session.role === "admin" || session.poste === "responsable_collaborateurs") return true;
   if (session.poste === "societe_employe") return false;
   return (session.societeIds || []).includes(societeId);
 }

@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { anneeDuLibelle } from "@/lib/structurationMois";
+import { useSocieteActiveStore } from "@/store/societeActive";
 import type { Noeud, Societe } from "@/types";
 
 export const COMMUN = "__commun__";
@@ -18,7 +19,9 @@ export interface GroupeSociete {
 }
 
 /** Société et année affichées par l'organigramme et la vue générale : une société à la fois (les arborescences sans société forment
- * l'entrée « Commun »), et l'année des dossiers « … 2026 » de cette société, la plus récente au départ. */
+ * l'entrée « Commun »), et l'année des dossiers « … 2026 » de cette société, la plus récente au départ.
+ * La société est celle de la barre du haut : quand une société y est active, la page la suit (et ne montre jamais une autre) ; choisir une
+ * société dans la page la rend active partout. Sans société active (« Toutes les sociétés »), la page garde son propre choix. */
 export function useGroupeAnnee(nodes: Noeud[], roots: Noeud[], getSocieteById: (id: string | null) => Societe | null) {
   const groupes = useMemo(() => {
     const map = new Map<string, GroupeSociete>();
@@ -33,8 +36,16 @@ export function useGroupeAnnee(nodes: Noeud[], roots: Noeud[], getSocieteById: (
       a.cle === COMMUN ? 1 : b.cle === COMMUN ? -1 : a.label.localeCompare(b.label, "fr"),
     );
   }, [roots, getSocieteById]);
-  const [choix, setChoix] = useState<string | null>(null);
-  const groupe = groupes.find((g) => g.cle === choix) ?? groupes[0];
+  const [choixLocal, setChoixLocal] = useState<string | null>(null);
+  const societeActiveId = useSocieteActiveStore((s) => s.societeId);
+  const definirSocieteActive = useSocieteActiveStore((s) => s.setSocieteId);
+  const groupe = societeActiveId ? groupes.find((g) => g.cle === societeActiveId) : (groupes.find((g) => g.cle === choixLocal) ?? groupes[0]);
+  /** La société active n'a aucune arborescence : on le dit, au lieu d'afficher celle d'une autre société. */
+  const sansArborescence = Boolean(societeActiveId) && !groupe;
+  const setChoix = (cle: string) => {
+    setChoixLocal(cle);
+    definirSocieteActive(cle === COMMUN ? null : cle);
+  };
 
   const annees = useMemo(() => {
     const trouvees = new Set<number>();
@@ -49,7 +60,7 @@ export function useGroupeAnnee(nodes: Noeud[], roots: Noeud[], getSocieteById: (
   const [anneeChoix, setAnneeChoix] = useState<number | null>(null);
   const annee = annees.includes(anneeChoix ?? -1) ? anneeChoix : (annees[0] ?? null);
 
-  return { groupes, groupe, setChoix, annees, annee, setAnneeChoix };
+  return { groupes, groupe, setChoix, annees, annee, setAnneeChoix, sansArborescence };
 }
 
 /** Barre « Société / Année » commune à l'organigramme et à la vue générale, avec des actions à droite. */
@@ -67,7 +78,7 @@ export function SelecteursSocieteAnnee({ groupes, groupe, onGroupe, annees, anne
       <span className="text-sm text-muted-foreground">Société</span>
       <Select value={groupe?.cle} onValueChange={onGroupe}>
         <SelectTrigger className="h-9 w-64" aria-label="Organigramme de la société">
-          <SelectValue />
+          <SelectValue placeholder="Aucune arborescence" />
         </SelectTrigger>
         <SelectContent>
           {groupes.map((g) => (

@@ -42,7 +42,7 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
   /** Boutons de la barre (ajouter une arborescence, instancier pour toutes les sociétés). */
   actions?: ReactNode;
 }) {
-  const { groupes, groupe, setChoix, annees, annee, setAnneeChoix } = useGroupeAnnee(nodes, roots, getSocieteById);
+  const { groupes, groupe, setChoix, annees, annee, setAnneeChoix, sansArborescence } = useGroupeAnnee(nodes, roots, getSocieteById);
   const [ouvertId, setOuvertId] = useState<string | null>(null);
   const [sousId, setSousId] = useState<string | null>(null);
   const [recherche, setRecherche] = useState("");
@@ -262,7 +262,11 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
             </section>
           );
         })}
-        {armoires.length === 0 && <p className="text-sm text-muted-foreground">Aucun dossier pour cette année.</p>}
+        {armoires.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            {sansArborescence ? "La société active n'a pas encore d'arborescence : choisissez une autre société ou créez-en une." : "Aucun dossier pour cette année."}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ immobilisationsRouter.use(requireAuth);
 /** Registre d'immobilisations = données comptables internes, même règle
  * d'accès que le reste du module États financiers. */
 function canAccess(session, societeId) {
-  if (session.role === "admin") return true;
+  if (session.role === "admin" || session.poste === "responsable_collaborateurs") return true;
   if (session.poste === "societe_employe") return false;
   return (session.societeIds || []).includes(societeId);
 }

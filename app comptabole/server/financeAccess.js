@@ -1,7 +1,7 @@
 /** Financial data is cabinet-internal: company employees never access it. */
 export function canAccessFinanceSociete(session, societeId) {
   if (!session || !societeId) return false;
-  if (session.role === "admin") return true;
+  if (session.role === "admin" || session.poste === "responsable_collaborateurs") return true;
   if (session.poste === "societe_employe") return false;
   return (session.societeIds || []).includes(societeId);
 }

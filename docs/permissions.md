@@ -72,9 +72,11 @@
 - **Tests** : `server/integration/routesProtegees` (toute route relevée dans le code refuse l'absence de jeton, hors santé / connexion /
   activation ; jetons forgés ou expirés), `server/integration/sessions` (jetons, révocation, mot de passe provisoire, matrice des rôles,
   société étrangère), `src/store/auth.test.ts`, `src/hooks/usePermissions.test.tsx`.
-- **Politique d'accès par société figée par les tests** : le responsable des collaborateurs voit toutes les sociétés pour les collectes,
-  l'état SWIFT et le stock ; pour la banque, les fournisseurs, les états financiers, le suivi devise et les honoraires, son accès reste
-  celui des sociétés qui lui sont assignées. Changer cela est une décision de politique, à faire route par route.
+- **Politique d'accès par société figée par les tests** : l'administrateur et le responsable des collaborateurs accèdent à toutes les
+  sociétés (collectes, état SWIFT, stock, banque, fournisseurs, états financiers, suivi devise) ; le collaborateur à ses sociétés
+  assignées ; les comptes de société à leur seule société, sans les outils internes. L'état client (honoraires) reste à l'administrateur
+  et aux comptes de la société concernée. Le menu du responsable des collaborateurs et l'API disent la même chose (plus de page
+  visible qui répond « accès non autorisé »).
 
 ## Frontend concepts
 
@@ -107,16 +109,16 @@ requests and out-of-scope society IDs.
 
 ## Suivi fournisseur
 
-- Lecture : admin, collaborateurs de la société et responsable ou délégué de la société cliente
-  (mêmes accès pour les deux). Écriture : admin et collaborateurs de la société — `server/routes/fournisseurs.js`
+- Lecture : admin, responsable des collaborateurs (toutes les sociétés), collaborateurs de la société et responsable ou délégué de la société cliente
+  (mêmes accès pour les deux). Écriture : admin, responsable des collaborateurs et collaborateurs de la société — `server/routes/fournisseurs.js`
   (`canRead` / `canWrite`). Le menu et la route (`RequireSuiviFournisseur`) ne font que refléter ces règles.
 - Un règlement ne peut couvrir que des factures de la même société, du même fournisseur et de la
   même devise, sans dépasser le solde de chaque facture.
 
 ## Suivi bancaire
 
-- Mêmes règles que le suivi fournisseur : lecture pour l'admin, les collaborateurs de la société et
-  le responsable ou le délégué de la société cliente, écriture pour l'admin et les
+- Mêmes règles que le suivi fournisseur : lecture pour l'admin, le responsable des collaborateurs, les collaborateurs de la société et
+  le responsable ou le délégué de la société cliente, écriture pour l'admin, le responsable des collaborateurs et les
   collaborateurs — `server/routes/banque.js`.
 - Un règlement fournisseur ne peut être rapproché que d'un mouvement bancaire de sa société, et un
   mouvement ne règle qu'un seul règlement.

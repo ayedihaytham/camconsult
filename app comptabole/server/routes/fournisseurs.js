@@ -12,7 +12,7 @@ import { arrondi3 as r3 } from "../../shared/arrondi.js";
 export const fournisseursRouter = safeRouter(Router());
 fournisseursRouter.use(requireAuth);
 
-const inScope = (s, societeId) => s.role === "admin" || (s.societeIds || []).includes(societeId);
+const inScope = (s, societeId) => s.role === "admin" || s.poste === "responsable_collaborateurs" || (s.societeIds || []).includes(societeId);
 const canWrite = (s, societeId) => s.poste !== "societe_employe" && inScope(s, societeId);
 const canRead = (s, societeId) =>
   canWrite(s, societeId) || (s.poste === "societe_employe" && inScope(s, societeId));

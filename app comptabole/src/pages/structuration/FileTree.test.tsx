@@ -57,3 +57,29 @@ describe("explorateur de documents (tableau et arborescence réunis)", () => {
     expect(screen.getByText("Aucun résultat pour cette recherche.")).toBeTruthy();
   });
 });
+
+describe("explorateur : compte de société (ajout de fichiers sans création de dossier)", () => {
+  it("propose « Ajouter un fichier » dans un dossier, sans « Nouveau dossier »", () => {
+    const h = afficher({ currentId: "a", canCreate: false, canAddFile: true, canEdit: false, canDelete: false, items: [NODES[3]] });
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter un fichier" }));
+    expect(h.onAddFile).toHaveBeenCalledWith("a");
+    expect(screen.queryByRole("button", { name: "Nouveau dossier" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Nouveau dossier racine" })).toBeNull();
+  });
+
+  it("dans un dossier vide : « Ajouter un fichier » seulement, pas « Sous-dossier »", () => {
+    afficher({ currentId: "a", canCreate: false, canAddFile: true, items: [] });
+    expect(screen.getAllByRole("button", { name: "Ajouter un fichier" }).length).toBeGreaterThan(0); // barre et message du dossier vide
+    expect(screen.queryByRole("button", { name: /Sous-dossier/ })).toBeNull();
+  });
+
+  it("à la racine (aucun dossier ouvert), rien à ajouter", () => {
+    afficher({ currentId: null, canCreate: false, canAddFile: true });
+    expect(screen.queryByRole("button", { name: "Ajouter un fichier" })).toBeNull();
+  });
+
+  it("sans aucun droit, aucun bouton d'ajout", () => {
+    afficher({ currentId: "a", canCreate: false, canAddFile: false, items: [] });
+    expect(screen.queryByRole("button", { name: "Ajouter un fichier" })).toBeNull();
+  });
+});

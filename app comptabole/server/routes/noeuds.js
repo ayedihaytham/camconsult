@@ -60,9 +60,13 @@ const schema = z.object({
   dataUrl: z.string().optional(),
 });
 
+/** Le responsable (ou délégué) d'une société peut déposer des FICHIERS dans les dossiers de sa société (voir la vérification de la route) ;
+ * il ne crée pas de dossier. Les autres comptes ont besoin du droit « déposer des fichiers ». */
+const estCompteSociete = (session) => session.role === "societe_employe" || session.poste === "societe_employe";
 function requireCreate(req, res, next) {
   if (req.session.role === "admin" || can(req.session, "deposerFichiers"))
     return next();
+  if (estCompteSociete(req.session) && req.body?.type === "fichier") return next();
   res.status(403).json({ error: "Droit « déposer des fichiers » requis" });
 }
 function requireStructEdit(req, res, next) {
@@ -101,6 +105,10 @@ noeudsRouter.post("/", requireCreate, async (req, res) => {
   const v = parsed.data;
   if (!canSeeSociete(req.session, v.societeId ?? null))
     return res.status(403).json({ error: "Société hors périmètre" });
+  // Compte de société : un fichier, dans un dossier existant de sa société (jamais à la racine, jamais dans un dossier réservé au cabinet).
+  const deposeParSociete = estCompteSociete(req.session) && req.session.role !== "admin" && !can(req.session, "deposerFichiers");
+  if (deposeParSociete && (v.type !== "fichier" || !v.parentId || !v.societeId))
+    return res.status(403).json({ error: "Vous pouvez seulement ajouter des fichiers dans un dossier de votre société" });
   const parent = v.parentId ? (await query("select * from noeuds where id=$1", [v.parentId])).rows[0] : null;
   if (v.parentId && (!parent || parent.type !== "dossier" || parent.societe_id !== v.societeId || !canReadNoeud(req.session, parent)))
     return res.status(403).json({ error: "Dossier parent inaccessible dans cette société" });

@@ -36,6 +36,8 @@ interface FileTreeProps {
   nodes: Noeud[];
   currentId: string | null;
   canCreate: boolean;
+  /** Ajout de fichiers dans un dossier, sans pouvoir créer de dossier (responsable ou délégué de société) ; par défaut, comme `canCreate`. */
+  canAddFile?: boolean;
   canEdit: boolean;
   canDelete: boolean;
   onNavigate: (id: string | null) => void;
@@ -65,6 +67,7 @@ export function FileTree({
   nodes,
   currentId,
   canCreate,
+  canAddFile = canCreate,
   canEdit,
   canDelete,
   onNavigate,
@@ -295,9 +298,9 @@ export function FileTree({
               </button>
             </Fragment>
           ))}
-          {canCreate && (
+          {(canCreate || canAddFile) && (
             <div className="ml-auto flex items-center gap-2">
-              {currentId && (
+              {canAddFile && currentId && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -307,14 +310,16 @@ export function FileTree({
                   Ajouter un fichier
                 </Button>
               )}
-              <Button
-                variant="ledger"
-                size="sm"
-                onClick={() => onAddFolder(currentId)}
-              >
-                <FolderPlus className="h-4 w-4" />
-                Nouveau dossier
-              </Button>
+              {canCreate && (
+                <Button
+                  variant="ledger"
+                  size="sm"
+                  onClick={() => onAddFolder(currentId)}
+                >
+                  <FolderPlus className="h-4 w-4" />
+                  Nouveau dossier
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -338,17 +343,19 @@ export function FileTree({
             <p className="text-sm text-muted-foreground">
               {resultats ? "Aucun résultat pour cette recherche." : currentId ? "Ce dossier est vide." : "Aucune arborescence."}
             </p>
-            {canCreate && !resultats && (
+            {(canCreate || (canAddFile && currentId)) && !resultats && (
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ledger"
-                  size="sm"
-                  onClick={() => onAddFolder(currentId)}
-                >
-                  <FolderPlus className="h-4 w-4" />
-                  {currentId ? "Sous-dossier" : "Nouvelle arborescence"}
-                </Button>
-                {currentId && (
+                {canCreate && (
+                  <Button
+                    variant="ledger"
+                    size="sm"
+                    onClick={() => onAddFolder(currentId)}
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                    {currentId ? "Sous-dossier" : "Nouvelle arborescence"}
+                  </Button>
+                )}
+                {canAddFile && currentId && (
                   <Button
                     variant="outline"
                     size="sm"

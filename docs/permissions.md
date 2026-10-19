@@ -43,8 +43,13 @@
 - Company-side employee with `poste === "societe_employe"`.
 - `lectureSeule` is true and `isCollaborateur` is false.
 - `societeIds` contains its company ID when assigned.
-- Fixed permissions currently allow dossier consultation and messaging, while
-  file deposit, society modification and deletion are false.
+- Fixed permissions allow dossier consultation and messaging, while the `deposerFichiers`,
+  society modification and deletion flags are false. Exception (Structuration): the
+  responsable/délégué of a society may **add files** to existing folders of **their own
+  society** (`POST /api/noeuds`, `type = fichier`, parent folder required, same society,
+  never a `cabinet_only` folder). Creating folders, renaming, moving, duplicating and
+  deleting stay refused (403). The UI shows « Ajouter un fichier » (FileTree `canAddFile`)
+  but no folder creation.
 - Internal-team routes and navigation are unavailable.
 
 ## Frontend concepts

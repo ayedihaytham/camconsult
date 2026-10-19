@@ -75,6 +75,8 @@ export function StructurationPage() {
   // Le responsable de société a une présentation plus simple : une seule société, donc ni filtre société ni filtre date.
   const estClient = poste === "societe_employe";
   const canCreate = isAdmin || can("deposerFichiers");
+  // Le responsable (ou délégué) d'une société dépose des documents dans les dossiers de sa société ; il ne crée, ne déplace ni ne supprime de dossier.
+  const canAddFile = canCreate || estClient;
   // Un compte qui n'a qu'une société n'a rien à filtrer par société.
   const filtreSocieteUtile = isAdmin || societes.filter((s) => canSeeSociete(s.id)).length > 1;
   const canStructEdit = isAdmin || can("modifierSocietes");
@@ -586,6 +588,7 @@ export function StructurationPage() {
               resultats={filtreActif}
               currentId={currentFolder}
               canCreate={canCreate}
+              canAddFile={canAddFile}
               canEdit={canStructEdit}
               canDelete={canDelete}
               selectedIds={selectedIds}
@@ -752,7 +755,7 @@ export function StructurationPage() {
               getSocieteById={getSocieteById}
               onOpenNode={openFolder}
               onPreview={setPreviewNode}
-              onDeposer={canCreate ? (dossier, fichiers) => { setUploadFiles(fichiers); setUploadParent(dossier.id); } : undefined}
+              onDeposer={canAddFile ? (dossier, fichiers) => { setUploadFiles(fichiers); setUploadParent(dossier.id); } : undefined}
               actions={actionsStructure}
             />
           )}

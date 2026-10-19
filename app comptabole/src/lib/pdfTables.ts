@@ -54,6 +54,8 @@ interface TablesPdfOpts {
   cabinet?: CabinetPdf | null;
   /** Mention sous le nom du cabinet, en haut à droite (ex. « Document converti ») ; aucune par défaut. */
   mention?: string;
+  /** Plusieurs parties à la suite les unes des autres, sans saut de page entre elles (défaut : une partie par page). */
+  enchainer?: boolean;
 }
 
 
@@ -108,7 +110,8 @@ export async function buildTablesPdf(input: TablesPdfOpts): Promise<JsPDF> {
   const multi = opts.sheets.length > 1;
   opts.sheets.forEach((sheet, idx) => {
     if (multi) {
-      if (idx > 0) {
+      // Plusieurs parties : une par page, ou à la suite (`enchainer`) tant qu'il reste de la place pour un titre et quelques lignes.
+      if (idx > 0 && (!opts.enchainer || y > hauteur - MARGE - 110)) {
         doc.addPage();
         y = hautPages;
       }

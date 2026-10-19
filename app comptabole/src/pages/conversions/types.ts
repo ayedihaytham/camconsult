@@ -8,4 +8,4 @@ export interface StatsConversion {
   libelleElements: string;
 }
 
-export const STATS_VIDES: StatsConversion = { fichiers: 0, convertis: 0, erreurs: 0, elements: 0, libelleElements: "Feuilles" };
+export const STATS_VIDES: StatsConversion = { fichiers: 0, convertis: 0, erreurs: 0, elements: 0, libelleElements: "Tableaux" };

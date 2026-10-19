@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { download } from "@/lib/export";
 import { COMPTE_BANQUE, ecrituresDepuisReleve, texteEcritures } from "@/lib/ecrituresReleve";
 import {
-  aUnTableauDeMouvements,
+  modeDePdf,
   classeurExcel,
   feuillesDePdf,
   lireFichierPdf,
@@ -170,7 +170,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
           <div className="grid gap-4 p-[18px] text-sm">
             <label className="flex cursor-pointer items-start gap-2.5">
               <Checkbox checked={tableauSeul} onCheckedChange={(c) => setTableauSeul(Boolean(c))} className="mt-0.5" />
-              <span>Mouvements bancaires seulement (lignes du tableau)<span className="block text-xs text-muted-foreground">Ignore l'en-tête et le pied de page du relevé.</span></span>
+              <span>Tableaux seulement<span className="block text-xs text-muted-foreground">Seul le nécessaire est converti : les lignes du tableau (mouvements d'un relevé, balance, état). Titres, adresses, en-têtes et pieds de page sont écartés.</span></span>
             </label>
             <label className="flex cursor-pointer items-start gap-2.5">
               <Checkbox checked={nombres} onCheckedChange={(c) => setNombres(Boolean(c))} className="mt-0.5" />
@@ -195,9 +195,9 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
         </div>
         {active && feuille ? (
           <>
-            {tableauSeul && !aUnTableauDeMouvements(active.pages) && (
+            {tableauSeul && modeDePdf(active.pages, options) === "complet" && (
               <p className="mx-[18px] mt-3 rounded-lg border border-destructive/30 px-3 py-2 text-xs font-medium text-destructive" role="alert">
-                Aucun tableau de mouvements reconnu (en-tête Date / Libellé / Débit / Crédit…) : le document complet est converti.
+                Aucun tableau reconnu dans ce document : il est converti en entier. Décochez « Tableaux seulement » si c'est voulu.
               </p>
             )}
             {feuilles.length > 1 && (

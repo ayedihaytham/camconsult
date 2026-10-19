@@ -5,18 +5,18 @@ import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { feuillesDeClasseur } from "@/lib/classeurFeuilles";
 import { download } from "@/lib/export";
 import { lireTamponClasseur, messageImport } from "@/lib/fichierImport";
 import { texteDepuisFeuilles } from "@/lib/texteBrut";
 import { buildTablesPdf, type PdfSheet } from "@/lib/pdfTables";
+import { detecterTableaux } from "@/lib/tableaux";
 import { cn } from "@/lib/utils";
 import { ZoneDepot } from "./ZoneDepot";
 import type { StatsConversion } from "./types";
 import { useIdentiteCabinet } from "./useIdentiteCabinet";
 
 type Mode = "pdf" | "both" | "xls";
-type Orientation = "auto" | "portrait" | "landscape";
-type Format = "a4" | "a3";
 
 interface ConvItem {
   id: string;
@@ -26,27 +26,38 @@ interface ConvItem {
   status: "cours" | "ok" | "erreur";
   detail: string;
   sheets: PdfSheet[];
-  /** Noms des feuilles écartées du PDF. */
+  /** Tableaux repérés dans les feuilles (titres, adresses, mentions et lignes isolées écartés). */
+  tableaux: PdfSheet[];
+  /** Noms des tableaux ou feuilles écartés de la conversion. */
   exclues: string[];
 }
 
 /** Le PDF s'ouvre sans volet de miniatures, ajusté à la largeur de la zone d'aperçu. */
 const PARAMETRES_APERCU = "#navpanes=0&view=FitH";
 
-/** Lit toutes les feuilles d'un classeur Excel — même lecture que ImportBalanceDialog.tsx, mais sur toutes les feuilles. */
+/** Lit toutes les feuilles d'un classeur Excel (contrôle commun de lireTamponClasseur, puis lecture qui garde les dates). */
 async function readSheets(file: File): Promise<PdfSheet[]> {
-  const buf = await lireTamponClasseur(file, { formats: ["xlsx", "xls"] });
-  const XLSX = await import("xlsx");
-  const wb = XLSX.read(buf, { type: "array" });
-  return wb.SheetNames.map((name) => ({
-    name,
-    headerRow: true,
-    rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: "" }) as (string | number)[][],
-  })).filter((sheet) => sheet.rows.some((r) => r.some((v) => v !== "" && v != null)));
+  return feuillesDeClasseur(await lireTamponClasseur(file, { formats: ["xlsx", "xls"] }));
+}
+
+/** Les tableaux de toutes les feuilles, nommés par leur titre (précédé du nom de la feuille quand il y en a plusieurs) et uniques. */
+function construireTableaux(sheets: PdfSheet[]): PdfSheet[] {
+  const pris = new Set<string>();
+  return sheets.flatMap((sheet) =>
+    detecterTableaux(sheet.rows).map((t) => {
+      const base = sheets.length > 1 ? `${sheet.name} · ${t.nom}` : t.nom;
+      let nom = base;
+      for (let i = 2; pris.has(nom); i++) nom = `${base} (${i})`;
+      pris.add(nom);
+      return { name: nom, rows: t.rows, headerRow: true };
+    }),
+  );
 }
 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
-const retenues = (i: ConvItem) => i.sheets.filter((s) => !i.exclues.includes(s.name));
+/** Ce qui peut être converti : les tableaux repérés, ou les feuilles entières (aucun tableau reconnu, ou mode « feuilles entières »). */
+const unites = (i: ConvItem, seulementTableaux: boolean) => (seulementTableaux && i.tableaux.length > 0 ? i.tableaux : i.sheets);
+const retenues = (i: ConvItem, seulementTableaux: boolean) => unites(i, seulementTableaux).filter((s) => !i.exclues.includes(s.name));
 
 /** Excel vers PDF : lecture locale du classeur, options du PDF, aperçu qui suit les options, téléchargement par fichier ou regroupé. */
 export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => void }) {
@@ -54,31 +65,32 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeSheet, setActiveSheet] = useState(0);
   const [mode, setMode] = useState<Mode>("both");
-  const [orientation, setOrientation] = useState<Orientation>("auto");
-  const [format, setFormat] = useState<Format>("a4");
-  const [entete, setEntete] = useState(true);
-  const [fusion, setFusion] = useState(false);
+  // En comptabilité on ne convertit que le nécessaire : les tableaux, pas les titres, adresses ni mentions qui les entourent.
+  const [seulementTableaux, setSeulementTableaux] = useState(true);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfErreur, setPdfErreur] = useState(false);
   const occupe = items.some((i) => i.status === "cours");
 
   const active = items.find((i) => i.id === activeId && i.status === "ok") ?? null;
-  const activeSheetData = active ? (active.sheets[Math.min(activeSheet, active.sheets.length - 1)] ?? null) : null;
+  const unitesActives = active ? unites(active, seulementTableaux) : [];
+  const activeSheetData = unitesActives[Math.min(activeSheet, unitesActives.length - 1)] ?? null;
+  const aucunTableau = Boolean(active) && seulementTableaux && active!.tableaux.length === 0;
   const { logo, cabinet } = useIdentiteCabinet();
-  const optionsPdf = useMemo(() => ({ orientation, format, entete, logo, cabinet, mention: "Document converti" }), [orientation, format, entete, logo, cabinet]);
+  const optionsPdf = useMemo(() => ({ logo, cabinet, mention: "Document converti" }), [logo, cabinet]);
 
   useEffect(() => {
     const ok = items.filter((i) => i.status === "ok");
-    onStats({ fichiers: items.length, convertis: ok.length, erreurs: items.filter((i) => i.status === "erreur").length, elements: ok.reduce((n, i) => n + retenues(i).length, 0), libelleElements: "Feuilles" });
-  }, [items, onStats]);
+    onStats({ fichiers: items.length, convertis: ok.length, erreurs: items.filter((i) => i.status === "erreur").length, elements: ok.reduce((n, i) => n + retenues(i, seulementTableaux).length, 0), libelleElements: seulementTableaux ? "Tableaux" : "Feuilles" });
+  }, [items, onStats, seulementTableaux]);
 
   async function fabriquer(entrees: ConvItem[]) {
     const multi = entrees.length > 1;
-    const sheets = entrees.flatMap((e) => retenues(e).map((s) => ({ ...s, name: multi ? `${e.baseName} · ${s.name}` : s.name })));
+    const sheets = entrees.flatMap((e) => retenues(e, seulementTableaux).map((s) => ({ ...s, name: multi ? `${e.baseName} · ${s.name}` : s.name })));
     if (sheets.length === 0) return null;
     return buildTablesPdf({
       title: multi ? "Conversions regroupées" : entrees[0].baseName,
-      subtitle: `${pluriel(sheets.length, "feuille")} · converti le ${new Date().toLocaleDateString("fr-FR")}`,
+      subtitle: `${pluriel(sheets.length, seulementTableaux ? "tableau" : "feuille")} · converti le ${new Date().toLocaleDateString("fr-FR")}`,
+      enchainer: true,
       sheets,
       fileName: `${multi ? "conversions" : entrees[0].baseName}.pdf`,
       plain: true,
@@ -112,11 +124,11 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
     };
     // fabriquer ne dépend que de optionsPdf et de l'élément actif
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, optionsPdf]);
+  }, [active, optionsPdf, seulementTableaux]);
 
   async function convertir(fichiers: File[]) {
     const nouveaux: ConvItem[] = fichiers.map((file) => ({
-      id: crypto.randomUUID(), file, name: file.name, baseName: file.name.replace(/\.xlsx?$/i, ""), status: "cours", detail: "Lecture du classeur…", sheets: [], exclues: [],
+      id: crypto.randomUUID(), file, name: file.name, baseName: file.name.replace(/\.xlsx?$/i, ""), status: "cours", detail: "Lecture du classeur…", sheets: [], tableaux: [], exclues: [],
     }));
     setItems((prev) => [...nouveaux, ...prev]);
     let premier: string | null = null;
@@ -125,7 +137,10 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
       let maj: Partial<ConvItem>;
       try {
         const sheets = await readSheets(n.file);
-        maj = sheets.length === 0 ? { status: "erreur", detail: "Fichier vide" } : { status: "ok", sheets, detail: `${pluriel(sheets.length, "feuille")} lue${sheets.length > 1 ? "s" : ""}` };
+        const tableaux = construireTableaux(sheets);
+        maj = sheets.length === 0
+          ? { status: "erreur", detail: "Fichier vide" }
+          : { status: "ok", sheets, tableaux, detail: tableaux.length > 0 ? `${pluriel(tableaux.length, "tableau")} reconnu${tableaux.length > 1 ? "s" : ""} dans ${pluriel(sheets.length, "feuille")}` : `${pluriel(sheets.length, "feuille")} lue${sheets.length > 1 ? "s" : ""} · aucun tableau reconnu` };
       } catch (err) {
         maj = { status: "erreur", detail: messageImport(err, "Fichier illisible — export Excel (.xlsx) attendu") };
       }
@@ -158,7 +173,7 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
     try {
       const doc = await fabriquer(entrees);
       if (!doc) {
-        toast.error("Aucune feuille retenue : cochez au moins une feuille");
+        toast.error("Rien à convertir : cochez au moins un tableau");
         return;
       }
       doc.save(entrees.length > 1 ? "conversions.pdf" : `${entrees[0].baseName}.pdf`);
@@ -168,25 +183,21 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
   }
 
   function telechargerTexte(item: ConvItem) {
-    const feuilles = retenues(item);
+    const feuilles = retenues(item, seulementTableaux);
     if (feuilles.length === 0) {
-      toast.error("Aucune feuille retenue : cochez au moins une feuille");
+      toast.error("Rien à convertir : cochez au moins un tableau");
       return;
     }
     download(new Blob([texteDepuisFeuilles(feuilles)], { type: "text/plain;charset=utf-8" }), `${item.baseName}.txt`);
   }
 
   async function toutTelecharger() {
-    const prets = items.filter((i) => i.status === "ok" && retenues(i).length > 0);
-    if (fusion) {
-      await telecharger(prets);
-      return;
-    }
+    const prets = items.filter((i) => i.status === "ok" && retenues(i, seulementTableaux).length > 0);
     for (const p of prets) await telecharger([p]);
   }
 
   const prets = items.filter((i) => i.status === "ok");
-  const feuilleVisible = active ? retenues(active).length > 0 : false;
+  const feuilleVisible = active ? retenues(active, seulementTableaux).length > 0 : false;
 
   return (
     <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start">
@@ -203,38 +214,33 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
 
         <LedgerSheet>
           <div className="border-b border-border px-[18px] py-3">
-            <h2 className="text-[0.86rem] font-bold text-foreground">Options du PDF</h2>
+            <h2 className="text-[0.86rem] font-bold text-foreground">Tableaux à convertir</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Seul le nécessaire est converti : les tableaux. Les titres, adresses, mentions et lignes isolées qui les entourent sont laissés de côté.</p>
           </div>
           <div className="grid gap-4 p-[18px] text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span>Orientation <span className="block text-xs text-muted-foreground">« Auto » choisit paysage pour les tableaux larges.</span></span>
-              <LedgerSegmented<Orientation> value={orientation} onChange={setOrientation} ariaLabel="Orientation" options={[{ value: "auto", label: "Auto" }, { value: "portrait", label: "Portrait" }, { value: "landscape", label: "Paysage" }]} />
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span>Format</span>
-              <LedgerSegmented<Format> value={format} onChange={setFormat} ariaLabel="Format" options={[{ value: "a4", label: "A4" }, { value: "a3", label: "A3" }]} />
-            </div>
             <label className="flex cursor-pointer items-start gap-2.5">
-              <Checkbox checked={entete} onCheckedChange={(c) => setEntete(Boolean(c))} className="mt-0.5" />
-              <span>En-tête avec titre et date<span className="block text-xs text-muted-foreground">Nom du fichier et date de conversion en haut du document.</span></span>
+              <Checkbox checked={seulementTableaux} onCheckedChange={(c) => setSeulementTableaux(Boolean(c))} className="mt-0.5" />
+              <span>Tableaux seulement<span className="block text-xs text-muted-foreground">Décochez pour convertir les feuilles entières, telles quelles.</span></span>
             </label>
-            <label className="flex cursor-pointer items-start gap-2.5">
-              <Checkbox checked={fusion} onCheckedChange={(c) => setFusion(Boolean(c))} className="mt-0.5" />
-              <span>Un seul PDF pour tous les fichiers<span className="block text-xs text-muted-foreground">Utilisé par « Tout télécharger » ; sinon, un PDF par fichier.</span></span>
-            </label>
-            {active && active.sheets.length > 1 && (
+            {aucunTableau && <p className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-warning" role="status">Aucun tableau reconnu dans ce fichier : les feuilles entières sont converties.</p>}
+            {active && unitesActives.length > 1 && (
               <div>
-                <p className="mb-1.5">Feuilles à inclure <span className="text-xs text-muted-foreground">— {active.name}</span></p>
-                <div className="flex flex-wrap gap-1.5">
-                  {active.sheets.map((s) => {
-                    const incluse = !active.exclues.includes(s.name);
+                <p className="mb-1.5">{seulementTableaux && !aucunTableau ? "Tableaux" : "Feuilles"} à inclure <span className="text-xs text-muted-foreground">— {active.name}</span></p>
+                <ul className="max-h-72 space-y-1 overflow-auto">
+                  {unitesActives.map((u) => {
+                    const incluse = !active.exclues.includes(u.name);
+                    const lignes = Math.max(0, u.rows.length - 1);
                     return (
-                      <button key={s.name} type="button" aria-pressed={incluse} onClick={() => basculerFeuille(active, s.name)} className={cn("h-7 rounded-full px-3 text-xs font-semibold transition-colors", incluse ? "bg-primary text-primary-foreground" : "bg-accent/10 text-primary hover:bg-accent/20")}>
-                        {s.name}
-                      </button>
+                      <li key={u.name}>
+                        <label className="flex cursor-pointer items-center gap-2.5 rounded-md px-1.5 py-1 hover:bg-accent/10">
+                          <Checkbox checked={incluse} onCheckedChange={() => basculerFeuille(active, u.name)} aria-label={u.name} />
+                          <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{lignes} ligne{lignes > 1 ? "s" : ""} · {Math.max(...u.rows.map((r) => r.length))} col.</span>
+                        </label>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
               </div>
             )}
           </div>
@@ -248,9 +254,9 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
         </div>
         {active && activeSheetData ? (
           <>
-            {active.sheets.length > 1 && (
+            {unitesActives.length > 1 && (
               <div className="px-[18px] pt-3">
-                <LedgerSegmented value={String(activeSheet)} onChange={(v) => setActiveSheet(Number(v))} options={active.sheets.map((s, i) => ({ value: String(i), label: s.name }))} ariaLabel="Choisir une feuille" />
+                <LedgerSegmented value={String(activeSheet)} onChange={(v) => setActiveSheet(Number(v))} options={unitesActives.map((s, i) => ({ value: String(i), label: s.name }))} ariaLabel="Choisir un tableau" />
               </div>
             )}
             <div className={cn("grid gap-3 p-[18px]", mode === "both" && "xl:grid-cols-2")}>
@@ -278,7 +284,7 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
                   {pdfErreur ? (
                     <p className="rounded-lg border border-destructive/30 p-4 text-sm text-destructive" role="alert">L'aperçu n'a pas pu être préparé.</p>
                   ) : !feuilleVisible ? (
-                    <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">Aucune feuille retenue : cochez au moins une feuille.</p>
+                    <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">Rien à convertir : cochez au moins un tableau.</p>
                   ) : pdfUrl ? (
                     <iframe src={`${pdfUrl}${PARAMETRES_APERCU}`} title="Aperçu PDF" className="h-[560px] w-full rounded-lg border border-border bg-muted" />
                   ) : (

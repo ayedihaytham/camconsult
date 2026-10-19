@@ -1,4 +1,5 @@
 import type { PdfCell, PdfSheet } from "@/lib/pdfTables";
+import { detecterTableaux } from "@/lib/tableaux";
 
 /** Un morceau de texte d'une page PDF avec sa position (origine en bas à gauche, en points). */
 export interface PdfTextItem {
@@ -324,21 +325,47 @@ export function feuillesDePdf(
   pages: PdfTextItem[][],
   options: OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean } = {},
 ): PdfSheet[] {
+  return lireTableauxPdf(pages, options).feuilles;
+}
+
+/** Ce que « tableaux seulement » a retenu : les mouvements d'un relevé bancaire, des tableaux repérés dans les pages, ou (rien de reconnu)
+ * le document complet. */
+export type ModeDePdf = "mouvements" | "tableaux" | "complet";
+
+type OptionsFeuilles = OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean };
+
+function lireTableauxPdf(pages: PdfTextItem[][], options: OptionsFeuilles): { mode: ModeDePdf; feuilles: PdfSheet[] } {
   if (options.tableauSeul) {
     const mouvements = extraireMouvements(pages);
     if (mouvements) {
       const rows = options.nombres
         ? mouvements.map((l, i) => l.map((c) => (i === 0 ? c : (convertirNombre(c) ?? c))))
         : mouvements;
-      return [{ name: "Mouvements", rows, headerRow: true }];
+      return { mode: "mouvements", feuilles: [{ name: "Mouvements", rows, headerRow: true }] };
+    }
+    // Pas un relevé bancaire : on cherche les tableaux de chaque page (au moins 3 colonnes et 3 lignes), le reste du texte est écarté.
+    const trouves = pages.flatMap((p, i) => {
+      const detectes = detecterTableaux(reconstruireTableau(p, options), { minColonnes: 3, minLignes: 3 });
+      return detectes.map((t) => ({ name: detectes.length > 1 ? `Page ${i + 1} · ${t.nom}` : `Page ${i + 1}`, rows: t.rows, headerRow: true }));
+    });
+    if (trouves.length > 0) {
+      if (options.uneSeuleFeuille && trouves.length > 1) {
+        return { mode: "tableaux", feuilles: [{ name: "Tous les tableaux", rows: trouves.flatMap((f, i) => (i === 0 ? f.rows : [[], ...f.rows])), headerRow: true }] };
+      }
+      return { mode: "tableaux", feuilles: trouves };
     }
   }
   const tableaux = pages.map((p) => reconstruireTableau(p, options));
   const feuilles = tableaux.map((rows, i) => ({ name: `Page ${i + 1}`, rows })).filter((f) => f.rows.length > 0);
   if (options.uneSeuleFeuille && feuilles.length > 1) {
-    return [{ name: "Toutes les pages", rows: feuilles.flatMap((f) => f.rows) }];
+    return { mode: "complet", feuilles: [{ name: "Toutes les pages", rows: feuilles.flatMap((f) => f.rows) }] };
   }
-  return feuilles;
+  return { mode: "complet", feuilles };
+}
+
+/** Comment « tableaux seulement » lit ce PDF (pour prévenir quand aucun tableau n'est reconnu). */
+export function modeDePdf(pages: PdfTextItem[][], options: OptionsFeuilles = {}): ModeDePdf {
+  return lireTableauxPdf(pages, { ...options, tableauSeul: true }).mode;
 }
 
 /** Vrai si le PDF contient un tableau de mouvements reconnaissable. */

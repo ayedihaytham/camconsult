@@ -24,7 +24,7 @@ describe("page Conversions", () => {
     expect(screen.getByText("Toutes les pages dans une seule feuille")).toBeTruthy();
   });
 
-  it("affiche le bandeau (traitement local, compteurs) et les options du PDF", () => {
+  it("affiche le bandeau (traitement local, compteurs) et le choix « tableaux seulement », sans options de mise en page", () => {
     render(
       <MemoryRouter>
         <ConversionsPage />
@@ -32,11 +32,11 @@ describe("page Conversions", () => {
     );
     expect(screen.getByRole("heading", { name: "Conversions" })).toBeTruthy();
     expect(screen.getByText(/Traitement 100 % local/)).toBeTruthy();
-    for (const l of ["Fichiers", "Convertis", "En erreur", "Feuilles"]) expect(screen.getByText(l)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Paysage" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "A3" })).toBeTruthy();
-    expect(screen.getByText("En-tête avec titre et date")).toBeTruthy();
-    expect(screen.getByText("Un seul PDF pour tous les fichiers")).toBeTruthy();
+    for (const l of ["Fichiers", "Convertis", "En erreur", "Tableaux"]) expect(screen.getAllByText(l).length).toBeGreaterThan(0);
+    expect(screen.getByRole("checkbox", { name: /Tableaux seulement/ }).getAttribute("aria-checked")).toBe("true");
+    // les options d'orientation, de format, d'en-tête et de fusion ont été retirées
+    expect(screen.queryByRole("button", { name: "Paysage" })).toBeNull();
+    expect(screen.queryByText("Options du PDF")).toBeNull();
     expect(screen.getByText(/Ajoutez un fichier, puis cliquez/)).toBeTruthy();
   });
 

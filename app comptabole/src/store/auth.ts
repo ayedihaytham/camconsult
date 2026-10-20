@@ -10,6 +10,9 @@ export interface Session {
   /** true = employé de société cliente (dossiers en lecture seule) */
   lectureSeule?: boolean;
   employeId: string | null;
+  /** Pour role = "admin" : identifiant du compte administrateur, et vrai pour l'administrateur principal (compte historique). */
+  adminId?: string;
+  principal?: boolean;
   /** Identifiant de connexion du compte. */
   identifiant?: string;
   nom: string;

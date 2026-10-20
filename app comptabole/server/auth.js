@@ -69,16 +69,27 @@ export function signToken(payload) {
 
 /** Ticket de la deuxième étape de connexion (double authentification) : prouve que le mot de passe a été vérifié, ne donne AUCUN droit.
  * Il porte `typ: "2fa"` et pas de rôle ; `requireAuth` le refuse explicitement. Valable 5 minutes. */
-export function signTicket2fa() {
-  return jwt.sign({ typ: "2fa" }, SECRET, { expiresIn: "5m", algorithm: ALGORITHME });
+export function signTicket2fa(adminId) {
+  return jwt.sign({ typ: "2fa", adminId }, SECRET, { expiresIn: "5m", algorithm: ALGORITHME });
 }
+/** Renvoie l'identifiant de l'administrateur dont le mot de passe a été vérifié, ou null si le ticket est invalide ou expiré. */
 export function lireTicket2fa(ticket) {
   try {
     const p = jwt.verify(String(ticket ?? ""), SECRET, { algorithms: [ALGORITHME] });
-    return p.typ === "2fa";
+    return p.typ === "2fa" && p.adminId ? String(p.adminId) : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** Administrateur principal (le compte historique) : à qui appartiennent les jetons émis avant les comptes multiples (sans `adminId`). */
+export async function adminPrincipalId() {
+  const { rows } = await query("select id from administrateurs where principal");
+  return rows[0]?.id ?? null;
+}
+/** Identifiant de l'administrateur d'un jeton (un jeton sans `adminId` est celui du principal). */
+export async function adminIdDuJeton(payload) {
+  return payload.adminId ?? (await adminPrincipalId());
 }
 
 /** Vrai si le jeton date d'avant le dernier changement de mot de passe du compte : il porte l'ancienne version des sessions.
@@ -90,22 +101,22 @@ function jetonRevoque(payload, versionCompte) {
 /**
  * Ouvre une session pour un compte et renvoie son jeton : une ligne « session » (appareil, adresse, dates) est créée, le jeton porte son
  * identifiant `sid` et la version courante des sessions du compte (relue en base : après un changement de mot de passe, c'est la nouvelle).
- * `identite` : `{ role: "admin" }` ou `{ role: "employe", employeId }`. `remplacer` supprime d'abord les autres sessions du compte
+ * `identite` : `{ role: "admin", adminId }` ou `{ role: "employe", employeId }`. `remplacer` supprime d'abord les autres sessions du compte
  * (changement de mot de passe, « déconnecter mes autres appareils ») : la nouvelle est alors la seule.
  */
 export async function ouvrirJeton(req, identite, { remplacer = false } = {}) {
   const admin = identite.role === "admin";
   const { rows } = admin
-    ? await query("select session_version from app_meta where id = 1")
+    ? await query("select session_version from administrateurs where id = $1", [identite.adminId])
     : await query("select session_version from employes where id = $1", [identite.employeId]);
-  const sid = await ouvrirSession({ compte: admin ? "admin" : String(identite.employeId), adresse: adresseClient(req), navigateur: req.headers?.["user-agent"], remplacer });
-  return signToken({ ...(admin ? { role: "admin" } : { role: "employe", employeId: identite.employeId }), v: rows[0]?.session_version ?? 0, sid });
+  const sid = await ouvrirSession({ compte: admin ? `admin:${identite.adminId}` : String(identite.employeId), adresse: adresseClient(req), navigateur: req.headers?.["user-agent"], remplacer });
+  return signToken({ ...(admin ? { role: "admin", adminId: identite.adminId } : { role: "employe", employeId: identite.employeId }), v: rows[0]?.session_version ?? 0, sid });
 }
 
 /** Session à jour d'un compte (relue en base, version des sessions comprise), pour les réponses qui suivent une connexion ou un changement. */
-export async function sessionAdmin() {
-  const { rows } = await query("select session_version from app_meta where id = 1");
-  return sessionFromToken({ role: "admin", v: rows[0]?.session_version ?? 0 });
+export async function sessionAdmin(adminId) {
+  const { rows } = await query("select session_version from administrateurs where id = $1", [adminId]);
+  return sessionFromToken({ role: "admin", adminId, v: rows[0]?.session_version ?? 0 });
 }
 export async function sessionEmploye(employeId) {
   const { rows } = await query("select session_version from employes where id = $1", [employeId]);
@@ -115,21 +126,24 @@ export async function sessionEmploye(employeId) {
 /** Reconstruit la session (droits à jour) à partir du payload du jeton. */
 export async function sessionFromToken(payload) {
   if (payload.role === "admin") {
-    const { rows } = await query(
-      "select admin_nom, admin_role, admin_identifiant, last_login, session_version from app_meta where id = 1",
-    );
-    const meta = rows[0] ?? {};
+    const adminId = await adminIdDuJeton(payload);
+    const { rows } = await query("select * from administrateurs where id = $1", [adminId]);
+    const meta = rows[0];
+    // Un administrateur désactivé perd l'accès aussitôt (la session est relue en base à chaque requête).
+    if (!meta || meta.statut !== "actif") return null;
     if (jetonRevoque(payload, meta.session_version)) return null;
     return {
       role: "admin",
-      identifiant: meta.admin_identifiant ?? "",
+      adminId: meta.id,
+      principal: Boolean(meta.principal),
+      identifiant: meta.identifiant ?? "",
       poste: null,
       lectureSeule: false,
       employeId: null,
-      nom: meta.admin_nom ?? "Administrateur",
-      fonction: meta.admin_role ?? "",
-      initiales: initials(meta.admin_nom ?? "AD"),
-      cabinetNom: meta.admin_nom ?? "Cabinet",
+      nom: meta.nom ?? "Administrateur",
+      fonction: meta.fonction ?? "",
+      initiales: initials(meta.nom ?? "AD"),
+      cabinetNom: meta.nom ?? "Cabinet",
       cabinetDerniereConnexion: meta.last_login
         ? meta.last_login.toISOString?.() ?? String(meta.last_login)
         : null,
@@ -141,9 +155,8 @@ export async function sessionFromToken(payload) {
         messagerie: true,
       },
       societeIds: null, // null = toutes
-      // L'admin change son mot de passe via Paramètres (PATCH /credentials),
-      // jamais concerné par le changement forcé à la connexion.
-      doitChangerMotDePasse: false,
+      // Un administrateur créé par un autre choisit son mot de passe à la première connexion.
+      doitChangerMotDePasse: Boolean(meta.doit_changer_mdp),
     };
   }
 
@@ -154,8 +167,9 @@ export async function sessionFromToken(payload) {
   const e = rows[0];
   if (!e || e.statut !== "actif") return null;
   if (jetonRevoque(payload, e.session_version)) return null;
+  // « Responsable du cabinet » affiché côté employé : l'administrateur principal ; dernière connexion : celle de tous les administrateurs.
   const meta = (
-    await query("select admin_nom, last_login from app_meta where id = 1")
+    await query("select (select nom from administrateurs where principal) as admin_nom, (select max(last_login) from administrateurs) as last_login")
   ).rows[0];
   const nom = `${e.prenom} ${e.nom}`;
   const poste =
@@ -236,11 +250,16 @@ export function requireAuth(req, res, next) {
     const payload = jwt.verify(token, SECRET, { algorithms: [ALGORITHME] });
     // Un ticket de double authentification n'est pas une session.
     if (payload.typ) return res.status(401).json({ error: "Jeton expiré ou invalide" });
-    const compte = payload.role === "admin" ? "admin" : String(payload.employeId);
-    // Session révoquée ou expirée (depuis la liste des appareils) : refusée aussitôt. Un jeton sans `sid` (émis avant la liste) reste valable.
-    (payload.sid ? sessionValide(payload.sid, compte) : Promise.resolve(true))
-      .then((valide) => (valide ? sessionFromToken(payload) : "revoquee"))
-      .then(async (session) => {
+    // Un jeton d'administrateur sans `adminId` (émis avant les comptes multiples) est celui de l'administrateur principal.
+    (payload.role === "admin" ? adminIdDuJeton(payload) : Promise.resolve(null))
+      .then((adminId) => {
+        const compte = payload.role === "admin" ? `admin:${adminId}` : String(payload.employeId);
+        // Session révoquée ou expirée (depuis la liste des appareils) : refusée aussitôt. Un jeton sans `sid` (émis avant la liste) reste valable.
+        return (payload.sid ? sessionValide(payload.sid, compte) : Promise.resolve(true))
+          .then((valide) => (valide ? sessionFromToken(payload) : "revoquee"))
+          .then((session) => ({ session, compte, adminId }));
+      })
+      .then(async ({ session, compte, adminId }) => {
         if (session === "revoquee") return res.status(401).json({ error: "Cette session a été fermée. Reconnectez-vous." });
         if (!session) return res.status(401).json({ error: "Session invalide" });
         // Mot de passe provisoire : tant qu'il n'est pas changé, seules les routes d'authentification répondent (le changement forcé
@@ -255,7 +274,7 @@ export function requireAuth(req, res, next) {
           let sid = payload.sid;
           if (sid) await prolongerSession(sid);
           else sid = await ouvrirSession({ compte, adresse: adresseClient(req), navigateur: req.headers["user-agent"] });
-          const neuf = signToken({ ...(payload.role === "admin" ? { role: "admin" } : { role: "employe", employeId: payload.employeId }), v: payload.v ?? 0, sid });
+          const neuf = signToken({ ...(payload.role === "admin" ? { role: "admin", adminId } : { role: "employe", employeId: payload.employeId }), v: payload.v ?? 0, sid });
           // Cookie : renouvelé dans le cookie, sans rien exposer au JavaScript ; sinon, en-tête comme avant.
           if (req.viaCookie || modeCookie(req)) poserCookieSession(req, res, neuf);
           else res.setHeader("X-Token-Renouvele", neuf);

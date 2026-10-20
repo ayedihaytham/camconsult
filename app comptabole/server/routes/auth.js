@@ -1,5 +1,4 @@
 import { Router } from "express";
-import bcrypt from "bcryptjs";
 import { query, withTransaction } from "../db.js";
 import { chiffrerSecret, dechiffrerSecret, empreinteSecours, genererCodesSecours, genererSecret, ressembleAUnCodeDeSecours, uriOtpauth, verifierCode } from "../totp.js";
 import { cleCompte, revoquerAutres, revoquerSession, sessionsDuCompte } from "../sessions.js";
@@ -18,7 +17,7 @@ import {
 } from "../auth.js";
 import { logAction } from "../journal.js";
 import { loginGuard, activationGuard, adresseClient, egalConstant, leverBlocage } from "../loginGuard.js";
-import { hashPassword, verifyPassword, besoinDeRehash, estHash, verificationFactice, consommerJeton, lireJeton, motDePasseAcceptable } from "../passwords.js";
+import { hashPassword, verifyPassword, verifierMdpAdmin, besoinDeRehash, estHash, verificationFactice, consommerJeton, lireJeton, motDePasseAcceptable, identifiantPris } from "../passwords.js";
 
 export const authRouter = Router();
 
@@ -64,19 +63,19 @@ authRouter.post("/login", async (req, res) => {
     return res.status(429).json({ error: `Trop de tentatives. Réessayez dans ${Math.ceil(attente / 60)} minute(s).` });
   }
 
-  // 1. Admin
-  const meta = (await query("select * from app_meta where id = 1")).rows[0];
-  if (meta && id === meta.admin_identifiant.toLowerCase()) {
-    const ok = await bcrypt.compare(String(motDePasse), meta.admin_password_hash);
-    if (ok && meta.totp_actif) {
+  // 1. Administrateur (actif)
+  const adm = (await query("select * from administrateurs where lower(identifiant) = $1 and statut = 'actif'", [id])).rows[0];
+  if (adm) {
+    const ok = await verifierMdpAdmin(adm.mdp_hash, motDePasse);
+    if (ok && adm.totp_actif) {
       // Mot de passe correct, mais la double authentification est active : pas de session avant le code (ticket de 5 minutes, sans droits).
-      return res.json({ etape: "2fa", ticket: signTicket2fa() });
+      return res.json({ etape: "2fa", ticket: signTicket2fa(adm.id) });
     }
     if (ok) {
       await loginGuard.succes(adresseClient(req), id);
-      await query("update app_meta set last_login = now() where id = 1");
-      const token = await ouvrirJeton(req, { role: "admin" });
-      const session = await sessionAdmin();
+      await query("update administrateurs set last_login = now() where id = $1", [adm.id]);
+      const token = await ouvrirJeton(req, { role: "admin", adminId: adm.id });
+      const session = await sessionAdmin(adm.id);
       logAction(session.nom, "connexion", "compte", `${session.nom} (administrateur)`);
       return res.json({ ...livrerJeton(req, res, token), session });
     }
@@ -107,12 +106,12 @@ authRouter.post("/login", async (req, res) => {
  * Deuxième facteur de l'administrateur : un code à 6 chiffres de l'application, ou un code de secours (à usage unique). Un code TOTP ne sert
  * jamais deux fois (le dernier pas utilisé est enregistré, la mise à jour est atomique). Renvoie vrai si le facteur est valable.
  */
-async function deuxiemeFacteurValide(saisi) {
-  const meta = (await query("select totp_secret, totp_dernier_pas, codes_secours from app_meta where id = 1")).rows[0];
+async function deuxiemeFacteurValide(adminId, saisi) {
+  const meta = (await query("select totp_secret, totp_dernier_pas, codes_secours from administrateurs where id = $1", [adminId])).rows[0];
   if (!meta?.totp_secret) return false;
   if (ressembleAUnCodeDeSecours(saisi)) {
     // Atomique : deux saisies simultanées du même code de secours ne passent pas toutes les deux.
-    const r = await query("update app_meta set codes_secours = codes_secours - $1::text where id = 1 and codes_secours @> to_jsonb($1::text)", [empreinteSecours(saisi)]);
+    const r = await query("update administrateurs set codes_secours = codes_secours - $1::text where id = $2 and codes_secours @> to_jsonb($1::text)", [empreinteSecours(saisi), adminId]);
     return r.rowCount === 1;
   }
   let secret;
@@ -123,60 +122,61 @@ async function deuxiemeFacteurValide(saisi) {
   }
   const pas = verifierCode(secret, saisi, { dernierPas: meta.totp_dernier_pas });
   if (pas === null) return false;
-  const r = await query("update app_meta set totp_dernier_pas = $1 where id = 1 and (totp_dernier_pas is null or totp_dernier_pas < $1)", [pas]);
+  const r = await query("update administrateurs set totp_dernier_pas = $1 where id = $2 and (totp_dernier_pas is null or totp_dernier_pas < $1)", [pas, adminId]);
   return r.rowCount === 1;
 }
 
 /** Deuxième étape de la connexion de l'administrateur. Les essais comptent dans le même blocage que le mot de passe. */
 authRouter.post("/2fa", async (req, res) => {
   const { ticket, code } = req.body ?? {};
-  const meta = (await query("select * from app_meta where id = 1")).rows[0];
-  const id = String(meta?.admin_identifiant ?? "").toLowerCase();
+  const adminId = lireTicket2fa(ticket);
+  const meta = adminId ? (await query("select * from administrateurs where id = $1 and statut = 'actif'", [adminId])).rows[0] : null;
+  const id = String(meta?.identifiant ?? "").toLowerCase();
   const attente = await loginGuard.attente(adresseClient(req), id);
   if (attente > 0) {
     res.setHeader("Retry-After", String(attente));
     return res.status(429).json({ error: `Trop de tentatives. Réessayez dans ${Math.ceil(attente / 60)} minute(s).` });
   }
-  if (!lireTicket2fa(ticket)) return res.status(401).json({ error: "La vérification a expiré : reprenez la connexion." });
+  if (!meta) return res.status(401).json({ error: "La vérification a expiré : reprenez la connexion." });
   if (!meta.totp_actif) return res.status(400).json({ error: "La double authentification n'est pas active." });
-  if (!(await deuxiemeFacteurValide(code))) {
+  if (!(await deuxiemeFacteurValide(meta.id, code))) {
     await loginGuard.echec(adresseClient(req), id);
     return res.status(401).json({ error: "Code incorrect." });
   }
   await loginGuard.succes(adresseClient(req), id);
-  await query("update app_meta set last_login = now() where id = 1");
-  const token = await ouvrirJeton(req, { role: "admin" });
-  const session = await sessionAdmin();
+  await query("update administrateurs set last_login = now() where id = $1", [meta.id]);
+  const token = await ouvrirJeton(req, { role: "admin", adminId: meta.id });
+  const session = await sessionAdmin(meta.id);
   logAction(session.nom, "connexion", "compte", `${session.nom} (administrateur, double authentification)`);
   res.json({ ...livrerJeton(req, res, token), session });
 });
 
 /** Gestion de la double authentification : réservée à l'administrateur connecté, et chaque action sensible redemande le mot de passe. */
 async function motDePasseAdminValide(req, res) {
-  const meta = (await query("select admin_password_hash from app_meta where id = 1")).rows[0];
-  if (await bcrypt.compare(String(req.body?.motDePasse ?? ""), meta.admin_password_hash)) return true;
+  const meta = (await query("select mdp_hash from administrateurs where id = $1", [req.session.adminId])).rows[0];
+  if (await verifierMdpAdmin(meta.mdp_hash, req.body?.motDePasse)) return true;
   res.status(400).json({ error: "Mot de passe incorrect." });
   return false;
 }
 
 authRouter.get("/2fa/statut", requireAuth, requireAdmin, async (_req, res) => {
-  const m = (await query("select totp_actif, codes_secours from app_meta where id = 1")).rows[0];
+  const m = (await query("select totp_actif, codes_secours from administrateurs where id = $1", [_req.session.adminId])).rows[0];
   res.json({ actif: Boolean(m.totp_actif), codesSecoursRestants: m.totp_actif ? (m.codes_secours ?? []).length : 0 });
 });
 
 /** Étape 1 : un secret provisoire (et son adresse otpauth pour le QR code). Rien n'est actif tant que le code n'est pas confirmé. */
 authRouter.post("/2fa/preparer", requireAuth, requireAdmin, async (req, res) => {
   if (!(await motDePasseAdminValide(req, res))) return;
-  const m = (await query("select totp_actif, admin_identifiant from app_meta where id = 1")).rows[0];
+  const m = (await query("select totp_actif, identifiant from administrateurs where id = $1", [req.session.adminId])).rows[0];
   if (m.totp_actif) return res.status(409).json({ error: "La double authentification est déjà active." });
   const secret = genererSecret();
-  await query("update app_meta set totp_attente = $1 where id = 1", [chiffrerSecret(secret)]);
-  res.json({ secret, uri: uriOtpauth({ secret, compte: m.admin_identifiant, emetteur: "Cabinet CamConsult" }) });
+  await query("update administrateurs set totp_attente = $1 where id = $2", [chiffrerSecret(secret), req.session.adminId]);
+  res.json({ secret, uri: uriOtpauth({ secret, compte: m.identifiant, emetteur: "Cabinet CamConsult" }) });
 });
 
 /** Étape 2 : le code de l'application confirme que le téléphone est bien enregistré. Les autres sessions sont fermées, les codes de secours donnés une fois. */
 authRouter.post("/2fa/activer", requireAuth, requireAdmin, async (req, res) => {
-  const m = (await query("select totp_actif, totp_attente from app_meta where id = 1")).rows[0];
+  const m = (await query("select totp_actif, totp_attente from administrateurs where id = $1", [req.session.adminId])).rows[0];
   if (m.totp_actif) return res.status(409).json({ error: "La double authentification est déjà active." });
   if (!m.totp_attente) return res.status(400).json({ error: "Recommencez : aucune activation en cours." });
   const adresse = adresseClient(req);
@@ -190,29 +190,29 @@ authRouter.post("/2fa/activer", requireAuth, requireAdmin, async (req, res) => {
   }
   const codes = genererCodesSecours();
   await query(
-    `update app_meta set totp_actif = true, totp_secret = totp_attente, totp_attente = null, totp_dernier_pas = $1,
-            codes_secours = $2::jsonb, session_version = session_version + 1 where id = 1`,
-    [pas, JSON.stringify(codes.map(empreinteSecours))],
+    `update administrateurs set totp_actif = true, totp_secret = totp_attente, totp_attente = null, totp_dernier_pas = $1,
+            codes_secours = $2::jsonb, session_version = session_version + 1 where id = $3`,
+    [pas, JSON.stringify(codes.map(empreinteSecours)), req.session.adminId],
   );
   logAction(req.session.nom, "modification", "compte", "Double authentification activée (administrateur)");
-  res.json({ codesSecours: codes, ...livrerJeton(req, res, await ouvrirJeton(req, { role: "admin" }, { remplacer: true })) });
+  res.json({ codesSecours: codes, ...livrerJeton(req, res, await ouvrirJeton(req, { role: "admin", adminId: req.session.adminId }, { remplacer: true })) });
 });
 
 /** Désactivation : mot de passe ET un code (application ou secours). */
 authRouter.post("/2fa/desactiver", requireAuth, requireAdmin, async (req, res) => {
   if (!(await motDePasseAdminValide(req, res))) return;
-  if (!(await deuxiemeFacteurValide(req.body?.code))) return res.status(400).json({ error: "Code incorrect." });
-  await query("update app_meta set totp_actif = false, totp_secret = null, totp_attente = null, totp_dernier_pas = null, codes_secours = '[]'::jsonb, session_version = session_version + 1 where id = 1");
+  if (!(await deuxiemeFacteurValide(req.session.adminId, req.body?.code))) return res.status(400).json({ error: "Code incorrect." });
+  await query("update administrateurs set totp_actif = false, totp_secret = null, totp_attente = null, totp_dernier_pas = null, codes_secours = '[]'::jsonb, session_version = session_version + 1 where id = $1", [req.session.adminId]);
   logAction(req.session.nom, "modification", "compte", "Double authentification désactivée (administrateur)");
-  res.json({ ok: true, ...livrerJeton(req, res, await ouvrirJeton(req, { role: "admin" }, { remplacer: true })) });
+  res.json({ ok: true, ...livrerJeton(req, res, await ouvrirJeton(req, { role: "admin", adminId: req.session.adminId }, { remplacer: true })) });
 });
 
 /** Nouveaux codes de secours (les anciens sont annulés) : mot de passe ET un code. */
 authRouter.post("/2fa/codes-secours", requireAuth, requireAdmin, async (req, res) => {
   if (!(await motDePasseAdminValide(req, res))) return;
-  if (!(await deuxiemeFacteurValide(req.body?.code))) return res.status(400).json({ error: "Code incorrect." });
+  if (!(await deuxiemeFacteurValide(req.session.adminId, req.body?.code))) return res.status(400).json({ error: "Code incorrect." });
   const codes = genererCodesSecours();
-  await query("update app_meta set codes_secours = $1::jsonb where id = 1", [JSON.stringify(codes.map(empreinteSecours))]);
+  await query("update administrateurs set codes_secours = $1::jsonb where id = $2", [JSON.stringify(codes.map(empreinteSecours)), req.session.adminId]);
   logAction(req.session.nom, "modification", "compte", "Codes de secours de la double authentification régénérés");
   res.json({ codesSecours: codes });
 });
@@ -266,11 +266,17 @@ authRouter.get("/me", requireAuth, (req, res) => {
  * l'admin/le responsable des collaborateurs, voir routes/employes.js).
  * L'admin change le sien via PATCH /credentials, pas cette route. */
 authRouter.post("/change-password", requireAuth, async (req, res) => {
-  if (req.session.role !== "employe")
-    return res.status(403).json({ error: "Réservé aux comptes employé" });
   const { motDePasse } = req.body ?? {};
   const refus = motDePasseAcceptable(motDePasse, req.session.identifiant);
   if (refus) return res.status(400).json({ error: refus });
+  if (req.session.role === "admin") {
+    // Seul l'administrateur au mot de passe provisoire (créé par un autre) passe ici ; les autres changent le leur via PATCH /credentials.
+    if (!req.session.doitChangerMotDePasse) return res.status(403).json({ error: "Changez votre mot de passe depuis les paramètres." });
+    await query("update administrateurs set mdp_hash = $1, doit_changer_mdp = false, session_version = session_version + 1 where id = $2", [await hashPassword(motDePasse), req.session.adminId]);
+    logAction(req.session.nom, "modification", "compte", "Mot de passe choisi (administrateur)");
+    const tokenAdmin = await ouvrirJeton(req, { role: "admin", adminId: req.session.adminId }, { remplacer: true });
+    return res.json({ session: await sessionAdmin(req.session.adminId), ...livrerJeton(req, res, tokenAdmin) });
+  }
   await query(
     "update employes set mdp_hash = $1, mot_de_passe = '', doit_changer_mdp = false, session_version = session_version + 1 where id = $2",
     [await hashPassword(motDePasse), req.session.employeId],
@@ -286,9 +292,9 @@ authRouter.post("/change-password", requireAuth, async (req, res) => {
  * garde l'appareil courant connecté. Utile après avoir ouvert sa session sur un poste partagé, ou si un jeton a pu être copié. */
 authRouter.post("/deconnecter-autres", requireAuth, async (req, res) => {
   if (req.session.role === "admin") {
-    await query("update app_meta set session_version = session_version + 1 where id = 1");
+    await query("update administrateurs set session_version = session_version + 1 where id = $1", [req.session.adminId]);
     logAction(req.session.nom, "modification", "compte", "Autres appareils déconnectés (administrateur)");
-    return res.json(livrerJeton(req, res, await ouvrirJeton(req, { role: "admin" }, { remplacer: true })));
+    return res.json(livrerJeton(req, res, await ouvrirJeton(req, { role: "admin", adminId: req.session.adminId }, { remplacer: true })));
   }
   await query("update employes set session_version = session_version + 1 where id = $1", [req.session.employeId]);
   logAction(req.session.nom, "modification", "compte", "Autres appareils déconnectés");
@@ -319,38 +325,37 @@ authRouter.post("/sessions/:id/revoquer", requireAuth, async (req, res) => {
 
 authRouter.patch("/credentials", requireAuth, requireAdmin, async (req, res) => {
   const { currentPassword, identifiant, motDePasse } = req.body ?? {};
-  const meta = (await query("select * from app_meta where id = 1")).rows[0];
-  const ok = await bcrypt.compare(
-    String(currentPassword ?? ""),
-    meta.admin_password_hash,
-  );
+  const meta = (await query("select * from administrateurs where id = $1", [req.session.adminId])).rows[0];
+  const ok = await verifierMdpAdmin(meta.mdp_hash, currentPassword);
   if (!ok) return res.status(400).json({ error: "Mot de passe actuel incorrect." });
 
-  const nextId = (identifiant ?? meta.admin_identifiant).trim();
+  const nextId = (identifiant ?? meta.identifiant).trim();
   if (nextId.length < 3)
     return res.status(400).json({ error: "Identifiant trop court." });
-  let hash = meta.admin_password_hash;
+  if (nextId.toLowerCase() !== meta.identifiant.toLowerCase() && (await identifiantPris(nextId)))
+    return res.status(409).json({ error: "Cet identifiant existe déjà." });
+  let hash = meta.mdp_hash;
   if (motDePasse) {
     // Même règle que pour les employés (longueur, ne contient pas l'identifiant).
     const refus = motDePasseAcceptable(motDePasse, nextId);
     if (refus) return res.status(400).json({ error: refus });
-    hash = await bcrypt.hash(String(motDePasse), 10);
+    hash = await hashPassword(motDePasse);
   }
   // Un nouveau mot de passe déconnecte les autres sessions de l'administrateur ; un jeton neuf garde celle-ci ouverte.
   await query(
-    "update app_meta set admin_identifiant = $1, admin_password_hash = $2, session_version = session_version + (case when $3 then 1 else 0 end) where id = 1",
-    [nextId, hash, Boolean(motDePasse)],
+    "update administrateurs set identifiant = $1, mdp_hash = $2, session_version = session_version + (case when $3 then 1 else 0 end) where id = $4",
+    [nextId, hash, Boolean(motDePasse), meta.id],
   );
   logAction(req.session.nom, "modification", "compte", "Identifiants de connexion administrateur");
-  res.json({ ok: true, ...(motDePasse ? livrerJeton(req, res, await ouvrirJeton(req, { role: "admin" }, { remplacer: true })) : {}) });
+  res.json({ ok: true, ...(motDePasse ? livrerJeton(req, res, await ouvrirJeton(req, { role: "admin", adminId: meta.id }, { remplacer: true })) : {}) });
 });
 
 authRouter.patch("/profile", requireAuth, requireAdmin, async (req, res) => {
   const { nom, role } = req.body ?? {};
   await query(
-    "update app_meta set admin_nom = coalesce($1, admin_nom), admin_role = coalesce($2, admin_role) where id = 1",
-    [nom ?? null, role ?? null],
+    "update administrateurs set nom = coalesce($1, nom), fonction = coalesce($2, fonction) where id = $3",
+    [nom ?? null, role ?? null, req.session.adminId],
   );
   logAction(req.session.nom, "modification", "compte", "Profil administrateur");
-  res.json({ session: await sessionAdmin() });
+  res.json({ session: await sessionAdmin(req.session.adminId) });
 });

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download, Eye, EyeOff, RefreshCw, RotateCcw, Save, Settings, Upload } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
+import { Administrateurs } from "@/pages/parametres/Administrateurs";
 import { DoubleAuthentification } from "@/pages/parametres/DoubleAuthentification";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
@@ -380,6 +381,7 @@ export function ParametresPage() {
             </Bloc>
           </form>
           <DoubleAuthentification />
+          <Administrateurs />
           </div>
         )}
 

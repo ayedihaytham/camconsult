@@ -52,7 +52,7 @@ beforeEach(() => {
   db.employes = [];
   db.tokens = [];
   db.query = async (sql, params = []) => {
-    if (sql.startsWith("select * from app_meta")) return { rows: [{ admin_identifiant: "admin-cabinet", admin_password_hash: "invalide" }] };
+    if (sql.startsWith("select * from administrateurs")) return { rows: [] };
     if (sql.startsWith("select * from employes where lower(identifiant)"))
       return { rows: db.employes.filter((e) => e.identifiant.toLowerCase() === params[0] && e.statut === "actif") };
     if (sql.startsWith("update employes set mdp_hash")) {

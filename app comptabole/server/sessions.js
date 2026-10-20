@@ -12,8 +12,8 @@ const DUREE_S = 12 * 3600;
 /** La dernière activité n'est réécrite qu'au bout de ce délai : une écriture par requête serait inutile. */
 const RAFRAICHISSEMENT_S = 120;
 
-/** Clé du compte dans la table : « admin » ou l'identifiant de l'employé. */
-export const cleCompte = (session) => (session.role === "admin" ? "admin" : String(session.employeId));
+/** Clé du compte dans la table : « admin:<id> » (un par administrateur) ou l'identifiant de l'employé. */
+export const cleCompte = (session) => (session.role === "admin" ? `admin:${session.adminId}` : String(session.employeId));
 
 /** « Chrome sur Windows », « Safari sur iPhone »… : lisible dans la liste, sans conserver d'information inutile. */
 export function libelleAppareil(ua) {

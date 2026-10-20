@@ -226,7 +226,7 @@ describe.skipIf(!actif)("intégration PostgreSQL : appareils connectés", () => 
     const a1 = await connexion("admin.test", "Mdp-Admin-De-Test-1!", CHROME_WINDOWS);
     const liste = (await a1.api("GET", "/api/auth/sessions")).json;
     expect(liste.length).toBeGreaterThanOrEqual(1);
-    expect((await sql.query("select count(*)::int n from sessions_connexion where compte = 'admin'")).rows[0].n).toBe(liste.length);
+    expect((await sql.query("select count(*)::int n from sessions_connexion where compte like 'admin:%'")).rows[0].n).toBe(liste.length);
     expect((await a1.api("GET", "/api/auth/me")).json.session.role).toBe("admin");
   });
 });

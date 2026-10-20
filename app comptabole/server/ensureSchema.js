@@ -43,4 +43,20 @@ export async function ensureSchema() {
     );
     console.log(`[db] compte administrateur créé : ${identifiant}`);
   }
+
+  // Plusieurs administrateurs : le compte historique de app_meta devient l'administrateur principal (une seule fois). Ses sessions ouvertes
+  // sont rattachées à son nouveau compte « admin:<id> » ; ses anciens jetons (sans adminId) restent valables.
+  const { rows: admins } = await query("select 1 from administrateurs limit 1");
+  if (admins.length === 0) {
+    const { rows: m } = await query("select * from app_meta where id = 1");
+    if (m[0]) {
+      const { rows: cree } = await query(
+        `insert into administrateurs (identifiant, mdp_hash, nom, fonction, principal, session_version, last_login, totp_actif, totp_secret, totp_attente, totp_dernier_pas, codes_secours)
+         values ($1,$2,$3,$4,true,$5,$6,$7,$8,$9,$10,$11) returning id`,
+        [m[0].admin_identifiant, m[0].admin_password_hash, m[0].admin_nom, m[0].admin_role, m[0].session_version ?? 0, m[0].last_login ?? null, Boolean(m[0].totp_actif), m[0].totp_secret ?? null, m[0].totp_attente ?? null, m[0].totp_dernier_pas ?? null, JSON.stringify(m[0].codes_secours ?? [])],
+      );
+      await query("update sessions_connexion set compte = $1 where compte = 'admin'", [`admin:${cree[0].id}`]);
+      console.log("[db] administrateur principal migré vers la table administrateurs");
+    }
+  }
 }

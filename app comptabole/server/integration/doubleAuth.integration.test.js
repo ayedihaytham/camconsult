@@ -60,7 +60,7 @@ describe.skipIf(!actif)("intégration PostgreSQL : double authentification de l'
       expect(secret).toMatch(/^[A-Z2-7]{32}$/);
       expect(r.json.uri).toContain(`secret=${secret}`);
       expect(r.json.uri.startsWith("otpauth://totp/")).toBe(true);
-      const m = (await sql.query("select totp_actif, totp_attente from app_meta where id = 1")).rows[0];
+      const m = (await sql.query("select totp_actif, totp_attente from administrateurs where principal")).rows[0];
       expect(m.totp_actif).toBe(false);
       expect(m.totp_attente.startsWith("v1:")).toBe(true);
       expect(m.totp_attente).not.toContain(secret);
@@ -82,7 +82,7 @@ describe.skipIf(!actif)("intégration PostgreSQL : double authentification de l'
       expect((await admin("GET", "/api/auth/me")).status).toBe(200);
       expect((await admin("GET", "/api/auth/2fa/statut")).json).toEqual({ actif: true, codesSecoursRestants: 10 });
       // en base : secret chiffré, codes de secours sous forme d'empreinte
-      const m = (await sql.query("select totp_secret, codes_secours from app_meta where id = 1")).rows[0];
+      const m = (await sql.query("select totp_secret, codes_secours from administrateurs where principal")).rows[0];
       expect(m.totp_secret).not.toContain(secret);
       for (const c of codesSecours) expect(JSON.stringify(m.codes_secours)).not.toContain(c.replace("-", ""));
       expect(m.codes_secours).toHaveLength(10);
@@ -207,7 +207,7 @@ describe.skipIf(!actif)("intégration PostgreSQL : double authentification de l'
       expect((await api(serveur.base, autre)("GET", "/api/auth/me")).status).toBe(401);
       admin = api(serveur.base, r.json.token);
       expect((await admin("GET", "/api/auth/2fa/statut")).json.actif).toBe(false);
-      const m = (await sql.query("select totp_secret, totp_attente, codes_secours from app_meta where id = 1")).rows[0];
+      const m = (await sql.query("select totp_secret, totp_attente, codes_secours from administrateurs where principal")).rows[0];
       expect(m).toEqual({ totp_secret: null, totp_attente: null, codes_secours: [] });
       expect((await login()).json.etape).toBeUndefined();
     });
@@ -244,16 +244,16 @@ describe.skipIf(!actif)("intégration PostgreSQL : double authentification de l'
       expect(simulation.status).toBe(0);
       expect(simulation.stdout).toContain("ACTIVE");
       expect(simulation.stdout).toContain("Simulation");
-      expect((await sql.query("select totp_actif from app_meta where id = 1")).rows[0].totp_actif).toBe(true);
+      expect((await sql.query("select totp_actif from administrateurs where principal")).rows[0].totp_actif).toBe(true);
 
       const refus = lancer("--apply");
       expect(refus.status).toBe(2);
-      expect((await sql.query("select totp_actif from app_meta where id = 1")).rows[0].totp_actif).toBe(true);
+      expect((await sql.query("select totp_actif from administrateurs where principal")).rows[0].totp_actif).toBe(true);
 
       const ok = lancer("--apply", `--confirmer-cible=${cible()}`);
       expect(ok.status).toBe(0);
       expect(ok.stdout).toContain("désactivée");
-      expect((await sql.query("select totp_actif, totp_secret from app_meta where id = 1")).rows[0]).toEqual({ totp_actif: false, totp_secret: null });
+      expect((await sql.query("select totp_actif, totp_secret from administrateurs where principal")).rows[0]).toEqual({ totp_actif: false, totp_secret: null });
       // toutes les sessions sont fermées, et la connexion par mot de passe seul refonctionne
       expect((await admin("GET", "/api/auth/me")).status).toBe(401);
       const r = await login();

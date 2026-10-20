@@ -1363,3 +1363,28 @@ begin
   return new;
 end;
 $$ language plpgsql;
+
+-- Administrateurs (plusieurs comptes). Le compte historique de app_meta devient l'administrateur principal (migration dans ensureSchema.js) :
+-- il ne peut être ni désactivé ni réinitialisé par un autre administrateur. Chaque administrateur a son mot de passe, sa double
+-- authentification, ses sessions (compte « admin:<id> ») et sa version des sessions.
+create table if not exists administrateurs (
+  id                uuid primary key default gen_random_uuid(),
+  identifiant       text not null,
+  mdp_hash          text not null,
+  nom               text not null,
+  fonction          text not null default '',
+  statut            text not null default 'actif' check (statut in ('actif', 'desactive')),
+  principal         boolean not null default false,
+  doit_changer_mdp  boolean not null default false,
+  session_version   integer not null default 0,
+  last_login        timestamptz,
+  totp_actif        boolean not null default false,
+  totp_secret       text,
+  totp_attente      text,
+  totp_dernier_pas  bigint,
+  codes_secours     jsonb not null default '[]'::jsonb,
+  cree_par          text not null default '',
+  cree_le           timestamptz not null default now()
+);
+create unique index if not exists administrateurs_identifiant_uq on administrateurs (lower(identifiant));
+create unique index if not exists administrateurs_principal_uq on administrateurs (principal) where principal;

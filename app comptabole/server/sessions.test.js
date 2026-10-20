@@ -19,8 +19,8 @@ describe("libellé de l'appareil", () => {
 });
 
 describe("clé du compte", () => {
-  it("« admin » pour l'administrateur, l'identifiant pour un employé", () => {
-    expect(cleCompte({ role: "admin" })).toBe("admin");
+  it("« admin:<id> » pour l’administrateur, l'identifiant pour un employé", () => {
+    expect(cleCompte({ role: "admin", adminId: "a-1" })).toBe("admin:a-1");
     expect(cleCompte({ role: "employe", employeId: "e-123" })).toBe("e-123");
   });
 });

@@ -54,6 +54,14 @@
 
 ## Sessions et authentification
 
+- **Plusieurs administrateurs** (`administrateurs`, `server/routes/administrateurs.js`, Paramètres › Administrateurs) : le compte historique de `app_meta`
+  est migré au démarrage en **administrateur principal** ; tout administrateur actif peut en créer d'autres (mot de passe de celui qui agit redemandé,
+  mot de passe provisoire montré une seule fois, choix du vrai mot de passe à la première connexion), les modifier, désactiver (accès coupé aussitôt),
+  réinitialiser, retirer leur double authentification, voir/fermer leurs appareils. Le principal n'est modifiable que par lui-même : il y a donc toujours
+  au moins un administrateur actif. Chacun a son mot de passe, sa 2FA, sa version des sessions et ses sessions (compte `admin:<id>`) ; le jeton porte
+  `adminId` (sans lui, c'est le principal). Un identifiant ne peut servir qu'à un seul compte, employé ou administrateur. La boîte « admin »
+  (notifications, messages au cabinet) est partagée par tous les administrateurs ; les traces d'audit métier gardent `"admin"` comme acteur, le
+  journal d'activité nomme la personne. Script serveur : `reset-2fa-admin.js [--identifiant=…]` (principal par défaut).
 - **Jeton** (JWT HS256, 12 h) : l'algorithme est imposé à la vérification (`server/auth.js`). Il porte `role`, `employeId` et `v`, la **version
   des sessions** du compte (`employes.session_version`, `app_meta.session_version`). Un jeton sans `v` vaut 0 (comptes jamais modifiés).
 - **Révocation** : un changement de mot de passe (activation ou réinitialisation par lien, `POST /auth/change-password`,
@@ -100,7 +108,7 @@
   (redémarrage, réseau coupé) conserve le jeton et affiche « Serveur momentanément indisponible » avec un bouton Réessayer.
 - **Sans session**, `usePermissions` ne donne aucun droit (jamais le contexte administrateur).
 - **Tests** : `server/integration/routesProtegees` (toute route relevée dans le code refuse l'absence de jeton, hors santé / connexion /
-  activation ; jetons forgés ou expirés), `server/integration/cookieSession` (cookie HttpOnly, CSRF, migration), `server/integration/sessions` (jetons, révocation, mot de passe provisoire, matrice des rôles,
+  activation ; jetons forgés ou expirés), `server/integration/administrateurs` (comptes multiples), `server/integration/cookieSession` (cookie HttpOnly, CSRF, migration), `server/integration/sessions` (jetons, révocation, mot de passe provisoire, matrice des rôles,
   société étrangère), `src/store/auth.test.ts`, `src/hooks/usePermissions.test.tsx`.
 - **Politique d'accès par société figée par les tests** : l'administrateur et le responsable des collaborateurs accèdent à toutes les
   sociétés (collectes, état SWIFT, stock, banque, fournisseurs, états financiers, suivi devise) ; le collaborateur à ses sociétés

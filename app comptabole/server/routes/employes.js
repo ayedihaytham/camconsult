@@ -106,6 +106,9 @@ employesRouter.post("/", async (req, res) => {
   if (v.role === "societe_employe" && !v.email)
     return res.status(400).json({ error: "Email requis pour un responsable ou un délégué de société" });
   const sc = scopeForRole(v);
+  // Un identifiant d'administrateur ne peut pas servir à un employé : la connexion les confondrait.
+  if ((await query("select 1 from administrateurs where lower(identifiant) = lower($1)", [v.identifiant])).rows.length)
+    return res.status(409).json({ error: "Cet identifiant existe déjà" });
   try {
     const { rows } = await query(
       `insert into employes (nom, prenom, identifiant, mot_de_passe, type, role, societe_id, email, statut, societes_assignees, permissions, doit_changer_mdp, delegue)
@@ -160,6 +163,8 @@ employesRouter.patch("/:id", async (req, res) => {
     return res.status(400).json({ error: "Email requis pour un responsable ou un délégué de société" });
   const sc = scopeForRole(v);
   // Le mot de passe ne se modifie plus ici : seul l'employé le choisit, par un lien d'activation (POST /:id/envoyer-acces).
+  if ((await query("select 1 from administrateurs where lower(identifiant) = lower($1)", [v.identifiant])).rows.length)
+    return res.status(409).json({ error: "Cet identifiant existe déjà" });
   let rows;
   try {
     ({ rows } = await query(

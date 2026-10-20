@@ -133,8 +133,8 @@ setInterval(() => {
 export async function leverBlocage(identifiant, garde = loginGuard) {
   const id = String(identifiant || "").trim().toLowerCase();
   if (!id) return false;
-  const { rows } = await query("select admin_identifiant from app_meta where id = 1");
-  if (String(rows[0]?.admin_identifiant ?? "").toLowerCase() === id) return false;
+  const { rows } = await query("select 1 from administrateurs where lower(identifiant) = $1", [id]);
+  if (rows.length > 0) return false;
   await garde.reinitialiserIdentifiant(id);
   return true;
 }

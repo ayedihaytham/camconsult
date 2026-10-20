@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { query } from "./db.js";
@@ -97,4 +98,19 @@ export function motDePasseAcceptable(motDePasse, identifiant = "") {
   if (mdp.length > 200) return "Mot de passe trop long.";
   if (identifiant && mdp.toLowerCase().includes(String(identifiant).toLowerCase())) return "Le mot de passe ne doit pas contenir l'identifiant.";
   return null;
+}
+
+/** Vérifie le mot de passe d'un administrateur : le compte historique garde son empreinte bcrypt, les comptes créés ensuite utilisent scrypt. */
+export async function verifierMdpAdmin(stocke, saisi) {
+  const mdp = String(saisi ?? "");
+  if (typeof stocke === "string" && stocke.startsWith("$2")) return bcrypt.compare(mdp, stocke);
+  return verifyPassword(mdp, stocke);
+}
+
+/** Vrai si l'identifiant de connexion est déjà pris par un employé OU un administrateur (sans tenir compte de la casse) : la connexion les confondrait. */
+export async function identifiantPris(identifiant, { sauf = null } = {}) {
+  const id = String(identifiant ?? "").trim().toLowerCase();
+  const a = await query("select 1 from administrateurs where lower(identifiant) = $1 and ($2::uuid is null or id <> $2)", [id, sauf]);
+  const e = await query("select 1 from employes where lower(identifiant) = $1", [id]);
+  return a.rows.length > 0 || e.rows.length > 0;
 }

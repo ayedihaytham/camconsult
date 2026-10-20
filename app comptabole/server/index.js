@@ -9,6 +9,7 @@ import { ensureSchema } from "./ensureSchema.js";
 import { apurementRouter } from "./routes/apurement.js";
 import { startApurementReminders } from "./apurement/reminders.js";
 import { authRouter } from "./routes/auth.js";
+import { administrateursRouter } from "./routes/administrateurs.js";
 import { societesRouter } from "./routes/societes.js";
 import { employesRouter } from "./routes/employes.js";
 import { noeudsRouter } from "./routes/noeuds.js";
@@ -69,6 +70,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/administrateurs", administrateursRouter);
 app.use("/api/societes", societesRouter);
 app.use("/api/employes", employesRouter);
 app.use("/api/noeuds", noeudsRouter);

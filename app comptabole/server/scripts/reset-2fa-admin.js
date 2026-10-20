@@ -1,4 +1,4 @@
-// Réinitialisation de la double authentification de l'ADMINISTRATEUR (téléphone perdu, codes de secours épuisés), depuis le serveur.
+// Réinitialisation de la double authentification d'un ADMINISTRATEUR (par défaut le principal ; --identifiant=<identifiant> pour un autre) (téléphone perdu, codes de secours épuisés), depuis le serveur.
 //   node server/scripts/reset-2fa-admin.js                                              SIMULATION : indique l'état, ne modifie rien
 //   node server/scripts/reset-2fa-admin.js --apply --confirmer-cible=<hôte:port/base>   désactive la 2FA et ferme toutes les sessions de l'administrateur
 // Sur le serveur de production (conteneur) :
@@ -18,7 +18,12 @@ if (appliquer && !process.argv.includes(`--confirmer-cible=${cible}`)) {
 }
 const { pool } = await import("../db.js");
 
-const { rows } = await pool.query("select admin_identifiant, totp_actif, jsonb_array_length(codes_secours) as codes from app_meta where id = 1");
+const voulu = (process.argv.find((a) => a.startsWith("--identifiant=")) ?? "").slice("--identifiant=".length).trim().toLowerCase();
+const { rows } = await pool.query(
+  `select id, identifiant as admin_identifiant, totp_actif, jsonb_array_length(codes_secours) as codes from administrateurs
+   where ${voulu ? "lower(identifiant) = $1" : "principal and $1::text is not null"}`,
+  [voulu || "principal"],
+);
 const m = rows[0];
 if (!m) {
   console.error("Aucune fiche administrateur dans cette base.");
@@ -32,8 +37,10 @@ if (!appliquer) {
   process.exit(0);
 }
 await pool.query(
-  "update app_meta set totp_actif = false, totp_secret = null, totp_attente = null, totp_dernier_pas = null, codes_secours = '[]'::jsonb, session_version = session_version + 1 where id = 1",
+  "update administrateurs set totp_actif = false, totp_secret = null, totp_attente = null, totp_dernier_pas = null, codes_secours = '[]'::jsonb, session_version = session_version + 1 where id = $1",
+  [m.id],
 );
+await pool.query("delete from sessions_connexion where compte = $1", [`admin:${m.id}`]);
 await pool.query("insert into journal (actor, action, entity, label) values ('Système', 'modification', 'compte', 'Double authentification de l''administrateur réinitialisée par le script serveur')").catch(() => {
   // le journal est un confort : la réinitialisation, elle, est faite
 });

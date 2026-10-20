@@ -18,13 +18,13 @@ const props = { data, now: NOW, canUseMessaging: true, collectesLoading: false, 
 describe("Admin Dashboard briefing", () => {
   it("shows four bounded domains and puts team and activity in their tabs", () => {
     const { container } = render(<MemoryRouter><DashboardTabs {...props} /></MemoryRouter>);
-    for (const name of ["Collectes du jour", "Travail à avancer", "Prochaines échéances", "Messages à lire"]) expect(screen.getByRole("heading", { name })).toBeTruthy();
+    for (const name of ["Collectes du jour", "Travail à avancer", "Prochaines échéances", "Messages à lire"]) expect(screen.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeTruthy();
+    for (const name of ["Aujourd’hui", "À traiter", "Équipe"]) expect(screen.getByRole("heading", { name })).toBeTruthy();
     const summary = screen.getByRole("navigation", { name: "L'essentiel du cabinet" });
     expect(within(summary).getAllByRole("link")).toHaveLength(4);
     expect(container.querySelectorAll('[data-tour="dashboard-tasks"] li')).toHaveLength(3);
     expect(container.querySelector(".dashboard-resume")).toBeNull();
     expect(container.querySelector(".dashboard-rail")).toBeNull();
-    expect(container.querySelector('[data-tour="dashboard-team"]')).toBeNull();
     expect(screen.getByRole("tab", { name: "Équipe" })).toBeTruthy();
   });
 

@@ -143,6 +143,24 @@ insets are 20px, then 16px at 900px and 14px below 640px, with 12px gaps and
 - Admin bordereaux contribute an unpointed attention item and aggregate values.
   The cabinet aggregate remains an Admin-only item.
 
+#### Mon bureau (administrateur et responsable) — composition approuvée 2026-10-20
+
+`AdminOverviewTab.tsx` + `AdminBureauCards.tsx`, styled by `admin-bureau.css` (`.admin-bureau`). Under the unchanged banner and tab rail:
+
+- **Left column (290px; one column below 1020px):** `Aujourd'hui` (the four existing indicators as a vertical list — Collectes à examiner,
+  Tâches ouvertes, Échéances du jour, Messages non lus — each with a real caption: overdue count, en cours/à faire split, deadlines of the
+  next days, first unread conversation; unavailable collection sources still show `—` + `Chargement…`/`Indisponible`), `À traiter` (warm card,
+  `AttentionList` preview of at most three non-message items) and, **admin only**, `Équipe`.
+- **Week board:** seven columns from today (previous/next shift by seven days, `Aujourd'hui` resets). Each day header is the selectable button
+  (`aria-label` `dd/mm/yyyy, N collecte(s)`); its column lists that day's real collection deadlines (three at most, then `+ N autres`), colored
+  by real state (overdue red, corrections amber, otherwise slate). Weekends are tinted. Unavailable collections show no events and no fake zero.
+- **Registres:** one tabbed card — `Collectes du jour` (selected day), `Travail à avancer` (≤3 open tasks), `Prochaines échéances` (after the selected
+  day) and, with messaging, `Messages à lire`. All panels stay mounted (`forceMount`, hidden when inactive) so tour targets exist; the tour copy names the tab.
+- **Messages à lire / Équipe presentation (user-approved exception):** gradient initials avatars with a presence dot (`online`), blue unread dot and a
+  `Répondre` button (opens `/messagerie`); the team card shows at most three alphabetical collaborators with a load bar — `En cours` and `À faire`
+  segments scaled to the busiest collaborator — and the open count. This is informational: no score, rank or capacity, and **no overdue task
+  state** (tasks have no deadline). The dedicated `Équipe` tab keeps its no-bars rule.
+
 ### Responsable des collaborateurs
 
 - Role `responsable` (poste `responsable_collaborateurs`). It uses the **same

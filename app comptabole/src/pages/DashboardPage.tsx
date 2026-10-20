@@ -2,6 +2,7 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import "@/components/dashboard/dashboard-polish.css";
 import "@/components/dashboard/mon-bureau.css";
 import "@/components/dashboard/admin-dashboard.css";
+import "@/components/dashboard/admin-bureau.css";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { SocieteShortcuts } from "@/components/dashboard/SocieteShortcuts";
 import { useDashboardData } from "@/hooks/dashboard/useDashboardData";

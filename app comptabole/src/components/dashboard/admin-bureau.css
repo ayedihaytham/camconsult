@@ -1,0 +1,115 @@
+/* Mon bureau (administrateur, responsable des collaborateurs) : colonne de surveillance à gauche (Aujourd'hui, À traiter, Équipe), semaine en tableau de 7 jours
+   et registres à onglets à droite. Jetons de l'application uniquement : marine, or, ivoire ; surfaces à 4 px, tableau à 6 px. */
+.dashboard-admin .admin-bureau { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start; }
+.dashboard-admin .bureau-side, .dashboard-admin .bureau-main { display: flex; min-width: 0; flex-direction: column; gap: 16px; }
+.dashboard-admin .bureau-card { min-width: 0; padding: 16px; border: 1px solid hsl(var(--border)); border-radius: 4px; background: hsl(var(--card)); }
+.dashboard-admin .bureau-card--warm { background: color-mix(in srgb, hsl(var(--accent)) 12%, hsl(var(--card))); border-color: color-mix(in srgb, hsl(var(--accent)) 26%, hsl(var(--border))); }
+.dashboard-admin .bureau-card-title { margin: 0 0 12px; font-family: "Playfair Display", Georgia, serif; font-size: 17px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-card .dashboard-major { border: 0; padding: 0; }
+.dashboard-admin .bureau-card .dashboard-major > header { margin: 0 0 10px; padding: 0; border: 0; align-items: center; }
+.dashboard-admin .bureau-card .dashboard-section-identity { display: flex; align-items: center; gap: 8px; }
+.dashboard-admin .bureau-card .dashboard-section-icon { width: 16px; height: 16px; padding: 0; background: none; color: hsl(var(--accent)); }
+.dashboard-admin .bureau-card .dashboard-major > header h2 { font-family: "Playfair Display", Georgia, serif; font-size: 17px; font-weight: 600; line-height: 1.3; }
+.dashboard-admin .bureau-card .dashboard-major > header a { min-height: 32px; font-size: 12px; }
+.dashboard-admin .bureau-card li + li { border-top: 1px solid hsl(var(--border)); }
+
+/* Aujourd'hui : quatre indicateurs en colonne */
+.dashboard-admin .admin-summary { display: flex; flex-direction: column; }
+.dashboard-admin .admin-summary-item { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-width: 0; padding: 10px 0; border-top: 1px solid hsl(var(--border)); color: hsl(var(--primary)); }
+.dashboard-admin .admin-summary-item:first-child { border-top: 0; padding-top: 0; }
+.dashboard-admin .admin-summary-item:last-child { padding-bottom: 0; }
+.dashboard-admin .admin-summary-item:hover .admin-summary-label { text-decoration: underline; }
+.dashboard-admin .admin-summary-item:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.dashboard-admin .admin-summary-icon { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid color-mix(in srgb, hsl(var(--accent)) 28%, hsl(var(--border))); border-radius: 6px; background: color-mix(in srgb, hsl(var(--accent)) 14%, hsl(var(--card))); color: hsl(var(--primary)); }
+.dashboard-admin .admin-summary-text { display: flex; min-width: 0; flex-direction: column; }
+.dashboard-admin .admin-summary-label { font-size: 13px; line-height: 1.35; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .admin-summary-caption { font-size: 12px; line-height: 1.35; color: hsl(var(--muted-foreground)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-admin .admin-summary-caption.is-alert { color: hsl(var(--destructive)); font-weight: 600; }
+.dashboard-admin .admin-summary-unavailable { font-size: 11px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .admin-summary-value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; color: hsl(var(--primary)); }
+
+/* Semaine en tableau */
+.dashboard-admin .bureau-week > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.dashboard-admin .bureau-week-range { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 19px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-week-nav { display: inline-flex; gap: 6px; }
+.dashboard-admin .bureau-week-nav button { display: inline-flex; min-height: 36px; min-width: 36px; align-items: center; justify-content: center; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--card)); padding-inline: 11px; font-size: 13px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-week-nav button:hover { background: hsl(var(--muted)); }
+.dashboard-admin .bureau-week-nav svg { width: 16px; height: 16px; }
+.dashboard-admin .bureau-board { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 6px; }
+.dashboard-admin .bureau-day { display: flex; min-width: 0; flex-direction: column; border-left: 1px solid hsl(var(--border)); background: hsl(var(--card)); }
+.dashboard-admin .bureau-day:first-child { border-left: 0; }
+.dashboard-admin .bureau-day.is-weekend { background: color-mix(in srgb, hsl(var(--muted)) 65%, hsl(var(--card))); }
+.dashboard-admin .bureau-day-head { display: flex; min-height: 44px; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 0; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--background)); padding: 7px 4px 6px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-day-head strong { font-size: 19px; font-weight: 700; line-height: 1.15; color: hsl(var(--primary)); font-variant-numeric: tabular-nums; }
+.dashboard-admin .bureau-day-head:hover { background: hsl(var(--muted)); }
+.dashboard-admin .bureau-day-head:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -3px; }
+.dashboard-admin .bureau-day.is-today .bureau-day-head { box-shadow: inset 0 -2px 0 hsl(var(--accent)); }
+.dashboard-admin .bureau-day.is-selected .bureau-day-head { background: hsl(var(--primary)); color: hsl(var(--primary-foreground) / .8); }
+.dashboard-admin .bureau-day.is-selected .bureau-day-head strong { color: hsl(var(--primary-foreground)); }
+.dashboard-admin .bureau-day-body { display: flex; min-height: 150px; flex: 1; flex-direction: column; gap: 6px; padding: 6px; }
+.dashboard-admin .bureau-event { display: flex; min-width: 0; flex-direction: column; gap: 1px; border: 1px solid hsl(var(--border)); border-left: 3px solid hsl(var(--chart-2)); border-radius: 4px; background: hsl(var(--card)); padding: 5px 7px; }
+.dashboard-admin .bureau-event.is-overdue { border-left-color: hsl(var(--destructive)); }
+.dashboard-admin .bureau-event.is-correction { border-left-color: hsl(var(--warning)); }
+.dashboard-admin .bureau-event:hover { border-color: color-mix(in srgb, hsl(var(--accent)) 60%, hsl(var(--border))); border-left-color: inherit; background: color-mix(in srgb, hsl(var(--accent)) 12%, hsl(var(--card))); }
+.dashboard-admin .bureau-event:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+.dashboard-admin .bureau-event strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-event span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-day-more { font-size: 11.5px; font-weight: 600; color: hsl(var(--muted-foreground)); text-align: center; }
+.dashboard-admin .bureau-day-empty { margin: auto 0; text-align: center; color: hsl(var(--muted-foreground) / .7); }
+.dashboard-admin .admin-selected-day { margin: 10px 0 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
+
+/* Registres à onglets */
+.dashboard-admin .bureau-registres { position: relative; }
+.dashboard-admin .bureau-registre-tabs { display: flex; height: auto; width: 100%; max-width: 100%; justify-content: flex-start; gap: 4px; overflow-x: auto; border-bottom: 1px solid hsl(var(--border)); border-radius: 0; background: transparent; padding: 0 84px 0 0; }
+.dashboard-admin .bureau-registre-tabs [role="tab"] { display: inline-flex; min-height: 44px; flex-shrink: 0; align-items: center; gap: 8px; border-radius: 0; border-bottom: 2px solid transparent; background: transparent; padding: 8px 12px; font-size: 14px; font-weight: 600; color: hsl(var(--muted-foreground)); box-shadow: none; }
+.dashboard-admin .bureau-registre-tabs [role="tab"][data-state="active"] { border-bottom-color: hsl(var(--accent)); background: transparent; color: hsl(var(--primary)); box-shadow: none; }
+.dashboard-admin .bureau-registre-count { min-width: 22px; border-radius: 999px; background: hsl(var(--muted)); padding: 0 7px; text-align: center; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dashboard-admin .bureau-registre-tabs [role="tab"][data-state="active"] .bureau-registre-count { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.dashboard-admin .bureau-registre-links { position: absolute; top: 14px; right: 16px; }
+.dashboard-admin .bureau-registre-links a { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-registre { margin-top: 12px; }
+.dashboard-admin .bureau-registre li + li { border-top: 1px solid hsl(var(--border)); }
+.dashboard-admin .bureau-monogram { display: grid; width: 34px; height: 34px; flex-shrink: 0; place-items: center; border: 1px solid color-mix(in srgb, hsl(var(--accent)) 28%, hsl(var(--border))); border-radius: 999px; background: color-mix(in srgb, hsl(var(--accent)) 14%, hsl(var(--card))); font-size: 11.5px; font-weight: 700; color: hsl(33 70% 28%); }
+.dashboard-admin .bureau-registre .admin-brief-row { justify-content: flex-start; }
+.dashboard-admin .bureau-registre .admin-brief-row > svg { margin-left: auto; }
+.dashboard-admin .admin-brief-empty { padding: 20px 0; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
+
+/* Avatars à présence, messages, équipe */
+.dashboard-admin .bureau-avatar { position: relative; display: grid; width: 38px; height: 38px; flex-shrink: 0; place-items: center; border-radius: 999px; font-size: 12px; font-weight: 700; color: hsl(var(--primary-foreground)); }
+.dashboard-admin .bureau-avatar.is-navy { background: linear-gradient(135deg, hsl(var(--primary) / .86), hsl(var(--primary))); }
+.dashboard-admin .bureau-avatar.is-gold { background: linear-gradient(135deg, color-mix(in srgb, hsl(var(--accent)) 70%, white), hsl(var(--accent))); color: hsl(var(--accent-foreground)); }
+.dashboard-admin .bureau-avatar.is-slate { background: linear-gradient(135deg, color-mix(in srgb, hsl(var(--chart-2)) 80%, white), hsl(var(--chart-2))); }
+.dashboard-admin .bureau-avatar i { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border: 2px solid hsl(var(--card)); border-radius: 999px; background: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-avatar i.is-online { background: hsl(var(--success)); }
+.dashboard-admin .bureau-message { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; }
+.dashboard-admin .bureau-message:first-child { padding-top: 0; }
+.dashboard-admin .bureau-message-name { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-unread-dot { display: inline-block; width: 7px; height: 7px; flex-shrink: 0; margin-left: 8px; border-radius: 999px; background: hsl(var(--chart-2)); }
+.dashboard-admin .bureau-message-preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-reply { display: inline-flex; min-height: 36px; align-items: center; border-radius: 8px; background: linear-gradient(180deg, hsl(var(--primary) / .9), hsl(var(--primary))); padding-inline: 14px; font-size: 13px; font-weight: 600; color: hsl(var(--primary-foreground)); }
+.dashboard-admin .bureau-reply:hover { filter: brightness(1.15); }
+.dashboard-admin .bureau-reply:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.dashboard-admin .bureau-member { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; }
+.dashboard-admin .bureau-member:first-child { padding-top: 0; }
+.dashboard-admin .bureau-member-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-member-name span { font-weight: 400; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-member-count { font-size: 13px; font-variant-numeric: tabular-nums; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-load { display: flex; height: 7px; margin-top: 6px; overflow: hidden; border-radius: 4px; background: hsl(var(--muted)); }
+.dashboard-admin .bureau-load i, .dashboard-admin .bureau-load-legend i { display: block; }
+.dashboard-admin .bureau-load i { height: 100%; }
+.dashboard-admin .bureau-load .is-doing, .dashboard-admin .bureau-load-legend .is-doing { background: hsl(var(--primary)); }
+.dashboard-admin .bureau-load .is-todo, .dashboard-admin .bureau-load-legend .is-todo { background: hsl(var(--accent)); }
+.dashboard-admin .bureau-load-legend { display: flex; gap: 14px; margin-top: 8px; border-top: 1px solid hsl(var(--border)); padding-top: 8px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-load-legend i { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 2px; }
+
+@media (max-width: 1019px) { .dashboard-admin .admin-bureau { grid-template-columns: 1fr; } }
+@media (max-width: 767px) {
+  .dashboard-admin .bureau-board { grid-template-columns: repeat(7, minmax(116px, 1fr)); overflow-x: auto; }
+  .dashboard-admin .bureau-card { padding: 12px; }
+  .dashboard-admin .bureau-registre-tabs { padding-right: 0; }
+  .dashboard-admin .bureau-registre-links { position: static; margin-top: 8px; }
+  .dashboard-admin .bureau-day-head { min-height: 44px; }
+  .dashboard-admin .bureau-message { grid-template-columns: 38px minmax(0, 1fr); }
+  .dashboard-admin .bureau-reply { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) { .dashboard-admin :is(.bureau-event, .bureau-reply, .bureau-day-head) { transition: none; } }

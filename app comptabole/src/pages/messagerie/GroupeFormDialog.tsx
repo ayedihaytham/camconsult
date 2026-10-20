@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { employeNomComplet } from "@/data/employes";
+import { initials } from "@/lib/utils";
 import type { Conversation, Employe } from "@/types";
 
 interface Props {
@@ -78,21 +79,24 @@ export function GroupeFormDialog({
                 {membreIds.length} sélectionné{membreIds.length > 1 ? "s" : ""}
               </span>
             </div>
-            <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border p-2">
+            <div className="max-h-56 overflow-y-auto rounded-md border border-border">
               {employes.length === 0 && (
-                <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                <p className="px-3 py-2 text-sm text-muted-foreground">
                   Aucun collaborateur. Créez-en d'abord.
                 </p>
               )}
               {employes.map((e) => (
                 <label
                   key={e.id}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-secondary"
+                  className="flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2 last:border-b-0 hover:bg-background"
                 >
                   <Checkbox
                     checked={membreIds.includes(e.id)}
                     onCheckedChange={() => toggle(e.id)}
                   />
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-secondary text-[0.65rem] font-semibold text-primary" aria-hidden="true">
+                    {initials(employeNomComplet(e))}
+                  </span>
                   <span className="text-sm text-foreground">
                     {employeNomComplet(e)}
                   </span>

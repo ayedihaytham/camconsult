@@ -143,6 +143,16 @@ For `vueCabinet(role)`, `/?tab=tasks` is `AdminTasksTab.tsx` (`admin-tasks.css`)
   the server) allows it; a toast offers `Annuler` when the previous status may be restored by the same person.
 - The planned end (`finPrevue`) is optional information from the task itself; it never feeds collection deadlines, the Échéances view or attention.
 
+### Activité (administrateur et responsable) — composition approuvée 2026-10-20
+
+For `vueCabinet(role)`, `/?tab=activity` is `AdminActivityTab.tsx` (`admin-activity.css`, pure logic in `src/lib/dashboard/activityFeed.ts`); other roles keep
+the previous list. Same scope as before: recent files, messages of the signed-in account (when allowed) and, for Admin only, journal entries — at most 16 items,
+newest first. New presentation: a rhythm card (events per local hour today, 7 h–19 h widened if needed, plus counters per source — loaded items only, not a
+complete history), a search box and source filters with counts, then a per-day timeline (`Aujourd'hui`, `Hier`, `Cette semaine`, `Plus ancien`) with time, a
+source-colored marker, the actor, the journal **action tag** (Création / Modification / Suppression…) and the label. Consecutive journal entries with the same
+actor, action and minute are grouped (`3 modifications`, expandable). Files and messages keep their open buttons (Structuration, Messagerie); messages keep
+unread tag and presence dot. Admin also gets `Journal complet` (`/journal`). Loading/error notices and partial-source empty states are unchanged.
+
 ## Role-specific view
 
 ### Admin

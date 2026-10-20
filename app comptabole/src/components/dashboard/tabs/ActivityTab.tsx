@@ -4,7 +4,8 @@ import { Activity, ArrowRight, FileText, MessageCircle, type LucideIcon } from "
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState";
-import type { DashboardViewModel } from "@/lib/dashboard/dashboardData";
+import { vueCabinet, type DashboardViewModel } from "@/lib/dashboard/dashboardData";
+import { AdminActivityTab } from "./AdminActivityTab";
 import { formatRelative, formatTime } from "@/lib/utils";
 
 type ActivityLabel = "Fichier" | "Message" | "Journal";
@@ -26,7 +27,11 @@ function dayGroup(value: string) {
   return "Plus ancien";
 }
 
-export function ActivityTab({ data, canUseMessaging, loading = false, error = false }: {
+export function ActivityTab(props: { data: DashboardViewModel; canUseMessaging: boolean; loading?: boolean; error?: boolean; now?: Date }) {
+  return vueCabinet(props.data.role) ? <AdminActivityTab {...props} /> : <InternalActivityTab {...props} />;
+}
+
+function InternalActivityTab({ data, canUseMessaging, loading = false, error = false }: {
   data: DashboardViewModel; canUseMessaging: boolean; loading?: boolean; error?: boolean;
 }) {
   const navigate = useNavigate();

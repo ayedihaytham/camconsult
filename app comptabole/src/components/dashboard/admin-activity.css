@@ -1,0 +1,76 @@
+/* Onglet Activité (administrateur, responsable) : rythme du jour, filtres, chronologie. Jetons de l'application uniquement. */
+.dashboard-admin .aat { display: grid; gap: 16px; }
+.dashboard-admin .aat-status { margin: 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
+
+.dashboard-admin .aat-pulse { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 26px; align-items: end; padding: 16px 18px; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--card)); }
+.dashboard-admin .aat-pulse h3 { margin: 0; font-size: 13px; font-weight: 600; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-hours { display: flex; height: 70px; align-items: flex-end; gap: 5px; margin-top: 10px; }
+.dashboard-admin .aat-hour { display: flex; height: 100%; min-width: 0; flex: 1; flex-direction: column; justify-content: flex-end; gap: 4px; }
+.dashboard-admin .aat-hour i { display: block; border-radius: 3px 3px 0 0; background: hsl(var(--border)); transition: height .5s cubic-bezier(.2, .7, .2, 1); }
+.dashboard-admin .aat-hour.is-active i { background: linear-gradient(180deg, color-mix(in srgb, hsl(var(--accent)) 70%, white), hsl(var(--accent))); }
+.dashboard-admin .aat-hour.is-now i { background: linear-gradient(180deg, hsl(var(--primary) / .85), hsl(var(--primary))); }
+.dashboard-admin .aat-hour small { text-align: center; font-size: 10.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-kpis { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; }
+.dashboard-admin .aat-kpis div { display: flex; min-width: 92px; flex-direction: column-reverse; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--background)); padding: 8px 14px; }
+.dashboard-admin .aat-kpis dd { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.1; color: hsl(var(--primary)); font-variant-numeric: tabular-nums; }
+.dashboard-admin .aat-kpis dt { font-size: 12px; color: hsl(var(--muted-foreground)); }
+
+.dashboard-admin .aat-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.dashboard-admin .aat-search { display: flex; height: 44px; min-width: 220px; max-width: 380px; flex: 1 1 260px; align-items: center; gap: 9px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--card)); padding-inline: 12px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-search input { min-width: 0; height: 100%; flex: 1; border: 0; background: transparent; color: hsl(var(--foreground)); font: inherit; outline: 0; }
+.dashboard-admin .aat-search:focus-within { border-color: hsl(var(--accent)); box-shadow: 0 0 0 3px color-mix(in srgb, hsl(var(--accent)) 22%, transparent); }
+.dashboard-admin .aat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.dashboard-admin .aat-chips button { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; border: 1px solid hsl(var(--border)); border-radius: 999px; background: hsl(var(--card)); padding-inline: 13px; font-size: 13px; font-weight: 600; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-chips button[aria-pressed="true"] { border-color: hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.dashboard-admin .aat-chips button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.dashboard-admin .aat-chips b { font-size: 12px; opacity: .8; }
+.dashboard-admin .aat-chips i { display: inline-block; width: 8px; height: 8px; border-radius: 999px; }
+.dashboard-admin .aat-chips i.is-file { background: hsl(var(--accent)); } .dashboard-admin .aat-chips i.is-message { background: hsl(var(--chart-2)); } .dashboard-admin .aat-chips i.is-journal { background: hsl(var(--primary)); }
+
+.dashboard-admin .aat-day { display: flex; align-items: center; gap: 12px; margin: 6px 0 4px; font-family: "Playfair Display", Georgia, serif; font-size: 19px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .aat-day b { border: 1px solid hsl(var(--border)); border-radius: 999px; background: hsl(var(--card)); padding: 0 9px; font-family: inherit; font-size: 12px; font-weight: 700; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-day::after { content: ""; height: 1px; flex: 1; background: hsl(var(--border)); }
+.dashboard-admin .aat-timeline { position: relative; margin: 0; padding: 0; list-style: none; }
+.dashboard-admin .aat-timeline::before { content: ""; position: absolute; left: 84px; top: 14px; bottom: 14px; width: 2px; border-radius: 2px; background: linear-gradient(180deg, hsl(var(--accent)), hsl(var(--border)) 60%); }
+.dashboard-admin .aat-event { position: relative; display: grid; grid-template-columns: 64px 40px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 9px 0; }
+.dashboard-admin .aat-time { padding-top: 8px; text-align: right; }
+.dashboard-admin .aat-time strong { display: block; font-size: 13px; font-variant-numeric: tabular-nums; }
+.dashboard-admin .aat-time span { font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-dot { position: relative; z-index: 1; display: grid; width: 40px; height: 40px; place-items: center; border: 2px solid hsl(var(--accent)); border-radius: 999px; background: hsl(var(--card)); box-shadow: 0 0 0 5px hsl(var(--background)); font-size: 12px; font-weight: 700; color: hsl(var(--primary)); }
+.dashboard-admin .aat-dot svg { width: 17px; height: 17px; }
+.dashboard-admin .aat-dot.is-file { border-color: hsl(var(--accent)); background: color-mix(in srgb, hsl(var(--accent)) 14%, hsl(var(--card))); color: hsl(33 70% 30%); }
+.dashboard-admin .aat-dot.is-message { border-color: hsl(var(--chart-2)); background: color-mix(in srgb, hsl(var(--chart-2)) 10%, hsl(var(--card))); color: hsl(var(--chart-2)); }
+.dashboard-admin .aat-dot.is-journal { border-color: hsl(var(--primary)); background: linear-gradient(135deg, hsl(var(--primary) / .86), hsl(var(--primary))); color: hsl(var(--primary-foreground)); }
+.dashboard-admin .aat-dot i { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border: 2px solid hsl(var(--card)); border-radius: 999px; background: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-dot i.is-online { background: hsl(var(--success)); }
+.dashboard-admin .aat-body { min-width: 0; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--card)); padding: 10px 14px; transition: border-color .15s, box-shadow .15s; }
+.dashboard-admin .aat-body:hover { border-color: color-mix(in srgb, hsl(var(--accent)) 50%, hsl(var(--border))); box-shadow: 0 4px 14px hsl(213 40% 10% / .07); }
+.dashboard-admin .aat-top { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 9px; }
+.dashboard-admin .aat-who { min-width: 0; overflow-wrap: anywhere; font-weight: 700; color: hsl(var(--primary)); }
+.dashboard-admin .aat-tag { white-space: nowrap; border-radius: 999px; background: hsl(var(--muted)); padding: 2px 9px; font-size: 11px; font-weight: 700; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-tag.is-crea { background: color-mix(in srgb, hsl(var(--success)) 13%, hsl(var(--card))); color: hsl(160 84% 25%); }
+.dashboard-admin .aat-tag.is-modi { background: color-mix(in srgb, hsl(var(--chart-2)) 12%, hsl(var(--card))); color: hsl(var(--chart-2)); }
+.dashboard-admin .aat-tag.is-supp { background: color-mix(in srgb, hsl(var(--destructive)) 11%, hsl(var(--card))); color: hsl(var(--destructive)); }
+.dashboard-admin .aat-tag.is-source { background: color-mix(in srgb, hsl(var(--accent)) 14%, hsl(var(--card))); color: hsl(33 80% 30%); }
+.dashboard-admin .aat-tag.is-unread { background: color-mix(in srgb, hsl(var(--chart-2)) 14%, hsl(var(--card))); color: hsl(var(--chart-2)); }
+.dashboard-admin .aat-body p { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 13.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-sub { margin: 8px 0 0; padding: 6px 0 0; border-top: 1px dashed hsl(var(--border)); list-style: none; }
+.dashboard-admin .aat-sub li { display: flex; gap: 8px; padding: 3px 0; font-size: 13px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .aat-sub li::before { content: ""; width: 5px; height: 5px; margin-top: 8px; flex: none; border-radius: 999px; background: hsl(var(--accent)); }
+.dashboard-admin .aat-more { min-height: 28px; margin-top: 4px; border: 0; background: transparent; padding: 0; font-size: 12.5px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .aat-open { display: grid; width: 40px; height: 40px; margin-top: 1px; place-items: center; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--card)); color: hsl(var(--primary)); }
+.dashboard-admin .aat-open:hover { border-color: hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.dashboard-admin .aat-open:focus-visible, .dashboard-admin .aat-more:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.dashboard-admin .aat-foot { margin: 0; font-size: 12.5px; color: hsl(var(--muted-foreground)); }
+
+@media (max-width: 760px) {
+  .dashboard-admin .aat-pulse { grid-template-columns: 1fr; }
+  .dashboard-admin .aat-chips { margin-left: 0; }
+  .dashboard-admin .aat-hours { gap: 3px; }
+  .dashboard-admin .aat-timeline::before { left: 19px; }
+  .dashboard-admin .aat-event { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 6px 12px; }
+  .dashboard-admin .aat-dot { grid-row: 1 / span 2; }
+  .dashboard-admin .aat-time { grid-column: 2; grid-row: 2; display: flex; gap: 8px; padding-top: 0; text-align: left; }
+  .dashboard-admin .aat-body { grid-column: 2; grid-row: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .dashboard-admin :is(.aat-hour i, .aat-body) { transition: none; } }

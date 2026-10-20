@@ -10,6 +10,7 @@ import {
   FolderOpen,
   MoreVertical,
   Paperclip,
+  MessageSquare,
   Pencil,
   Plus,
   Search,
@@ -140,7 +141,6 @@ function ConversationAvatar({
   initials,
   isGroup,
   isOnline,
-  avatarClassName,
   size = "default",
 }: Pick<
   MessengerConversationItem,
@@ -150,18 +150,11 @@ function ConversationAvatar({
 
   return (
     <span className="relative shrink-0">
-      <Avatar
-        className={cn(
-          avatarSize,
-          "border border-border/70 bg-card",
-          isGroup ? "rounded-xl" : "rounded-full",
-        )}
-      >
+      <Avatar className={cn(avatarSize, isGroup ? "rounded-md" : "rounded-full")}>
         <AvatarFallback
           className={cn(
-            "text-xs font-semibold",
-            isGroup ? "rounded-xl" : "rounded-full",
-            avatarClassName,
+            "bg-secondary text-xs font-semibold text-primary",
+            isGroup ? "rounded-md" : "rounded-full",
           )}
         >
           {isGroup ? <Users2 className="h-4 w-4" aria-hidden="true" /> : initials}
@@ -236,7 +229,7 @@ export function Messenger({
   };
 
   return (
-    <section className="relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm md:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
+    <section className="relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-lg border border-border bg-card md:grid-cols-[minmax(18rem,22.5rem)_minmax(0,1fr)]">
       <aside data-tour="messages-list"
         className={cn(
           "min-h-0 flex-col border-border bg-card md:flex md:border-r",
@@ -244,10 +237,10 @@ export function Messenger({
         )}
         aria-label="Conversations"
       >
-        <div className="space-y-2.5 border-b border-border p-3">
+        <div className={cn("space-y-3 p-4", avecFiltres ? "pb-0" : "border-b border-border")}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground">Conversations</h2>
+              <h2 className="text-base font-semibold text-primary">Conversations</h2>
               <p className="text-xs text-muted-foreground">
                 {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
               </p>
@@ -267,26 +260,6 @@ export function Messenger({
             )}
           </div>
 
-          {avecFiltres && (
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrer les conversations">
-              {FILTRES.map((f) => (
-                <button
-                  key={f.value}
-                  type="button"
-                  aria-pressed={filtre === f.value}
-                  onClick={() => setFiltre(f.value)}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    filtre === f.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-accent",
-                  )}
-                >
-                  {f.label}
-                  <span className="ml-1 opacity-70 tabular-nums">{conversations.filter(f.garde).length}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
           <label htmlFor="messenger-search" className="sr-only">
             Rechercher une conversation
           </label>
@@ -301,12 +274,35 @@ export function Messenger({
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Rechercher une conversation..."
-              className="h-9 w-full bg-background pl-9"
+              className="h-9 w-full bg-card pl-9"
             />
           </div>
+
+          {avecFiltres && (
+            <div className="-mx-4 flex overflow-x-auto border-b border-border px-4 [scrollbar-width:none]" role="group" aria-label="Filtrer les conversations">
+              {FILTRES.map((f) => {
+                const total = conversations.filter(f.garde).length;
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    aria-pressed={filtre === f.value}
+                    onClick={() => setFiltre(f.value)}
+                    className={cn(
+                      "-mb-px flex-1 shrink-0 whitespace-nowrap border-b-2 px-2 pb-2 pt-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      filtre === f.value ? "border-accent font-semibold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {f.label}
+                    <span className={cn("ml-1 font-semibold tabular-nums", f.value === "non_lues" && total > 0 && "text-chart-2")}>{total}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {visibles.length === 0 ? (
             <div className="flex h-full min-h-40 items-center justify-center px-4 text-center">
               <div>
@@ -317,9 +313,9 @@ export function Messenger({
               </div>
             </div>
           ) : (
-            <ul className="space-y-1" aria-label="Liste des conversations">
+            <ul aria-label="Liste des conversations">
               {rubriques.flatMap((rubrique) => [
-                ...(rubrique.nom ? [<li key={`rubrique-${rubrique.nom}`} role="presentation" className="sticky top-0 z-10 -mx-2 bg-muted px-4 py-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">{rubrique.nom}</li>] : []),
+                ...(rubrique.nom ? [<li key={`rubrique-${rubrique.nom}`} role="presentation" className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-background px-4 py-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground"><span>{rubrique.nom}</span><span className="font-medium tracking-normal">· {rubrique.items.length}</span></li>] : []),
                 ...rubrique.items,
               ]).map((entree) => {
                 if (!("id" in entree)) return entree;
@@ -334,10 +330,10 @@ export function Messenger({
                       aria-current={isActive ? "true" : undefined}
                       whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
                       className={cn(
-                        "group relative flex w-full min-w-0 items-start gap-3 rounded-lg border border-transparent px-2.5 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                        "group relative flex w-full min-w-0 items-start gap-3 border-b border-border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                         isActive
-                          ? "border-border bg-muted/80"
-                          : "hover:bg-muted/55",
+                          ? "bg-accent/10 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-accent"
+                          : "hover:bg-background",
                       )}
                     >
                       <ConversationAvatar {...conversation} />
@@ -345,14 +341,14 @@ export function Messenger({
                         <span className="flex items-baseline justify-between gap-2">
                           <span
                             className={cn(
-                              "truncate text-sm text-foreground",
-                              conversation.unread > 0 ? "font-semibold" : "font-medium",
+                              "truncate text-sm",
+                              conversation.unread > 0 ? "font-semibold text-primary" : "font-medium text-foreground",
                             )}
                           >
                             {conversation.name}
                           </span>
                           {conversation.hasMessages !== false && (
-                            <span className="shrink-0 text-[11px] text-muted-foreground">
+                            <span className={cn("shrink-0 text-[11px]", conversation.unread > 0 ? "font-semibold text-primary" : "text-muted-foreground")}>
                               {conversation.lastMessageTime}
                             </span>
                           )}
@@ -509,10 +505,10 @@ export function Messenger({
                           )}
                           <div
                             className={cn(
-                              "max-w-[88%] rounded-2xl border px-3.5 py-2 text-sm shadow-sm sm:max-w-[78%]",
+                              "max-w-[88%] rounded-lg border px-3 py-2 text-sm sm:max-w-[78%]",
                               message.isMine
-                                ? "rounded-br-md border-primary bg-primary text-primary-foreground"
-                                : "rounded-bl-md border-border bg-card text-foreground",
+                                ? "rounded-tr-sm border-primary bg-primary text-primary-foreground"
+                                : "rounded-tl-sm border-border bg-card text-foreground",
                             )}
                           >
                             {message.text && (
@@ -523,7 +519,7 @@ export function Messenger({
                             {message.attachment && (
                               <div
                                 className={cn(
-                                  "mt-1.5 flex min-w-0 items-stretch gap-0.5 rounded-lg border",
+                                  "mt-1.5 flex min-w-0 items-stretch gap-0.5 rounded-md border",
                                   message.isMine
                                     ? "border-white/20 bg-white/10"
                                     : "border-border bg-muted/60",
@@ -608,7 +604,7 @@ export function Messenger({
               aria-label="Écrire un message"
             >
               {attachment && (
-                <div className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-border bg-muted/60 px-2.5 py-2 text-xs">
+                <div className="mb-2 flex min-w-0 items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-2 text-xs">
                   <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate font-medium">
                     {attachment.libelle}
@@ -626,7 +622,7 @@ export function Messenger({
                 </div>
               )}
 
-              <div className="flex min-w-0 items-end gap-1.5 rounded-xl border border-input bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25 sm:gap-2">
+              <div className="flex min-w-0 items-end gap-1.5 rounded-md border border-input bg-card p-1.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-accent/35 sm:gap-2">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -704,14 +700,15 @@ export function Messenger({
 
                 <Button
                   type="submit"
-                  size="icon"
-                  className="shrink-0 rounded-lg"
+                  className="shrink-0 gap-1.5 rounded-md max-sm:w-9 max-sm:px-0"
                   disabled={!draft.trim() && !attachment}
                   aria-label="Envoyer"
                 >
+                  <span className="hidden sm:inline" aria-hidden="true">Envoyer</span>
                   <Send className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </div>
+              <p className="mt-1.5 hidden text-[11px] text-muted-foreground sm:block">Entrée pour envoyer · Maj + Entrée pour aller à la ligne</p>
             </form>
           </motion.div>
         ) : (
@@ -720,20 +717,44 @@ export function Messenger({
             initial={false}
             className="hidden min-h-0 items-center justify-center bg-background px-6 text-center md:flex"
           >
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Choisissez une conversation
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                ou démarrez un échange avec une personne de la liste.
-              </p>
+            <div className="w-full max-w-md overflow-hidden rounded-lg border border-border bg-card text-left">
+              <div className="flex items-start gap-3.5 px-5 py-4">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary text-accent" aria-hidden="true">
+                  <MessageSquare className="h-[18px] w-[18px]" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-primary">
+                    Choisissez une conversation
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    ou démarrez un échange avec une personne de la liste.
+                  </p>
+                </div>
+              </div>
               {conversations.length > 0 && (
-                <div className="mt-3 flex flex-wrap justify-center gap-2">
-                  {(conversations.some((c) => c.hasMessages === false) ? conversations.filter((c) => c.hasMessages === false) : conversations).slice(0, 2).map((c) => (
-                    <Button key={c.id} type="button" variant="outline" size="sm" onClick={() => onSelectConversation(c.id)}>
-                      Écrire à {c.name}
-                    </Button>
-                  ))}
+                <div className="border-t border-border">
+                  <p className="px-5 pb-1.5 pt-3 text-[0.68rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground">Démarrer un échange</p>
+                  <ul>
+                    {(conversations.some((c) => c.hasMessages === false) ? conversations.filter((c) => c.hasMessages === false) : conversations).slice(0, 2).map((c) => (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          aria-label={`Écrire à ${c.name}`}
+                          onClick={() => onSelectConversation(c.id)}
+                          className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-border px-5 py-2.5 text-left transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        >
+                          <ConversationAvatar initials={c.initials} isGroup={c.isGroup} avatarClassName={c.avatarClassName} />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium text-foreground">{c.name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{c.secondary}</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary" aria-hidden="true">
+                            Écrire <Send className="h-4 w-4" />
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>

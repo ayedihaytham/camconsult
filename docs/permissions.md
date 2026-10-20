@@ -66,6 +66,15 @@
   `X-Token-Renouvele` (jeton neuf de 12 h, même version) que `src/lib/api.ts` enregistre. Inactive plus de 12 h, la session expire.
 - **Mot de passe provisoire** : tant que `doitChangerMotDePasse` est vrai, `requireAuth` ne laisse passer que `/api/auth/*`
   (403 `CHANGER_MOT_DE_PASSE` ailleurs) : le changement forcé ne repose pas seulement sur l'écran.
+- **Double authentification de l'administrateur** (TOTP, RFC 6238 ; `server/totp.js`, `POST /auth/2fa*`, Paramètres › Sécurité) : activation
+  avec une application d'authentification (QR code, puis confirmation par un code), dix codes de secours à usage unique montrés une seule fois,
+  secret chiffré en base (AES-256-GCM, clé dérivée de `AUTH_2FA_SECRET`, à défaut `JWT_SECRET`). Connexion en deux étapes : le mot de passe
+  donne un **ticket de 5 minutes sans aucun droit** (`typ: "2fa"`, refusé par `requireAuth`), le code ouvre la session. Un code ne sert jamais
+  deux fois (dernier pas enregistré, mise à jour atomique) ; les mauvais codes comptent dans le blocage de l'administrateur. Activer ou
+  désactiver ferme les autres sessions. Désactiver, ou régénérer les codes, exige le mot de passe ET un code. Téléphone perdu et codes
+  épuisés : `node server/scripts/reset-2fa-admin.js` sur le serveur (`docker exec -it app-comptable …`, simulation par défaut, `--apply
+  --confirmer-cible=…` pour écrire). Changer `AUTH_2FA_SECRET`/`JWT_SECRET` rend les secrets TOTP illisibles : même script. Les autres rôles
+  ne sont pas concernés pour le moment.
 - **Politique de mot de passe** : `motDePasseAcceptable` (8 caractères, pas l'identifiant) pour les employés **et** l'administrateur.
 - **Force brute** : `server/loginGuard.js`, **persistante** (table `tentatives_connexion`, PostgreSQL) : 8 échecs par compte et adresse,
   30 par identifiant (toutes adresses), 100 par adresse, sur 15 minutes ; le blocage survit au redémarrage du serveur. Un **nouvel accès

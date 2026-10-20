@@ -1,7 +1,10 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { query, withTransaction } from "../db.js";
+import { chiffrerSecret, dechiffrerSecret, empreinteSecours, genererCodesSecours, genererSecret, ressembleAUnCodeDeSecours, uriOtpauth, verifierCode } from "../totp.js";
 import {
+  signTicket2fa,
+  lireTicket2fa,
   jetonAdmin,
   jetonEmploye,
   sessionAdmin,
@@ -61,6 +64,10 @@ authRouter.post("/login", async (req, res) => {
   const meta = (await query("select * from app_meta where id = 1")).rows[0];
   if (meta && id === meta.admin_identifiant.toLowerCase()) {
     const ok = await bcrypt.compare(String(motDePasse), meta.admin_password_hash);
+    if (ok && meta.totp_actif) {
+      // Mot de passe correct, mais la double authentification est active : pas de session avant le code (ticket de 5 minutes, sans droits).
+      return res.json({ etape: "2fa", ticket: signTicket2fa() });
+    }
     if (ok) {
       await loginGuard.succes(adresseClient(req), id);
       await query("update app_meta set last_login = now() where id = 1");
@@ -90,6 +97,120 @@ authRouter.post("/login", async (req, res) => {
 
   await loginGuard.echec(adresseClient(req), id);
   return res.status(401).json({ error: "Identifiant ou mot de passe incorrect" });
+});
+
+/**
+ * Deuxième facteur de l'administrateur : un code à 6 chiffres de l'application, ou un code de secours (à usage unique). Un code TOTP ne sert
+ * jamais deux fois (le dernier pas utilisé est enregistré, la mise à jour est atomique). Renvoie vrai si le facteur est valable.
+ */
+async function deuxiemeFacteurValide(saisi) {
+  const meta = (await query("select totp_secret, totp_dernier_pas, codes_secours from app_meta where id = 1")).rows[0];
+  if (!meta?.totp_secret) return false;
+  if (ressembleAUnCodeDeSecours(saisi)) {
+    // Atomique : deux saisies simultanées du même code de secours ne passent pas toutes les deux.
+    const r = await query("update app_meta set codes_secours = codes_secours - $1::text where id = 1 and codes_secours @> to_jsonb($1::text)", [empreinteSecours(saisi)]);
+    return r.rowCount === 1;
+  }
+  let secret;
+  try {
+    secret = dechiffrerSecret(meta.totp_secret);
+  } catch {
+    return false;
+  }
+  const pas = verifierCode(secret, saisi, { dernierPas: meta.totp_dernier_pas });
+  if (pas === null) return false;
+  const r = await query("update app_meta set totp_dernier_pas = $1 where id = 1 and (totp_dernier_pas is null or totp_dernier_pas < $1)", [pas]);
+  return r.rowCount === 1;
+}
+
+/** Deuxième étape de la connexion de l'administrateur. Les essais comptent dans le même blocage que le mot de passe. */
+authRouter.post("/2fa", async (req, res) => {
+  const { ticket, code } = req.body ?? {};
+  const meta = (await query("select * from app_meta where id = 1")).rows[0];
+  const id = String(meta?.admin_identifiant ?? "").toLowerCase();
+  const attente = await loginGuard.attente(adresseClient(req), id);
+  if (attente > 0) {
+    res.setHeader("Retry-After", String(attente));
+    return res.status(429).json({ error: `Trop de tentatives. Réessayez dans ${Math.ceil(attente / 60)} minute(s).` });
+  }
+  if (!lireTicket2fa(ticket)) return res.status(401).json({ error: "La vérification a expiré : reprenez la connexion." });
+  if (!meta.totp_actif) return res.status(400).json({ error: "La double authentification n'est pas active." });
+  if (!(await deuxiemeFacteurValide(code))) {
+    await loginGuard.echec(adresseClient(req), id);
+    return res.status(401).json({ error: "Code incorrect." });
+  }
+  await loginGuard.succes(adresseClient(req), id);
+  await query("update app_meta set last_login = now() where id = 1");
+  const token = await jetonAdmin();
+  const session = await sessionAdmin();
+  logAction(session.nom, "connexion", "compte", `${session.nom} (administrateur, double authentification)`);
+  res.json({ token, session });
+});
+
+/** Gestion de la double authentification : réservée à l'administrateur connecté, et chaque action sensible redemande le mot de passe. */
+async function motDePasseAdminValide(req, res) {
+  const meta = (await query("select admin_password_hash from app_meta where id = 1")).rows[0];
+  if (await bcrypt.compare(String(req.body?.motDePasse ?? ""), meta.admin_password_hash)) return true;
+  res.status(400).json({ error: "Mot de passe incorrect." });
+  return false;
+}
+
+authRouter.get("/2fa/statut", requireAuth, requireAdmin, async (_req, res) => {
+  const m = (await query("select totp_actif, codes_secours from app_meta where id = 1")).rows[0];
+  res.json({ actif: Boolean(m.totp_actif), codesSecoursRestants: m.totp_actif ? (m.codes_secours ?? []).length : 0 });
+});
+
+/** Étape 1 : un secret provisoire (et son adresse otpauth pour le QR code). Rien n'est actif tant que le code n'est pas confirmé. */
+authRouter.post("/2fa/preparer", requireAuth, requireAdmin, async (req, res) => {
+  if (!(await motDePasseAdminValide(req, res))) return;
+  const m = (await query("select totp_actif, admin_identifiant from app_meta where id = 1")).rows[0];
+  if (m.totp_actif) return res.status(409).json({ error: "La double authentification est déjà active." });
+  const secret = genererSecret();
+  await query("update app_meta set totp_attente = $1 where id = 1", [chiffrerSecret(secret)]);
+  res.json({ secret, uri: uriOtpauth({ secret, compte: m.admin_identifiant, emetteur: "Cabinet CamConsult" }) });
+});
+
+/** Étape 2 : le code de l'application confirme que le téléphone est bien enregistré. Les autres sessions sont fermées, les codes de secours donnés une fois. */
+authRouter.post("/2fa/activer", requireAuth, requireAdmin, async (req, res) => {
+  const m = (await query("select totp_actif, totp_attente from app_meta where id = 1")).rows[0];
+  if (m.totp_actif) return res.status(409).json({ error: "La double authentification est déjà active." });
+  if (!m.totp_attente) return res.status(400).json({ error: "Recommencez : aucune activation en cours." });
+  const adresse = adresseClient(req);
+  const attente = await loginGuard.attente(adresse, "2fa-activation");
+  if (attente > 0) return res.status(429).json({ error: "Trop de tentatives. Réessayez plus tard." });
+  const secret = dechiffrerSecret(m.totp_attente);
+  const pas = verifierCode(secret, req.body?.code);
+  if (pas === null) {
+    await loginGuard.echec(adresse, "2fa-activation");
+    return res.status(400).json({ error: "Code incorrect. Vérifiez l'heure de votre téléphone et réessayez." });
+  }
+  const codes = genererCodesSecours();
+  await query(
+    `update app_meta set totp_actif = true, totp_secret = totp_attente, totp_attente = null, totp_dernier_pas = $1,
+            codes_secours = $2::jsonb, session_version = session_version + 1 where id = 1`,
+    [pas, JSON.stringify(codes.map(empreinteSecours))],
+  );
+  logAction(req.session.nom, "modification", "compte", "Double authentification activée (administrateur)");
+  res.json({ codesSecours: codes, token: await jetonAdmin() });
+});
+
+/** Désactivation : mot de passe ET un code (application ou secours). */
+authRouter.post("/2fa/desactiver", requireAuth, requireAdmin, async (req, res) => {
+  if (!(await motDePasseAdminValide(req, res))) return;
+  if (!(await deuxiemeFacteurValide(req.body?.code))) return res.status(400).json({ error: "Code incorrect." });
+  await query("update app_meta set totp_actif = false, totp_secret = null, totp_attente = null, totp_dernier_pas = null, codes_secours = '[]'::jsonb, session_version = session_version + 1 where id = 1");
+  logAction(req.session.nom, "modification", "compte", "Double authentification désactivée (administrateur)");
+  res.json({ ok: true, token: await jetonAdmin() });
+});
+
+/** Nouveaux codes de secours (les anciens sont annulés) : mot de passe ET un code. */
+authRouter.post("/2fa/codes-secours", requireAuth, requireAdmin, async (req, res) => {
+  if (!(await motDePasseAdminValide(req, res))) return;
+  if (!(await deuxiemeFacteurValide(req.body?.code))) return res.status(400).json({ error: "Code incorrect." });
+  const codes = genererCodesSecours();
+  await query("update app_meta set codes_secours = $1::jsonb where id = 1", [JSON.stringify(codes.map(empreinteSecours))]);
+  logAction(req.session.nom, "modification", "compte", "Codes de secours de la double authentification régénérés");
+  res.json({ codesSecours: codes });
 });
 
 /** Activation d'un compte ou réinitialisation du mot de passe par un lien à usage unique (jeton envoyé par le cabinet). */

@@ -22,6 +22,20 @@ export function signToken(payload) {
   return jwt.sign(payload, SECRET, { expiresIn: "12h", algorithm: ALGORITHME });
 }
 
+/** Ticket de la deuxième étape de connexion (double authentification) : prouve que le mot de passe a été vérifié, ne donne AUCUN droit.
+ * Il porte `typ: "2fa"` et pas de rôle ; `requireAuth` le refuse explicitement. Valable 5 minutes. */
+export function signTicket2fa() {
+  return jwt.sign({ typ: "2fa" }, SECRET, { expiresIn: "5m", algorithm: ALGORITHME });
+}
+export function lireTicket2fa(ticket) {
+  try {
+    const p = jwt.verify(String(ticket ?? ""), SECRET, { algorithms: [ALGORITHME] });
+    return p.typ === "2fa";
+  } catch {
+    return false;
+  }
+}
+
 /** Vrai si le jeton date d'avant le dernier changement de mot de passe du compte : il porte l'ancienne version des sessions.
  * Un jeton sans version (émis avant cette protection) vaut la version 0, celle de tout compte jamais modifié. */
 function jetonRevoque(payload, versionCompte) {
@@ -160,6 +174,8 @@ export function requireAuth(req, res, next) {
   try {
     // Algorithme imposé : jamais celui que le jeton annonce (attaque « alg: none » ou changement d'algorithme).
     const payload = jwt.verify(token, SECRET, { algorithms: [ALGORITHME] });
+    // Un ticket de double authentification n'est pas une session.
+    if (payload.typ) return res.status(401).json({ error: "Jeton expiré ou invalide" });
     sessionFromToken(payload)
       .then((session) => {
         if (!session) return res.status(401).json({ error: "Session invalide" });

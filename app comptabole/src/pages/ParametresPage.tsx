@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download, Eye, EyeOff, RefreshCw, RotateCcw, Save, Settings, Upload } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
+import { DoubleAuthentification } from "@/pages/parametres/DoubleAuthentification";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { Input } from "@/components/ui/input";
@@ -309,6 +310,7 @@ export function ParametresPage() {
         )}
 
         {onglet === "securite" && (
+          <div className="space-y-4">
           <form onSubmit={submitCredentials}>
             <Bloc
               title="Identifiants de connexion"
@@ -377,6 +379,8 @@ export function ParametresPage() {
               </div>
             </Bloc>
           </form>
+          <DoubleAuthentification />
+          </div>
         )}
 
         {onglet === "donnees" && (

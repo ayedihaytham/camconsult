@@ -134,3 +134,37 @@ describe("déconnecter mes autres appareils", () => {
     expect(getToken()).toBe("ancien");
   });
 });
+
+describe("connexion de l'administrateur en deux étapes", () => {
+  it("mot de passe correct avec 2FA active : pas de session, un ticket est rendu et aucun jeton n'est enregistré", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponse(200, { etape: "2fa", ticket: "ticket-court" })));
+    const r = await useAuth.getState().login("admin", "mdp");
+    expect(r).toEqual({ ok: false, etape: "2fa", ticket: "ticket-court" });
+    expect(getToken()).toBeNull();
+    expect(useAuth.getState().status).not.toBe("authed");
+  });
+
+  it("le bon code ouvre la session et enregistre le jeton", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reponse(200, { token: "jeton-session", session: { ...SESSION, role: "admin" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await useAuth.getState().verifier2fa("ticket-court", "123456")).toEqual({ ok: true });
+    expect(getToken()).toBe("jeton-session");
+    expect(useAuth.getState().status).toBe("authed");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain("/api/auth/2fa");
+    expect(JSON.parse(init.body)).toEqual({ ticket: "ticket-court", code: "123456" });
+  });
+
+  it("un code incorrect rend le message du serveur, sans session ni jeton", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponse(401, { error: "Code incorrect." })));
+    expect(await useAuth.getState().verifier2fa("t", "000000")).toEqual({ ok: false, error: "Code incorrect." });
+    expect(getToken()).toBeNull();
+    expect(useAuth.getState().status).not.toBe("authed");
+  });
+
+  it("sans double authentification, la connexion reste directe", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponse(200, { token: "t", session: SESSION })));
+    expect(await useAuth.getState().login("a.b", "mdp")).toEqual({ ok: true });
+    expect(getToken()).toBe("t");
+  });
+});

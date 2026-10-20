@@ -36,10 +36,13 @@ interface AuthState {
   status: Status;
   session: Session | null;
   restore: () => Promise<void>;
+  /** `etape: "2fa"` : mot de passe correct, mais un code de double authentification est demandé (le ticket prouve le mot de passe, sans donner de droits). */
   login: (
     identifiant: string,
     motDePasse: string,
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<{ ok: boolean; error?: string; etape?: "2fa"; ticket?: string }>;
+  /** Deuxième étape de la connexion : code à 6 chiffres de l'application, ou code de secours. */
+  verifier2fa: (ticket: string, code: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   /** Ferme toutes les autres sessions du compte (autres appareils) ; celle-ci reste ouverte avec un jeton neuf. */
   deconnecterAutresAppareils: () => Promise<{ ok: boolean; error?: string }>;
@@ -86,12 +89,10 @@ export const useAuth = create<AuthState>((set) => ({
 
   login: async (identifiant, motDePasse) => {
     try {
-      const { token, session } = await api.post<{
-        token: string;
-        session: Session;
-      }>("/auth/login", { identifiant, motDePasse });
-      setToken(token);
-      set({ status: "authed", session });
+      const r = await api.post<{ token?: string; session?: Session; etape?: "2fa"; ticket?: string }>("/auth/login", { identifiant, motDePasse });
+      if (r.etape === "2fa" && r.ticket) return { ok: false, etape: "2fa", ticket: r.ticket };
+      setToken(r.token!);
+      set({ status: "authed", session: r.session! });
       return { ok: true };
     } catch (err) {
       return {
@@ -101,6 +102,17 @@ export const useAuth = create<AuthState>((set) => ({
             ? err.message
             : "Connexion impossible (serveur injoignable).",
       };
+    }
+  },
+
+  verifier2fa: async (ticket, code) => {
+    try {
+      const { token, session } = await api.post<{ token: string; session: Session }>("/auth/2fa", { ticket, code });
+      setToken(token);
+      set({ status: "authed", session });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof ApiError ? err.message : "Vérification impossible (serveur injoignable)." };
     }
   },
 

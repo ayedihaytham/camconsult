@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
-import { ArrowRight, Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Lock, ShieldCheck, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/store/auth";
 
@@ -39,6 +39,7 @@ function LedgerField({
 export function LoginPage() {
   const status = useAuth((s) => s.status);
   const login = useAuth((s) => s.login);
+  const verifier2fa = useAuth((s) => s.verifier2fa);
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? "/";
@@ -48,6 +49,9 @@ export function LoginPage() {
   const [visible, setVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Deuxième étape (double authentification) : le ticket prouve que le mot de passe est bon, le code ouvre la session. */
+  const [ticket, setTicket] = useState<string | null>(null);
+  const [code, setCode] = useState("");
 
   if (status === "authed") return <Navigate to={from} replace />;
 
@@ -58,7 +62,26 @@ export function LoginPage() {
     const res = await login(identifiant, motDePasse);
     setBusy(false);
     if (res.ok) navigate(from, { replace: true });
-    else setError(res.error ?? "Identifiant ou mot de passe incorrect.");
+    else if (res.etape === "2fa" && res.ticket) {
+      setTicket(res.ticket);
+      setCode("");
+    } else setError(res.error ?? "Identifiant ou mot de passe incorrect.");
+  }
+
+  async function handleCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!ticket) return;
+    setError(null);
+    setBusy(true);
+    const res = await verifier2fa(ticket, code);
+    setBusy(false);
+    if (res.ok) navigate(from, { replace: true });
+    else {
+      setError(res.error ?? "Code incorrect.");
+      // ticket expiré : il faut reprendre depuis le mot de passe
+      if (res.error?.includes("expiré")) setTicket(null);
+      setCode("");
+    }
   }
 
   return (
@@ -138,7 +161,49 @@ export function LoginPage() {
             </p>
             <div className="mt-6 hidden h-px w-4/5 bg-border lg:block" aria-hidden="true" />
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4 lg:mt-8">
+            {ticket && (
+              <form onSubmit={handleCode} className="mt-6 space-y-4 lg:mt-8" aria-label="Vérification en deux étapes">
+                <p className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+                  Saisissez le code à 6 chiffres de votre application d'authentification, ou l'un de vos codes de secours.
+                </p>
+                <LedgerField label="Code de vérification" htmlFor="code2fa">
+                  <input
+                    id="code2fa"
+                    autoFocus
+                    inputMode="text"
+                    autoComplete="one-time-code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="123 456"
+                    className="mt-1.5 block w-full bg-transparent text-2xl tracking-[0.3em] text-foreground outline-none placeholder:text-muted-foreground/60"
+                  />
+                </LedgerField>
+                {error && (
+                  <p role="alert" className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    <Lock className="h-4 w-4 shrink-0" />
+                    {error}
+                  </p>
+                )}
+                <Button type="submit" variant="ledger" className="h-14 w-full text-sm uppercase tracking-[0.2em]" disabled={busy || code.trim() === ""}>
+                  {busy ? "Vérification…" : "Vérifier"}
+                  {!busy && <ArrowRight className="h-4 w-4" />}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTicket(null);
+                    setCode("");
+                    setError(null);
+                  }}
+                  className="mx-auto flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Revenir au mot de passe
+                </button>
+              </form>
+            )}
+
+            <form onSubmit={handleSubmit} className={`mt-6 space-y-4 lg:mt-8 ${ticket ? "hidden" : ""}`}>
               <LedgerField label="Identifiant" htmlFor="identifiant">
                 <input
                   id="identifiant"

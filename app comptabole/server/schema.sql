@@ -1236,6 +1236,12 @@ create index if not exists tentatives_connexion_identifiant on tentatives_connex
 -- déconnecte toutes les anciennes sessions, sans dépendre d'aucune horloge (voir server/auth.js).
 alter table employes add column if not exists session_version integer not null default 0;
 alter table app_meta add column if not exists session_version integer not null default 0;
+-- Double authentification de l'administrateur (TOTP, voir server/totp.js) : secret chiffré, jamais en clair.
+alter table app_meta add column if not exists totp_actif boolean not null default false;
+alter table app_meta add column if not exists totp_secret text;
+alter table app_meta add column if not exists totp_attente text;
+alter table app_meta add column if not exists totp_dernier_pas bigint;
+alter table app_meta add column if not exists codes_secours jsonb not null default '[]'::jsonb;
 create table if not exists password_tokens (
   id         uuid primary key default gen_random_uuid(),
   employe_id uuid not null references employes(id) on delete cascade,

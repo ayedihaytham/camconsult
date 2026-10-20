@@ -6,6 +6,7 @@ import { logAction } from "../journal.js";
 import { notify } from "../notifications.js";
 import { employeDto, employeDtoFor } from "../mappers.js";
 import { sendAccessLinkEmail } from "../mailer.js";
+import { leverBlocage } from "../loginGuard.js";
 import { creerJeton, lienAcces } from "../passwords.js";
 import {
   defaultPermissions,
@@ -227,7 +228,9 @@ employesRouter.post("/:id/envoyer-acces", async (req, res) => {
   if (existant.statut !== "actif") return res.status(409).json({ error: "Ce compte n'est pas actif." });
   const but = existant.mdp_hash || (existant.mot_de_passe && !existant.doit_changer_mdp) ? "reset" : "activation";
   const lien = lienAcces(await creerJeton(existant.id, but, req.session.nom));
-  logAction(req.session.nom, "modification", "employe", `Lien d'accès émis pour ${existant.prenom} ${existant.nom}`);
+  // La personne demande un nouvel accès : son éventuel blocage de connexion (trop d'échecs) est levé sans attendre. Jamais pour l'administrateur.
+  const blocageLeve = await leverBlocage(existant.identifiant);
+  logAction(req.session.nom, "modification", "employe", `Lien d'accès émis pour ${existant.prenom} ${existant.nom}${blocageLeve ? " (blocage de connexion levé)" : ""}`);
   const emailEnvoi = await sendAccessLinkEmail(employeDto(existant), lien, but).catch((err) => {
     console.error("[mailer] envoi du lien d'accès échoué", err.message);
     return "echec";

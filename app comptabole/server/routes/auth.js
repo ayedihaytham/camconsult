@@ -10,7 +10,7 @@ import {
   requireAdmin,
 } from "../auth.js";
 import { logAction } from "../journal.js";
-import { loginGuard, activationGuard, adresseClient, egalConstant } from "../loginGuard.js";
+import { loginGuard, activationGuard, adresseClient, egalConstant, leverBlocage } from "../loginGuard.js";
 import { hashPassword, verifyPassword, besoinDeRehash, estHash, verificationFactice, consommerJeton, lireJeton, motDePasseAcceptable } from "../passwords.js";
 
 export const authRouter = Router();
@@ -51,7 +51,7 @@ authRouter.post("/login", async (req, res) => {
   const id = String(identifiant).trim().toLowerCase();
 
   // Force brute : trop d'échecs récents pour ce compte ou depuis cette adresse.
-  const attente = loginGuard.attente(adresseClient(req), id);
+  const attente = await loginGuard.attente(adresseClient(req), id);
   if (attente > 0) {
     res.setHeader("Retry-After", String(attente));
     return res.status(429).json({ error: `Trop de tentatives. Réessayez dans ${Math.ceil(attente / 60)} minute(s).` });
@@ -62,7 +62,7 @@ authRouter.post("/login", async (req, res) => {
   if (meta && id === meta.admin_identifiant.toLowerCase()) {
     const ok = await bcrypt.compare(String(motDePasse), meta.admin_password_hash);
     if (ok) {
-      loginGuard.succes(adresseClient(req), id);
+      await loginGuard.succes(adresseClient(req), id);
       await query("update app_meta set last_login = now() where id = 1");
       const token = await jetonAdmin();
       const session = await sessionAdmin();
@@ -80,7 +80,7 @@ authRouter.post("/login", async (req, res) => {
   ).rows[0];
   if (!emp) await verificationFactice(motDePasse);
   else if (await motDePasseValide(emp, motDePasse)) {
-    loginGuard.succes(adresseClient(req), id);
+    await loginGuard.succes(adresseClient(req), id);
     await query("update employes set last_login = now() where id = $1", [emp.id]);
     const token = await jetonEmploye(emp.id);
     const session = await sessionEmploye(emp.id);
@@ -88,22 +88,22 @@ authRouter.post("/login", async (req, res) => {
     return res.json({ token, session });
   }
 
-  loginGuard.echec(adresseClient(req), id);
+  await loginGuard.echec(adresseClient(req), id);
   return res.status(401).json({ error: "Identifiant ou mot de passe incorrect" });
 });
 
 /** Activation d'un compte ou réinitialisation du mot de passe par un lien à usage unique (jeton envoyé par le cabinet). */
 authRouter.post("/activate", async (req, res) => {
   const { token, motDePasse } = req.body ?? {};
-  const attente = activationGuard.attente(adresseClient(req), "activation");
+  const attente = await activationGuard.attente(adresseClient(req), "activation");
   if (attente > 0) {
     res.setHeader("Retry-After", String(attente));
     return res.status(429).json({ error: "Trop de tentatives. Réessayez plus tard." });
   }
   const refus = motDePasseAcceptable(motDePasse);
   if (refus) return res.status(400).json({ error: refus });
-  const lienInvalide = () => {
-    activationGuard.echec(adresseClient(req), "activation");
+  const lienInvalide = async () => {
+    await activationGuard.echec(adresseClient(req), "activation");
     return res.status(400).json({ error: "Ce lien est invalide ou a expiré. Demandez-en un nouveau au cabinet." });
   };
   // Les vérifications se font avant la consommation : un mot de passe refusé ne brûle pas le lien.
@@ -122,6 +122,8 @@ authRouter.post("/activate", async (req, res) => {
     return id;
   });
   if (!employeId) return lienInvalide();
+  // Un mot de passe réinitialisé lève le blocage de connexion de la personne (jamais celui de l'administrateur).
+  await leverBlocage(rows[0].identifiant);
   const nouveau = await jetonEmploye(employeId);
   const session = await sessionEmploye(employeId);
   logAction(session.nom, "modification", "compte", "Mot de passe défini par lien d'activation");

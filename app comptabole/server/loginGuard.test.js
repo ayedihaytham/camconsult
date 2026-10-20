@@ -44,3 +44,17 @@ describe("protection contre la force brute", () => {
     expect(egalConstant("", "x")).toBe(false);
   });
 });
+
+describe("levée du blocage d'un identifiant", () => {
+  it("remet à zéro les compteurs du compte (toutes adresses), pas ceux des adresses ni des autres comptes", () => {
+    const g = createLoginGuard({ maxParCompte: 2, maxParIdentifiant: 3, maxParAdresse: 50 });
+    for (const ip of ["a", "b", "c"]) g.echec(ip, "Alice");
+    for (let i = 0; i < 2; i++) g.echec("a", "bob");
+    expect(g.attente("z", "alice")).toBeGreaterThan(0);
+    expect(g.attente("a", "bob")).toBeGreaterThan(0);
+    g.reinitialiserIdentifiant("ALICE");
+    expect(g.attente("z", "alice")).toBe(0);
+    expect(g.attente("a", "alice")).toBe(0);
+    expect(g.attente("a", "bob")).toBeGreaterThan(0);
+  });
+});

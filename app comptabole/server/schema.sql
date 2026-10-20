@@ -1219,6 +1219,19 @@ alter table swift_virements add column if not exists devise text not null defaul
 -- Mots de passe des employés : empreinte scrypt (voir server/passwords.js). L'ancienne colonne en clair `mot_de_passe` n'est plus
 -- écrite : un compte hérité est converti à sa prochaine connexion réussie, puis la valeur en clair est effacée.
 alter table employes add column if not exists mdp_hash text;
+-- Blocage de connexion (force brute) : persistant, il survit au redémarrage du serveur (voir server/loginGuard.js).
+-- portee : 'compte' (identifiant depuis une adresse), 'identifiant' (depuis toutes les adresses), 'adresse' (tous les identifiants).
+create table if not exists tentatives_connexion (
+  garde       text not null,
+  portee      text not null,
+  adresse     text not null default '',
+  identifiant text not null default '',
+  nb          integer not null,
+  debut       timestamptz not null default now(),
+  primary key (garde, portee, adresse, identifiant)
+);
+create index if not exists tentatives_connexion_debut on tentatives_connexion (debut);
+create index if not exists tentatives_connexion_identifiant on tentatives_connexion (identifiant);
 -- Version des sessions du compte : chaque jeton porte la version courante ; un changement de mot de passe l'incrémente, ce qui
 -- déconnecte toutes les anciennes sessions, sans dépendre d'aucune horloge (voir server/auth.js).
 alter table employes add column if not exists session_version integer not null default 0;

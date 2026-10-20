@@ -65,7 +65,11 @@
 - **Mot de passe provisoire** : tant que `doitChangerMotDePasse` est vrai, `requireAuth` ne laisse passer que `/api/auth/*`
   (403 `CHANGER_MOT_DE_PASSE` ailleurs) : le changement forcé ne repose pas seulement sur l'écran.
 - **Politique de mot de passe** : `motDePasseAcceptable` (8 caractères, pas l'identifiant) pour les employés **et** l'administrateur.
-- **Force brute** : `server/loginGuard.js` (par compte+adresse, identifiant, adresse), mémoire du processus.
+- **Force brute** : `server/loginGuard.js`, **persistante** (table `tentatives_connexion`, PostgreSQL) : 8 échecs par compte et adresse,
+  30 par identifiant (toutes adresses), 100 par adresse, sur 15 minutes ; le blocage survit au redémarrage du serveur. Un **nouvel accès
+  demandé par la personne** lève son blocage : lien de réinitialisation émis par le cabinet (`POST /employes/:id/envoyer-acces`) ou utilisé
+  (`POST /auth/activate`) — `leverBlocage`, jamais pour l'administrateur (son blocage ne se lève qu'avec le temps) ni pour le blocage
+  d'une adresse. L'événement est inscrit au journal.
 - **Chargement de la page** (`useAuth.restore`) : seul un refus du serveur (401/403) met fin à la session. Une panne passagère
   (redémarrage, réseau coupé) conserve le jeton et affiche « Serveur momentanément indisponible » avec un bouton Réessayer.
 - **Sans session**, `usePermissions` ne donne aucun droit (jamais le contexte administrateur).

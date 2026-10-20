@@ -8,6 +8,11 @@ const db = vi.hoisted(() => ({ employes: [], tokens: [], query: null }));
 
 vi.mock("../db.js", () => ({ query: (...a) => db.query(...a), withTransaction: (action) => action({ query: (...a) => db.query(...a) }) }));
 vi.mock("../journal.js", () => ({ logAction: vi.fn() }));
+// Le blocage est testé pour lui-même (loginGuard.test.js et tests d'intégration) : ici, la version en mémoire, sans base.
+vi.mock("../loginGuard.js", async (importOriginal) => {
+  const m = await importOriginal();
+  return { ...m, loginGuard: m.createLoginGuard(), activationGuard: m.createLoginGuard({ maxParCompte: 40, maxParIdentifiant: 400, maxParAdresse: 400 }), leverBlocage: async () => false };
+});
 vi.mock("../auth.js", () => ({
   signToken: (p) => `jeton-${p.employeId ?? p.role}`,
   jetonAdmin: async () => "jeton-admin",

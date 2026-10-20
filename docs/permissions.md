@@ -60,6 +60,13 @@
   `PATCH /auth/credentials` avec nouveau mot de passe) incrémente la version : tous les anciens jetons (autres appareils, session volée)
   sont refusés (401) ; la réponse porte un jeton neuf qui garde l'appareil courant connecté. Un compte désactivé perd l'accès
   immédiatement (la session est relue en base à chaque requête).
+- **Appareils connectés** (`server/sessions.js`, table `sessions_connexion`) : chaque connexion ouvre une session (appareil lu dans le User-Agent,
+  adresse, dates) et le jeton porte son `sid`. `GET /auth/sessions` liste les appareils du compte (la courante marquée) ; `POST
+  /auth/sessions/:id/revoquer` en ferme un seul (refusé aussitôt : « Cette session a été fermée ») ; « Se déconnecter » ferme la session courante ;
+  l'administrateur voit et ferme celles d'un employé (`GET /employes/:id/sessions`, `POST /employes/:id/sessions/:sid/revoquer`, `…/revoquer-toutes`).
+  Interface : menu du compte › « Mes appareils connectés » (tous les rôles), liste des comptes › « Appareils connectés » (administrateur). Un jeton
+  sans `sid` (émis avant la liste) reste valable et rejoint la liste à son renouvellement ; la version des sessions du compte ferme toujours tout d'un coup
+  (changement de mot de passe, « déconnecter mes autres appareils »).
 - **Déconnecter mes autres appareils** : `POST /auth/deconnecter-autres` (menu du compte, tous les rôles) incrémente la version des sessions du
   compte ; toutes les autres sessions sont refusées, un jeton neuf garde l'appareil courant. Inscrit au journal.
 - **Renouvellement** : une session active n'est pas coupée en pleine journée. Au-delà de 3 h d'âge, la réponse porte l'en-tête

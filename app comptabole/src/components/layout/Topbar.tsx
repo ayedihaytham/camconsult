@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, MonitorOff, Settings } from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, MonitorOff, MonitorSmartphone, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { AppBreadcrumbs } from "./AppBreadcrumbs";
@@ -10,6 +10,7 @@ import { useHistoriqueNavigation } from "@/hooks/useHistoriqueNavigation";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
 import { SocieteActiveSelect } from "./SocieteActiveSelect";
+import { MesAppareilsDialog } from "@/components/auth/AppareilsConnectes";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import {
@@ -25,6 +26,7 @@ export function Topbar() {
   const { session, logout, deconnecterAutresAppareils } = useAuth();
   const navigate = useNavigate();
   const [autresOpen, setAutresOpen] = useState(false);
+  const [appareilsOpen, setAppareilsOpen] = useState(false);
 
   const nom = toTitleCase(session?.nom ?? "Utilisateur");
   const role = session?.fonction ?? "";
@@ -95,6 +97,10 @@ export function Topbar() {
                   <DropdownMenuSeparator className="mx-3 my-1" />
                 </>
               )}
+              <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={() => setAppareilsOpen(true)}>
+                <MonitorSmartphone className="h-[18px] w-[18px] text-muted-foreground" />
+                Mes appareils connectés
+              </DropdownMenuItem>
               <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={() => setAutresOpen(true)}>
                 <MonitorOff className="h-[18px] w-[18px] text-muted-foreground" />
                 Déconnecter mes autres appareils
@@ -107,6 +113,7 @@ export function Topbar() {
           </DropdownMenu>
         </div>
       </div>
+      <MesAppareilsDialog open={appareilsOpen} onOpenChange={setAppareilsOpen} />
       <ConfirmDialog
         open={autresOpen}
         onOpenChange={setAutresOpen}

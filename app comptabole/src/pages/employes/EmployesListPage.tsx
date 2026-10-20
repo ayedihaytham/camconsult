@@ -8,6 +8,7 @@ import {
   Copy,
   Eye,
   KeyRound,
+  MonitorSmartphone,
   MoreHorizontal,
   Pencil,
   Printer,
@@ -76,6 +77,7 @@ import type { Employe, EmployeType, PermissionKey, Statut } from "@/types";
 import { EmployeFormSheet, type EmployeFormValues } from "./EmployeFormSheet";
 import { EmployeAccesSheet } from "./EmployeAccesSheet";
 import { LienAccesDialog, type LienAcces } from "@/components/common/LienAccesDialog";
+import { AppareilsEmployeDialog } from "@/components/auth/AppareilsConnectes";
 import { api, ApiError } from "@/lib/api";
 import type { EmailEnvoi } from "@/types";
 import { EmployeViewSheet } from "./EmployeViewSheet";
@@ -269,6 +271,7 @@ export function EmployesListPage() {
   const [editing, setEditing] = useState<Employe | null>(null);
   const [accesOpen, setAccesOpen] = useState(false);
   const [lienAcces, setLienAcces] = useState<LienAcces | null>(null);
+  const [appareilsDe, setAppareilsDe] = useState<{ id: string; nom: string } | null>(null);
   const [accesTarget, setAccesTarget] = useState<Employe | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewing, setViewing] = useState<Employe | null>(null);
@@ -487,6 +490,7 @@ export function EmployesListPage() {
         },
       },
       { icon: KeyRound, label: "Lien d'accès", onClick: () => void emettreLienAcces(e) },
+      ...(isAdmin ? [{ icon: MonitorSmartphone, label: "Appareils connectés", onClick: () => setAppareilsDe({ id: e.id, nom: `${e.prenom} ${e.nom}` }) }] : []),
       { icon: Copy, label: "Dupliquer", onClick: () => duplicate(e) },
       {
         icon: Pencil,
@@ -1062,6 +1066,7 @@ export function EmployesListPage() {
         onSubmit={handleSubmit}
       />
       <LienAccesDialog acces={lienAcces} onClose={() => setLienAcces(null)} />
+      <AppareilsEmployeDialog employe={appareilsDe} onClose={() => setAppareilsDe(null)} />
       <EmployeAccesSheet
         open={accesOpen}
         onOpenChange={setAccesOpen}

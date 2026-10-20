@@ -1235,6 +1235,18 @@ create index if not exists tentatives_connexion_identifiant on tentatives_connex
 -- Version des sessions du compte : chaque jeton porte la version courante ; un changement de mot de passe l'incrémente, ce qui
 -- déconnecte toutes les anciennes sessions, sans dépendre d'aucune horloge (voir server/auth.js).
 alter table employes add column if not exists session_version integer not null default 0;
+-- Sessions ouvertes, une par appareil / navigateur (voir server/sessions.js) : liste « appareils connectés » et révocation d'une seule session.
+create table if not exists sessions_connexion (
+  id                uuid primary key default gen_random_uuid(),
+  compte            text not null,
+  adresse           text not null default '',
+  navigateur        text not null default '',
+  cree_le           timestamptz not null default now(),
+  derniere_activite timestamptz not null default now(),
+  expire_le         timestamptz not null,
+  revoquee_le       timestamptz
+);
+create index if not exists sessions_connexion_compte on sessions_connexion (compte);
 alter table app_meta add column if not exists session_version integer not null default 0;
 -- Double authentification de l'administrateur (TOTP, voir server/totp.js) : secret chiffré, jamais en clair.
 alter table app_meta add column if not exists totp_actif boolean not null default false;

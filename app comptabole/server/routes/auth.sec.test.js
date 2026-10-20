@@ -15,8 +15,7 @@ vi.mock("../loginGuard.js", async (importOriginal) => {
 });
 vi.mock("../auth.js", () => ({
   signToken: (p) => `jeton-${p.employeId ?? p.role}`,
-  jetonAdmin: async () => "jeton-admin",
-  jetonEmploye: async (id) => `jeton-${id}`,
+  ouvrirJeton: async (_req, identite) => (identite.role === "admin" ? "jeton-admin" : `jeton-${identite.employeId}`),
   sessionAdmin: async () => ({ role: "admin", employeId: null, nom: "Test" }),
   sessionEmploye: async (id) => ({ role: "employe", employeId: id, nom: "Test" }),
   sessionFromToken: async (p) => ({ role: p.role, employeId: p.employeId ?? null, nom: "Test" }),

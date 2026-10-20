@@ -7,6 +7,7 @@ import { notify } from "../notifications.js";
 import { employeDto, employeDtoFor } from "../mappers.js";
 import { sendAccessLinkEmail } from "../mailer.js";
 import { leverBlocage } from "../loginGuard.js";
+import { revoquerAutres, revoquerSession, sessionsDuCompte } from "../sessions.js";
 import { creerJeton, lienAcces } from "../passwords.js";
 import {
   defaultPermissions,
@@ -220,6 +221,30 @@ employesRouter.patch("/:id/acces", async (req, res) => {
 
 // Émet un lien d'accès à usage unique (activation d'un nouveau compte, ou réinitialisation du mot de passe) et l'envoie par email si
 // possible. Le lien n'est renvoyé qu'ici, une seule fois, pour être transmis à la personne par un autre canal si besoin.
+/** Sessions ouvertes d'un employé : l'administrateur les voit et les ferme (compte à surveiller, appareil perdu, départ). */
+employesRouter.get("/:id/sessions", requireAdmin, async (req, res) => {
+  const e = (await query("select id from employes where id = $1", [req.params.id])).rows[0];
+  if (!e) return res.status(404).json({ error: "Compte introuvable" });
+  res.json(await sessionsDuCompte(String(e.id), null));
+});
+
+employesRouter.post("/:id/sessions/:sid/revoquer", requireAdmin, async (req, res) => {
+  if (!/^[0-9a-f-]{36}$/i.test(req.params.sid)) return res.status(400).json({ error: "Session invalide" });
+  const e = (await query("select id, prenom, nom from employes where id = $1", [req.params.id])).rows[0];
+  if (!e) return res.status(404).json({ error: "Compte introuvable" });
+  if (!(await revoquerSession(String(e.id), req.params.sid))) return res.status(404).json({ error: "Cette session n'existe plus." });
+  logAction(req.session.nom, "modification", "employe", `Session fermée pour ${e.prenom} ${e.nom}`);
+  res.json({ ok: true });
+});
+
+employesRouter.post("/:id/sessions/revoquer-toutes", requireAdmin, async (req, res) => {
+  const e = (await query("select id, prenom, nom from employes where id = $1", [req.params.id])).rows[0];
+  if (!e) return res.status(404).json({ error: "Compte introuvable" });
+  const n = await revoquerAutres(String(e.id), null);
+  logAction(req.session.nom, "modification", "employe", `${n} session(s) fermée(s) pour ${e.prenom} ${e.nom}`);
+  res.json({ ok: true, revoquees: n });
+});
+
 employesRouter.post("/:id/envoyer-acces", async (req, res) => {
   const existant = (await query("select * from employes where id = $1", [req.params.id])).rows[0];
   if (!existant) return res.status(404).json({ error: "Compte introuvable" });

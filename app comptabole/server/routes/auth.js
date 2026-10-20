@@ -2,11 +2,11 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { query, withTransaction } from "../db.js";
 import { chiffrerSecret, dechiffrerSecret, empreinteSecours, genererCodesSecours, genererSecret, ressembleAUnCodeDeSecours, uriOtpauth, verifierCode } from "../totp.js";
+import { cleCompte, revoquerAutres, revoquerSession, sessionsDuCompte } from "../sessions.js";
 import {
   signTicket2fa,
   lireTicket2fa,
-  jetonAdmin,
-  jetonEmploye,
+  ouvrirJeton,
   sessionAdmin,
   sessionEmploye,
   requireAuth,
@@ -71,7 +71,7 @@ authRouter.post("/login", async (req, res) => {
     if (ok) {
       await loginGuard.succes(adresseClient(req), id);
       await query("update app_meta set last_login = now() where id = 1");
-      const token = await jetonAdmin();
+      const token = await ouvrirJeton(req, { role: "admin" });
       const session = await sessionAdmin();
       logAction(session.nom, "connexion", "compte", `${session.nom} (administrateur)`);
       return res.json({ token, session });
@@ -89,7 +89,7 @@ authRouter.post("/login", async (req, res) => {
   else if (await motDePasseValide(emp, motDePasse)) {
     await loginGuard.succes(adresseClient(req), id);
     await query("update employes set last_login = now() where id = $1", [emp.id]);
-    const token = await jetonEmploye(emp.id);
+    const token = await ouvrirJeton(req, { role: "employe", employeId: emp.id });
     const session = await sessionEmploye(emp.id);
     logAction(session.nom, "connexion", "compte", `${session.nom} (${emp.type})`);
     return res.json({ token, session });
@@ -141,7 +141,7 @@ authRouter.post("/2fa", async (req, res) => {
   }
   await loginGuard.succes(adresseClient(req), id);
   await query("update app_meta set last_login = now() where id = 1");
-  const token = await jetonAdmin();
+  const token = await ouvrirJeton(req, { role: "admin" });
   const session = await sessionAdmin();
   logAction(session.nom, "connexion", "compte", `${session.nom} (administrateur, double authentification)`);
   res.json({ token, session });
@@ -191,7 +191,7 @@ authRouter.post("/2fa/activer", requireAuth, requireAdmin, async (req, res) => {
     [pas, JSON.stringify(codes.map(empreinteSecours))],
   );
   logAction(req.session.nom, "modification", "compte", "Double authentification activée (administrateur)");
-  res.json({ codesSecours: codes, token: await jetonAdmin() });
+  res.json({ codesSecours: codes, token: await ouvrirJeton(req, { role: "admin" }, { remplacer: true }) });
 });
 
 /** Désactivation : mot de passe ET un code (application ou secours). */
@@ -200,7 +200,7 @@ authRouter.post("/2fa/desactiver", requireAuth, requireAdmin, async (req, res) =
   if (!(await deuxiemeFacteurValide(req.body?.code))) return res.status(400).json({ error: "Code incorrect." });
   await query("update app_meta set totp_actif = false, totp_secret = null, totp_attente = null, totp_dernier_pas = null, codes_secours = '[]'::jsonb, session_version = session_version + 1 where id = 1");
   logAction(req.session.nom, "modification", "compte", "Double authentification désactivée (administrateur)");
-  res.json({ ok: true, token: await jetonAdmin() });
+  res.json({ ok: true, token: await ouvrirJeton(req, { role: "admin" }, { remplacer: true }) });
 });
 
 /** Nouveaux codes de secours (les anciens sont annulés) : mot de passe ET un code. */
@@ -245,7 +245,7 @@ authRouter.post("/activate", async (req, res) => {
   if (!employeId) return lienInvalide();
   // Un mot de passe réinitialisé lève le blocage de connexion de la personne (jamais celui de l'administrateur).
   await leverBlocage(rows[0].identifiant);
-  const nouveau = await jetonEmploye(employeId);
+  const nouveau = await ouvrirJeton(req, { role: "employe", employeId }, { remplacer: true });
   const session = await sessionEmploye(employeId);
   logAction(session.nom, "modification", "compte", "Mot de passe défini par lien d'activation");
   res.json({ token: nouveau, session });
@@ -271,7 +271,7 @@ authRouter.post("/change-password", requireAuth, async (req, res) => {
   );
   logAction(req.session.nom, "modification", "compte", "Mot de passe changé");
   // Les anciens jetons (autres appareils, session volée) sont désormais refusés : celui-ci les remplace pour cet appareil.
-  const token = await jetonEmploye(req.session.employeId);
+  const token = await ouvrirJeton(req, { role: "employe", employeId: req.session.employeId }, { remplacer: true });
   const session = await sessionEmploye(req.session.employeId);
   res.json({ session, token });
 });
@@ -282,15 +282,31 @@ authRouter.post("/deconnecter-autres", requireAuth, async (req, res) => {
   if (req.session.role === "admin") {
     await query("update app_meta set session_version = session_version + 1 where id = 1");
     logAction(req.session.nom, "modification", "compte", "Autres appareils déconnectés (administrateur)");
-    return res.json({ token: await jetonAdmin() });
+    return res.json({ token: await ouvrirJeton(req, { role: "admin" }, { remplacer: true }) });
   }
   await query("update employes set session_version = session_version + 1 where id = $1", [req.session.employeId]);
   logAction(req.session.nom, "modification", "compte", "Autres appareils déconnectés");
-  res.json({ token: await jetonEmploye(req.session.employeId) });
+  res.json({ token: await ouvrirJeton(req, { role: "employe", employeId: req.session.employeId }, { remplacer: true }) });
 });
 
-authRouter.post("/logout", requireAuth, (req, res) => {
+authRouter.post("/logout", requireAuth, async (req, res) => {
+  if (req.sid) await revoquerSession(cleCompte(req.session), req.sid);
   logAction(req.session.nom, "deconnexion", "compte", req.session.nom);
+  res.json({ ok: true });
+});
+
+/** Appareils connectés du compte : une ligne par session ouverte, la courante marquée. */
+authRouter.get("/sessions", requireAuth, async (req, res) => {
+  res.json(await sessionsDuCompte(cleCompte(req.session), req.sid));
+});
+
+/** Révoque UNE session du compte (un autre appareil). La session courante se ferme par « Se déconnecter ». */
+authRouter.post("/sessions/:id/revoquer", requireAuth, async (req, res) => {
+  if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) return res.status(400).json({ error: "Session invalide" });
+  if (req.params.id === req.sid) return res.status(400).json({ error: "C'est la session de cet appareil : utilisez « Se déconnecter »." });
+  const ok = await revoquerSession(cleCompte(req.session), req.params.id);
+  if (!ok) return res.status(404).json({ error: "Cette session n'existe plus." });
+  logAction(req.session.nom, "modification", "compte", "Une session a été fermée depuis la liste des appareils");
   res.json({ ok: true });
 });
 
@@ -319,7 +335,7 @@ authRouter.patch("/credentials", requireAuth, requireAdmin, async (req, res) => 
     [nextId, hash, Boolean(motDePasse)],
   );
   logAction(req.session.nom, "modification", "compte", "Identifiants de connexion administrateur");
-  res.json({ ok: true, ...(motDePasse ? { token: await jetonAdmin() } : {}) });
+  res.json({ ok: true, ...(motDePasse ? { token: await ouvrirJeton(req, { role: "admin" }, { remplacer: true }) } : {}) });
 });
 
 authRouter.patch("/profile", requireAuth, requireAdmin, async (req, res) => {

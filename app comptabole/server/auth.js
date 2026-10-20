@@ -1,6 +1,8 @@
 import "dotenv/config";
 import jwt from "jsonwebtoken";
 import { query } from "./db.js";
+import { adresseClient } from "./loginGuard.js";
+import { ouvrirSession, prolongerSession, sessionValide } from "./sessions.js";
 import {
   defaultPermissions,
   societeEmployePermissions,
@@ -42,14 +44,19 @@ function jetonRevoque(payload, versionCompte) {
   return (payload?.v ?? 0) !== (versionCompte ?? 0);
 }
 
-/** Jeton neuf d'un compte, à la version courante de ses sessions (relue en base : après un changement de mot de passe, c'est la nouvelle). */
-export async function jetonAdmin() {
-  const { rows } = await query("select session_version from app_meta where id = 1");
-  return signToken({ role: "admin", v: rows[0]?.session_version ?? 0 });
-}
-export async function jetonEmploye(employeId) {
-  const { rows } = await query("select session_version from employes where id = $1", [employeId]);
-  return signToken({ role: "employe", employeId, v: rows[0]?.session_version ?? 0 });
+/**
+ * Ouvre une session pour un compte et renvoie son jeton : une ligne « session » (appareil, adresse, dates) est créée, le jeton porte son
+ * identifiant `sid` et la version courante des sessions du compte (relue en base : après un changement de mot de passe, c'est la nouvelle).
+ * `identite` : `{ role: "admin" }` ou `{ role: "employe", employeId }`. `remplacer` supprime d'abord les autres sessions du compte
+ * (changement de mot de passe, « déconnecter mes autres appareils ») : la nouvelle est alors la seule.
+ */
+export async function ouvrirJeton(req, identite, { remplacer = false } = {}) {
+  const admin = identite.role === "admin";
+  const { rows } = admin
+    ? await query("select session_version from app_meta where id = 1")
+    : await query("select session_version from employes where id = $1", [identite.employeId]);
+  const sid = await ouvrirSession({ compte: admin ? "admin" : String(identite.employeId), adresse: adresseClient(req), navigateur: req.headers?.["user-agent"], remplacer });
+  return signToken({ ...(admin ? { role: "admin" } : { role: "employe", employeId: identite.employeId }), v: rows[0]?.session_version ?? 0, sid });
 }
 
 /** Session à jour d'un compte (relue en base, version des sessions comprise), pour les réponses qui suivent une connexion ou un changement. */
@@ -176,17 +183,26 @@ export function requireAuth(req, res, next) {
     const payload = jwt.verify(token, SECRET, { algorithms: [ALGORITHME] });
     // Un ticket de double authentification n'est pas une session.
     if (payload.typ) return res.status(401).json({ error: "Jeton expiré ou invalide" });
-    sessionFromToken(payload)
-      .then((session) => {
+    const compte = payload.role === "admin" ? "admin" : String(payload.employeId);
+    // Session révoquée ou expirée (depuis la liste des appareils) : refusée aussitôt. Un jeton sans `sid` (émis avant la liste) reste valable.
+    (payload.sid ? sessionValide(payload.sid, compte) : Promise.resolve(true))
+      .then((valide) => (valide ? sessionFromToken(payload) : "revoquee"))
+      .then(async (session) => {
+        if (session === "revoquee") return res.status(401).json({ error: "Cette session a été fermée. Reconnectez-vous." });
         if (!session) return res.status(401).json({ error: "Session invalide" });
         // Mot de passe provisoire : tant qu'il n'est pas changé, seules les routes d'authentification répondent (le changement forcé
         // ne repose pas seulement sur l'écran).
         if (session.doitChangerMotDePasse && req.baseUrl !== "/api/auth")
           return res.status(403).json({ error: "Vous devez d'abord choisir votre mot de passe.", code: "CHANGER_MOT_DE_PASSE" });
         req.session = session;
+        req.sid = payload.sid ?? null;
         // Session active : un jeton neuf est proposé une fois le premier à moitié écoulé (le client le garde), au lieu de couper en pleine journée.
         if (payload.iat && Math.floor(Date.now() / 1000) - payload.iat > RENOUVELLEMENT_APRES_S) {
-          res.setHeader("X-Token-Renouvele", signToken(payload.role === "admin" ? { role: "admin", v: payload.v ?? 0 } : { role: "employe", employeId: payload.employeId, v: payload.v ?? 0 }));
+          // Un jeton ancien (sans `sid`) rejoint la liste des appareils à son renouvellement.
+          let sid = payload.sid;
+          if (sid) await prolongerSession(sid);
+          else sid = await ouvrirSession({ compte, adresse: adresseClient(req), navigateur: req.headers["user-agent"] });
+          res.setHeader("X-Token-Renouvele", signToken({ ...(payload.role === "admin" ? { role: "admin" } : { role: "employe", employeId: payload.employeId }), v: payload.v ?? 0, sid }));
         }
         next();
       })

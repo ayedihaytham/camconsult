@@ -155,6 +155,19 @@ authRouter.post("/change-password", requireAuth, async (req, res) => {
   res.json({ session, token });
 });
 
+/** « Déconnecter mes autres appareils » : la version des sessions du compte monte, tous les autres jetons sont refusés ; un jeton neuf
+ * garde l'appareil courant connecté. Utile après avoir ouvert sa session sur un poste partagé, ou si un jeton a pu être copié. */
+authRouter.post("/deconnecter-autres", requireAuth, async (req, res) => {
+  if (req.session.role === "admin") {
+    await query("update app_meta set session_version = session_version + 1 where id = 1");
+    logAction(req.session.nom, "modification", "compte", "Autres appareils déconnectés (administrateur)");
+    return res.json({ token: await jetonAdmin() });
+  }
+  await query("update employes set session_version = session_version + 1 where id = $1", [req.session.employeId]);
+  logAction(req.session.nom, "modification", "compte", "Autres appareils déconnectés");
+  res.json({ token: await jetonEmploye(req.session.employeId) });
+});
+
 authRouter.post("/logout", requireAuth, (req, res) => {
   logAction(req.session.nom, "deconnexion", "compte", req.session.nom);
   res.json({ ok: true });

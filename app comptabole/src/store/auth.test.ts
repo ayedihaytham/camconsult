@@ -116,3 +116,21 @@ describe("jetons : renouvellement et changement de mot de passe", () => {
     expect(ApiError).toBeDefined();
   });
 });
+
+describe("déconnecter mes autres appareils", () => {
+  it("garde cet appareil connecté avec le jeton neuf", async () => {
+    setToken("ancien");
+    useAuth.setState({ status: "authed", session: SESSION as never });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponse(200, { token: "neuf" })));
+    expect(await useAuth.getState().deconnecterAutresAppareils()).toEqual({ ok: true });
+    expect(getToken()).toBe("neuf");
+    expect(useAuth.getState().status).toBe("authed");
+  });
+
+  it("en cas d'échec : le message du serveur, et le jeton actuel est conservé", async () => {
+    setToken("ancien");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponse(500, { error: "Erreur serveur" })));
+    expect(await useAuth.getState().deconnecterAutresAppareils()).toEqual({ ok: false, error: "Erreur serveur" });
+    expect(getToken()).toBe("ancien");
+  });
+});

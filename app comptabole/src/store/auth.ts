@@ -41,6 +41,8 @@ interface AuthState {
     motDePasse: string,
   ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
+  /** Ferme toutes les autres sessions du compte (autres appareils) ; celle-ci reste ouverte avec un jeton neuf. */
+  deconnecterAutresAppareils: () => Promise<{ ok: boolean; error?: string }>;
   /** Activation d'un compte ou nouveau mot de passe par un lien à usage unique ; connecte la personne. */
   activer: (jeton: string, motDePasse: string) => Promise<{ ok: boolean; error?: string }>;
   changeCredentials: (
@@ -122,6 +124,16 @@ export const useAuth = create<AuthState>((set) => ({
     effacerTousLesBrouillons();
     setToken(null);
     set({ status: "anon", session: null });
+  },
+
+  deconnecterAutresAppareils: async () => {
+    try {
+      const { token } = await api.post<{ token: string }>("/auth/deconnecter-autres");
+      setToken(token);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof ApiError ? err.message : "Action impossible (serveur injoignable)." };
+    }
   },
 
   changeCredentials: async (currentPassword, next) => {

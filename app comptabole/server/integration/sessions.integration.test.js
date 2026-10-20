@@ -129,6 +129,34 @@ describe.skipIf(!actif)("intégration PostgreSQL : sessions et rôles", () => {
       admin = api(serveur.base, retour.json.token);
     });
 
+    it("« Déconnecter mes autres appareils » : les autres sessions sont fermées, celle-ci reste ouverte avec un jeton neuf", async () => {
+      const e = await compte({ role: "collaborateur", societesAssignees: [propre] });
+      const autreAppareil = (await api(serveur.base)("POST", "/api/auth/login", { identifiant: e.identifiant, motDePasse: MDP })).json.token;
+      expect((await api(serveur.base, autreAppareil)("GET", "/api/auth/me")).status).toBe(200);
+      const r = await e.appel("POST", "/api/auth/deconnecter-autres", {});
+      expect(r.status).toBe(200);
+      expect(r.json.token).toBeTruthy();
+      expect((await api(serveur.base, autreAppareil)("GET", "/api/auth/me")).status).toBe(401);
+      expect((await api(serveur.base, e.jeton)("GET", "/api/auth/me")).status).toBe(401); // l'ancien jeton de cet appareil aussi : le neuf le remplace
+      expect((await api(serveur.base, r.json.token)("GET", "/api/auth/me")).status).toBe(200);
+      // le mot de passe n'a pas changé : une nouvelle connexion fonctionne
+      expect((await api(serveur.base)("POST", "/api/auth/login", { identifiant: e.identifiant, motDePasse: MDP })).status).toBe(200);
+      // sans jeton : refusé
+      expect((await api(serveur.base)("POST", "/api/auth/deconnecter-autres", {})).status).toBe(401);
+    });
+
+    it("administrateur : ses autres sessions sont fermées aussi, la sienne reste ouverte ; aucun autre compte n'est touché", async () => {
+      const autre = await compte({ role: "collaborateur", societesAssignees: [propre] });
+      const ancien = (await api(serveur.base)("POST", "/api/auth/login", { identifiant: "admin.test", motDePasse: "Mdp-Admin-De-Test-1!" })).json.token;
+      const r = await api(serveur.base, ancien)("POST", "/api/auth/deconnecter-autres", {});
+      expect(r.status).toBe(200);
+      expect((await api(serveur.base, ancien)("GET", "/api/auth/me")).status).toBe(401);
+      expect((await api(serveur.base, r.json.token)("GET", "/api/auth/me")).status).toBe(200);
+      expect((await autre.appel("GET", "/api/auth/me")).status).toBe(200);
+      // le jeton de l'administrateur utilisé par les tests suivants est remplacé
+      admin = api(serveur.base, (await api(serveur.base)("POST", "/api/auth/login", { identifiant: "admin.test", motDePasse: "Mdp-Admin-De-Test-1!" })).json.token);
+    });
+
     it("un compte désactivé perd l'accès immédiatement, avec son jeton encore valide", async () => {
       const e = await compte({ role: "collaborateur", societesAssignees: [propre] });
       expect((await e.appel("GET", "/api/societes")).status).toBe(200);

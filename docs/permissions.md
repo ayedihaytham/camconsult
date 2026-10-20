@@ -60,6 +60,8 @@
   `PATCH /auth/credentials` avec nouveau mot de passe) incrémente la version : tous les anciens jetons (autres appareils, session volée)
   sont refusés (401) ; la réponse porte un jeton neuf qui garde l'appareil courant connecté. Un compte désactivé perd l'accès
   immédiatement (la session est relue en base à chaque requête).
+- **Déconnecter mes autres appareils** : `POST /auth/deconnecter-autres` (menu du compte, tous les rôles) incrémente la version des sessions du
+  compte ; toutes les autres sessions sont refusées, un jeton neuf garde l'appareil courant. Inscrit au journal.
 - **Renouvellement** : une session active n'est pas coupée en pleine journée. Au-delà de 3 h d'âge, la réponse porte l'en-tête
   `X-Token-Renouvele` (jeton neuf de 12 h, même version) que `src/lib/api.ts` enregistre. Inactive plus de 12 h, la session expire.
 - **Mot de passe provisoire** : tant que `doitChangerMotDePasse` est vrai, `requireAuth` ne laisse passer que `/api/auth/*`

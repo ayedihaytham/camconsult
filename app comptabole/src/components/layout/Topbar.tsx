@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, Settings } from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, MonitorOff, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { AppBreadcrumbs } from "./AppBreadcrumbs";
@@ -10,6 +10,7 @@ import { useHistoriqueNavigation } from "@/hooks/useHistoriqueNavigation";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
 import { SocieteActiveSelect } from "./SocieteActiveSelect";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import {
   DropdownMenu,
@@ -21,8 +22,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function Topbar() {
-  const { session, logout } = useAuth();
+  const { session, logout, deconnecterAutresAppareils } = useAuth();
   const navigate = useNavigate();
+  const [autresOpen, setAutresOpen] = useState(false);
 
   const nom = toTitleCase(session?.nom ?? "Utilisateur");
   const role = session?.fonction ?? "";
@@ -93,6 +95,10 @@ export function Topbar() {
                   <DropdownMenuSeparator className="mx-3 my-1" />
                 </>
               )}
+              <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={() => setAutresOpen(true)}>
+                <MonitorOff className="h-[18px] w-[18px] text-muted-foreground" />
+                Déconnecter mes autres appareils
+              </DropdownMenuItem>
               <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={handleLogout}>
                 <LogOut className="h-[18px] w-[18px] text-muted-foreground" />
                 Se déconnecter
@@ -101,6 +107,19 @@ export function Topbar() {
           </DropdownMenu>
         </div>
       </div>
+      <ConfirmDialog
+        open={autresOpen}
+        onOpenChange={setAutresOpen}
+        title="Déconnecter mes autres appareils ?"
+        description="Toutes vos autres sessions (autres ordinateurs, téléphones, navigateurs) seront fermées : il faudra s'y reconnecter. Cette session reste ouverte."
+        confirmLabel="Déconnecter les autres"
+        destructive={false}
+        onConfirm={async () => {
+          const r = await deconnecterAutresAppareils();
+          if (r.ok) toast.success("Vos autres appareils sont déconnectés");
+          else toast.error(r.error ?? "Action impossible");
+        }}
+      />
     </header>
   );
 }

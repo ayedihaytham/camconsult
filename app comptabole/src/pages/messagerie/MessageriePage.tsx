@@ -70,6 +70,7 @@ export function MessageriePage() {
     (state) => state.session?.cabinetDerniereConnexion,
   );
   const viewerAuthor = isAdmin ? "me" : (employeId ?? "me");
+  const monAdminId = useAuth((state) => state.session?.adminId);
   const hasAccess = isAdmin || can("messagerie");
 
   const employes = useEmployes();
@@ -462,16 +463,21 @@ export function MessageriePage() {
         !previous ||
         new Date(previous.envoyeLe).toDateString() !==
           new Date(message.envoyeLe).toDateString();
-      const isMine = message.auteurId === viewerAuthor;
+      // Plusieurs administrateurs partagent l'auteur « me » : un message est le mien seulement s'il est de mon compte (un ancien message sans compte l'est).
+      const isMine =
+        message.auteurId === viewerAuthor &&
+        (!isAdmin || !message.adminId || !monAdminId || message.adminId === monAdminId);
+      const memeAuteur = (a: typeof message, b: typeof message) => a.auteurId === b.auteurId && a.adminId === b.adminId;
+      // Le nom de l'expéditeur s'affiche dans les groupes, et pour un message du cabinet écrit par un autre administrateur (ou lu par l'employé).
       const showAuthor = Boolean(
-        isGroup &&
-          !isMine &&
-          (showDate || !previous || previous.auteurId !== message.auteurId),
+        !isMine &&
+          (isGroup || message.auteurId === "me") &&
+          (showDate || !previous || !memeAuteur(previous, message)),
       );
 
       return {
         id: message.id,
-        author: senderName(message.auteurId),
+        author: message.auteurId === "me" && message.auteurNom ? message.auteurNom : senderName(message.auteurId),
         text: message.contenu,
         timestamp: formatTime(message.envoyeLe),
         dateLabel: formatDayLabel(message.envoyeLe),

@@ -133,6 +133,8 @@ export const messageDto = (r) => ({
     r.envoye_le instanceof Date ? r.envoye_le.toISOString() : r.envoye_le,
   statut: r.statut,
   pieceJointe: r.piece_jointe || undefined,
+  // Message du cabinet : l'administrateur qui l'a écrit (absent pour un message d'employé).
+  ...(r.admin_id ? { adminId: r.admin_id, auteurNom: r.auteur_nom ?? undefined } : {}),
 });
 
 /** Message sans le contenu de sa pièce jointe (base64) — même principe que
@@ -195,6 +197,7 @@ export const collecteNoteDto = (r) => ({
   kind: r.kind ?? "note",
   parentId: r.parent_id ?? null,
   auteur: r.auteur ?? "admin",
+  ...(r.auteur_nom ? { auteurNom: r.auteur_nom } : {}),
   ref: r.ref ?? "",
   cibleOrdre: r.cible_ordre == null ? null : Number(r.cible_ordre),
   cibleCol: r.cible_col ?? null,

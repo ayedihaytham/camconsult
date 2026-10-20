@@ -133,6 +133,80 @@ describe.skipIf(!actif)("intégration PostgreSQL : notifications et traces par a
     });
   });
 
+  describe("notes de collecte : le nom de la personne", () => {
+    it("chaque note affiche son auteur (administrateur, collaborateur), en gardant le côté « Cabinet » ; une note ancienne reste « Cabinet »", async () => {
+      const collecte = (await sql.query("insert into collectes(societe_id, periode) values($1,'2026-09') returning id", [societe])).rows[0].id;
+      const emp = api(serveur.base, jwt.sign({ role: "employe", employeId: employe, v: 0 }, serveur.env.JWT_SECRET, { expiresIn: "1h" }));
+      expect((await A("POST", `/api/collectes/${collecte}/notes`, { onglet: "Banque", texte: "Note de Karim" })).status).toBe(201);
+      expect((await B("POST", `/api/collectes/${collecte}/notes`, { onglet: "Banque", texte: "Note de Sara" })).status).toBe(201);
+      const parCollab = await emp("POST", `/api/collectes/${collecte}/notes`, { onglet: "Banque", texte: "Note du collaborateur" });
+      expect(parCollab.status, parCollab.texte).toBe(201);
+      await sql.query("insert into collecte_notes(collecte_id, onglet, kind, auteur, texte) values($1,'Banque','note','admin','Très ancienne note')", [collecte]);
+      const notes = (await principal("GET", `/api/collectes/${collecte}`)).json.notes;
+      const par = (texte) => notes.find((n) => n.texte === texte);
+      expect(par("Note de Karim")).toMatchObject({ auteur: "admin", auteurNom: "Karim Trabelsi" });
+      expect(par("Note de Sara")).toMatchObject({ auteur: "admin", auteurNom: "Sara Mejri" });
+      expect(par("Note du collaborateur")).toMatchObject({ auteur: "admin", auteurNom: "Emp Synthetique" });
+      expect(par("Très ancienne note").auteurNom).toBeUndefined();
+      expect(par("Très ancienne note").auteur).toBe("admin");
+    });
+  });
+
+  describe("messagerie : expéditeur nommé et lecture propre à chaque administrateur", () => {
+    const lire = async (client) => (await client("GET", "/api/messages")).json;
+    it("un message du cabinet porte l'administrateur qui l'a écrit, visible de l'employé et des autres administrateurs", async () => {
+      const emp = api(serveur.base, jwt.sign({ role: "employe", employeId: employe, v: 0 }, serveur.env.JWT_SECRET, { expiresIn: "1h" }));
+      const conv = `conv-${employe}`;
+      const r = await A("POST", "/api/messages", { conversationId: conv, auteurId: "me", contenu: "Bonjour de Karim" });
+      expect(r.status, r.texte).toBe(201);
+      expect(r.json).toMatchObject({ adminId: idA, auteurNom: "Karim Trabelsi", statut: "envoye" });
+      await B("POST", "/api/messages", { conversationId: conv, auteurId: "me", contenu: "Bonjour de Sara" });
+      for (const lecteur of [A, B, principal, emp]) {
+        const m = await lire(lecteur);
+        expect(m.find((x) => x.contenu === "Bonjour de Karim")).toMatchObject({ adminId: idA, auteurNom: "Karim Trabelsi" });
+        expect(m.find((x) => x.contenu === "Bonjour de Sara")).toMatchObject({ adminId: idB, auteurNom: "Sara Mejri" });
+      }
+    });
+
+    it("un message reçu par le cabinet est lu PAR administrateur : Karim ouvre, Sara et le principal le gardent non lu ; l'employé voit « lu »", async () => {
+      const emp = api(serveur.base, jwt.sign({ role: "employe", employeId: employe, v: 0 }, serveur.env.JWT_SECRET, { expiresIn: "1h" }));
+      const conv = `conv-${employe}`;
+      const env = await emp("POST", "/api/messages", { conversationId: conv, auteurId: employe, contenu: "Question de l'employé" });
+      expect(env.status, env.texte).toBe(201);
+      const etat = async (c) => (await lire(c)).find((x) => x.contenu === "Question de l'employé").statut;
+      expect([await etat(A), await etat(B), await etat(principal), await etat(emp)]).toEqual(["envoye", "envoye", "envoye", "envoye"]);
+      expect((await A("POST", "/api/messages/mark-read", { conversationId: conv, viewerAuthorId: "me" })).status).toBe(200);
+      expect(await etat(A)).toBe("lu");
+      expect(await etat(B)).toBe("envoye");
+      expect(await etat(principal)).toBe("envoye");
+      expect(await etat(emp)).toBe("lu"); // coche de l'employé : lu par au moins un administrateur
+      await B("POST", "/api/messages/mark-read", { conversationId: conv, viewerAuthorId: "me" });
+      expect(await etat(B)).toBe("lu");
+      expect(await etat(principal)).toBe("envoye");
+    });
+
+    it("un administrateur ne peut pas marquer lu à la place d'un autre en passant un autre identifiant de lecteur", async () => {
+      const emp = api(serveur.base, jwt.sign({ role: "employe", employeId: employe, v: 0 }, serveur.env.JWT_SECRET, { expiresIn: "1h" }));
+      const conv = `conv-${employe}`;
+      await emp("POST", "/api/messages", { conversationId: conv, auteurId: employe, contenu: "Deuxième question" });
+      await principal("POST", "/api/messages/mark-read", { conversationId: conv, viewerAuthorId: employe });
+      const etat = async (c) => (await lire(c)).find((x) => x.contenu === "Deuxième question").statut;
+      expect(await etat(principal)).toBe("lu");
+      expect(await etat(A)).toBe("envoye");
+    });
+
+    it("un nouvel administrateur ne démarre pas avec l'historique reçu « non lu »", async () => {
+      const c = await principal("POST", "/api/administrateurs", { nom: "Nouvelle Venue", identifiant: "nouvelle.v", motDePasse: MDP });
+      expect(c.status).toBe(201);
+      const l = await fetch(`${serveur.base}/api/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifiant: "nouvelle.v", motDePasse: c.json.motDePasseProvisoire }) }).then((r) => r.json());
+      const ch = await fetch(`${serveur.base}/api/auth/change-password`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${l.token}` }, body: JSON.stringify({ motDePasse: "Nouveau-Mdp-Admin-77" }) }).then((r) => r.json());
+      const nouvelle = api(serveur.base, ch.token);
+      const recus = (await lire(nouvelle)).filter((x) => x.auteurId !== "me");
+      expect(recus.length).toBeGreaterThan(0);
+      expect(recus.every((x) => x.statut === "lu")).toBe(true);
+    });
+  });
+
   describe("migration (dernier test : redémarre le serveur)", () => {
     it("migration : les anciennes notifications « admin » reviennent au principal au démarrage", async () => {
       await sql.query("insert into notifications(user_key,type,titre) values('admin','societe','Ancienne notification')");

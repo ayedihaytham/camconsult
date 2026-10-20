@@ -96,6 +96,8 @@ administrateursRouter.post("/", async (req, res) => {
      values ($1,$2,$3,$4,true,$5) returning *`,
     [v.identifiant, await hashPassword(provisoire), v.nom, v.fonction, req.session.nom],
   );
+  // Un nouvel administrateur ne démarre pas avec tout l'historique de la messagerie « non lu ».
+  await query("insert into messages_lus_admin (message_id, admin_id) select id, $1 from messages where auteur_id <> 'me' on conflict do nothing", [rows[0].id]);
   logAction(req.session.nom, "creation", "compte", `Administrateur créé : ${v.nom} (${v.identifiant})`);
   // Le mot de passe provisoire n'est jamais relu : il n'est montré qu'ici ; la personne le remplace à sa première connexion.
   res.status(201).json({ ...dto(rows[0]), motDePasseProvisoire: provisoire });

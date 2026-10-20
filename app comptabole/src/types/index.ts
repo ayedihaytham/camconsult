@@ -166,6 +166,8 @@ export interface CollecteNote {
   kind: CollecteNoteKind;
   parentId: string | null;
   auteur: "admin" | "client";
+  /** Nom de la personne qui a écrit la note (absent pour une note ancienne). */
+  auteurNom?: string;
   ref: string;
   /** kind=manque : index de ligne visée (null = tableau entier) */
   cibleOrdre: number | null;
@@ -1009,6 +1011,9 @@ export interface Message {
   contenu: string;
   envoyeLe: string;
   statut: MessageStatut;
+  /** Message du cabinet : l'administrateur qui l'a écrit. */
+  adminId?: string;
+  auteurNom?: string;
   pieceJointe?: {
     libelle: string;
     /** Nouveau format — fichier joint directement au message (PC ou téléphone).

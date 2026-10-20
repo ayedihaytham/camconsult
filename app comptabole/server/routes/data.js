@@ -12,12 +12,12 @@ import {
   NOEUD_COLONNES_LEGERES,
   messageDto,
   messageDtoLeger,
-  MESSAGE_COLONNES_LEGERES,
   conversationDto,
   tacheDto,
   notificationDto,
 } from "../mappers.js";
 import { notifKey } from "../notifications.js";
+import { lireMessages } from "../messagesLecture.js";
 import { hashPassword } from "../passwords.js";
 import { tachesVisibles } from "./taches.js";
 import { taskPlanningError } from "../../shared/taskPlanning.js";
@@ -56,7 +56,7 @@ dataRouter.get("/bootstrap", async (req, res) => {
   let taches;
   if (s.role === "admin") {
     employes = (await query("select * from employes order by nom, prenom")).rows.map(employeDto);
-    messages = (await query(`select ${MESSAGE_COLONNES_LEGERES} from messages order by envoye_le`)).rows.map(messageDtoLeger);
+    messages = (await lireMessages({ adminId: s.adminId })).map(messageDtoLeger);
     taches = (await query("select * from taches order by cree_le desc")).rows.map(tacheDto);
   } else {
     // Collaborateur : sa fiche + les employés des sociétés de son périmètre (pour la messagerie).
@@ -101,12 +101,7 @@ dataRouter.get("/bootstrap", async (req, res) => {
       ...perimetre.map((e) => `conv-${e.id}`),
       ...groupIds,
     ];
-    messages = (
-      await query(
-        `select ${MESSAGE_COLONNES_LEGERES} from messages where conversation_id = any($1) order by envoye_le`,
-        [convIds],
-      )
-    ).rows.map(messageDtoLeger);
+    messages = (await lireMessages({ conversationIds: convIds })).map(messageDtoLeger);
     taches = (await tachesVisibles(s)).map(tacheDto);
   }
 

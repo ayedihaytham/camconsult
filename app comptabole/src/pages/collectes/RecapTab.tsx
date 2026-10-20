@@ -256,7 +256,7 @@ export function RecapTab({ collecte, canManageRecap, isClient = false, onNavigat
           {notesLibres.length === 0 && <p className="py-1 text-xs text-muted-foreground">Aucune note.</p>}
           {notesLibres.map((note) => (
             <div key={note.id} className="space-y-1.5 border-b border-border pb-3 last:border-b-0">
-              <p className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="font-semibold text-primary">{note.auteur === "admin" ? "Cabinet" : "Client"}</span><span>{formatRelative(note.creeLe)}</span></p>
+              <p className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="font-semibold text-primary">{note.auteurNom ? `${note.auteurNom} (${note.auteur === "admin" ? "Cabinet" : "Client"})` : note.auteur === "admin" ? "Cabinet" : "Client"}</span><span>{formatRelative(note.creeLe)}</span></p>
               <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">{note.texte}</p>
             </div>
           ))}

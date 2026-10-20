@@ -6,7 +6,9 @@ import { can } from "../permissions.js";
 import { logAction } from "../journal.js";
 import { notify, notifyMany } from "../notifications.js";
 import { pushToUser } from "../sse.js";
-import { messageDtoLeger, MESSAGE_COLONNES_LEGERES } from "../mappers.js";
+import { messageDtoLeger } from "../mappers.js";
+import { lireMessages } from "../messagesLecture.js";
+import { notifKey } from "../notifications.js";
 
 export const messagesRouter = Router();
 messagesRouter.use(requireAuth);
@@ -120,15 +122,10 @@ async function visibleConversationIds(req) {
 // pièces jointes, récupéré à la demande (GET /:id/piece-jointe).
 messagesRouter.get("/", requireMessagerie, async (req, res) => {
   if (req.session.role === "admin") {
-    const { rows } = await query(`select ${MESSAGE_COLONNES_LEGERES} from messages order by envoye_le`);
-    return res.json(rows.map(messageDtoLeger));
+    return res.json((await lireMessages({ adminId: req.session.adminId })).map(messageDtoLeger));
   }
   const convIds = await visibleConversationIds(req);
-  const { rows } = await query(
-    `select ${MESSAGE_COLONNES_LEGERES} from messages where conversation_id = any($1::text[]) order by envoye_le`,
-    [convIds],
-  );
-  res.json(rows.map(messageDtoLeger));
+  res.json((await lireMessages({ conversationIds: convIds })).map(messageDtoLeger));
 });
 
 /** Contenu de la pièce jointe d'un message — mêmes droits que la conversation. */
@@ -150,8 +147,8 @@ messagesRouter.post("/", requireMessagerie, async (req, res) => {
   if (!(await ownConversation(req, v.conversationId)))
     return res.status(403).json({ error: "Conversation hors périmètre" });
   const { rows } = await query(
-    `insert into messages (conversation_id, auteur_id, contenu, envoye_le, statut, piece_jointe)
-     values ($1,$2,$3, coalesce($4::timestamptz, now()), $5, $6::jsonb) returning *`,
+    `insert into messages (conversation_id, auteur_id, contenu, envoye_le, statut, piece_jointe, admin_id)
+     values ($1,$2,$3, coalesce($4::timestamptz, now()), $5, $6::jsonb, $7) returning *`,
     [
       v.conversationId,
       v.auteurId,
@@ -159,6 +156,8 @@ messagesRouter.post("/", requireMessagerie, async (req, res) => {
       v.envoyeLe ?? null,
       v.statut,
       v.pieceJointe ? JSON.stringify(v.pieceJointe) : null,
+      // Un message du cabinet porte l'administrateur qui l'écrit ; l'état « lu » du message envoyé est celui de l'employé.
+      req.session.role === "admin" && v.auteurId === "me" ? req.session.adminId : null,
     ],
   );
   logAction(
@@ -204,7 +203,7 @@ messagesRouter.post("/", requireMessagerie, async (req, res) => {
         notify("admin", "message", `${g.titre} · ${s.nom}`, apercu, "/messagerie");
     }
   }
-  res.status(201).json(messageDtoLeger(rows[0]));
+  res.status(201).json(messageDtoLeger({ ...rows[0], auteur_nom: rows[0].admin_id ? req.session.nom : null }));
 });
 
 messagesRouter.post("/mark-read", requireMessagerie, async (req, res) => {
@@ -212,15 +211,26 @@ messagesRouter.post("/mark-read", requireMessagerie, async (req, res) => {
   if (!conversationId) return res.status(400).json({ error: "conversationId requis" });
   if (!(await ownConversation(req, conversationId)))
     return res.status(403).json({ error: "Conversation hors périmètre" });
+  const admin = req.session.role === "admin";
+  // Administrateur : la lecture est enregistrée à son nom (les autres administrateurs gardent la conversation non lue).
+  if (admin)
+    await query(
+      `insert into messages_lus_admin (message_id, admin_id)
+       select id, $2 from messages where conversation_id = $1 and auteur_id <> 'me' on conflict do nothing`,
+      [conversationId, req.session.adminId],
+    );
+  // Coches de l'expéditeur : « lu » dès qu'une personne du cabinet a ouvert la conversation.
   const { rows } = await query(
     `update messages set statut = 'lu'
       where conversation_id = $1 and auteur_id <> $2 and statut <> 'lu'
       returning auteur_id`,
-    [conversationId, viewerAuthorId || "me"],
+    [conversationId, admin ? "me" : viewerAuthorId || "me"],
   );
   // Signal temps réel à l'expéditeur : ses coches passent à "lu" sans qu'il
   // ait besoin de recharger la page.
   const authors = new Set(rows.map((r) => (r.auteur_id === "me" ? "admin" : r.auteur_id)));
   for (const key of authors) pushToUser(key, "message");
+  // Les autres onglets de cet administrateur mettent à jour leurs compteurs.
+  if (admin) pushToUser(notifKey(req.session), "message");
   res.json({ ok: true });
 });

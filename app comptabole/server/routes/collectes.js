@@ -19,6 +19,7 @@ import {
 } from "../mappers.js";
 import { sendRelance } from "../relances.js";
 import { pushToUser } from "../sse.js";
+import { acteurSession, nomsActeurs } from "../acteurs.js";
 
 export const collectesRouter = Router();
 collectesRouter.use(requireAuth);
@@ -104,11 +105,13 @@ async function loadCollecte(id) {
     ),
     query("select * from collecte_demandes_pieces where collecte_id = $1 order by cree_le", [id]),
   ]);
+  // Noms des auteurs des notes (cabinet ou client) ; une note ancienne sans auteur enregistré reste « Cabinet » / « Client ».
+  const noms = await nomsActeurs(notes.rows.map((n) => n.auteur_ref));
   return {
     ...collecteDto(c),
     sections: sections.rows.map(collecteSectionDto),
     lignes: lignes.rows.map(collecteLigneDto),
-    notes: notes.rows.map(collecteNoteDto),
+    notes: notes.rows.map((n) => collecteNoteDto({ ...n, auteur_nom: noms.get(String(n.auteur_ref)) })),
     fichiers: fichiers.rows.map(collecteFichierDto),
     demandesPieces: demandesPieces.rows.map(collecteDemandePieceDto),
   };
@@ -751,9 +754,9 @@ collectesRouter.post("/:id/notes", async (req, res) => {
   const texte = String(req.body?.texte ?? "").trim().slice(0, 2000);
   if (!texte) return res.status(400).json({ error: "Note vide" });
   await query(
-    `insert into collecte_notes (collecte_id, onglet, kind, auteur, texte)
-     values ($1,$2,'note',$3,$4)`,
-    [req.params.id, onglet, noteAuteur(req.session), texte],
+    `insert into collecte_notes (collecte_id, onglet, kind, auteur, texte, auteur_ref)
+     values ($1,$2,'note',$3,$4,$5)`,
+    [req.params.id, onglet, noteAuteur(req.session), texte, acteurSession(req.session)],
   );
   logAction(
     req.session.nom,
@@ -913,8 +916,8 @@ async function changerSection(req, res, ctx, { depuis, vers, motif = "", journal
     );
     if (vers === "a_corriger") {
       await client.query(
-        `insert into collecte_notes (collecte_id, onglet, kind, auteur, texte) values ($1,$2,'note','admin',$3)`,
-        [c.id, onglet, `Renvoyé pour correction : ${motif}`],
+        `insert into collecte_notes (collecte_id, onglet, kind, auteur, texte, auteur_ref) values ($1,$2,'note','admin',$3,$4)`,
+        [c.id, onglet, `Renvoyé pour correction : ${motif}`, acteurSession(req.session)],
       );
     }
     await recalculerStatut(client, c.id);

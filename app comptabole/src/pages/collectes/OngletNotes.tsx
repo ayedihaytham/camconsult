@@ -34,7 +34,7 @@ export function OngletNotes({ collecteId, onglet, notes, canWrite }: Props) {
           <div key={n.id} className="border-b border-border/70 px-2 py-1.5 last:border-b-0">
             <p className="text-sm text-foreground">{n.texte}</p>
             <p className="text-[11px] text-muted-foreground">
-              {n.auteur === "admin" ? "Cabinet" : "Client"} ·{" "}
+              {n.auteurNom ? `${n.auteurNom} (${n.auteur === "admin" ? "Cabinet" : "Client"})` : n.auteur === "admin" ? "Cabinet" : "Client"} ·{" "}
               {formatRelative(n.creeLe)}
             </p>
           </div>

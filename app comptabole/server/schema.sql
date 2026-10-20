@@ -1388,3 +1388,15 @@ create table if not exists administrateurs (
 );
 create unique index if not exists administrateurs_identifiant_uq on administrateurs (lower(identifiant));
 create unique index if not exists administrateurs_principal_uq on administrateurs (principal) where principal;
+
+-- Messagerie : l'administrateur qui a écrit un message du cabinet, et l'état « lu » des messages reçus par le cabinet, propre à chaque administrateur.
+alter table messages add column if not exists admin_id uuid references administrateurs(id) on delete set null;
+create table if not exists messages_lus_admin (
+  message_id uuid not null references messages(id) on delete cascade,
+  admin_id   uuid not null references administrateurs(id) on delete cascade,
+  lu_le      timestamptz not null default now(),
+  primary key (message_id, admin_id)
+);
+create index if not exists messages_lus_admin_admin on messages_lus_admin (admin_id);
+-- Notes de collecte : la personne qui a écrit (identifiant d'employé ou « admin:<id> »), pour afficher son nom.
+alter table collecte_notes add column if not exists auteur_ref text;

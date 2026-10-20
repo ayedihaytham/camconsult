@@ -59,6 +59,16 @@ export async function ensureSchema() {
       console.log("[db] administrateur principal migré vers la table administrateurs");
     }
   }
+  // Messagerie : les messages du cabinet écrits avant les comptes multiples sont ceux du principal ; ce qu'un administrateur avait déjà lu
+  // (une seule fois, tant qu'aucune lecture par administrateur n'est enregistrée) reste lu pour le principal.
+  await query("update messages set admin_id = (select id from administrateurs where principal) where auteur_id = 'me' and admin_id is null");
+  await query(
+    `insert into messages_lus_admin (message_id, admin_id)
+     select m.id, (select id from administrateurs where principal) from messages m
+      where m.auteur_id <> 'me' and m.statut = 'lu' and exists (select 1 from administrateurs where principal)
+        and not exists (select 1 from messages_lus_admin)
+     on conflict do nothing`,
+  );
   // Boîte de notifications : chaque administrateur a la sienne (« admin:<id> »). Les notifications écrites quand il n'y avait qu'un administrateur
   // (clé « admin ») reviennent au principal, qui était alors le seul destinataire.
   await query(

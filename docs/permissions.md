@@ -64,9 +64,12 @@
   pour chaque administrateur actif, et l'auteur d'une action s'exclut par sa propre clé ; les anciennes notifications « admin » sont reprises par le
   principal au démarrage. Un employé voit « admin » en ligne dès qu'un administrateur l'est. Les **traces d'audit métier d'apurement** (historique,
   approbation, vérification, accusés…) écrivent `admin:<id>` (`server/acteurs.js`) et l'historique affiche le nom ; l'ancienne valeur « admin » se lit
-  comme le principal et n'est jamais réécrite (l'approbation d'une déclaration est couverte par son empreinte). Les notes de collecte gardent
-  `auteur = 'admin'` : c'est le côté « Cabinet » (administrateurs et collaborateurs), pas une personne. La conversation de messagerie avec un employé est
-  un fil unique du cabinet (messages `me`, coches « lu » communes). Le journal d'activité nomme la personne. Script serveur : `reset-2fa-admin.js [--identifiant=…]` (principal par défaut).
+  comme le principal et n'est jamais réécrite (l'approbation d'une déclaration est couverte par son empreinte). Les **notes de collecte** gardent `auteur = 'admin' | 'client'` (le côté « Cabinet » : administrateurs et
+  collaborateurs) et enregistrent en plus `auteur_ref` : l'écran affiche « Karim Trabelsi (Cabinet) » ; une note ancienne reste « Cabinet ». La
+  **messagerie** garde un fil unique du cabinet avec chaque employé, mais un message du cabinet porte l'administrateur qui l'a écrit (`messages.admin_id`,
+  affiché ; les anciens reviennent au principal) et l'état « lu » des messages REÇUS est propre à chaque administrateur (`messages_lus_admin`,
+  `server/messagesLecture.js`) : l'employé voit « lu » dès qu'un administrateur a ouvert la conversation ; un nouvel administrateur démarre avec
+  l'historique lu. Le journal d'activité nomme la personne. Script serveur : `reset-2fa-admin.js [--identifiant=…]` (principal par défaut).
 - **Jeton** (JWT HS256, 12 h) : l'algorithme est imposé à la vérification (`server/auth.js`). Il porte `role`, `employeId` et `v`, la **version
   des sessions** du compte (`employes.session_version`, `app_meta.session_version`). Un jeton sans `v` vaut 0 (comptes jamais modifiés).
 - **Révocation** : un changement de mot de passe (activation ou réinitialisation par lien, `POST /auth/change-password`,

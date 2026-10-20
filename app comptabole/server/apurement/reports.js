@@ -1,3 +1,4 @@
+import { nomsActeurs } from "../acteurs.js";
 import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
@@ -61,7 +62,7 @@ export async function exportExcel(s) {
     "Empreinte / politique",
     s.politique?.reference || "Calcul provisoire",
   ]);
-  review.addRow(["Approbateur", s.approvedBy || "Brouillon"]);
+  review.addRow(["Approbateur", s.approvedBy ? (await nomsActeurs([s.approvedBy])).get(String(s.approvedBy)) || String(s.approvedBy) : "Brouillon"]);
   review.addRow(["Justification écart", s.motifEcart || ""]);
   for (const c of s.controls)
     review.addRow([c.factureId, c.code, c.message, c.ack?.motif || ""]);

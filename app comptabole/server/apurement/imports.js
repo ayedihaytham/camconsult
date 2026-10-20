@@ -8,6 +8,7 @@ import { syncToStock } from "./stockLinkService.js";
 import { hash, audit } from "./audit.js";
 import { parseBcd } from "./bcd.js";
 import { calculateVat } from "./amounts.js";
+import { acteurSession } from "../acteurs.js";
 const cleanMf = (value) =>
   String(value || "")
     .replace(/\s+/g, "")
@@ -297,7 +298,7 @@ export function registerImports(router) {
           data.profile,
           bytes,
           JSON.stringify(preview),
-          req.session.employeId || "admin",
+          acteurSession(req.session),
         ],
       )
     ).rows[0];
@@ -647,7 +648,7 @@ export function registerImports(router) {
             JSON.stringify({
               motifEcartPied: v.motifEcartPied,
               sourceWarnings: batch.preview.warnings,
-              acteur: req.session.employeId || "admin",
+              acteur: acteurSession(req.session),
             }),
           ],
         );

@@ -1,5 +1,6 @@
 import { withTransaction } from "../db.js";
 import { pushToUser } from "../sse.js";
+import { clesAdmins } from "../notifications.js";
 
 export async function internalRecipients(c, societeId) {
   const rows = (
@@ -10,7 +11,7 @@ export async function internalRecipients(c, societeId) {
       [JSON.stringify([societeId]), societeId],
     )
   ).rows;
-  return ["admin", ...rows.map((r) => r.id)];
+  return [...(await clesAdmins((sql, params) => c.query(sql, params))), ...rows.map((r) => r.id)];
 }
 export async function notifyInternal(
   c,

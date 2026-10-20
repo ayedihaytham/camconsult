@@ -59,4 +59,10 @@ export async function ensureSchema() {
       console.log("[db] administrateur principal migré vers la table administrateurs");
     }
   }
+  // Boîte de notifications : chaque administrateur a la sienne (« admin:<id> »). Les notifications écrites quand il n'y avait qu'un administrateur
+  // (clé « admin ») reviennent au principal, qui était alors le seul destinataire.
+  await query(
+    `update notifications set user_key = 'admin:' || (select id::text from administrateurs where principal)
+      where user_key = 'admin' and exists (select 1 from administrateurs where principal)`,
+  );
 }

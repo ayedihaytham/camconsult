@@ -17,7 +17,7 @@ export function removeClient(userKey, res) {
   if (set.size === 0) clients.delete(userKey);
 }
 
-/** Clés des destinataires qui ont au moins un onglet ouvert (« admin » ou id d'un employé). */
+/** Clés des destinataires qui ont au moins un onglet ouvert (« admin:<id> » ou id d'un employé). */
 export function clesEnLigne() {
   return [...clients.keys()];
 }
@@ -25,6 +25,11 @@ export function clesEnLigne() {
 /** Pousse un signal (jamais le contenu métier — le client refait l'appel
  * REST habituel) à toutes les connexions ouvertes de ce destinataire. */
 export function pushToUser(userKey, type, payload = {}) {
+  // « admin » vise le cabinet : tous les administrateurs connectés.
+  if (userKey === "admin") {
+    for (const cle of [...clients.keys()]) if (cle.startsWith("admin:")) pushToUser(cle, type, payload);
+    return;
+  }
   const set = clients.get(userKey);
   if (!set || set.size === 0) return;
   const line = `data: ${JSON.stringify({ type, ...payload })}\n\n`;

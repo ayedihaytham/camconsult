@@ -1,9 +1,15 @@
 import { query } from "./db.js";
 import { pushToUser } from "./sse.js";
 
-/** Clé destinataire d'après la session. */
+/** Clé destinataire d'après la session : « admin:<id> » pour un administrateur (chacun a sa propre boîte et son état lu), l'identifiant pour un employé. */
 export function notifKey(session) {
-  return session.role === "admin" ? "admin" : session.employeId;
+  return session.role === "admin" ? `admin:${session.adminId}` : session.employeId;
+}
+
+/** Clés de tous les administrateurs actifs (une notification « au cabinet » est copiée pour chacun). */
+export async function clesAdmins(executer = query) {
+  const { rows } = await executer("select id from administrateurs where statut = 'actif'");
+  return rows.map((r) => `admin:${r.id}`);
 }
 
 /**
@@ -11,10 +17,16 @@ export function notifKey(session) {
  * Pousse aussi un signal temps réel une fois la ligne insérée (jamais avant
  * — sinon le client pourrait refaire son fetch avant que la notif soit
  * visible en base) au(x) client(s) de ce destinataire déjà connectés.
- * @param {string} userKey  'admin' | uuid employé
+ * @param {string} userKey  'admin' (tous les administrateurs actifs, chacun reçoit la sienne) | 'admin:<id>' | uuid employé
  */
 export function notify(userKey, type, titre, corps = "", lien = "/") {
   if (!userKey) return;
+  if (userKey === "admin") {
+    clesAdmins()
+      .then((cles) => notifyMany(cles, type, titre, corps, lien))
+      .catch((err) => console.error("[notif] administrateurs introuvables", err.message));
+    return;
+  }
   query(
     `insert into notifications (user_key, type, titre, corps, lien)
      values ($1,$2,$3,$4,$5)`,
@@ -49,7 +61,7 @@ export function notifyMany(userKeys, type, titre, corps = "", lien = "/") {
  * `includeAdmin` ajoute 'admin'.
  */
 export async function concernedBySociete(societeId, { includeAdmin = false } = {}) {
-  if (!societeId) return includeAdmin ? ["admin"] : [];
+  if (!societeId) return includeAdmin ? await clesAdmins() : [];
   const [collabs, taskCollabs, clients] = await Promise.all([
     query(
       `select id from employes
@@ -69,7 +81,7 @@ export async function concernedBySociete(societeId, { includeAdmin = false } = {
     ),
   ]);
   return [
-    ...(includeAdmin ? ["admin"] : []),
+    ...(includeAdmin ? await clesAdmins() : []),
     ...collabs.rows.map((r) => r.id),
     ...taskCollabs.rows.map((r) => r.id),
     ...clients.rows.map((r) => r.id),

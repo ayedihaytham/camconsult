@@ -36,6 +36,7 @@ import { registerReminders } from "../apurement/reminders.js";
 import { registerImports } from "../apurement/imports.js";
 import { registerDeclarations } from "../apurement/declarations.js";
 import { enterPurchase } from "../apurement/intake.js";
+import { acteurSession } from "../acteurs.js";
 
 export const apurementRouter = safeRouter(Router());
 apurementRouter.use(requireAuth, requireCabinet);
@@ -109,8 +110,8 @@ apurementRouter.get("/audit", async (req, res) => {
   res.json(
     (
       await query(
-        `select a.id,a.acteur,a.action,a.avant,a.apres,a.created_at,case when a.acteur='admin' then 'Administrateur' else concat(e.prenom,' ',e.nom) end as nom_acteur
-    from apurement_audit a left join employes e on e.id::text=a.acteur where a.societe_id=$1 and a.entity_id=$2 order by a.created_at desc,a.id limit 25 offset $3`,
+        `select a.id,a.acteur,a.action,a.avant,a.apres,a.created_at,coalesce(adm.nom, case when a.acteur='admin' then coalesce((select nom from administrateurs where principal),'Administrateur') end, nullif(concat(e.prenom,' ',e.nom),' ')) as nom_acteur
+    from apurement_audit a left join employes e on e.id::text=a.acteur left join administrateurs adm on 'admin:'||adm.id::text=a.acteur where a.societe_id=$1 and a.entity_id=$2 order by a.created_at desc,a.id limit 25 offset $3`,
         [v.societeId, v.entityId, (v.page - 1) * 25],
       )
     ).rows.map(dto),
@@ -209,7 +210,7 @@ apurementRouter.put("/societes/:societeId/profil", async (req, res) => {
           [
             req.params.societeId,
             JSON.stringify(v.donnees),
-            v.verifier ? req.session.employeId || "admin" : null,
+            v.verifier ? acteurSession(req.session) : null,
           ],
         )
       ).rows[0];
@@ -310,7 +311,7 @@ apurementRouter.post("/controles/:id/ack", async (req, res) => {
           v.code,
           v.fingerprint,
           v.motif,
-          req.session.employeId || "admin",
+          acteurSession(req.session),
         ],
       );
       await audit(

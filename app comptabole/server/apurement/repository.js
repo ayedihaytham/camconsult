@@ -16,6 +16,7 @@ import {
   invoiceSchema,
   invoiceValues,
 } from "./domain.js";
+import { acteurSession } from "../acteurs.js";
 
 export const entities = {
   autorisations: {
@@ -186,7 +187,7 @@ export async function saveEntity(
   } else {
     if (kind === "factures") {
       columns.push("created_by");
-      values.push(session.employeId || "admin");
+      values.push(acteurSession(session));
     }
     row = (
       await client.query(

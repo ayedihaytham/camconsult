@@ -15,7 +15,8 @@ eventsRouter.use(requireAuth);
 /** Qui est en ligne : l'admin voit tous les employés connectés ; un employé ne voit que la présence du cabinet (« admin »). */
 eventsRouter.get("/presence", (req, res) => {
   const cles = clesEnLigne();
-  res.json({ ids: req.session.role === "admin" ? cles.filter((cle) => cle !== "admin") : cles.filter((cle) => cle === "admin") });
+  const adminEnLigne = cles.some((cle) => cle.startsWith("admin:"));
+  res.json({ ids: req.session.role === "admin" ? cles.filter((cle) => !cle.startsWith("admin:")) : adminEnLigne ? ["admin"] : [] });
 });
 
 eventsRouter.get("/", (req, res) => {

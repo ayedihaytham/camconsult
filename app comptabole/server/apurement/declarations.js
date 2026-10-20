@@ -17,6 +17,7 @@ import { audit, hash } from "./audit.js";
 import { notifyInternal } from "./notifications.js";
 import { exportExcel, exportPdf } from "./reports.js";
 import { exportBcdTest, officialBcd } from "./bcd.js";
+import { acteurSession } from "../acteurs.js";
 
 async function newDraft(c, session, societeId, period, parentId = null) {
   await company(c, session, societeId, true);
@@ -98,7 +99,7 @@ async function snapshot(c, session, declaration) {
     pieces,
     missing,
     generatedAt: new Date().toISOString(),
-    generatedBy: session.employeId || "admin",
+    generatedBy: acteurSession(session),
     provisoire: !policy,
   };
 }
@@ -175,7 +176,7 @@ export function registerDeclarations(router) {
               v.mode,
               v.reference,
               v.preuveId,
-              req.session.employeId || "admin",
+              acteurSession(req.session),
             ],
           )
         ).rows[0];
@@ -345,7 +346,7 @@ export function registerDeclarations(router) {
               "Justifier l’écart entre somme détaillée et calcul global.",
             );
           s.motifEcart = v.motifEcart;
-          s.approvedBy = req.session.employeId || "admin";
+          s.approvedBy = acteurSession(req.session);
           s.approvedAt = new Date().toISOString();
           s.provisoire = false;
           const content = JSON.stringify(s),
@@ -509,7 +510,7 @@ export function registerDeclarations(router) {
                 v.dateDepot,
                 v.reference,
                 v.preuveId,
-                req.session.employeId || "admin",
+                acteurSession(req.session),
               ],
             )
           ).rows[0];

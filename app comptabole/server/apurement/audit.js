@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { acteurSession } from "../acteurs.js";
 export function stableJson(value) {
   if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value)) return value.map(stableJson);
@@ -33,7 +34,7 @@ export async function audit(
     values ($1,$2,$3,$4,$5,$6)`,
     [
       societeId,
-      session.employeId || "admin",
+      acteurSession(session),
       action,
       entityId,
       before ? JSON.stringify(before) : null,

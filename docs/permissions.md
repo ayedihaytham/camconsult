@@ -59,9 +59,14 @@
   mot de passe provisoire montré une seule fois, choix du vrai mot de passe à la première connexion), les modifier, désactiver (accès coupé aussitôt),
   réinitialiser, retirer leur double authentification, voir/fermer leurs appareils. Le principal n'est modifiable que par lui-même : il y a donc toujours
   au moins un administrateur actif. Chacun a son mot de passe, sa 2FA, sa version des sessions et ses sessions (compte `admin:<id>`) ; le jeton porte
-  `adminId` (sans lui, c'est le principal). Un identifiant ne peut servir qu'à un seul compte, employé ou administrateur. La boîte « admin »
-  (notifications, messages au cabinet) est partagée par tous les administrateurs ; les traces d'audit métier gardent `"admin"` comme acteur, le
-  journal d'activité nomme la personne. Script serveur : `reset-2fa-admin.js [--identifiant=…]` (principal par défaut).
+  `adminId` (sans lui, c'est le principal). Un identifiant ne peut servir qu'à un seul compte, employé ou administrateur. Chaque administrateur a **sa propre boîte de notifications**
+  (clé `admin:<id>`, état « lu » propre) : une notification « au cabinet » (`notify("admin", …)`, `concernedBySociete(…, { includeAdmin })`) est copiée
+  pour chaque administrateur actif, et l'auteur d'une action s'exclut par sa propre clé ; les anciennes notifications « admin » sont reprises par le
+  principal au démarrage. Un employé voit « admin » en ligne dès qu'un administrateur l'est. Les **traces d'audit métier d'apurement** (historique,
+  approbation, vérification, accusés…) écrivent `admin:<id>` (`server/acteurs.js`) et l'historique affiche le nom ; l'ancienne valeur « admin » se lit
+  comme le principal et n'est jamais réécrite (l'approbation d'une déclaration est couverte par son empreinte). Les notes de collecte gardent
+  `auteur = 'admin'` : c'est le côté « Cabinet » (administrateurs et collaborateurs), pas une personne. La conversation de messagerie avec un employé est
+  un fil unique du cabinet (messages `me`, coches « lu » communes). Le journal d'activité nomme la personne. Script serveur : `reset-2fa-admin.js [--identifiant=…]` (principal par défaut).
 - **Jeton** (JWT HS256, 12 h) : l'algorithme est imposé à la vérification (`server/auth.js`). Il porte `role`, `employeId` et `v`, la **version
   des sessions** du compte (`employes.session_version`, `app_meta.session_version`). Un jeton sans `v` vaut 0 (comptes jamais modifiés).
 - **Révocation** : un changement de mot de passe (activation ou réinitialisation par lien, `POST /auth/change-password`,

@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { Topbar } from "./Topbar";
+import { CommandPalette } from "./CommandPalette";
 import { AppSidebar } from "./sidebar/AppSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useUi } from "@/store/ui";
@@ -24,6 +25,7 @@ export function AppLayout() {
         className="h-full min-h-0"
       >
         <AppSidebar />
+        <CommandPalette />
         <SidebarInset className="min-h-0 min-w-0">
           <Topbar />
           <div className="flex flex-1 flex-col overflow-y-auto bg-muted print-full">

@@ -8,6 +8,10 @@ interface UiState {
   setCollapsed: (v: boolean) => void;
   toggleCollapsed: () => void;
 
+  /** « Aller à… » (Ctrl K) ouvert : jamais persisté. */
+  paletteOpen: boolean;
+  setPaletteOpen: (v: boolean) => void;
+
   /** Compteur global de messages non lus (badge sidenav) */
   unreadMessages: number;
   setUnreadMessages: (n: number) => void;
@@ -19,6 +23,9 @@ export const useUi = create<UiState>()(
       collapsed: false,
       setCollapsed: (v) => set({ collapsed: v }),
       toggleCollapsed: () => set({ collapsed: !get().collapsed }),
+
+      paletteOpen: false,
+      setPaletteOpen: (v) => set({ paletteOpen: v }),
 
       unreadMessages: 0,
       setUnreadMessages: (n) => set({ unreadMessages: n }),

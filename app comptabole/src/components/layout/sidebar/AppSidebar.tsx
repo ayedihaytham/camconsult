@@ -1,6 +1,6 @@
 import { type ComponentProps, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Search } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useConversations, useData, useNotifications } from "@/store/data";
 import {
@@ -14,13 +14,10 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useSocieteActive } from "@/hooks/useSocieteActive";
-import { ciblerNavigation } from "@/lib/societeContext";
+import { useUi } from "@/store/ui";
+import { useNavigationGroups } from "./useNavigationGroups";
 import { SidebarNavigation } from "./SidebarNavigation";
-import {
-  unreadMessageCount,
-  visibleNavigation,
-} from "./navigation";
+import { unreadMessageCount } from "./navigation";
 
 /** Pied du menu : réduit / développe le menu (même action que le bouton de la
  * barre du haut et le raccourci clavier). Masqué sur mobile, où le menu est un
@@ -50,16 +47,39 @@ function SidebarCollapseButton() {
   );
 }
 
+/** « Aller à… » (Ctrl K) : sous le logo ; une simple loupe quand le menu est réduit. */
+function SidebarAllerA() {
+  const { state, isMobile, setOpenMobile } = useSidebar();
+  const reduit = state === "collapsed" && !isMobile;
+  return (
+    <div className="shrink-0 px-2 pb-1 pt-2">
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            tooltip="Aller à… (Ctrl K)"
+            aria-label="Aller à une page ou une société"
+            onClick={() => {
+              if (isMobile) setOpenMobile(false);
+              useUi.getState().setPaletteOpen(true);
+            }}
+            className="h-9 gap-2.5 border border-sidebar-border bg-sidebar-accent/60 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <Search />
+            {!reduit && (
+              <>
+                <span>Aller à…</span>
+                <kbd className="ml-auto rounded border border-sidebar-border px-1.5 text-[10.5px] font-semibold text-sidebar-muted">Ctrl K</kbd>
+              </>
+            )}
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </div>
+  );
+}
+
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
-  const {
-    isAdmin,
-    can,
-    employeId,
-    lectureSeule,
-    canManageCollaborateurs,
-    isResponsableSociete,
-    poste,
-  } = usePermissions();
+  const { isAdmin, employeId } = usePermissions();
   const { pathname } = useLocation();
   const markNotificationsRead = useData((s) => s.markNotificationsRead);
   const conversations = useConversations(
@@ -68,18 +88,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const unreadNotifications = useNotifications().filter(
     (notification) => !notification.lu,
   );
-  const societeActive = useSocieteActive();
-  const groups = ciblerNavigation(
-    visibleNavigation({
-      isAdmin,
-      lectureSeule,
-      can,
-      canManageCollaborateurs,
-      isResponsableSociete,
-      espaceCollecteSeul: poste === "societe_employe",
-    }),
-    societeActive?.id ?? null,
-  );
+  const groups = useNavigationGroups();
   const unreadMessages = unreadMessageCount(
     conversations,
     isAdmin,
@@ -109,13 +118,13 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" className="signature-sidebar border-r-0" {...props}>
-      <SidebarHeader className="signature-sidebar__brand-cap h-20 shrink-0 gap-0 p-0">
+      <SidebarHeader className="signature-sidebar__brand-cap h-16 shrink-0 gap-0 p-0">
         <SidebarMenu className="h-full gap-0 p-2">
           <SidebarMenuItem className="h-full">
             <SidebarMenuButton
               size="lg"
               tooltip="Cabinet Ayadi Mohamed"
-              className="h-16 w-full gap-2.5 rounded-md px-3 hover:bg-transparent active:bg-transparent group-data-[collapsible=icon]:!p-0"
+              className="h-12 w-full gap-2.5 rounded-md px-3 hover:bg-transparent active:bg-transparent group-data-[collapsible=icon]:!p-0"
               aria-label="Cabinet Ayadi Mohamed"
             >
               {/* Menu ouvert : logo officiel complet ; menu réduit : symbole seul. */}
@@ -124,7 +133,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
                 alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
                 width={1500}
                 height={382}
-                className="h-10 w-auto max-w-full group-data-[collapsible=icon]:hidden"
+                className="h-9 w-auto max-w-full group-data-[collapsible=icon]:hidden"
               />
               <img
                 src="/brand/logo-mark-cabinet-white.png"
@@ -137,6 +146,8 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
+      <SidebarAllerA />
 
       <SidebarContent className="signature-sidebar__content">
         <SidebarNavigation

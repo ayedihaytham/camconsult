@@ -107,9 +107,13 @@ flags, and every protected backend route must enforce its own authorization.
 SidebarProvider
 ├─ AppSidebar (official shadcn Sidebar composition)
 └─ SidebarInset
-   ├─ Topbar (trigger, breadcrumbs, notifications, user menu)
+   ├─ Topbar (64 px: trigger, history, breadcrumbs, « Aller à… » Ctrl K, société, notifications, user menu)
    └─ Outlet
 ```
+
+`CommandPalette` (« Aller à… », Ctrl K / ⌘ K, state `paletteOpen` in `src/store/ui.ts`) is mounted once in
+`AppLayout`; its pages are the visible menu of the signed-in account (`useNavigationGroups`, shared with the
+Sidebar) and its sociétés are the ones the account can see — choosing one makes it the active société.
 
 Desktop collapse is persisted in `src/store/ui.ts`. Mobile/off-canvas state is
 owned by the Sidebar provider, with the intentional 1024 px breakpoint in

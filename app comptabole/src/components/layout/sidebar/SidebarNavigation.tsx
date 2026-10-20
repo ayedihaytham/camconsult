@@ -33,7 +33,7 @@ import {
   type NavGroup,
 } from "./navigation";
 
-const NAV_ITEM_CLASS = "relative text-sidebar-muted data-[active=true]:text-sidebar-accent-foreground data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']";
+const NAV_ITEM_CLASS = "relative text-sidebar-muted data-[active=true]:text-sidebar-accent-foreground data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:inset-y-1.5 data-[active=true]:before:left-0 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']";
 
 interface SidebarNavigationProps {
   groups: NavGroup[];

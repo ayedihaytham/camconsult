@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, MonitorOff, MonitorSmartphone, Settings } from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, MonitorOff, MonitorSmartphone, Search, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { AppBreadcrumbs } from "./AppBreadcrumbs";
@@ -9,6 +9,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useHistoriqueNavigation } from "@/hooks/useHistoriqueNavigation";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
+import { useUi } from "@/store/ui";
 import { SocieteActiveSelect } from "./SocieteActiveSelect";
 import { MesAppareilsDialog } from "@/components/auth/AppareilsConnectes";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -48,7 +49,7 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card no-print">
-      <div className="flex h-[80px] items-center gap-3 px-4 lg:px-6">
+      <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger
           className="h-10 w-10 shrink-0 lg:h-9 lg:w-9"
           aria-label="Afficher ou réduire le menu"
@@ -59,7 +60,10 @@ export function Topbar() {
         <Separator orientation="vertical" className="h-4" />
         <AppBreadcrumbs />
 
-        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+        <RechercheRapide />
+
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5 lg:ml-0">
+          <RechercheLoupe />
           <SocieteActiveSelect />
           <NotificationBell />
           <DropdownMenu>
@@ -128,6 +132,39 @@ export function Topbar() {
         }}
       />
     </header>
+  );
+}
+
+/** « Aller à… » : champ au centre sur grand écran, simple loupe sur tablette ; sur téléphone, le menu a le même raccourci. */
+function RechercheRapide() {
+  const ouvrir = () => useUi.getState().setPaletteOpen(true);
+  const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform ?? "");
+  return (
+    <>
+      <button
+        type="button"
+        onClick={ouvrir}
+        aria-label="Aller à une page ou une société"
+        className="mx-auto hidden h-10 min-w-0 max-w-xl flex-1 items-center gap-2.5 rounded-lg border border-border bg-background px-3 text-left text-sm text-muted-foreground transition-colors hover:border-input hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"
+      >
+        <Search className="size-4 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate">Aller à une page ou une société…</span>
+        <kbd className="shrink-0 rounded border border-border bg-card px-1.5 text-[11px] font-semibold">{mac ? "⌘ K" : "Ctrl K"}</kbd>
+      </button>
+    </>
+  );
+}
+
+function RechercheLoupe() {
+  return (
+    <button
+      type="button"
+      onClick={() => useUi.getState().setPaletteOpen(true)}
+      aria-label="Aller à une page ou une société"
+      className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex lg:hidden"
+    >
+      <Search className="size-[18px]" aria-hidden="true" />
+    </button>
   );
 }
 

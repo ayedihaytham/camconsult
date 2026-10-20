@@ -4,6 +4,10 @@ import { query, withTransaction } from "../db.js";
 import { chiffrerSecret, dechiffrerSecret, empreinteSecours, genererCodesSecours, genererSecret, ressembleAUnCodeDeSecours, uriOtpauth, verifierCode } from "../totp.js";
 import { cleCompte, revoquerAutres, revoquerSession, sessionsDuCompte } from "../sessions.js";
 import {
+  effacerCookieSession,
+  livrerJeton,
+  modeCookie,
+  poserCookieSession,
   signTicket2fa,
   lireTicket2fa,
   ouvrirJeton,
@@ -74,7 +78,7 @@ authRouter.post("/login", async (req, res) => {
       const token = await ouvrirJeton(req, { role: "admin" });
       const session = await sessionAdmin();
       logAction(session.nom, "connexion", "compte", `${session.nom} (administrateur)`);
-      return res.json({ token, session });
+      return res.json({ ...livrerJeton(req, res, token), session });
     }
   }
 
@@ -92,7 +96,7 @@ authRouter.post("/login", async (req, res) => {
     const token = await ouvrirJeton(req, { role: "employe", employeId: emp.id });
     const session = await sessionEmploye(emp.id);
     logAction(session.nom, "connexion", "compte", `${session.nom} (${emp.type})`);
-    return res.json({ token, session });
+    return res.json({ ...livrerJeton(req, res, token), session });
   }
 
   await loginGuard.echec(adresseClient(req), id);
@@ -144,7 +148,7 @@ authRouter.post("/2fa", async (req, res) => {
   const token = await ouvrirJeton(req, { role: "admin" });
   const session = await sessionAdmin();
   logAction(session.nom, "connexion", "compte", `${session.nom} (administrateur, double authentification)`);
-  res.json({ token, session });
+  res.json({ ...livrerJeton(req, res, token), session });
 });
 
 /** Gestion de la double authentification : réservée à l'administrateur connecté, et chaque action sensible redemande le mot de passe. */
@@ -191,7 +195,7 @@ authRouter.post("/2fa/activer", requireAuth, requireAdmin, async (req, res) => {
     [pas, JSON.stringify(codes.map(empreinteSecours))],
   );
   logAction(req.session.nom, "modification", "compte", "Double authentification activée (administrateur)");
-  res.json({ codesSecours: codes, token: await ouvrirJeton(req, { role: "admin" }, { remplacer: true }) });
+  res.json({ codesSecours: codes, ...livrerJeton(req, res, await ouvrirJeton(req, { role: "admin" }, { remplacer: true })) });
 });
 
 /** Désactivation : mot de passe ET un code (application ou secours). */
@@ -200,7 +204,7 @@ authRouter.post("/2fa/desactiver", requireAuth, requireAdmin, async (req, res) =
   if (!(await deuxiemeFacteurValide(req.body?.code))) return res.status(400).json({ error: "Code incorrect." });
   await query("update app_meta set totp_actif = false, totp_secret = null, totp_attente = null, totp_dernier_pas = null, codes_secours = '[]'::jsonb, session_version = session_version + 1 where id = 1");
   logAction(req.session.nom, "modification", "compte", "Double authentification désactivée (administrateur)");
-  res.json({ ok: true, token: await ouvrirJeton(req, { role: "admin" }, { remplacer: true }) });
+  res.json({ ok: true, ...livrerJeton(req, res, await ouvrirJeton(req, { role: "admin" }, { remplacer: true })) });
 });
 
 /** Nouveaux codes de secours (les anciens sont annulés) : mot de passe ET un code. */
@@ -248,10 +252,12 @@ authRouter.post("/activate", async (req, res) => {
   const nouveau = await ouvrirJeton(req, { role: "employe", employeId }, { remplacer: true });
   const session = await sessionEmploye(employeId);
   logAction(session.nom, "modification", "compte", "Mot de passe défini par lien d'activation");
-  res.json({ token: nouveau, session });
+  res.json({ ...livrerJeton(req, res, nouveau), session });
 });
 
 authRouter.get("/me", requireAuth, (req, res) => {
+  // Migration : un navigateur qui présente encore son ancien jeton (stockage local) en mode cookie reçoit son cookie, sans se reconnecter.
+  if (modeCookie(req) && !req.viaCookie) poserCookieSession(req, res, req.jeton);
   res.json({ session: req.session });
 });
 
@@ -273,7 +279,7 @@ authRouter.post("/change-password", requireAuth, async (req, res) => {
   // Les anciens jetons (autres appareils, session volée) sont désormais refusés : celui-ci les remplace pour cet appareil.
   const token = await ouvrirJeton(req, { role: "employe", employeId: req.session.employeId }, { remplacer: true });
   const session = await sessionEmploye(req.session.employeId);
-  res.json({ session, token });
+  res.json({ session, ...livrerJeton(req, res, token) });
 });
 
 /** « Déconnecter mes autres appareils » : la version des sessions du compte monte, tous les autres jetons sont refusés ; un jeton neuf
@@ -282,15 +288,16 @@ authRouter.post("/deconnecter-autres", requireAuth, async (req, res) => {
   if (req.session.role === "admin") {
     await query("update app_meta set session_version = session_version + 1 where id = 1");
     logAction(req.session.nom, "modification", "compte", "Autres appareils déconnectés (administrateur)");
-    return res.json({ token: await ouvrirJeton(req, { role: "admin" }, { remplacer: true }) });
+    return res.json(livrerJeton(req, res, await ouvrirJeton(req, { role: "admin" }, { remplacer: true })));
   }
   await query("update employes set session_version = session_version + 1 where id = $1", [req.session.employeId]);
   logAction(req.session.nom, "modification", "compte", "Autres appareils déconnectés");
-  res.json({ token: await ouvrirJeton(req, { role: "employe", employeId: req.session.employeId }, { remplacer: true }) });
+  res.json(livrerJeton(req, res, await ouvrirJeton(req, { role: "employe", employeId: req.session.employeId }, { remplacer: true })));
 });
 
 authRouter.post("/logout", requireAuth, async (req, res) => {
   if (req.sid) await revoquerSession(cleCompte(req.session), req.sid);
+  effacerCookieSession(req, res);
   logAction(req.session.nom, "deconnexion", "compte", req.session.nom);
   res.json({ ok: true });
 });
@@ -335,7 +342,7 @@ authRouter.patch("/credentials", requireAuth, requireAdmin, async (req, res) => 
     [nextId, hash, Boolean(motDePasse)],
   );
   logAction(req.session.nom, "modification", "compte", "Identifiants de connexion administrateur");
-  res.json({ ok: true, ...(motDePasse ? { token: await ouvrirJeton(req, { role: "admin" }, { remplacer: true }) } : {}) });
+  res.json({ ok: true, ...(motDePasse ? livrerJeton(req, res, await ouvrirJeton(req, { role: "admin" }, { remplacer: true })) : {}) });
 });
 
 authRouter.patch("/profile", requireAuth, requireAdmin, async (req, res) => {

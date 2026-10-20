@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, getToken, setToken } from "@/lib/api";
+import { ApiError, api, getToken, setToken } from "@/lib/api";
 import { useAuth } from "./auth";
 
 const reponse = (status: number, corps: unknown = {}, entetes: Record<string, string> = {}) =>
@@ -17,12 +17,42 @@ afterEach(() => {
 });
 
 describe("restauration de la session au chargement de la page", () => {
-  it("sans jeton : déconnecté, sans appel au serveur", async () => {
-    const fetchMock = vi.fn();
+  it("sans ancien jeton : la session est cherchée par le cookie HttpOnly (mode cookie, sans Authorization) ; refus : déconnecté", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reponse(401, { error: "Non authentifié" }));
     vi.stubGlobal("fetch", fetchMock);
     await useAuth.getState().restore();
     expect(useAuth.getState().status).toBe("anon");
-    expect(fetchMock).not.toHaveBeenCalled();
+    const entetes = fetchMock.mock.calls[0][1].headers;
+    expect(entetes["X-Session-Mode"]).toBe("cookie");
+    expect(entetes["X-Requested-With"]).toBe("cabinet");
+    expect(entetes.Authorization).toBeUndefined();
+  });
+
+  it("cookie valide : connecté, sans aucun jeton dans le stockage local", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponse(200, { session: SESSION })));
+    await useAuth.getState().restore();
+    expect(useAuth.getState().status).toBe("authed");
+    expect(getToken()).toBeNull();
+  });
+
+  it("migration : l'ancien jeton du stockage local est présenté une dernière fois, puis supprimé (le serveur pose le cookie)", async () => {
+    setToken("ancien-jeton");
+    const fetchMock = vi.fn().mockResolvedValue(reponse(200, { session: SESSION }));
+    vi.stubGlobal("fetch", fetchMock);
+    await useAuth.getState().restore();
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer ancien-jeton");
+    expect(useAuth.getState().status).toBe("authed");
+    expect(getToken()).toBeNull();
+  });
+
+  it("ancien jeton périmé mais cookie valide : l'ancien jeton est écarté et la session reprise par le cookie", async () => {
+    setToken("jeton-perime");
+    const fetchMock = vi.fn().mockResolvedValueOnce(reponse(401, { error: "Jeton expiré ou invalide" })).mockResolvedValueOnce(reponse(200, { session: SESSION }));
+    vi.stubGlobal("fetch", fetchMock);
+    await useAuth.getState().restore();
+    expect(useAuth.getState().status).toBe("authed");
+    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBeUndefined();
+    expect(getToken()).toBeNull();
   });
 
   it("jeton valide : connecté avec sa session", async () => {
@@ -35,7 +65,7 @@ describe("restauration de la session au chargement de la page", () => {
 
   it("jeton refusé (401) : la session est terminée et le jeton effacé", async () => {
     setToken("jeton-expire");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponse(401, { error: "Jeton expiré ou invalide" })));
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => reponse(401, { error: "Jeton expiré ou invalide" })));
     await useAuth.getState().restore();
     expect(useAuth.getState().status).toBe("anon");
     expect(getToken()).toBeNull();
@@ -78,8 +108,8 @@ describe("restauration de la session au chargement de la page", () => {
 describe("jetons : renouvellement et changement de mot de passe", () => {
   it("une réponse qui porte un jeton neuf le remplace (la session active ne s'interrompt pas)", async () => {
     setToken("ancien");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponse(200, { session: SESSION }, { "X-Token-Renouvele": "neuf" })));
-    await useAuth.getState().restore();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reponse(200, { ok: true }, { "X-Token-Renouvele": "neuf" })));
+    await api.get("/societes");
     expect(getToken()).toBe("neuf");
   });
 

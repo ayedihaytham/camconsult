@@ -9,6 +9,23 @@ const TOKEN_KEY = "cabinet-token";
  */
 const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
+/** Mode cookie : l'API est servie par la même origine, donc le jeton de session voyage dans un cookie HttpOnly que le JavaScript ne lit pas
+ * (voir server/auth.js). Avec une API hébergée ailleurs (VITE_API_URL), le cookie SameSite=Strict ne suivrait pas : on reste en « Bearer ». */
+export const MODE_COOKIE = API_BASE === "";
+
+/** En-têtes qui identifient la session d'une requête vers l'API : mode cookie + en-tête anti-CSRF, et l'ancien jeton du stockage local
+ * tant qu'il n'a pas été migré vers le cookie (il disparaît à la première vérification de session réussie). */
+export function enteteSession(): Record<string, string> {
+  const h: Record<string, string> = {};
+  if (MODE_COOKIE) {
+    h["X-Session-Mode"] = "cookie";
+    h["X-Requested-With"] = "cabinet";
+  }
+  const token = getToken();
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -63,9 +80,7 @@ async function request<T>(
   body?: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
-  const headers: Record<string, string> = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers: Record<string, string> = enteteSession();
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
   let res: Response;
@@ -94,7 +109,7 @@ async function request<T>(
   if (minuteur) clearTimeout(minuteur);
   // Session active : le serveur propose un jeton neuf avant que l'ancien n'expire (voir server/auth.js), pour ne pas déconnecter en pleine journée.
   const renouvele = res.headers.get("X-Token-Renouvele");
-  if (renouvele && token) setToken(renouvele);
+  if (renouvele && getToken()) setToken(renouvele);
   if (res.status === 204) return undefined as T;
 
   let payload: unknown = null;
@@ -119,8 +134,8 @@ async function request<T>(
     // Session expirée : purge le jeton
     if (res.status === 401) {
       setToken(null);
-      // Seulement si un jeton avait été envoyé : un mauvais mot de passe à la connexion n'est pas une session expirée.
-      if (token) signalSessionExpired();
+      // Un mauvais mot de passe ou un code erroné à la connexion n'est pas une session expirée ; l'application ignore ce signal hors session ouverte.
+      if (!path.startsWith("/auth/login") && !path.startsWith("/auth/2fa") && !path.startsWith("/auth/activate")) signalSessionExpired();
     }
     throw new ApiError(message, res.status);
   }

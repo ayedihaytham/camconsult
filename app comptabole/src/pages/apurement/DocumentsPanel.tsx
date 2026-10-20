@@ -2,7 +2,7 @@ import { ExistingDocumentPicker } from "./ExistingDocumentPicker";
 import { Paperclip, Upload, FileText, Download } from "lucide-react";
 import { ApurementSelect } from "./ApurementSelect";
 import { useCallback, useEffect, useState } from "react";
-import { api, getToken } from "@/lib/api";
+import { api, enteteSession } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -23,7 +23,7 @@ type Missing = {
 export async function downloadApurement(path: string, name: string) {
   const base = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
   const response = await fetch(`${base}/api/apurement${path}`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: enteteSession(),
   });
   if (!response.ok) throw new Error("Téléchargement refusé ou indisponible.");
   const url = URL.createObjectURL(await response.blob());

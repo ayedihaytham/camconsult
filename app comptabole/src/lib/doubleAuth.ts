@@ -26,8 +26,8 @@ export async function preparer2fa(motDePasse: string): Promise<Resultat<{ secret
 /** Étape 2 : le code de l'application confirme l'enregistrement. Les codes de secours ne sont montrés qu'ici, une seule fois. */
 export async function activer2fa(code: string): Promise<Resultat<{ codesSecours: string[] }>> {
   try {
-    const r = await api.post<{ codesSecours: string[]; token: string }>("/auth/2fa/activer", { code });
-    setToken(r.token);
+    const r = await api.post<{ codesSecours: string[]; token?: string }>("/auth/2fa/activer", { code });
+    if (r.token) setToken(r.token);
     return { ok: true, codesSecours: r.codesSecours };
   } catch (err) {
     return echec(err, "Activation impossible (serveur injoignable).");
@@ -36,8 +36,8 @@ export async function activer2fa(code: string): Promise<Resultat<{ codesSecours:
 
 export async function desactiver2fa(motDePasse: string, code: string): Promise<Resultat> {
   try {
-    const r = await api.post<{ token: string }>("/auth/2fa/desactiver", { motDePasse, code });
-    setToken(r.token);
+    const r = await api.post<{ token?: string }>("/auth/2fa/desactiver", { motDePasse, code });
+    if (r.token) setToken(r.token);
     return { ok: true };
   } catch (err) {
     return echec(err, "Désactivation impossible (serveur injoignable).");

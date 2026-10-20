@@ -17,6 +17,49 @@ if (process.env.NODE_ENV === "production" && (SECRET === SECRET_PAR_DEFAUT || SE
 }
 
 const ALGORITHME = "HS256";
+
+// ── Jeton de session dans un cookie HttpOnly ───────────────────────────────────────────────────────
+// Le navigateur envoie « X-Session-Mode: cookie » : le jeton voyage alors dans un cookie que le JavaScript ne peut pas lire (un script injecté
+// ne peut plus le voler) et n'est jamais renvoyé dans le corps des réponses. Sans cet en-tête (outils, tests, API hébergée ailleurs),
+// le fonctionnement par en-tête « Authorization: Bearer » reste identique. Le cookie est SameSite=Strict, limité à /api, et Secure en HTTPS.
+export const NOM_COOKIE = "cabinet_session";
+const DUREE_COOKIE_S = 12 * 3600;
+
+export const modeCookie = (req) => String(req.headers?.["x-session-mode"] ?? "").toLowerCase() === "cookie";
+
+export function lireCookie(req, nom = NOM_COOKIE) {
+  for (const part of String(req.headers?.cookie ?? "").split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0 && part.slice(0, i).trim() === nom) {
+      try {
+        return decodeURIComponent(part.slice(i + 1).trim());
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+const attributsCookie = (req) => `HttpOnly; SameSite=Strict; Path=/api${req.secure ? "; Secure" : ""}`;
+export function poserCookieSession(req, res, jeton) {
+  res.append("Set-Cookie", `${NOM_COOKIE}=${encodeURIComponent(jeton)}; ${attributsCookie(req)}; Max-Age=${DUREE_COOKIE_S}`);
+}
+export function effacerCookieSession(req, res) {
+  res.append("Set-Cookie", `${NOM_COOKIE}=; ${attributsCookie(req)}; Max-Age=0`);
+}
+
+/**
+ * Livre le jeton d'une session ouverte à son client : dans le cookie (le corps ne le contient alors pas), ou dans le corps comme avant.
+ * Renvoie la part du corps à fusionner dans la réponse : `{}` ou `{ token }`.
+ */
+export function livrerJeton(req, res, jeton) {
+  if (modeCookie(req)) {
+    poserCookieSession(req, res, jeton);
+    return {};
+  }
+  return { token: jeton };
+}
 /** Une session active se prolonge : au-delà de cet âge, la réponse porte un jeton neuf (en-tête X-Token-Renouvele). Inactive 12 h, elle expire. */
 const RENOUVELLEMENT_APRES_S = 3 * 3600;
 
@@ -176,8 +219,18 @@ export async function sessionFromToken(payload) {
 
 export function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  let token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  req.viaCookie = false;
+  if (!token) {
+    token = lireCookie(req);
+    req.viaCookie = Boolean(token);
+  }
   if (!token) return res.status(401).json({ error: "Non authentifié" });
+  // Protection CSRF du mode cookie : le navigateur joint le cookie tout seul, donc les écritures exigent un en-tête qu'une autre origine ne peut
+  // pas envoyer sans autorisation CORS (refusée ici). S'ajoute à SameSite=Strict.
+  if (req.viaCookie && !["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers["x-requested-with"] !== "cabinet")
+    return res.status(403).json({ error: "Requête refusée." });
+  req.jeton = token;
   try {
     // Algorithme imposé : jamais celui que le jeton annonce (attaque « alg: none » ou changement d'algorithme).
     const payload = jwt.verify(token, SECRET, { algorithms: [ALGORITHME] });
@@ -202,7 +255,10 @@ export function requireAuth(req, res, next) {
           let sid = payload.sid;
           if (sid) await prolongerSession(sid);
           else sid = await ouvrirSession({ compte, adresse: adresseClient(req), navigateur: req.headers["user-agent"] });
-          res.setHeader("X-Token-Renouvele", signToken({ ...(payload.role === "admin" ? { role: "admin" } : { role: "employe", employeId: payload.employeId }), v: payload.v ?? 0, sid }));
+          const neuf = signToken({ ...(payload.role === "admin" ? { role: "admin" } : { role: "employe", employeId: payload.employeId }), v: payload.v ?? 0, sid });
+          // Cookie : renouvelé dans le cookie, sans rien exposer au JavaScript ; sinon, en-tête comme avant.
+          if (req.viaCookie || modeCookie(req)) poserCookieSession(req, res, neuf);
+          else res.setHeader("X-Token-Renouvele", neuf);
         }
         next();
       })

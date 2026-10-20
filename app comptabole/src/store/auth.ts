@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api, setToken, getToken, ApiError } from "@/lib/api";
+import { api, setToken, getToken, ApiError, MODE_COOKIE } from "@/lib/api";
 import { effacerTousLesBrouillons } from "@/lib/brouillons";
 import type { EmployePermissions, EmployeRole } from "@/types";
 
@@ -68,12 +68,19 @@ export const useAuth = create<AuthState>((set) => ({
   session: null,
 
   restore: async () => {
-    if (!getToken()) {
-      set({ status: "anon", session: null });
-      return;
-    }
     try {
-      const { session } = await api.get<{ session: Session }>("/auth/me");
+      let session: Session;
+      const avaitAncienJeton = Boolean(getToken());
+      try {
+        ({ session } = await api.get<{ session: Session }>("/auth/me"));
+      } catch (err) {
+        // Ancien jeton périmé resté dans le stockage local : on l'écarte et on retente avec le seul cookie.
+        if (!(err instanceof ApiError && err.status === 401 && avaitAncienJeton)) throw err;
+        setToken(null);
+        ({ session } = await api.get<{ session: Session }>("/auth/me"));
+      }
+      // Migration : le serveur vient de poser le cookie HttpOnly pour cet ancien jeton, qui n'a plus à rester lisible par le JavaScript.
+      if (MODE_COOKIE) setToken(null);
       set({ status: "authed", session });
     } catch (err) {
       // Seul un refus du serveur (jeton expiré, compte désactivé, mot de passe changé ailleurs) met fin à la session. Une panne passagère
@@ -91,7 +98,7 @@ export const useAuth = create<AuthState>((set) => ({
     try {
       const r = await api.post<{ token?: string; session?: Session; etape?: "2fa"; ticket?: string }>("/auth/login", { identifiant, motDePasse });
       if (r.etape === "2fa" && r.ticket) return { ok: false, etape: "2fa", ticket: r.ticket };
-      setToken(r.token!);
+      if (r.token) setToken(r.token);
       set({ status: "authed", session: r.session! });
       return { ok: true };
     } catch (err) {
@@ -107,8 +114,8 @@ export const useAuth = create<AuthState>((set) => ({
 
   verifier2fa: async (ticket, code) => {
     try {
-      const { token, session } = await api.post<{ token: string; session: Session }>("/auth/2fa", { ticket, code });
-      setToken(token);
+      const { token, session } = await api.post<{ token?: string; session: Session }>("/auth/2fa", { ticket, code });
+      if (token) setToken(token);
       set({ status: "authed", session });
       return { ok: true };
     } catch (err) {
@@ -118,8 +125,8 @@ export const useAuth = create<AuthState>((set) => ({
 
   activer: async (jeton, motDePasse) => {
     try {
-      const { token, session } = await api.post<{ token: string; session: Session }>("/auth/activate", { token: jeton, motDePasse });
-      setToken(token);
+      const { token, session } = await api.post<{ token?: string; session: Session }>("/auth/activate", { token: jeton, motDePasse });
+      if (token) setToken(token);
       set({ status: "authed", session });
       return { ok: true };
     } catch (err) {
@@ -140,8 +147,8 @@ export const useAuth = create<AuthState>((set) => ({
 
   deconnecterAutresAppareils: async () => {
     try {
-      const { token } = await api.post<{ token: string }>("/auth/deconnecter-autres");
-      setToken(token);
+      const { token } = await api.post<{ token?: string }>("/auth/deconnecter-autres");
+      if (token) setToken(token);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: err instanceof ApiError ? err.message : "Action impossible (serveur injoignable)." };

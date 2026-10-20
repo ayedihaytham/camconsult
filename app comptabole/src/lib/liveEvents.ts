@@ -1,4 +1,4 @@
-import { getToken, setToken, signalSessionExpired } from "./api";
+import { enteteSession, setToken, signalSessionExpired } from "./api";
 
 interface LiveEventHandlers {
   onMessage?: () => void;
@@ -18,8 +18,8 @@ interface LiveEventHandlers {
  * habituel (refreshMessages / refreshNotifications) — jamais de payload
  * métier dupliqué dans ce flux, la source de vérité reste l'API REST.
  *
- * `EventSource` natif ne permet pas d'envoyer l'en-tête Authorization (auth
- * de l'appli = JWT en Bearer, pas un cookie de session) — on lit donc le
+ * `EventSource` natif ne permet pas d'envoyer les en-têtes de session
+ * (mode cookie, ou ancien jeton en Bearer) — on lit donc le
  * flux nous-même via fetch + ReadableStream, en ne reprenant du format SSE
  * que ce qui sert ici (lignes "data: ...", trame séparée par une ligne vide).
  */
@@ -35,13 +35,11 @@ export function startLiveEvents(handlers: LiveEventHandlers): () => void {
 
   async function connect(myGeneration: number) {
     if (stopped || myGeneration !== generation) return;
-    const token = getToken();
-    if (!token) return;
     controller = new AbortController();
     let ouvertDepuis = 0;
     try {
       const res = await fetch("/api/events", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: enteteSession(),
         signal: controller.signal,
       });
       // Jeton refusé : inutile de réessayer en boucle, la session est à rouvrir.

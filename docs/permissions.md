@@ -69,6 +69,14 @@
   (changement de mot de passe, « déconnecter mes autres appareils »).
 - **Déconnecter mes autres appareils** : `POST /auth/deconnecter-autres` (menu du compte, tous les rôles) incrémente la version des sessions du
   compte ; toutes les autres sessions sont refusées, un jeton neuf garde l'appareil courant. Inscrit au journal.
+- **Cookie HttpOnly** (`server/auth.js` : `modeCookie`, `livrerJeton`, `poserCookieSession`) : le navigateur envoie `X-Session-Mode: cookie` (`src/lib/api.ts`,
+  seulement si l'API est de la même origine) ; le jeton voyage alors dans le cookie `cabinet_session` (HttpOnly, SameSite=Strict, Path=/api, 12 h, `Secure`
+  derrière HTTPS grâce à `X-Forwarded-Proto`) et **n'est plus dans le corps des réponses ni dans le stockage local** : un script injecté ne peut pas le voler.
+  Sans cet en-tête (tests, outils, API hébergée ailleurs), le jeton reste dans le corps et se présente en `Authorization: Bearer` ; l'en-tête l'emporte
+  sur le cookie. **CSRF** : une écriture authentifiée par cookie exige `X-Requested-With: cabinet` (403 sinon), en plus de SameSite=Strict.
+  **Migration** : un navigateur qui arrive avec l'ancien jeton du stockage local le présente une dernière fois à `/auth/me`, qui pose le cookie ;
+  le front supprime alors l'ancien jeton (aucune reconnexion). Le renouvellement et « Se déconnecter » (cookie effacé) passent aussi par le cookie.
+  Le flux en direct (`liveEvents.ts`) et les téléchargements utilisent `enteteSession()`. La politique CSP reste en mode rapport.
 - **Renouvellement** : une session active n'est pas coupée en pleine journée. Au-delà de 3 h d'âge, la réponse porte l'en-tête
   `X-Token-Renouvele` (jeton neuf de 12 h, même version) que `src/lib/api.ts` enregistre. Inactive plus de 12 h, la session expire.
 - **Mot de passe provisoire** : tant que `doitChangerMotDePasse` est vrai, `requireAuth` ne laisse passer que `/api/auth/*`
@@ -92,7 +100,7 @@
   (redémarrage, réseau coupé) conserve le jeton et affiche « Serveur momentanément indisponible » avec un bouton Réessayer.
 - **Sans session**, `usePermissions` ne donne aucun droit (jamais le contexte administrateur).
 - **Tests** : `server/integration/routesProtegees` (toute route relevée dans le code refuse l'absence de jeton, hors santé / connexion /
-  activation ; jetons forgés ou expirés), `server/integration/sessions` (jetons, révocation, mot de passe provisoire, matrice des rôles,
+  activation ; jetons forgés ou expirés), `server/integration/cookieSession` (cookie HttpOnly, CSRF, migration), `server/integration/sessions` (jetons, révocation, mot de passe provisoire, matrice des rôles,
   société étrangère), `src/store/auth.test.ts`, `src/hooks/usePermissions.test.tsx`.
 - **Politique d'accès par société figée par les tests** : l'administrateur et le responsable des collaborateurs accèdent à toutes les
   sociétés (collectes, état SWIFT, stock, banque, fournisseurs, états financiers, suivi devise) ; le collaborateur à ses sociétés

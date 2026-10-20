@@ -33,23 +33,10 @@
 .dashboard-admin .dashboard-soft .dashboard-badge--warning,
 .dashboard-admin .dashboard-soft .dashboard-badge--success { color: hsl(var(--foreground)); }
 .dashboard-admin .admin-tab-toolbar { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-block: 12px 16px; }
-.dashboard-admin .admin-lenses { display: flex; max-width: 100%; flex-wrap: wrap; gap: 2px; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--card)); padding: 3px; }
-.dashboard-admin .admin-lenses button[aria-pressed="true"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 .dashboard-admin .admin-view-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
 .dashboard-admin .admin-view-header h2 { font-size: 17px; font-weight: 600; }
 .dashboard-admin .admin-view-header p { margin-top: 4px; font-size: 12px; color: hsl(var(--muted-foreground)); }
 .dashboard-admin .admin-view-link { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: hsl(var(--primary)); }
-.dashboard-admin .admin-task-view { background: none; }
-.dashboard-admin .admin-task-view .tasks-register { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; }
-.dashboard-admin .admin-task-view .tasks-register > header { padding: 12px 16px; }
-.dashboard-admin .admin-task-view .tasks-register > header h3 { font-size: 15px; }
-.dashboard-admin .admin-task-view .tasks-register > header p { font-size: 12px; }
-.dashboard-admin .admin-task-view .tasks-register-icon { width: 28px; height: 28px; background: hsl(var(--muted)); color: hsl(var(--primary)); }
-.dashboard-admin .admin-task-view .tasks-register-icon svg { width: 16px; height: 16px; }
-.dashboard-admin .admin-task-view .tasks-register-row { padding-block: 12px; }
-.dashboard-admin .admin-task-view .tasks-register-count { font-size: 11px; background: none; }
-.dashboard-admin .admin-task-view .task-state { border-radius: 4px; font-size: 11px; padding-inline: 7px; }
-.dashboard-admin .admin-task-view .tasks-register-columns { padding-block: 8px; font-size: 10px; background: hsl(var(--muted) / .5); }
 .dashboard-admin .dashboard-soft .dashboard-team-count { font-family: inherit; font-size: 17px; }
 .dashboard-admin .dashboard-soft .dashboard-team-avatar { width: 28px; height: 28px; margin-right: 8px; background: hsl(var(--muted)); color: hsl(var(--primary)); }
 .dashboard-admin .dashboard-soft .dashboard-team-table tbody th { font-size: 13px; }
@@ -69,12 +56,5 @@
   .dashboard-admin .admin-brief-row { min-height: 44px; padding: 8px 0; }
   .dashboard-admin .dashboard-soft > .dashboard-major { padding: 12px; }
   .dashboard-admin .dashboard-soft .activity-row { grid-template-columns: 28px minmax(0, 1fr) 44px; gap: 8px; }
-  .dashboard-admin .admin-lenses { width: 100%; }
-  .dashboard-admin .admin-lenses button { flex: 1; padding-inline: 7px; }
-  .dashboard-admin .admin-task-view .tasks-register > header { display: flex; align-items: center; gap: 8px; padding: 12px; }
-  .dashboard-admin .admin-task-view .tasks-register > header > div { flex: 1; min-width: 0; }
-  .dashboard-admin .admin-task-view .tasks-register > header p { display: none; }
-  .dashboard-admin .admin-task-view .tasks-register-count { flex-shrink: 0; padding: 0; font-size: 10px; }
-  .dashboard-admin .admin-task-view .tasks-see-all { grid-column: auto; margin: 0; font-size: 11px; flex-shrink: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .dashboard-admin :is(.dashboard-row, .admin-brief-row) { transition: none; } }

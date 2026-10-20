@@ -112,7 +112,7 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
         </>
       ) : (
         <>
-          <TabsContent value="tasks" className="mt-4"><TasksTab data={data} /></TabsContent>
+          <TabsContent value="tasks" className="mt-4"><TasksTab data={data} now={now} /></TabsContent>
           <TabsContent value="attention" className="mt-4"><AttentionTab items={data.attentionItems} loading={collectesLoading || adminDataLoading} error={collectesError || adminDataError} /></TabsContent>
           <TabsContent value="deadlines" className="mt-4"><DeadlinesTab deadlines={data.deadlines} loading={collectesLoading} error={collectesError} onRetry={onRetryCollectes} now={now} calendar={vueCabinet(data.role)} /></TabsContent>
           {data.role === "admin" && <TabsContent value="team" className="mt-4"><TeamTab members={data.team} counts={data.taskCounts} /></TabsContent>}

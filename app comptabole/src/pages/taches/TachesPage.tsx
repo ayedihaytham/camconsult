@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { TasksKanban } from "@/components/uitripled/kanban-board-shadcnui";
@@ -20,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePermissions } from "@/hooks/usePermissions";
+import { peutChangerStatut } from "@/lib/tachePermissions";
 import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { cn } from "@/lib/utils";
 import {
@@ -118,16 +120,7 @@ export function TachesPage() {
   }, [assigneFilter, canManageCollaborateurs, societeFilter, statutFilter, taches]);
 
   function canChangeStatus(task: Tache, status: TacheStatut) {
-    if (status === task.statut) return true;
-    // Chaque circuit est piloté par son côté : le cabinet suit les tâches
-    // internes d'une société sans pouvoir les modifier.
-    const tacheSociete = task.origine === "societe";
-    if (tacheSociete ? isResponsableSociete : canManageCollaborateurs) return true;
-    if (tacheSociete && !isResponsableSociete && !isDelegue) return false;
-    return (
-      task.assigneId === employeId &&
-      STATUS_ORDER.indexOf(status) > STATUS_ORDER.indexOf(task.statut)
-    );
+    return peutChangerStatut(task, status, { isResponsableSociete, isDelegue, canManageCollaborateurs, employeId });
   }
 
   async function handleStatusChange(task: Tache, status: TacheStatut) {
@@ -171,6 +164,18 @@ export function TachesPage() {
     setEditing(null);
     setFormOpen(true);
   }
+
+  // « Nouvelle tâche » du Dashboard : /taches?nouvelle=1 ouvre directement le formulaire de création.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("nouvelle") !== "1") return;
+    if (isManager) openCreate();
+    const next = new URLSearchParams(searchParams);
+    next.delete("nouvelle");
+    setSearchParams(next, { replace: true });
+    // openCreate ne dépend que de setters : seul le paramètre d'adresse compte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   function openEdit(task: Tache) {
     setEditing(task);

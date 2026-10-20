@@ -6,8 +6,8 @@ import { vueCabinet, type DashboardViewModel } from "@/lib/dashboard/dashboardDa
 import "../tasks-workspace.css";
 import { AdminTasksTab } from "./AdminTasksTab";
 
-export function TasksTab({ data }: { data: DashboardViewModel }) {
-  return vueCabinet(data.role) ? <AdminTasksTab data={data} /> : <InternalTasksTab data={data} />;
+export function TasksTab({ data, now }: { data: DashboardViewModel; now?: Date }) {
+  return vueCabinet(data.role) ? <AdminTasksTab data={data} now={now} /> : <InternalTasksTab data={data} />;
 }
 
 function InternalTasksTab({ data }: { data: DashboardViewModel }) {

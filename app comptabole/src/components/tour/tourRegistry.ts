@@ -661,10 +661,10 @@ export function getPageTour(
       id: "dashboard-admin-tasks", version: 1, title: "Tâches du cabinet",
       steps: [
         { target: "dashboard-tasks", title: "Le travail du cabinet", body: "Cette vue rassemble les tâches accessibles dans le périmètre affiché." },
-        { target: "dashboard-task-lens", title: "Choisir un état", body: "Consultez les tâches ouvertes, en cours, à faire ou terminées. La recherche porte sur le titre, la société et le collaborateur." },
-        { target: "dashboard-task-ongoing", title: "Travail en cours", body: "Retrouvez les tâches déjà commencées et ouvrez une ligne pour poursuivre dans Tâches." },
-        { target: "dashboard-task-todo", title: "Tâches à commencer", body: "Les tâches à faire gardent leur société, leur collaborateur et leur statut." },
-        { target: "dashboard-task-completed", title: "Travail terminé", body: "Les tâches terminées restent consultables dans leur propre vue." },
+        { target: "dashboard-task-lens", title: "Suivre l’avancement", body: "La barre répartit les tâches terminées, en cours et à faire. La recherche porte sur le titre, la société et le collaborateur ; les avatars filtrent par collaborateur, et Colonnes ou Liste change l’affichage." },
+        { target: "dashboard-task-todo", title: "Tâches à commencer", body: "Les tâches à faire gardent leur société, leur collaborateur et leur statut. Commencer les passe en cours, si vos droits le permettent." },
+        { target: "dashboard-task-ongoing", title: "Travail en cours", body: "Retrouvez les tâches déjà commencées. Terminer les clôt, et un titre ouvre la page Tâches pour poursuivre." },
+        { target: "dashboard-task-completed", title: "Travail terminé", body: "Les tâches terminées restent consultables ; Rouvrir les remet en cours." },
       ],
     } : {
       id: "dashboard-admin", version: 1, title: "Tableau de bord du cabinet",

@@ -126,6 +126,23 @@ also stacks, controls reach 44px and the dossier CTA spans its surface. Surface
 insets are 20px, then 16px at 900px and 14px below 640px, with 12px gaps and
 5px corners. These local tokens and rules do not change Mon bureau.
 
+### Tâches (administrateur et responsable) — composition approuvée 2026-10-20
+
+For `vueCabinet(role)`, `/?tab=tasks` is `AdminTasksTab.tsx` (`admin-tasks.css`), not the collaborator workspace below:
+
+- **Avancement:** one segmented bar (terminées / en cours / à faire) and a completion percentage, computed from all loaded accessible tasks
+  (`taskRows` + `otherTaskRows`), independent of the search and collaborator filters.
+- **Toolbar:** search (title, société, collaborateur), collaborator avatars (up to eight from `data.team` having tasks; the number is that
+  person's open tasks; second click clears), `Colonnes` / `Liste`, and `Nouvelle tâche` (`/taches?nouvelle=1`, opens the creation form; only when
+  `canManageCollaborateurs`). Empty scope shows an explanatory start state instead of empty tables.
+- **Colonnes:** `À faire` (up to 6 cards), `En cours` (6), `Terminées` (3), each followed by `Voir les N autres`. A card shows title (link to `/taches`),
+  société, assignee, relative last update and, when set, `Fin prévue` (red `· en retard` once past and not finished). Company-origin tasks keep
+  **Tâche de société (lecture seule au cabinet)**.
+- **Status actions are mutations**, unlike quick actions: `Commencer` / `Terminer` / `Rouvrir` call `setTacheStatut` (the same `PATCH /api/taches/:id`
+  as the Tâches page) and appear only when `peutChangerStatut` (`src/lib/tachePermissions.ts`, shared with the Tâches page and mirroring
+  the server) allows it; a toast offers `Annuler` when the previous status may be restored by the same person.
+- The planned end (`finPrevue`) is optional information from the task itself; it never feeds collection deadlines, the Échéances view or attention.
+
 ## Role-specific view
 
 ### Admin
@@ -244,7 +261,7 @@ from today, then society name.
 - `1..7`: this week
 - `> 7`: later
 
-Tasks have no deadline field and must not be used as fake deadline data.
+Tasks have no mandatory deadline: the optional planned end (`finPrevue`) is shown only on the task itself and is never used as deadline data.
 
 ## Continuation and transmissions
 

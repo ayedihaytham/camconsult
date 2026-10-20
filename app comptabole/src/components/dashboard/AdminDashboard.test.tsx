@@ -43,16 +43,20 @@ describe("Admin Dashboard briefing", () => {
     expect(screen.getByRole("button", { name: "Mois suivant" })).toBeTruthy();
   });
 
-  it("searches all admin tasks and keeps the complete state registers", () => {
+  it("shows every admin task in its state column, searches them, and keeps the real counts", () => {
     const { container } = render(<MemoryRouter><TasksTab data={data} /></MemoryRouter>);
-    expect(container.querySelectorAll(".tasks-register-row")).toHaveLength(6);
+    const colonne = (cible: string) => container.querySelector(`[data-tour="${cible}"]`) as HTMLElement;
+    expect(within(colonne("dashboard-task-ongoing")).getAllByRole("article")).toHaveLength(3);
+    expect(within(colonne("dashboard-task-todo")).getAllByRole("article")).toHaveLength(3);
+    expect(within(colonne("dashboard-task-completed")).getAllByRole("article")).toHaveLength(1);
+    expect(screen.getByRole("img", { name: "1 terminée, 3 en cours, 3 à faire" })).toBeTruthy();
     expect(container.querySelector('[data-tour="dashboard-task-resume"]')).toBeNull();
     fireEvent.change(screen.getByRole("searchbox", { name: "Rechercher une tâche" }), { target: { value: "task-4" } });
-    expect(container.querySelectorAll(".tasks-register-row")).toHaveLength(1);
+    expect(container.querySelectorAll(".atk-card")).toHaveLength(1);
     expect(screen.getByText("Travail task-4")).toBeTruthy();
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "Terminées 1" }));
-    expect(container.querySelectorAll(".tasks-register-row")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Liste" }));
+    expect(container.querySelectorAll(".atk-row")).toHaveLength(7);
     expect(screen.getByText("Travail task-6")).toBeTruthy();
   });
 

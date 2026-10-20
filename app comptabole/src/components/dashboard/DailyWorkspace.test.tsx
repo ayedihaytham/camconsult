@@ -131,7 +131,7 @@ describe("Daily Workspace UI contract", () => {
     expect(screen.getByText("Aucune tâche à commencer dans ce périmètre.")).toBeTruthy();
     expect(screen.getByText("Aucun message non lu.")).toBeTruthy();
     rerender(<MemoryRouter><TasksTab data={buildDashboardData(dashboardInput({ taches: [task("finished", "termine")] }))} /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: /Terminées/ }));
+    // Vue cabinet : les tâches terminées restent visibles dans leur colonne.
     expect(screen.getByText("Travail finished")).toBeTruthy();
   });
   it("omits the cabinet/collaborator scope switch while keeping quick actions in the banner", () => {
@@ -234,12 +234,10 @@ describe("Daily Workspace UI contract", () => {
   });  it("task lenses count all loaded accessible work and keep the dedicated list complete", () => {
     const taches = Array.from({ length: 6 }, (_, index) => task(`open-${index}`, "a_faire"));
     render(<MemoryRouter><TasksTab data={buildDashboardData(dashboardInput({ taches: [...taches, task("done", "termine")] }))} /></MemoryRouter>);
-    expect(screen.getByRole("button", { name: "Ouvertes 6" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("img", { name: "1 terminée, 0 en cours, 6 à faire" })).toBeTruthy();
     taches.forEach((item) => expect(screen.getByText(item.titre)).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Terminées 1" }));
-    expect(screen.getByRole("button", { name: "Terminées 1" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("Travail done")).toBeTruthy();
-    expect(screen.queryByText("Travail open-0")).toBeNull();
+    expect(screen.getByText("7 tâches dans le périmètre")).toBeTruthy();
   });
   it("gives overdue deadlines a danger badge and keeps date grouping data-driven", () => {
     const now = new Date("2026-10-01T10:00:00");

@@ -19,8 +19,11 @@
     "start": "node server/index.js",
     "lint": "tsc --noEmit",
     "benchmark:extraction": "node --env-file=.env server/scripts/benchmark-extraction.mjs",
-    "test": "vitest run",
-    "test:integration": "vitest run server/integration"
+    "test": "vitest run --exclude \"server/integration/**\"",
+    "test:watch": "vitest --exclude \"server/integration/**\"",
+    "test:integration": "vitest run server/integration",
+    "test:all": "vitest run",
+    "check": "npm run lint && npm test && npm run build:prod"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

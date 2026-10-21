@@ -16,3 +16,19 @@ ocr-transfer
 *.zip
 server_ui*.log
 server_ui.pid
+
+# Jamais utile dans l'image
+coverage
+.github
+docs
+docker-compose*.yml
+caddy
+Dockerfile
+.dockerignore
+AGENTS.md
+DESIGN-SYSTEM.md
+**/*.test.js
+**/*.test.ts
+**/*.test.tsx
+server/integration
+server/ttn/fixtures

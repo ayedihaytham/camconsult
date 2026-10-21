@@ -1,13 +1,21 @@
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
-export default defineConfig({
+// Le bloc `test` est lu par Vitest ; il est passé par une variable car le type de Vite ne le connaît pas.
+const config: UserConfig & { test: Record<string, unknown> } = {
   plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  test: {
+    // Seuls ces dossiers contiennent des tests : pas de parcours de dist, samples, ocr-transfer…
+    include: ["src/**/*.test.{ts,tsx}", "server/**/*.test.js", "shared/**/*.test.js"],
+    // Le CSS n'est pas évalué par les tests (jsdom n'en a pas besoin) : démarrage de chaque fichier plus court.
+    css: false,
+    reporters: process.env.GITHUB_ACTIONS ? ["default", "github-actions"] : ["default"],
   },
   server: {
     port: 5180,
@@ -37,4 +45,6 @@ export default defineConfig({
       },
     },
   },
-});
+};
+
+export default defineConfig(config);

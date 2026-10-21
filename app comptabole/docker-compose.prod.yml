@@ -32,6 +32,8 @@ services:
     build: .
     container_name: camconsult-app
     restart: unless-stopped
+    # Processus d'amorçage minimal : arrêt propre (SIGTERM) et récupération des processus enfants (poppler).
+    init: true
     depends_on:
       db:
         condition: service_healthy

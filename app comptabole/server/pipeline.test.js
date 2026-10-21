@@ -10,8 +10,9 @@ describe("chaîne de déploiement", () => {
 
   it("l'image n'est publiée qu'après les contrôles (types, tests, construction, intégration PostgreSQL), qui sont obligatoires", () => {
     expect(workflow).toMatch(/\n {2}tests:/);
+    expect(workflow).toMatch(/\n {2}build:/);
     expect(workflow).toMatch(/\n {2}integration:/);
-    expect(workflow).toMatch(/docker:\s*\n\s*needs:\s*\[tests,\s*integration\]/);
+    expect(workflow).toMatch(/docker:\s*\n\s*needs:\s*\[tests,\s*build,\s*integration\]/);
     const avant = workflow.slice(0, indexDocker);
     expect(avant).toContain("npm run lint");
     expect(avant).toContain("npm test");
@@ -41,7 +42,7 @@ describe("chaîne de déploiement", () => {
 
   it("le lancement manuel passe par les mêmes contrôles (même fichier, mêmes dépendances)", () => {
     expect(workflow).toContain("workflow_dispatch");
-    expect(workflow.match(/^\s{2}(tests|integration|docker):/gm)).toHaveLength(3);
+    expect(workflow.match(/^\s{2}(tests|build|integration|docker):/gm)).toHaveLength(4);
   });
 });
 

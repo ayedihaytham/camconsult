@@ -851,3 +851,88 @@ describe("Collecte : espace du responsable des collaborateurs", () => {
     expect(within(nav).getByRole("button", { name: /Récap/ })).toBeTruthy();
   });
 });
+
+describe("Collecte : envoi par lignes pour le responsable / délégué de société", () => {
+  const colonnes = TAB_BY_KEY.bordereaux_remise_cheques.columns.filter((c) => !c.computed);
+  const complete = (n: number) => Object.fromEntries(colonnes.map((c) => [c.key, c.type === "date" ? "2026-01-30" : c.type === "number" ? 1000 : `${c.key}-${n}`]));
+  const ligne = (id: string, ordre: number, data: Record<string, unknown>, envoyeeLe: string | null = null) => ({ id, onglet: "bordereaux_remise_cheques", ordre, data, envoyeeLe }) as never;
+  const section = (statut: string) => ({ id: "s", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "envoye", recuManuel: false, dateSuivi: null, totalSaisi: null, statut, transmisLe: null, valideLe: null, motifRenvoi: "" }) as never;
+
+  beforeEach(() => {
+    perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
+    (collecte as unknown as Record<string, unknown>).envoiParLignes = true;
+    collecte.onglets = ["bordereaux_remise_cheques"];
+  });
+  afterEach(() => {
+    (collecte as unknown as Record<string, unknown>).envoiParLignes = false;
+    perms.current = { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true };
+  });
+
+  /** Fait comme le serveur : les lignes marquées complètes reçoivent une date d'envoi. */
+  const serveurSimule = (refresh: () => void) =>
+    saveLignes.mockImplementation(async (_id: string, _onglet: string, lignes: { id?: string; data: Record<string, unknown>; ordre?: number; envoyee?: boolean }[]) => {
+      collecte.lignes = lignes.map((l, i) => ligne(l.id ?? `n${i}`, i, l.data, l.envoyee ? "2026-10-21T10:00:00Z" : null));
+      refresh();
+    });
+
+  async function completerEtEnregistrer() {
+    const cellule = document.querySelector('tbody tr[data-row="1"] [data-col="num_cheque"]') as HTMLInputElement;
+    fireEvent.change(cellule, { target: { value: "777" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
+  }
+
+  it("tableau ouvert : les lignes complètes partent à l'enregistrement, disparaissent du tableau, avec « Annuler l'envoi » et les lignes listées à part", async () => {
+    collecte.sections = [section("brouillon")];
+    collecte.lignes = [ligne("l1", 0, complete(1)), ligne("l2", 1, { ...complete(2), num_cheque: "" })];
+    const { refresh } = renderPage();
+    serveurSimule(refresh);
+    openBordereaux();
+    await completerEtEnregistrer();
+    const envoyees = saveLignes.mock.calls[0][2] as { id?: string; envoyee?: boolean }[];
+    expect(envoyees.map((l) => [l.id, l.envoyee])).toEqual([["l1", true], ["l2", true]]);
+    await waitFor(() => expect(document.querySelectorAll("tbody tr[data-row]")).toHaveLength(0));
+    expect(screen.getByRole("button", { name: /Lignes envoyées au cabinet \(2\)/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Annuler l'envoi (2)" })).toBeTruthy();
+  });
+
+  it("tableau complété à la demande du cabinet (cases « ? ») : une ligne devenue complète part aussi", async () => {
+    collecte.sections = [section("transmis")];
+    collecte.lignes = [ligne("l1", 0, complete(1)), ligne("l2", 1, { ...complete(2), num_cheque: "" })];
+    const { refresh } = renderPage();
+    serveurSimule(refresh);
+    openBordereaux();
+    await completerEtEnregistrer();
+    const envoyees = saveLignes.mock.calls[0][2] as { id?: string; envoyee?: boolean }[];
+    expect(envoyees.map((l) => [l.id, l.envoyee])).toEqual([["l1", true], ["l2", true]]);
+    await waitFor(() => expect(document.querySelectorAll("tbody tr[data-row]")).toHaveLength(0));
+  });
+
+  it("des lignes complètes déjà enregistrées (avant l'activation de l'option) s'envoient d'un clic, sans rien modifier", async () => {
+    collecte.sections = [section("brouillon")];
+    collecte.lignes = [ligne("l1", 0, complete(1)), ligne("l2", 1, complete(2))];
+    const { refresh } = renderPage();
+    serveurSimule(refresh);
+    openBordereaux();
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer les lignes complètes (2)" }));
+    await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
+    await waitFor(() => expect(document.querySelectorAll("tbody tr[data-row]")).toHaveLength(0));
+  });
+
+  it("côté cabinet : une ligne envoyée est en vert", () => {
+    perms.current = { isAdmin: true, poste: "admin", isCollaborateur: false, canManageCollaborateurs: true, canSeeSociete: () => true };
+    collecte.sections = [section("transmis")];
+    collecte.lignes = [ligne("l1", 0, complete(1), "2026-10-21T10:00:00Z"), ligne("l2", 1, complete(2))];
+    renderPage();
+    openBordereaux();
+    // Les bordereaux complets sont repliés sur une ligne : elle est verte et dit combien de lignes la société a envoyées.
+    const resume = document.querySelector("tr[data-bordereau][data-envoyee]") as HTMLElement;
+    expect(resume.className).toContain("bg-success/10");
+    expect(resume.textContent).toMatch(/1 ligne envoyée par la société/);
+    document.querySelectorAll("tr[data-bordereau] button").forEach((b) => fireEvent.click(b));
+    const lignes = Array.from(document.querySelectorAll("tbody tr[data-row]"));
+    expect(lignes).toHaveLength(2);
+    expect(lignes[0].className).toContain("bg-success/10");
+    expect(lignes[1].className).not.toContain("bg-success/10");
+  });
+});

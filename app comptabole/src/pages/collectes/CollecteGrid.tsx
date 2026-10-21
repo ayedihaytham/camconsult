@@ -1,5 +1,5 @@
 import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronRight, FilePlus, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, FilePlus, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Send, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -178,6 +178,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const envoiRecent = useRef(false);
   const [envoyeesOuvertes, setEnvoyeesOuvertes] = useState(true);
   const [reprise, setReprise] = useState<string | null>(null);
+  /** Lignes parties au cabinet lors du dernier enregistrement : « Annuler l'envoi » (ou Ctrl+Z hors d'un champ) les reprend. */
+  const [dernierEnvoi, setDernierEnvoi] = useState<string[]>([]);
+  const reprendreIdsRef = useRef<(ids: string[]) => Promise<void>>(async () => {});
   /** Côté société, une ligne envoyée au cabinet ne figure plus dans le tableau : elle est listée à part. */
   const cachee = (i: number) => parSociete && Boolean(rows[i]?.__envoyeeLe);
   const envoyees = rows.map((_, i) => i).filter((i) => Boolean(rows[i].__envoyeeLe));
@@ -343,6 +346,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       setReprise(id);
       try {
         await onReprendre(id);
+        setDernierEnvoi((d) => d.filter((x) => x !== id));
         const lever = (r: TabRow) => (r.__id === id ? Object.fromEntries(Object.entries(r).filter(([k]) => k !== "__envoyeeLe")) : r);
         baseline.current = baseline.current.map(lever);
         latestInitial.current = latestInitial.current.map(lever);
@@ -365,7 +369,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       duration: 12000,
       action: { label: "Annuler", onClick: () => void reprendreIds(parties) },
     });
+    setDernierEnvoi(parties);
   }
+  reprendreIdsRef.current = reprendreIds;
   const reprendre = (i: number) => reprendreIds([String(rows[i]?.__id ?? "")].filter(Boolean));
   /** Pièce jointe d'une ligne : voir / retirer si un fichier est joint, sinon un trombone pour en joindre un (si la saisie est permise). */
   function boutonsPiece(i: number, cle: string, ro: boolean) {
@@ -435,9 +441,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     setRows((rs) => rs.filter((_, idx) => idx !== i));
   }
 
-  async function save() {
+  async function save(force = false) {
     if (saving) throw new Error("Enregistrement déjà en cours");
-    if (!dirty) return;
+    if (!dirty && !force) return;
     envoiRecent.current = true;
     setSaving(true);
     setSaveError(false);
@@ -466,7 +472,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
           const nom = g ? String(data[g.cle] ?? "").trim().toLowerCase() : "";
           const suite = Boolean(nom) && dejaVus.has(nom);
           if (nom) dejaVus.add(nom);
-          const complete = envoiParLignes && parSociete && !recapClient && !meta.__envoyeeLe && ligneComplete(def, data, suite);
+          const complete = envoiParLignes && parSociete && !meta.__envoyeeLe && ligneComplete(def, data, suite);
           return { ...(id ? { id } : {}), data: figee ? figee.data : data, ordre, ...(complete ? { envoyee: true } : {}) };
         }),
       );
@@ -515,6 +521,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     if (!id || !repliables.has(id)) return null;
     return { id, premier: rows.findIndex((r) => idLigne(r) === id) === i, ouvert: ouverts.has(id) };
   }
+  /** Lignes d'un bordereau que la société a envoyées au cabinet (pour le repère vert d'un bordereau replié). */
+  const nbEnvoyeesGroupe = (id: string) => rows.filter((r) => idLigne(r) === id && r.__envoyeeLe).length;
   function basculer(id: string) {
     setOuverts((s) => {
       const suite = new Set(s);
@@ -597,7 +605,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     ecart: () => ({ manque: groupes.some((g) => g.reste > 0), depasse: groupes.some((g) => g.reste < 0) }),
     isDirty: () => dirty,
     ajouterLignes: addRows,
-    save,
+    save: () => save(),
     discard: () => {
       baseline.current = latestInitial.current;
       setRows(latestInitial.current);
@@ -608,6 +616,20 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   }));
 
   const canAdd = !readOnly && !structureLocked;
+  /** Lignes déjà complètes qui n'ont pas encore été envoyées au cabinet (collecte en envoi par lignes, vue société). */
+  const nbCompletesAEnvoyer = (() => {
+    if (!envoiParLignes || !parSociete || readOnly) return 0;
+    const g = def.groupe;
+    const vus = new Set<string>();
+    let n = 0;
+    for (const r of derived) {
+      const nom = g ? String(r[g.cle] ?? "").trim().toLowerCase() : "";
+      const suite = Boolean(nom) && vus.has(nom);
+      if (nom) vus.add(nom);
+      if (!r.__envoyeeLe && !ligneVide(def, r) && ligneComplete(def, donnees(r), suite)) n += 1;
+    }
+    return n;
+  })();
   // Colonne « Pièce » facultative sur chaque ligne, sauf dans les tableaux qui ont déjà leur propre colonne de pièce.
   const colPiece = !def.columns.some((c) => c.piece) && (Boolean(onJoindre) || rows.some((r) => Boolean(r[`${CLE_PIECE}_fichier`])));
   const nbCols = def.columns.length + (readOnly ? 1 : 2) + (colPiece ? 1 : 0);
@@ -699,6 +721,20 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                     {saving ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
                     <span className="hidden lg:inline">{saving ? "Enregistrement…" : saveAndContinue ? continueLabel : "Enregistrer"}</span>
                   </Button>
+              )}
+              {nbCompletesAEnvoyer > 0 && !dirty && (
+                <Button type="button" variant="outline" size="icon" className={commandButtonClass} disabled={saving} onClick={() => void save(true).catch(() => {})}
+                  aria-label={`Envoyer les lignes complètes (${nbCompletesAEnvoyer})`} title="Envoyer au cabinet les lignes déjà complètes">
+                  <Send className="size-4" aria-hidden="true" />
+                  <span className="hidden lg:inline">Envoyer les lignes complètes ({nbCompletesAEnvoyer})</span>
+                </Button>
+              )}
+              {dernierEnvoi.length > 0 && !dirty && (
+                <Button type="button" variant="outline" size="icon" className={commandButtonClass} disabled={saving || reprise !== null} onClick={() => void reprendreIds(dernierEnvoi)}
+                  aria-label={`Annuler l'envoi (${dernierEnvoi.length})`} title="Reprendre les lignes qui viennent d'être envoyées au cabinet (Ctrl+Z)">
+                  <Undo2 className="size-4" aria-hidden="true" />
+                  <span className="hidden lg:inline">Annuler l'envoi ({dernierEnvoi.length})</span>
+                </Button>
               )}
               {saveError && <span role="alert" className="sr-only min-w-0 text-xs font-medium text-destructive sm:not-sr-only sm:truncate">Échec de l'enregistrement</span>}
               {!saveError && dirty && <span role="status" className="sr-only min-w-0 text-xs font-medium text-warning sm:not-sr-only sm:truncate">Non enregistré</span>}
@@ -866,7 +902,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </p>
       )}
 
-      {parSociete && envoiParLignes && !readOnly && !recapClient && (
+      {parSociete && envoiParLignes && !readOnly && (
         <p className="text-xs text-muted-foreground">
           Envoi par lignes : chaque ligne complète part au cabinet à l'enregistrement et quitte ce tableau. Vous pouvez la reprendre en cas d'erreur.
         </p>
@@ -938,7 +974,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               return (
               <Fragment key={i}>
               {repli?.premier && resume && !rows.every((r, k) => idLigne(r) !== repli.id || cachee(k)) && (
-                <tr data-bordereau={repli.id} className="bg-secondary/40">
+                <tr data-bordereau={repli.id} data-envoyee={!parSociete && nbEnvoyeesGroupe(repli.id) > 0 ? "" : undefined} className={cn("bg-secondary/40", !parSociete && nbEnvoyeesGroupe(repli.id) > 0 && "bg-success/10")}>
                   <td colSpan={nbCols} className="px-2 py-1.5">
                     <button
                       type="button"
@@ -955,6 +991,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                         {resume.nbLignes} ligne{resume.nbLignes > 1 ? "s" : ""} · {montantFr(resume.reparti)} {symboleGroupe}
                       </span>
                       <span className="text-xs font-semibold text-success">Complet</span>
+                      {!parSociete && nbEnvoyeesGroupe(repli.id) > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
+                          <Check className="size-3.5" aria-hidden="true" />
+                          {nbEnvoyeesGroupe(repli.id)} ligne{nbEnvoyeesGroupe(repli.id) > 1 ? "s" : ""} envoyée{nbEnvoyeesGroupe(repli.id) > 1 ? "s" : ""} par la société
+                        </span>
+                      )}
                       <span className="ml-auto text-xs font-medium text-primary underline underline-offset-2">{repli.ouvert ? "Replier" : "Voir le détail"}</span>
                     </button>
                   </td>

@@ -31,13 +31,13 @@ const TITRES: Record<Categorie, string> = {
 };
 
 /** Largeurs en pourcentage : le tableau occupe exactement la largeur de la page, sans défilement horizontal. */
-const LARGEURS = [3, 9, 8, 5, 5, 8, 8, 10, 6, 7, 5, 5, 7, 4, 10];
+const LARGEURS = [2.5, 9, 8, 4.5, 6, 7, 8, 9.5, 5.5, 8.5, 4, 5, 8.5, 4, 10];
 const NB_COLONNES = LARGEURS.length;
 
 const th = "px-2 py-2.5 text-left text-xs font-semibold leading-tight text-muted-foreground [overflow-wrap:anywhere]";
 const thNum = `${th} text-right`;
 const td = "px-2 py-2.5 align-middle [overflow-wrap:anywhere]";
-const tdNum = `${td} text-right tabular-nums`;
+const tdNum = `${td} whitespace-nowrap text-right tabular-nums`;
 const filet = "border-l-2 border-border";
 const etiquette = "text-xs font-medium text-muted-foreground";
 
@@ -79,10 +79,10 @@ function CoteCellules({ m, cote, onPreview, doublon, base }: { m: StockMouvement
   return (
     <>
       <td className={cn(td, fond, v ? "shadow-[inset_4px_0_0_hsl(var(--primary))]" : "shadow-[inset_4px_0_0_hsl(var(--accent))]")}>
-        <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold", v ? "bg-primary/15 text-primary" : "bg-accent/30 text-accent-foreground")}>{v ? "Vente" : "Achat"}</span>
+        <span className={cn("inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", v ? "bg-primary/15 text-primary" : "bg-accent/30 text-accent-foreground")}>{v ? "Vente" : "Achat"}</span>
       </td>
-      <td className={cn(td, fond, "tabular-nums")}>{jour(v ? m.venteDate : m.achatDate)}</td>
-      <td className={cn(td, fond, "tabular-nums text-[0.78rem] text-foreground/80")} title={doublon ? `${numero} : ce numéro de facture est déjà utilisé par un autre mouvement` : numero}>
+      <td className={cn(td, fond, "whitespace-nowrap tabular-nums")}>{jour(v ? m.venteDate : m.achatDate)}</td>
+      <td className={cn(td, fond, "whitespace-nowrap tabular-nums text-[0.78rem] text-foreground/80")} title={doublon ? `${numero} : ce numéro de facture est déjà utilisé par un autre mouvement` : numero}>
         {doublon ? (
           <span className="inline-flex items-center gap-0.5 rounded bg-destructive/15 px-1 font-semibold text-destructive">
             <AlertTriangle className="size-3 shrink-0" aria-label="Numéro de facture en doublon" />
@@ -120,7 +120,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
 
   return (
     <div data-tour="stock-register">
-      <div className="hidden lg:block">
+      <div className="hidden xl:block">
         <table className="w-full table-fixed border-collapse text-[0.8125rem]">
           <colgroup>
             {LARGEURS.map((l, i) => <col key={i} style={{ width: `${l}%` }} />)}
@@ -172,7 +172,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                         <p className="min-w-0 font-medium text-primary">{m.natureMarchandise || "Mouvement sans nature"}</p>
                       </div>
                     </td>
-                    <td rowSpan={2} className={cn(td, "tabular-nums font-medium text-primary")} title="Numéro de la facture de vente">{m.venteNumFacture || "—"}</td>
+                    <td rowSpan={2} className={cn(td, "whitespace-nowrap tabular-nums font-medium text-primary")} title="Numéro de la facture de vente">{m.venteNumFacture || "—"}</td>
                     <td rowSpan={2} className={tdNum}>
                       <span className={cn("inline-grid min-w-7 place-items-center rounded-full px-2 py-0.5 text-xs font-semibold", m.ecart !== 0 ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>
                         {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
@@ -223,7 +223,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
         </table>
       </div>
 
-      <ul className="divide-y divide-border lg:hidden" aria-label="Mouvements de stock">
+      <ul className="divide-y divide-border xl:hidden" aria-label="Mouvements de stock">
         {mouvements.map((m, index) => {
           const ouvert = ouverts.has(m.id);
           const v = totauxCote(m.venteLignes);

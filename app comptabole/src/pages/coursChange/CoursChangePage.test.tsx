@@ -10,6 +10,7 @@ const { etat, perms } = vi.hoisted(() => ({
   etat: {
     devises: [] as DeviseChange[],
     cours: [] as CoursChange[],
+    coursUsd: [] as CoursChange[],
     charge: true,
     fetch: vi.fn().mockResolvedValue(undefined),
     saveAnnee: vi.fn().mockResolvedValue(undefined),
@@ -35,6 +36,7 @@ beforeEach(() => {
     { devise: "USD", annee, mois: 1, cours: 3.2 },
     { devise: "EUR", annee: annee - 1, mois: 12, cours: 3.4 },
   ];
+  etat.coursUsd = [{ devise: "EUR", annee, mois: 1, cours: 1.0842 }];
   perms.canManageCollaborateurs = true;
   for (const f of [etat.saveAnnee, etat.addDevise, etat.removeDevise]) f.mockClear().mockResolvedValue(undefined);
 });
@@ -71,7 +73,7 @@ describe("page Cours de change", () => {
     expect(etat.saveAnnee).toHaveBeenCalledWith(annee, [
       { devise: "USD", mois: 1, cours: null },
       { devise: "EUR", mois: 2, cours: 3.3128 },
-    ]);
+    ], "TND");
   });
 
   it("refuse un cours qui n'est pas un nombre positif", () => {
@@ -115,7 +117,7 @@ describe("page Cours de change", () => {
     expect(etat.saveAnnee).toHaveBeenCalledWith(2025, [
       { devise: "USD", mois: 1, cours: 3.2 },
       { devise: "EUR", mois: 1, cours: 3.3167 },
-    ]);
+    ], "TND");
   });
 
   it("est en lecture seule pour un collaborateur", () => {
@@ -163,5 +165,32 @@ describe("cours proposé dans une facture", () => {
     cleanup();
     rendreSuggestion("EUR", "");
     expect(screen.getByText(/Renseignez la date/)).toBeTruthy();
+  });
+});
+
+describe("page Cours de change : cours par rapport au dollar", () => {
+  it("propose deux tableaux : par rapport au dinar (par défaut) et par rapport au dollar", () => {
+    rendre();
+    expect(screen.getByRole("button", { name: "Par rapport au dinar (TND)" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Par rapport au dollar (USD)" }).getAttribute("aria-pressed")).toBe("false");
+    expect((screen.getByLabelText(`USD Janvier ${annee}`) as HTMLInputElement).value).toBe("3,2");
+  });
+
+  it("le tableau en dollars montre les devises sauf le dollar, avec ses propres cours", () => {
+    rendre();
+    fireEvent.click(screen.getByRole("button", { name: "Par rapport au dollar (USD)" }));
+    expect(screen.queryByLabelText(`USD Janvier ${annee}`)).toBeNull();
+    expect((screen.getByLabelText(`EUR Janvier ${annee}`) as HTMLInputElement).value).toBe("1,0842");
+    expect((screen.getByLabelText(`EUR Février ${annee}`) as HTMLInputElement).value).toBe("");
+    expect(screen.getByText(/Cours en dollars \(USD\) pour 1 unité de devise/)).toBeTruthy();
+  });
+
+  it("enregistre les cours en dollars à part, avec la base USD", async () => {
+    rendre();
+    fireEvent.click(screen.getByRole("button", { name: "Par rapport au dollar (USD)" }));
+    fireEvent.change(screen.getByLabelText(`EUR Février ${annee}`), { target: { value: "1,09" } });
+    fireEvent.click(screen.getByRole("button", { name: `Enregistrer ${annee}` }));
+    await waitFor(() => expect(etat.saveAnnee).toHaveBeenCalledTimes(1));
+    expect(etat.saveAnnee).toHaveBeenCalledWith(annee, [{ devise: "EUR", mois: 2, cours: 1.09 }], "USD");
   });
 });

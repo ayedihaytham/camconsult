@@ -112,3 +112,28 @@ describe("montants dans la monnaie choisie", () => {
     expect(montantCote(lignes, undefined, "USD")).toBe(0);
   });
 });
+
+describe("cours en dollars saisis dans « Cours de change »", () => {
+  const coursUsd: CoursChange[] = [{ devise: "EUR", annee: 2026, mois: 3, cours: 1.0842 }];
+
+  it("le cours en dollars du mois passe avant le cours croisé calculé", () => {
+    expect(coursUsdDeRepli("EUR", "2026-03-15", 3.3, { ...tables, coursUsd })).toBe(1.0842);
+    expect(coursUsdDeRepli("EUR", "2026-03-15", 3.3, tables)).toBe(1.1);
+  });
+
+  it("sans cours en dollars pour ce mois, on retombe sur le cours croisé", () => {
+    expect(coursUsdDeRepli("EUR", "2026-04-15", 3.3, { ...tables, coursUsd })).toBeNull();
+    expect(coursUsdDeRepli("EUR", "2026-03-15", 3.3, { cours, devises, coursUsd: [] })).toBe(1.1);
+  });
+
+  it("complète la facture avec le cours en dollars saisi, sans dépendre du cours en dinars", () => {
+    const r = completerCours(mouvement(), "achat", coursAutoInitial(), { ...tables, coursUsd });
+    expect(r.achatCoursUsd).toBe(1.0842);
+    expect(r.achatCours).toBe(3.3);
+  });
+
+  it("une devise cotée par 1000 est ramenée à l'unité, comme en dinars", () => {
+    const jpy: CoursChange[] = [{ devise: "JPY", annee: 2026, mois: 3, cours: 6.5 }];
+    expect(coursUsdDeRepli("JPY", "2026-03-15", 0, { ...tables, coursUsd: jpy })).toBe(0.0065);
+  });
+});

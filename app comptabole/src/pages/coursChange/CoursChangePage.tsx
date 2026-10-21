@@ -17,6 +17,7 @@ import {
 import { MOIS, anneesAvecCours, lireCoursCollés, moyenneAnnee } from "@/lib/coursChange";
 import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
+import "../stock/stock-page.css";
 import { useCoursChange } from "@/store/coursChange";
 
 const cle = (devise: string, mois: number) => `${devise}:${mois}`;
@@ -31,11 +32,15 @@ const lire = (t: string): number | null | "invalide" => {
 /** Cours de change : moyenne mensuelle du marché interbancaire par devise, année par année. Ils alimentent les factures d'achat et de
  * vente du stock (et les règlements fournisseurs), qui proposent le cours du mois de leur date. */
 export function CoursChangePage() {
-  const { devises, cours, charge, fetch, saveAnnee, addDevise, removeDevise } = useCoursChange();
+  const { devises, cours: coursTnd, coursUsd = [], charge, fetch, saveAnnee, addDevise, removeDevise } = useCoursChange();
   // Toute l'équipe consulte les cours ; l'admin et le responsable des collaborateurs les modifient.
   const { canManageCollaborateurs: peutModifier } = usePermissions();
   const anneeCourante = new Date().getFullYear();
   const [annee, setAnnee] = useState(anneeCourante);
+  // Deux tableaux : les cours par rapport au dinar (TND pour 1 unité) et par rapport au dollar (USD pour 1 unité, sans le dollar lui-même).
+  const [base, setBase] = useState<"TND" | "USD">("TND");
+  const cours = base === "TND" ? coursTnd : coursUsd;
+  const colonnes = useMemo(() => (base === "TND" ? devises : devises.filter((d) => d.code !== "USD")), [base, devises]);
   const [saisie, setSaisie] = useState<Record<string, string>>({});
   const [enregistrement, setEnregistrement] = useState(false);
   const [nouvelle, setNouvelle] = useState(false);
@@ -51,7 +56,7 @@ export function CoursChangePage() {
     const init: Record<string, string> = {};
     for (const c of cours) if (c.annee === annee) init[cle(c.devise, c.mois)] = texte(c.cours);
     setSaisie(init);
-  }, [cours, annee]);
+  }, [cours, annee, base]);
 
   const enregistres = useMemo(() => new Map(cours.filter((c) => c.annee === annee).map((c) => [cle(c.devise, c.mois), c.cours])), [cours, annee]);
   const annees = useMemo(() => [...new Set([...anneesAvecCours(cours), anneeCourante])].sort((a, b) => b - a), [cours, anneeCourante]);
@@ -59,7 +64,7 @@ export function CoursChangePage() {
   const modifies = useMemo(() => {
     const l: { devise: string; mois: number; cours: number | null }[] = [];
     let invalide = false;
-    for (const d of devises)
+    for (const d of colonnes)
       for (let m = 1; m <= 12; m++) {
         const v = lire(saisie[cle(d.code, m)] ?? "");
         if (v === "invalide") {
@@ -70,7 +75,7 @@ export function CoursChangePage() {
         if (v !== avant) l.push({ devise: d.code, mois: m, cours: v });
       }
     return { l, invalide };
-  }, [saisie, devises, enregistres]);
+  }, [saisie, colonnes, enregistres]);
 
   async function enregistrer() {
     if (modifies.invalide) {
@@ -79,7 +84,7 @@ export function CoursChangePage() {
     }
     setEnregistrement(true);
     try {
-      await saveAnnee(annee, modifies.l);
+      await saveAnnee(annee, modifies.l, base);
       toast.success(`Cours ${annee} enregistrés`);
     } catch {
       // déjà signalé
@@ -88,10 +93,10 @@ export function CoursChangePage() {
     }
   }
 
-  const nbRenseignes = cours.filter((c) => c.annee === annee).length;
+  const nbRenseignes = coursTnd.filter((c) => c.annee === annee).length + coursUsd.filter((c) => c.annee === annee).length;
 
   return (
-    <div>
+    <div className="stock-page">
       <SignatureLedgerBanner
         variant="compact"
         icon={Coins}
@@ -116,18 +121,31 @@ export function CoursChangePage() {
         }
       />
 
-      <section className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
+      <section className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div className="flex items-center gap-1" role="group" aria-label="Choisir l'année">
             <Button variant="outline" size="icon" className="size-9" aria-label="Année précédente" onClick={() => setAnnee((a) => a - 1)}>
               <ChevronLeft className="size-4" />
             </Button>
-            <span className="min-w-20 text-center font-serif text-2xl font-medium text-primary tabular-nums" aria-live="polite">
+            <span className="min-w-20 text-center text-xl font-semibold text-primary tabular-nums" aria-live="polite">
               {annee}
             </span>
             <Button variant="outline" size="icon" className="size-9" aria-label="Année suivante" onClick={() => setAnnee((a) => a + 1)}>
               <ChevronRight className="size-4" />
             </Button>
+          </div>
+          <div role="group" aria-label="Tableau de cours" className="inline-flex overflow-hidden rounded-md border border-border">
+            {([["TND", "Par rapport au dinar (TND)"], ["USD", "Par rapport au dollar (USD)"]] as const).map(([code, nom]) => (
+              <button
+                key={code}
+                type="button"
+                aria-pressed={base === code}
+                onClick={() => setBase(code)}
+                className={cn("h-9 border-r border-border px-3.5 text-[0.8125rem] font-medium last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", base === code ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted")}
+              >
+                {nom}
+              </button>
+            ))}
           </div>
           <div className="flex flex-wrap items-center gap-1.5" aria-label="Années">
             {annees.map((a) => (
@@ -147,48 +165,49 @@ export function CoursChangePage() {
           </div>
         </div>
 
-        {devises.length === 0 && charge ? (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">Aucune devise. Ajoutez-en une pour saisir ses cours.</p>
+        {colonnes.length === 0 && charge ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">{base === "USD" && devises.length > 0 ? "Aucune devise autre que le dollar : ajoutez-en une pour saisir ses cours par rapport au dollar." : "Aucune devise. Ajoutez-en une pour saisir ses cours."}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[34rem] border-collapse text-sm">
+            <table className="w-full min-w-[34rem] border-collapse text-[0.8125rem] tabular-nums">
               <thead>
-                <tr className="bg-secondary/65 text-xs uppercase tracking-wide text-primary">
-                  <th scope="col" className="px-4 py-2.5 text-left font-medium">Mois</th>
-                  {devises.map((d) => (
-                    <th key={d.code} scope="col" className="px-3 py-2.5 text-right font-medium">
+                <tr className="bg-primary text-xs text-primary-foreground">
+                  <th scope="col" className="border-r border-primary-foreground/15 px-4 py-3 text-left font-semibold">Mois</th>
+                  {colonnes.map((d) => (
+                    <th key={d.code} scope="col" className="border-r border-primary-foreground/15 px-3 py-3 text-right font-medium last:border-r-0">
                       <span className="inline-flex items-center justify-end gap-1.5">
-                        <span title={d.libelle}>{d.code}</span>
-                        <span className="font-normal normal-case text-muted-foreground">{d.unite > 1 ? `(pour ${d.unite})` : ""}</span>
+                        <span title={d.libelle} className="text-sm font-semibold">{d.code}</span>
+                        <span className="font-normal text-primary-foreground/70">{d.unite > 1 ? `(pour ${d.unite})` : ""}</span>
                         {peutModifier && <button
                           type="button"
                           aria-label={`Supprimer la devise ${d.code}`}
                           onClick={() => setASupprimer(d.code)}
-                          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          className="rounded p-1 text-primary-foreground/60 hover:bg-primary-foreground/15 hover:text-primary-foreground"
                         >
                           <Trash2 className="size-3.5" />
                         </button>}
                       </span>
-                      {d.libelle && <span className="block text-[10px] font-normal normal-case text-muted-foreground">{d.libelle}</span>}
+                      {d.libelle && <span className="block text-xs font-normal text-primary-foreground/70">{d.libelle}</span>}
+                      <span className="mt-0.5 block text-xs font-normal text-primary-foreground/60">{cours.filter((c) => c.devise === d.code && c.annee === annee).length} / 12 mois saisis</span>
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody>
                 {MOIS.map((nom, i) => (
-                  <tr key={nom} className="hover:bg-muted/20">
-                    <th scope="row" className="px-4 py-1.5 text-left font-medium text-foreground">{nom}</th>
-                    {devises.map((d) => {
+                  <tr key={nom} className={cn("even:bg-muted/25 hover:bg-muted/50", annee === anneeCourante && i + 1 === new Date().getMonth() + 1 && "bg-accent/15 even:bg-accent/15")}>
+                    <th scope="row" className="h-11 border-b border-r border-border/70 px-4 py-1 text-left font-medium text-foreground">{nom}</th>
+                    {colonnes.map((d) => {
                       const k = cle(d.code, i + 1);
                       const v = saisie[k] ?? "";
                       const invalide = lire(v) === "invalide";
                       return (
-                        <td key={d.code} className="px-3 py-1">
+                        <td key={d.code} className="border-b border-r border-border/70 p-0 last:border-r-0">
                           <Input
                             inputMode="decimal"
                             aria-label={`${d.code} ${nom} ${annee}`}
                             aria-invalid={invalide || undefined}
-                            className={cn("h-9 text-right tabular-nums", invalide && "border-destructive", v !== texte(enregistres.get(k)) && !invalide && "bg-warning/10")}
+                            className={cn("h-11 rounded-none border-0 bg-transparent px-4 text-right text-sm tabular-nums shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent", invalide && "bg-destructive/10 text-destructive", v !== texte(enregistres.get(k)) && !invalide && "bg-warning/10")}
                             value={v}
                             readOnly={!peutModifier}
                             placeholder="—"
@@ -201,10 +220,10 @@ export function CoursChangePage() {
                 ))}
               </tbody>
               <tfoot>
-                <tr className="bg-muted/30 text-sm font-semibold">
-                  <th scope="row" className="px-4 py-2 text-left">Moyenne {annee}</th>
-                  {devises.map((d) => (
-                    <td key={d.code} className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                <tr className="border-t-2 border-primary bg-muted/50 text-sm font-semibold text-primary">
+                  <th scope="row" className="border-r border-border/70 px-4 py-2.5 text-left">Moyenne {annee}</th>
+                  {colonnes.map((d) => (
+                    <td key={d.code} className="border-r border-border/70 px-4 py-2.5 text-right tabular-nums last:border-r-0">
                       {texte(moyenneAnnee(cours, d.code, annee)) || "—"}
                     </td>
                   ))}
@@ -216,7 +235,9 @@ export function CoursChangePage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
           <p className="text-xs text-muted-foreground">
-            Cours en dinars pour 1 unité de devise (pour 1000 yens, indiquez « 1000 » comme unité de la devise). Un mois laissé vide n'a pas de cours proposé.
+            {base === "TND"
+              ? "Cours en dinars (TND) pour 1 unité de devise (pour 1000 yens, indiquez « 1000 » comme unité de la devise). Un mois laissé vide n'a pas de cours proposé."
+              : "Cours en dollars (USD) pour 1 unité de devise : proposé dans les factures du stock avant le cours calculé d'après les cours en dinars. Un mois laissé vide n'a pas de cours saisi."}
           </p>
           <div className="flex items-center gap-3">
             {peutModifier && modifies.l.length > 0 && (
@@ -236,11 +257,11 @@ export function CoursChangePage() {
       <DialogColler
         open={coller}
         onOpenChange={setColler}
-        devises={devises.map((d) => d.code)}
+        devises={colonnes.map((d) => d.code)}
         onImporter={async (liste) => {
           const parAnnee = new Map<number, { devise: string; mois: number; cours: number | null }[]>();
           for (const c of liste) parAnnee.set(c.annee, [...(parAnnee.get(c.annee) ?? []), { devise: c.devise, mois: c.mois, cours: c.cours }]);
-          for (const [a, valeurs] of parAnnee) await saveAnnee(a, valeurs);
+          for (const [a, valeurs] of parAnnee) await saveAnnee(a, valeurs, base);
           const premiere = [...parAnnee.keys()].sort()[0];
           if (premiere) setAnnee(premiere);
           toast.success(`${liste.length} cours importés`);

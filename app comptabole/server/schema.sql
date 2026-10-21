@@ -1409,3 +1409,14 @@ alter table collecte_lignes add column if not exists envoyee_le timestamptz;
 -- Cours de change par rapport au dollar (USD pour 1 unité de la devise de la facture), à côté du cours en dinars : facture d'achat et de vente.
 alter table stock_mouvements add column if not exists achat_cours_usd numeric not null default 0;
 alter table stock_mouvements add column if not exists vente_cours_usd numeric not null default 0;
+
+-- Cours de change par rapport au dollar : moyenne mensuelle, par devise (USD pour `unite` unités de la devise), saisie dans « Cours de change »
+-- à côté des cours en dinars. Proposée dans les factures du stock, avant le cours croisé calculé.
+create table if not exists cours_change_usd (
+  devise text not null references devises_change(code) on delete cascade on update cascade,
+  annee  int  not null,
+  mois   int  not null check (mois between 1 and 12),
+  cours  numeric not null check (cours > 0),
+  maj_le timestamptz not null default now(),
+  primary key (devise, annee, mois)
+);

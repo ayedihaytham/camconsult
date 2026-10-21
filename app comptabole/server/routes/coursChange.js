@@ -17,11 +17,12 @@ const deviseDto = (r) => ({ code: r.code, libelle: r.libelle, unite: r.unite, or
 const coursDto = (r) => ({ devise: r.devise, annee: r.annee, mois: r.mois, cours: Number(r.cours) });
 
 async function tout() {
-  const [devises, cours] = await Promise.all([
+  const [devises, cours, coursUsd] = await Promise.all([
     query("select * from devises_change order by ordre, code"),
     query("select * from cours_change order by annee, mois, devise"),
+    query("select * from cours_change_usd order by annee, mois, devise"),
   ]);
-  return { devises: devises.rows.map(deviseDto), cours: cours.rows.map(coursDto) };
+  return { devises: devises.rows.map(deviseDto), cours: cours.rows.map(coursDto), coursUsd: coursUsd.rows.map(coursDto) };
 }
 
 // ── Lecture : devises et cours de toutes les années ───────────────────────────────────
@@ -71,6 +72,8 @@ coursChangeRouter.delete("/devises/:code", requireEquipeManager, async (req, res
 
 // ── Cours d'une année : remplacement des valeurs envoyées (null = effacer le cours du mois) ───
 const anneeSchema = z.object({
+  /** TND (défaut) : cours en dinars ; USD : cours par rapport au dollar. */
+  base: z.enum(["TND", "USD"]).default("TND"),
   cours: z
     .array(
       z.object({
@@ -91,19 +94,22 @@ coursChangeRouter.put("/:annee", requireEquipeManager, async (req, res) => {
   const inconnue = parsed.data.cours.find((c) => !connues.has(c.devise));
   if (inconnue) return res.status(400).json({ error: `Devise inconnue : ${inconnue.devise}` });
 
+  const table = parsed.data.base === "USD" ? "cours_change_usd" : "cours_change";
+  if (parsed.data.base === "USD" && parsed.data.cours.some((c) => c.devise === "USD"))
+    return res.status(400).json({ error: "Le dollar est la monnaie de référence de ce tableau" });
   await withTransaction(async (client) => {
     for (const c of parsed.data.cours) {
       if (c.cours === null) {
-        await client.query("delete from cours_change where devise=$1 and annee=$2 and mois=$3", [c.devise, annee, c.mois]);
+        await client.query(`delete from ${table} where devise=$1 and annee=$2 and mois=$3`, [c.devise, annee, c.mois]);
       } else {
         await client.query(
-          `insert into cours_change (devise, annee, mois, cours) values ($1,$2,$3,$4)
+          `insert into ${table} (devise, annee, mois, cours) values ($1,$2,$3,$4)
            on conflict (devise, annee, mois) do update set cours = excluded.cours, maj_le = now()`,
           [c.devise, annee, c.mois, c.cours],
         );
       }
     }
   });
-  logAction(req.session.nom, "modification", "cours_change", `Cours de change ${annee} : ${parsed.data.cours.length} valeur(s)`, String(annee));
+  logAction(req.session.nom, "modification", "cours_change", `Cours de change ${parsed.data.base === "USD" ? "en dollars " : ""}${annee} : ${parsed.data.cours.length} valeur(s)`, String(annee));
   res.json(await tout());
 });

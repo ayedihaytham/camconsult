@@ -101,8 +101,8 @@ const avecMontantsTnd = (lignes: StockLigne[], cours: number): StockLigne[] =>
  * le cours saisi sur la facture est gardé ; sinon le taux de la douane ; sinon le cours moyen du mois de la date (page « Cours de change »).
  * Sans effet pour le dinar ni quand aucun cours n'est enregistré. Ouvrir une facture déjà enregistrée ne change pas ses cours. */
 function avecCoursMoyen(prev: StockMouvementInput, type: "achat" | "vente", auto: CoursAuto): StockMouvementInput {
-  const { cours, devises } = useCoursChange.getState();
-  return completerCours(prev, type, auto, { cours, devises });
+  const { cours, devises, coursUsd } = useCoursChange.getState();
+  return completerCours(prev, type, auto, { cours, devises, coursUsd });
 }
 
 /** Le taux de change de la douane s'applique aux cours de l'achat et de la vente

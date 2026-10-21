@@ -10,7 +10,8 @@ import type { CoursChange, DeviseChange, StockLigne } from "@/types";
  *   1. le cours de la facture, quand il est saisi ou lu sur la facture ;
  *   2. sinon le taux de la douane (dinars) ;
  *   3. sinon le cours moyen du mois de la date de la facture (page « Cours de change »).
- * Le cours du dollar de repli est le cours croisé : cours en dinars de la devise ÷ cours en dinars du dollar du même mois.
+ * Le cours du dollar de repli est celui du tableau « par rapport au dollar » du mois de la date ; à défaut, le cours croisé :
+ * cours en dinars de la devise ÷ cours en dinars du dollar du même mois.
  */
 
 export type Cote = "achat" | "vente";
@@ -32,6 +33,8 @@ const arrondi6 = (n: number) => Math.round(n * 1e6) / 1e6;
 interface Tables {
   cours: CoursChange[];
   devises: DeviseChange[];
+  /** Cours par rapport au dollar saisis dans « Cours de change » (USD pour 1 unité de la devise). */
+  coursUsd?: CoursChange[];
 }
 
 /** Cours en dinars de repli : taux de la douane s'il est renseigné, sinon cours moyen du mois ; null pour le dinar ou sans cours. */
@@ -48,6 +51,8 @@ export function coursUsdDeRepli(devise: string, date: string | null | undefined,
   const code = codeDevise(devise);
   if (!code || code === "TND") return null;
   if (code === "USD") return 1;
+  const saisi = coursDuMois(t.coursUsd ?? [], code, date);
+  if (saisi) return coursParUnite(saisi, t.devises);
   if (!(coursTnd > 0)) return null;
   const usd = coursDuMois(t.cours, "USD", date);
   if (!usd) return null;

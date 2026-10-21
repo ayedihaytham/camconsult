@@ -6,10 +6,12 @@ import type { CoursChange, DeviseChange } from "@/types";
 interface Etat {
   devises: DeviseChange[];
   cours: CoursChange[];
+  /** Cours par rapport au dollar (USD pour 1 unité de la devise). */
+  coursUsd: CoursChange[];
   charge: boolean;
   fetch: (force?: boolean) => Promise<void>;
   /** Enregistre des cours d'une année (null efface le cours du mois). */
-  saveAnnee: (annee: number, valeurs: { devise: string; mois: number; cours: number | null }[]) => Promise<void>;
+  saveAnnee: (annee: number, valeurs: { devise: string; mois: number; cours: number | null }[], base?: "TND" | "USD") => Promise<void>;
   addDevise: (d: { code: string; libelle: string; unite: number }) => Promise<void>;
   removeDevise: (code: string) => Promise<void>;
 }
@@ -23,37 +25,38 @@ function echec(err: unknown): never {
 export const useCoursChange = create<Etat>((set, get) => ({
   devises: [],
   cours: [],
+  coursUsd: [],
   charge: false,
   fetch: async (force = false) => {
     if (get().charge && !force) return;
     try {
-      const r = await api.get<{ devises: DeviseChange[]; cours: CoursChange[] }>("/cours-change");
-      set({ devises: r.devises, cours: r.cours, charge: true });
+      const r = await api.get<{ devises: DeviseChange[]; cours: CoursChange[]; coursUsd?: CoursChange[] }>("/cours-change");
+      set({ devises: r.devises, cours: r.cours, coursUsd: r.coursUsd ?? [], charge: true });
     } catch {
       // un formulaire de saisie ne doit pas échouer parce que les cours sont indisponibles
       set({ charge: true });
     }
   },
-  saveAnnee: async (annee, valeurs) => {
+  saveAnnee: async (annee, valeurs, base = "TND") => {
     try {
-      const r = await api.put<{ devises: DeviseChange[]; cours: CoursChange[] }>(`/cours-change/${annee}`, { cours: valeurs });
-      set({ devises: r.devises, cours: r.cours, charge: true });
+      const r = await api.put<{ devises: DeviseChange[]; cours: CoursChange[]; coursUsd?: CoursChange[] }>(`/cours-change/${annee}`, { cours: valeurs, base });
+      set({ devises: r.devises, cours: r.cours, coursUsd: r.coursUsd ?? [], charge: true });
     } catch (e) {
       echec(e);
     }
   },
   addDevise: async (d) => {
     try {
-      const r = await api.post<{ devises: DeviseChange[]; cours: CoursChange[] }>("/cours-change/devises", d);
-      set({ devises: r.devises, cours: r.cours });
+      const r = await api.post<{ devises: DeviseChange[]; cours: CoursChange[]; coursUsd?: CoursChange[] }>("/cours-change/devises", d);
+      set({ devises: r.devises, cours: r.cours, coursUsd: r.coursUsd ?? [] });
     } catch (e) {
       echec(e);
     }
   },
   removeDevise: async (code) => {
     try {
-      const r = await api.del<{ devises: DeviseChange[]; cours: CoursChange[] }>(`/cours-change/devises/${code}`);
-      set({ devises: r.devises, cours: r.cours });
+      const r = await api.del<{ devises: DeviseChange[]; cours: CoursChange[]; coursUsd?: CoursChange[] }>(`/cours-change/devises/${code}`);
+      set({ devises: r.devises, cours: r.cours, coursUsd: r.coursUsd ?? [] });
     } catch (e) {
       echec(e);
     }

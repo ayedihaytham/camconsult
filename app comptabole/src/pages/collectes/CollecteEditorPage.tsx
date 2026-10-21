@@ -45,6 +45,8 @@ import { PiecesDemandees } from "./PiecesDemandees";
 import { cn, formatDate, formatRelative } from "@/lib/utils";
 import type { CollecteFull, CollecteJournalEntry, CollecteStatut } from "@/types";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
+import { EtatSwiftSociete } from "@/pages/etatSwift/EtatSwiftSocietePage";
+import { useEtatSwift } from "@/store/etatSwift";
 import { ImportGrandLivreDialog } from "./ImportGrandLivreDialog";
 import { CollecteChecklist } from "./CollecteChecklist";
 import { CollecteFormDrawer } from "./CollecteFormDrawer";
@@ -333,6 +335,11 @@ export function CollecteEditorPage() {
     await saveActiveTable(key);
     const courant = useCollectes.getState().current;
     if (!courant) return "";
+    if (TAB_BY_KEY[key]?.module) {
+      // État SWIFT : les virements sont ceux du module ; on dit combien restent à justifier.
+      const restants = useEtatSwift.getState().virements.filter((v) => v.envoye !== false && v.statut !== "justifie").length;
+      return restants > 0 ? `${restants} virement${restants > 1 ? "s" : ""} SWIFT pas encore justifié${restants > 1 ? "s" : ""}` : "";
+    }
     const morceaux: string[] = [];
     const manques = computeManques(courant).filter((m) => m.onglet === key);
     if (!courant.lignes.some((l) => l.onglet === key)) morceaux.push("aucune ligne saisie");
@@ -382,6 +389,46 @@ export function CollecteEditorPage() {
       s === "valide"
         ? confirm === "reopen" ? "Collecte désarchivée" : "Collecte validée"
         : s === "archive" ? "Collecte archivée" : "Collecte rouverte (à corriger)",
+    );
+  }
+
+  /** Boutons du circuit d'une section (transmettre, valider, renvoyer, archiver) : au-dessus de la grille, ou de l'écran du module intégré. */
+  function circuitDe(key: string, def: { label: string; cabinetSeul?: boolean }) {
+    if (preview || retainedDraft || !(isClient || sectionStatut(collecte!, key) !== "a_corriger") || !(!archivee || sectionStatut(collecte!, key) === "archive") || def.cabinetSeul) return null;
+    const motifRenvoi = collecte!.sections.find((section) => section.onglet === key)?.motifRenvoi ?? "";
+    return (
+      <SectionCircuit
+              compact
+              label={def.label}
+              statut={sectionStatut(collecte!, key)}
+              motifRenvoi={motifRenvoi}
+              isClient={isClient}
+              canArchive={canManageCollaborateurs}
+              preparerTransfert={() => preparerTransfert(key)}
+              onTransmettre={async (incomplet) => {
+                await transmettreSection(id, key, incomplet);
+                toast.success(`« ${def.label} » transmis au cabinet`);
+              }}
+              onValider={async () => {
+                await saveActiveTable(key);
+                await validerSection(id, key);
+                toast.success(`« ${def.label} » validé`);
+              }}
+              onRenvoyer={async (motif) => {
+                await saveActiveTable(key);
+                await renvoyerSection(id, key, motif);
+                toast.success(`« ${def.label} » renvoyé au client`);
+              }}
+              onArchiver={async () => {
+                await saveActiveTable(key);
+                await archiverSection(id, key);
+                toast.success(`« ${def.label} » archivé`);
+              }}
+              onDesarchiver={async () => {
+                await desarchiverSection(id, key);
+                toast.success(`« ${def.label} » désarchivé`);
+              }}
+            />
     );
   }
 
@@ -743,6 +790,17 @@ export function CollecteEditorPage() {
                         sectionRecapStatut(collecte, key) === "envoye" &&
                         !sectionOuverte(sectionStatut(collecte, key));
                       const inRecap = clientRecapForTab && hasManque;
+                      // « État SWIFT » : l'écran du module (virements, équivalent en devise, factures jusqu'au montant), pas une grille.
+                      if (def.module) {
+                        return (
+                          <EtatSwiftSociete
+                            societeId={collecte.societeId}
+                            integre
+                            lectureSeule={isClient && !editableTab(key)}
+                            circuit={<div className="mb-3 overflow-hidden rounded-lg border border-primary/20 border-l-4 border-l-primary bg-card">{circuitDe(key, def)}</div>}
+                          />
+                        );
+                      }
                       // Aperçu admin : rendu identique à la vue client, en lecture seule.
                       if (preview) {
                         return (
@@ -771,7 +829,7 @@ export function CollecteEditorPage() {
                           )}
                           readOnly={clientRecapForTab ? !inRecap : !editableTab(key)}
                           ligneBordereauFigee={isClient}
-                          bordereauSeul={!isClient && (key === "bordereaux_remise_cheques" || key === "etat_swift")}
+                          bordereauSeul={!isClient && key === "bordereaux_remise_cheques"}
                           sansSuppression={isClient}
                           parSociete={isClient}
                           envoiParLignes={Boolean(collecte.envoiParLignes)}
@@ -782,42 +840,7 @@ export function CollecteEditorPage() {
                           focusTarget={focusTarget?.table === key ? focusTarget : undefined}
                           saveAndContinue={canRecap && editableTab(key) ? saveAndOpenRecap : undefined}
                           continueLabel="Enregistrer et voir le récap"
-                          workflowActions={
-                            !preview && !retainedDraft && (isClient || sectionStatut(collecte, key) !== "a_corriger") && (!archivee || sectionStatut(collecte, key) === "archive") && !def.cabinetSeul && (
-                              <SectionCircuit
-                                compact
-                                label={def.label}
-                                statut={sectionStatut(collecte, key)}
-                                motifRenvoi={motifRenvoi}
-                                isClient={isClient}
-                                canArchive={canManageCollaborateurs}
-                                preparerTransfert={() => preparerTransfert(key)}
-                                onTransmettre={async (incomplet) => {
-                                  await transmettreSection(id, key, incomplet);
-                                  toast.success(`« ${def.label} » transmis au cabinet`);
-                                }}
-                                onValider={async () => {
-                                  await saveActiveTable(key);
-                                  await validerSection(id, key);
-                                  toast.success(`« ${def.label} » validé`);
-                                }}
-                                onRenvoyer={async (motif) => {
-                                  await saveActiveTable(key);
-                                  await renvoyerSection(id, key, motif);
-                                  toast.success(`« ${def.label} » renvoyé au client`);
-                                }}
-                                onArchiver={async () => {
-                                  await saveActiveTable(key);
-                                  await archiverSection(id, key);
-                                  toast.success(`« ${def.label} » archivé`);
-                                }}
-                                onDesarchiver={async () => {
-                                  await desarchiverSection(id, key);
-                                  toast.success(`« ${def.label} » désarchivé`);
-                                }}
-                              />
-                            )
-                          }
+                          workflowActions={circuitDe(key, def)}
                           exportActions={isClient ? undefined : <SectionExport collecte={collecte} section={key} societeNom={socNom} menu />}
                           exportButtons={isClient ? undefined : <SectionExport collecte={collecte} section={key} societeNom={socNom} toolbar />}
                           flagged={

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { lireTextePdf, reconstruireTableau } from "@/lib/pdfToTables";
-import { sousTypeEcriture, classeCompte, dejaPresente, decouperLibelle, lignesPourTableau, ligneDepuisEcriture, lireGrandLivre, natureEcriture, TABLEAU_PAR_NATURE } from "./grandLivre";
+import { sousTypeEcriture, virementDepuisLigne, virementSwiftDejaPresent, classeCompte, dejaPresente, decouperLibelle, lignesPourTableau, ligneDepuisEcriture, lireGrandLivre, natureEcriture, TABLEAU_PAR_NATURE } from "./grandLivre";
 
 const PDF = "samples/461.pdf";
 
@@ -229,7 +229,7 @@ describe("grand-livre MS TRANSPORT (compte 461000) : achats négociés sur le ma
     expect(TABLEAU_PAR_NATURE.swift).toBe("etat_swift");
     const e = ecriture("ACHAT NEGOCIE SUR LE MARCHE", 7672.6, 0);
     expect(ligneDepuisEcriture("etat_swift", e)).toEqual({
-      date: "2026-08-10", ref: "BANQ 10", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 7672.6, num_facture: "", devise: "", montant_devise: "", taux: "", montant_tnd: "",
+      date: "2026-08-10", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 7672.6,
       observations: "Achat négocié sur le marché (SWIFT à vérifier) · GL 461000 · BANQ · p.10",
     });
   });
@@ -255,10 +255,15 @@ describe("grand-livre MS TRANSPORT (compte 461000) : achats négociés sur le ma
     expect(dejaPresente("bordereaux_remise_cheques", e, [])).toBe(false);
   });
 
-  it("l'État SWIFT : une écriture déjà importée n'est pas proposée deux fois", () => {
+  it("l'État SWIFT : un virement du module de même date et même montant est déjà importé", () => {
     const e = ecriture("ACHAT NEGOCIE SUR LE MARCHE", 7672.6, 0);
-    expect(dejaPresente("etat_swift", e, [ligneDepuisEcriture("etat_swift", e)])).toBe(true);
-    expect(dejaPresente("etat_swift", e, [{ date: "2026-08-10", banque: "BANQ", montant: 1 }])).toBe(false);
+    expect(virementSwiftDejaPresent(e, [{ date: "2026-08-10", montant: 7672.6 }])).toBe(true);
+    expect(virementSwiftDejaPresent(e, [{ date: "2026-08-10", montant: 1 }, { date: "2026-08-11", montant: 7672.6 }])).toBe(false);
+  });
+
+  it("une écriture SWIFT devient un virement brouillon du module (à vérifier avant envoi à la société)", () => {
+    const e = ecriture("ACHAT NEGOCIE SUR LE MARCHE", 7672.6, 0);
+    expect(virementDepuisLigne(ligneDepuisEcriture("etat_swift", e))).toEqual({ date: "2026-08-10", montant: 7672.6, libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", envoyer: false });
   });
 });
 
@@ -288,7 +293,7 @@ describe.skipIf(!existsSync(PDF_MS))("grand-livre Sage du compte 461 de MS TRANS
     expect(n("cheque_emis")).toBe(1);
     expect(n("carte_bancaire")).toBe(6);
     expect(n("autre")).toBe(1); // « PAIEMENT EFFET » : aucun tableau
-    const swift = lignesPourTableau("etat_swift", l.ecritures);
+    const swift = l.ecritures.filter((e) => e.nature === "swift").map((e) => ligneDepuisEcriture("etat_swift", e));
     expect(swift.reduce((t, r) => t + Number(r.montant), 0)).toBeCloseTo(25903.32 + 7672.6 + 27040 + 20874 + 1096.758 + 28401.75 + 626.52, 3);
   });
 

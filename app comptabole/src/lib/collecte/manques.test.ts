@@ -35,3 +35,10 @@ describe("cases à compléter d'un bordereau de remise", () => {
     expect(cases(sans)).toEqual(["1:observations"]);
   });
 });
+
+describe("tableau intégré d'un autre module (État SWIFT)", () => {
+  it("n'a pas de lignes dans la collecte : il n'est jamais signalé comme « non rempli »", () => {
+    const c = { onglets: ["etat_swift"], lignes: [] } as unknown as CollecteFull;
+    expect(computeManques(c)).toEqual([]);
+  });
+});

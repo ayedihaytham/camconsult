@@ -139,8 +139,6 @@ export interface TabGroupe {
   libelle: string;
   /** Texte du bouton qui ajoute une ligne à un groupe : « Ajouter un chèque ». */
   ajout: string;
-  /** Consigne affichée au cabinet quand il ajoute lui-même les en-têtes de groupe (défaut : celle des bordereaux). */
-  consigneCabinet?: string;
 }
 
 export interface RepartitionGroupe {
@@ -207,6 +205,8 @@ export interface TabDef {
   provisional?: boolean;
   /** lignes à répartir jusqu'à atteindre un montant annoncé (bordereaux de remise de chèques) */
   groupe?: TabGroupe;
+  /** Tableau intégré d'un autre module (ex. « État SWIFT ») : il s'affiche avec l'écran de ce module et n'a pas de lignes dans la collecte. */
+  module?: boolean;
   /** Tableau tenu par le cabinet : le client le consulte sans pouvoir le modifier ni le transmettre, et il n'est ni dans sa checklist ni dans le récap. */
   cabinetSeul?: boolean;
   /** Consigne courte pour le client : ce qu'il doit saisir dans ce tableau, en une ou deux phrases. */
@@ -629,38 +629,15 @@ const TABLEAUX_DEFINIS: TabDef[] = [
     key: "etat_swift",
     label: "État SWIFT",
     pieceLabel: "État des virements SWIFT à justifier",
+    // Tableau intégré : les virements et leurs factures sont ceux du module « État SWIFT » (même écran, mêmes contrôles),
+    // pas des lignes saisies dans la grille de la collecte.
+    module: true,
     totalKey: "montant",
-    // Comme les bordereaux : le cabinet pose chaque virement (date, réf., libellé, banque, montant) ; la société ajoute ses factures d'achat
-    // une à une, sur autant de lignes qu'il faut, jusqu'à ce que leur équivalent en dinars atteigne le montant du virement.
-    groupe: {
-      cle: "ref",
-      totalCol: "montant",
-      montantCol: "montant_tnd",
-      prefill: ["date", "ref", "libelle", "banque"],
-      libelle: "Virement",
-      ajout: "Ajouter une facture",
-      consigneCabinet: "Ajoutez les virements SWIFT à justifier (date, réf., libellé, banque, montant) : la société saisit ensuite les factures d'achat de chaque virement, ce sont les cases « ? ».",
-    },
-    // L'équivalent en dinars d'une facture se propose (montant en devise × taux) tant qu'il est vide ; il reste modifiable.
-    derive: (rows) =>
-      rows.map((r) => {
-        const md = cellNumber(r.montant_devise);
-        const t = cellNumber(r.taux);
-        if (String(r.montant_tnd ?? "").trim() !== "" || !(md > 0) || !(t > 0)) return r;
-        return { ...r, montant_tnd: Math.round(md * t * 1000) / 1000 };
-      }),
     columns: [
-      { key: "date", label: "Date du virement", type: "date", width: 120 },
-      { key: "ref", label: "Réf. virement", type: "text", width: 120 },
-      { key: "libelle", label: "Libellé du virement", type: "text", width: 200 },
-      { key: "banque", label: "Banque", type: "text", width: 110 },
-      { key: "montant", label: "Montant du virement (TND)", type: "number", width: 140 },
-      { key: "num_facture", label: "N° facture d'achat", type: "text", width: 140 },
-      { key: "devise", label: "Devise", type: "text", width: 80 },
-      { key: "montant_devise", label: "Montant facture (devise)", type: "number", width: 140 },
-      { key: "taux", label: "Taux de change", type: "number", width: 110 },
-      { key: "montant_tnd", label: "Équivalent TND", type: "number", width: 130 },
-      { key: "observations", label: "Observations / pièce jointe", type: "text", width: 200, piece: true },
+      { key: "date", label: "Date du virement", type: "date", width: 130 },
+      { key: "libelle", label: "Libellé du virement", type: "text", width: 220 },
+      { key: "banque", label: "Banque", type: "text", width: 130 },
+      { key: "montant", label: "Montant du virement (TND)", type: "number", width: 150 },
     ],
   },
   {
@@ -770,7 +747,7 @@ const AIDES: Record<string, string> = {
   reglements_cb:
     "Une ligne par règlement par carte bancaire (« REG PAR CB » sur le relevé) : date, commerçant ou fournisseur, n° de facture ou de ticket et montant. Joignez le ticket ou la facture.",
   etat_swift:
-    "Chaque virement SWIFT (achat de devises négocié sur le marché) est à justifier par vos factures d'achat : ajoutez une ligne par facture (n°, devise, montant en devise, taux) jusqu'à atteindre le montant du virement. Joignez l'avis SWIFT si vous l'avez.",
+    "Chaque virement SWIFT (achat de devises négocié sur le marché) est à justifier par vos factures d'achat : indiquez l'équivalent en devise, puis ajoutez les factures (n°, montant en devise, taux, pièce) jusqu'à l'atteindre.",
   etat_fournisseurs: "Une ligne par fournisseur : solde de départ, ce qui a été facturé et ce qui a été réglé sur la période. Le solde final se calcule seul.",
 };
 

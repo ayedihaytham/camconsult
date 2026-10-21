@@ -899,7 +899,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
       {canAdd && bordereauSeul && (
         <p className="text-xs text-muted-foreground">
-          {def.groupe?.consigneCabinet ?? "Ajoutez les bordereaux à remplir (date de remise, n°, montant, banque) : le client saisit ensuite les chèques de chaque bordereau, ce sont les cases « ? »."}
+          Ajoutez les bordereaux à remplir (date de remise, n°, montant, banque) : le client saisit ensuite les chèques de chaque bordereau, ce sont les cases « ? ».
         </p>
       )}
       {canAdd && !bordereauSeul && (

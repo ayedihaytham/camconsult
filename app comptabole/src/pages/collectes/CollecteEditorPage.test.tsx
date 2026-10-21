@@ -61,6 +61,14 @@ vi.mock("@/lib/collecte/exportXlsx", () => ({
   printCollecteSection: printSection,
   exportCollecteXlsx: exportAllXlsx,
 }));
+vi.mock("@/pages/etatSwift/EtatSwiftSocietePage", () => ({
+  EtatSwiftSociete: (p: { societeId: string; integre?: boolean; lectureSeule?: boolean; circuit?: React.ReactNode }) => (
+    <section data-testid="etat-swift" data-societe={p.societeId} data-integre={String(Boolean(p.integre))} data-lecture={String(Boolean(p.lectureSeule))}>
+      {p.circuit}
+      Écran du module État SWIFT
+    </section>
+  ),
+}));
 vi.mock("@/store/collectes", () => {
   const getState = () => ({ current: collecte, loadingOne: false, fetchOne, clearCurrent, saveLignes, update, setStatut, submitRecap, transmettreSection });
   return {
@@ -934,5 +942,35 @@ describe("Collecte : envoi par lignes pour le responsable / délégué de socié
     expect(lignes).toHaveLength(2);
     expect(lignes[0].className).toContain("bg-success/10");
     expect(lignes[1].className).not.toContain("bg-success/10");
+  });
+});
+
+describe("Collecte : le tableau « État SWIFT » est l'écran du module", () => {
+  beforeEach(() => {
+    collecte.onglets = ["etat_swift", "bordereaux_remise_cheques"];
+  });
+
+  it("le cabinet voit l'écran du module (même société), sans grille ni boutons de grille", () => {
+    renderPage();
+    ouvrirSection("État SWIFT");
+    const ecran = screen.getByTestId("etat-swift");
+    expect(ecran.getAttribute("data-societe")).toBe(collecte.societeId);
+    expect(ecran.getAttribute("data-integre")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).toBeNull();
+    expect(document.querySelector("table [data-row], tr[data-row]")).toBeNull();
+  });
+
+  it("la société le voit aussi ; fermé une fois le tableau transmis, il passe en lecture seule", () => {
+    perms.current = { isAdmin: false, poste: "societe_employe", isCollaborateur: false, canManageCollaborateurs: false, canSeeSociete: () => true };
+    collecte.sections = [{ id: "s", onglet: "etat_swift", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "transmis", transmisLe: null, valideLe: null, motifRenvoi: "" } as never];
+    renderPage();
+    ouvrirSection("État SWIFT");
+    expect(screen.getByTestId("etat-swift").getAttribute("data-lecture")).toBe("true");
+    collecte.sections = [];
+  });
+
+  it("n'est jamais compté parmi les cases à compléter de la collecte (ses virements sont dans le module)", () => {
+    renderPage();
+    expect(screen.queryByText(/« État SWIFT » : aucune ligne saisie/)).toBeNull();
   });
 });

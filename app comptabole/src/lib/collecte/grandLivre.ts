@@ -243,7 +243,6 @@ export const TABLEAUX_GRAND_LIVRE: Record<string, { natures: NatureEcriture[]; t
   bordereaux_traites_recues: { natures: ["effet_recu"], titre: "Traites encaissées" },
   virements_recus: { natures: ["virement_recu"], titre: "Virements reçus" },
   virements_emis: { natures: ["virement_emis"], titre: "Virements émis" },
-  etat_swift: { natures: ["swift"], titre: "Virements SWIFT à vérifier" },
   reglements_cb: { natures: ["carte_bancaire"], titre: "Règlements par carte bancaire" },
 };
 
@@ -292,11 +291,21 @@ export function ligneDepuisEcriture(onglet: string, e: EcritureLivre): TabRow {
       // Le commerçant n'est pas toujours dans le libellé : la société le complète, avec le ticket ou la facture en pièce jointe.
       return { date: e.date, commercant: nom, reference: "", montant: e.montant, compte_bancaire: e.journal, observations };
     case "etat_swift":
-      // Ligne d'en-tête d'un virement : la société y ajoute ses factures jusqu'à atteindre le montant (comme un bordereau).
-      return { date: e.date, ref: `${e.journal} ${e.piece}`, libelle: base, banque: e.journal, montant: e.montant, num_facture: "", devise: "", montant_devise: "", taux: "", montant_tnd: "", observations };
+      // Virement du module « État SWIFT » (date, libellé, banque, montant) : la société le justifie ensuite par ses factures d'achat.
+      return { date: e.date, libelle: base, banque: e.journal, montant: e.montant, observations };
     default:
       return { date: e.date, beneficiaire: nom, reference: base, montant: e.montant, compte_bancaire: e.journal, observations };
   }
+}
+
+/** Virement du module « État SWIFT » pour une ligne d'import (brouillon : le cabinet vérifie, puis l'envoie à la société). */
+export function virementDepuisLigne(ligne: TabRow): { date: string; montant: number; libelle: string; banque: string; envoyer: boolean } {
+  return { date: String(ligne.date ?? ""), montant: Number(ligne.montant) || 0, libelle: String(ligne.libelle ?? "").trim() || "Virement SWIFT", banque: String(ligne.banque ?? "").trim() || "Banque", envoyer: false };
+}
+
+/** Vrai si un virement du module a déjà cette date et ce montant (écriture déjà importée). */
+export function virementSwiftDejaPresent(e: EcritureLivre, virements: { date: string | null; montant: number }[]): boolean {
+  return virements.some((v) => v.date === e.date && Math.abs(v.montant - e.montant) < 0.0005);
 }
 
 /** Tableau de la collecte où le cabinet range chaque nature d'écriture. Les chèques émis vont dans « État des chèques émis » (tenu par

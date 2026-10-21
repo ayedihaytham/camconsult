@@ -36,6 +36,13 @@ function Barre({ virement }: { virement: SwiftVirement }) {
 /** État SWIFT d'une société : le comptable pose les virements à justifier, la société les justifie par ses factures d'achat. */
 export function EtatSwiftSocietePage() {
   const { societeId = "" } = useParams();
+  return <EtatSwiftSociete societeId={societeId} />;
+}
+
+/** Le même écran, utilisable dans une collecte de pièces (`integre`) : mêmes virements, mêmes factures, même contrôle « jusqu'à atteindre le
+ * montant en devise », sans bandeau de page. `circuit` : les boutons de la section (transmettre, valider…), affichés au-dessus ;
+ * `lectureSeule` : section fermée, la société consulte seulement. */
+export function EtatSwiftSociete({ societeId, integre = false, lectureSeule = false, circuit }: { societeId: string; integre?: boolean; lectureSeule?: boolean; circuit?: React.ReactNode }) {
   const societe = useSocieteById(societeId);
   const { isResponsableSociete } = usePermissions();
   const { virements, loading, fetch, clear, create, update, remove, saveFactures } = useEtatSwift();
@@ -60,7 +67,19 @@ export function EtatSwiftSocietePage() {
 
   const nom = societe?.raisonSociale ?? "Société";
 
-  const bandeau = (
+  const bandeau = integre ? (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-sm text-muted-foreground">
+        {loading ? "Chargement…" : `${virements.length} virement${virements.length > 1 ? "s" : ""} SWIFT · ${nbAJustifier} à justifier`}
+      </p>
+      {!isResponsableSociete && !lectureSeule && (
+        <Button variant="ledger" onClick={() => { setEdition(null); setFormOuvert(true); }}>
+          <Plus className="h-4 w-4" />
+          Nouveau virement SWIFT
+        </Button>
+      )}
+    </div>
+  ) : (
     <SignatureLedgerBanner
       icon={Globe}
       eyebrow={isResponsableSociete ? "Demandé par le cabinet · Devises" : "Comptabilité · Devises"}
@@ -100,8 +119,9 @@ export function EtatSwiftSocietePage() {
   if (isResponsableSociete) {
     return (
       <div>
+        {circuit}
         {bandeau}
-        <div className="mt-4 space-y-3">
+        <fieldset disabled={lectureSeule} className="mt-4 min-w-0 space-y-3 border-0 p-0">
           {virements.length === 0 ? (
             <div className="overflow-hidden rounded-xl border border-accent/30 bg-card">
               <EmptyState icon={Globe} title={loading ? "Chargement…" : "Aucun virement à justifier"} description="Le cabinet vous enverra ici les virements SWIFT dont il attend les factures d'achat." />
@@ -157,7 +177,7 @@ export function EtatSwiftSocietePage() {
             })
           )}
           <p className="px-1 text-xs text-muted-foreground">La date, le montant, le libellé et la banque viennent du cabinet : vous les lisez seulement.</p>
-        </div>
+        </fieldset>
       </div>
     );
   }
@@ -165,6 +185,7 @@ export function EtatSwiftSocietePage() {
   // ── Vue du comptable ──
   return (
     <div>
+      {circuit}
       {bandeau}
       <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
         {virements.length === 0 ? (

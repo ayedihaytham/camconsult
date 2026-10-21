@@ -4,11 +4,12 @@ import { AlertTriangle, CheckCircle2, Info, LoaderCircle, Upload } from "lucide-
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { dejaPresente, ligneDepuisEcriture, lireGrandLivre, TABLEAU_PAR_NATURE, type EcritureLivre, type GrandLivre } from "@/lib/collecte/grandLivre";
+import { dejaPresente, ligneDepuisEcriture, lireGrandLivre, TABLEAU_PAR_NATURE, virementDepuisLigne, virementSwiftDejaPresent, type EcritureLivre, type GrandLivre } from "@/lib/collecte/grandLivre";
 import { TAB_BY_KEY, type TabRow } from "@/lib/collecte/tabs";
 import { lireFichierPdf, nombreDeCaracteres, reconstruireTableau } from "@/lib/pdfToTables";
 import { cn, formatDate } from "@/lib/utils";
 import { useCollectes } from "@/store/collectes";
+import { useEtatSwift } from "@/store/etatSwift";
 import type { CollecteFull } from "@/types";
 
 interface Props {
@@ -39,6 +40,11 @@ const ETAT_LIBELLE: Record<Etat, string> = {
  * celles qui existent et enregistre chaque tableau. Le document est lu dans le navigateur, jamais envoyé au serveur. */
 export function ImportGrandLivreDialog({ open, onOpenChange, collecte, editableTab, brouillonOuvert }: Props) {
   const saveLignes = useCollectes((s) => s.saveLignes);
+  // « État SWIFT » : les virements sont ceux du module ; on les relit pour ne pas importer deux fois la même écriture.
+  const virementsSwift = useEtatSwift((s) => s.virements);
+  useEffect(() => {
+    if (open) void useEtatSwift.getState().fetch(collecte.societeId).catch(() => undefined);
+  }, [open, collecte.societeId]);
   const [livre, setLivre] = useState<GrandLivre | null>(null);
   const [nomFichier, setNomFichier] = useState("");
   const [erreur, setErreur] = useState("");
@@ -64,7 +70,8 @@ export function ImportGrandLivreDialog({ open, onOpenChange, collecte, editableT
       if (!table) return { e, table: null, etat: "aclasser" };
       if (!collecte.onglets.includes(table)) return { e, table, etat: "absent" };
       if (!editableTab(table)) return { e, table, etat: "ferme" };
-      if (dejaPresente(table, e, collecte.lignes.filter((x) => x.onglet === table).map((x) => x.data as TabRow))) return { e, table, etat: "doublon" };
+      const deja = table === "etat_swift" ? virementSwiftDejaPresent(e, virementsSwift) : dejaPresente(table, e, collecte.lignes.filter((x) => x.onglet === table).map((x) => x.data as TabRow));
+      if (deja) return { e, table, etat: "doublon" };
       return { e, table, etat: "prete" };
     });
   // editableTab est recréée à chaque rendu du parent : la classification est recalculée, mais la sélection de l'utilisateur, elle, ne l'est jamais.
@@ -126,6 +133,16 @@ export function ImportGrandLivreDialog({ open, onOpenChange, collecte, editableT
     let total = 0;
     for (const [table] of parTable) {
       const def = TAB_BY_KEY[table];
+      if (def.module) {
+        // Virements SWIFT : créés dans le module (brouillons à vérifier, puis à envoyer à la société).
+        try {
+          for (const l of selection.filter((x) => x.table === table)) await useEtatSwift.getState().create(collecte.societeId, virementDepuisLigne(ligneDepuisEcriture(table, l.e)));
+          total += selection.filter((x) => x.table === table).length;
+        } catch {
+          echecs.push(def.label);
+        }
+        continue;
+      }
       const vide = Object.fromEntries(def.columns.map((c) => [c.key, c.defaut ?? ""]));
       const nouvelles = selection.filter((l) => l.table === table).map((l) => ({ ...vide, ...ligneDepuisEcriture(table, l.e) }));
       const toutes = [...lignesDe(table), ...nouvelles];

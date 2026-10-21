@@ -1,3 +1,5 @@
+import { virementDepuisLigne } from "@/lib/collecte/grandLivre";
+import { useEtatSwift } from "@/store/etatSwift";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -247,6 +249,11 @@ export function CollectesListPage() {
         const echecs: string[] = [];
         for (const [onglet, lignes] of Object.entries(prerempli ?? {})) {
           try {
+            if (TAB_BY_KEY[onglet]?.module) {
+              // Virements SWIFT : créés dans le module (brouillons à vérifier par le cabinet avant envoi à la société).
+              for (const l of lignes) await useEtatSwift.getState().create(collecte.societeId, virementDepuisLigne(l));
+              continue;
+            }
             await saveLignes(collecte.id, onglet, lignesEnregistrables(onglet, [], lignes));
           } catch {
             echecs.push(TAB_BY_KEY[onglet]?.label ?? onglet);

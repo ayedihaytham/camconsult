@@ -42,7 +42,7 @@ export function computeManques(c: CollecteFull): Manque[] {
   const out: Manque[] = [];
   for (const key of c.onglets) {
     const def = TAB_BY_KEY[key];
-    if (!def || def.cabinetSeul) continue;
+    if (!def || def.cabinetSeul || def.module) continue;
     const label = def.label;
     const skip = new Set(SKIP[key] ?? []);
     const lignes = c.lignes

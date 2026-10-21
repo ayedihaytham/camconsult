@@ -151,7 +151,8 @@ describe("tableau récapitulatif du stock", () => {
     const a = within(achat);
     expect(v.getByText("Vente")).toBeTruthy();
     expect(v.getByText("GROUP BYOUT EZZ")).toBeTruthy();
-    expect(v.getByText("202300001")).toBeTruthy();
+    // Le n° de la facture de vente figure deux fois : dans la colonne « N° mouvement » et dans la colonne « N° facture ».
+    expect(v.getAllByText("202300001")).toHaveLength(2);
     expect(a.getByText("Achat")).toBeTruthy();
     expect(a.getByText("RUSPINA IMPORT ET EXPORT")).toBeTruthy();
     expect(a.getByText("6608000533")).toBeTruthy();
@@ -293,5 +294,53 @@ describe("quantités en unités différentes", () => {
     // Un écart nul s'écrit « 0 », sans unité.
     expect(within(vente).getByText("0")).toBeTruthy();
     expect(within(vente).queryByText("0 T")).toBeNull();
+  });
+});
+
+describe("N° de mouvement et monnaie des montants", () => {
+  afterEach(cleanup);
+
+  it("ajoute, avant l'écart, la colonne « N° mouvement » : le n° de la facture de vente", () => {
+    afficher();
+    const titres = Array.from(document.querySelectorAll("thead th")).map((t) => t.textContent);
+    expect(titres.indexOf("N° mouvement")).toBe(titres.indexOf("Écart") - 1);
+    expect(titres).toHaveLength(15);
+    const cellule = lignesDe("m1")[0].querySelector('td[title="Numéro de la facture de vente"]');
+    expect(cellule?.textContent).toBe("202300001");
+    expect(cellule?.getAttribute("rowspan")).toBe("2");
+  });
+
+  it("sans facture de vente, le n° de mouvement est un tiret", () => {
+    afficher({ mouvements: [base({ id: "m3", achatNumFacture: "A1", venteNumFacture: "" })] });
+    expect(lignesDe("m3")[0].querySelector('td[title="Numéro de la facture de vente"]')?.textContent).toBe("—");
+  });
+
+  it("en dollars : le cours par rapport au dollar et le montant en dollars remplacent le cours et le montant en dinars", () => {
+    const m = base({
+      id: "m4",
+      achatLignes: [ligne("A", 10, 1000, 3300)],
+      achatCours: 3.3,
+      achatCoursUsd: 1.08,
+      venteLignes: [ligne("V", 10, 1200, 3960)],
+      venteCours: 3.3,
+      venteCoursUsd: 1.1,
+    });
+    afficher({ mouvements: [m], base: "USD" });
+    const titres = Array.from(document.querySelectorAll("thead th")).map((t) => t.textContent);
+    expect(titres).toContain("Cours USD");
+    expect(titres).toContain("MT USD");
+    const [vente, achat] = lignesDe("m4");
+    expect(within(vente).getByText("1,1")).toBeTruthy();
+    expect(within(vente).getByText("1 320,000")).toBeTruthy();
+    expect(within(achat).getByText("1,08")).toBeTruthy();
+    expect(within(achat).getByText("1 080,000")).toBeTruthy();
+    expect(document.querySelector("tfoot")?.textContent).toContain("Marge USD +240,000");
+  });
+
+  it("en dinars (par défaut) : cours et montants en TND, marge en TND", () => {
+    const m = base({ id: "m5", achatLignes: [ligne("A", 1, 100, 330)], achatCours: 3.3, venteLignes: [ligne("V", 1, 120, 396)], venteCours: 3.3 });
+    afficher({ mouvements: [m] });
+    expect(Array.from(document.querySelectorAll("thead th")).map((t) => t.textContent)).toContain("MT TND");
+    expect(document.querySelector("tfoot")?.textContent).toContain("Marge TND +66,000");
   });
 });

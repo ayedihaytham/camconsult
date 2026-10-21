@@ -1405,3 +1405,7 @@ alter table collecte_notes add column if not exists auteur_ref text;
 -- (envoyee_le) : figée côté société, vue en vert côté cabinet. Elle ne revient à la société que par « Reprendre » (société) ou un renvoi du cabinet.
 alter table collectes add column if not exists envoi_par_lignes boolean not null default false;
 alter table collecte_lignes add column if not exists envoyee_le timestamptz;
+
+-- Cours de change par rapport au dollar (USD pour 1 unité de la devise de la facture), à côté du cours en dinars : facture d'achat et de vente.
+alter table stock_mouvements add column if not exists achat_cours_usd numeric not null default 0;
+alter table stock_mouvements add column if not exists vente_cours_usd numeric not null default 0;

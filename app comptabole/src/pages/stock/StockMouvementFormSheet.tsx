@@ -18,7 +18,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CoursSuggere } from "@/components/common/CoursSuggere";
-import { coursDuMois, coursParUnite } from "@/lib/coursChange";
 import { useCoursChange } from "@/store/coursChange";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/common/AmountInput";
@@ -36,6 +35,7 @@ import { readFileAsDataUrl } from "@/lib/file";
 import { alleger, poidsMo } from "@/lib/image";
 import { cn } from "@/lib/utils";
 import { ecartDevise, fmtMontant, totauxCote } from "@/lib/stockRecap";
+import { completerCours, coursAutoInitial, type CoursAuto } from "@/lib/coursStock";
 import { useStock, type StockMouvementInput } from "@/store/stock";
 import { mouvementsAvecNumero } from "@/lib/facturesDoublons";
 import { useSocieteById } from "@/store/data";
@@ -63,6 +63,7 @@ const empty = (societeId: string): StockMouvementInput => ({
   fournisseur: "",
   achatDevise: "EUR",
   achatCours: 0,
+  achatCoursUsd: 0,
   achatLignes: [],
   venteDate: null,
   venteNumFacture: "",
@@ -70,6 +71,7 @@ const empty = (societeId: string): StockMouvementInput => ({
   client: "",
   venteDevise: "EUR",
   venteCours: 0,
+  venteCoursUsd: 0,
   venteLignes: [],
   douaneNumDeclaration: "",
   douaneDate: null,
@@ -95,31 +97,24 @@ const montantTnd = (montantDevise: number, cours: number) =>
 const avecMontantsTnd = (lignes: StockLigne[], cours: number): StockLigne[] =>
   lignes.map((l) => ({ ...l, montantTnd: montantTnd(l.montantDevise, cours) }));
 
-/** Facture d'achat ou de vente en devise : son cours devient le cours moyen du mois de sa date pour sa devise (page « Cours de change »),
- * dès que la date ou la devise change — sans effet pour le dinar ni quand aucun cours n'est enregistré pour ce mois. Le cours reste
- * modifiable à la main ensuite ; ouvrir une facture déjà enregistrée ne le change pas. */
-function avecCoursMoyen(prev: StockMouvementInput, type: "achat" | "vente"): StockMouvementInput {
+/** Cours d'une facture d'achat ou de vente en devise (dinars et dollar), dès que sa date, sa devise ou le taux de la douane change :
+ * le cours saisi sur la facture est gardé ; sinon le taux de la douane ; sinon le cours moyen du mois de la date (page « Cours de change »).
+ * Sans effet pour le dinar ni quand aucun cours n'est enregistré. Ouvrir une facture déjà enregistrée ne change pas ses cours. */
+function avecCoursMoyen(prev: StockMouvementInput, type: "achat" | "vente", auto: CoursAuto): StockMouvementInput {
   const { cours, devises } = useCoursChange.getState();
-  const date = type === "achat" ? prev.achatDate : prev.venteDate;
-  const devise = (type === "achat" ? prev.achatDevise : prev.venteDevise).trim().toUpperCase();
-  if (!devise || devise === "TND") return prev;
-  const trouve = coursDuMois(cours, devise, date);
-  if (!trouve) return prev;
-  const n = coursParUnite(trouve, devises);
-  return type === "achat"
-    ? { ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }
-    : { ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) };
+  return completerCours(prev, type, auto, { cours, devises });
 }
 
 /** Le taux de change de la douane s'applique aux cours de l'achat et de la vente
  * (et donc aux montants en dinars), sauf si l'un d'eux a été saisi à la main avec
  * une autre valeur : un cours vide, ou qui suivait déjà l'ancien taux de la douane,
  * est mis à jour. */
-export function avecTauxDouane(prev: StockMouvementInput, taux: number): StockMouvementInput {
+export function avecTauxDouane(prev: StockMouvementInput, taux: number, auto?: CoursAuto): StockMouvementInput {
   if (!taux) return { ...prev, douaneTauxChange: taux };
-  const suit = (cours: number) => !cours || cours === prev.douaneTauxChange;
-  const achatCours = suit(prev.achatCours) ? taux : prev.achatCours;
-  const venteCours = suit(prev.venteCours) ? taux : prev.venteCours;
+  // Un cours déjà « automatique » (cours moyen du mois) cède aussi la place au taux de la douane, qui passe avant lui.
+  const suit = (cours: number, automatique: boolean | undefined) => !cours || cours === prev.douaneTauxChange || Boolean(automatique);
+  const achatCours = suit(prev.achatCours, auto?.achat) ? taux : prev.achatCours;
+  const venteCours = suit(prev.venteCours, auto?.vente) ? taux : prev.venteCours;
   return {
     ...prev,
     douaneTauxChange: taux,
@@ -175,6 +170,8 @@ export function StockMouvementFormSheet({
   const mouvements = useStock((s) => s.list);
   const extractPages = useStock((s) => s.extractPages);
   const [v, setV] = useState<StockMouvementInput>(empty(societeId));
+  // Cours qui suivent encore un repli (douane, cours du mois) : un cours saisi à la main n'est plus remplacé.
+  const auto = useRef<CoursAuto>(coursAutoInitial());
   const [importing, setImporting] = useState<StockDocType | null>(null);
   const [onglet, setOnglet] = useState<StockDocType>("achat");
   // Document agrandi (plein écran) et largeur du volet du document.
@@ -284,6 +281,9 @@ export function StockMouvementFormSheet({
     if (!open) return;
     const depart = mouvement ? { ...mouvement } : empty(societeId);
     setV(depart);
+    auto.current = mouvement
+      ? { achat: !depart.achatCours, vente: !depart.venteCours, achatUsd: !depart.achatCoursUsd, venteUsd: !depart.venteCoursUsd }
+      : coursAutoInitial();
     initialJson.current = JSON.stringify(depart);
     setConfirmClose(false);
     setOnglet("achat");
@@ -367,7 +367,7 @@ export function StockMouvementFormSheet({
           champs.lignes && champs.lignes.length > 0
             ? avecMontantsTnd(champs.lignes, prev.achatCours)
             : prev.achatLignes,
-      }, "achat"));
+      }, "achat", auto.current));
     } else if (type === "vente") {
       setV((prev) => avecCoursMoyen({
         ...prev,
@@ -380,9 +380,9 @@ export function StockMouvementFormSheet({
           champs.lignes && champs.lignes.length > 0
             ? avecMontantsTnd(champs.lignes, prev.venteCours)
             : prev.venteLignes,
-      }, "vente"));
+      }, "vente", auto.current));
     } else {
-      setV((prev) => avecTauxDouane({
+      setV((prev) => avecCoursMoyen(avecCoursMoyen(avecTauxDouane({
         ...prev,
         douaneNumDeclaration: champs.numDeclaration || prev.douaneNumDeclaration,
         douaneDate: champs.date || prev.douaneDate,
@@ -392,7 +392,7 @@ export function StockMouvementFormSheet({
         douanePtfn: champs.ptfn || prev.douanePtfn,
         douaneExportateur: champs.exportateur || prev.douaneExportateur,
         douaneImportateur: champs.importateur || prev.douaneImportateur,
-      }, champs.tauxChange || prev.douaneTauxChange));
+      }, champs.tauxChange || prev.douaneTauxChange, auto.current), "achat", auto.current), "vente", auto.current));
     }
   }
 
@@ -682,7 +682,7 @@ export function StockMouvementFormSheet({
               )}
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="Date" lu={estLu("achatDate", v.achatDate)}>
-                  <Input type="date" value={v.achatDate ?? ""} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDate: e.target.value || null }, "achat"))} />
+                  <Input type="date" value={v.achatDate ?? ""} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDate: e.target.value || null }, "achat", auto.current))} />
                 </Field>
                 <Field label="N° Facture" lu={estLu("achatNumFacture", v.achatNumFacture)}>
                   <Input value={v.achatNumFacture} onChange={(e) => set("achatNumFacture", e.target.value)} />
@@ -691,7 +691,7 @@ export function StockMouvementFormSheet({
                   <Input value={v.fournisseur} onChange={(e) => set("fournisseur", e.target.value)} />
                 </Field>
                 <Field label="Devise" lu={estLu("achatDevise", v.achatDevise)}>
-                  <Input value={v.achatDevise} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDevise: e.target.value }, "achat"))} />
+                  <Input value={v.achatDevise} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDevise: e.target.value }, "achat", auto.current))} />
                 </Field>
                 <Field
                   label="Cours (taux de change)"
@@ -700,11 +700,14 @@ export function StockMouvementFormSheet({
                       devise={v.achatDevise}
                       date={v.achatDate}
                       courant={v.achatCours}
-                      onAppliquer={(n) => setV((prev) => ({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }))}
+                      onAppliquer={(n) => { auto.current.achat = false; setV((prev) => avecCoursMoyen({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }, "achat", auto.current)); }}
                     />
                   }
                 >
-                  <AmountInput value={v.achatCours} decimals={4} onValueChange={(n) => setV((prev) => ({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }))} />
+                  <AmountInput value={v.achatCours} decimals={4} onValueChange={(n) => { auto.current.achat = n === 0; setV((prev) => avecCoursMoyen({ ...prev, achatCours: n, achatLignes: avecMontantsTnd(prev.achatLignes, n) }, "achat", auto.current)); }} />
+                </Field>
+                <Field label="Cours (taux de change USD)" aide={<CoursUsdAide devise={v.achatDevise} cours={v.achatCoursUsd ?? 0} />}>
+                  <AmountInput value={v.achatCoursUsd ?? 0} decimals={6} onValueChange={(n) => { auto.current.achatUsd = n === 0; setV((prev) => avecCoursMoyen({ ...prev, achatCoursUsd: n }, "achat", auto.current)); }} />
                 </Field>
               </div>
               <LignesEditor lues={lignesLues("achat", v.achatLignes)} lignes={v.achatLignes} cours={v.achatCours} devise={v.achatDevise} onChange={(lignes) => set("achatLignes", lignes)} />
@@ -722,7 +725,7 @@ export function StockMouvementFormSheet({
               )}
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="Date" lu={estLu("venteDate", v.venteDate)}>
-                  <Input type="date" value={v.venteDate ?? ""} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDate: e.target.value || null }, "vente"))} />
+                  <Input type="date" value={v.venteDate ?? ""} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDate: e.target.value || null }, "vente", auto.current))} />
                 </Field>
                 <Field label="N° Facture" lu={estLu("venteNumFacture", v.venteNumFacture)}>
                   <Input value={v.venteNumFacture} onChange={(e) => set("venteNumFacture", e.target.value)} />
@@ -731,7 +734,7 @@ export function StockMouvementFormSheet({
                   <Input value={v.client} onChange={(e) => set("client", e.target.value)} />
                 </Field>
                 <Field label="Devise" lu={estLu("venteDevise", v.venteDevise)}>
-                  <Input value={v.venteDevise} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDevise: e.target.value }, "vente"))} />
+                  <Input value={v.venteDevise} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDevise: e.target.value }, "vente", auto.current))} />
                 </Field>
                 <Field
                   label="Cours (taux de change)"
@@ -740,11 +743,14 @@ export function StockMouvementFormSheet({
                       devise={v.venteDevise}
                       date={v.venteDate}
                       courant={v.venteCours}
-                      onAppliquer={(n) => setV((prev) => ({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }))}
+                      onAppliquer={(n) => { auto.current.vente = false; setV((prev) => avecCoursMoyen({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }, "vente", auto.current)); }}
                     />
                   }
                 >
-                  <AmountInput value={v.venteCours} decimals={4} onValueChange={(n) => setV((prev) => ({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }))} />
+                  <AmountInput value={v.venteCours} decimals={4} onValueChange={(n) => { auto.current.vente = n === 0; setV((prev) => avecCoursMoyen({ ...prev, venteCours: n, venteLignes: avecMontantsTnd(prev.venteLignes, n) }, "vente", auto.current)); }} />
+                </Field>
+                <Field label="Cours (taux de change USD)" aide={<CoursUsdAide devise={v.venteDevise} cours={v.venteCoursUsd ?? 0} />}>
+                  <AmountInput value={v.venteCoursUsd ?? 0} decimals={6} onValueChange={(n) => { auto.current.venteUsd = n === 0; setV((prev) => avecCoursMoyen({ ...prev, venteCoursUsd: n }, "vente", auto.current)); }} />
                 </Field>
               </div>
               <LignesEditor lues={lignesLues("vente", v.venteLignes)} lignes={v.venteLignes} cours={v.venteCours} devise={v.venteDevise} onChange={(lignes) => set("venteLignes", lignes)} />
@@ -763,7 +769,7 @@ export function StockMouvementFormSheet({
                   <Input value={v.douaneTypeDeclaration} onChange={(e) => set("douaneTypeDeclaration", e.target.value)} placeholder="E" />
                 </Field>
                 <Field label="Taux de change (TND)" lu={estLu("douaneTauxChange", v.douaneTauxChange)}>
-                  <AmountInput value={v.douaneTauxChange} onValueChange={(n) => setV((prev) => avecTauxDouane(prev, n))} decimals={4} />
+                  <AmountInput value={v.douaneTauxChange} onValueChange={(n) => setV((prev) => avecCoursMoyen(avecCoursMoyen(avecTauxDouane(prev, n, auto.current), "achat", auto.current), "vente", auto.current))} decimals={4} />
                 </Field>
                 <Field label="Valeur en douane (TND)" lu={estLu("douaneValeurTnd", v.douaneValeurTnd)}>
                   <AmountInput value={v.douaneValeurTnd} onValueChange={(n) => set("douaneValeurTnd", n)} />
@@ -900,6 +906,18 @@ export function StockMouvementFormSheet({
       dataUrl={batchPreview?.imageDataUrl ?? null}
     />
     </>
+  );
+}
+
+/** Aide sous le cours par rapport au dollar : ce qu'il représente et d'où il vient. */
+function CoursUsdAide({ devise, cours }: { devise: string; cours: number }) {
+  const code = devise.trim().toUpperCase();
+  if (!code || code === "TND") return null;
+  return (
+    <p className="mt-1 text-xs text-muted-foreground">
+      {cours > 0 ? `USD pour 1 ${code}. ` : "Calculé quand la date et les cours du dinar et du dollar du mois sont connus. "}
+      Ordre : la facture, sinon la douane, sinon le cours moyen du mois.
+    </p>
   );
 }
 

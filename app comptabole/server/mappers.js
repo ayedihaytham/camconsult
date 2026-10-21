@@ -376,6 +376,7 @@ export const stockMouvementDto = (r, lignes = []) => {
     fournisseur: r.fournisseur ?? "",
     achatDevise: r.achat_devise ?? "EUR",
     achatCours: num(r.achat_cours),
+    achatCoursUsd: num(r.achat_cours_usd),
     achatLignes,
 
     venteDate: r.vente_date ? dateStr(r.vente_date) : null,
@@ -384,6 +385,7 @@ export const stockMouvementDto = (r, lignes = []) => {
     client: r.client ?? "",
     venteDevise: r.vente_devise ?? "EUR",
     venteCours: num(r.vente_cours),
+    venteCoursUsd: num(r.vente_cours_usd),
     venteLignes,
 
     douaneNumDeclaration: r.douane_num_declaration ?? "",

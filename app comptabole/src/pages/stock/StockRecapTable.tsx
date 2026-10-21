@@ -3,6 +3,7 @@ import { AlertTriangle, ChevronRight, FolderInput, Paperclip } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 import { ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
+import { montantCote } from "@/lib/coursStock";
 import type { StockLigne, StockMouvement } from "@/types";
 
 type Categorie = "achat" | "vente" | "douane";
@@ -19,6 +20,8 @@ interface Props {
   onClasser: (m: StockMouvement, categorie: Categorie) => void;
   /** Mouvements dont le n° de facture de vente ou d'achat est déjà utilisé par un autre. */
   doublons?: { vente: ReadonlySet<string>; achat: ReadonlySet<string> };
+  /** Monnaie des cours et des montants affichés : dinars (cours de la facture) ou dollars (cours par rapport au dollar). */
+  base?: "TND" | "USD";
 }
 
 const TITRES: Record<Categorie, string> = {
@@ -28,7 +31,7 @@ const TITRES: Record<Categorie, string> = {
 };
 
 /** Largeurs en pourcentage : le tableau occupe exactement la largeur de la page, sans défilement horizontal. */
-const LARGEURS = [3, 11, 5, 6, 7, 9, 12, 6, 8, 4, 5, 8, 4, 12];
+const LARGEURS = [3, 9, 8, 5, 5, 8, 8, 10, 6, 7, 5, 5, 7, 4, 10];
 const NB_COLONNES = LARGEURS.length;
 
 const th = "px-2 py-2.5 text-left text-xs font-semibold leading-tight text-muted-foreground [overflow-wrap:anywhere]";
@@ -65,13 +68,14 @@ function Piece({ m, categorie, onPreview }: { m: StockMouvement; categorie: Cate
 }
 
 /** Une ligne d'un côté (vente ou achat) d'un mouvement : côté, date, n° de facture, tiers, quantité, montant en devise, devise, cours, montant TND, pièce. */
-function CoteCellules({ m, cote, onPreview, doublon }: { m: StockMouvement; cote: "vente" | "achat"; onPreview: Props["onPreview"]; doublon: boolean }) {
+function CoteCellules({ m, cote, onPreview, doublon, base }: { m: StockMouvement; cote: "vente" | "achat"; onPreview: Props["onPreview"]; doublon: boolean; base: "TND" | "USD" }) {
   const v = cote === "vente";
   const lignes = v ? m.venteLignes : m.achatLignes;
   const numero = v ? m.venteNumFacture : m.achatNumFacture;
   const t = totauxCote(lignes);
   const vide = lignes.length === 0;
   const fond = TEINTE[cote];
+  const montant = montantCote(lignes, v ? m.venteCoursUsd : m.achatCoursUsd, base);
   return (
     <>
       <td className={cn(td, fond, v ? "shadow-[inset_4px_0_0_hsl(var(--primary))]" : "shadow-[inset_4px_0_0_hsl(var(--accent))]")}>
@@ -90,8 +94,8 @@ function CoteCellules({ m, cote, onPreview, doublon }: { m: StockMouvement; cote
       <td className={cn(tdNum, fond)}>{vide ? "—" : fmtQuantiteUnite(t.quantite, uniteCommune(lignes))}</td>
       <td className={cn(tdNum, fond)}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>
       <td className={cn(td, fond, "text-muted-foreground")}>{t.montantDevise ? (v ? m.venteDevise : m.achatDevise) : "—"}</td>
-      <td className={cn(tdNum, fond)}>{coursTexte(v ? m.venteCours : m.achatCours)}</td>
-      <td className={cn(tdNum, fond, "font-semibold text-primary")}>{t.montantTnd ? fmtMontant(t.montantTnd) : "—"}</td>
+      <td className={cn(tdNum, fond)}>{coursTexte(base === "USD" ? (v ? m.venteCoursUsd : m.achatCoursUsd) ?? 0 : v ? m.venteCours : m.achatCours)}</td>
+      <td className={cn(tdNum, fond, "font-semibold text-primary")}>{montant ? fmtMontant(montant) : "—"}</td>
       <td className={cn(td, fond, "text-center")}><Piece m={m} categorie={cote} onPreview={onPreview} /></td>
     </>
   );
@@ -100,11 +104,11 @@ function CoteCellules({ m, cote, onPreview, doublon }: { m: StockMouvement; cote
 /** Récapitulatif des opérations de stock : chaque mouvement occupe deux lignes aux colonnes alignées, une pour la vente et une pour
  * l'achat, avec la douane à droite ; le détail (produits, déclaration, pièces, actions) s'ouvre sous le mouvement. Le tableau
  * occupe la largeur de la page, sans défilement horizontal ; sur petit écran, chaque mouvement devient une carte. */
-export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onPreview, onClasser, doublons }: Props) {
+export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onPreview, onClasser, doublons, base = "TND" }: Props) {
   const [ouverts, setOuverts] = useState<Set<string>>(new Set());
   const total = recapStock(mouvements);
   const ecarts = ecartsDeviseTotaux(mouvements);
-  const marge = totauxCote(mouvements.flatMap((m) => m.venteLignes)).montantTnd - totauxCote(mouvements.flatMap((m) => m.achatLignes)).montantTnd;
+  const marge = mouvements.reduce((s, m) => s + montantCote(m.venteLignes, m.venteCoursUsd, base) - montantCote(m.achatLignes, m.achatCoursUsd, base), 0);
 
   const basculer = (id: string) =>
     setOuverts((s) => {
@@ -125,6 +129,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             <tr className="border-b border-border bg-muted/40">
               <th scope="col" className={th}>N°</th>
               <th scope="col" className={th}>Mouvement</th>
+              <th scope="col" className={th}>N° mouvement</th>
               <th scope="col" className={thNum}>Écart</th>
               <th scope="col" className={th}>Côté</th>
               <th scope="col" className={th}>Date</th>
@@ -133,8 +138,8 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
               <th scope="col" className={thNum}>Qté</th>
               <th scope="col" className={thNum}>En devise</th>
               <th scope="col" className={th}>Devise</th>
-              <th scope="col" className={thNum}>Cours</th>
-              <th scope="col" className={thNum}>MT TND</th>
+              <th scope="col" className={thNum}>{base === "USD" ? "Cours USD" : "Cours"}</th>
+              <th scope="col" className={thNum}>{base === "USD" ? "MT USD" : "MT TND"}</th>
               <th scope="col" className={cn(th, "text-center")}>Pièce</th>
               <th scope="col" className={cn(th, TEINTE.douane, filet)}>Douane</th>
             </tr>
@@ -167,12 +172,13 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                         <p className="min-w-0 font-medium text-primary">{m.natureMarchandise || "Mouvement sans nature"}</p>
                       </div>
                     </td>
+                    <td rowSpan={2} className={cn(td, "tabular-nums font-medium text-primary")} title="Numéro de la facture de vente">{m.venteNumFacture || "—"}</td>
                     <td rowSpan={2} className={tdNum}>
                       <span className={cn("inline-grid min-w-7 place-items-center rounded-full px-2 py-0.5 text-xs font-semibold", m.ecart !== 0 ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>
                         {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
                       </span>
                     </td>
-                    <CoteCellules m={m} cote="vente" onPreview={onPreview} doublon={Boolean(doublons?.vente.has(m.id))} />
+                    <CoteCellules m={m} cote="vente" onPreview={onPreview} doublon={Boolean(doublons?.vente.has(m.id))} base={base} />
                     <td rowSpan={2} className={cn(td, TEINTE.douane, filet, "text-xs leading-snug")}>
                       {m.douaneNumDeclaration ? <p className="text-[0.8125rem] font-semibold tabular-nums text-primary">{m.douaneNumDeclaration}</p> : <p className="text-muted-foreground">—</p>}
                       {(m.douaneDate || m.douaneTypeDeclaration) && <p className="text-muted-foreground">{m.douaneDate ? formatDate(m.douaneDate) : ""}{m.douaneTypeDeclaration ? ` · type ${m.douaneTypeDeclaration}` : ""}</p>}
@@ -183,7 +189,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     </td>
                   </tr>
                   <tr data-mouvement={m.id} onClick={() => basculer(m.id)} className={cn("cursor-pointer", surbrillance && "outline outline-2 -outline-offset-2 outline-accent")}>
-                    <CoteCellules m={m} cote="achat" onPreview={onPreview} doublon={Boolean(doublons?.achat.has(m.id))} />
+                    <CoteCellules m={m} cote="achat" onPreview={onPreview} doublon={Boolean(doublons?.achat.has(m.id))} base={base} />
                   </tr>
                   {ouvert && (
                     <tr className="border-t border-border bg-secondary/30">
@@ -200,7 +206,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-primary bg-muted/40 font-semibold text-primary">
-              <td className={td} colSpan={2}>
+              <td className={td} colSpan={3}>
                 <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
               </td>
               <td className={cn(tdNum, total.ecart !== 0 && "text-destructive")}>{fmtQuantiteUnite(total.ecart, total.unite)}</td>
@@ -210,8 +216,8 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                   <span key={e.devise} className={cn("mr-1 tabular-nums", e.valeur !== 0 && "text-destructive")}>{fmtMontant(e.valeur)} {e.devise}</span>
                 ))}</>}
               </td>
-              <td className={cn(tdNum, marge >= 0 ? "text-success" : "text-destructive")} colSpan={4}>Marge TND {marge >= 0 ? "+" : ""}{fmtMontant(marge)}</td>
-              <td className={td} />
+              <td className={cn(tdNum, marge >= 0 ? "text-success" : "text-destructive")} colSpan={4}>Marge {base} {marge >= 0 ? "+" : ""}{fmtMontant(marge)}</td>
+              <td className={td} colSpan={2} />
             </tr>
           </tfoot>
         </table>

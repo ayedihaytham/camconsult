@@ -134,6 +134,13 @@ describe("taux de change de la douane", () => {
     expect(r.venteCours).toBe(3.3);
   });
 
+  it("le taux de la douane remplace un cours resté « automatique » (cours moyen du mois), mais jamais un cours saisi sur la facture", () => {
+    const auto = { achat: true, vente: false, achatUsd: true, venteUsd: true };
+    const r = avecTauxDouane(base({ achatCours: 3.5, venteCours: 3.6 }), 3.3, auto);
+    expect(r.achatCours).toBe(3.3); // cours moyen du mois : la douane passe avant
+    expect(r.venteCours).toBe(3.6); // saisi sur la facture : gardé
+  });
+
   it("respecte un cours saisi à la main avec une autre valeur", () => {
     const r = avecTauxDouane(base({ douaneTauxChange: 3.2, achatCours: 3.5, venteCours: 0 }), 3.3);
     expect(r.achatCours).toBe(3.5);

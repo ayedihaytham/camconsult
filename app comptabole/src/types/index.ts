@@ -558,6 +558,8 @@ export interface StockMouvement {
   fournisseur: string;
   achatDevise: string;
   achatCours: number;
+  /** Cours par rapport au dollar : USD pour 1 unité de la devise de la facture (0 = non renseigné). */
+  achatCoursUsd?: number;
   achatLignes: StockLigne[];
 
   venteDate: string | null;
@@ -566,6 +568,7 @@ export interface StockMouvement {
   client: string;
   venteDevise: string;
   venteCours: number;
+  venteCoursUsd?: number;
   venteLignes: StockLigne[];
 
   douaneNumDeclaration: string;

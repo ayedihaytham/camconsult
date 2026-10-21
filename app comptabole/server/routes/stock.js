@@ -47,6 +47,7 @@ const schema = z.object({
   fournisseur: z.string().default(""),
   achatDevise: z.string().default("EUR"),
   achatCours: num,
+  achatCoursUsd: num,
   achatLignes: z.array(ligneSchema).default([]),
 
   venteDate: dateStr,
@@ -55,6 +56,7 @@ const schema = z.object({
   client: z.string().default(""),
   venteDevise: z.string().default("EUR"),
   venteCours: num,
+  venteCoursUsd: num,
   venteLignes: z.array(ligneSchema).default([]),
 
   douaneNumDeclaration: z.string().default(""),
@@ -79,8 +81,8 @@ const schema = z.object({
 // montants) vit dans stock_lignes, jamais ici (voir replaceLignes).
 const COL_NAMES = [
   "societe_id", "nature_marchandise",
-  "achat_date", "achat_num_facture", "achat_doc_type", "fournisseur", "achat_devise", "achat_cours",
-  "vente_date", "vente_num_facture", "vente_doc_type", "client", "vente_devise", "vente_cours",
+  "achat_date", "achat_num_facture", "achat_doc_type", "fournisseur", "achat_devise", "achat_cours", "achat_cours_usd",
+  "vente_date", "vente_num_facture", "vente_doc_type", "client", "vente_devise", "vente_cours", "vente_cours_usd",
   "douane_num_declaration", "douane_date", "douane_regime", "douane_type_declaration", "douane_reference",
   "douane_taux_change", "douane_valeur_tnd", "douane_ptfn", "douane_exportateur", "douane_importateur",
   "achat_doc_data_url", "vente_doc_data_url", "douane_doc_data_url",
@@ -90,8 +92,8 @@ const COL_NAMES = [
 function values(v) {
   return [
     v.societeId, v.natureMarchandise,
-    v.achatDate || null, v.achatNumFacture, v.achatDocType, v.fournisseur, v.achatDevise, v.achatCours,
-    v.venteDate || null, v.venteNumFacture, v.venteDocType, v.client, v.venteDevise, v.venteCours,
+    v.achatDate || null, v.achatNumFacture, v.achatDocType, v.fournisseur, v.achatDevise, v.achatCours, v.achatCoursUsd,
+    v.venteDate || null, v.venteNumFacture, v.venteDocType, v.client, v.venteDevise, v.venteCours, v.venteCoursUsd,
     v.douaneNumDeclaration, v.douaneDate || null, v.douaneRegime, v.douaneTypeDeclaration, v.douaneReference,
     v.douaneTauxChange, v.douaneValeurTnd, v.douanePtfn, v.douaneExportateur, v.douaneImportateur,
     v.achatDocDataUrl || null, v.venteDocDataUrl || null, v.douaneDocDataUrl || null,

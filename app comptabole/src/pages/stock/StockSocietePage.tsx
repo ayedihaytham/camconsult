@@ -13,6 +13,8 @@ import { classerDansStructuration } from "@/lib/classement";
 import { doublonsStock, resumeDoublons } from "@/lib/facturesDoublons";
 import { fmtQuantiteUnite, quantiteEn, recapStock, uniteCommune } from "@/lib/stockRecap";
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
+import { cn } from "@/lib/utils";
+import { montantCote } from "@/lib/coursStock";
 import { StockRecapTable } from "./StockRecapTable";
 import "./stock-page.css";
 import { DocPreviewDialog } from "./DocPreviewDialog";
@@ -35,6 +37,8 @@ export function StockSocietePage() {
   const updateNoeud = useData((s) => s.updateNoeud);
   const [classing, setClassing] = useState<string | null>(null);
 
+  // Monnaie des cours et des montants du tableau : dinars (cours de la facture) ou dollars (cours par rapport au dollar).
+  const [base, setBase] = useState<"TND" | "USD">("TND");
   const [onlyAnomalies, setOnlyAnomalies] = useState(false);
   const fetchCounts = useStock((s) => s.fetchCounts);
   // Mouvement qui vient d'être enregistré : mis en évidence et amené à l'écran.
@@ -137,9 +141,9 @@ export function StockSocietePage() {
   async function exportXlsx() {
     const XLSX = await import("xlsx");
     const header = [
-      "Nature", "Écart", "Unité de l'écart",
-      "Achat: Date", "N° Facture", "Fournisseur", "Produits", "Quantité", "Unité", "Montant devise", "Devise", "Cours", "Montant TND",
-      "Vente: Date", "N° Facture", "Client", "Produits", "Quantité", "Unité", "Montant devise", "Devise", "Cours", "Montant TND",
+      "Nature", "N° mouvement", "Écart", "Unité de l'écart",
+      "Achat: Date", "N° Facture", "Fournisseur", "Produits", "Quantité", "Unité", "Montant devise", "Devise", "Cours", "Montant TND", "Cours USD", "Montant USD",
+      "Vente: Date", "N° Facture", "Client", "Produits", "Quantité", "Unité", "Montant devise", "Devise", "Cours", "Montant TND", "Cours USD", "Montant USD",
       "Douane: N° Déclaration", "Date", "Type de déclaration", "Taux de change", "Valeur en douane (TND)", "PTFN", "Exportateur", "Importateur",
       "Note",
     ];
@@ -159,11 +163,11 @@ export function StockSocietePage() {
       lignes.map((l) => l.designation).filter(Boolean).join(", ");
 
     const rows = list.map((m) => [
-      m.natureMarchandise, m.ecart, m.ecartUnite,
+      m.natureMarchandise, m.venteNumFacture, m.ecart, m.ecartUnite,
       m.achatDate ?? "", m.achatNumFacture, m.fournisseur, designations(m.achatLignes),
-      sumQ(m.achatLignes), uniteCommune(m.achatLignes), sumDevise(m.achatLignes), m.achatDevise, m.achatCours, sumTnd(m.achatLignes),
+      sumQ(m.achatLignes), uniteCommune(m.achatLignes), sumDevise(m.achatLignes), m.achatDevise, m.achatCours, sumTnd(m.achatLignes), m.achatCoursUsd ?? 0, montantCote(m.achatLignes, m.achatCoursUsd, "USD"),
       m.venteDate ?? "", m.venteNumFacture, m.client, designations(m.venteLignes),
-      sumQ(m.venteLignes), uniteCommune(m.venteLignes), sumDevise(m.venteLignes), m.venteDevise, m.venteCours, sumTnd(m.venteLignes),
+      sumQ(m.venteLignes), uniteCommune(m.venteLignes), sumDevise(m.venteLignes), m.venteDevise, m.venteCours, sumTnd(m.venteLignes), m.venteCoursUsd ?? 0, montantCote(m.venteLignes, m.venteCoursUsd, "USD"),
       m.douaneNumDeclaration, m.douaneDate ?? "", m.douaneTypeDeclaration, m.douaneTauxChange, m.douaneValeurTnd, m.douanePtfn, m.douaneExportateur, m.douaneImportateur,
       m.note,
     ]);
@@ -215,9 +219,27 @@ export function StockSocietePage() {
             />
             Anomalies seulement {nbAnomalies > 0 && `(${nbAnomalies})`}
           </label>
-          <span className="text-[0.8125rem] tabular-nums text-muted-foreground">
-            {shown.length} mouvement{shown.length > 1 ? "s" : ""}
-          </span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div role="group" aria-label="Monnaie des cours et des montants" className="inline-flex items-center gap-2 text-[0.8125rem] text-muted-foreground">
+              <span>Cours et montants en</span>
+              <span className="inline-flex overflow-hidden rounded-md border border-border">
+                {([["TND", "Dinar"], ["USD", "Dollar"]] as const).map(([code, nom]) => (
+                  <button
+                    key={code}
+                    type="button"
+                    aria-pressed={base === code}
+                    onClick={() => setBase(code)}
+                    className={cn("px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", base === code ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted")}
+                  >
+                    {nom}
+                  </button>
+                ))}
+              </span>
+            </div>
+            <span className="text-[0.8125rem] tabular-nums text-muted-foreground">
+              {shown.length} mouvement{shown.length > 1 ? "s" : ""}
+            </span>
+          </div>
         </div>
         {resumeDoubles.length > 0 && (
           <div role="alert" className="mx-5 mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -239,6 +261,7 @@ export function StockSocietePage() {
         {shown.length > 0 && (
           <StockRecapTable
             doublons={doublons}
+            base={base}
             mouvements={shown}
             nouveauId={nouveauId}
             classing={classing}

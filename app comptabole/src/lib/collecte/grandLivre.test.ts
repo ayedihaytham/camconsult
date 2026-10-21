@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { lireTextePdf, reconstruireTableau } from "@/lib/pdfToTables";
-import { classeCompte, dejaPresente, decouperLibelle, lignesPourTableau, ligneDepuisEcriture, lireGrandLivre, natureEcriture, TABLEAU_PAR_NATURE } from "./grandLivre";
+import { sousTypeEcriture, classeCompte, dejaPresente, decouperLibelle, lignesPourTableau, ligneDepuisEcriture, lireGrandLivre, natureEcriture, TABLEAU_PAR_NATURE } from "./grandLivre";
 
 const PDF = "samples/461.pdf";
 
@@ -56,7 +56,7 @@ describe.skipIf(!existsSync(PDF))("grand-livre Sage du compte 461 (PDF réel)", 
     const l = (await livre())!;
     const rem = lignesPourTableau("bordereaux_remise_cheques", l.ecritures);
     expect(rem).toHaveLength(10);
-    expect(rem[0]).toEqual({ date_remise: "2026-01-30", num_bordereau: "", montant: "", banque: "BTK", num_cheque: "8431", client_emetteur: "", montant_cheque: 2680.089, date_echeance: "", observations: "Chèque encaissé · GL 461000 · BTK · p.169" });
+    expect(rem[0]).toEqual({ date_remise: "2026-01-30", num_bordereau: "", montant: 2680.089, banque: "BTK", num_cheque: "8431", client_emetteur: "", montant_cheque: "", date_echeance: "", observations: "Chèque encaissé · GL 461000 · BTK · p.169" });
     const traites = lignesPourTableau("bordereaux_traites_recues", l.ecritures);
     expect(traites).toHaveLength(2);
     expect(traites[0]).toMatchObject({ num_bordereau: "", montant: "", date_echeance: "" });
@@ -64,7 +64,7 @@ describe.skipIf(!existsSync(PDF))("grand-livre Sage du compte 461 (PDF réel)", 
     expect(traites[0]).toHaveProperty("montant_traite");
     // Chèques et effets ensemble : les 12 écritures encaissées, soit le même total qu'avant la séparation.
     const total = (lignes: Record<string, unknown>[], col: string) => lignes.reduce((s, r) => s + (r[col] as number), 0);
-    expect(total(rem, "montant_cheque") + total(traites, "montant_traite")).toBeCloseTo(69566.458, 2);
+    expect(total(rem, "montant") + total(traites, "montant_traite")).toBeCloseTo(69566.458, 2);
   });
 
   it("remplit les virements reçus (émetteur lu après le motif) et émis", async () => {
@@ -203,17 +203,97 @@ describe("grand-livre : le sens dépend du type de compte", () => {
     expect(l.ecritures.map((e) => e.nature)).toEqual(["cheque_recu", "cheque_emis", "cheque_recu", "cheque_emis"]);
     const [, , , achat] = l.ecritures;
     expect(ligneDepuisEcriture("etat_cheques_emis", achat)).toMatchObject({ beneficiaire: "BETA SA", montant: 700, num_cheque: "9" });
-    expect(ligneDepuisEcriture("bordereaux_remise_cheques", l.ecritures[0])).toMatchObject({ client_emetteur: "ALPHA", montant_cheque: 1000 });
+    expect(ligneDepuisEcriture("bordereaux_remise_cheques", l.ecritures[0])).toMatchObject({ client_emetteur: "ALPHA", montant: 1000, montant_cheque: "" });
   });
 
   it("compte client : l'émetteur manquant du libellé est le client du compte", () => {
     const l = lireGrandLivre(document(["411000 CLIENT DELTA"], ["040126 VTE 3", "REG CHQ N°5", "", "2 000,000", ""]))!;
     expect(l.comptes[0].classe).toBe("client");
-    expect(ligneDepuisEcriture("bordereaux_remise_cheques", l.ecritures[0])).toMatchObject({ client_emetteur: "CLIENT DELTA", num_cheque: "5", montant_cheque: 2000 });
+    expect(ligneDepuisEcriture("bordereaux_remise_cheques", l.ecritures[0])).toMatchObject({ client_emetteur: "CLIENT DELTA", num_cheque: "5", montant: 2000, montant_cheque: "" });
   });
 
   it("un total qui ne correspond pas aux écritures lues est signalé", () => {
     const l = lireGrandLivre(document(["461000 ATTENTE"], ["040126 BTK 3", "ENC CHQ N°5", "", "2 000,000", ""], ["", "Total", "0,000", "9 999,000", ""]))!;
     expect(l.controle).toBe(false);
+  });
+});
+
+describe("grand-livre MS TRANSPORT (compte 461000) : achats négociés sur le marché, virements étrangers, bordereaux", () => {
+  const ecriture = (libelle: string, debit: number, credit: number, extra: Partial<Parameters<typeof ligneDepuisEcriture>[1]> = {}) => ({
+    date: "2026-08-10", journal: "BANQ", piece: "10", libelle, debit, credit, nature: natureEcriture(libelle, debit, credit, "BANQ", "attente"), sousType: sousTypeEcriture(libelle, natureEcriture(libelle, debit, credit, "BANQ", "attente")), compte: "461000", classe: "attente" as const, tiers: "", origine: "GL 461000 · BANQ · p.10", montant: debit || credit, ...extra,
+  });
+
+  it("« ACHAT NEGOCIE SUR LE MARCHE » (et la faute « NEGOCE ») est un virement SWIFT à vérifier, classé dans l'État SWIFT", () => {
+    expect(natureEcriture("ACHAT NEGOCIE SUR LE MARCHE", 7672.6, 0, "BANQ", "attente")).toBe("swift");
+    expect(natureEcriture("ACHAT NEGOCE SUR LE MARCHE", 25903.32, 0, "BANQ", "attente")).toBe("swift");
+    expect(TABLEAU_PAR_NATURE.swift).toBe("etat_swift");
+    const e = ecriture("ACHAT NEGOCIE SUR LE MARCHE", 7672.6, 0);
+    expect(ligneDepuisEcriture("etat_swift", e)).toEqual({
+      date: "2026-08-10", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 7672.6, num_facture: "", devise: "", montant_devise: "",
+      observations: "Achat négocié sur le marché (SWIFT à vérifier) · GL 461000 · BANQ · p.10",
+    });
+  });
+
+  it("« VIR ETRANGER EMIS » : « EMIS » n'est pas un bénéficiaire (à compléter), et « VIREMENT ETRANGER EMIS » non plus", () => {
+    expect(decouperLibelle("VIR ETRANGER EMIS")).toEqual({ base: "VIR ETRANGER EMIS", numero: "", reste: "" });
+    expect(decouperLibelle("VIREMENT ETRANGER EMIS")).toEqual({ base: "VIREMENT ETRANGER EMIS", numero: "", reste: "" });
+    const e = ecriture("VIR ETRANGER EMIS", 2312.538, 0);
+    expect(ligneDepuisEcriture("virements_emis", e)).toMatchObject({ beneficiaire: "", reference: "VIR ETRANGER EMIS", montant: 2312.538 });
+    // un nom qui suit le type reste le bénéficiaire
+    expect(decouperLibelle("VIR ETRANGER ACME LTD")).toEqual({ base: "VIR ETRANGER", numero: "", reste: "ACME LTD" });
+  });
+
+  it("« CREDIT DIVERS CHQ N°5096519 » : le crédit est le montant du bordereau, pas celui du chèque", () => {
+    const e = ecriture("CREDIT DIVERS CHQ N°5096519", 0, 1458);
+    expect(ligneDepuisEcriture("bordereaux_remise_cheques", e)).toMatchObject({ num_cheque: "5096519", montant: 1458, montant_cheque: "" });
+  });
+
+  it("une ligne de bordereau déjà importée n'est pas proposée une seconde fois (montant lu dans le montant du bordereau)", () => {
+    const e = ecriture("CREDIT DIVERS CHQ N°5096519", 0, 1458);
+    const deja = ligneDepuisEcriture("bordereaux_remise_cheques", e);
+    expect(dejaPresente("bordereaux_remise_cheques", e, [{ ...deja, observations: "" }])).toBe(true);
+    expect(dejaPresente("bordereaux_remise_cheques", e, [])).toBe(false);
+  });
+
+  it("l'État SWIFT : une écriture déjà importée n'est pas proposée deux fois", () => {
+    const e = ecriture("ACHAT NEGOCIE SUR LE MARCHE", 7672.6, 0);
+    expect(dejaPresente("etat_swift", e, [ligneDepuisEcriture("etat_swift", e)])).toBe(true);
+    expect(dejaPresente("etat_swift", e, [{ date: "2026-08-10", banque: "BANQ", montant: 1 }])).toBe(false);
+  });
+});
+
+const PDF_MS = "samples/461 (1).pdf";
+describe.skipIf(!existsSync(PDF_MS))("grand-livre Sage du compte 461 de MS TRANSPORT (PDF réel)", () => {
+  async function livreMs() {
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const pages = await lireTextePdf(pdfjs as never, new Uint8Array(readFileSync(PDF_MS)).buffer as ArrayBuffer);
+    return lireGrandLivre(pages.map((p) => reconstruireTableau(p, { nombres: false }) as string[][]))!;
+  }
+
+  it("lit les 20 écritures et retrouve le total imprimé du compte (débit 129 838,496 ; crédit 24 404,150)", async () => {
+    const l = await livreMs();
+    expect(l.societe).toBe("MS TRANSPORT");
+    expect(l.ecritures).toHaveLength(20);
+    expect(l.comptes[0].totaux).toEqual({ debit: 129838.496, credit: 24404.15 });
+    expect(l.controle).toBe(true);
+  });
+
+  it("range chaque écriture dans le bon tableau : 7 virements SWIFT à vérifier, 2 virements émis, 2 bordereaux, 1 effet, 1 chèque émis", async () => {
+    const l = await livreMs();
+    const n = (nature: string) => l.ecritures.filter((e) => e.nature === nature).length;
+    expect(n("swift")).toBe(7);
+    expect(n("virement_emis")).toBe(2);
+    expect(n("cheque_recu")).toBe(2);
+    expect(n("effet_recu")).toBe(1);
+    expect(n("cheque_emis")).toBe(1);
+    const swift = lignesPourTableau("etat_swift", l.ecritures);
+    expect(swift.reduce((t, r) => t + Number(r.montant), 0)).toBeCloseTo(25903.32 + 7672.6 + 27040 + 20874 + 1096.758 + 28401.75 + 626.52, 3);
+  });
+
+  it("virements étrangers : « EMIS » n'est plus pris pour un bénéficiaire ; bordereaux : le crédit est le montant du bordereau", async () => {
+    const l = await livreMs();
+    for (const r of lignesPourTableau("virements_emis", l.ecritures)) expect(r.beneficiaire).toBe("");
+    const rem = lignesPourTableau("bordereaux_remise_cheques", l.ecritures);
+    expect(rem.map((r) => [r.num_cheque, r.montant, r.montant_cheque])).toEqual([["5096519", 1458, ""], ["5017432", 11891.61, ""]]);
   });
 });

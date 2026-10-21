@@ -107,6 +107,7 @@ const collecteOnglets = [
   "etat_caisse",
   "etat_clients",
   "etat_fournisseurs",
+  "etat_swift",
 ];
 
 // [société index, période, statut, échéance offset in days from today, tableau count, created days ago, updated hours ago]

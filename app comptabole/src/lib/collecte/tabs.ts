@@ -610,6 +610,22 @@ const TABLEAUX_DEFINIS: TabDef[] = [
     ],
   },
   {
+    key: "etat_swift",
+    label: "État SWIFT",
+    pieceLabel: "État des virements SWIFT à justifier",
+    totalKey: "montant",
+    columns: [
+      { key: "date", label: "Date du virement", type: "date", width: 130 },
+      { key: "libelle", label: "Libellé du virement", type: "text", width: 220 },
+      { key: "banque", label: "Banque", type: "text", width: 130 },
+      { key: "montant", label: "Montant du virement (TND)", type: "number", width: 150 },
+      { key: "num_facture", label: "N° facture justifiée", type: "text", width: 150 },
+      { key: "devise", label: "Devise", type: "text", width: 90 },
+      { key: "montant_devise", label: "Montant facture (devise)", type: "number", width: 150 },
+      { key: "observations", label: "Observations / pièce jointe", type: "text", width: 220, piece: true },
+    ],
+  },
+  {
     key: "etat_fournisseurs",
     label: "État fournisseurs",
     pieceLabel: "État fournisseurs (balance âgée)",
@@ -713,6 +729,8 @@ const AIDES: Record<string, string> = {
   detail_achats: "Une ligne par achat : date, n° de facture, fournisseur, nature, montant HT et TVA. Le TTC se calcule seul.",
   etat_caisse: "Première ligne : le solde de départ de la caisse. Ensuite, chaque entrée et chaque sortie ; le solde se calcule seul.",
   etat_clients: "Une ligne par client : solde de départ, ce qui a été facturé et ce qui a été réglé sur la période. Le solde final se calcule seul.",
+  etat_swift:
+    "Une ligne par virement SWIFT (achat de devises négocié sur le marché) : date, libellé, banque et montant en dinars, puis la facture d'achat qu'il règle (n°, devise, montant). Joignez l'avis SWIFT si vous l'avez.",
   etat_fournisseurs: "Une ligne par fournisseur : solde de départ, ce qui a été facturé et ce qui a été réglé sur la période. Le solde final se calcule seul.",
 };
 

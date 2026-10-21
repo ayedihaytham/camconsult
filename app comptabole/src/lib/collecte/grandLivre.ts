@@ -25,7 +25,7 @@ export interface EcritureLivre {
   montant: number;
 }
 
-export type NatureEcriture = "cheque_emis" | "cheque_recu" | "effet_recu" | "virement_emis" | "virement_recu" | "report" | "autre";
+export type NatureEcriture = "cheque_emis" | "cheque_recu" | "effet_recu" | "virement_emis" | "virement_recu" | "swift" | "report" | "autre";
 
 /** Type de compte : fixe quel côté (débit ou crédit) est un encaissement et lequel un paiement. */
 export type ClasseCompte = "attente" | "banque" | "client" | "fournisseur" | "inconnue";
@@ -93,6 +93,8 @@ export function natureEcriture(libelle: string, debit: number, credit: number, j
   const sortant = sens.sortant === "credit" ? credit : sens.sortant === "debit" ? debit : 0;
   const recu = entrant > 0 && sortant === 0;
   const paye = sortant > 0 && entrant === 0;
+  // « ACHAT NEGOCIE SUR LE MARCHE » (ou « NEGOCE ») : achat de devises négocié sur le marché, réglé par un virement SWIFT à justifier par une facture.
+  if (/\bACHATS?\s+NEGOCI?E?\s+SUR\s+(LE\s+)?MARCHE\b/.test(l)) return "swift";
   if (/\bVIR\w*\s+EMIS\b|\bVIREMENT\s+EMIS\b/.test(l)) return "virement_emis";
   if (/\bEFFET\b/.test(l) && entrant > 0) return "effet_recu";
   if (paye && /\bBLOCAGE\b/.test(l)) return "cheque_emis";
@@ -134,6 +136,8 @@ export function sousTypeEcriture(libelle: string, nature: NatureEcriture): strin
       return etranger ? "Virement de l'étranger" : "Virement reçu";
     case "virement_emis":
       return etranger ? "Virement vers l'étranger" : "Virement émis";
+    case "swift":
+      return "Achat négocié sur le marché (SWIFT à vérifier)";
     default:
       return "À classer";
   }
@@ -185,6 +189,13 @@ export function lireGrandLivre(pages: string[][][]): GrandLivre | null {
       if (courant) courant.totaux = { debit: montant(c2), credit: montant(c3) };
       continue;
     }
+    // « Total compte 461000   du 010126 au 311226   129 838,496   24 404,150 » : le total du compte, imprimé sur une seule ligne.
+    const totalCompte = /^total\s+compte\s+(\d{6})\b/i.exec(c0.trim());
+    if (totalCompte) {
+      const cible = comptes.find((c) => c.compte.startsWith(totalCompte[1])) ?? courant;
+      if (cible) cible.totaux = { debit: montant(c2), credit: montant(c3) };
+      continue;
+    }
     // Suite du libellé de l'écriture précédente (« N°144167 ADEL » puis « EDHAWTHI »), sans montant.
     if (!c0.trim() && c1.trim() && !c2.trim() && !c3.trim() && ecritures.length > 0) {
       const derniere = ecritures[ecritures.length - 1];
@@ -228,6 +239,7 @@ export const TABLEAUX_GRAND_LIVRE: Record<string, { natures: NatureEcriture[]; t
   bordereaux_traites_recues: { natures: ["effet_recu"], titre: "Traites encaissées" },
   virements_recus: { natures: ["virement_recu"], titre: "Virements reçus" },
   virements_emis: { natures: ["virement_emis"], titre: "Virements émis" },
+  etat_swift: { natures: ["swift"], titre: "Virements SWIFT à vérifier" },
 };
 
 const MOTIFS: Partial<Record<string, string>> = { "REG CHQ": "Règlement par chèque", "PAIEMENT CHQ": "Paiement par chèque", "BLOCAGE CHQ": "Chèque bloqué", "RESERVATION CHQ": "Chèque réservé" };
@@ -237,7 +249,8 @@ export function decouperLibelle(libelle: string): { base: string; numero: string
   const l = libelle.replace(/\s+/g, " ").trim();
   const m = /^(.*?)\s*N°\s*(\d+)\s*(.*)$/.exec(l);
   if (m) return { base: m[1].trim(), numero: m[2], reste: m[3].trim() };
-  const v = /^(VIR ETRANGER|VIR EMIS|VIR|TRANSPFET ETRNAGER|TRANSPFET ETRANGER|TRANSFERT ETRANGER)\b\s*(.*)$/i.exec(l);
+  // « VIR ETRANGER EMIS » est le type de l'opération, pas un nom : le bénéficiaire n'est pas dans le libellé (il reste à compléter).
+  const v = /^(VIREMENT ETRANGER EMIS|VIR ETRANGER EMIS|VIREMENT EMIS|VIR EMIS|VIREMENT ETRANGER|VIR ETRANGER|VIREMENT|VIR|TRANSPFET ETRNAGER|TRANSPFET ETRANGER|TRANSFERT ETRANGER)\b\s*(.*)$/i.exec(l);
   if (v) return { base: v[1].trim(), numero: "", reste: v[2].trim() };
   return { base: l, numero: "", reste: "" };
 }
@@ -260,11 +273,14 @@ export function ligneDepuisEcriture(onglet: string, e: EcritureLivre): TabRow {
     case "etat_cheques_emis":
       return { date: e.date, num_cheque: numero, beneficiaire: nom, motif: MOTIFS[maj(base)] ?? base, montant: e.montant, banque: e.journal, observations };
     case "bordereaux_remise_cheques":
-      return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_cheque: numero, client_emetteur: nom, montant_cheque: e.montant, date_echeance: "", observations };
+      // Le crédit du compte est la remise entière : c'est le montant du bordereau, pas celui d'un chèque (que la société complète).
+      return { date_remise: e.date, num_bordereau: "", montant: e.montant, banque: e.journal, num_cheque: numero, client_emetteur: nom, montant_cheque: "", date_echeance: "", observations };
     case "bordereaux_traites_recues":
       return { date_remise: e.date, num_bordereau: "", montant: "", banque: e.journal, num_traite: numero, client_emetteur: nom, montant_traite: e.montant, date_echeance: "", observations };
     case "virements_recus":
       return { date: e.date, emetteur: nom, reference: base, montant: e.montant, compte_bancaire: e.journal, observations };
+    case "etat_swift":
+      return { date: e.date, libelle: base, banque: e.journal, montant: e.montant, num_facture: "", devise: "", montant_devise: "", observations };
     default:
       return { date: e.date, beneficiaire: nom, reference: base, montant: e.montant, compte_bancaire: e.journal, observations };
   }
@@ -278,6 +294,7 @@ export const TABLEAU_PAR_NATURE: Record<NatureEcriture, string | null> = {
   effet_recu: "bordereaux_traites_recues",
   virement_recu: "virements_recus",
   virement_emis: "virements_emis",
+  swift: "etat_swift",
   report: null,
   autre: null,
 };
@@ -293,10 +310,10 @@ export function dejaPresente(onglet: string, e: EcritureLivre, existantes: TabRo
     if (String(r.observations ?? "").includes(e.origine)) return true;
     if (num) {
       const autre = String(r.num_cheque ?? r.num_traite ?? "").trim();
-      const m = cleMontant(r.montant_cheque ?? r.montant_traite ?? r.montant);
-      return autre === num && m === montantLigne;
+      const valeur = [r.montant_cheque, r.montant_traite, r.montant].find((v) => String(v ?? "").trim() !== "");
+      return autre === num && cleMontant(valeur) === montantLigne;
     }
-    return String(r.date ?? "") === e.date && cleMontant(r.montant) === montantLigne && String(r.compte_bancaire ?? "") === e.journal;
+    return String(r.date ?? "") === e.date && cleMontant(r.montant) === montantLigne && String(r.compte_bancaire ?? r.banque ?? "") === e.journal;
   });
 }
 

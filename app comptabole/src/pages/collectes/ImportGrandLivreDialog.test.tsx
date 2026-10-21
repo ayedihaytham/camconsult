@@ -75,7 +75,7 @@ describe("ImportGrandLivreDialog", () => {
     expect(appels.etat_cheques_emis).toHaveLength(2);
     expect(appels.etat_cheques_emis[0].data.num_cheque).toBe("1");
     expect(appels.etat_cheques_emis[1].data).toMatchObject({ num_cheque: "4001511", beneficiaire: "BATTERIE", montant: 820, observations: "Règlement par chèque · GL 461000 · ZITO · p.3" });
-    expect(appels.bordereaux_remise_cheques[0].data).toMatchObject({ num_cheque: "8431", montant_cheque: 2680.089 });
+    expect(appels.bordereaux_remise_cheques[0].data).toMatchObject({ num_cheque: "8431", montant: 2680.089, montant_cheque: "" });
   });
 
   it("ne propose pas deux fois une écriture déjà importée", async () => {

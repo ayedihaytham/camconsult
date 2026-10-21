@@ -25,6 +25,7 @@ const NATURES: Record<NatureEcriture, string> = {
   effet_recu: "effets encaissés",
   virement_emis: "virements émis",
   virement_recu: "virements reçus",
+  swift: "virements SWIFT (achats négociés sur le marché) à vérifier",
   report: "solde antérieur",
   autre: "autres écritures",
 };

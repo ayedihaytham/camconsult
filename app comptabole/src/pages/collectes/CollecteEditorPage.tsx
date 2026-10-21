@@ -12,6 +12,7 @@ import {
   FileText,
   FileUp,
   History,
+  Layers,
   LogOut,
   Paperclip,
   Printer,
@@ -414,6 +415,11 @@ export function CollecteEditorPage() {
                       <FileUp className="size-4" /> Importer un grand-livre
                     </DropdownMenuItem>
                   )}
+                  {canManageCollaborateurs && !archivee && (
+                    <DropdownMenuItem onSelect={() => void update(id, { envoiParLignes: !collecte.envoiParLignes }).then(() => toast.success(collecte.envoiParLignes ? "Envoi par lignes désactivé" : "Envoi par lignes activé : les lignes complétées par la société vous parviennent à chaque enregistrement"))}>
+                      <Layers className="size-4" /> {collecte.envoiParLignes ? "Désactiver l'envoi par lignes" : "Activer l'envoi par lignes"}
+                    </DropdownMenuItem>
+                  )}
                   {canManageCollaborateurs && (
                     <DropdownMenuItem onSelect={() => setEditOpen(true)}>
                       <SlidersHorizontal className="size-4" /> Modifier la collecte
@@ -440,6 +446,11 @@ export function CollecteEditorPage() {
               <span aria-hidden="true" className={cn("size-2 rounded-full", validee ? "bg-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning" : archivee ? "bg-primary-foreground/50" : "bg-accent")} />
               {COLLECTE_STATUT_LABELS[collecte.statut]}
             </span>
+            {collecte.envoiParLignes && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-foreground/25 px-2.5 py-0.5 text-xs font-medium text-primary-foreground" title="Chaque ligne complète part au cabinet à l'enregistrement">
+                <Layers className="size-3.5" aria-hidden="true" /> Envoi par lignes
+              </span>
+            )}
             {!isClient && (
               <span className="inline-flex items-center gap-2 text-xs text-primary-foreground/85">
                 <strong className="font-semibold tabular-nums text-primary-foreground">{recus}/{rows.length}</strong> pièces reçues

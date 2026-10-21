@@ -149,10 +149,10 @@ describe("tableau récapitulatif du stock", () => {
     const [vente, achat] = lignesDe("m1");
     const v = within(vente);
     const a = within(achat);
-    expect(v.getByText("VENTE")).toBeTruthy();
+    expect(v.getByText("Vente")).toBeTruthy();
     expect(v.getByText("GROUP BYOUT EZZ")).toBeTruthy();
     expect(v.getByText("202300001")).toBeTruthy();
-    expect(a.getByText("ACHAT")).toBeTruthy();
+    expect(a.getByText("Achat")).toBeTruthy();
     expect(a.getByText("RUSPINA IMPORT ET EXPORT")).toBeTruthy();
     expect(a.getByText("6608000533")).toBeTruthy();
     // La douane est portée par la première ligne, sur les deux lignes du mouvement.

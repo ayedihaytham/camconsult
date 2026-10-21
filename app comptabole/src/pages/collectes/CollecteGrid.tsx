@@ -174,7 +174,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     if (restaure.current) toast.info("Modifications non enregistrées retrouvées : enregistrez-les ou annulez-les.");
   }, []);
   const [saving, setSaving] = useState(false);
-  const [envoyeesOuvertes, setEnvoyeesOuvertes] = useState(false);
+  /** Vrai juste après un enregistrement de la société : les lignes qui partent alors au cabinet sont annoncées (avec « Annuler »). */
+  const envoiRecent = useRef(false);
+  const [envoyeesOuvertes, setEnvoyeesOuvertes] = useState(true);
   const [reprise, setReprise] = useState<string | null>(null);
   /** Côté société, une ligne envoyée au cabinet ne figure plus dans le tableau : elle est listée à part. */
   const cachee = (i: number) => parSociete && Boolean(rows[i]?.__envoyeeLe);
@@ -197,6 +199,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     latestInitial.current = initial;
     // Store updates from comments/notes must not overwrite an unsaved grid draft.
     if (sansLignesVides(rows) !== sansLignesVides(baseline.current)) return;
+    annoncerEnvoi(new Set(baseline.current.filter((r) => r.__envoyeeLe).map((r) => String(r.__id))), initial);
     baseline.current = initial;
     setRows(initial);
   }, [initial]);
@@ -334,22 +337,36 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     }
   }
   /** La société reprend une ligne envoyée par erreur : elle redevient une ligne ordinaire du tableau. */
-  async function reprendre(i: number) {
-    const id = String(rows[i]?.__id ?? "");
-    if (!id || !onReprendre || reprise) return;
-    setReprise(id);
-    try {
-      await onReprendre(id);
-      const lever = (r: TabRow) => (r.__id === id ? Object.fromEntries(Object.entries(r).filter(([k]) => k !== "__envoyeeLe")) : r);
-      baseline.current = baseline.current.map(lever);
-      latestInitial.current = latestInitial.current.map(lever);
-      setRows((rs) => rs.map(lever));
-    } catch {
-      // l'erreur est déjà affichée par le magasin : la ligne reste envoyée
-    } finally {
-      setReprise(null);
+  async function reprendreIds(ids: string[]) {
+    if (!onReprendre || reprise || ids.length === 0) return;
+    for (const id of ids) {
+      setReprise(id);
+      try {
+        await onReprendre(id);
+        const lever = (r: TabRow) => (r.__id === id ? Object.fromEntries(Object.entries(r).filter(([k]) => k !== "__envoyeeLe")) : r);
+        baseline.current = baseline.current.map(lever);
+        latestInitial.current = latestInitial.current.map(lever);
+        setRows((rs) => rs.map(lever));
+      } catch {
+        // l'erreur est déjà affichée par le magasin : la ligne reste envoyée
+        break;
+      }
     }
+    setReprise(null);
   }
+  function annoncerEnvoi(dejaEnvoyees: Set<string>, nouvelles: TabRow[]) {
+    if (!envoiRecent.current || !parSociete || !onReprendre) return;
+    const parties = nouvelles.filter((r) => r.__envoyeeLe && r.__id && !dejaEnvoyees.has(String(r.__id))).map((r) => String(r.__id));
+    if (parties.length === 0) return;
+    envoiRecent.current = false;
+    const n = parties.length;
+    toast.success(`${n} ligne${n > 1 ? "s" : ""} complète${n > 1 ? "s" : ""} envoyée${n > 1 ? "s" : ""} au cabinet`, {
+      description: "Elles ne figurent plus dans ce tableau.",
+      duration: 12000,
+      action: { label: "Annuler", onClick: () => void reprendreIds(parties) },
+    });
+  }
+  const reprendre = (i: number) => reprendreIds([String(rows[i]?.__id ?? "")].filter(Boolean));
   /** Pièce jointe d'une ligne : voir / retirer si un fichier est joint, sinon un trombone pour en joindre un (si la saisie est permise). */
   function boutonsPiece(i: number, cle: string, ro: boolean) {
     return (
@@ -421,6 +438,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   async function save() {
     if (saving) throw new Error("Enregistrement déjà en cours");
     if (!dirty) return;
+    envoiRecent.current = true;
     setSaving(true);
     setSaveError(false);
     try {
@@ -458,11 +476,13 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       latestInitial.current = apres;
       setRows([...apres]);
       setSaved(true);
+      annoncerEnvoi(new Set(kept.filter((r) => r.__envoyeeLe).map((r) => String(r.__id))), apres);
     } catch (error) {
       setSaveError(true);
       throw error;
     } finally {
       setSaving(false);
+      window.setTimeout(() => { envoiRecent.current = false; }, 4000);
     }
   }
 

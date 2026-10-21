@@ -1,0 +1,11 @@
+/* Page Gestion de stock : lecture plus sobre. Libellés en casse normale, chiffres en Inter, graisses mesurées.
+   Limité à cette page (le bandeau est partagé avec les autres modules). */
+.stock-page .module-banner__eyebrow { font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.stock-page .module-banner__title { font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.stock-page .module-banner__description { font-size: 13px; }
+.stock-page .module-banner__metric { align-items: baseline; gap: 6px 8px; padding: 12px 24px; }
+.stock-page .module-banner__metric dd { font-family: inherit; font-size: 22px; font-weight: 600; letter-spacing: -.02em; font-feature-settings: 'tnum' 1; }
+.stock-page .module-banner__metric dt { font-size: 12.5px; font-weight: 400; letter-spacing: 0; text-transform: none; opacity: .75; }
+.stock-page .module-banner .module-banner__actions :is(button, a) { min-height: 38px; padding: 6px 16px; font-size: 13.5px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.stock-page .module-banner .module-banner__actions button[class*="ledger"], .stock-page .module-banner .module-banner__actions button:last-child { font-weight: 600; }
+@media (max-width: 639px) { .stock-page .module-banner__metric dt { font-size: 12px; letter-spacing: 0; } .stock-page .module-banner__title { font-size: 22px; } }

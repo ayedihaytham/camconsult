@@ -14,6 +14,7 @@ import { doublonsStock, resumeDoublons } from "@/lib/facturesDoublons";
 import { fmtQuantiteUnite, quantiteEn, recapStock, uniteCommune } from "@/lib/stockRecap";
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
 import { StockRecapTable } from "./StockRecapTable";
+import "./stock-page.css";
 import { DocPreviewDialog } from "./DocPreviewDialog";
 
 export function StockSocietePage() {
@@ -173,7 +174,7 @@ export function StockSocietePage() {
   }
 
   return (
-    <div>
+    <div className="stock-page">
       <div data-tour="stock-summary">
         <SignatureLedgerBanner
           icon={Boxes}
@@ -206,7 +207,7 @@ export function StockSocietePage() {
 
       <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="stock-register">
         <div className="flex items-center justify-between gap-3 px-5 py-4">
-          <label className="flex w-fit cursor-pointer items-center gap-3 text-base text-foreground">
+          <label className="flex w-fit cursor-pointer items-center gap-3 text-sm font-medium text-foreground">
             <Checkbox
               checked={onlyAnomalies}
               onCheckedChange={(v) => setOnlyAnomalies(v === true)}
@@ -214,7 +215,7 @@ export function StockSocietePage() {
             />
             Anomalies seulement {nbAnomalies > 0 && `(${nbAnomalies})`}
           </label>
-          <span className="text-sm tabular-nums text-muted-foreground">
+          <span className="text-[0.8125rem] tabular-nums text-muted-foreground">
             {shown.length} mouvement{shown.length > 1 ? "s" : ""}
           </span>
         </div>
@@ -256,7 +257,7 @@ export function StockSocietePage() {
               <span className="grid size-[70px] place-items-center rounded-full bg-accent/15 text-primary">
                 <Boxes className="size-7" aria-hidden="true" />
               </span>
-              <p className="font-serif text-2xl font-medium text-primary">
+              <p className="text-xl font-semibold text-primary">
                 {loading ? "Chargement…" : "Aucun mouvement"}
               </p>
               <p className="max-w-md text-base text-muted-foreground">

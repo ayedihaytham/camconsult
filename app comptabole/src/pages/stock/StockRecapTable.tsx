@@ -31,12 +31,12 @@ const TITRES: Record<Categorie, string> = {
 const LARGEURS = [3, 11, 5, 6, 7, 9, 12, 6, 8, 4, 5, 8, 4, 12];
 const NB_COLONNES = LARGEURS.length;
 
-const th = "px-1.5 py-2 text-left text-[0.62rem] font-bold uppercase leading-tight tracking-[0.06em] text-muted-foreground [overflow-wrap:anywhere]";
+const th = "px-2 py-2.5 text-left text-xs font-semibold leading-tight text-muted-foreground [overflow-wrap:anywhere]";
 const thNum = `${th} text-right`;
-const td = "px-1.5 py-2 align-middle [overflow-wrap:anywhere]";
+const td = "px-2 py-2.5 align-middle [overflow-wrap:anywhere]";
 const tdNum = `${td} text-right tabular-nums`;
 const filet = "border-l-2 border-border";
-const etiquette = "text-[0.66rem] font-bold uppercase tracking-[0.14em] text-muted-foreground";
+const etiquette = "text-xs font-medium text-muted-foreground";
 
 const TEINTE = { vente: "bg-primary/[0.06]", achat: "bg-accent/10", douane: "bg-success/10" } as const;
 
@@ -74,13 +74,13 @@ function CoteCellules({ m, cote, onPreview, doublon }: { m: StockMouvement; cote
   const fond = TEINTE[cote];
   return (
     <>
-      <td className={cn(td, fond)}>
-        <span className={cn("inline-block rounded px-1.5 py-px text-[0.62rem] font-extrabold tracking-[0.06em]", v ? "bg-primary/15 text-primary" : "bg-accent/30 text-accent-foreground")}>{v ? "VENTE" : "ACHAT"}</span>
+      <td className={cn(td, fond, v ? "shadow-[inset_4px_0_0_hsl(var(--primary))]" : "shadow-[inset_4px_0_0_hsl(var(--accent))]")}>
+        <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold", v ? "bg-primary/15 text-primary" : "bg-accent/30 text-accent-foreground")}>{v ? "Vente" : "Achat"}</span>
       </td>
       <td className={cn(td, fond, "tabular-nums")}>{jour(v ? m.venteDate : m.achatDate)}</td>
-      <td className={cn(td, fond, "font-mono text-[0.72rem]")} title={doublon ? `${numero} : ce numéro de facture est déjà utilisé par un autre mouvement` : numero}>
+      <td className={cn(td, fond, "tabular-nums text-[0.78rem] text-foreground/80")} title={doublon ? `${numero} : ce numéro de facture est déjà utilisé par un autre mouvement` : numero}>
         {doublon ? (
-          <span className="inline-flex items-center gap-0.5 rounded bg-destructive/15 px-1 font-bold text-destructive">
+          <span className="inline-flex items-center gap-0.5 rounded bg-destructive/15 px-1 font-semibold text-destructive">
             <AlertTriangle className="size-3 shrink-0" aria-label="Numéro de facture en doublon" />
             {numero}
           </span>
@@ -91,7 +91,7 @@ function CoteCellules({ m, cote, onPreview, doublon }: { m: StockMouvement; cote
       <td className={cn(tdNum, fond)}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>
       <td className={cn(td, fond, "text-muted-foreground")}>{t.montantDevise ? (v ? m.venteDevise : m.achatDevise) : "—"}</td>
       <td className={cn(tdNum, fond)}>{coursTexte(v ? m.venteCours : m.achatCours)}</td>
-      <td className={cn(tdNum, fond, "font-bold")}>{t.montantTnd ? fmtMontant(t.montantTnd) : "—"}</td>
+      <td className={cn(tdNum, fond, "font-semibold text-primary")}>{t.montantTnd ? fmtMontant(t.montantTnd) : "—"}</td>
       <td className={cn(td, fond, "text-center")}><Piece m={m} categorie={cote} onPreview={onPreview} /></td>
     </>
   );
@@ -117,7 +117,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
   return (
     <div data-tour="stock-register">
       <div className="hidden lg:block">
-        <table className="w-full table-fixed border-collapse text-xs">
+        <table className="w-full table-fixed border-collapse text-[0.8125rem]">
           <colgroup>
             {LARGEURS.map((l, i) => <col key={i} style={{ width: `${l}%` }} />)}
           </colgroup>
@@ -164,15 +164,17 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                         >
                           <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", ouvert && "rotate-90")} />
                         </button>
-                        <p className="min-w-0 font-semibold text-primary">{m.natureMarchandise || "Mouvement sans nature"}</p>
+                        <p className="min-w-0 font-medium text-primary">{m.natureMarchandise || "Mouvement sans nature"}</p>
                       </div>
                     </td>
-                    <td rowSpan={2} className={cn(tdNum, "font-bold", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>
-                      {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
+                    <td rowSpan={2} className={tdNum}>
+                      <span className={cn("inline-grid min-w-7 place-items-center rounded-full px-2 py-0.5 text-xs font-semibold", m.ecart !== 0 ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>
+                        {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
+                      </span>
                     </td>
                     <CoteCellules m={m} cote="vente" onPreview={onPreview} doublon={Boolean(doublons?.vente.has(m.id))} />
-                    <td rowSpan={2} className={cn(td, TEINTE.douane, filet, "text-[0.72rem] leading-snug")}>
-                      {m.douaneNumDeclaration ? <p className="font-mono text-xs font-bold text-foreground">{m.douaneNumDeclaration}</p> : <p className="text-muted-foreground">—</p>}
+                    <td rowSpan={2} className={cn(td, TEINTE.douane, filet, "text-xs leading-snug")}>
+                      {m.douaneNumDeclaration ? <p className="text-[0.8125rem] font-semibold tabular-nums text-primary">{m.douaneNumDeclaration}</p> : <p className="text-muted-foreground">—</p>}
                       {(m.douaneDate || m.douaneTypeDeclaration) && <p className="text-muted-foreground">{m.douaneDate ? formatDate(m.douaneDate) : ""}{m.douaneTypeDeclaration ? ` · type ${m.douaneTypeDeclaration}` : ""}</p>}
                       {m.douaneTauxChange ? <p className="text-muted-foreground">Taux {m.douaneTauxChange.toLocaleString("fr-FR", { maximumFractionDigits: 5 })}</p> : null}
                       {m.douaneValeurTnd ? <p className="text-muted-foreground">Valeur {fmtMontant(m.douaneValeurTnd)}</p> : null}
@@ -197,7 +199,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-border bg-muted/40 font-bold text-primary">
+            <tr className="border-t-2 border-primary bg-muted/40 font-semibold text-primary">
               <td className={td} colSpan={2}>
                 <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
               </td>
@@ -322,7 +324,7 @@ function Carte({ titre, resume, piece, children, className }: { titre: string; r
     <section className={cn("min-w-0 rounded-xl border border-border bg-card p-4", className)}>
       <header className="mb-3 flex items-start justify-between gap-3 border-b border-border pb-2">
         <div className="min-w-0">
-          <h3 className="font-serif text-lg font-medium text-primary">{titre}</h3>
+          <h3 className="text-sm font-semibold text-primary">{titre}</h3>
           {resume && <p className="text-xs text-muted-foreground">{resume}</p>}
         </div>
         {piece}

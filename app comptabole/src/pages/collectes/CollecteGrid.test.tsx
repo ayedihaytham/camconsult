@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createRef } from "react";
+import { toast } from "sonner";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -654,16 +655,31 @@ describe("CollecteGrid : envoi par lignes", () => {
     render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes parSociete onReprendre={onReprendre} />);
     expect(lignes()).toHaveLength(0);
     expect(screen.getByText(/Toutes les lignes ont été envoyées au cabinet/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Lignes envoyées au cabinet \(1\)/ }));
     fireEvent.click(screen.getByRole("button", { name: "Reprendre la ligne 1" }));
     await waitFor(() => expect(onReprendre).toHaveBeenCalledWith("a"));
     await waitFor(() => expect(lignes()).toHaveLength(1));
     expect(screen.queryByRole("button", { name: /Lignes envoyées au cabinet/ })).toBeNull();
   });
 
+  it("société : après l'enregistrement, un « Annuler » d'un pas reprend les lignes qui viennent de partir", async () => {
+    const onReprendre = vi.fn().mockResolvedValue(undefined);
+    const ref = createRef<CollecteGridHandle>();
+    const succes = vi.spyOn(toast, "success").mockImplementation(() => "t");
+    const props = { def: TAB_BY_KEY.virements_recus, readOnly: false, devise: "TND", envoiParLignes: true, parSociete: true, onReprendre } as const;
+    const { rerender } = render(
+      <CollecteGrid ref={ref} {...props} lignes={[ligneEnvoi("a", 0, { reference: "" })]} onSave={async () => { rerender(<CollecteGrid ref={ref} {...props} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} onSave={vi.fn()} />); }} />,
+    );
+    fireEvent.change(document.querySelector('[data-col="reference"]') as HTMLInputElement, { target: { value: "VIR-1" } });
+    await act(async () => ref.current?.save());
+    expect(succes).toHaveBeenCalledWith(expect.stringMatching(/1 ligne complète envoyée au cabinet/), expect.objectContaining({ action: expect.objectContaining({ label: "Annuler" }) }));
+    const options = succes.mock.calls[0][1] as unknown as { action: { onClick: () => void } };
+    await act(async () => options.action.onClick());
+    expect(onReprendre).toHaveBeenCalledWith("a");
+    succes.mockRestore();
+  });
+
   it("société : pas de « Reprendre » quand le tableau est verrouillé", () => {
     render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly devise="TND" onSave={vi.fn()} parSociete onReprendre={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: /Lignes envoyées au cabinet \(1\)/ }));
     expect(screen.queryByRole("button", { name: /Reprendre/ })).toBeNull();
   });
 

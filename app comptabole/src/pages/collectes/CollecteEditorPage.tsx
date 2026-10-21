@@ -771,7 +771,7 @@ export function CollecteEditorPage() {
                           )}
                           readOnly={clientRecapForTab ? !inRecap : !editableTab(key)}
                           ligneBordereauFigee={isClient}
-                          bordereauSeul={!isClient && key === "bordereaux_remise_cheques"}
+                          bordereauSeul={!isClient && (key === "bordereaux_remise_cheques" || key === "etat_swift")}
                           sansSuppression={isClient}
                           parSociete={isClient}
                           envoiParLignes={Boolean(collecte.envoiParLignes)}

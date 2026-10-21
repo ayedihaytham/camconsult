@@ -974,3 +974,40 @@ describe("CollecteGrid : le cabinet ajoute les bordereaux, le client saisit les 
     expect(cases[4].disabled || cases[4].readOnly).toBe(false);
   });
 });
+
+describe("CollecteGrid : État SWIFT, un virement justifié par plusieurs factures", () => {
+  const entete = (extra: Record<string, unknown> = {}): CollecteLigne => ({
+    id: "v1", onglet: "etat_swift", ordre: 0,
+    data: { date: "2026-10-12", ref: "SWIFT-AB12CD", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 1000, num_facture: "", devise: "", montant_devise: "", taux: "", montant_tnd: "", observations: "", ...extra },
+    envoyeeLe: null,
+  });
+  const col = (c: string) => Array.from(document.querySelectorAll<HTMLInputElement>(`[data-col="${c}"]`));
+
+  it("la société reçoit une ligne prête pour sa première facture (date, réf., libellé et banque du virement repris)", () => {
+    render(<CollecteGrid def={TAB_BY_KEY.etat_swift} lignes={[entete()]} readOnly={false} devise="TND" onSave={vi.fn()} ligneBordereauFigee parSociete />);
+    expect(screen.getByText(/Virement SWIFT-AB12CD/)).toBeTruthy();
+    const lignesVisibles = lignes();
+    expect(lignesVisibles.length).toBeGreaterThanOrEqual(2);
+    const nouvelle = lignesVisibles[lignesVisibles.length - 1];
+    expect((nouvelle.querySelector('[data-col="libelle"]') as HTMLInputElement).value).toBe("ACHAT NEGOCIE SUR LE MARCHE");
+    expect((nouvelle.querySelector('[data-col="ref"]') as HTMLInputElement).value).toBe("SWIFT-AB12CD");
+  });
+
+  it("le montant en devise et le taux proposent l'équivalent en dinars ; le suivi dit ce qu'il reste à justifier", () => {
+    render(<CollecteGrid def={TAB_BY_KEY.etat_swift} lignes={[entete()]} readOnly={false} devise="TND" onSave={vi.fn()} ligneBordereauFigee parSociete />);
+    const derniere = lignes()[lignes().length - 1];
+    fireEvent.change(derniere.querySelector('[data-col="num_facture"]') as HTMLInputElement, { target: { value: "FA-77" } });
+    fireEvent.change(derniere.querySelector('[data-col="devise"]') as HTMLInputElement, { target: { value: "EUR" } });
+    fireEvent.change(derniere.querySelector('[data-col="montant_devise"]') as HTMLInputElement, { target: { value: "300" } });
+    fireEvent.change(derniere.querySelector('[data-col="taux"]') as HTMLInputElement, { target: { value: "3,3" } });
+    expect(col("montant_tnd").some((i) => Number(i.value.replace(",", ".")) === 990)).toBe(true);
+    expect(screen.getByText(/Reste 10,000/)).toBeTruthy();
+  });
+
+  it("côté cabinet : il ajoute les virements, pas les factures (cases « ? » pour la société)", () => {
+    render(<CollecteGrid def={TAB_BY_KEY.etat_swift} lignes={[entete()]} readOnly={false} devise="TND" onSave={vi.fn()} bordereauSeul />);
+    expect(screen.getByRole("button", { name: "Nouveau virement" })).toBeTruthy();
+    expect(screen.getByText(/Ajoutez les virements SWIFT à justifier/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Ajouter une facture à ce virement/ })).toBeNull();
+  });
+});

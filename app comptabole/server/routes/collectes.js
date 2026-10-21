@@ -69,6 +69,7 @@ const TAB_KEYS = new Set([
   "etat_clients",
   "etat_fournisseurs",
   "etat_swift",
+  "reglements_cb",
 ]);
 const cleanOnglets = (arr) =>
   [...new Set((Array.isArray(arr) ? arr : []).filter((k) => TAB_KEYS.has(k)))];
@@ -188,6 +189,7 @@ const LIBELLES_ONGLETS = {
   etat_clients: "État clients",
   etat_fournisseurs: "État fournisseurs",
   etat_swift: "État SWIFT",
+  reglements_cb: "Règlements par carte bancaire",
 };
 const libelleOnglet = (o) => LIBELLES_ONGLETS[o] ?? o;
 

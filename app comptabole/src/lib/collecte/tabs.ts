@@ -139,6 +139,8 @@ export interface TabGroupe {
   libelle: string;
   /** Texte du bouton qui ajoute une ligne à un groupe : « Ajouter un chèque ». */
   ajout: string;
+  /** Consigne affichée au cabinet quand il ajoute lui-même les en-têtes de groupe (défaut : celle des bordereaux). */
+  consigneCabinet?: string;
 }
 
 export interface RepartitionGroupe {
@@ -610,19 +612,55 @@ const TABLEAUX_DEFINIS: TabDef[] = [
     ],
   },
   {
+    key: "reglements_cb",
+    label: "Règlements par carte bancaire",
+    pieceLabel: "Détail des règlements par carte bancaire",
+    totalKey: "montant",
+    columns: [
+      { key: "date", label: "Date du règlement", type: "date", width: 130 },
+      { key: "commercant", label: "Commerçant / fournisseur", type: "text", width: 240 },
+      { key: "reference", label: "N° facture ou ticket", type: "text", width: 170 },
+      { key: "montant", label: "Montant (TND)", type: "number", width: 140 },
+      { key: "compte_bancaire", label: "Compte bancaire", type: "text", width: 150 },
+      { key: "observations", label: "Observations / pièce jointe", type: "text", width: 220, piece: true },
+    ],
+  },
+  {
     key: "etat_swift",
     label: "État SWIFT",
     pieceLabel: "État des virements SWIFT à justifier",
     totalKey: "montant",
+    // Comme les bordereaux : le cabinet pose chaque virement (date, réf., libellé, banque, montant) ; la société ajoute ses factures d'achat
+    // une à une, sur autant de lignes qu'il faut, jusqu'à ce que leur équivalent en dinars atteigne le montant du virement.
+    groupe: {
+      cle: "ref",
+      totalCol: "montant",
+      montantCol: "montant_tnd",
+      prefill: ["date", "ref", "libelle", "banque"],
+      libelle: "Virement",
+      ajout: "Ajouter une facture",
+      consigneCabinet: "Ajoutez les virements SWIFT à justifier (date, réf., libellé, banque, montant) : la société saisit ensuite les factures d'achat de chaque virement, ce sont les cases « ? ».",
+    },
+    // L'équivalent en dinars d'une facture se propose (montant en devise × taux) tant qu'il est vide ; il reste modifiable.
+    derive: (rows) =>
+      rows.map((r) => {
+        const md = cellNumber(r.montant_devise);
+        const t = cellNumber(r.taux);
+        if (String(r.montant_tnd ?? "").trim() !== "" || !(md > 0) || !(t > 0)) return r;
+        return { ...r, montant_tnd: Math.round(md * t * 1000) / 1000 };
+      }),
     columns: [
-      { key: "date", label: "Date du virement", type: "date", width: 130 },
-      { key: "libelle", label: "Libellé du virement", type: "text", width: 220 },
-      { key: "banque", label: "Banque", type: "text", width: 130 },
-      { key: "montant", label: "Montant du virement (TND)", type: "number", width: 150 },
-      { key: "num_facture", label: "N° facture justifiée", type: "text", width: 150 },
-      { key: "devise", label: "Devise", type: "text", width: 90 },
-      { key: "montant_devise", label: "Montant facture (devise)", type: "number", width: 150 },
-      { key: "observations", label: "Observations / pièce jointe", type: "text", width: 220, piece: true },
+      { key: "date", label: "Date du virement", type: "date", width: 120 },
+      { key: "ref", label: "Réf. virement", type: "text", width: 120 },
+      { key: "libelle", label: "Libellé du virement", type: "text", width: 200 },
+      { key: "banque", label: "Banque", type: "text", width: 110 },
+      { key: "montant", label: "Montant du virement (TND)", type: "number", width: 140 },
+      { key: "num_facture", label: "N° facture d'achat", type: "text", width: 140 },
+      { key: "devise", label: "Devise", type: "text", width: 80 },
+      { key: "montant_devise", label: "Montant facture (devise)", type: "number", width: 140 },
+      { key: "taux", label: "Taux de change", type: "number", width: 110 },
+      { key: "montant_tnd", label: "Équivalent TND", type: "number", width: 130 },
+      { key: "observations", label: "Observations / pièce jointe", type: "text", width: 200, piece: true },
     ],
   },
   {
@@ -729,8 +767,10 @@ const AIDES: Record<string, string> = {
   detail_achats: "Une ligne par achat : date, n° de facture, fournisseur, nature, montant HT et TVA. Le TTC se calcule seul.",
   etat_caisse: "Première ligne : le solde de départ de la caisse. Ensuite, chaque entrée et chaque sortie ; le solde se calcule seul.",
   etat_clients: "Une ligne par client : solde de départ, ce qui a été facturé et ce qui a été réglé sur la période. Le solde final se calcule seul.",
+  reglements_cb:
+    "Une ligne par règlement par carte bancaire (« REG PAR CB » sur le relevé) : date, commerçant ou fournisseur, n° de facture ou de ticket et montant. Joignez le ticket ou la facture.",
   etat_swift:
-    "Une ligne par virement SWIFT (achat de devises négocié sur le marché) : date, libellé, banque et montant en dinars, puis la facture d'achat qu'il règle (n°, devise, montant). Joignez l'avis SWIFT si vous l'avez.",
+    "Chaque virement SWIFT (achat de devises négocié sur le marché) est à justifier par vos factures d'achat : ajoutez une ligne par facture (n°, devise, montant en devise, taux) jusqu'à atteindre le montant du virement. Joignez l'avis SWIFT si vous l'avez.",
   etat_fournisseurs: "Une ligne par fournisseur : solde de départ, ce qui a été facturé et ce qui a été réglé sur la période. Le solde final se calcule seul.",
 };
 

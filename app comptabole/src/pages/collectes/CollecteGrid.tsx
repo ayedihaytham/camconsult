@@ -187,6 +187,11 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const dernierVisible = rows.reduce((d, _, i) => (cachee(i) ? d : i), -1);
   /** Case de montant en cours de saisie (texte tapé gardé tel quel) ; les autres montants s'affichent à 3 décimales. */
   const [enSaisie, setEnSaisie] = useState<string | null>(null);
+  /** Valeur d'une case modifiable : celle de la ligne ; quand elle est vide, celle que le tableau en déduit (ex. équivalent en dinars d'une facture SWIFT). */
+  const valeurAffichee = (i: number, cle: string) => {
+    const v = rows[i]?.[cle];
+    return v === undefined || v === null || String(v).trim() === "" ? (derived[i]?.[cle] ?? v) : v;
+  };
   const valeurCellule = (c: { key: string; type: string }, i: number, brut: unknown) =>
     c.type === "number" && estColonneMontant(c.key) && enSaisie !== `${i}:${c.key}` ? montantAffiche(brut) : String(brut ?? "");
   const [saveError, setSaveError] = useState(false);
@@ -492,7 +497,8 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     }
   }
 
-  const groupes = useMemo(() => repartitionGroupes(def, rows), [def, rows]);
+  // Calculé sur les lignes dérivées : l'équivalent en dinars proposé pour une facture compte dans la répartition du virement.
+  const groupes = useMemo(() => repartitionGroupes(def, derived), [def, derived]);
 
   /** Ligne d'en-tête d'un bordereau : n° et montant du bordereau, sans montant de chèque. Elle n'a pas de n° de ligne. */
   function estEnteteBordereau(i: number): boolean {
@@ -893,7 +899,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
       {canAdd && bordereauSeul && (
         <p className="text-xs text-muted-foreground">
-          Ajoutez les bordereaux à remplir (date de remise, n°, montant, banque) : le client saisit ensuite les chèques de chaque bordereau, ce sont les cases « ? ».
+          {def.groupe?.consigneCabinet ?? "Ajoutez les bordereaux à remplir (date de remise, n°, montant, banque) : le client saisit ensuite les chèques de chaque bordereau, ce sont les cases « ? »."}
         </p>
       )}
       {canAdd && !bordereauSeul && (
@@ -1070,7 +1076,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                             type={c.type === "date" ? "date" : "text"}
                             inputMode={c.type === "number" ? "decimal" : undefined}
                             placeholder={hi ? "?" : undefined}
-                            value={valeurCellule(c, i, row[c.key])}
+                            value={valeurCellule(c, i, valeurAffichee(i, c.key))}
                             onFocus={() => setEnSaisie(`${i}:${c.key}`)}
                             onBlur={() => setEnSaisie(null)}
                             onChange={(e) =>
@@ -1100,7 +1106,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                           type={c.type === "date" ? "date" : "text"}
                           inputMode={c.type === "number" ? "decimal" : undefined}
                           placeholder={hi ? "?" : undefined}
-                          value={valeurCellule(c, i, row[c.key])}
+                          value={valeurCellule(c, i, valeurAffichee(i, c.key))}
                           onFocus={() => setEnSaisie(`${i}:${c.key}`)}
                           onBlur={() => setEnSaisie(null)}
                           onChange={(e) =>

@@ -34,7 +34,9 @@ describe.skipIf(!actif)("intégration PostgreSQL : l'État SWIFT dans les collec
     const c = await collecte("Octobre 2026");
     const l = await lignes(c.id);
     expect(l).toHaveLength(1);
-    expect(l[0].data).toMatchObject({ date: "2026-10-12", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 7672.6, num_facture: "", devise: "", montant_devise: "" });
+    // une ligne d'en-tête : la société y ajoute ses factures jusqu'à atteindre le montant
+    expect(l[0].data).toMatchObject({ date: "2026-10-12", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 7672.6, num_facture: "", montant_devise: "", montant_tnd: "" });
+    expect(l[0].data.ref).toMatch(/^SWIFT-[0-9A-F]{6}$/);
     expect(l[0].data._swift).toBeTruthy();
   });
 
@@ -56,13 +58,23 @@ describe.skipIf(!actif)("intégration PostgreSQL : l'État SWIFT dans les collec
     expect(await lignes(autre.id)).toHaveLength(0);
   });
 
-  it("la société justifie le virement dans le module : la ligne reprise reçoit ses factures", async () => {
+  it("les factures justifiées dans le module s'ajoutent sous leur virement, une ligne par facture, sans doublon", async () => {
     const c = (await admin("GET", "/api/collectes")).json.find((x) => x.periode === "Octobre 2026");
     const v = (await admin("GET", `/api/etat-swift?societeId=${societe}`)).json.find((x) => x.libelle === "ACHAT NEGOCIE SUR LE MARCHE");
-    const r = await admin("PUT", `/api/etat-swift/${v.id}/factures`, { devise: "EUR", equivalentDevise: 2300, factures: [{ numFacture: "FA-77", montantDevise: 2300, devise: "EUR", taux: 3.3, montantTnd: 7590 }] });
+    const r = await admin("PUT", `/api/etat-swift/${v.id}/factures`, {
+      devise: "EUR", equivalentDevise: 2300,
+      factures: [{ numFacture: "FA-77", montantDevise: 1000, devise: "EUR", taux: 3.3, montantTnd: 3300 }, { numFacture: "FA-78", montantDevise: 1300, devise: "EUR", taux: 3.3, montantTnd: 4290 }],
+    });
     expect(r.status, r.texte).toBe(200);
-    const l = (await lignes(c.id)).find((x) => x.data.libelle === "ACHAT NEGOCIE SUR LE MARCHE");
-    expect(l.data).toMatchObject({ num_facture: "FA-77", devise: "EUR", montant_devise: 2300 });
+    const l = await lignes(c.id);
+    // le virement, SES factures juste dessous, puis les virements suivants : les lignes d'un même groupe se suivent
+    expect(l.map((x) => x.data.libelle + (x.data.num_facture ? ` / ${x.data.num_facture}` : ""))).toEqual([
+      "ACHAT NEGOCIE SUR LE MARCHE", "ACHAT NEGOCIE SUR LE MARCHE / FA-77", "ACHAT NEGOCIE SUR LE MARCHE / FA-78", "SECOND", "PAS ENCORE ENVOYE",
+    ]);
+    expect(l[1].data).toMatchObject({ montant: "", devise: "EUR", montant_devise: 1000, taux: 3.3, montant_tnd: 3300, ref: l[0].data.ref });
+    // un nouveau déclenchement ne duplique rien
+    await admin("PUT", `/api/etat-swift/${v.id}/factures`, { devise: "EUR", equivalentDevise: 2300, factures: [{ id: r.json.factures[0].id, numFacture: "FA-77", montantDevise: 1000, devise: "EUR", taux: 3.3, montantTnd: 3300 }, { id: r.json.factures[1].id, numFacture: "FA-78", montantDevise: 1300, devise: "EUR", taux: 3.3, montantTnd: 4290 }] });
+    expect(await lignes(c.id)).toHaveLength(5);
   });
 
   it("un tableau transmis n'est jamais modifié par la synchronisation", async () => {

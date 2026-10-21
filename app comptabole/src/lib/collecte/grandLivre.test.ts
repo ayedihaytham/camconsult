@@ -229,7 +229,7 @@ describe("grand-livre MS TRANSPORT (compte 461000) : achats négociés sur le ma
     expect(TABLEAU_PAR_NATURE.swift).toBe("etat_swift");
     const e = ecriture("ACHAT NEGOCIE SUR LE MARCHE", 7672.6, 0);
     expect(ligneDepuisEcriture("etat_swift", e)).toEqual({
-      date: "2026-08-10", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 7672.6, num_facture: "", devise: "", montant_devise: "",
+      date: "2026-08-10", ref: "BANQ 10", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 7672.6, num_facture: "", devise: "", montant_devise: "", taux: "", montant_tnd: "",
       observations: "Achat négocié sur le marché (SWIFT à vérifier) · GL 461000 · BANQ · p.10",
     });
   });
@@ -245,7 +245,7 @@ describe("grand-livre MS TRANSPORT (compte 461000) : achats négociés sur le ma
 
   it("« CREDIT DIVERS CHQ N°5096519 » : le crédit est le montant du bordereau, pas celui du chèque", () => {
     const e = ecriture("CREDIT DIVERS CHQ N°5096519", 0, 1458);
-    expect(ligneDepuisEcriture("bordereaux_remise_cheques", e)).toMatchObject({ num_cheque: "5096519", montant: 1458, montant_cheque: "" });
+    expect(ligneDepuisEcriture("bordereaux_remise_cheques", e)).toMatchObject({ num_bordereau: "5096519", num_cheque: "", montant: 1458, montant_cheque: "" });
   });
 
   it("une ligne de bordereau déjà importée n'est pas proposée une seconde fois (montant lu dans le montant du bordereau)", () => {
@@ -286,6 +286,8 @@ describe.skipIf(!existsSync(PDF_MS))("grand-livre Sage du compte 461 de MS TRANS
     expect(n("cheque_recu")).toBe(2);
     expect(n("effet_recu")).toBe(1);
     expect(n("cheque_emis")).toBe(1);
+    expect(n("carte_bancaire")).toBe(6);
+    expect(n("autre")).toBe(1); // « PAIEMENT EFFET » : aucun tableau
     const swift = lignesPourTableau("etat_swift", l.ecritures);
     expect(swift.reduce((t, r) => t + Number(r.montant), 0)).toBeCloseTo(25903.32 + 7672.6 + 27040 + 20874 + 1096.758 + 28401.75 + 626.52, 3);
   });
@@ -294,6 +296,31 @@ describe.skipIf(!existsSync(PDF_MS))("grand-livre Sage du compte 461 de MS TRANS
     const l = await livreMs();
     for (const r of lignesPourTableau("virements_emis", l.ecritures)) expect(r.beneficiaire).toBe("");
     const rem = lignesPourTableau("bordereaux_remise_cheques", l.ecritures);
-    expect(rem.map((r) => [r.num_cheque, r.montant, r.montant_cheque])).toEqual([["5096519", 1458, ""], ["5017432", 11891.61, ""]]);
+    expect(rem.map((r) => [r.num_bordereau, r.num_cheque, r.montant, r.montant_cheque])).toEqual([["5096519", "", 1458, ""], ["5017432", "", 11891.61, ""]]);
+  });
+});
+
+describe("règlements par carte bancaire (« REG PAR CB »)", () => {
+  const e = (libelle: string, debit = 25, extra = {}) => ({
+    date: "2026-04-20", journal: "BANQ", piece: "56", libelle, debit, credit: 0, nature: natureEcriture(libelle, debit, 0, "BANQ", "attente"),
+    sousType: "Règlement par carte bancaire", compte: "461000", classe: "attente" as const, tiers: "", origine: "GL 461000 · BANQ · p.56", montant: debit, ...extra,
+  });
+
+  it("« REG PAR CB » est un règlement par carte bancaire, rangé dans son tableau ; « REG CHQ » reste un chèque", () => {
+    expect(natureEcriture("REG PAR CB", 25, 0, "BANQ", "attente")).toBe("carte_bancaire");
+    expect(natureEcriture("REGLEMENT PAR CB STE X", 25, 0, "BANQ", "attente")).toBe("carte_bancaire");
+    expect(natureEcriture("PAIEMENT CB", 25, 0, "BANQ", "attente")).toBe("carte_bancaire");
+    expect(natureEcriture("REG CHQ N°955 STE NEGOS PLUS", 131.9, 0, "BANQ", "attente")).toBe("cheque_emis");
+    expect(TABLEAU_PAR_NATURE.carte_bancaire).toBe("reglements_cb");
+  });
+
+  it("la ligne reprend la date, le montant et le compte ; le commerçant (absent du libellé) reste à compléter", () => {
+    expect(ligneDepuisEcriture("reglements_cb", e("REG PAR CB"))).toEqual({
+      date: "2026-04-20", commercant: "", reference: "", montant: 25, compte_bancaire: "BANQ", observations: "Règlement par carte bancaire · GL 461000 · BANQ · p.56",
+    });
+  });
+
+  it("un nom qui suit « REG PAR CB » est le commerçant", () => {
+    expect(ligneDepuisEcriture("reglements_cb", e("REG PAR CB STATION TOTAL"))).toMatchObject({ commercant: "STATION TOTAL" });
   });
 });

@@ -1,15 +1,15 @@
 import { query } from "./db.js";
-import { arrondi3 as r3 } from "../shared/arrondi.js";
 
 /**
- * Les virements du module « État SWIFT » alimentent automatiquement le tableau « État SWIFT » des collectes de pièces d'une société.
+ * Les virements du module « État SWIFT » alimentent automatiquement le tableau « État SWIFT » des collectes de pièces d'une société, avec la
+ * même logique que le module : chaque virement est une ligne d'en-tête (date, réf., libellé, banque, montant en dinars) et ses factures d'achat
+ * s'ajoutent une à une, sur autant de lignes qu'il faut, jusqu'à atteindre le montant (comme les chèques d'un bordereau).
  *
- *  - Un virement envoyé à la société (le cabinet l'a posé, daté, et envoyé) donne UNE ligne : date, libellé, banque, montant en dinars ;
- *    ses factures (n°, devise, montant en devise) y sont résumées. Un virement non encore envoyé n'est pas visible de la société : il n'est pas repris.
+ *  - Seul un virement envoyé à la société (daté et envoyé par le cabinet) est repris : tant qu'il ne lui est pas envoyé, elle ne le voit pas.
  *  - Une collecte ne reprend que les virements de sa période quand elle se lit (« Octobre 2026 », « T3 2026 », « S1 2026 », « 2026 » ou « Exercice 2025 »).
- *  - Un virement n'est repris qu'une fois pour l'ensemble des collectes de la société (repère `_swift` dans la ligne) : pas de doublon d'une période à l'autre.
+ *  - Un virement n'est repris qu'une fois pour l'ensemble des collectes de la société (repère `_swift` sur sa ligne d'en-tête), ses factures aussi (`_swiftf`).
  *  - Seul un tableau encore ouvert reçoit des lignes : un tableau transmis, validé ou archivé n'est jamais modifié.
- *  - Une ligne reprise dont la facture n'était pas encore renseignée se complète quand la société justifie le virement dans le module.
+ *  - Une facture justifiée plus tard dans le module s'ajoute sous son virement, sans toucher à ce que la société a saisi.
  */
 
 const MOIS = ["janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"];
@@ -43,25 +43,46 @@ const jour = (d) => {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 };
 
-/** Ligne du tableau « État SWIFT » d'une collecte pour un virement du module et ses factures. */
-export function ligneSwift(virement, factures = []) {
-  const devises = [...new Set(factures.map((f) => String(f.devise ?? "").toUpperCase()).filter(Boolean))];
+/** Référence d'un virement dans le tableau : elle identifie son groupe de lignes (en-tête et factures). */
+export const refSwift = (virement) => `SWIFT-${String(virement.id).replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+
+/** Ligne d'en-tête d'un virement : date, réf., libellé, banque, montant ; la société y ajoute ses factures. */
+export function ligneSwift(virement) {
   return {
     date: jour(virement.date_operation),
+    ref: refSwift(virement),
     libelle: virement.libelle ?? "",
     banque: virement.banque ?? "",
     montant: Number(virement.montant) || 0,
-    num_facture: factures.map((f) => f.num_facture).filter(Boolean).join(", "),
-    devise: devises.length === 1 ? devises[0] : "",
-    montant_devise: factures.length > 0 && devises.length <= 1 ? r3(factures.reduce((s, f) => s + Number(f.montant_devise || 0), 0)) : "",
+    num_facture: "",
+    devise: "",
+    montant_devise: "",
+    taux: "",
+    montant_tnd: "",
     observations: "",
     _swift: virement.id,
   };
 }
 
-const vide = (v) => v === undefined || v === null || String(v).trim() === "";
+/** Ligne d'une facture d'un virement : les colonnes du virement se répètent (sans son montant) pour que la ligne reste dans son groupe. */
+export function ligneFactureSwift(virement, facture) {
+  return {
+    date: jour(virement.date_operation),
+    ref: refSwift(virement),
+    libelle: virement.libelle ?? "",
+    banque: virement.banque ?? "",
+    montant: "",
+    num_facture: facture.num_facture ?? "",
+    devise: String(facture.devise ?? "").toUpperCase(),
+    montant_devise: Number(facture.montant_devise) || 0,
+    taux: Number(facture.taux) || "",
+    montant_tnd: Number(facture.montant_tnd) || "",
+    observations: "",
+    _swiftf: facture.id,
+  };
+}
 
-/** Reprend dans une collecte les virements SWIFT envoyés à la société qui n'y sont pas encore. Renvoie le nombre de lignes ajoutées ou complétées. */
+/** Reprend dans une collecte les virements SWIFT envoyés à la société (et leurs factures) qui n'y sont pas encore. Renvoie le nombre de lignes ajoutées. */
 export async function synchroniserSwift(collecteId) {
   const c = (await query("select id, societe_id, periode, onglets, statut from collectes where id = $1", [collecteId])).rows[0];
   if (!c || c.statut === "archive" || !Array.isArray(c.onglets) || !c.onglets.includes("etat_swift")) return 0;
@@ -79,36 +100,52 @@ export async function synchroniserSwift(collecteId) {
   ).rows;
   if (virements.length === 0) return 0;
   const factures = (
-    await query("select virement_id, num_facture, montant_devise, devise from swift_factures where virement_id = any($1::uuid[]) order by ordre, cree_le", [virements.map((v) => v.id)])
+    await query("select id, virement_id, num_facture, montant_devise, devise, taux, montant_tnd from swift_factures where virement_id = any($1::uuid[]) order by ordre, cree_le", [virements.map((v) => v.id)])
   ).rows;
 
-  // Virements déjà repris, dans cette collecte ou une autre de la société : ligne (id, collecte) par repère.
+  // Ce qui est déjà repris, dans cette collecte ou une autre de la société.
   const reprises = (
     await query(
-      `select l.id, l.collecte_id, l.data from collecte_lignes l join collectes k on k.id = l.collecte_id
-        where k.societe_id = $1 and l.onglet = 'etat_swift' and l.data ? '_swift'`,
+      `select l.collecte_id, l.data from collecte_lignes l join collectes k on k.id = l.collecte_id
+        where k.societe_id = $1 and l.onglet = 'etat_swift' and (l.data ? '_swift' or l.data ? '_swiftf')`,
       [c.societe_id],
     )
   ).rows;
-  const parRepere = new Map(reprises.map((r) => [r.data._swift, r]));
+  const enTete = new Map(reprises.filter((r) => r.data._swift).map((r) => [r.data._swift, r]));
+  const dejaFactures = new Set(reprises.map((r) => r.data._swiftf).filter(Boolean));
 
-  let touchees = 0;
-  let ordre = Number((await query("select coalesce(max(ordre), -1) + 1 as n from collecte_lignes where collecte_id = $1 and onglet = 'etat_swift'", [collecteId])).rows[0].n);
+  const ajouter = async (data, apresRef) => {
+    let ordre;
+    if (apresRef) {
+      // Sous la dernière ligne du groupe du virement : les lignes qui suivent descendent d'un rang.
+      const dernier = (await query("select max(ordre) as n from collecte_lignes where collecte_id = $1 and onglet = 'etat_swift' and data->>'ref' = $2", [collecteId, apresRef])).rows[0].n;
+      if (dernier !== null) {
+        ordre = Number(dernier) + 1;
+        await query("update collecte_lignes set ordre = ordre + 1 where collecte_id = $1 and onglet = 'etat_swift' and ordre >= $2", [collecteId, ordre]);
+      }
+    }
+    if (ordre === undefined) ordre = Number((await query("select coalesce(max(ordre), -1) + 1 as n from collecte_lignes where collecte_id = $1 and onglet = 'etat_swift'", [collecteId])).rows[0].n);
+    await query("insert into collecte_lignes (collecte_id, onglet, ordre, data) values ($1,'etat_swift',$2,$3::jsonb)", [collecteId, ordre, JSON.stringify(data)]);
+  };
+
+  let ajoutees = 0;
   for (const v of virements) {
-    const dossier = factures.filter((f) => f.virement_id === v.id);
-    const ligne = ligneSwift(v, dossier);
-    const deja = parRepere.get(v.id);
-    if (!deja) {
-      await query("insert into collecte_lignes (collecte_id, onglet, ordre, data) values ($1,'etat_swift',$2,$3::jsonb)", [collecteId, ordre++, JSON.stringify(ligne)]);
-      touchees++;
-    } else if (deja.collecte_id === collecteId && dossier.length > 0 && vide(deja.data.num_facture) && vide(deja.data.devise) && vide(deja.data.montant_devise)) {
-      // La société vient de justifier ce virement dans le module : la ligne reprise reçoit ses factures (sans toucher à ce qui a été saisi).
-      await query("update collecte_lignes set data = data || $2::jsonb where id = $1", [deja.id, JSON.stringify({ num_facture: ligne.num_facture, devise: ligne.devise, montant_devise: ligne.montant_devise })]);
-      touchees++;
+    const existant = enTete.get(v.id);
+    // Repris par une autre collecte : ce virement et ses factures lui appartiennent.
+    if (existant && existant.collecte_id !== collecteId) continue;
+    if (!existant) {
+      await ajouter(ligneSwift(v), null);
+      ajoutees++;
+    }
+    const ref = existant?.data?.ref ?? refSwift(v);
+    for (const f of factures.filter((x) => x.virement_id === v.id)) {
+      if (dejaFactures.has(f.id)) continue;
+      await ajouter(ligneFactureSwift(v, f), ref);
+      ajoutees++;
     }
   }
-  if (touchees > 0) await query("update collectes set maj_le = now() where id = $1", [collecteId]);
-  return touchees;
+  if (ajoutees > 0) await query("update collectes set maj_le = now() where id = $1", [collecteId]);
+  return ajoutees;
 }
 
 /** Même chose pour toutes les collectes de la société qui demandent l'État SWIFT (après un changement dans le module). Ne lève jamais. */

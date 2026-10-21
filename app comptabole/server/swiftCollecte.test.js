@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ligneSwift, plagePeriode } from "./swiftCollecte.js";
+import { ligneFactureSwift, ligneSwift, plagePeriode, refSwift } from "./swiftCollecte.js";
 
 describe("période d'une collecte", () => {
   it("lit un mois, un trimestre, un semestre, une année ou un exercice", () => {
@@ -20,23 +20,25 @@ describe("période d'une collecte", () => {
   });
 });
 
-describe("ligne du tableau « État SWIFT » pour un virement", () => {
-  const v = { id: "v1", date_operation: new Date(2026, 9, 12), libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: "7672.600" };
+describe("lignes du tableau « État SWIFT » : en-tête de virement et factures", () => {
+  const v = { id: "ab12cd34-0000-0000-0000-000000000000", date_operation: new Date(2026, 9, 12), libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: "7672.600" };
 
-  it("sans facture : date, libellé, banque et montant ; la justification reste à saisir", () => {
-    expect(ligneSwift(v)).toEqual({ date: "2026-10-12", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 7672.6, num_facture: "", devise: "", montant_devise: "", observations: "", _swift: "v1" });
+  it("la référence identifie le groupe du virement", () => {
+    expect(refSwift(v)).toBe("SWIFT-AB12CD");
   });
 
-  it("avec des factures : n° regroupés, devise commune et total en devise", () => {
-    const l = ligneSwift(v, [
-      { num_facture: "F1", montant_devise: "1000", devise: "eur" },
-      { num_facture: "F2", montant_devise: "500.5", devise: "EUR" },
-    ]);
-    expect(l).toMatchObject({ num_facture: "F1, F2", devise: "EUR", montant_devise: 1500.5 });
+  it("en-tête : date, réf., libellé, banque et montant ; les factures sont à ajouter par la société", () => {
+    expect(ligneSwift(v)).toEqual({
+      date: "2026-10-12", ref: "SWIFT-AB12CD", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: 7672.6,
+      num_facture: "", devise: "", montant_devise: "", taux: "", montant_tnd: "", observations: "", _swift: v.id,
+    });
   });
 
-  it("devises mélangées : pas de total (il n'aurait pas de sens)", () => {
-    const l = ligneSwift(v, [{ num_facture: "F1", montant_devise: "10", devise: "EUR" }, { num_facture: "F2", montant_devise: "10", devise: "USD" }]);
-    expect(l).toMatchObject({ num_facture: "F1, F2", devise: "", montant_devise: "" });
+  it("facture : colonnes du virement répétées sans son montant, plus n°, devise, montant en devise, taux et équivalent en dinars", () => {
+    const f = { id: "f1", num_facture: "FA-77", devise: "eur", montant_devise: "2300", taux: "3.3", montant_tnd: "7590" };
+    expect(ligneFactureSwift(v, f)).toEqual({
+      date: "2026-10-12", ref: "SWIFT-AB12CD", libelle: "ACHAT NEGOCIE SUR LE MARCHE", banque: "BANQ", montant: "",
+      num_facture: "FA-77", devise: "EUR", montant_devise: 2300, taux: 3.3, montant_tnd: 7590, observations: "", _swiftf: "f1",
+    });
   });
 });

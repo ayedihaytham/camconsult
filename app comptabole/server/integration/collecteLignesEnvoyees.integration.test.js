@@ -61,7 +61,10 @@ describe.skipIf(!actif)("intégration PostgreSQL : envoi par lignes d'une collec
       expect(r.json.lignes.map((l) => Boolean(l.envoyeeLe))).toEqual([true, false, true]);
       const vueCabinet = await lire(c.id);
       expect(vueCabinet.map((l) => Boolean(l.envoyeeLe))).toEqual([true, false, true]);
-      expect((await sql.query("select count(*)::int n from journal where label like '2 ligne(s) envoyée(s) au cabinet%'")).rows[0].n).toBeGreaterThanOrEqual(1);
+      // Le journal s'écrit en tâche de fond : on attend qu'il apparaisse.
+      await vi.waitFor(async () => {
+        expect((await sql.query("select count(*)::int n from journal where label like '2 ligne(s) envoyée(s) au cabinet%'")).rows[0].n).toBeGreaterThanOrEqual(1);
+      }, { timeout: 5000, interval: 100 });
     });
 
     it("sans l'option, « envoyee » est ignoré : rien n'est envoyé", async () => {

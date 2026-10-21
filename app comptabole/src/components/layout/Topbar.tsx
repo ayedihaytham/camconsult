@@ -48,7 +48,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-card no-print">
+    <header className="sticky top-0 z-30 border-b border-border bg-card no-print after:pointer-events-none after:absolute after:-bottom-px after:left-0 after:h-[2px] after:w-[72px] after:bg-accent">
       <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
         <SidebarTrigger
           className="h-10 w-10 shrink-0 lg:h-9 lg:w-9"
@@ -72,10 +72,11 @@ export function Topbar() {
                 className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-1.5 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:pr-2.5"
                 aria-label={`Menu du compte de ${nom}`}
               >
-                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-primary text-accent lg:h-9 lg:w-9">
-                  <span className="text-xs font-bold tracking-wide">
+                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-accent lg:h-9 lg:w-9">
+                  <span className="text-xs font-semibold tracking-wide">
                     {initiales}
                   </span>
+                  <span aria-hidden="true" className="absolute -bottom-px -right-px size-2.5 rounded-full border-2 border-card bg-success" />
                 </span>
                 <span className="hidden text-left leading-tight sm:block">
                   <span className="block text-sm font-medium text-foreground">
@@ -92,6 +93,11 @@ export function Topbar() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={8} className="topbar-account-menu w-64 rounded-xl border-border/70 p-1.5 shadow-pop">
+              <div className="px-3 pb-2 pt-1.5">
+                <p className="truncate text-sm font-semibold text-foreground">{nom}</p>
+                <p className="truncate text-xs text-muted-foreground">{isAdmin ? "Administrateur" : role}</p>
+              </div>
+              <DropdownMenuSeparator className="mx-2 my-1" />
               {isAdmin && (
                 <>
                   <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={() => navigate("/parametres")}>
@@ -145,11 +151,11 @@ function RechercheRapide() {
         type="button"
         onClick={ouvrir}
         aria-label="Aller à une page ou une société"
-        className="mx-auto hidden h-10 min-w-0 max-w-xl flex-1 items-center gap-2.5 rounded-lg border border-border bg-background px-3 text-left text-sm text-muted-foreground transition-colors hover:border-input hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"
+        className="mx-auto hidden h-10 min-w-0 max-w-xl flex-1 items-center gap-2.5 rounded-[10px] border border-border bg-background px-3.5 text-left text-sm text-muted-foreground transition-colors hover:border-input hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"
       >
         <Search className="size-4 shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">Aller à une page ou une société…</span>
-        <kbd className="shrink-0 rounded border border-border bg-card px-1.5 text-[11px] font-semibold">{mac ? "⌘ K" : "Ctrl K"}</kbd>
+        <kbd className="shrink-0 rounded-[5px] border border-b-2 border-border bg-card px-1.5 text-[11px] font-medium text-foreground/70">{mac ? "⌘ K" : "Ctrl K"}</kbd>
       </button>
     </>
   );
@@ -236,19 +242,19 @@ function NotificationBell() {
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 rounded-lg">
-        <div className="flex items-center justify-between px-2 py-1.5">
-          <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-[22rem] rounded-xl p-1.5 shadow-pop">
+        <div className="flex items-center justify-between px-2.5 py-1.5">
+          <DropdownMenuLabel className="p-0 text-sm font-semibold">Notifications</DropdownMenuLabel>
           {unread > 0 && (
             <button
               onClick={() => markRead()}
-              className="text-xs font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
             >
               Tout marquer lu
             </button>
           )}
         </div>
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator className="mx-1" />
         {recent.length === 0 && (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             Aucune notification.
@@ -263,8 +269,8 @@ function NotificationBell() {
                 navigate(n.lien || "/taches");
               }}
               className={cn(
-                "flex w-full flex-col items-start gap-0.5 border-b border-border px-3 py-2.5 text-left last:border-0 hover:bg-secondary",
-                !n.lu && "bg-accent/5",
+                "flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2.5 text-left hover:bg-muted",
+                !n.lu && "bg-accent/10",
               )}
             >
               <span className="flex w-full items-start gap-2">

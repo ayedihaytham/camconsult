@@ -136,4 +136,5 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/app-comptable:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/app-comptable:${{ github.sha }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Le cache n'est qu'une accélération : une erreur d'écriture du cache GitHub (ex. « blob not_found ») ne doit pas faire échouer la publication.
+          cache-to: type=gha,mode=max,ignore-error=true

@@ -1,5 +1,5 @@
 import type { CollecteFull } from "@/types";
-import { TAB_BY_KEY, repartitionGroupes } from "./tabs";
+import { TAB_BY_KEY, repartitionGroupes, type TabDef } from "./tabs";
 
 /** Colonnes jamais signalées comme manquantes (en plus des colonnes calculées). */
 const SKIP: Record<string, string[]> = {
@@ -9,6 +9,19 @@ const SKIP: Record<string, string[]> = {
 
 const isEmpty = (v: unknown) =>
   v === undefined || v === null || String(v).trim() === "";
+
+/** Une ligne est complète quand aucune de ses cases demandées n'est vide (même règle que les manques de la collecte).
+ * `suite` : ligne de suite d'un bordereau, dont le montant annoncé n'est pas demandé. */
+export function ligneComplete(def: TabDef, data: Record<string, unknown>, suite = false, piece = true): boolean {
+  const skip = new Set(SKIP[def.key] ?? []);
+  const g = def.groupe;
+  return def.columns.every((col) => {
+    if (col.computed || skip.has(col.key)) return true;
+    if (g && suite && col.key === g.totalCol) return true;
+    if (!isEmpty(data[col.key])) return true;
+    return piece && Boolean(col.piece) && !isEmpty(data[`${col.key}_fichier`]);
+  });
+}
 
 export interface Manque {
   onglet: string;

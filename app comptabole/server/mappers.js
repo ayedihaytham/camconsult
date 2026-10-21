@@ -165,6 +165,7 @@ export const collecteDto = (r) => ({
   majLe: isoOrNull(r.maj_le),
   transmisLe: isoOrNull(r.transmis_le),
   valideLe: isoOrNull(r.valide_le),
+  envoiParLignes: Boolean(r.envoi_par_lignes),
 });
 
 export const collecteFichierDto = (r) => ({
@@ -225,6 +226,7 @@ export const collecteLigneDto = (r) => ({
   onglet: r.onglet,
   ordre: r.ordre ?? 0,
   data: r.data ?? {},
+  envoyeeLe: isoOrNull(r.envoyee_le),
 });
 
 export const bordereauLigneDto = (r) => ({

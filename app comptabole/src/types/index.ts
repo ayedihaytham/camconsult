@@ -183,6 +183,8 @@ export interface CollecteLigne {
   onglet: string;
   ordre: number;
   data: Record<string, unknown>;
+  /** Date d'envoi au cabinet (collecte en « envoi par lignes ») : la ligne est alors figée pour la société, en vert pour le cabinet. */
+  envoyeeLe?: string | null;
 }
 
 export interface CollecteFichier {
@@ -234,6 +236,8 @@ export interface Collecte {
   statut: CollecteStatut;
   onglets: string[];
   devise: string;
+  /** Option du cabinet : chaque ligne complétée par la société part au cabinet à l'enregistrement. */
+  envoiParLignes?: boolean;
   /** Date limite de transmission par le client (AAAA-MM-JJ), facultative. */
   echeance: string | null;
   derniereRelanceLe: string | null;

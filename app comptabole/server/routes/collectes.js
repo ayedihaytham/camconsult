@@ -84,6 +84,7 @@ const createSchema = z.object({
   devise: z.string().default("TND"),
   echeance: z.string().nullish(),
   relanceCadenceJours: z.number().int().min(1).max(30).default(3),
+  envoiParLignes: z.boolean().default(false),
 });
 
 async function loadCollecte(id) {
@@ -374,11 +375,11 @@ collectesRouter.post("/", async (req, res) => {
 
   const created = await withTransaction(async (client) => {
     const { rows } = await client.query(
-      `insert into collectes (societe_id, periode, onglets, devise, echeance, relance_cadence_jours)
-       values ($1,$2,$3::jsonb,$4,$5,$6) returning *`,
+      `insert into collectes (societe_id, periode, onglets, devise, echeance, relance_cadence_jours, envoi_par_lignes)
+       values ($1,$2,$3::jsonb,$4,$5,$6,$7) returning *`,
       [
         v.societeId, v.periode.trim(), JSON.stringify(onglets), v.devise || "TND",
-        v.echeance || null, v.relanceCadenceJours || 3,
+        v.echeance || null, v.relanceCadenceJours || 3, v.envoiParLignes,
       ],
     );
     for (const o of onglets) {
@@ -484,12 +485,13 @@ collectesRouter.patch("/:id", async (req, res) => {
         : c.relance_cadence_jours,
     onglets: b.onglets === undefined ? c.onglets : cleanOnglets(b.onglets),
     statut: STATUTS.includes(b.statut) ? b.statut : c.statut,
+    envoiParLignes: typeof b.envoiParLignes === "boolean" ? b.envoiParLignes : Boolean(c.envoi_par_lignes),
   };
 
   await withTransaction(async (client) => {
     await client.query(
       `update collectes set periode=$1, devise=$2, onglets=$3::jsonb, statut=$4, echeance=$6,
-         relance_cadence_jours=$7,
+         relance_cadence_jours=$7, envoi_par_lignes=$9,
          rappel_avant_envoye = case when $8 then false else rappel_avant_envoye end,
          transmis_le = case when $4='transmis' and transmis_le is null then now() else transmis_le end,
          valide_le   = case when $4='valide' then now() else valide_le end,
@@ -497,7 +499,7 @@ collectesRouter.patch("/:id", async (req, res) => {
        where id=$5`,
       [
         next.periode, next.devise, JSON.stringify(next.onglets), next.statut, req.params.id,
-        next.echeance, next.relanceCadenceJours, echeanceChanged,
+        next.echeance, next.relanceCadenceJours, echeanceChanged, next.envoiParLignes,
       ],
     );
     // Un changement de statut de la collecte s'applique à ses tableaux (le circuit se joue tableau par tableau).
@@ -590,8 +592,12 @@ const lignesSchema = z.object({
   lignes: z
     .array(
       z.object({
+        /** Identifiant d'une ligne déjà enregistrée : permet de garder son état « envoyée au cabinet » et de reconnaître les lignes figées. */
+        id: z.string().uuid().optional(),
         data: z.record(z.any()).default({}),
         ordre: z.number().int().optional(),
+        /** Société, collecte en envoi par lignes : cette ligne, complétée, part au cabinet à l'enregistrement. */
+        envoyee: z.boolean().optional(),
       }),
     )
     .default([]),
@@ -624,6 +630,22 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
       return res.status(400).json({ error: "Les lignes déjà enregistrées ne peuvent pas être supprimées" });
   }
 
+  // Lignes déjà enregistrées : leurs identifiants et leur état « envoyée au cabinet » sont conservés d'un enregistrement à l'autre.
+  const existantes = (
+    await query("select id, data, envoyee_le from collecte_lignes where collecte_id=$1 and onglet=$2", [req.params.id, onglet])
+  ).rows;
+  const parId = new Map(existantes.map((r) => [r.id, r]));
+  const parSociete = estClient(req.session);
+  // Une ligne envoyée au cabinet est figée pour la société : elle doit revenir telle quelle (même identifiant, mêmes cases).
+  // Pour la modifier, la société la « reprend » (route dédiée) ou le cabinet la renvoie.
+  if (parSociete) {
+    for (const f of existantes.filter((r) => r.envoyee_le)) {
+      const revenue = parsed.data.lignes.find((l) => l.id === f.id);
+      if (!revenue || JSON.stringify(revenue.data ?? {}) !== JSON.stringify(f.data ?? {}))
+        return res.status(400).json({ error: "Une ligne déjà envoyée au cabinet ne peut plus être modifiée. Rechargez la page, ou reprenez la ligne." });
+    }
+  }
+  const envoiPossible = parSociete && Boolean(c.envoi_par_lignes);
   // Ne renvoie que les lignes de CET onglet, pas toute la collecte : un
   // « Enregistrer » ne touche qu'un seul tableau, mais rechargeait jusque-là
   // systématiquement tous les onglets, toutes les notes et toutes les
@@ -638,10 +660,13 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
     const inserted = [];
     let i = 0;
     for (const l of parsed.data.lignes) {
+      const ancienne = l.id ? parId.get(l.id) : undefined;
+      const envoyeeLe = ancienne?.envoyee_le ?? null;
+      const donnees = parSociete && envoyeeLe ? ancienne.data : l.data ?? {};
       const { rows } = await client.query(
-        `insert into collecte_lignes (collecte_id, onglet, ordre, data)
-         values ($1,$2,$3,$4::jsonb) returning *`,
-        [req.params.id, onglet, l.ordre ?? i, JSON.stringify(l.data ?? {})],
+        `insert into collecte_lignes (id, collecte_id, onglet, ordre, data, envoyee_le)
+         values (coalesce($1::uuid, gen_random_uuid()), $2,$3,$4,$5::jsonb, case when $6::timestamptz is not null then $6::timestamptz when $7 then now() else null end) returning *`,
+        [ancienne ? l.id : null, req.params.id, onglet, l.ordre ?? i, JSON.stringify(donnees), envoyeeLe, envoiPossible && l.envoyee === true],
       );
       inserted.push(rows[0]);
       i++;
@@ -658,7 +683,29 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
     `Tableau « ${onglet} » modifié (${parsed.data.lignes.length} ligne(s)) — ${periodeLabel(c.periode)}`,
     req.params.id,
   );
+  const nouvellesEnvoyees = savedLignes.filter((r) => r.envoyee_le && !parId.get(r.id)?.envoyee_le).length;
+  if (nouvellesEnvoyees > 0)
+    logAction(req.session.nom, "modification", "collecte", `${nouvellesEnvoyees} ligne(s) envoyée(s) au cabinet — tableau « ${onglet} » — ${periodeLabel(c.periode)}`, req.params.id);
   res.json({ onglet, lignes: savedLignes.map(collecteLigneDto) });
+});
+
+/** La société reprend une ligne qu'elle avait envoyée au cabinet (ligne complétée par erreur) : elle revient dans son tableau, modifiable. */
+collectesRouter.post("/:id/lignes/:onglet/:ligneId/reprendre", async (req, res) => {
+  if (!UUID.test(req.params.ligneId)) return res.status(400).json({ error: "Ligne invalide" });
+  const c = (await query("select * from collectes where id = $1", [req.params.id])).rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (!estClient(req.session) || !canEdit(req.session, c.societe_id))
+    return res.status(403).json({ error: "Modification non autorisée" });
+  if (await isOngletLocked(req.session, c, req.params.onglet))
+    return res.status(400).json({ error: "Ce tableau est verrouillé : la ligne ne peut plus être reprise" });
+  const { rows } = await query(
+    "update collecte_lignes set envoyee_le = null where id=$1 and collecte_id=$2 and onglet=$3 and envoyee_le is not null returning *",
+    [req.params.ligneId, req.params.id, req.params.onglet],
+  );
+  if (!rows[0]) return res.status(404).json({ error: "Cette ligne n'a pas été envoyée au cabinet" });
+  await query("update collectes set maj_le=now() where id=$1", [req.params.id]);
+  logAction(req.session.nom, "modification", "collecte", `Ligne reprise par la société — tableau « ${req.params.onglet} » — ${periodeLabel(c.periode)}`, req.params.id);
+  res.json({ onglet: req.params.onglet, ligne: collecteLigneDto(rows[0]) });
 });
 
 // ── Suivi de checklist d'un onglet : commentaire, reçu, date de suivi, total ──────────

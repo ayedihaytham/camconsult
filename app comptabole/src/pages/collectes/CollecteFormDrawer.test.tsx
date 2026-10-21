@@ -21,7 +21,7 @@ describe("CollecteFormDrawer : sélection de tableaux", () => {
   it("commence sans sélection et transmet uniquement les cartes choisies", async () => {
     const { onCreate } = renderForm();
     remplirPeriode();
-    expect(screen.getAllByRole("checkbox", { checked: false })).toHaveLength(COLLECTE_TABS.length);
+    expect(screen.getAllByRole("checkbox", { checked: false })).toHaveLength(COLLECTE_TABS.length + 1); // + l'option « Envoi par lignes »
     fireEvent.click(screen.getByText("Virements reçus"));
     expect(screen.getByRole("checkbox", { name: "Virements reçus" }).getAttribute("aria-checked")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Créer la collecte" }));
@@ -51,7 +51,7 @@ describe("CollecteFormDrawer : sélection de tableaux", () => {
   });
 
   it("conserve la sélection et les paramètres existants en mode édition", async () => {
-    const initial = { societeId: "soc-1", periode: "T3 2026", onglets: ["virements_recus"], devise: "EUR", echeance: "2026-10-20", relanceCadenceJours: 5 };
+    const initial = { societeId: "soc-1", periode: "T3 2026", onglets: ["virements_recus"], devise: "EUR", echeance: "2026-10-20", relanceCadenceJours: 5, envoiParLignes: false };
     const { onCreate } = renderForm({ initial });
     expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
@@ -64,7 +64,28 @@ describe("CollecteFormDrawer : sélection de tableaux", () => {
     rerender(<CollecteFormDrawer open={false} onCreate={onCreate} onOpenChange={onOpenChange} />);
     rerender(<CollecteFormDrawer open onCreate={onCreate} onOpenChange={onOpenChange} />);
     expect(screen.queryByRole("checkbox", { checked: true })).toBeNull();
-    expect(screen.getAllByRole("checkbox", { checked: false })).toHaveLength(COLLECTE_TABS.length);
+    expect(screen.getAllByRole("checkbox", { checked: false })).toHaveLength(COLLECTE_TABS.length + 1);
+  });
+});
+
+describe("CollecteFormDrawer : envoi par lignes", () => {
+  it("est désactivé par défaut et transmis à la création quand le cabinet le coche", async () => {
+    const { onCreate } = renderForm();
+    remplirPeriode();
+    const option = screen.getByRole("checkbox", { name: "Envoi par lignes" });
+    expect(option.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(screen.getByText("Virements reçus"));
+    fireEvent.click(option);
+    fireEvent.click(screen.getByRole("button", { name: "Créer la collecte" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ envoiParLignes: true })));
+  });
+
+  it("reprend la valeur de la collecte en modification", async () => {
+    const initial = { societeId: "soc-1", periode: "T3 2026", onglets: ["virements_recus"], devise: "TND", echeance: null, relanceCadenceJours: 3, envoiParLignes: true };
+    const { onCreate } = renderForm({ initial });
+    expect(screen.getByRole("checkbox", { name: "Envoi par lignes" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledWith(initial));
   });
 });
 

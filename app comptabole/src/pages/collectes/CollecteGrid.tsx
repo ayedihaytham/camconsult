@@ -1,5 +1,5 @@
 import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronRight, FilePlus, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, FilePlus, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import { montantAffiche } from "@/lib/amount";
 import { ecrireBrouillon, effacerBrouillon, lireBrouillon } from "@/lib/brouillons";
 import { TABLEAUX_GRAND_LIVRE } from "@/lib/collecte/grandLivre";
 import { plageNumeros } from "@/lib/collecte/souche";
+import { ligneComplete } from "@/lib/collecte/manques";
 import { ImportDocumentDialog } from "./ImportDocumentDialog";
 
 interface Props {
@@ -27,7 +28,7 @@ interface Props {
   /** Clé du brouillon : sans elle, les modifications non enregistrées ne survivent pas à un changement de page. */
   brouillonCle?: string;
   devise: string;
-  onSave: (rows: { data: TabRow; ordre: number }[]) => Promise<void>;
+  onSave: (rows: { id?: string; data: TabRow; ordre: number; envoyee?: boolean }[]) => Promise<void>;
   /** mode « complétion récap » : seules les cases marquées ci-dessous sont modifiables */
   recapClient?: boolean;
   /** clés « ordre:col » des cases à compléter */
@@ -49,6 +50,12 @@ interface Props {
   onJoindre?: (file: File) => Promise<{ id: string; nom: string }>;
   /** Ouvre l'aperçu d'une pièce jointe. */
   onVoirPiece?: (fichierId: string) => void;
+  /** Collecte en « envoi par lignes » : côté société, chaque ligne complète part au cabinet à l'enregistrement et quitte le tableau. */
+  envoiParLignes?: boolean;
+  /** Le tableau est vu par la société : une ligne envoyée au cabinet y est figée (listée à part, à reprendre en cas d'erreur) ; pour le cabinet elle est en vert. */
+  parSociete?: boolean;
+  /** La société reprend une ligne envoyée par erreur (identifiant de la ligne). */
+  onReprendre?: (ligneId: string) => Promise<void>;
   /** Case précise à reprendre depuis le récap; un tableau vide ouvre sa première ligne de saisie. */
   focusTarget?: { ordre: number | null; col: string | null; revision: number };
   /** Enregistrement explicite du cabinet suivi du récap ; l'auto-enregistrement conserve sa destination. */
@@ -83,6 +90,13 @@ export interface CollecteGridHandle {
 const minColWidth = (c: { width?: number; type?: string }) =>
   Math.max(c.type === "date" ? 112 : 84, Math.round((c.width ?? 140) * 0.62));
 
+/** Clés internes d'une ligne du tableau (identifiant enregistré, date d'envoi au cabinet) : jamais saisies, jamais envoyées comme données. */
+const estMeta = (k: string) => k.startsWith("__");
+const donnees = (r: TabRow): TabRow => Object.fromEntries(Object.entries(r).filter(([k]) => !estMeta(k)));
+const metaDe = (r: TabRow): TabRow => Object.fromEntries(Object.entries(r).filter(([k]) => estMeta(k)));
+/** Pièce jointe facultative de la ligne, pour les tableaux qui n'ont pas déjà leur propre colonne de pièce. */
+const CLE_PIECE = "_piece";
+
 /** Une ligne dont aucune case saisissable n'est remplie : ajoutée pour écrire dessus, ignorée tant qu'elle reste vide. */
 function ligneVide(def: TabDef, row: TabRow) {
   return def.columns
@@ -90,7 +104,7 @@ function ligneVide(def: TabDef, row: TabRow) {
     .every((c) => {
       const v = String(row[c.key] ?? "").trim();
       return (v === "" || v === c.defaut) && !(c.piece && row[`${c.key}_fichier`]);
-    });
+    }) && !row[`${CLE_PIECE}_fichier`];
 }
 
 export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function CollecteGrid({
@@ -110,6 +124,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   sansSuppression = false,
   onJoindre,
   onVoirPiece,
+  envoiParLignes = false,
+  parSociete = false,
+  onReprendre,
   focusTarget,
   saveAndContinue,
   continueLabel = "Enregistrer et vérifier",
@@ -133,12 +150,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     (recapClient && !wholeEditable && highlight?.has(`${i}:${key}`)) ||
     flagged?.has(`${i}:${key}`);
   const structureLocked = recapClient && !wholeEditable; // pas d'ajout/suppression de lignes
-  const sansLignesVides = (liste: TabRow[]) => JSON.stringify(liste.filter((r) => !ligneVide(def, r)));
+  const sansLignesVides = (liste: TabRow[]) => JSON.stringify(liste.filter((r) => !ligneVide(def, r)).map(donnees));
   const initial = useMemo(
     () =>
       [...lignes]
         .sort((a, b) => a.ordre - b.ordre)
-        .map((l) => ({ ...l.data }) as TabRow),
+        .map((l) => ({ ...l.data, __id: l.id, ...(l.envoyeeLe ? { __envoyeeLe: l.envoyeeLe } : {}) }) as TabRow),
     [lignes],
   );
   // Brouillon retrouvé : des modifications non enregistrées, laissées en quittant la page (retour/suivant, lien), reviennent telles quelles.
@@ -146,13 +163,23 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const restaure = useRef<TabRow[] | null | undefined>(undefined);
   if (restaure.current === undefined) {
     const b = brouillonCle ? lireBrouillon<{ rows: TabRow[]; base: string }>(brouillonCle) : null;
-    restaure.current = b && b.base === sansLignesVides(initial) ? b.rows : null;
+    // Le brouillon ne garde que les cases : l'identifiant et l'état d'envoi viennent du tableau enregistré (ils ont pu changer entre-temps).
+    restaure.current =
+      b && b.base === sansLignesVides(initial)
+        ? b.rows.map((r, i) => (initial[i] && JSON.stringify(donnees(initial[i])) === JSON.stringify(donnees(r)) ? { ...donnees(r), ...metaDe(initial[i]) } : donnees(r)))
+        : null;
   }
   const [rows, setRows] = useState<TabRow[]>(() => restaure.current ?? initial);
   useEffect(() => {
     if (restaure.current) toast.info("Modifications non enregistrées retrouvées : enregistrez-les ou annulez-les.");
   }, []);
   const [saving, setSaving] = useState(false);
+  const [envoyeesOuvertes, setEnvoyeesOuvertes] = useState(false);
+  const [reprise, setReprise] = useState<string | null>(null);
+  /** Côté société, une ligne envoyée au cabinet ne figure plus dans le tableau : elle est listée à part. */
+  const cachee = (i: number) => parSociete && Boolean(rows[i]?.__envoyeeLe);
+  const envoyees = rows.map((_, i) => i).filter((i) => Boolean(rows[i].__envoyeeLe));
+  const dernierVisible = rows.reduce((d, _, i) => (cachee(i) ? d : i), -1);
   /** Case de montant en cours de saisie (texte tapé gardé tel quel) ; les autres montants s'affichent à 3 décimales. */
   const [enSaisie, setEnSaisie] = useState<string | null>(null);
   const valeurCellule = (c: { key: string; type: string }, i: number, brut: unknown) =>
@@ -306,6 +333,77 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       setEnvoi(null);
     }
   }
+  /** La société reprend une ligne envoyée par erreur : elle redevient une ligne ordinaire du tableau. */
+  async function reprendre(i: number) {
+    const id = String(rows[i]?.__id ?? "");
+    if (!id || !onReprendre || reprise) return;
+    setReprise(id);
+    try {
+      await onReprendre(id);
+      const lever = (r: TabRow) => (r.__id === id ? Object.fromEntries(Object.entries(r).filter(([k]) => k !== "__envoyeeLe")) : r);
+      baseline.current = baseline.current.map(lever);
+      latestInitial.current = latestInitial.current.map(lever);
+      setRows((rs) => rs.map(lever));
+    } catch {
+      // l'erreur est déjà affichée par le magasin : la ligne reste envoyée
+    } finally {
+      setReprise(null);
+    }
+  }
+  /** Pièce jointe d'une ligne : voir / retirer si un fichier est joint, sinon un trombone pour en joindre un (si la saisie est permise). */
+  function boutonsPiece(i: number, cle: string, ro: boolean) {
+    return (
+      <>
+            {rows[i]?.[`${cle}_fichier`] ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onVoirPiece?.(String(rows[i]?.[`${cle}_fichier`]))}
+                  className="rounded p-1 text-success hover:bg-success/10"
+                  title={`Voir la pièce jointe : ${String(rows[i]?.[`${cle}_fichier_nom`] ?? "")}`}
+                  aria-label={`Voir la pièce jointe de la ligne ${i + 1}`}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </button>
+                {!ro && (
+                  <button
+                    type="button"
+                    onClick={() => setCells(i, { [`${cle}_fichier`]: "", [`${cle}_fichier_nom`]: "" })}
+                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    title="Retirer la pièce jointe de cette ligne"
+                    aria-label={`Retirer la pièce jointe de la ligne ${i + 1}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </>
+            ) : (
+              !ro &&
+              onJoindre && (
+                <label
+                  className="cursor-pointer rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-within:ring-2 focus-within:ring-ring"
+                  title="Joindre un fichier (scan, PDF)"
+                >
+                  {envoi === `${i}:${cle}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                  <input
+                    type="file"
+                    accept="image/*,.pdf,application/pdf"
+                    aria-label={`Joindre un fichier à la ligne ${i + 1}`}
+                    className="sr-only"
+                    disabled={envoi !== null}
+                    onChange={(e) => {
+                      const fichier = e.target.files?.[0];
+                      e.target.value = "";
+                      if (fichier) void joindre(i, cle, fichier);
+                    }}
+                  />
+                </label>
+              )
+            )}
+      </>
+    );
+  }
+
   /** Ajoute à la suite les lignes d'un document importé ; les lignes restées vides sont remplacées. */
   function addRows(nouvelles: TabRow[]) {
     if (nouvelles.length === 0) return;
@@ -331,15 +429,34 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       // Les montants se tapent comme du texte (« 20.030 ») ; ils sont enregistrés comme des nombres.
       const nombres = def.columns.filter((c) => c.type === "number" && !c.computed).map((c) => c.key);
       const normalises = kept.map((r) => {
-        const copie = { ...r };
+        const copie = donnees(r);
         for (const k of nombres) if (typeof copie[k] === "string" && String(copie[k]).trim() !== "") copie[k] = cellNumber(copie[k]);
         return copie;
       });
       const out = def.derive ? def.derive(normalises) : normalises;
-      await onSave(out.map((data, ordre) => ({ data, ordre })));
-      baseline.current = kept;
-      latestInitial.current = kept;
-      setRows([...kept]);
+      const g = def.groupe;
+      const dejaVus = new Set<string>();
+      const enregistrees = lignes.reduce((m, l) => m.set(l.id, l), new Map<string, CollecteLigne>());
+      const avant = latestInitial.current;
+      await onSave(
+        out.map((data, ordre) => {
+          const meta = metaDe(kept[ordre]);
+          const id = typeof meta.__id === "string" ? meta.__id : undefined;
+          // Une ligne déjà envoyée au cabinet repart telle qu'enregistrée (le serveur la refuse si elle a changé).
+          const figee = parSociete && Boolean(meta.__envoyeeLe) && id ? enregistrees.get(id) : undefined;
+          // Dans un bordereau, le montant annoncé n'est demandé que sur la première ligne.
+          const nom = g ? String(data[g.cle] ?? "").trim().toLowerCase() : "";
+          const suite = Boolean(nom) && dejaVus.has(nom);
+          if (nom) dejaVus.add(nom);
+          const complete = envoiParLignes && parSociete && !recapClient && !meta.__envoyeeLe && ligneComplete(def, data, suite);
+          return { ...(id ? { id } : {}), data: figee ? figee.data : data, ordre, ...(complete ? { envoyee: true } : {}) };
+        }),
+      );
+      // L'enregistrement a rendu les identifiants et l'état d'envoi des lignes : on repart de ce que le serveur a gardé.
+      const apres = latestInitial.current !== avant ? latestInitial.current : kept;
+      baseline.current = apres;
+      latestInitial.current = apres;
+      setRows([...apres]);
       setSaved(true);
     } catch (error) {
       setSaveError(true);
@@ -471,6 +588,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   }));
 
   const canAdd = !readOnly && !structureLocked;
+  // Colonne « Pièce » facultative sur chaque ligne, sauf dans les tableaux qui ont déjà leur propre colonne de pièce.
+  const colPiece = !def.columns.some((c) => c.piece) && (Boolean(onJoindre) || rows.some((r) => Boolean(r[`${CLE_PIECE}_fichier`])));
+  const nbCols = def.columns.length + (readOnly ? 1 : 2) + (colPiece ? 1 : 0);
   const largeurModele = def.columns.reduce((s, c) => s + (c.width ?? 140), 0) || 1;
   const derniereColonne = [...def.columns].reverse().find((c) => !c.computed)?.key;
   const symbol = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
@@ -726,6 +846,18 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         </p>
       )}
 
+      {parSociete && envoiParLignes && !readOnly && !recapClient && (
+        <p className="text-xs text-muted-foreground">
+          Envoi par lignes : chaque ligne complète part au cabinet à l'enregistrement et quitte ce tableau. Vous pouvez la reprendre en cas d'erreur.
+        </p>
+      )}
+      {!parSociete && envoyees.length > 0 && (
+        <p className="flex items-center gap-1.5 text-xs text-success" data-testid="legende-envoyees">
+          <Check className="size-3.5" aria-hidden="true" />
+          {envoyees.length} ligne{envoyees.length > 1 ? "s" : ""} envoyée{envoyees.length > 1 ? "s" : ""} par la société (en vert).
+        </p>
+      )}
+
       {def.key === "etat_caisse" && !readOnly && (
         <p className="text-xs text-muted-foreground">
           1ʳᵉ ligne = solde initial : renseignez seulement la colonne « Solde ».
@@ -749,8 +881,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
           <colgroup className="hidden lg:table-column-group">
             <col style={{ width: 40 }} />
             {def.columns.map((c) => (
-              <col key={c.key} style={{ width: `calc((100% - ${readOnly ? 40 : 80}px) * ${(c.width ?? 140) / largeurModele})` }} />
+              <col key={c.key} style={{ width: `calc((100% - ${(readOnly ? 40 : 80) + (colPiece ? 56 : 0)}px) * ${(c.width ?? 140) / largeurModele})` }} />
             ))}
+            {colPiece && <col style={{ width: 56 }} />}
             {!readOnly && <col style={{ width: 40 }} />}
           </colgroup>
           <thead className="bg-primary text-xs uppercase tracking-wide text-primary-foreground/90">
@@ -768,6 +901,12 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                     : ""}
                 </th>
               ))}
+              {colPiece && (
+                <th className="w-14 px-1.5 py-2 text-center font-medium" title="Pièce jointe facultative de la ligne (scan, PDF)">
+                  <Paperclip className="mx-auto size-3.5" aria-hidden="true" />
+                  <span className="sr-only">Pièce jointe</span>
+                </th>
+              )}
               {!readOnly && <th className="w-10 px-2 py-2" />}
             </tr>
           </thead>
@@ -778,9 +917,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               const resume = repli?.premier ? groupes.find((x) => x.id === repli.id) : undefined;
               return (
               <Fragment key={i}>
-              {repli?.premier && resume && (
+              {repli?.premier && resume && !rows.every((r, k) => idLigne(r) !== repli.id || cachee(k)) && (
                 <tr data-bordereau={repli.id} className="bg-secondary/40">
-                  <td colSpan={def.columns.length + (readOnly ? 1 : 2)} className="px-2 py-1.5">
+                  <td colSpan={nbCols} className="px-2 py-1.5">
                     <button
                       type="button"
                       onClick={() => basculer(repli.id)}
@@ -801,10 +940,20 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                   </td>
                 </tr>
               )}
-              {(!repli || repli.ouvert) && (
-              <tr data-row={i} className="focus-within:bg-accent/10 hover:bg-accent/5">
+              {(!repli || repli.ouvert) && !cachee(i) && (
+              <tr
+                data-row={i}
+                data-envoyee={row.__envoyeeLe ? "" : undefined}
+                className={cn("focus-within:bg-accent/10 hover:bg-accent/5", Boolean(row.__envoyeeLe) && "bg-success/10 hover:bg-success/15")}
+              >
                 <td className="px-2 py-1.5 text-xs text-muted-foreground">
                   {numeroLigne(i)}
+                  {row.__envoyeeLe ? (
+                    <span className="mt-0.5 flex items-center text-success" title={`Envoyée par la société le ${new Date(String(row.__envoyeeLe)).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`}>
+                      <Check className="size-3.5" aria-hidden="true" />
+                      <span className="sr-only">Ligne envoyée par la société</span>
+                    </span>
+                  ) : null}
                 </td>
                 {def.columns.map((c) => {
                   const shown = String(derived[i]?.[c.key] ?? "");
@@ -868,59 +1017,14 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                             readOnly={ro}
                             onKeyDown={(e) => {
                               // Entrée dans la dernière case de la dernière ligne remplie : ligne suivante.
-                              if (e.key === "Enter" && canAdd && i === rows.length - 1 && c.key === derniereColonne && !ligneVide(def, row)) {
+                              if (e.key === "Enter" && canAdd && i === dernierVisible && c.key === derniereColonne && !ligneVide(def, row)) {
                                 e.preventDefault();
                                 addRow(def.groupe ? idLigne(row) || undefined : undefined);
                               }
                             }}
                           />
                           <span className="absolute inset-y-0 right-1 flex items-center gap-0.5">
-                            {row[`${c.key}_fichier`] ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => onVoirPiece?.(String(row[`${c.key}_fichier`]))}
-                                  className="rounded p-1 text-success hover:bg-success/10"
-                                  title={`Voir la pièce jointe : ${String(row[`${c.key}_fichier_nom`] ?? "")}`}
-                                  aria-label={`Voir la pièce jointe de la ligne ${i + 1}`}
-                                >
-                                  <Paperclip className="h-4 w-4" />
-                                </button>
-                                {!ro && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setCells(i, { [`${c.key}_fichier`]: "", [`${c.key}_fichier_nom`]: "" })}
-                                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                    title="Retirer la pièce jointe de cette ligne"
-                                    aria-label={`Retirer la pièce jointe de la ligne ${i + 1}`}
-                                  >
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                              </>
-                            ) : (
-                              !ro &&
-                              onJoindre && (
-                                <label
-                                  className="cursor-pointer rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-within:ring-2 focus-within:ring-ring"
-                                  title="Joindre un fichier (scan, PDF)"
-                                >
-                                  {envoi === `${i}:${c.key}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
-                                  <input
-                                    type="file"
-                                    accept="image/*,.pdf,application/pdf"
-                                    aria-label={`Joindre un fichier à la ligne ${i + 1}`}
-                                    className="sr-only"
-                                    disabled={envoi !== null}
-                                    onChange={(e) => {
-                                      const fichier = e.target.files?.[0];
-                                      e.target.value = "";
-                                      if (fichier) void joindre(i, c.key, fichier);
-                                    }}
-                                  />
-                                </label>
-                              )
-                            )}
+                            {boutonsPiece(i, c.key, ro)}
                           </span>
                         </div>
                       ) : (
@@ -943,7 +1047,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                           readOnly={ro}
                           onKeyDown={(e) => {
                             // Entrée dans la dernière case de la dernière ligne remplie : ligne suivante.
-                            if (e.key === "Enter" && canAdd && i === rows.length - 1 && c.key === derniereColonne && !ligneVide(def, row)) {
+                            if (e.key === "Enter" && canAdd && i === dernierVisible && c.key === derniereColonne && !ligneVide(def, row)) {
                               e.preventDefault();
                               addRow(def.groupe ? idLigne(row) || undefined : undefined);
                             }
@@ -953,6 +1057,11 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                     </td>
                   );
                 })}
+                {colPiece && (
+                  <td className="px-1 py-1 text-center">
+                    <span className="inline-flex items-center justify-center gap-0.5">{boutonsPiece(i, CLE_PIECE, cellRO(i, CLE_PIECE))}</span>
+                  </td>
+                )}
                 {!readOnly && (
                   <td className="px-1.5 py-1">
                     {!structureLocked && !estEntete(i) && !(sansSuppression && i < baseline.current.length) && (
@@ -971,10 +1080,17 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               </Fragment>
               );
             })}
+            {rows.length > 0 && dernierVisible < 0 && (
+              <tr>
+                <td colSpan={nbCols} className="px-3 py-3 text-center text-sm text-muted-foreground">
+                  Toutes les lignes ont été envoyées au cabinet. Ajoutez-en si besoin.
+                </td>
+              </tr>
+            )}
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={def.columns.length + (readOnly ? 1 : 2)}
+                  colSpan={nbCols}
                   className="px-3 py-3 text-center text-sm text-muted-foreground"
                 >
                   {readOnly
@@ -989,7 +1105,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
           {total !== null && rows.length > 0 && (
             <tfoot>
               <tr className="border-t-2 border-primary bg-muted/30 font-medium">
-                <td colSpan={def.columns.length + (readOnly ? 1 : 2)} className="px-3 py-2.5">
+                <td colSpan={nbCols} className="px-3 py-2.5">
                   <div className="flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1">
                     <span className="text-muted-foreground">{totalLabel}</span>
                     <span className="whitespace-nowrap text-base font-semibold text-primary">
@@ -1016,6 +1132,67 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       </div>
 
 
+
+      {parSociete && envoyees.length > 0 && (
+        <section aria-label="Lignes envoyées au cabinet" className="rounded-lg border border-success/30 bg-success/5">
+          <button
+            type="button"
+            aria-expanded={envoyeesOuvertes}
+            onClick={() => setEnvoyeesOuvertes((o) => !o)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-success focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronRight className={cn("size-4 shrink-0 transition-transform", envoyeesOuvertes && "rotate-90")} aria-hidden="true" />
+            <Check className="size-4 shrink-0" aria-hidden="true" />
+            Lignes envoyées au cabinet ({envoyees.length})
+            <span className="ml-auto text-xs font-normal text-muted-foreground">{envoyeesOuvertes ? "Masquer" : "Voir"}</span>
+          </button>
+          {envoyeesOuvertes && (
+            <div className="overflow-x-auto border-t border-success/30">
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-2 py-1.5 font-medium">#</th>
+                    {def.columns.map((c) => (
+                      <th key={c.key} className="px-2 py-1.5 font-medium">{c.label}</th>
+                    ))}
+                    <th className="px-2 py-1.5" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-success/20">
+                  {envoyees.map((i) => (
+                    <tr key={String(rows[i].__id ?? i)} data-envoyee-ligne={i}>
+                      <td className="px-2 py-1.5 text-muted-foreground">{numeroLigne(i)}</td>
+                      {def.columns.map((c) => (
+                        <td key={c.key} className="px-2 py-1.5 tabular-nums">
+                          {c.type === "number" && estColonneMontant(c.key) ? montantAffiche(derived[i]?.[c.key]) : String(derived[i]?.[c.key] ?? "")}
+                        </td>
+                      ))}
+                      <td className="px-2 py-1 text-right">
+                        {!readOnly && onReprendre && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={reprise !== null}
+                            aria-label={`Reprendre la ligne ${numeroLigne(i)}`}
+                            onClick={() => void reprendre(i)}
+                          >
+                            Reprendre
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="border-t border-success/20 px-3 py-1.5 text-[11px] text-muted-foreground">
+                Ces lignes sont chez le cabinet et ne se modifient plus ici. « Reprendre » la remet dans votre tableau, par exemple en cas d'erreur.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
 
       {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
         <ImportDocumentDialog open={importOpen} onOpenChange={setImportOpen} def={def} devise={devise} existantes={rows} onAjouter={addRows} />

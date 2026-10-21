@@ -41,13 +41,14 @@ interface CollectesState {
     devise?: string;
     echeance?: string | null;
     relanceCadenceJours?: number;
+    envoiParLignes?: boolean;
   }) => Promise<CollecteFull>;
   update: (
     id: string,
     patch: Partial<
       Pick<
         Collecte,
-        "periode" | "onglets" | "devise" | "statut" | "echeance" | "relanceCadenceJours"
+        "periode" | "onglets" | "devise" | "statut" | "echeance" | "relanceCadenceJours" | "envoiParLignes"
       >
     >,
   ) => Promise<void>;
@@ -79,8 +80,10 @@ interface CollectesState {
   saveLignes: (
     id: string,
     onglet: string,
-    lignes: { data: Record<string, unknown>; ordre?: number }[],
+    lignes: { id?: string; data: Record<string, unknown>; ordre?: number; envoyee?: boolean }[],
   ) => Promise<void>;
+  /** La société reprend une ligne envoyée au cabinet par erreur : elle redevient modifiable. */
+  reprendreLigne: (id: string, onglet: string, ligneId: string) => Promise<void>;
   saveComment: (id: string, onglet: string, commentaire: string) => Promise<void>;
   /** Suivi de checklist d'une pièce : reçue à la main, date de suivi, total saisi (seuls les champs fournis changent). */
   saveSuivi: (
@@ -229,6 +232,18 @@ export const useCollectes = create<CollectesState>((set, get) => ({
         if (st.current?.id !== id) return {};
         const autres = st.current.lignes.filter((l) => l.onglet !== onglet);
         return { current: { ...st.current, lignes: [...autres, ...saved] } };
+      });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  reprendreLigne: async (id, onglet, ligneId) => {
+    try {
+      const { ligne } = await api.post<{ onglet: string; ligne: CollecteLigne }>(`/collectes/${id}/lignes/${onglet}/${ligneId}/reprendre`, {});
+      set((st) => {
+        if (st.current?.id !== id) return {};
+        return { current: { ...st.current, lignes: st.current.lignes.map((l) => (l.id === ligne.id ? ligne : l)) } };
       });
     } catch (e) {
       fail(e);

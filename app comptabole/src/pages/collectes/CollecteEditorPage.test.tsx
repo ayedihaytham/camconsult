@@ -6,6 +6,7 @@ import type { CollecteFull } from "@/types";
 import { COLLECTE_TAB_KEYS, TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { effacerTousLesBrouillons } from "@/lib/brouillons";
 import { CollecteEditorPage } from "./CollecteEditorPage";
+import { useApercuExport } from "./ApercuExportDialog";
 
 const { saveLignes, fetchOne, clearCurrent, collecte, perms, update, setStatut, submitRecap, transmettreSection, exportSectionXlsx, downloadSectionPdf, printSection, exportAllXlsx } = vi.hoisted(() => {
   const collecte = {
@@ -51,7 +52,10 @@ vi.mock("@/hooks/usePermissions", () => ({
 vi.mock("@/store/data", () => ({
   useSocietes: () => [{ id: "soc-1", raisonSociale: "Société test" }],
 }));
+vi.mock("@/components/common/PdfPages", () => ({ PdfPages: ({ titre }: { titre: string }) => <div role="document" aria-label={titre} /> }));
 vi.mock("@/lib/collecte/exportXlsx", () => ({
+  sectionReport: () => ({ title: "BORDEREAUX REMISE DE CHÈQUES", subtitle: "Société test", header: ["N°", "Montant (TND)"], rows: [["B-1", "100,000"], ["TOTAL", "100,000"]], align: ["left", "right"], totalRow: true, fileBase: "Bordereaux" }),
+  apercuCollecteSectionPdf: vi.fn().mockResolvedValue("data:application/pdf;base64,AAAA"),
   exportCollecteSectionXlsx: exportSectionXlsx,
   downloadCollecteSectionPdf: downloadSectionPdf,
   printCollecteSection: printSection,
@@ -65,6 +69,7 @@ vi.mock("@/store/collectes", () => {
 });
 
 beforeEach(() => {
+  useApercuExport.getState().fermer(); // la demande d'aperçu est globale : un test ne doit pas laisser la fenêtre ouverte au suivant
   effacerTousLesBrouillons(); // un brouillon laissé par un test ne doit pas être repris par le suivant
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -187,7 +192,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(nav.compareDocumentPosition(contenu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent);
     expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);
-    expect(screen.getByRole("heading", { name: "Récap" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Checklist" })).toBeTruthy();
     // Les 14 tableaux sont accessibles dans un sélecteur groupé sans seconde barre latérale.
     optionTableau("Bordereaux remise de chèques");
     expect(screen.getByRole("option", { name: /Souche de chèques/ })).toBeTruthy();
@@ -272,8 +277,37 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
   it.each([
     { label: "Excel", action: exportSectionXlsx },
     { label: "PDF", action: downloadSectionPdf },
-    { label: "Imprimer", action: printSection },
-  ])("exporte uniquement le tableau courant via $label depuis le bouton et le menu de la barre fixe", async ({ label, action }) => {
+  ])("$label : ouvre un aperçu plein écran du tableau courant, puis ne le télécharge qu'avec « Télécharger » (bouton et menu de la barre fixe)", async ({ label, action }) => {
+    renderPage();
+    openBordereaux();
+    const barre = screen.getByRole("region", { name: "Suivi et actions du tableau" });
+    const exporter = within(barre).getByRole("button", { name: "Exporter le tableau" });
+    const titre = label === "PDF" ? /Aperçu PDF · BORDEREAUX REMISE DE CHÈQUES/ : /Aperçu Excel · BORDEREAUX REMISE DE CHÈQUES/;
+    for (const via of ["bouton", "menu"]) {
+      if (via === "bouton") fireEvent.click(within(barre).getByRole("button", { name: label }));
+      else {
+        fireEvent.keyDown(exporter, { key: "Enter" });
+        fireEvent.click(screen.getByRole("menuitem", { name: label }));
+      }
+      const fenetre = await screen.findByRole("dialog", { name: titre });
+      expect(action).not.toHaveBeenCalled();
+      if (label === "Excel") expect(within(fenetre).getByRole("table")).toBeTruthy();
+      else expect(await within(fenetre).findByRole("document", { name: "BORDEREAUX REMISE DE CHÈQUES" })).toBeTruthy();
+      fireEvent.click(within(fenetre).getAllByRole("button", { name: "Fermer" }).at(-1)!);
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: titre })).toBeNull());
+      expect(action).not.toHaveBeenCalled(); // fermer n'enregistre rien
+    }
+    fireEvent.click(within(barre).getByRole("button", { name: label }));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: titre })).getByRole("button", { name: "Télécharger" }));
+    await waitFor(() => expect(action).toHaveBeenCalledWith(collecte, "bordereaux_remise_cheques", "Société test"));
+    expect(action).toHaveBeenCalledOnce();
+    expect(exportAllXlsx).not.toHaveBeenCalled();
+    expect(saveLignes).not.toHaveBeenCalled();
+  });
+
+  it("Imprimer reste direct : exporte uniquement le tableau courant depuis le bouton et le menu de la barre fixe", async () => {
+    const label = "Imprimer";
+    const action = printSection;
     renderPage();
     openBordereaux();
     const barre = screen.getByRole("region", { name: "Suivi et actions du tableau" });
@@ -337,7 +371,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
     expect(outils.compareDocumentPosition(tableau) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("ouvre le Récap pour l'admin et respecte un lien partagé vers un tableau", async () => {
+  it("ouvre la Checklist d'abord pour le cabinet (même avec un tableau transmis) et respecte un lien partagé vers un tableau", async () => {
     collecte.statut = "transmis";
     collecte.sections = [
       { id: "s0", onglet: "bordereaux_remise_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "brouillon", transmisLe: null, valideLe: null, motifRenvoi: "" },
@@ -345,7 +379,7 @@ describe("Collecte : onglets de feuille et actions visibles", () => {
       { id: "s1", onglet: "souche_cheques", commentaire: "", recapStatut: "none", recuManuel: false, dateSuivi: null, totalSaisi: null, statut: "transmis", transmisLe: null, valideLe: null, motifRenvoi: "" },
     ];
     renderPage();
-    await waitFor(() => expect(sectionButton("Récap").getAttribute("aria-current")).toBe("page"));
+    await waitFor(() => expect(sectionButton("Checklist").getAttribute("aria-current")).toBe("page"));
 
     cleanup();
     renderPage("/collectes/collecte-1?tab=etat_cheques_emis");

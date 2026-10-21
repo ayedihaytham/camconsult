@@ -522,15 +522,15 @@ export function StockMouvementFormSheet({
           e.preventDefault();
           demanderFermeture();
         }}
-        className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[1600px] flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
-        <div className="shrink-0 border-b border-border px-6 pb-3 pt-5 sm:px-8">
-          <DialogTitle className="pr-8 font-serif text-2xl font-medium text-primary">
+        className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[1600px] flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0 [&>button:last-child]:text-primary-foreground [&>button:last-child]:opacity-80 [&>button:last-child]:hover:opacity-100 [&>button:last-child]:focus:ring-primary-foreground/60 [&>button:last-child]:focus:ring-offset-primary">
+        <div className="shrink-0 border-b border-primary-foreground/15 bg-primary px-6 pb-4 pt-5 text-primary-foreground sm:px-8">
+          <DialogTitle className="pr-10 font-serif text-2xl font-bold text-primary-foreground">
             {isEdit ? "Modifier le mouvement" : "Nouveau mouvement de stock"}
           </DialogTitle>
-          <DialogDescription className="mt-0.5 text-sm text-muted-foreground">
+          <DialogDescription className="mt-1 text-sm text-primary-foreground/80">
             Importez un PDF par section pour pré-remplir les champs : le document reste affiché à droite pour vérifier les chiffres avant d'enregistrer.
           </DialogDescription>
-          {mouvement&&onOpenApurement&&(mouvement.achatNumFacture||mouvement.achatLignes.length>0)&&<Button type="button" variant="link" className="mt-1 px-0" disabled={busy} onClick={()=>{if(isDirty()){toast.info("Enregistrez les modifications avant d’ouvrir Apurement.");return;}onOpenChange(false);onOpenApurement(mouvement);}}>Lier à un BC en suspension</Button>}
+          {mouvement&&onOpenApurement&&(mouvement.achatNumFacture||mouvement.achatLignes.length>0)&&<Button type="button" variant="link" className="mt-1 px-0 text-primary-foreground underline-offset-4 hover:text-primary-foreground/80" disabled={busy} onClick={()=>{if(isDirty()){toast.info("Enregistrez les modifications avant d’ouvrir Apurement.");return;}onOpenChange(false);onOpenApurement(mouvement);}}>Lier à un BC en suspension</Button>}
         </div>
 
         {/* ── Nature de la marchandise + import du document complet ──────── */}

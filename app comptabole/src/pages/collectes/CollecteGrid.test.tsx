@@ -5,6 +5,7 @@ import { createRef } from "react";
 import { CollecteGrid, type CollecteGridHandle } from "./CollecteGrid";
 import { TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import type { CollecteLigne } from "@/types";
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -542,7 +543,7 @@ describe("CollecteGrid : pièce jointe d'une ligne de bordereau", () => {
     expect(screen.getByDisplayValue("chèque 2 à vérifier")).toBeTruthy();
   });
 
-  it("ne propose pas de joindre un fichier en lecture seule, ni sur une colonne ordinaire", () => {
+  it("ne propose pas de joindre un fichier sur une colonne ordinaire : seule la colonne « Pièce » de la ligne le permet", () => {
     const ref = createRef<CollecteGridHandle>();
     render(
       <CollecteGrid
@@ -556,7 +557,132 @@ describe("CollecteGrid : pièce jointe d'une ligne de bordereau", () => {
       />,
     );
     ajouter();
+    expect(screen.getAllByLabelText(/Joindre un fichier/)).toHaveLength(1);
+    expect(lignes()[0].querySelectorAll("td")).toHaveLength(9); // # + 6 colonnes + Pièce + suppression
+  });
+
+  it("ne propose pas de joindre un fichier en lecture seule", () => {
+    render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, { reference: "R" })]} readOnly devise="TND" onSave={vi.fn()} onJoindre={vi.fn()} />);
     expect(screen.queryByLabelText(/Joindre un fichier/)).toBeNull();
+  });
+});
+
+describe("CollecteGrid : pièce jointe facultative sur chaque ligne", () => {
+  it("joint un fichier à une ligne de n'importe quel tableau : il est retenu dans la ligne et enregistré avec elle", async () => {
+    const onJoindre = vi.fn().mockResolvedValue({ id: "f9", nom: "facture.pdf" });
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const { ref } = renderGrid("virements_recus", onSave, { onJoindre, onVoirPiece: vi.fn() });
+    ajouter();
+    fireEvent.change(screen.getByLabelText("Joindre un fichier à la ligne 1"), { target: { files: [new File(["%PDF"], "facture.pdf", { type: "application/pdf" })] } });
+    await waitFor(() => expect(screen.getByLabelText("Voir la pièce jointe de la ligne 1")).toBeTruthy());
+    await act(async () => ref.current?.save());
+    expect(onSave).toHaveBeenCalledWith([{ data: expect.objectContaining({ _piece_fichier: "f9", _piece_fichier_nom: "facture.pdf" }), ordre: 0 }]);
+  });
+
+  it("n'ajoute pas de seconde colonne dans un tableau qui a déjà ses pièces par ligne", () => {
+    renderGrid("bordereaux_remise_cheques", undefined, { onJoindre: vi.fn() });
+    ajouter();
+    expect(screen.getAllByLabelText(/Joindre un fichier/)).toHaveLength(1);
+  });
+});
+
+const COMPLETE = { date: "2026-09-02", emetteur: "Émetteur", reference: "VIR-1", montant: 120, compte_bancaire: "Banque", observations: "RAS" };
+const ligneEnvoi = (id: string, ordre: number, data: Record<string, unknown>, envoyeeLe: string | null = null): CollecteLigne => ({ id, onglet: "virements_recus", ordre, data: { ...COMPLETE, ...data }, envoyeeLe });
+
+describe("CollecteGrid : envoi par lignes", () => {
+  const saisir = (col: string, valeur: string) => fireEvent.change(document.querySelector(`[data-col="${col}"]`) as HTMLInputElement, { target: { value: valeur } });
+
+  it("société : à l'enregistrement, seules les lignes complètes sont marquées envoyées", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const ref = createRef<CollecteGridHandle>();
+    render(
+      <CollecteGrid ref={ref} def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}), ligneEnvoi("b", 1, { reference: "" })]} readOnly={false} devise="TND" onSave={onSave} envoiParLignes parSociete />,
+    );
+    fireEvent.change(champs(lignes()[1]).find((c) => c.dataset.col === "reference") as HTMLInputElement, { target: { value: "VIR-2" } });
+    await act(async () => ref.current?.save());
+    expect(onSave).toHaveBeenCalledWith([
+      { id: "a", data: expect.objectContaining({ reference: "VIR-1" }), ordre: 0, envoyee: true },
+      { id: "b", data: expect.objectContaining({ reference: "VIR-2" }), ordre: 1, envoyee: true },
+    ]);
+  });
+
+  it("société : une ligne incomplète n'est pas envoyée", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const ref = createRef<CollecteGridHandle>();
+    render(<CollecteGrid ref={ref} def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, { observations: "" })]} readOnly={false} devise="TND" onSave={onSave} envoiParLignes parSociete />);
+    saisir("reference", "VIR-9");
+    await act(async () => ref.current?.save());
+    expect(onSave).toHaveBeenCalledWith([{ id: "a", data: expect.objectContaining({ reference: "VIR-9" }), ordre: 0 }]);
+  });
+
+  it("sans l'option, rien n'est envoyé", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const ref = createRef<CollecteGridHandle>();
+    render(<CollecteGrid ref={ref} def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {})]} readOnly={false} devise="TND" onSave={onSave} parSociete />);
+    saisir("reference", "VIR-9");
+    await act(async () => ref.current?.save());
+    expect(onSave).toHaveBeenCalledWith([{ id: "a", data: expect.objectContaining({ reference: "VIR-9" }), ordre: 0 }]);
+  });
+
+  it("société : une ligne envoyée quitte le tableau, est listée à part et repart telle quelle à l'enregistrement", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const ref = createRef<CollecteGridHandle>();
+    render(
+      <CollecteGrid
+        ref={ref}
+        def={TAB_BY_KEY.virements_recus}
+        lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z"), ligneEnvoi("b", 1, { reference: "" })]}
+        readOnly={false}
+        devise="TND"
+        onSave={onSave}
+        envoiParLignes
+        parSociete
+      />,
+    );
+    expect(lignes()).toHaveLength(1); // la ligne 2 seulement
+    expect(lignes()[0].dataset.row).toBe("1");
+    saisir("reference", "VIR-2");
+    await act(async () => ref.current?.save());
+    expect(onSave).toHaveBeenCalledWith([
+      { id: "a", data: COMPLETE, ordre: 0 },
+      { id: "b", data: expect.objectContaining({ reference: "VIR-2" }), ordre: 1, envoyee: true },
+    ]);
+  });
+
+  it("société : « Reprendre » remet la ligne envoyée dans le tableau", async () => {
+    const onReprendre = vi.fn().mockResolvedValue(undefined);
+    render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes parSociete onReprendre={onReprendre} />);
+    expect(lignes()).toHaveLength(0);
+    expect(screen.getByText(/Toutes les lignes ont été envoyées au cabinet/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Lignes envoyées au cabinet \(1\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Reprendre la ligne 1" }));
+    await waitFor(() => expect(onReprendre).toHaveBeenCalledWith("a"));
+    await waitFor(() => expect(lignes()).toHaveLength(1));
+    expect(screen.queryByRole("button", { name: /Lignes envoyées au cabinet/ })).toBeNull();
+  });
+
+  it("société : pas de « Reprendre » quand le tableau est verrouillé", () => {
+    render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly devise="TND" onSave={vi.fn()} parSociete onReprendre={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Lignes envoyées au cabinet \(1\)/ }));
+    expect(screen.queryByRole("button", { name: /Reprendre/ })).toBeNull();
+  });
+
+  it("cabinet : les lignes envoyées par la société sont en vert, avec une légende", () => {
+    render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z"), ligneEnvoi("b", 1, {})]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes />);
+    expect(lignes()).toHaveLength(2);
+    expect(lignes()[0].hasAttribute("data-envoyee")).toBe(true);
+    expect(lignes()[0].className).toContain("bg-success/10");
+    expect(lignes()[1].hasAttribute("data-envoyee")).toBe(false);
+    expect(screen.getByTestId("legende-envoyees").textContent).toMatch(/1 ligne envoyée par la société/);
+  });
+
+  it("cabinet : enregistre les lignes avec leur identifiant, sans toucher à l'état d'envoi", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const ref = createRef<CollecteGridHandle>();
+    render(<CollecteGrid ref={ref} def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={onSave} envoiParLignes />);
+    saisir("observations", "contrôlé");
+    await act(async () => ref.current?.save());
+    expect(onSave).toHaveBeenCalledWith([{ id: "a", data: expect.objectContaining({ observations: "contrôlé" }), ordre: 0 }]);
   });
 });
 

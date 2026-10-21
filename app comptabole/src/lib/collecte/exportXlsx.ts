@@ -198,3 +198,15 @@ export async function downloadCollecteSectionPdf(
   const { downloadReportPdf } = await import("./exportPdf");
   await downloadReportPdf(rep);
 }
+
+/** Le PDF d'une section sous forme d'URL de données, pour l'aperçu avant téléchargement (null si la section n'existe pas). */
+export async function apercuCollecteSectionPdf(
+  collecte: CollecteFull,
+  section: string,
+  societeNom: string,
+): Promise<string | null> {
+  const rep = sectionReport(collecte, section, societeNom);
+  if (!rep) return null;
+  const { apercuReportPdf } = await import("./exportPdf");
+  return apercuReportPdf(rep);
+}

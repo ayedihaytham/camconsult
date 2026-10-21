@@ -35,11 +35,10 @@ import { computeManques } from "@/lib/collecte/manques";
 import { sectionRecapStatut } from "@/lib/collecte/recap";
 import { sectionOuverte, sectionStatut, tableauxVisiblesClient } from "@/lib/collecte/sections";
 import {
-  downloadCollecteSectionPdf,
-  exportCollecteSectionXlsx,
   exportCollecteXlsx,
   printCollecteSection,
 } from "@/lib/collecte/exportXlsx";
+import { ApercuExportDialog, useApercuExport } from "./ApercuExportDialog";
 import { downloadDataUrl } from "@/lib/file";
 import { PiecesDemandees } from "./PiecesDemandees";
 import { cn, formatDate, formatRelative } from "@/lib/utils";
@@ -86,6 +85,7 @@ export function CollecteEditorPage() {
   const update = useCollectes((s) => s.update);
   const setStatut = useCollectes((s) => s.setStatut);
   const saveLignes = useCollectes((s) => s.saveLignes);
+  const reprendreLigne = useCollectes((s) => s.reprendreLigne);
   const saveComment = useCollectes((s) => s.saveComment);
   const saveSuivi = useCollectes((s) => s.saveSuivi);
   const marquerRecu = useCollectes((s) => s.marquerRecu);
@@ -176,10 +176,10 @@ export function CollecteEditorPage() {
     const recapTarget = ordered.find((key) => sectionRecapStatut(collecte, key) === "envoye");
     const nextTarget = client
       ? recapTarget ?? ordered.find((key) => sectionOuverte(sectionStatut(collecte, key))) ?? ordered[0]
-      : ordered.find((key) => sectionStatut(collecte, key) === "transmis") ?? ordered.find((key) => sectionStatut(collecte, key) === "a_corriger");
+      : undefined;
     const next = validRequested
       ? requested!
-      : client ? nextTarget ?? ((collecte.demandesPieces ?? []).length > 0 ? "documents" : "attente") : canRecap ? "recap" : nextTarget ?? "checklist";
+      : client ? nextTarget ?? ((collecte.demandesPieces ?? []).length > 0 ? "documents" : "attente") : "checklist";
     setTab(next);
     if (!validRequested && client && ordered.includes(next)) {
       const manque = computeManques(collecte).find((item) => item.onglet === next);
@@ -483,6 +483,7 @@ export function CollecteEditorPage() {
         </p>
       )}
 
+      <ApercuExportDialog />
       <Tabs value={tab} onValueChange={requestTab}>
         <div className="mt-2 min-w-0 rounded-lg border border-border bg-card">
           <CollecteWorkNavigation
@@ -740,6 +741,8 @@ export function CollecteEditorPage() {
                               (l) => l.onglet === key,
                             )}
                             readOnly
+                            parSociete
+                            envoiParLignes={Boolean(collecte.envoiParLignes)}
                             recapClient={hasManque}
                             highlight={hl}
                             devise={collecte.devise}
@@ -759,6 +762,9 @@ export function CollecteEditorPage() {
                           ligneBordereauFigee={isClient}
                           bordereauSeul={!isClient && key === "bordereaux_remise_cheques"}
                           sansSuppression={isClient}
+                          parSociete={isClient}
+                          envoiParLignes={Boolean(collecte.envoiParLignes)}
+                          onReprendre={(ligneId) => reprendreLigne(id, key, ligneId)}
                           recapClient={inRecap}
                           highlight={hl}
                           wholeEditable={inRecap && whole}
@@ -926,6 +932,7 @@ export function CollecteEditorPage() {
             onglets: collecte.onglets,
             echeance: collecte.echeance,
             relanceCadenceJours: collecte.relanceCadenceJours,
+            envoiParLignes: Boolean(collecte.envoiParLignes),
           }}
           onCreate={async (data) => {
             await update(id, {
@@ -934,6 +941,7 @@ export function CollecteEditorPage() {
               onglets: data.onglets,
               echeance: data.echeance,
               relanceCadenceJours: data.relanceCadenceJours,
+              envoiParLignes: data.envoiParLignes,
             });
             toast.success("Collecte mise à jour");
           }}
@@ -1126,14 +1134,9 @@ function SectionExport({
   menu?: boolean;
   toolbar?: boolean;
 }) {
-  const exportExcel = () =>
-    exportCollecteSectionXlsx(collecte, section, societeNom).catch(() =>
-      toast.error("Export impossible"),
-    );
-  const exportPdf = () =>
-    downloadCollecteSectionPdf(collecte, section, societeNom).catch(() =>
-      toast.error("PDF impossible"),
-    );
+  // Excel et PDF s'ouvrent d'abord en aperçu ; le téléchargement se fait depuis la fenêtre d'aperçu.
+  const exportExcel = () => useApercuExport.getState().ouvrir({ format: "excel", collecte, section, societeNom });
+  const exportPdf = () => useApercuExport.getState().ouvrir({ format: "pdf", collecte, section, societeNom });
   const print = () => printCollecteSection(collecte, section, societeNom);
 
   if (menu) return (

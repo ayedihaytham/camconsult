@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -32,6 +33,7 @@ interface CollecteFormData {
   devise: string;
   echeance: string | null;
   relanceCadenceJours: number;
+  envoiParLignes?: boolean;
 }
 
 interface Props {
@@ -60,6 +62,7 @@ export function CollecteFormDrawer({
   const [devise, setDevise] = useState("TND");
   const [echeance, setEcheance] = useState("");
   const [relanceCadenceJours, setRelanceCadenceJours] = useState(3);
+  const [envoiParLignes, setEnvoiParLignes] = useState(false);
   const [onglets, setOnglets] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const submissionError =
@@ -81,6 +84,7 @@ export function CollecteFormDrawer({
     setDevise(initial?.devise ?? "TND");
     setEcheance(initial?.echeance ?? "");
     setRelanceCadenceJours(initial?.relanceCadenceJours ?? 3);
+    setEnvoiParLignes(initial?.envoiParLignes ?? false);
     setOnglets(initial?.onglets ?? []);
     setError(null);
     setLivres([]);
@@ -126,7 +130,7 @@ export function CollecteFormDrawer({
     setError(null);
     setSubmitting(true);
     try {
-      const data = { societeId, periode: periode.trim(), onglets, devise, echeance: echeance || null, relanceCadenceJours };
+      const data = { societeId, periode: periode.trim(), onglets, devise, echeance: echeance || null, relanceCadenceJours, envoiParLignes };
       // Seuls les tableaux finalement demandés sont pré-remplis.
       const prerempli = lignesParTableau(ecritures, onglets);
       if (Object.keys(prerempli).length > 0) await onCreate(data, prerempli);
@@ -288,6 +292,23 @@ export function CollecteFormDrawer({
               </div>
             </div>
           )}
+
+          <div className="flex items-start gap-2.5 rounded-md border border-border bg-muted/30 p-3">
+            <Checkbox
+              id="collecte-envoi-lignes"
+              className="mt-0.5"
+              checked={envoiParLignes}
+              disabled={submitting}
+              onCheckedChange={(v) => setEnvoiParLignes(v === true)}
+            />
+            <div className="min-w-0">
+              <Label htmlFor="collecte-envoi-lignes" className="cursor-pointer">Envoi par lignes</Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Chaque ligne complétée par la société part au cabinet dès l'enregistrement (en vert pour vous) et disparaît de son tableau ;
+                elle peut la reprendre en cas d'erreur.
+              </p>
+            </div>
+          </div>
             </div>
           </section>
 

@@ -1400,3 +1400,8 @@ create table if not exists messages_lus_admin (
 create index if not exists messages_lus_admin_admin on messages_lus_admin (admin_id);
 -- Notes de collecte : la personne qui a écrit (identifiant d'employé ou « admin:<id> »), pour afficher son nom.
 alter table collecte_notes add column if not exists auteur_ref text;
+
+-- Envoi par lignes : option de la collecte (activée par le cabinet) ; une ligne complétée par la société est envoyée au cabinet à l'enregistrement
+-- (envoyee_le) : figée côté société, vue en vert côté cabinet. Elle ne revient à la société que par « Reprendre » (société) ou un renvoi du cabinet.
+alter table collectes add column if not exists envoi_par_lignes boolean not null default false;
+alter table collecte_lignes add column if not exists envoyee_le timestamptz;

@@ -9,7 +9,7 @@ import type { SectionReport } from "./exportXlsx";
 
 const BLEU: [number, number, number] = [31, 78, 121];
 
-export async function downloadReportPdf(rep: SectionReport): Promise<void> {
+async function construirePdf(rep: SectionReport) {
   // Tableaux larges (7 colonnes et plus) : paysage, sinon portrait.
   const doc = new jsPDF({
     orientation: rep.header.length >= 7 ? "landscape" : "portrait",
@@ -40,6 +40,17 @@ export async function downloadReportPdf(rep: SectionReport): Promise<void> {
   });
 
   dessinerPages(doc, modele);
+  return doc;
+}
 
+export async function downloadReportPdf(rep: SectionReport): Promise<void> {
+  const doc = await construirePdf(rep);
   doc.save(`${rep.fileBase}.pdf`);
+}
+
+/** Le même PDF, sous forme d'URL de données, pour l'afficher avant de le télécharger. */
+export async function apercuReportPdf(rep: SectionReport): Promise<string> {
+  const doc = await construirePdf(rep);
+  const brut = doc.output("datauristring");
+  return `data:application/pdf;base64,${brut.slice(brut.indexOf("base64,") + 7)}`;
 }

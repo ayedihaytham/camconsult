@@ -275,21 +275,38 @@ export function StockSocietePage() {
           />
         )}
         {shown.length === 0 && (
-          <div className="border-t border-accent/25">
-            <div className="flex flex-col items-center gap-3 px-4 py-14 text-center">
-              <span className="grid size-[70px] place-items-center rounded-full bg-accent/15 text-primary">
-                <Boxes className="size-7" aria-hidden="true" />
-              </span>
-              <p className="text-xl font-semibold text-primary">
-                {loading ? "Chargement…" : "Aucun mouvement"}
-              </p>
-              <p className="max-w-md text-base text-muted-foreground">
-                Créez un mouvement : renseignez l'achat, la vente et/ou la douane, ou importez un PDF.
-              </p>
-              <Button variant="outline" className="mt-2 h-11 rounded-lg px-5" onClick={openNew}>
-                <Plus className="h-4 w-4" />
-                Nouveau mouvement
-              </Button>
+          <div className="border-t border-border">
+            <div className="flex flex-col items-center px-4 py-11 text-center">
+              <h2 className="text-xl font-semibold text-primary">
+                {loading ? "Chargement…" : "Aucun mouvement pour cette société"}
+              </h2>
+              {!loading && (
+                <>
+                  <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+                    Un mouvement rassemble les trois pièces d'une même marchandise. L'écart entre l'achat et la vente se calcule dès que les quantités sont renseignées.
+                  </p>
+                  <ul className="mb-7 mt-7 grid w-full max-w-3xl gap-3.5 text-left sm:grid-cols-3" aria-label="Pièces d'un mouvement">
+                    {([
+                      ["Achat", "La facture d'achat", "Date, fournisseur, devise et cours, produits et quantités.", "bg-accent/30 text-accent-foreground"],
+                      ["Vente", "La facture de vente", "Date, client, devise et cours, produits et quantités.", "bg-primary/15 text-primary"],
+                      ["Douane", "La déclaration douanière", "N° de déclaration, taux de change, valeur en douane et PTFN.", "bg-success/15 text-success"],
+                    ] as const).map(([etiquette, titre, texte, teinte]) => (
+                      <li key={etiquette} className="flex flex-col gap-1.5 rounded-[10px] border border-border bg-card p-4">
+                        <span className={cn("self-start rounded-full px-2.5 py-0.5 text-xs font-semibold", teinte)}>{etiquette}</span>
+                        <p className="mt-1 text-sm font-semibold text-foreground">{titre}</p>
+                        <p className="text-[0.8125rem] text-muted-foreground">{texte}</p>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button variant="ledger" className="h-10 gap-2 px-5" onClick={openNew}>
+                    <Plus className="h-4 w-4" />
+                    Nouveau mouvement
+                  </Button>
+                  <p className="mt-4 max-w-md text-xs text-muted-foreground">
+                    Dans la fenêtre du mouvement, vous pouvez importer un PDF : les champs se pré-remplissent et le document reste affiché pour vérifier les chiffres.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}

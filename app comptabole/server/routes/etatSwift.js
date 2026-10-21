@@ -5,6 +5,7 @@ import { requireAuth, canSeeSociete, porteeSocietes } from "../auth.js";
 import { logAction } from "../journal.js";
 import { notifyMany, concernedBySociete, notifKey } from "../notifications.js";
 import { safeRouter } from "../asyncRoutes.js";
+import { synchroniserSwiftSociete } from "../swiftCollecte.js";
 
 import { arrondi3 as r3 } from "../../shared/arrondi.js";
 /** État SWIFT : un virement SWIFT sorti de la banque en dinars dont le détail en devise manque.
@@ -164,7 +165,10 @@ etatSwiftRouter.post("/", async (req, res) => {
     [v.societeId, v.date, r3(v.montant), v.libelle, v.banque, v.envoyer, req.session.nom],
   );
   logAction(req.session.nom, "creation", "etat_swift", `${v.libelle} — ${fmt(v.montant)} TND`, rows[0].id);
-  if (v.envoyer) await prevenirSociete(v.societeId, `État SWIFT : ${fmt(v.montant)} TND à justifier`, `${v.libelle} · ${v.banque}`);
+  if (v.envoyer) {
+    await prevenirSociete(v.societeId, `État SWIFT : ${fmt(v.montant)} TND à justifier`, `${v.libelle} · ${v.banque}`);
+    await synchroniserSwiftSociete(v.societeId); // reprise automatique dans les collectes qui demandent l'État SWIFT
+  }
   res.status(201).json(virementDto(rows[0], []));
 });
 
@@ -189,6 +193,7 @@ etatSwiftRouter.patch("/:id", async (req, res) => {
   logAction(req.session.nom, "modification", "etat_swift", `${rows[0].libelle} — ${fmt(rows[0].montant)} TND`, existant.id);
   if (!existant.envoye && rows[0].envoye)
     await prevenirSociete(existant.societe_id, `État SWIFT : ${fmt(rows[0].montant)} TND à justifier`, `${rows[0].libelle} · ${rows[0].banque}`);
+  if (rows[0].envoye) await synchroniserSwiftSociete(existant.societe_id);
   const factures = (await query("select * from swift_factures where virement_id = $1 order by ordre, cree_le", [existant.id])).rows;
   res.json(virementDto(rows[0], factures));
 });
@@ -257,6 +262,7 @@ etatSwiftRouter.put("/:id/factures", async (req, res) => {
       )
     ).rows[0];
   }
+  await synchroniserSwiftSociete(existant.societe_id); // les factures justifiées complètent les lignes reprises dans les collectes
   const factures = (await query("select * from swift_factures where virement_id = $1 order by ordre, cree_le", [existant.id])).rows;
   const dto = virementDto(virementMaj, factures);
   logAction(req.session.nom, "modification", "etat_swift", `Factures de « ${existant.libelle} » : ${fmt(dto.justifieDevise)} / ${fmt(dto.equivalentDevise ?? 0)} ${dto.devise}`, existant.id);

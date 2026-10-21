@@ -18,6 +18,7 @@ import {
   collecteDemandePieceDto,
 } from "../mappers.js";
 import { sendRelance } from "../relances.js";
+import { synchroniserSwift } from "../swiftCollecte.js";
 import { pushToUser } from "../sse.js";
 import { acteurSession, nomsActeurs } from "../acteurs.js";
 
@@ -418,6 +419,8 @@ collectesRouter.post("/", async (req, res) => {
     }`,
     `/collectes/${created.id}`,
   );
+  // Les virements SWIFT déjà envoyés à la société (module « État SWIFT ») alimentent le tableau « État SWIFT » de la collecte.
+  await synchroniserSwift(created.id).catch((e) => console.error("[swift] collecte", created.id, e?.message ?? e));
   res.status(201).json(await loadCollecte(created.id));
 });
 
@@ -555,6 +558,9 @@ collectesRouter.patch("/:id", async (req, res) => {
   });
 
   logAction(req.session.nom, "modification", "collecte", `${socNom} — ${periodeLabel(next.periode)}`, req.params.id);
+  // Tableau « État SWIFT » ajouté, ou période changée : on reprend les virements du module qui manquent.
+  if (next.onglets.includes("etat_swift") && (!c.onglets.includes("etat_swift") || next.periode !== c.periode))
+    await synchroniserSwift(req.params.id).catch((e) => console.error("[swift] collecte", req.params.id, e?.message ?? e));
   if (next.statut !== c.statut) {
     const targets = (
       await concernedBySociete(c.societe_id, { includeAdmin: false })

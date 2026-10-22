@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 import { ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
 import { montantCote } from "@/lib/coursStock";
+import type { StatutFacture } from "@/lib/fournisseurs";
 import type { StockLigne, StockMouvement } from "@/types";
 
 type Categorie = "achat" | "vente" | "douane";
@@ -22,6 +23,21 @@ interface Props {
   doublons?: { vente: ReadonlySet<string>; achat: ReadonlySet<string> };
   /** Monnaie des cours et des montants affichés : dinars (cours de la facture) ou dollars (cours par rapport au dollar). */
   base?: "TND" | "USD";
+  /** Statut de règlement de chaque facture d'achat (Suivi fournisseur), par id de mouvement ; absent = non affiché. */
+  reglements?: ReadonlyMap<string, StatutFacture>;
+}
+
+const STATUTS_REGLEMENT: Record<StatutFacture, { texte: string; classe: string }> = {
+  reglee: { texte: "Réglée", classe: "bg-success/15 text-success" },
+  partielle: { texte: "Partiellement réglée", classe: "bg-warning/15 text-warning" },
+  impayee: { texte: "À régler", classe: "bg-destructive/10 text-destructive" },
+};
+
+/** Pastille du statut de règlement d'une facture d'achat, calculée dans Suivi fournisseur. */
+function StatutReglement({ statut }: { statut: StatutFacture | undefined }) {
+  if (!statut) return null;
+  const s = STATUTS_REGLEMENT[statut];
+  return <span className={cn("inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[0.68rem] font-semibold", s.classe)}>{s.texte}</span>;
 }
 
 const TITRES: Record<Categorie, string> = {
@@ -68,7 +84,7 @@ function Piece({ m, categorie, onPreview }: { m: StockMouvement; categorie: Cate
 }
 
 /** Une ligne d'un côté (vente ou achat) d'un mouvement : côté, date, n° de facture, tiers, quantité, montant en devise, devise, cours, montant TND, pièce. */
-function CoteCellules({ m, cote, onPreview, doublon, base }: { m: StockMouvement; cote: "vente" | "achat"; onPreview: Props["onPreview"]; doublon: boolean; base: "TND" | "USD" }) {
+function CoteCellules({ m, cote, onPreview, doublon, base, statut }: { m: StockMouvement; cote: "vente" | "achat"; onPreview: Props["onPreview"]; doublon: boolean; base: "TND" | "USD"; statut?: StatutFacture }) {
   const v = cote === "vente";
   const lignes = v ? m.venteLignes : m.achatLignes;
   const numero = v ? m.venteNumFacture : m.achatNumFacture;
@@ -90,7 +106,10 @@ function CoteCellules({ m, cote, onPreview, doublon, base }: { m: StockMouvement
           </span>
         ) : (numero || "—")}
       </td>
-      <td className={cn(td, fond, "font-medium text-foreground")}>{(v ? m.client : m.fournisseur) || "—"}</td>
+      <td className={cn(td, fond, "font-medium text-foreground")}>
+        {(v ? m.client : m.fournisseur) || "—"}
+        {!v && !vide && statut && <span className="mt-0.5 block"><StatutReglement statut={statut} /></span>}
+      </td>
       <td className={cn(tdNum, fond)}>{vide ? "—" : fmtQuantiteUnite(t.quantite, uniteCommune(lignes))}</td>
       <td className={cn(tdNum, fond)}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>
       <td className={cn(td, fond, "text-muted-foreground")}>{t.montantDevise ? (v ? m.venteDevise : m.achatDevise) : "—"}</td>
@@ -104,7 +123,7 @@ function CoteCellules({ m, cote, onPreview, doublon, base }: { m: StockMouvement
 /** Récapitulatif des opérations de stock : chaque mouvement occupe deux lignes aux colonnes alignées, une pour la vente et une pour
  * l'achat, avec la douane à droite ; le détail (produits, déclaration, pièces, actions) s'ouvre sous le mouvement. Le tableau
  * occupe la largeur de la page, sans défilement horizontal ; sur petit écran, chaque mouvement devient une carte. */
-export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onPreview, onClasser, doublons, base = "TND" }: Props) {
+export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onPreview, onClasser, doublons, base = "TND", reglements }: Props) {
   const [ouverts, setOuverts] = useState<Set<string>>(new Set());
   const total = recapStock(mouvements);
   const ecarts = ecartsDeviseTotaux(mouvements);
@@ -189,7 +208,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     </td>
                   </tr>
                   <tr data-mouvement={m.id} onClick={() => basculer(m.id)} className={cn("cursor-pointer", surbrillance && "outline outline-2 -outline-offset-2 outline-accent")}>
-                    <CoteCellules m={m} cote="achat" onPreview={onPreview} doublon={Boolean(doublons?.achat.has(m.id))} base={base} />
+                    <CoteCellules m={m} cote="achat" onPreview={onPreview} doublon={Boolean(doublons?.achat.has(m.id))} base={base} statut={reglements?.get(m.id)} />
                   </tr>
                   {ouvert && (
                     <tr className="border-t border-border bg-secondary/30">
@@ -235,7 +254,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-primary">{index + 1}. {m.natureMarchandise || "Mouvement sans nature"}</span>
                   <span className="mt-1 block text-xs text-muted-foreground">Vente · {m.client || "—"} · {v.montantTnd ? fmtMontant(v.montantTnd) : "—"} TND</span>
-                  <span className="block text-xs text-muted-foreground">Achat · {m.fournisseur || "—"} · {a.montantTnd ? fmtMontant(a.montantTnd) : "—"} TND</span>
+                  <span className="block text-xs text-muted-foreground">Achat · {m.fournisseur || "—"} · {a.montantTnd ? fmtMontant(a.montantTnd) : "—"} TND{m.achatLignes.length > 0 && reglements?.get(m.id) && <> · <StatutReglement statut={reglements.get(m.id)} /></>}</span>
                 </span>
                 <span className={cn("shrink-0 text-xs font-bold tabular-nums", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>Écart {fmtQuantiteUnite(m.ecart, m.ecartUnite)}</span>
               </button>

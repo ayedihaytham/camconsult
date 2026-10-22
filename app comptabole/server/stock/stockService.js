@@ -1,7 +1,27 @@
 import { lockCompany } from "../apurement/audit.js";
 import { fail } from "../apurement/domain.js";
 import { formatTnd } from "../apurement/amounts.js";
+import { chargerFusions, memeFournisseur } from "../fournisseurCle.js";
 import { syncFromStock, sourceState } from "../apurement/stockLinkService.js";
+
+/** Total déjà réglé sur la facture d'achat de ce mouvement (Suivi fournisseur). */
+async function totalRegle(c, id) {
+  const { rows } = await c.query("select coalesce(sum(montant), 0) as total from fournisseur_affectations where mouvement_id=$1", [id]);
+  return Number(rows[0].total);
+}
+
+/** Une facture d'achat déjà réglée garde son fournisseur et sa devise, et ne peut pas descendre sous le montant réglé. */
+async function verifierAchatRegle(c, id, existing, apres) {
+  const regle = await totalRegle(c, id);
+  if (regle <= 0) return;
+  const total = apres.achatLignes.reduce((s, l) => s + Number(l.montantDevise || 0), 0);
+  if (!memeFournisseur(await chargerFusions(c, existing.societe_id), apres.fournisseur, existing.fournisseur))
+    fail(409, "ACHAT_REGLE", "Cette facture d'achat a déjà des règlements : le fournisseur ne peut plus être changé. Modifiez ou supprimez d'abord les règlements dans Suivi fournisseur.");
+  if (apres.achatDevise !== existing.achat_devise)
+    fail(409, "ACHAT_REGLE", "Cette facture d'achat a déjà des règlements : la devise ne peut plus être changée. Modifiez ou supprimez d'abord les règlements dans Suivi fournisseur.");
+  if (total + 0.0015 < regle)
+    fail(409, "ACHAT_REGLE", "Le montant de la facture d'achat ne peut pas descendre sous le montant déjà réglé. Modifiez d'abord le règlement dans Suivi fournisseur.");
+}
 
 export async function lockStock(c, id, societeId) {
   await lockCompany(c, societeId);
@@ -50,12 +70,14 @@ export async function persistStock(
     expectedRevision,
     revisionProvided = true,
     societeId,
+    apresAchat,
   },
 ) {
   await lockCompany(c, societeId);
   let before = null;
   if (id) {
     const existing = await lockStock(c, id, societeId);
+    if (apresAchat) await verifierAchatRegle(c, id, existing, apresAchat);
     if (String(existing.apurement_revision) !== String(expectedRevision))
       fail(
         409,
@@ -106,7 +128,9 @@ export async function updatePurchaseHeader(
   societeId,
   { date, numero, fournisseur },
 ) {
-  await lockStock(c, id, societeId);
+  const existing = await lockStock(c, id, societeId);
+  if (!memeFournisseur(await chargerFusions(c, societeId), fournisseur, existing.fournisseur) && (await totalRegle(c, id)) > 0)
+    fail(409, "ACHAT_REGLE", "Cette facture d'achat a déjà des règlements : le fournisseur ne peut plus être changé. Modifiez ou supprimez d'abord les règlements dans Suivi fournisseur.");
   // Never replaces stock lines, foreign currency fields or sales/customs data.
   await c.query(
     `update stock_mouvements set achat_date=$3,achat_num_facture=$4,fournisseur=$5,maj_le=now(),apurement_revision=apurement_revision+1 where id=$1 and societe_id=$2`,
@@ -133,6 +157,8 @@ export async function updatePurchaseAmount(c, id, societeId, millimes) {
       "ALLOCATION_STOCK_REQUISE",
       "La correction inverse exige une seule ligne, quantité 1, devise TND et cours 1. Corrigez les autres cas dans Stock.",
     );
+  if (Number(formatTnd(millimes)) + 0.0015 < (await totalRegle(c, id)))
+    fail(409, "ACHAT_REGLE", "Le montant de la facture d'achat ne peut pas descendre sous le montant déjà réglé. Modifiez d'abord le règlement dans Suivi fournisseur.");
   await c.query(
     "update stock_lignes set montant_tnd=$2::numeric,montant_devise=$2::numeric,prix_unitaire=$2::numeric where id=$1",
     [lines[0].id, formatTnd(millimes)],
@@ -152,6 +178,8 @@ export async function deleteStock(c, id, societeId) {
       "STOCK_LIE_APUREMENT",
       "Ce mouvement est lié à Apurement. Déliez explicitement la facture brouillon avant toute suppression.",
     );
+  if ((await totalRegle(c, id)) > 0)
+    fail(409, "ACHAT_REGLE", "Cette facture d'achat a des règlements. Supprimez d'abord les règlements dans Suivi fournisseur.");
   await c.query("delete from stock_mouvements where id=$1 and societe_id=$2", [
     id,
     societeId,

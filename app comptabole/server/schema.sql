@@ -1090,6 +1090,17 @@ create table if not exists fournisseur_affectations (
 );
 create index if not exists fournisseur_affectations_mouvement_idx on fournisseur_affectations(mouvement_id);
 
+-- Fusion de fournisseurs écrits différemment dans le stock (texte libre) : la clé d'origine est regroupée avec la clé retenue,
+-- sans modifier les factures du stock ni les règlements. Se défait en supprimant la ligne.
+create table if not exists fournisseur_fusions (
+  societe_id  uuid not null references societes(id) on delete cascade,
+  cle_source  text not null,
+  cle_cible   text not null,
+  cree_le     timestamptz not null default now(),
+  primary key (societe_id, cle_source),
+  check (cle_source <> cle_cible)
+);
+
 -- Informations de suivi d'une facture d'achat (proforma, titre, chargement).
 -- qte_proforma : quantité de la proforma (tonnes), pour suivre ce qui reste à facturer.
 create table if not exists fournisseur_suivi (

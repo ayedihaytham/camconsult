@@ -58,9 +58,12 @@ interface FournisseursState extends EtatFournisseurs {
   saveSuivi: (mouvementId: string, data: FactureSuivi) => Promise<void>;
   /** Importe les règlements et le suivi d'un état Excel déjà rapprochés des factures du stock. */
   importerEtat: (data: ImportEtat) => Promise<BilanImportEtat>;
+  /** Regroupe deux écritures d'un même fournisseur (la clé `source` rejoint la clé `cible`). */
+  fusionner: (societeId: string, source: string, cible: string) => Promise<void>;
+  separer: (societeId: string, source: string) => Promise<void>;
 }
 
-const vide: EtatFournisseurs = { factures: [], reglements: [] };
+const vide: EtatFournisseurs = { factures: [], reglements: [], fusions: [] };
 
 export const useFournisseurs = create<FournisseursState>((set) => {
   const run = async (action: () => Promise<EtatFournisseurs>) => {
@@ -83,6 +86,9 @@ export const useFournisseurs = create<FournisseursState>((set) => {
       }
     },
     clear: () => set(vide),
+    fusionner: (societeId, source, cible) => run(() => api.post<EtatFournisseurs>("/fournisseurs/fusions", { societeId, source, cible })),
+    separer: (societeId, source) =>
+      run(() => api.del<EtatFournisseurs>(`/fournisseurs/fusions?societeId=${societeId}&source=${encodeURIComponent(source)}`)),
     createReglement: (data) => run(() => api.post<EtatFournisseurs>("/fournisseurs/reglements", data)),
     updateReglement: (id, data) => run(() => api.patch<EtatFournisseurs>(`/fournisseurs/reglements/${id}`, data)),
     removeReglement: (id) => run(() => api.del<EtatFournisseurs>(`/fournisseurs/reglements/${id}`)),
@@ -90,7 +96,7 @@ export const useFournisseurs = create<FournisseursState>((set) => {
     importerEtat: async (data) => {
       try {
         const r = await api.post<EtatFournisseurs & BilanImportEtat>("/fournisseurs/import", data);
-        set({ factures: r.factures, reglements: r.reglements });
+        set({ factures: r.factures, reglements: r.reglements, fusions: r.fusions });
         return { crees: r.crees, ignores: r.ignores, refuses: r.refuses, suivisMaj: r.suivisMaj };
       } catch (e) {
         return fail(e);

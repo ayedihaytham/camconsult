@@ -18,15 +18,8 @@ const canRead = (s, societeId) =>
   canWrite(s, societeId) || (s.poste === "societe_employe" && inScope(s, societeId));
 
 
-/** Clé de regroupement d'un fournisseur : sans accents, casse ni ponctuation. */
-export function cleFournisseur(nom) {
-  return String(nom || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
+import { chargerFusions, cleFournisseur, resoudre } from "../fournisseurCle.js";
+export { cleFournisseur };
 
 const MODES = ["virement", "cheque", "effet", "especes", "autre"];
 
@@ -38,6 +31,7 @@ function jour(d) {
 }
 
 async function etat(societeId) {
+  const fusions = await chargerFusions({ query }, societeId);
   const { rows: mouvements } = await query(
     `select m.id, m.fournisseur, m.achat_num_facture, m.achat_date, m.achat_devise, m.achat_cours,
             m.vente_num_facture, m.douane_num_declaration, m.ordre,
@@ -71,7 +65,7 @@ async function etat(societeId) {
       return {
         id: m.id,
         fournisseur: m.fournisseur,
-        fournisseurCle: cleFournisseur(m.fournisseur),
+        fournisseurCle: resoudre(fusions, cleFournisseur(m.fournisseur)),
         numFacture: m.achat_num_facture,
         date: jour(m.achat_date),
         devise: m.achat_devise,
@@ -102,7 +96,7 @@ async function etat(societeId) {
       const brut = r3(affs.reduce((s, a) => s + a.montant, 0));
       return {
         id: r.id,
-        fournisseurCle: r.fournisseur_cle,
+        fournisseurCle: resoudre(fusions, r.fournisseur_cle),
         date: jour(r.date_reglement),
         mode: r.mode,
         reference: r.reference,
@@ -119,6 +113,11 @@ async function etat(societeId) {
         affectations: affs,
       };
     }),
+    fusions: [...fusions].map(([cleSource, cleCible]) => ({
+      cleSource,
+      cleCible,
+      nomSource: mouvements.find((m) => cleFournisseur(m.fournisseur) === cleSource)?.fournisseur || cleSource,
+    })),
   };
 }
 
@@ -155,6 +154,7 @@ const reglementSchema = z.object({
 async function verifier(client, v, reglementId) {
   // Deux règlements du même fournisseur ne se vérifient pas en même temps : sinon chacun voit le même solde et peut le dépasser.
   await client.query("select pg_advisory_xact_lock(hashtext($1))", [`reglement:${v.societeId}:${v.fournisseurCle}`]);
+  const fusions = await chargerFusions(client, v.societeId);
   const ids = v.affectations.map((a) => a.mouvementId);
   if (new Set(ids).size !== ids.length) return "Une facture est choisie deux fois";
   const { rows } = await client.query(
@@ -167,7 +167,7 @@ async function verifier(client, v, reglementId) {
   if (rows.length !== ids.length) return "Facture introuvable pour cette société";
   for (const m of rows) {
     const nom = m.achat_num_facture || "sans numéro";
-    if (cleFournisseur(m.fournisseur) !== v.fournisseurCle) return `La facture ${nom} n'est pas de ce fournisseur`;
+    if (resoudre(fusions, cleFournisseur(m.fournisseur)) !== resoudre(fusions, v.fournisseurCle)) return `La facture ${nom} n'est pas de ce fournisseur`;
     if (m.achat_devise !== v.devise) return `La facture ${nom} est en ${m.achat_devise}, pas en ${v.devise}`;
     const a = v.affectations.find((x) => x.mouvementId === m.id);
     if (Number(m.deja) + a.montant > Number(m.montant) + 0.0015) return `Le règlement dépasse le solde de la facture ${nom}`;
@@ -273,6 +273,68 @@ fournisseursRouter.put("/suivi/:mouvementId", async (req, res) => {
   res.json(await etat(rows[0].societe_id));
 });
 
+// ── Fusion de fournisseurs écrits différemment (« SOTACIB » et « SOTACIB KAIROUAN ») ──
+const fusionSchema = z.object({ societeId: z.string().uuid(), source: z.string().min(1), cible: z.string().min(1) });
+
+fournisseursRouter.post("/fusions", async (req, res) => {
+  const parsed = fusionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Données invalides" });
+  const { societeId, source, cible } = parsed.data;
+  if (!canWrite(req.session, societeId)) return res.status(403).json({ error: "Accès non autorisé" });
+  const erreur = await withTransaction(async (client) => {
+    await client.query("select pg_advisory_xact_lock(hashtext($1))", [`fusion:${societeId}`]);
+    const fusions = await chargerFusions(client, societeId);
+    const de = resoudre(fusions, source);
+    const vers = resoudre(fusions, cible);
+    if (de === vers) return "Ces deux fournisseurs sont déjà regroupés";
+    const { rows } = await client.query("select fournisseur from stock_mouvements where societe_id = $1 and fournisseur <> ''", [societeId]);
+    const existants = new Set(rows.map((m) => resoudre(fusions, cleFournisseur(m.fournisseur))));
+    if (!existants.has(de) || !existants.has(vers)) return "Fournisseur introuvable pour cette société";
+    // Tout ce qui pointait vers l'ancien fournisseur retenu pointe désormais vers le nouveau.
+    await client.query("update fournisseur_fusions set cle_cible = $3 where societe_id = $1 and cle_cible = $2", [societeId, de, vers]);
+    await client.query(
+      "insert into fournisseur_fusions (societe_id, cle_source, cle_cible) values ($1,$2,$3) on conflict (societe_id, cle_source) do update set cle_cible = $3",
+      [societeId, de, vers],
+    );
+    return null;
+  });
+  if (erreur) return res.status(400).json({ error: erreur });
+  logAction(req.session.nom, "modification", "suivi fournisseur", `Fusion du fournisseur ${source} dans ${cible}`);
+  res.json(await etat(societeId));
+});
+
+fournisseursRouter.delete("/fusions", async (req, res) => {
+  const { societeId, source } = req.query;
+  if (!societeId || !source) return res.status(400).json({ error: "societeId et source requis" });
+  if (!canWrite(req.session, societeId)) return res.status(403).json({ error: "Accès non autorisé" });
+  const erreur = await withTransaction(async (client) => {
+    await client.query("select pg_advisory_xact_lock(hashtext($1))", [`fusion:${societeId}`]);
+    const avant = await chargerFusions(client, societeId);
+    if (!avant.has(source)) return "Cette fusion n'existe pas";
+    const apres = new Map(avant);
+    apres.delete(source);
+    // Un règlement qui couvre des factures des deux fournisseurs ne peut pas rester d'un seul côté.
+    const { rows } = await client.query(
+      `select r.id, m.fournisseur from fournisseur_reglements r
+         join fournisseur_affectations a on a.reglement_id = r.id join stock_mouvements m on m.id = a.mouvement_id
+        where r.societe_id = $1`,
+      [societeId],
+    );
+    const parReglement = new Map();
+    for (const l of rows) parReglement.set(l.id, new Set([...(parReglement.get(l.id) ?? []), resoudre(apres, cleFournisseur(l.fournisseur))]));
+    if ([...parReglement.values()].some((cles) => cles.size > 1))
+      return "Un règlement couvre des factures des deux fournisseurs : modifiez-le avant de séparer.";
+    await client.query("delete from fournisseur_fusions where societe_id = $1 and cle_source = $2", [societeId, source]);
+    // Les règlements enregistrés sous une clé fusionnée suivent leurs factures.
+    for (const [id, cles] of parReglement)
+      await client.query("update fournisseur_reglements set fournisseur_cle = $2 where id = $1", [id, [...cles][0]]);
+    return null;
+  });
+  if (erreur) return res.status(400).json({ error: erreur });
+  logAction(req.session.nom, "modification", "suivi fournisseur", `Fusion défaite : ${source}`);
+  res.json(await etat(societeId));
+});
+
 // ── Import d'un état fournisseur Excel : règlements et suivi de proforma, rapprochés des factures d'achat du stock ──
 const importSchema = z.object({
   societeId: z.string().uuid(),
@@ -351,16 +413,19 @@ fournisseursRouter.post("/import", async (req, res) => {
   let crees = 0;
   let ignores = 0;
   const refuses = [];
-  for (const [i, r] of reglements.entries()) {
+  const fusionsImport = await chargerFusions({ query }, societeId);
+  for (const [i, r0] of reglements.entries()) {
+    const r = { ...r0, fournisseurCle: resoudre(fusionsImport, r0.fournisseurCle) };
+    const groupe = [r.fournisseurCle, ...[...fusionsImport].filter(([, cible]) => resoudre(fusionsImport, cible) === r.fournisseurCle).map(([source]) => source)];
     const brut = r3(r.affectations.reduce((s, a) => s + a.montant, 0));
     const v = { ...r, societeId, cours: 0, dateReglement: r.dateReglement || null, mouvementBancaireId: null };
     v.rsMontant = Math.min(v.rsMontant, brut);
     const { rows: deja } = await query(
       `select r.id from fournisseur_reglements r
-        where r.societe_id = $1 and r.fournisseur_cle = $2 and r.date_reglement is not distinct from $3 and r.mode = $4
+        where r.societe_id = $1 and r.fournisseur_cle = any($2::text[]) and r.date_reglement is not distinct from $3 and r.mode = $4
           and r.reference = $5 and r.rs_numero = $6
           and abs(coalesce((select sum(a.montant) from fournisseur_affectations a where a.reglement_id = r.id), 0) - $7) < 0.002`,
-      [societeId, r.fournisseurCle, v.dateReglement, r.mode, r.reference, r.rsNumero, brut],
+      [societeId, groupe, v.dateReglement, r.mode, r.reference, r.rsNumero, brut],
     );
     if (deja.length > 0) {
       ignores++;

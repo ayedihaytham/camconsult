@@ -213,6 +213,7 @@ stockRouter.patch("/mouvements/:id", async (req, res) => {
     session: req.session, expectedRevision: merged.data.apurementRevision ?? existing.apurement_revision,
     revisionProvided: merged.data.apurementRevision !== undefined,
     societeId: existing.societe_id,
+    apresAchat: { fournisseur: v.fournisseur, achatDevise: v.achatDevise, achatLignes: v.achatLignes },
   }));
 
   logAction(

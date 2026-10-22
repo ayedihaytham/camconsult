@@ -56,8 +56,8 @@ export function FournisseurEtatTable({ lignes, factures, lectureSeule, onEditReg
             <th className={th}>
               <span className="sr-only">Actions du règlement</span>
             </th>
-            <th className={`${th} ${groupe}`}>Fact. vente</th>
-            <th className={th}>N° déclaration</th>
+            <th className={`${th} ${groupe}`} title="Renseignée dans Gestion de stock">Fact. vente</th>
+            <th className={th} title="Renseigné dans Gestion de stock">N° déclaration</th>
             <th className={`${th} ${groupe}`}>Proforma · chargement</th>
             <th className={th}>
               <span className="sr-only">Suivi</span>

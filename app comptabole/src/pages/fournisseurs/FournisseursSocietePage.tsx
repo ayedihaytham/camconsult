@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, Download, FileUp, Plus, Truck } from "lucide-react";
+import { AlertTriangle, Download, FileUp, Merge, Plus, Truck } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { ReglementFormSheet } from "./ReglementFormSheet";
 import { SuiviFactureDialog } from "./SuiviFactureDialog";
 import { ImportEtatFournisseursDialog } from "./ImportEtatFournisseursDialog";
 import { ProformasCard } from "./ProformasCard";
+import { FusionFournisseursDialog } from "./FusionFournisseursDialog";
 
 const th = "px-3 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground";
 const thNum = `${th} text-right`;
@@ -52,6 +53,9 @@ export function FournisseursSocietePage() {
   const removeReglement = useFournisseurs((s) => s.removeReglement);
   const saveSuivi = useFournisseurs((s) => s.saveSuivi);
   const importerEtat = useFournisseurs((s) => s.importerEtat);
+  const fusions = useFournisseurs((s) => s.fusions);
+  const fusionner = useFournisseurs((s) => s.fusionner);
+  const separer = useFournisseurs((s) => s.separer);
 
   const [choisi, setChoisi] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -59,6 +63,7 @@ export function FournisseursSocietePage() {
   const [toDelete, setToDelete] = useState<ReglementFournisseur | null>(null);
   const [suivi, setSuivi] = useState<FactureFournisseur | null>(null);
   const [importOuvert, setImportOuvert] = useState(false);
+  const [fusionOuverte, setFusionOuverte] = useState(false);
   // Paiement bancaire à rapprocher, arrivé du suivi bancaire (« Créer le règlement »).
   const navigate = useNavigate();
   const location = useLocation();
@@ -128,7 +133,7 @@ export function FournisseursSocietePage() {
           metrics={[
             { label: recap.length > 1 ? "Fournisseurs" : "Fournisseur", value: recap.length, loading },
             { label: nbImpayees > 1 ? "Factures à régler" : "Facture à régler", value: nbImpayees, tone: nbImpayees > 0 ? "warning" : "default" },
-            ...devises.slice(0, 2).map((d) => ({
+            ...devises.map((d) => ({
               label: `Solde dû (${d})`,
               value: fmtMontant(soldeTotal(d)),
               tone: soldeTotal(d) > 0 ? ("destructive" as const) : ("default" as const),
@@ -141,6 +146,12 @@ export function FournisseursSocietePage() {
                   <Button variant="outline" className="signature-ledger__action" onClick={() => setImportOuvert(true)}>
                     <FileUp className="h-4 w-4" />
                     Importer un état
+                  </Button>
+                )}
+                {!lectureSeule && (recap.length > 1 || fusions.length > 0) && (
+                  <Button variant="outline" className="signature-ledger__action" onClick={() => setFusionOuverte(true)}>
+                    <Merge className="h-4 w-4" />
+                    Regrouper
                   </Button>
                 )}
                 {actif && (
@@ -291,6 +302,24 @@ export function FournisseursSocietePage() {
         societeId={societeId}
         factures={factures}
         onImporter={importerEtat}
+      />
+
+      <FusionFournisseursDialog
+        open={fusionOuverte}
+        onOpenChange={setFusionOuverte}
+        actif={actif}
+        autres={recap.filter((r) => r.cle !== actif?.cle)}
+        fusions={fusions}
+        nomDe={(cle) => recap.find((r) => r.cle === cle)?.nom ?? cle}
+        onFusionner={async (source, cible) => {
+          await fusionner(societeId, source, cible);
+          setChoisi(cible);
+          toast.success("Fournisseurs regroupés");
+        }}
+        onSeparer={async (source) => {
+          await separer(societeId, source);
+          toast.success("Regroupement défait");
+        }}
       />
 
       <SuiviFactureDialog

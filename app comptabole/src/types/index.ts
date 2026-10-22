@@ -1146,9 +1146,18 @@ export interface ReglementFournisseur {
   affectations: ReglementAffectation[];
 }
 
+/** Fournisseur écrit autrement dans le stock, regroupé avec un autre (les factures du stock ne sont pas modifiées). */
+export interface FusionFournisseur {
+  cleSource: string;
+  cleCible: string;
+  /** Écriture d'origine, telle que saisie dans le stock. */
+  nomSource: string;
+}
+
 export interface EtatFournisseurs {
   factures: FactureFournisseur[];
   reglements: ReglementFournisseur[];
+  fusions: FusionFournisseur[];
 }
 
 // ── Suivi bancaire ────────────────────────────────────────────────────────

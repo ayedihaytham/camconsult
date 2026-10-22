@@ -343,4 +343,25 @@ describe("N° de mouvement et monnaie des montants", () => {
     expect(Array.from(document.querySelectorAll("thead th")).map((t) => t.textContent)).toContain("MT TND");
     expect(document.querySelector("tfoot")?.textContent).toContain("Marge TND +66,000");
   });
+
+  it("propose de supprimer chaque type de facture séparément, sans proposer ce qui est vide", () => {
+    const onRetirerCote = vi.fn();
+    afficher({ onRetirerCote });
+    for (const bouton of screen.getAllByRole("button", { name: "Afficher le détail" })) fireEvent.click(bouton);
+    const achats = screen.getAllByRole("button", { name: "Supprimer la facture d'achat" });
+    expect(achats.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByRole("button", { name: "Supprimer la facture de vente" }).length).toBeGreaterThan(0);
+    // Un seul mouvement porte une déclaration : le bouton n'existe que pour lui.
+    const douanes = screen.getAllByRole("button", { name: "Supprimer la déclaration douanière" });
+    fireEvent.click(douanes[0]);
+    expect(onRetirerCote).toHaveBeenCalledWith(expect.objectContaining({ id: "m1" }), "douane");
+    fireEvent.click(achats[0]);
+    expect(onRetirerCote).toHaveBeenLastCalledWith(expect.objectContaining({ id: "m1" }), "achat");
+  });
+
+  it("ne propose pas ce retrait sans le gestionnaire", () => {
+    afficher();
+    for (const bouton of screen.getAllByRole("button", { name: "Afficher le détail" })) fireEvent.click(bouton);
+    expect(screen.queryByRole("button", { name: "Supprimer la facture d'achat" })).toBeNull();
+  });
 });

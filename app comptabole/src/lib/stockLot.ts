@@ -229,8 +229,8 @@ export function regrouperPieces(
       const qv = quantiteTotale(b.vente.champs.lignes);
       if (qa > 0 && qv > qa * 1.01) alertes.push("Quantité vendue supérieure à la quantité achetée");
     }
-    if (b.achat && !b.vente && !b.douane) alertes.push("Aucune vente ni déclaration rapprochée");
-    if (!b.achat && (b.vente || b.douane)) alertes.push("Aucune facture d'achat rapprochée");
+    // Une facture d'achat seule ou de vente seule est acceptée : seule une déclaration sans aucune facture est signalée.
+    if (!b.achat && !b.vente && b.douane) alertes.push("Déclaration sans facture d'achat ni de vente");
     const statut: GroupeLot["statut"] = doublon ? "doublon" : Object.keys(anomalies).length > 0 || alertes.length > 0 ? "verifier" : "pret";
     return { cle: pieces3.map((p) => p.id).join("|"), ...b, anomalies, alertes, statut };
   });
@@ -312,3 +312,21 @@ export const resumeMontant = (lignes: StockLigne[] | undefined, devise: string |
   const total = arrondi3(montantTotal(lignes));
   return total ? `${total.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ${devise || ""}`.trim() : "—";
 };
+
+export type CoteMouvement = "achat" | "vente" | "douane";
+
+/** Champs d'un mouvement à remettre à zéro pour retirer un type de facture (achat, vente ou douane), sans toucher aux deux autres. */
+export function champsVidesCote(cote: CoteMouvement): Partial<StockMouvementInput> {
+  const vide = mouvementVide("") as unknown as Record<string, unknown>;
+  const prefixe = cote;
+  const supplementaires = cote === "achat" ? ["fournisseur"] : cote === "vente" ? ["client"] : [];
+  const cles = Object.keys(vide).filter((k) => k.startsWith(prefixe) || supplementaires.includes(k));
+  return Object.fromEntries(cles.map((k) => [k, vide[k]])) as Partial<StockMouvementInput>;
+}
+
+/** Un côté du mouvement porte-t-il quelque chose (facture, tiers, produits ou déclaration) ? */
+export function coteRenseigne(m: StockMouvement, cote: CoteMouvement): boolean {
+  if (cote === "douane") return Boolean(m.douaneNumDeclaration || m.douaneDate || m.douaneValeurTnd || m.douanePtfn || m.douaneExportateur || m.douaneImportateur || m.douaneDocDataUrl);
+  const a = cote === "achat";
+  return Boolean((a ? m.fournisseur : m.client) || (a ? m.achatDate : m.venteDate) || (a ? m.achatNumFacture : m.venteNumFacture) || (a ? m.achatLignes : m.venteLignes).length > 0 || (a ? m.achatDocDataUrl : m.venteDocDataUrl));
+}

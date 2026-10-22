@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mouvementDuGroupe, proximite, mots, regrouperPieces, type PieceLot } from "./stockLot";
+import { champsVidesCote, coteRenseigne, mouvementDuGroupe, mouvementVide, proximite, mots, regrouperPieces, type PieceLot } from "./stockLot";
 import type { StockChamps, StockDocType, StockLigne } from "@/types";
 
 const ligne = (designation: string, quantite: number, prixUnitaire: number): StockLigne => ({
@@ -42,10 +42,18 @@ describe("rapprochement d'un lot de pièces", () => {
     expect(g2?.douane).toBeNull();
   });
 
-  it("une vente d'un autre produit n'est pas rapprochée : chaque pièce reste seule avec une alerte", () => {
+  it("une facture d'achat seule ou de vente seule est acceptée : chaque pièce non rapprochée devient son propre mouvement, prêt", () => {
     const groupes = regrouperPieces([achat("a1", "F1", "X", "CIMENT", 1000), vente("v1", "V1", "Client", "HUILE D'OLIVE", 300)], {});
     expect(groupes).toHaveLength(2);
-    expect(groupes.every((g) => g.statut === "verifier")).toBe(true);
+    expect(groupes.every((g) => g.statut === "pret")).toBe(true);
+    expect(groupes.every((g) => g.alertes.length === 0)).toBe(true);
+    expect(groupes.map((g) => [Boolean(g.achat), Boolean(g.vente)]).sort()).toEqual([[false, true], [true, false]]);
+  });
+
+  it("une déclaration sans aucune facture reste à vérifier", () => {
+    const [g] = regrouperPieces([douane("d1", "Sotacib", 1000)], {});
+    expect(g.statut).toBe("verifier");
+    expect(g.alertes.join(" ")).toMatch(/sans facture/);
   });
 
   it("une pièce corrigée ou écartée change le résultat", () => {
@@ -83,5 +91,25 @@ describe("rapprochement d'un lot de pièces", () => {
     const m = mouvementDuGroupe(g, "soc-1");
     expect(m).toMatchObject({ societeId: "soc-1", fournisseur: "SOTACIB", achatNumFacture: "F1", client: "CLIENT", venteNumFacture: "V1", douaneNumDeclaration: "D-d1", douaneTauxChange: 3.3, natureMarchandise: "CIMENT" });
     expect(m.achatLignes[0]).toMatchObject({ quantite: 1000, montantDevise: 44000, montantTnd: 0 });
+  });
+});
+
+describe("retrait d'un type de facture d'un mouvement", () => {
+  it("remet à zéro un seul côté : l'achat sans toucher à la vente ni à la douane", () => {
+    const champs = champsVidesCote("achat") as Record<string, unknown>;
+    expect(Object.keys(champs)).toEqual(expect.arrayContaining(["fournisseur", "achatNumFacture", "achatDate", "achatLignes", "achatDocDataUrl", "achatCours", "achatDevise"]));
+    expect(Object.keys(champs).some((k) => k.startsWith("vente") || k.startsWith("douane") || k === "client")).toBe(false);
+    expect(champs.achatLignes).toEqual([]);
+    expect(champs.achatDocDataUrl).toBeNull();
+    expect(Object.keys(champsVidesCote("vente"))).toEqual(expect.arrayContaining(["client", "venteNumFacture", "venteLignes", "venteDocDataUrl"]));
+    expect(Object.keys(champsVidesCote("douane"))).toEqual(expect.arrayContaining(["douaneNumDeclaration", "douaneValeurTnd", "douaneDocDataUrl"]));
+  });
+
+  it("sait si un côté porte quelque chose", () => {
+    const m = { ...mouvementVide("s"), id: "m", ordre: 1, ecart: 0, ecartUnite: "", ecartParDesignation: [], creeLe: "", majLe: "" } as never;
+    expect(coteRenseigne(m, "achat")).toBe(false);
+    expect(coteRenseigne({ ...(m as object), fournisseur: "SOTACIB" } as never, "achat")).toBe(true);
+    expect(coteRenseigne({ ...(m as object), douaneNumDeclaration: "D1" } as never, "douane")).toBe(true);
+    expect(coteRenseigne({ ...(m as object), client: "C" } as never, "achat")).toBe(false);
   });
 });

@@ -11,7 +11,7 @@ import { useStock, type StockMouvementInput } from "@/store/stock";
 import type { StockMouvement } from "@/types";
 import { classerDansStructuration } from "@/lib/classement";
 import { doublonsStock, resumeDoublons } from "@/lib/facturesDoublons";
-import { fmtQuantiteUnite, quantiteEn, recapStock, uniteCommune } from "@/lib/stockRecap";
+import { fmtQuantiteUnite, quantiteEn, recapStock, trierParNumero, uniteCommune } from "@/lib/stockRecap";
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
 import { cn } from "@/lib/utils";
 import { montantCote } from "@/lib/coursStock";
@@ -20,15 +20,20 @@ import { soldesFactures, type StatutFacture } from "@/lib/fournisseurs";
 import type { EtatFournisseurs } from "@/types";
 import { StockRecapTable } from "./StockRecapTable";
 import { ImportLotStockDialog } from "./ImportLotStockDialog";
+import { champsVidesCote, coteRenseigne, type CoteMouvement } from "@/lib/stockLot";
 import "./stock-page.css";
 import { DocPreviewDialog } from "./DocPreviewDialog";
+
+const NOMS_COTE: Record<CoteMouvement, string> = { achat: "la facture d'achat", vente: "la facture de vente", douane: "la déclaration douanière" };
 
 export function StockSocietePage() {
   const { societeId = "" } = useParams();
   const navigate=useNavigate();
   const societe = useSocieteById(societeId);
 
-  const list = useStock((s) => s.list);
+  const liste = useStock((s) => s.list);
+  // Du plus petit au plus grand n° de mouvement (n° de la facture de vente) : le tableau, les totaux et l'export Excel suivent cet ordre.
+  const list = useMemo(() => trierParNumero(liste), [liste]);
   const loading = useStock((s) => s.loading);
   const fetchList = useStock((s) => s.fetchList);
   const clear = useStock((s) => s.clear);
@@ -51,6 +56,7 @@ export function StockSocietePage() {
   const [lotOpen, setLotOpen] = useState(false);
   const [editing, setEditing] = useState<StockMouvement | null>(null);
   const [toDelete, setToDelete] = useState<StockMouvement | null>(null);
+  const [aRetirer, setARetirer] = useState<{ m: StockMouvement; cote: CoteMouvement } | null>(null);
   const [preview, setPreview] = useState<{ title: string; dataUrl: string | null } | null>(null);
 
   useEffect(() => {
@@ -87,6 +93,13 @@ export function StockSocietePage() {
   const nbAnomalies = list.filter(estAnomalie).length;
 
   const recap = useMemo(() => recapStock(shown), [shown]);
+
+  /** Retire un type de facture (achat, vente ou douane) : si c'est la seule pièce du mouvement, c'est tout le mouvement qui est proposé à la suppression. */
+  function demanderRetrait(m: StockMouvement, cote: CoteMouvement) {
+    const autres = (["achat", "vente", "douane"] as const).filter((c) => c !== cote);
+    if (autres.every((c) => !coteRenseigne(m, c))) setToDelete(m);
+    else setARetirer({ m, cote });
+  }
 
   /** Attend la réponse du serveur : le formulaire reste ouvert (données intactes)
    * tant que le mouvement n'est pas réellement enregistré, et s'il échoue. */
@@ -297,6 +310,7 @@ export function StockSocietePage() {
               setFormOpen(true);
             }}
             onDelete={setToDelete}
+            onRetirerCote={demanderRetrait}
             onPreview={(title, dataUrl) => setPreview({ title, dataUrl })}
             onClasser={handleClasser}
           />
@@ -365,8 +379,20 @@ export function StockSocietePage() {
         description="Cette ligne de stock sera définitivement supprimée."
         confirmLabel="Supprimer"
         onConfirm={() => {
-          if (toDelete) remove(toDelete.id);
+          if (toDelete) void remove(toDelete.id).catch(() => undefined);
           setToDelete(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(aRetirer)}
+        onOpenChange={(o) => !o && setARetirer(null)}
+        title={aRetirer ? `Supprimer ${NOMS_COTE[aRetirer.cote]} ?` : ""}
+        description="Le mouvement est conservé avec ses autres pièces. Les informations de cette pièce, ses produits et son document joint sont effacés."
+        confirmLabel="Supprimer"
+        onConfirm={() => {
+          if (aRetirer) void update(aRetirer.m.id, { ...champsVidesCote(aRetirer.cote), apurementRevision: aRetirer.m.apurementRevision }).catch(() => undefined);
+          setARetirer(null);
         }}
       />
 

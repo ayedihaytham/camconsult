@@ -1,10 +1,11 @@
 import { Fragment, useState, type ReactNode } from "react";
-import { AlertTriangle, ChevronRight, FolderInput, Paperclip } from "lucide-react";
+import { AlertTriangle, ChevronRight, FolderInput, Paperclip, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 import { ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
 import { montantCote } from "@/lib/coursStock";
 import type { StatutFacture } from "@/lib/fournisseurs";
+import { coteRenseigne, type CoteMouvement } from "@/lib/stockLot";
 import type { StockLigne, StockMouvement } from "@/types";
 
 type Categorie = "achat" | "vente" | "douane";
@@ -17,6 +18,8 @@ interface Props {
   classing: string | null;
   onEdit: (m: StockMouvement) => void;
   onDelete: (m: StockMouvement) => void;
+  /** Retire un seul type de facture (achat, vente ou douane) du mouvement ; absent : le bouton n'est pas proposé. */
+  onRetirerCote?: (m: StockMouvement, cote: CoteMouvement) => void;
   onPreview: (title: string, dataUrl: string | null) => void;
   onClasser: (m: StockMouvement, categorie: Categorie) => void;
   /** Mouvements dont le n° de facture de vente ou d'achat est déjà utilisé par un autre. */
@@ -123,7 +126,7 @@ function CoteCellules({ m, cote, onPreview, doublon, base, statut }: { m: StockM
 /** Récapitulatif des opérations de stock : chaque mouvement occupe deux lignes aux colonnes alignées, une pour la vente et une pour
  * l'achat, avec la douane à droite ; le détail (produits, déclaration, pièces, actions) s'ouvre sous le mouvement. Le tableau
  * occupe la largeur de la page, sans défilement horizontal ; sur petit écran, chaque mouvement devient une carte. */
-export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onPreview, onClasser, doublons, base = "TND", reglements }: Props) {
+export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onRetirerCote, onPreview, onClasser, doublons, base = "TND", reglements }: Props) {
   const [ouverts, setOuverts] = useState<Set<string>>(new Set());
   const total = recapStock(mouvements);
   const ecarts = ecartsDeviseTotaux(mouvements);
@@ -214,7 +217,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     <tr className="border-t border-border bg-secondary/30">
                       <td colSpan={NB_COLONNES} className="p-0">
                         <div className="px-5 py-4 pl-10">
-                          <DetailMouvement m={m} classing={classing} onPreview={onPreview} onClasser={onClasser} onEdit={onEdit} onDelete={onDelete} />
+                          <DetailMouvement m={m} classing={classing} onPreview={onPreview} onClasser={onClasser} onEdit={onEdit} onDelete={onDelete} onRetirerCote={onRetirerCote} />
                         </div>
                       </td>
                     </tr>
@@ -258,7 +261,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                 </span>
                 <span className={cn("shrink-0 text-xs font-bold tabular-nums", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>Écart {fmtQuantiteUnite(m.ecart, m.ecartUnite)}</span>
               </button>
-              {ouvert && <div className="mt-3"><DetailMouvement m={m} classing={classing} onPreview={onPreview} onClasser={onClasser} onEdit={onEdit} onDelete={onDelete} /></div>}
+              {ouvert && <div className="mt-3"><DetailMouvement m={m} classing={classing} onPreview={onPreview} onClasser={onClasser} onEdit={onEdit} onDelete={onDelete} onRetirerCote={onRetirerCote} /></div>}
             </li>
           );
         })}
@@ -344,7 +347,7 @@ function PieceCarte({ m, categorie, classing, onPreview, onClasser }: { m: Stock
   );
 }
 
-function Carte({ titre, resume, piece, children, className }: { titre: string; resume?: string; piece?: ReactNode; children: ReactNode; className?: string }) {
+function Carte({ titre, resume, piece, action, children, className }: { titre: string; resume?: string; piece?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={cn("min-w-0 rounded-xl border border-border bg-card p-4", className)}>
       <header className="mb-3 flex items-start justify-between gap-3 border-b border-border pb-2">
@@ -352,14 +355,27 @@ function Carte({ titre, resume, piece, children, className }: { titre: string; r
           <h3 className="text-sm font-semibold text-primary">{titre}</h3>
           {resume && <p className="text-xs text-muted-foreground">{resume}</p>}
         </div>
-        {piece}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {piece}
+          {action}
+        </div>
       </header>
       <div className="space-y-3">{children}</div>
     </section>
   );
 }
 
-function CarteFacture({ m, cote, classing, onPreview, onClasser }: { m: StockMouvement; cote: "vente" | "achat"; classing: string | null; onPreview: Props["onPreview"]; onClasser: Props["onClasser"] }) {
+function BoutonRetirer({ m, cote, nom, onRetirerCote }: { m: StockMouvement; cote: CoteMouvement; nom: string; onRetirerCote?: (m: StockMouvement, cote: CoteMouvement) => void }) {
+  if (!onRetirerCote || !coteRenseigne(m, cote)) return null;
+  return (
+    <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive" onClick={() => onRetirerCote(m, cote)} aria-label={`Supprimer ${nom}`}>
+      <Trash2 className="size-3.5" aria-hidden="true" />
+      Supprimer
+    </Button>
+  );
+}
+
+function CarteFacture({ m, cote, classing, onPreview, onClasser, onRetirerCote }: { m: StockMouvement; cote: "vente" | "achat"; classing: string | null; onPreview: Props["onPreview"]; onClasser: Props["onClasser"]; onRetirerCote?: Props["onRetirerCote"] }) {
   const v = cote === "vente";
   const tiers = v ? m.client : m.fournisseur;
   const date = v ? m.venteDate : m.achatDate;
@@ -370,17 +386,17 @@ function CarteFacture({ m, cote, classing, onPreview, onClasser }: { m: StockMou
   const vide = !tiers && !date && !numero && lignes.length === 0;
   const resume = vide ? undefined : [date ? formatDate(date) : "", numero ? `facture ${numero}` : "", tiers, cours ? `${devise} · cours ${cours.toLocaleString("fr-FR", { maximumFractionDigits: 5 })}` : devise].filter(Boolean).join(" · ");
   return (
-    <Carte titre={v ? "Vente" : "Achat"} resume={resume} piece={<PieceCarte m={m} categorie={cote} classing={classing} onPreview={onPreview} onClasser={onClasser} />}>
+    <Carte titre={v ? "Vente" : "Achat"} resume={resume} action={<BoutonRetirer m={m} cote={cote} nom={v ? "la facture de vente" : "la facture d'achat"} onRetirerCote={onRetirerCote} />} piece={<PieceCarte m={m} categorie={cote} classing={classing} onPreview={onPreview} onClasser={onClasser} />}>
       {vide ? <p className="text-sm text-muted-foreground">Rien de renseigné.</p> : <LignesProduits lignes={lignes} devise={devise} />}
     </Carte>
   );
 }
 
-function CarteDouane({ m, classing, onPreview, onClasser }: { m: StockMouvement; classing: string | null; onPreview: Props["onPreview"]; onClasser: Props["onClasser"] }) {
+function CarteDouane({ m, classing, onPreview, onClasser, onRetirerCote }: { m: StockMouvement; classing: string | null; onPreview: Props["onPreview"]; onClasser: Props["onClasser"]; onRetirerCote?: Props["onRetirerCote"] }) {
   const rien = !m.douaneNumDeclaration && !m.douaneDate && !m.douaneValeurTnd && !m.douanePtfn && !m.douaneExportateur && !m.douaneImportateur;
   const resume = [m.douaneNumDeclaration ? `Déclaration ${m.douaneNumDeclaration}` : "", m.douaneDate ? formatDate(m.douaneDate) : ""].filter(Boolean).join(" · ");
   return (
-    <Carte titre="Douane" resume={resume || undefined} className="lg:col-span-2" piece={<PieceCarte m={m} categorie="douane" classing={classing} onPreview={onPreview} onClasser={onClasser} />}>
+    <Carte titre="Douane" resume={resume || undefined} className="lg:col-span-2" action={<BoutonRetirer m={m} cote="douane" nom="la déclaration douanière" onRetirerCote={onRetirerCote} />} piece={<PieceCarte m={m} categorie="douane" classing={classing} onPreview={onPreview} onClasser={onClasser} />}>
       {rien ? (
         <p className="text-sm text-muted-foreground">Aucune déclaration douanière.</p>
       ) : (
@@ -397,13 +413,14 @@ function CarteDouane({ m, classing, onPreview, onClasser }: { m: StockMouvement;
   );
 }
 
-export function DetailMouvement({ m, classing, onPreview, onClasser, onEdit, onDelete }: {
+export function DetailMouvement({ m, classing, onPreview, onClasser, onEdit, onDelete, onRetirerCote }: {
   m: StockMouvement;
   classing: string | null;
   onPreview: Props["onPreview"];
   onClasser: Props["onClasser"];
   onEdit: Props["onEdit"];
   onDelete: Props["onDelete"];
+  onRetirerCote?: Props["onRetirerCote"];
 }) {
   // Un détail par produit n'a de sens que si une facture en liste plusieurs : avec un seul
   // produit de chaque côté, des désignations rédigées différemment donneraient un écart
@@ -413,9 +430,9 @@ export function DetailMouvement({ m, classing, onPreview, onClasser, onEdit, onD
   const marge = totauxCote(m.venteLignes).montantTnd - totauxCote(m.achatLignes).montantTnd;
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <CarteFacture m={m} cote="vente" classing={classing} onPreview={onPreview} onClasser={onClasser} />
-      <CarteFacture m={m} cote="achat" classing={classing} onPreview={onPreview} onClasser={onClasser} />
-      <CarteDouane m={m} classing={classing} onPreview={onPreview} onClasser={onClasser} />
+      <CarteFacture m={m} cote="vente" classing={classing} onPreview={onPreview} onClasser={onClasser} onRetirerCote={onRetirerCote} />
+      <CarteFacture m={m} cote="achat" classing={classing} onPreview={onPreview} onClasser={onClasser} onRetirerCote={onRetirerCote} />
+      <CarteDouane m={m} classing={classing} onPreview={onPreview} onClasser={onClasser} onRetirerCote={onRetirerCote} />
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-card px-4 py-3 text-sm lg:col-span-2">
         <span>

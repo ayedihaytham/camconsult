@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Coins, FileText, Hash, Paperclip, Plus, Repeat, Save, Send, Trash2 } from "lucide-react";
+import { Building2, Coins, FileText, Hash, Paperclip, Plus, Repeat, Save, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +42,7 @@ function ChoixDevise({ value, onChange, ...props }: { value: string; onChange: (
   );
 }
 
-const vide = (devise: string): Ligne => ({ cle: nouvelleCle(), numFacture: "", montantDevise: 0, devise, taux: 0, montantTnd: 0, tndManuel: false });
+const vide = (devise: string): Ligne => ({ cle: nouvelleCle(), numFacture: "", fournisseur: "", montantDevise: 0, devise, taux: 0, montantTnd: 0, tndManuel: false });
 
 /** Factures d'achat qui composent un virement SWIFT : une par ligne, jusqu'à atteindre le montant demandé. */
 export function SwiftFacturesEditor({
@@ -177,10 +177,11 @@ export function SwiftFacturesEditor({
         }}
       />
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] border-collapse text-sm">
+        <table className="w-full min-w-[980px] border-collapse text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <th className="px-1.5 py-1.5"><span className="inline-flex items-center gap-1.5"><Hash className="size-3.5" aria-hidden="true" />N° facture</span></th>
+              <th className="px-1.5 py-1.5"><span className="inline-flex items-center gap-1.5"><Building2 className="size-3.5" aria-hidden="true" />Fournisseur</span></th>
               <th className="px-1.5 py-1.5"><span className="inline-flex items-center gap-1.5"><Coins className="size-3.5" aria-hidden="true" />Montant devise</span></th>
               <th className="px-1.5 py-1.5">Devise</th>
               <th className="px-1.5 py-1.5"><span className="inline-flex items-center gap-1.5"><Repeat className="size-3.5" aria-hidden="true" />Taux de change</span></th>
@@ -192,12 +193,13 @@ export function SwiftFacturesEditor({
           <tbody>
             {lignes.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-1.5 py-4 text-center text-[13px] text-muted-foreground">Aucune facture pour l'instant : ajoutez la première facture d'achat.</td>
+                <td colSpan={8} className="px-1.5 py-4 text-center text-[13px] text-muted-foreground">Aucune facture pour l'instant : ajoutez la première facture d'achat.</td>
               </tr>
             )}
             {lignes.map((l, i) => (
               <tr key={l.cle}>
                 <td className="px-1.5 py-1"><Input aria-label={`Numéro de la facture ${i + 1}`} value={l.numFacture} onChange={(e) => maj(l.cle, { numFacture: e.target.value })} placeholder="N° facture" /></td>
+                <td className="px-1.5 py-1"><Input aria-label={`Fournisseur de la facture ${i + 1}`} value={l.fournisseur ?? ""} onChange={(e) => maj(l.cle, { fournisseur: e.target.value })} placeholder="Fournisseur" maxLength={200} /></td>
                 <td className="px-1.5 py-1"><AmountInput aria-label={`Montant devise de la facture ${i + 1}`} className="text-right tabular-nums" value={l.montantDevise} onValueChange={(v) => maj(l.cle, { montantDevise: v })} allowNegative={false} /></td>
                 <td className="w-32 px-1.5 py-1"><ChoixDevise aria-label={`Devise de la facture ${i + 1}`} value={l.devise} onChange={(devise) => maj(l.cle, { devise })} /></td>
                 <td className="px-1.5 py-1"><AmountInput aria-label={`Taux de change de la facture ${i + 1}`} className="text-right tabular-nums" value={l.taux} decimals={4} onValueChange={(v) => maj(l.cle, { taux: v })} allowNegative={false} /></td>

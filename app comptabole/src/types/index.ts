@@ -1226,6 +1226,8 @@ export type SwiftStatut = "a_justifier" | "en_cours" | "justifie" | "ecart";
 export interface SwiftFacture {
   id?: string;
   numFacture: string;
+  /** Fournisseur qui a émis la facture d'achat (facultatif). */
+  fournisseur?: string;
   montantDevise: number;
   devise: string;
   taux: number;

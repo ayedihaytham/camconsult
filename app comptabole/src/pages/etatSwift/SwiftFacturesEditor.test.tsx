@@ -49,6 +49,19 @@ describe("SwiftFacturesEditor", () => {
     );
   });
 
+  it("la colonne Fournisseur suit le n° de facture et part avec la facture", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<SwiftFacturesEditor virement={virement} onSave={onSave} />);
+    const entetes = screen.getAllByRole("columnheader").map((th) => th.textContent?.trim());
+    expect(entetes.indexOf("Fournisseur")).toBe(entetes.indexOf("N° facture") + 1);
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter une facture/ }));
+    fireEvent.change(screen.getByLabelText("Numéro de la facture 1"), { target: { value: "FA-1" } });
+    fireEvent.change(screen.getByLabelText("Fournisseur de la facture 1"), { target: { value: "SOTACIB KAIROUAN" } });
+    fireEvent.change(screen.getByLabelText("Montant devise de la facture 1"), { target: { value: "1300" } });
+    fireEvent.click(screen.getByRole("button", { name: /Envoyer au cabinet/ }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith([expect.objectContaining({ numFacture: "FA-1", fournisseur: "SOTACIB KAIROUAN" })], expect.anything()));
+  });
+
   it("signale un dépassement de l'équivalent en devise", () => {
     render(<SwiftFacturesEditor virement={{ ...virement, equivalentDevise: 1000, devise: "EUR" }} onSave={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /Ajouter une facture/ }));

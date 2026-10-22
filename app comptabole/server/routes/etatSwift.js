@@ -41,6 +41,7 @@ export function statutSwift(equivalentDevise, justifieDevise, nbFactures) {
 const factureDto = (r) => ({
   id: r.id,
   numFacture: r.num_facture,
+  fournisseur: r.fournisseur || "",
   montantDevise: Number(r.montant_devise),
   devise: r.devise,
   taux: Number(r.taux),
@@ -87,7 +88,7 @@ async function charger(societeId, session) {
   const factures = virements.length
     ? (
         await query(
-          "select id, virement_id, num_facture, montant_devise, devise, taux, montant_tnd, piece_nom, cree_par from swift_factures where virement_id = any($1::uuid[]) order by ordre, cree_le",
+          "select id, virement_id, num_facture, fournisseur, montant_devise, devise, taux, montant_tnd, piece_nom, cree_par from swift_factures where virement_id = any($1::uuid[]) order by ordre, cree_le",
           [virements.map((v) => v.id)],
         )
       ).rows
@@ -205,6 +206,7 @@ etatSwiftRouter.delete("/:id", async (req, res) => {
 const factureSchema = z.object({
   id: z.string().uuid().optional(),
   numFacture: z.string().trim().min(1, "N° de facture requis").max(120),
+  fournisseur: z.string().trim().max(200).default(""),
   montantDevise: z.coerce.number().min(0),
   devise: z.string().trim().min(1, "Devise requise").max(8).transform((d) => d.toUpperCase()),
   taux: z.coerce.number().min(0),
@@ -233,14 +235,14 @@ etatSwiftRouter.put("/:id/factures", async (req, res) => {
       if (ancienne) {
         await client.query(
           `update swift_factures set num_facture=$2, montant_devise=$3, devise=$4, taux=$5, montant_tnd=$6, ordre=$7,
-             piece_nom=$8, piece_data_url = coalesce($9, piece_data_url) where id = $1`,
-          [ancienne.id, f.numFacture, r3(f.montantDevise), f.devise, f.taux, r3(f.montantTnd), ordre, pieceNom, f.pieceDataUrl ?? null],
+             piece_nom=$8, piece_data_url = coalesce($9, piece_data_url), fournisseur=$10 where id = $1`,
+          [ancienne.id, f.numFacture, r3(f.montantDevise), f.devise, f.taux, r3(f.montantTnd), ordre, pieceNom, f.pieceDataUrl ?? null, f.fournisseur],
         );
       } else {
         await client.query(
-          `insert into swift_factures (virement_id, num_facture, montant_devise, devise, taux, montant_tnd, ordre, piece_nom, piece_data_url, cree_par)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [existant.id, f.numFacture, r3(f.montantDevise), f.devise, f.taux, r3(f.montantTnd), ordre, pieceNom, f.pieceDataUrl ?? null, req.session.nom],
+          `insert into swift_factures (virement_id, num_facture, montant_devise, devise, taux, montant_tnd, ordre, piece_nom, piece_data_url, cree_par, fournisseur)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [existant.id, f.numFacture, r3(f.montantDevise), f.devise, f.taux, r3(f.montantTnd), ordre, pieceNom, f.pieceDataUrl ?? null, req.session.nom, f.fournisseur],
         );
       }
       ordre++;

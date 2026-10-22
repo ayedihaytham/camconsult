@@ -3,13 +3,17 @@
 # ---------- Étape 1 : dépendances de production seules (couche réutilisée tant que package-lock.json ne change pas) ----------
 FROM node:20-alpine AS deps
 WORKDIR /app
+# vendor/ : la bibliothèque Excel (SheetJS) est installée depuis cette copie locale (référence « file:vendor/… » du verrou).
 COPY package.json package-lock.json ./
+COPY vendor ./vendor
 RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --no-audit --no-fund
 
 # ---------- Étape 2 : build du front (dépendances de développement comprises) ----------
 FROM node:20-alpine AS build
 WORKDIR /app
+# vendor/ : la bibliothèque Excel (SheetJS) est installée depuis cette copie locale (référence « file:vendor/… » du verrou).
 COPY package.json package-lock.json ./
+COPY vendor ./vendor
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 # Seuls les fichiers du front : une modification du serveur ne relance pas la construction du front.
 COPY index.html vite.config.ts tsconfig.json tsconfig.build.json tailwind.config.js postcss.config.js components.json ./

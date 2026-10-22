@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, Boxes, Download, Plus } from "lucide-react";
+import { AlertTriangle, Boxes, Download, Layers, Plus } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -15,7 +15,11 @@ import { fmtQuantiteUnite, quantiteEn, recapStock, uniteCommune } from "@/lib/st
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
 import { cn } from "@/lib/utils";
 import { montantCote } from "@/lib/coursStock";
+import { api } from "@/lib/api";
+import { soldesFactures, type StatutFacture } from "@/lib/fournisseurs";
+import type { EtatFournisseurs } from "@/types";
 import { StockRecapTable } from "./StockRecapTable";
+import { ImportLotStockDialog } from "./ImportLotStockDialog";
 import "./stock-page.css";
 import { DocPreviewDialog } from "./DocPreviewDialog";
 
@@ -44,6 +48,7 @@ export function StockSocietePage() {
   // Mouvement qui vient d'être enregistré : mis en évidence et amené à l'écran.
   const [nouveauId, setNouveauId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [lotOpen, setLotOpen] = useState(false);
   const [editing, setEditing] = useState<StockMouvement | null>(null);
   const [toDelete, setToDelete] = useState<StockMouvement | null>(null);
   const [preview, setPreview] = useState<{ title: string; dataUrl: string | null } | null>(null);
@@ -52,6 +57,23 @@ export function StockSocietePage() {
     fetchList(societeId);
     return () => clear();
   }, [societeId, fetchList, clear]);
+
+  // Statut de règlement des achats (Suivi fournisseur) : lecture seule, sans message d'erreur si l'accès n'est pas permis.
+  const [reglements, setReglements] = useState<ReadonlyMap<string, StatutFacture>>(new Map());
+  useEffect(() => {
+    let actif = true;
+    api
+      .get<EtatFournisseurs>(`/fournisseurs?societeId=${societeId}`)
+      .then((etat) => {
+        if (!actif) return;
+        const soldes = soldesFactures(etat.factures, etat.reglements);
+        setReglements(new Map([...soldes].map(([id, s]) => [id, s.statut])));
+      })
+      .catch(() => {});
+    return () => {
+      actif = false;
+    };
+  }, [societeId, list]);
 
   // Un n° de facture utilisé deux fois fausse les suivis fournisseur et client : il est signalé partout.
   const doublons = useMemo(() => {
@@ -200,6 +222,10 @@ export function StockSocietePage() {
                 <Download className="h-4 w-4" />
                 Excel
               </Button>
+              <Button variant="outline" className="signature-ledger__action" onClick={() => setLotOpen(true)}>
+                <Layers className="h-4 w-4" />
+                Importer un lot
+              </Button>
               <Button variant="ledger" onClick={openNew}>
                 <Plus className="h-4 w-4" />
                 Nouveau mouvement
@@ -262,6 +288,7 @@ export function StockSocietePage() {
           <StockRecapTable
             doublons={doublons}
             base={base}
+            reglements={reglements}
             mouvements={shown}
             nouveauId={nouveauId}
             classing={classing}
@@ -322,6 +349,13 @@ export function StockSocietePage() {
         mouvement={editing}
         onSubmit={handleSubmit}
         onOpenApurement={m=>{const date=m.achatDate;const period=date?`&annee=${date.slice(0,4)}&trimestre=T${Math.ceil(Number(date.slice(5,7))/3)}`:"";navigate(`/apurement/${societeId}?vue=registre&registre=factures&stockId=${m.id}${period}`);}}
+      />
+
+      <ImportLotStockDialog
+        open={lotOpen}
+        onOpenChange={setLotOpen}
+        societeId={societeId}
+        onCrees={(faits) => setNouveauId(faits[faits.length - 1]?.id ?? null)}
       />
 
       <ConfirmDialog

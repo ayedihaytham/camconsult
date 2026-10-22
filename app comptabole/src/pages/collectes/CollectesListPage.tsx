@@ -1,4 +1,5 @@
 import { virementDepuisLigne } from "@/lib/collecte/grandLivre";
+import { virementDejaPresent } from "@/lib/swiftDoublons";
 import { useEtatSwift } from "@/store/etatSwift";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -250,8 +251,13 @@ export function CollectesListPage() {
         for (const [onglet, lignes] of Object.entries(prerempli ?? {})) {
           try {
             if (TAB_BY_KEY[onglet]?.module) {
-              // Virements SWIFT : créés dans le module (brouillons à vérifier par le cabinet avant envoi à la société).
-              for (const l of lignes) await useEtatSwift.getState().create(collecte.societeId, virementDepuisLigne(l));
+              // Virements SWIFT : créés dans le module (brouillons à vérifier par le cabinet avant envoi à la société), sauf ceux qui y sont déjà.
+              await useEtatSwift.getState().fetch(collecte.societeId);
+              for (const l of lignes) {
+                // Le module garde les virements déjà créés (et ceux qu'on vient d'ajouter) : on les relit à chaque écriture.
+                if (virementDejaPresent(l, useEtatSwift.getState().virements)) continue;
+                await useEtatSwift.getState().create(collecte.societeId, virementDepuisLigne(l));
+              }
               continue;
             }
             await saveLignes(collecte.id, onglet, lignesEnregistrables(onglet, [], lignes));

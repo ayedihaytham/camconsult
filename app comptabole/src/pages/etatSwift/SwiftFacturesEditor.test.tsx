@@ -63,4 +63,17 @@ describe("SwiftFacturesEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: /Envoyer au cabinet/ }));
     expect(onSave).not.toHaveBeenCalled();
   });
+
+  it("propose l'euro et le dollar pour la devise du virement et celle de chaque facture ; changer la devise du virement suit sur les factures", () => {
+    render(<SwiftFacturesEditor virement={virement} onSave={vi.fn().mockResolvedValue(undefined)} />);
+    const reference = screen.getByLabelText("Devise") as HTMLSelectElement;
+    expect(Array.from(reference.options).map((o) => o.value)).toEqual(["EUR", "USD"]);
+    expect(reference.value).toBe("EUR");
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter une facture/ }));
+    const facture = screen.getByLabelText("Devise de la facture 1") as HTMLSelectElement;
+    expect(Array.from(facture.options).map((o) => o.textContent)).toEqual(["EUR · Euro", "USD · Dollar"]);
+    expect(facture.value).toBe("EUR");
+    fireEvent.change(reference, { target: { value: "USD" } });
+    expect((screen.getByLabelText("Devise de la facture 1") as HTMLSelectElement).value).toBe("USD");
+  });
 });

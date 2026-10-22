@@ -11,6 +11,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteById } from "@/store/data";
 import { useEtatSwift } from "@/store/etatSwift";
 import { cn, formatDate } from "@/lib/utils";
+import { doublonsSupprimables, doublonsSwift } from "@/lib/swiftDoublons";
 import { SwiftFacturesEditor } from "./SwiftFacturesEditor";
 import { SwiftStatutBadge, SWIFT_BANDE, montantSwift } from "./SwiftStatut";
 import { SwiftVirementDialog } from "./SwiftVirementDialog";
@@ -51,6 +52,10 @@ export function EtatSwiftSociete({ societeId, integre = false, lectureSeule = fa
   const [voir, setVoir] = useState<SwiftVirement | null>(null);
   const [aSupprimer, setASupprimer] = useState<SwiftVirement | null>(null);
   const [ouvertId, setOuvertId] = useState<string | null>(null);
+  const [nettoyer, setNettoyer] = useState(false);
+  // Virements qui font double emploi (même date, montant et libellé, souvent un import fait deux fois) : le cabinet peut retirer ceux qui sont vides.
+  const nbDoublons = useMemo(() => doublonsSwift(virements).reduce((n, g) => n + g.doublons.length, 0), [virements]);
+  const supprimables = useMemo(() => doublonsSupprimables(virements), [virements]);
 
   useEffect(() => {
     void fetch(societeId).catch(() => undefined);
@@ -187,6 +192,20 @@ export function EtatSwiftSociete({ societeId, integre = false, lectureSeule = fa
     <div>
       {circuit}
       {bandeau}
+      {nbDoublons > 0 && !lectureSeule && (
+        <div role="alert" className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
+          <p className="min-w-0 flex-1">
+            <b>{nbDoublons} virement{nbDoublons > 1 ? "s" : ""} en double</b> (même date, même montant, même libellé) : probablement un import fait deux fois.
+            {supprimables.length === 0 && " Aucun ne peut être retiré automatiquement : ils sont déjà envoyés ou ont des factures."}
+          </p>
+          {supprimables.length > 0 && (
+            <Button variant="outline" size="sm" className="h-8 border-warning/50 text-warning hover:bg-warning/10" onClick={() => setNettoyer(true)}>
+              Supprimer {supprimables.length} doublon{supprimables.length > 1 ? "s" : ""} vide{supprimables.length > 1 ? "s" : ""}
+            </Button>
+          )}
+        </div>
+      )}
       <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
         {virements.length === 0 ? (
           <EmptyState
@@ -293,8 +312,8 @@ export function EtatSwiftSociete({ societeId, integre = false, lectureSeule = fa
                 virement={voir}
                 libelleBouton="Enregistrer les corrections"
                 onSave={async (factures, reference) => {
-                  const maj = await saveFactures(voir.id, factures, reference);
-                  setVoir(maj);
+                  await saveFactures(voir.id, factures, reference);
+                  setVoir(null); // enregistré : la fenêtre se ferme
                   toast.success("Factures enregistrées");
                 }}
               />
@@ -302,6 +321,19 @@ export function EtatSwiftSociete({ societeId, integre = false, lectureSeule = fa
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={nettoyer}
+        onOpenChange={setNettoyer}
+        title={`Supprimer ${supprimables.length} virement${supprimables.length > 1 ? "s" : ""} en double ?`}
+        description="Seuls les doublons non envoyés à la société et sans aucune facture sont supprimés : le virement le plus avancé de chaque groupe est conservé."
+        confirmLabel="Supprimer les doublons"
+        onConfirm={async () => {
+          const aRetirer = [...supprimables];
+          for (const v of aRetirer) await remove(v.id);
+          toast.success(`${aRetirer.length} doublon${aRetirer.length > 1 ? "s" : ""} supprimé${aRetirer.length > 1 ? "s" : ""}`);
+        }}
+      />
 
       <ConfirmDialog
         open={aSupprimer !== null}

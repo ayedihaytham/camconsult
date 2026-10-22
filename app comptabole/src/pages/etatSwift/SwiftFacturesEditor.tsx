@@ -22,6 +22,26 @@ interface Ligne extends SwiftFacture {
 let compteur = 0;
 const nouvelleCle = () => `l${++compteur}-${Date.now().toString(36)}`; // l'horodatage évite une collision avec les clés d'un brouillon repris après rechargement
 
+/** Devises proposées pour justifier un virement : l'euro et le dollar. Une autre devise déjà enregistrée reste affichée et modifiable. */
+const DEVISES = [["EUR", "EUR · Euro"], ["USD", "USD · Dollar"]] as const;
+
+function ChoixDevise({ value, onChange, ...props }: { value: string; onChange: (devise: string) => void } & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "value" | "onChange">) {
+  const courante = value.trim().toUpperCase();
+  const options = courante && !DEVISES.some(([code]) => code === courante) ? [...DEVISES, [courante, courante] as const] : DEVISES;
+  return (
+    <select
+      {...props}
+      value={courante || "EUR"}
+      onChange={(e) => onChange(e.target.value)}
+      className={cn("h-10 w-full rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50", props.className)}
+    >
+      {options.map(([code, nom]) => (
+        <option key={code} value={code}>{nom}</option>
+      ))}
+    </select>
+  );
+}
+
 const vide = (devise: string): Ligne => ({ cle: nouvelleCle(), numFacture: "", montantDevise: 0, devise, taux: 0, montantTnd: 0, tndManuel: false });
 
 /** Factures d'achat qui composent un virement SWIFT : une par ligne, jusqu'à atteindre le montant demandé. */
@@ -130,12 +150,10 @@ export function SwiftFacturesEditor({
         </div>
         <div className="w-28 space-y-1">
           <Label htmlFor={`swift-devise-${virement.id}`} className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Devise</Label>
-          <Input
+          <ChoixDevise
             id={`swift-devise-${virement.id}`}
             value={deviseRef}
-            maxLength={8}
-            onChange={(e) => {
-              const nouvelle = e.target.value.toUpperCase();
+            onChange={(nouvelle) => {
               // Les factures qui étaient dans l'ancienne devise suivent le changement.
               setLignes((ls) => ls.map((l) => (l.devise.trim().toUpperCase() === deviseRef.trim().toUpperCase() ? { ...l, devise: nouvelle } : l)));
               setDeviseRef(nouvelle);
@@ -181,7 +199,7 @@ export function SwiftFacturesEditor({
               <tr key={l.cle}>
                 <td className="px-1.5 py-1"><Input aria-label={`Numéro de la facture ${i + 1}`} value={l.numFacture} onChange={(e) => maj(l.cle, { numFacture: e.target.value })} placeholder="N° facture" /></td>
                 <td className="px-1.5 py-1"><AmountInput aria-label={`Montant devise de la facture ${i + 1}`} className="text-right tabular-nums" value={l.montantDevise} onValueChange={(v) => maj(l.cle, { montantDevise: v })} allowNegative={false} /></td>
-                <td className="w-24 px-1.5 py-1"><Input aria-label={`Devise de la facture ${i + 1}`} value={l.devise} maxLength={8} onChange={(e) => maj(l.cle, { devise: e.target.value.toUpperCase() })} /></td>
+                <td className="w-32 px-1.5 py-1"><ChoixDevise aria-label={`Devise de la facture ${i + 1}`} value={l.devise} onChange={(devise) => maj(l.cle, { devise })} /></td>
                 <td className="px-1.5 py-1"><AmountInput aria-label={`Taux de change de la facture ${i + 1}`} className="text-right tabular-nums" value={l.taux} decimals={4} onValueChange={(v) => maj(l.cle, { taux: v })} allowNegative={false} /></td>
                 <td className="px-1.5 py-1"><AmountInput aria-label={`Montant en dinar de la facture ${i + 1}`} className="text-right font-bold tabular-nums" value={l.montantTnd} onValueChange={(v) => maj(l.cle, { montantTnd: v, tndManuel: true })} allowNegative={false} /></td>
                 <td className="px-1.5 py-1">

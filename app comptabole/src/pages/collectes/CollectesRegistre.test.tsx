@@ -58,4 +58,28 @@ describe("registre des collectes du cabinet, par société", () => {
     rendre([collecte("1", "s1", "brouillon")]);
     expect(screen.queryByRole("button", { name: /Actions pour/ })).toBeNull();
   });
+
+  it("distingue deux collectes de même période, signale le retard et chiffre l'avancement", () => {
+    const echeanceDepassee = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+    rendre([
+      collecte("1", "s1", "brouillon", { periode: "2026", creeLe: "2026-10-01T08:00:00Z", majLe: "2026-10-05T08:00:00Z", tableauxValides: 1, tableauxTransmis: 0 }),
+      collecte("2", "s1", "brouillon", { periode: "2026", creeLe: "2026-10-02T08:00:00Z", majLe: "2026-10-06T08:00:00Z", echeance: echeanceDepassee }),
+    ]);
+    // Une seule société affichée : elle est ouverte d'office.
+    expect(screen.getByText("collecte 1")).toBeTruthy();
+    expect(screen.getByText("collecte 2")).toBeTruthy();
+    expect(screen.getByText("En retard")).toBeTruthy();
+    expect(screen.getByText("Retard de 3 j")).toBeTruthy();
+    expect(screen.getByText("Action requise")).toBeTruthy();
+    expect(screen.getByText("1/2")).toBeTruthy();
+    expect(screen.getByText("0/2")).toBeTruthy();
+  });
+
+  it("ne numérote pas une collecte dont la période est unique et ne signale pas de retard sur une collecte validée", () => {
+    const depassee = new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
+    rendre([collecte("1", "s1", "valide", { echeance: depassee })]);
+    expect(screen.queryByText(/^collecte \d$/)).toBeNull();
+    expect(screen.queryByText("En retard")).toBeNull();
+    expect(screen.queryByText(/Retard de/)).toBeNull();
+  });
 });

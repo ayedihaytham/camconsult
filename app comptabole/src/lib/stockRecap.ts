@@ -105,3 +105,18 @@ export function ecartsDeviseTotaux(mouvements: StockMouvement[]): { devise: stri
   }
   return [...parDevise.entries()].map(([devise, valeur]) => ({ devise, valeur }));
 }
+
+/** Mouvements classés par n° de facture de vente croissant (« N° mouvement »), les chiffres comparés comme des nombres : 2600084 avant 2600091.
+ * Ceux qui n'ont pas de n° de vente suivent, par date d'achat ; à égalité, l'ordre de saisie est gardé. */
+export function trierParNumero<T extends Pick<StockMouvement, "venteNumFacture" | "achatDate">>(mouvements: T[]): T[] {
+  return mouvements
+    .map((m, rang) => ({ m, rang }))
+    .sort((a, b) => {
+      const na = a.m.venteNumFacture.trim();
+      const nb = b.m.venteNumFacture.trim();
+      if (na && nb) return na.localeCompare(nb, "fr", { numeric: true }) || a.rang - b.rang;
+      if (na !== nb) return na ? -1 : 1;
+      return (a.m.achatDate ?? "9999").localeCompare(b.m.achatDate ?? "9999") || a.rang - b.rang;
+    })
+    .map(({ m }) => m);
+}

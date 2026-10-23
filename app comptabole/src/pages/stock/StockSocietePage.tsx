@@ -3,7 +3,6 @@ import { useParams,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { AlertTriangle, Boxes, Download, Layers, Plus } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { useSocieteById, useNoeuds, useData } from "@/store/data";
@@ -19,6 +18,10 @@ import { api } from "@/lib/api";
 import { soldesFactures, type StatutFacture } from "@/lib/fournisseurs";
 import type { EtatFournisseurs } from "@/types";
 import { StockRecapTable } from "./StockRecapTable";
+import { StockFiltres } from "./StockFiltres";
+import { StockMouvementPanel } from "./StockMouvementPanel";
+import { comptesSituation, CRITERES_VIDES, filtrerMouvements, valeursTiers, type CriteresStock } from "@/lib/stockFiltres";
+import { ecrirePrefsStock, lirePrefsStock, type PrefsTableauStock } from "@/lib/stockPrefs";
 import { ImportLotStockDialog } from "./ImportLotStockDialog";
 import { champsVidesCote, coteRenseigne, type CoteMouvement } from "@/lib/stockLot";
 import "./stock-page.css";
@@ -59,7 +62,14 @@ export function StockSocietePage() {
 
   // Monnaie des cours et des montants du tableau : dinars (cours de la facture) ou dollars (cours par rapport au dollar).
   const [base, setBase] = useState<"TND" | "USD">("TND");
-  const [onlyAnomalies, setOnlyAnomalies] = useState(false);
+  // Filtres (situation, client, fournisseur, recherche), préférences d'affichage du tableau et mouvement ouvert dans le panneau de droite.
+  const [criteres, setCriteres] = useState<CriteresStock>(CRITERES_VIDES);
+  const [prefs, setPrefs] = useState<PrefsTableauStock>(() => lirePrefsStock());
+  const [ouvertId, setOuvertId] = useState<string | null>(null);
+  const changerPrefs = (p: PrefsTableauStock) => {
+    setPrefs(p);
+    ecrirePrefsStock(p);
+  };
   const fetchCounts = useStock((s) => s.fetchCounts);
   // Mouvement qui vient d'être enregistré : mis en évidence et amené à l'écran.
   const [nouveauId, setNouveauId] = useState<string | null>(null);
@@ -109,10 +119,20 @@ export function StockSocietePage() {
     return { vente: new Set(d.vente.keys()), achat: new Set(d.achat.keys()) };
   }, [list]);
   const resumeDoubles = useMemo(() => resumeDoublons(list), [list]);
-  const estAnomalie = (m: StockMouvement) => m.ecart !== 0 || doublons.vente.has(m.id) || doublons.achat.has(m.id);
 
-  const shown = onlyAnomalies ? list.filter(estAnomalie) : list;
-  const nbAnomalies = list.filter(estAnomalie).length;
+  const shown = useMemo(() => filtrerMouvements(list, criteres), [list, criteres]);
+  // Les pastilles de situation comptent avec les autres filtres (client, fournisseur, recherche) appliqués.
+  const comptes = useMemo(() => comptesSituation(filtrerMouvements(list, { ...criteres, situation: "tous" })), [list, criteres]);
+  const clients = useMemo(() => valeursTiers(list, "client"), [list]);
+  const fournisseurs = useMemo(() => valeursTiers(list, "fournisseur"), [list]);
+  const ouvert = ouvertId ? list.find((m) => m.id === ouvertId) ?? null : null;
+  const rangOuvert = ouvert ? shown.findIndex((m) => m.id === ouvert.id) : -1;
+  /** Passe au mouvement précédent ou suivant de la liste affichée (en boucle). */
+  const naviguer = (delta: -1 | 1) => {
+    if (shown.length === 0) return;
+    const rang = rangOuvert < 0 ? (delta === 1 ? -1 : 0) : rangOuvert;
+    setOuvertId(shown[(rang + delta + shown.length) % shown.length].id);
+  };
 
   const recap = useMemo(() => recapStock(shown), [shown]);
 
@@ -135,8 +155,8 @@ export function StockSocietePage() {
       toast.success("Mouvement enregistré");
       setNouveauId(m.id);
     }
-    // Un filtre « anomalies seulement » masquerait un mouvement sans écart.
-    setOnlyAnomalies(false);
+    // Un filtre actif (situation, client…) pourrait masquer le mouvement qu'on vient d'enregistrer.
+    setCriteres(CRITERES_VIDES);
     setEditing(null);
     void fetchCounts();
   }
@@ -271,18 +291,19 @@ export function StockSocietePage() {
       </div>
 
       <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="stock-register">
-        <div className="flex items-center justify-between gap-3 px-5 py-4">
-          <label className="flex w-fit cursor-pointer items-center gap-3 text-sm font-medium text-foreground">
-            <Checkbox
-              checked={onlyAnomalies}
-              onCheckedChange={(v) => setOnlyAnomalies(v === true)}
-              className="size-5 rounded-md"
-            />
-            Anomalies seulement {nbAnomalies > 0 && `(${nbAnomalies})`}
-          </label>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <StockFiltres
+          criteres={criteres}
+          onCriteres={setCriteres}
+          clients={clients}
+          fournisseurs={fournisseurs}
+          comptes={comptes}
+          prefs={prefs}
+          onPrefs={changerPrefs}
+          affiches={shown.length}
+          total={list.length}
+          droite={
             <div role="group" aria-label="Monnaie des cours et des montants" className="inline-flex items-center gap-2 text-[0.8125rem] text-muted-foreground">
-              <span>Cours et montants en</span>
+              <span className="hidden 2xl:inline">Cours et montants en</span>
               <span className="inline-flex overflow-hidden rounded-md border border-border">
                 {([["TND", "Dinar"], ["USD", "Dollar"]] as const).map(([code, nom]) => (
                   <button
@@ -290,18 +311,15 @@ export function StockSocietePage() {
                     type="button"
                     aria-pressed={base === code}
                     onClick={() => setBase(code)}
-                    className={cn("px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", base === code ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted")}
+                    className={cn("px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", base === code ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/10")}
                   >
                     {nom}
                   </button>
                 ))}
               </span>
             </div>
-            <span className="text-[0.8125rem] tabular-nums text-muted-foreground">
-              {shown.length} mouvement{shown.length > 1 ? "s" : ""}
-            </span>
-          </div>
-        </div>
+          }
+        />
         {resumeDoubles.length > 0 && (
           <div role="alert" className="mx-5 mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             <p className="flex items-center gap-2 font-semibold">
@@ -324,6 +342,10 @@ export function StockSocietePage() {
             doublons={doublons}
             base={base}
             reglements={reglements}
+            colonnes={prefs.colonnes}
+            densite={prefs.densite}
+            onOuvrir={(m) => setOuvertId(m.id)}
+            selectionId={ouvert?.id ?? null}
             mouvements={shown}
             nouveauId={nouveauId}
             classing={classing}
@@ -385,6 +407,25 @@ export function StockSocietePage() {
         mouvement={editing}
         onSubmit={handleSubmit}
         onOpenApurement={m=>{const date=m.achatDate;const period=date?`&annee=${date.slice(0,4)}&trimestre=T${Math.ceil(Number(date.slice(5,7))/3)}`:"";navigate(`/apurement/${societeId}?vue=registre&registre=factures&stockId=${m.id}${period}`);}}
+      />
+
+      <StockMouvementPanel
+        mouvement={ouvert}
+        position={rangOuvert + 1}
+        total={shown.length}
+        onNaviguer={naviguer}
+        onFermer={() => setOuvertId(null)}
+        onEdit={(m) => {
+          setOuvertId(null);
+          setEditing(m);
+          setFormOpen(true);
+        }}
+        onDelete={setToDelete}
+        onRetirerCote={demanderRetrait}
+        onPreview={(title, dataUrl) => setPreview({ title, dataUrl })}
+        onClasser={handleClasser}
+        classing={classing}
+        reglement={ouvert ? reglements.get(ouvert.id) : undefined}
       />
 
       <ImportLotStockDialog

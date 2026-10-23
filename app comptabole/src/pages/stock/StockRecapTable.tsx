@@ -6,6 +6,8 @@ import { ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantiteUnite, recapSto
 import { montantCote } from "@/lib/coursStock";
 import type { StatutFacture } from "@/lib/fournisseurs";
 import { coteRenseigne, type CoteMouvement } from "@/lib/stockLot";
+import { LEGENDE_SITUATION, situationMouvement } from "@/lib/stockFiltres";
+import type { ColonneStock, DensiteStock } from "@/lib/stockPrefs";
 import type { StockLigne, StockMouvement } from "@/types";
 
 type Categorie = "achat" | "vente" | "douane";
@@ -28,6 +30,13 @@ interface Props {
   base?: "TND" | "USD";
   /** Statut de règlement de chaque facture d'achat (Suivi fournisseur), par id de mouvement ; absent = non affiché. */
   reglements?: ReadonlyMap<string, StatutFacture>;
+  /** Colonnes masquables affichées (cours, devise, montant TND, pièce, douane) ; absent : toutes sauf la douane. */
+  colonnes?: Record<ColonneStock, boolean>;
+  densite?: DensiteStock;
+  /** Ouvre le détail d'un mouvement dans le panneau de droite ; absent : le détail s'ouvre sous la ligne. */
+  onOuvrir?: (m: StockMouvement) => void;
+  /** Mouvement dont le panneau est ouvert : sa ligne est mise en évidence. */
+  selectionId?: string | null;
 }
 
 const STATUTS_REGLEMENT: Record<StatutFacture, { texte: string; classe: string }> = {
@@ -37,26 +46,45 @@ const STATUTS_REGLEMENT: Record<StatutFacture, { texte: string; classe: string }
 };
 
 /** Pastille du statut de règlement d'une facture d'achat, calculée dans Suivi fournisseur. */
-function StatutReglement({ statut }: { statut: StatutFacture | undefined }) {
+export function StatutReglement({ statut }: { statut: StatutFacture | undefined }) {
   if (!statut) return null;
   const s = STATUTS_REGLEMENT[statut];
   return <span className={cn("inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[0.68rem] font-semibold", s.classe)}>{s.texte}</span>;
 }
 
-const TITRES: Record<Categorie, string> = {
+export const TITRES: Record<Categorie, string> = {
   achat: "Facture d'achat",
   vente: "Document de vente",
   douane: "Document douanier",
 };
 
-/** Largeurs en pourcentage : le tableau occupe exactement la largeur de la page, sans défilement horizontal. */
-const LARGEURS = [2.5, 9, 8, 4.5, 6, 7, 8, 9.5, 5.5, 8.5, 4, 5, 8.5, 4, 10];
-const NB_COLONNES = LARGEURS.length;
+/** Colonnes du tableau, dans l'ordre : largeur relative (en %) et, pour les colonnes masquables, leur clé. Les largeurs des colonnes
+ * affichées sont ramenées à 100 % : le tableau occupe la largeur de la page, sans défilement horizontal. */
+const COLONNES_TABLEAU: { cle: string; largeur: number; masquable?: ColonneStock }[] = [
+  { cle: "n", largeur: 3.5 },
+  { cle: "mouvement", largeur: 13 },
+  { cle: "nmvt", largeur: 8.5 },
+  { cle: "cote", largeur: 5.5 },
+  { cle: "date", largeur: 7.5 },
+  { cle: "facture", largeur: 7.5 },
+  { cle: "tiers", largeur: 13.5 },
+  { cle: "qte", largeur: 7 },
+  { cle: "ecart", largeur: 7.5 },
+  { cle: "enDevise", largeur: 8, masquable: "devise" },
+  { cle: "devise", largeur: 5.5, masquable: "devise" },
+  { cle: "cours", largeur: 5.5, masquable: "cours" },
+  { cle: "tnd", largeur: 8.5, masquable: "tnd" },
+  { cle: "piece", largeur: 5, masquable: "piece" },
+  { cle: "douane", largeur: 10, masquable: "douane" },
+];
+const COLONNES_PAR_DEFAUT: Record<ColonneStock, boolean> = { cours: true, devise: true, tnd: true, piece: true, douane: false };
 
-const th = "px-2 py-2.5 text-left text-xs font-semibold leading-tight text-muted-foreground [overflow-wrap:anywhere]";
+const th = "whitespace-nowrap px-2 py-2.5 text-left text-xs font-semibold leading-tight text-muted-foreground";
 const thNum = `${th} text-right`;
 const td = "px-2 py-2.5 align-middle [overflow-wrap:anywhere]";
 const tdNum = `${td} whitespace-nowrap text-right tabular-nums`;
+/** Hauteur des cellules : serrée par défaut (deux lignes par mouvement tiennent mieux), aérée au choix. */
+const HAUTEUR = { compact: "[&>td]:py-1.5", aere: "[&>td]:py-2.5" } as const;
 const filet = "border-l-2 border-border";
 const etiquette = "text-xs font-medium text-muted-foreground";
 
@@ -65,7 +93,7 @@ const TEINTE = { vente: "bg-primary/[0.06]", achat: "bg-accent/10", douane: "bg-
 const jour = (d: string | null) => (d ? formatDate(d) : "—");
 const coursTexte = (c: number) => (c ? c.toLocaleString("fr-FR", { maximumFractionDigits: 5 }) : "—");
 
-function docUrl(m: StockMouvement, c: Categorie) {
+export function docUrl(m: StockMouvement, c: Categorie) {
   return c === "achat" ? m.achatDocDataUrl : c === "vente" ? m.venteDocDataUrl : m.douaneDocDataUrl;
 }
 
@@ -86,22 +114,21 @@ function Piece({ m, categorie, onPreview }: { m: StockMouvement; categorie: Cate
   );
 }
 
-/** Une ligne d'un côté (vente ou achat) d'un mouvement : côté, date, n° de facture, tiers, quantité, montant en devise, devise, cours, montant TND, pièce. */
-function CoteCellules({ m, cote, onPreview, doublon, base, statut }: { m: StockMouvement; cote: "vente" | "achat"; onPreview: Props["onPreview"]; doublon: boolean; base: "TND" | "USD"; statut?: StatutFacture }) {
+/** Début d'une ligne de vente ou d'achat : côté, date, n° de facture, tiers et quantité (les colonnes avant l'écart). */
+function CoteDebut({ m, cote, doublon, statut }: { m: StockMouvement; cote: "vente" | "achat"; doublon: boolean; statut?: StatutFacture }) {
   const v = cote === "vente";
   const lignes = v ? m.venteLignes : m.achatLignes;
   const numero = v ? m.venteNumFacture : m.achatNumFacture;
   const t = totauxCote(lignes);
   const vide = lignes.length === 0;
   const fond = TEINTE[cote];
-  const montant = montantCote(lignes, v ? m.venteCoursUsd : m.achatCoursUsd, base);
   return (
     <>
       <td className={cn(td, fond, v ? "shadow-[inset_4px_0_0_hsl(var(--primary))]" : "shadow-[inset_4px_0_0_hsl(var(--accent))]")}>
         <span className={cn("inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", v ? "bg-primary/15 text-primary" : "bg-accent/30 text-accent-foreground")}>{v ? "Vente" : "Achat"}</span>
       </td>
       <td className={cn(td, fond, "whitespace-nowrap tabular-nums")}>{jour(v ? m.venteDate : m.achatDate)}</td>
-      <td className={cn(td, fond, "whitespace-nowrap tabular-nums text-[0.78rem] text-foreground/80")} title={doublon ? `${numero} : ce numéro de facture est déjà utilisé par un autre mouvement` : numero}>
+      <td className={cn(td, fond, "whitespace-nowrap tabular-nums text-[0.78rem] text-foreground/80")} title={doublon ? `${numero} : ce numéro de facture est déjà utilisé par un autre mouvement` : undefined}>
         {doublon ? (
           <span className="inline-flex items-center gap-0.5 rounded bg-destructive/15 px-1 font-semibold text-destructive">
             <AlertTriangle className="size-3 shrink-0" aria-label="Numéro de facture en doublon" />
@@ -114,20 +141,49 @@ function CoteCellules({ m, cote, onPreview, doublon, base, statut }: { m: StockM
         {!v && !vide && statut && <span className="mt-0.5 block"><StatutReglement statut={statut} /></span>}
       </td>
       <td className={cn(tdNum, fond)}>{vide ? "—" : fmtQuantiteUnite(t.quantite, uniteCommune(lignes))}</td>
-      <td className={cn(tdNum, fond)}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>
-      <td className={cn(td, fond, "text-muted-foreground")}>{t.montantDevise ? (v ? m.venteDevise : m.achatDevise) : "—"}</td>
-      <td className={cn(tdNum, fond)}>{coursTexte(base === "USD" ? (v ? m.venteCoursUsd : m.achatCoursUsd) ?? 0 : v ? m.venteCours : m.achatCours)}</td>
-      <td className={cn(tdNum, fond, "font-semibold text-primary")}>{montant ? fmtMontant(montant) : "—"}</td>
-      <td className={cn(td, fond, "text-center")}><Piece m={m} categorie={cote} onPreview={onPreview} /></td>
     </>
+  );
+}
+
+/** Fin d'une ligne de vente ou d'achat : montant en devise, devise, cours, montant TND et pièce (selon les colonnes affichées). */
+function CoteFin({ m, cote, onPreview, base, colonnes }: { m: StockMouvement; cote: "vente" | "achat"; onPreview: Props["onPreview"]; base: "TND" | "USD"; colonnes: Record<ColonneStock, boolean> }) {
+  const v = cote === "vente";
+  const lignes = v ? m.venteLignes : m.achatLignes;
+  const t = totauxCote(lignes);
+  const fond = TEINTE[cote];
+  const montant = montantCote(lignes, v ? m.venteCoursUsd : m.achatCoursUsd, base);
+  return (
+    <>
+      {colonnes.devise && <td className={cn(tdNum, fond)}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>}
+      {colonnes.devise && <td className={cn(td, fond, "text-muted-foreground")}>{t.montantDevise ? (v ? m.venteDevise : m.achatDevise) : "—"}</td>}
+      {colonnes.cours && <td className={cn(tdNum, fond)}>{coursTexte(base === "USD" ? (v ? m.venteCoursUsd : m.achatCoursUsd) ?? 0 : v ? m.venteCours : m.achatCours)}</td>}
+      {colonnes.tnd && <td className={cn(tdNum, fond, "font-semibold text-primary")}>{montant ? fmtMontant(montant) : "—"}</td>}
+      {colonnes.piece && <td className={cn(td, fond, "text-center")}><Piece m={m} categorie={cote} onPreview={onPreview} /></td>}
+    </>
+  );
+}
+
+/** Écart d'un mouvement : valeur en pastille, avec sa situation en clair dessous (« soldé », « sans achat », « sans vente »). */
+function CelluleEcart({ m }: { m: StockMouvement }) {
+  const legende = LEGENDE_SITUATION[situationMouvement(m)];
+  return (
+    <td rowSpan={2} className={tdNum}>
+      <span className={cn("inline-grid min-w-7 place-items-center rounded-full px-2 py-0.5 text-xs font-semibold", m.ecart !== 0 ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>
+        {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
+      </span>
+      {legende && <span className="mt-0.5 block text-[0.65rem] font-normal leading-none text-muted-foreground">{legende}</span>}
+    </td>
   );
 }
 
 /** Récapitulatif des opérations de stock : chaque mouvement occupe deux lignes aux colonnes alignées, une pour la vente et une pour
  * l'achat, avec la douane à droite ; le détail (produits, déclaration, pièces, actions) s'ouvre sous le mouvement. Le tableau
  * occupe la largeur de la page, sans défilement horizontal ; sur petit écran, chaque mouvement devient une carte. */
-export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onRetirerCote, onPreview, onClasser, doublons, base = "TND", reglements }: Props) {
+export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onRetirerCote, onPreview, onClasser, doublons, base = "TND", reglements, colonnes = COLONNES_PAR_DEFAUT, densite = "compact", onOuvrir, selectionId = null }: Props) {
   const [ouverts, setOuverts] = useState<Set<string>>(new Set());
+  const colonnesAffichees = COLONNES_TABLEAU.filter((c) => !c.masquable || colonnes[c.masquable]);
+  const sommeLargeurs = colonnesAffichees.reduce((t, c) => t + c.largeur, 0);
+  const nbColonnes = colonnesAffichees.length;
   const total = recapStock(mouvements);
   const ecarts = ecartsDeviseTotaux(mouvements);
   const marge = mouvements.reduce((s, m) => s + montantCote(m.venteLignes, m.venteCoursUsd, base) - montantCote(m.achatLignes, m.achatCoursUsd, base), 0);
@@ -145,77 +201,81 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
       <div className="hidden xl:block">
         <table className="w-full table-fixed border-collapse text-[0.8125rem]">
           <colgroup>
-            {LARGEURS.map((l, i) => <col key={i} style={{ width: `${l}%` }} />)}
+            {colonnesAffichees.map((c) => <col key={c.cle} style={{ width: `${(c.largeur / sommeLargeurs) * 100}%` }} />)}
           </colgroup>
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <th scope="col" className={th}>N°</th>
               <th scope="col" className={th}>Mouvement</th>
               <th scope="col" className={th}>N° mouvement</th>
-              <th scope="col" className={thNum}>Écart</th>
               <th scope="col" className={th}>Côté</th>
               <th scope="col" className={th}>Date</th>
               <th scope="col" className={th}>N° facture</th>
               <th scope="col" className={th}>Client / Fournisseur</th>
               <th scope="col" className={thNum}>Qté</th>
-              <th scope="col" className={thNum}>En devise</th>
-              <th scope="col" className={th}>Devise</th>
-              <th scope="col" className={thNum}>{base === "USD" ? "Cours USD" : "Cours"}</th>
-              <th scope="col" className={thNum}>{base === "USD" ? "MT USD" : "MT TND"}</th>
-              <th scope="col" className={cn(th, "text-center")}>Pièce</th>
-              <th scope="col" className={cn(th, TEINTE.douane, filet)}>Douane</th>
+              <th scope="col" className={thNum}>Écart</th>
+              {colonnes.devise && <th scope="col" className={thNum}>En devise</th>}
+              {colonnes.devise && <th scope="col" className={th}>Devise</th>}
+              {colonnes.cours && <th scope="col" className={thNum}>{base === "USD" ? "Cours USD" : "Cours"}</th>}
+              {colonnes.tnd && <th scope="col" className={thNum}>{base === "USD" ? "MT USD" : "MT TND"}</th>}
+              {colonnes.piece && <th scope="col" className={cn(th, "text-center")}>Pièce</th>}
+              {colonnes.douane && <th scope="col" className={cn(th, TEINTE.douane, filet)}>Douane</th>}
             </tr>
           </thead>
           <tbody>
             {mouvements.map((m, index) => {
-              const ouvert = ouverts.has(m.id);
+              const ouvert = !onOuvrir && ouverts.has(m.id);
               const surbrillance = nouveauId === m.id;
+              const choisi = selectionId === m.id;
+              const activer = () => (onOuvrir ? onOuvrir(m) : basculer(m.id));
+              const ligneClasse = cn("cursor-pointer", HAUTEUR[densite], choisi && "[&>td]:bg-accent/15", surbrillance && "outline outline-2 -outline-offset-2 outline-accent");
               return (
                 <Fragment key={m.id}>
                   <tr
                     id={`mouvement-${m.id}`}
                     data-mouvement={m.id}
                     data-nouveau={surbrillance || undefined}
-                    onClick={() => basculer(m.id)}
-                    className={cn("cursor-pointer border-t-2 border-border", surbrillance && "outline outline-2 -outline-offset-2 outline-accent")}
+                    data-selectionne={choisi || undefined}
+                    onClick={activer}
+                    className={cn(ligneClasse, "border-t-2 border-border")}
                   >
                     <td rowSpan={2} className={cn(td, "text-muted-foreground tabular-nums")}>{index + 1}</td>
                     <td rowSpan={2} className={td}>
                       <div className="flex items-start gap-1">
                         <button
                           type="button"
-                          aria-expanded={ouvert}
-                          aria-label={ouvert ? "Masquer le détail" : "Afficher le détail"}
-                          onClick={(e) => { e.stopPropagation(); basculer(m.id); }}
+                          aria-expanded={onOuvrir ? choisi : ouvert}
+                          aria-label={onOuvrir ? "Ouvrir le détail" : ouvert ? "Masquer le détail" : "Afficher le détail"}
+                          onClick={(e) => { e.stopPropagation(); activer(); }}
                           className="mt-px grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
                         >
-                          <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", ouvert && "rotate-90")} />
+                          <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", (onOuvrir ? choisi : ouvert) && "rotate-90")} />
                         </button>
                         <p className="min-w-0 font-medium text-primary">{m.natureMarchandise || "Mouvement sans nature"}</p>
                       </div>
                     </td>
                     <td rowSpan={2} className={cn(td, "whitespace-nowrap tabular-nums font-medium text-primary")} title="Numéro de la facture de vente">{m.venteNumFacture || "—"}</td>
-                    <td rowSpan={2} className={tdNum}>
-                      <span className={cn("inline-grid min-w-7 place-items-center rounded-full px-2 py-0.5 text-xs font-semibold", m.ecart !== 0 ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>
-                        {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
-                      </span>
-                    </td>
-                    <CoteCellules m={m} cote="vente" onPreview={onPreview} doublon={Boolean(doublons?.vente.has(m.id))} base={base} />
-                    <td rowSpan={2} className={cn(td, TEINTE.douane, filet, "text-xs leading-snug")}>
-                      {m.douaneNumDeclaration ? <p className="text-[0.8125rem] font-semibold tabular-nums text-primary">{m.douaneNumDeclaration}</p> : <p className="text-muted-foreground">—</p>}
-                      {(m.douaneDate || m.douaneTypeDeclaration) && <p className="text-muted-foreground">{m.douaneDate ? formatDate(m.douaneDate) : ""}{m.douaneTypeDeclaration ? ` · type ${m.douaneTypeDeclaration}` : ""}</p>}
-                      {m.douaneTauxChange ? <p className="text-muted-foreground">Taux {m.douaneTauxChange.toLocaleString("fr-FR", { maximumFractionDigits: 5 })}</p> : null}
-                      {m.douaneValeurTnd ? <p className="text-muted-foreground">Valeur {fmtMontant(m.douaneValeurTnd)}</p> : null}
-                      {m.douanePtfn ? <p className="text-muted-foreground">PTFN {fmtMontant(m.douanePtfn)}</p> : null}
-                      <div className="mt-1"><Piece m={m} categorie="douane" onPreview={onPreview} /></div>
-                    </td>
+                    <CoteDebut m={m} cote="vente" doublon={Boolean(doublons?.vente.has(m.id))} />
+                    <CelluleEcart m={m} />
+                    <CoteFin m={m} cote="vente" onPreview={onPreview} base={base} colonnes={colonnes} />
+                    {colonnes.douane && (
+                      <td rowSpan={2} className={cn(td, TEINTE.douane, filet, "text-xs leading-snug")}>
+                        {m.douaneNumDeclaration ? <p className="text-[0.8125rem] font-semibold tabular-nums text-primary">{m.douaneNumDeclaration}</p> : <p className="text-muted-foreground">—</p>}
+                        {(m.douaneDate || m.douaneTypeDeclaration) && <p className="text-muted-foreground">{m.douaneDate ? formatDate(m.douaneDate) : ""}{m.douaneTypeDeclaration ? ` · type ${m.douaneTypeDeclaration}` : ""}</p>}
+                        {m.douaneTauxChange ? <p className="text-muted-foreground">Taux {m.douaneTauxChange.toLocaleString("fr-FR", { maximumFractionDigits: 5 })}</p> : null}
+                        {m.douaneValeurTnd ? <p className="text-muted-foreground">Valeur {fmtMontant(m.douaneValeurTnd)}</p> : null}
+                        {m.douanePtfn ? <p className="text-muted-foreground">PTFN {fmtMontant(m.douanePtfn)}</p> : null}
+                        <div className="mt-1"><Piece m={m} categorie="douane" onPreview={onPreview} /></div>
+                      </td>
+                    )}
                   </tr>
-                  <tr data-mouvement={m.id} onClick={() => basculer(m.id)} className={cn("cursor-pointer", surbrillance && "outline outline-2 -outline-offset-2 outline-accent")}>
-                    <CoteCellules m={m} cote="achat" onPreview={onPreview} doublon={Boolean(doublons?.achat.has(m.id))} base={base} statut={reglements?.get(m.id)} />
+                  <tr data-mouvement={m.id} onClick={activer} className={ligneClasse}>
+                    <CoteDebut m={m} cote="achat" doublon={Boolean(doublons?.achat.has(m.id))} statut={reglements?.get(m.id)} />
+                    <CoteFin m={m} cote="achat" onPreview={onPreview} base={base} colonnes={colonnes} />
                   </tr>
                   {ouvert && (
                     <tr className="border-t border-border bg-secondary/30">
-                      <td colSpan={NB_COLONNES} className="p-0">
+                      <td colSpan={nbColonnes} className="p-0">
                         <div className="px-5 py-4 pl-10">
                           <DetailMouvement m={m} classing={classing} onPreview={onPreview} onClasser={onClasser} onEdit={onEdit} onDelete={onDelete} onRetirerCote={onRetirerCote} />
                         </div>
@@ -226,23 +286,19 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
               );
             })}
           </tbody>
-          <tfoot>
-            <tr className="border-t-2 border-primary bg-muted/40 font-semibold text-primary">
-              <td className={td} colSpan={3}>
-                <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
-              </td>
-              <td className={cn(tdNum, total.ecart !== 0 && "text-destructive")}>{fmtQuantiteUnite(total.ecart, total.unite)}</td>
-              <td className={cn(td, "text-right font-semibold")} colSpan={5}>
-                Vente : {fmtQuantiteUnite(total.vente.quantite, total.unite)} · Achat : {fmtQuantiteUnite(total.achat.quantite, total.unite)}
-                {ecarts.length > 0 && <> · Vente − achat : {ecarts.map((e) => (
-                  <span key={e.devise} className={cn("mr-1 tabular-nums", e.valeur !== 0 && "text-destructive")}>{fmtMontant(e.valeur)} {e.devise}</span>
-                ))}</>}
-              </td>
-              <td className={cn(tdNum, marge >= 0 ? "text-success" : "text-destructive")} colSpan={4}>Marge {base} {marge >= 0 ? "+" : ""}{fmtMontant(marge)}</td>
-              <td className={td} colSpan={2} />
-            </tr>
-          </tfoot>
         </table>
+        <div data-pied-stock className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t-2 border-primary bg-muted/40 px-4 py-2.5 text-[0.8125rem] font-semibold text-primary">
+          <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
+          <span className={cn("tabular-nums", total.ecart !== 0 && "text-destructive")}>Écart : {fmtQuantiteUnite(total.ecart, total.unite)}</span>
+          <span>
+            Vente : {fmtQuantiteUnite(total.vente.quantite, total.unite)} · Achat : {fmtQuantiteUnite(total.achat.quantite, total.unite)}
+            {total.horsUnite > 0 && <span className="font-normal text-muted-foreground" title="Lignes sans unité (pièces, sacs…) : leurs quantités ne sont pas additionnées aux tonnes"> · {total.horsUnite} ligne{total.horsUnite > 1 ? "s" : ""} sans unité non comptée{total.horsUnite > 1 ? "s" : ""}</span>}
+            {ecarts.length > 0 && <> · Vente − achat : {ecarts.map((e) => (
+              <span key={e.devise} className={cn("mr-1 tabular-nums", e.valeur !== 0 && "text-destructive")}>{fmtMontant(e.valeur)} {e.devise}</span>
+            ))}</>}
+          </span>
+          <span className={cn("tabular-nums", marge >= 0 ? "text-success" : "text-destructive")}>Marge {base} {marge >= 0 ? "+" : ""}{fmtMontant(marge)}</span>
+        </div>
       </div>
 
       <ul className="divide-y divide-border xl:hidden" aria-label="Mouvements de stock">
@@ -279,7 +335,7 @@ function Fait({ label, children, large = false }: { label: string; children: Rea
   );
 }
 
-function LignesProduits({ lignes, devise }: { lignes: StockLigne[]; devise: string }) {
+export function LignesProduits({ lignes, devise }: { lignes: StockLigne[]; devise: string }) {
   const total = totauxCote(lignes);
   const unite = uniteCommune(lignes);
   if (lignes.length === 0) return <p className="text-sm text-muted-foreground">Aucun produit.</p>;
@@ -324,7 +380,7 @@ function LignesProduits({ lignes, devise }: { lignes: StockLigne[]; devise: stri
 }
 
 /** Pièce jointe d'une carte de détail : l'aperçu, et le classement dans Structuration. */
-function PieceCarte({ m, categorie, classing, onPreview, onClasser }: { m: StockMouvement; categorie: Categorie; classing: string | null; onPreview: Props["onPreview"]; onClasser: Props["onClasser"] }) {
+export function PieceCarte({ m, categorie, classing, onPreview, onClasser }: { m: StockMouvement; categorie: Categorie; classing: string | null; onPreview: Props["onPreview"]; onClasser: Props["onClasser"] }) {
   const url = docUrl(m, categorie);
   if (!url) return <span className="text-xs text-muted-foreground">Aucune pièce jointe</span>;
   return (

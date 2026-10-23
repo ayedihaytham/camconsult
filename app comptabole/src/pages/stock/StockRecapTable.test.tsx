@@ -89,9 +89,11 @@ const sac = base({
   ecartParDesignation: [{ designation: "CEM I 52.5 N", achatQuantite: 370, venteQuantite: 370000, ecart: -369630 }],
 });
 
+const TOUTES = { cours: true, devise: true, tnd: true, piece: true, douane: true };
+
 function afficher(overrides: Partial<React.ComponentProps<typeof StockRecapTable>> = {}) {
   const handlers = { onEdit: vi.fn(), onDelete: vi.fn(), onPreview: vi.fn(), onClasser: vi.fn() };
-  render(<StockRecapTable mouvements={[ciment, sac]} nouveauId={null} classing={null} {...handlers} {...overrides} />);
+  render(<StockRecapTable mouvements={[ciment, sac]} nouveauId={null} classing={null} colonnes={TOUTES} {...handlers} {...overrides} />);
   return handlers;
 }
 
@@ -198,9 +200,8 @@ describe("tableau récapitulatif du stock", () => {
 
   it("met l'écart en évidence, totalise dans le pied du tableau et donne la marge en dinars", () => {
     afficher();
-    expect(tableau().getByText("Total (2)")).toBeTruthy();
-    const pied = within(document.querySelector("tfoot") as HTMLElement);
-    expect(document.querySelectorAll("tfoot tr")).toHaveLength(1);
+    expect(screen.getByText("Total (2)")).toBeTruthy();
+    const pied = within(document.querySelector("[data-pied-stock]") as HTMLElement);
     expect(pied.getByText(/Vente : 371 000/)).toBeTruthy();
     expect(pied.getByText(/Achat : 1 370/)).toBeTruthy();
     expect(pied.getByText(/Vente − achat :/)).toBeTruthy();
@@ -300,14 +301,19 @@ describe("quantités en unités différentes", () => {
 describe("N° de mouvement et monnaie des montants", () => {
   afterEach(cleanup);
 
-  it("ajoute, avant l'écart, la colonne « N° mouvement » : le n° de la facture de vente", () => {
+  it("place « N° mouvement » avant le côté, et l'écart juste après la quantité : le n° de mouvement est celui de la facture de vente", () => {
     afficher();
     const titres = Array.from(document.querySelectorAll("thead th")).map((t) => t.textContent);
-    expect(titres.indexOf("N° mouvement")).toBe(titres.indexOf("Écart") - 1);
+    expect(titres.indexOf("N° mouvement")).toBe(titres.indexOf("Côté") - 1);
+    expect(titres.indexOf("Écart")).toBe(titres.indexOf("Qté") + 1);
     expect(titres).toHaveLength(15);
     const cellule = lignesDe("m1")[0].querySelector('td[title="Numéro de la facture de vente"]');
     expect(cellule?.textContent).toBe("202300001");
     expect(cellule?.getAttribute("rowspan")).toBe("2");
+    // L'écart couvre les deux lignes du mouvement, entre la quantité et le montant en devise.
+    const premiere = Array.from(lignesDe("m1")[0].querySelectorAll("td"));
+    const iQte = premiere.findIndex((td) => td.textContent?.includes("1 000"));
+    expect(premiere[iQte + 1].getAttribute("rowspan")).toBe("2");
   });
 
   it("sans facture de vente, le n° de mouvement est un tiret", () => {
@@ -334,14 +340,14 @@ describe("N° de mouvement et monnaie des montants", () => {
     expect(within(vente).getByText("1 320,000")).toBeTruthy();
     expect(within(achat).getByText("1,08")).toBeTruthy();
     expect(within(achat).getByText("1 080,000")).toBeTruthy();
-    expect(document.querySelector("tfoot")?.textContent).toContain("Marge USD +240,000");
+    expect(document.querySelector("[data-pied-stock]")?.textContent).toContain("Marge USD +240,000");
   });
 
   it("en dinars (par défaut) : cours et montants en TND, marge en TND", () => {
     const m = base({ id: "m5", achatLignes: [ligne("A", 1, 100, 330)], achatCours: 3.3, venteLignes: [ligne("V", 1, 120, 396)], venteCours: 3.3 });
     afficher({ mouvements: [m] });
     expect(Array.from(document.querySelectorAll("thead th")).map((t) => t.textContent)).toContain("MT TND");
-    expect(document.querySelector("tfoot")?.textContent).toContain("Marge TND +66,000");
+    expect(document.querySelector("[data-pied-stock]")?.textContent).toContain("Marge TND +66,000");
   });
 
   it("propose de supprimer chaque type de facture séparément, sans proposer ce qui est vide", () => {
@@ -363,5 +369,62 @@ describe("N° de mouvement et monnaie des montants", () => {
     afficher();
     for (const bouton of screen.getAllByRole("button", { name: "Afficher le détail" })) fireEvent.click(bouton);
     expect(screen.queryByRole("button", { name: "Supprimer la facture d'achat" })).toBeNull();
+  });
+});
+
+describe("colonnes masquables, densité et panneau de détail", () => {
+  afterEach(cleanup);
+
+  const COLONNES = { cours: true, devise: true, tnd: true, piece: true, douane: false };
+  const entetes = () => Array.from(document.querySelectorAll("thead th")).map((t) => t.textContent);
+
+  it("masque la douane par défaut et la remet à la demande, sans perdre ses données", () => {
+    render(<StockRecapTable mouvements={[ciment]} nouveauId={null} classing={null} onEdit={vi.fn()} onDelete={vi.fn()} onPreview={vi.fn()} onClasser={vi.fn()} />);
+    expect(entetes()).not.toContain("Douane");
+    expect(screen.queryByText("447898")).toBeNull();
+    cleanup();
+    render(<StockRecapTable mouvements={[ciment]} nouveauId={null} classing={null} colonnes={{ ...COLONNES, douane: true }} onEdit={vi.fn()} onDelete={vi.fn()} onPreview={vi.fn()} onClasser={vi.fn()} />);
+    expect(entetes()).toContain("Douane");
+    expect(screen.getByText("447898")).toBeTruthy();
+  });
+
+  it("masque Cours, la devise, le montant TND ou la pièce, un à un", () => {
+    render(<StockRecapTable mouvements={[ciment]} nouveauId={null} classing={null} colonnes={{ cours: false, devise: false, tnd: false, piece: false, douane: false }} onEdit={vi.fn()} onDelete={vi.fn()} onPreview={vi.fn()} onClasser={vi.fn()} />);
+    for (const colonne of ["En devise", "Devise", "Cours", "MT TND", "Pièce", "Douane"]) expect(entetes()).not.toContain(colonne);
+    for (const colonne of ["N°", "Mouvement", "N° mouvement", "Côté", "Date", "N° facture", "Client / Fournisseur", "Qté", "Écart"]) expect(entetes()).toContain(colonne);
+    // Les colonnes restantes se partagent toute la largeur.
+    const largeurs = Array.from(document.querySelectorAll("colgroup col")).map((c) => parseFloat((c as HTMLElement).style.width));
+    expect(largeurs).toHaveLength(9);
+    expect(largeurs.reduce((t, l) => t + l, 0)).toBeCloseTo(100, 3);
+  });
+
+  it("avec un panneau de détail : un clic sur une ligne l'ouvre au lieu de déplier sous la ligne, et la ligne ouverte est repérée", () => {
+    const onOuvrir = vi.fn();
+    render(<StockRecapTable mouvements={[ciment, sac]} nouveauId={null} classing={null} colonnes={COLONNES} onOuvrir={onOuvrir} selectionId="m2" onEdit={vi.fn()} onDelete={vi.fn()} onPreview={vi.fn()} onClasser={vi.fn()} />);
+    fireEvent.click(lignesDe("m1")[1]);
+    expect(onOuvrir).toHaveBeenCalledWith(ciment);
+    expect(screen.queryByText("Écart achat − vente", { exact: false, selector: "span" })).toBeNull();
+    expect(lignesDe("m2")[0].getAttribute("data-selectionne")).toBe("true");
+    expect(lignesDe("m1")[0].getAttribute("data-selectionne")).toBeNull();
+  });
+
+  it("dit la situation sous l'écart : soldé, sans achat, sans vente", () => {
+    const venteSeule = base({ id: "v", venteNumFacture: "2600083", client: "EVERTIS", venteLignes: [{ ...ligne("PET", 41.973, 41973), unite: "T" }], ecart: -41.973, ecartUnite: "T" });
+    const achatSeul = base({ id: "a", achatNumFacture: "260090", fournisseur: "GREEN", achatLignes: [{ ...ligne("PET", 104.035, 76985.9), unite: "T" }], ecart: 104.035, ecartUnite: "T" });
+    const solde = base({ id: "s", achatLignes: [{ ...ligne("PET", 10, 100), unite: "T" }], venteLignes: [{ ...ligne("PET", 10, 120), unite: "T" }], ecart: 0, ecartUnite: "T" });
+    render(<StockRecapTable mouvements={[venteSeule, achatSeul, solde]} nouveauId={null} classing={null} colonnes={COLONNES} onEdit={vi.fn()} onDelete={vi.fn()} onPreview={vi.fn()} onClasser={vi.fn()} />);
+    expect(within(lignesDe("v")[0]).getByText("sans achat")).toBeTruthy();
+    expect(within(lignesDe("a")[0]).getByText("sans vente")).toBeTruthy();
+    expect(within(lignesDe("s")[0]).getByText("soldé")).toBeTruthy();
+  });
+
+  it("n'additionne pas les pièces aux tonnes dans le pied et le dit", () => {
+    const pieces = base({ id: "p", venteNumFacture: "88/2026", client: "EURL", venteLignes: [ligne("PIECES", 7918.328, 77579.94)], ecart: -7918.328, ecartUnite: "" });
+    const tonnes = base({ id: "t", achatLignes: [{ ...ligne("PET", 10, 100), unite: "T" }], venteLignes: [{ ...ligne("PET", 10, 120), unite: "T" }], ecart: 0, ecartUnite: "T" });
+    render(<StockRecapTable mouvements={[tonnes, pieces]} nouveauId={null} classing={null} colonnes={COLONNES} onEdit={vi.fn()} onDelete={vi.fn()} onPreview={vi.fn()} onClasser={vi.fn()} />);
+    const pied = document.querySelector("[data-pied-stock]")?.textContent ?? "";
+    expect(pied).toContain("Vente : 10 T");
+    expect(pied).not.toContain("7 918");
+    expect(pied).toContain("1 ligne sans unité non comptée");
   });
 });

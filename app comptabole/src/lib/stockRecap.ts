@@ -46,17 +46,30 @@ export interface RecapStock {
   ecart: number;
   /** Unité des quantités totalisées (tonnes si des kilos et des tonnes se mélangent). */
   unite: string;
+  /** Lignes sans unité (pièces, sacs…) laissées hors des totaux en tonnes ou en kilos, pour ne pas les additionner à des tonnes. */
+  horsUnite: number;
+}
+
+/** Lignes comptées dans une quantité totale : quand le total est en tonnes ou en kilos, seules les lignes en T ou en KG y entrent. */
+function lignesComptees(lignes: StockLigne[], unite: string): StockLigne[] {
+  return unite === "T" || unite === "KG" ? lignes.filter((l) => l.unite === "T" || l.unite === "KG") : lignes;
 }
 
 /** Récapitulatif de l'ensemble des mouvements affichés (pied du tableau et bandeau). */
 export function recapStock(mouvements: StockMouvement[]): RecapStock {
   const unite = uniteCommune(mouvements.flatMap((m) => [...m.achatLignes, ...m.venteLignes]));
-  const achat = mouvements.map((m) => totauxCote(m.achatLignes, unite));
-  const vente = mouvements.map((m) => totauxCote(m.venteLignes, unite));
+  const quantites = (lignes: StockLigne[]) => totauxCote(lignesComptees(lignes, unite), unite).quantite;
+  const avecQuantiteComptee = (lignes: StockLigne[]): RecapCote => ({ ...totauxCote(lignes, unite), quantite: quantites(lignes) });
+  const achat = mouvements.map((m) => avecQuantiteComptee(m.achatLignes));
+  const vente = mouvements.map((m) => avecQuantiteComptee(m.venteLignes));
   const somme = (cotes: RecapCote[], cle: keyof RecapCote) => r3(cotes.reduce((s, c) => s + c[cle], 0));
+  const horsUnite = mouvements.reduce((n, m) => n + m.achatLignes.length + m.venteLignes.length - lignesComptees(m.achatLignes, unite).length - lignesComptees(m.venteLignes, unite).length, 0);
+  // Un mouvement sans unité (pièces) n'a pas d'écart en tonnes : il n'entre pas dans l'écart total.
+  const ecartCompte = (m: StockMouvement) => !(unite === "T" || unite === "KG") || m.ecartUnite === "T" || m.ecartUnite === "KG";
   return {
     mouvements: mouvements.length,
     anomalies: mouvements.filter((m) => m.ecart !== 0).length,
+    horsUnite,
     achat: {
       quantite: somme(achat, "quantite"),
       montantDevise: somme(achat, "montantDevise"),
@@ -70,7 +83,7 @@ export function recapStock(mouvements: StockMouvement[]): RecapStock {
       produits: somme(vente, "produits"),
     },
     // L'écart de chaque mouvement est dans son unité : on le ramène à l'unité commune.
-    ecart: r3(mouvements.reduce((s, m) => s + (unite === "T" && m.ecartUnite === "KG" ? m.ecart / 1000 : m.ecart), 0)),
+    ecart: r3(mouvements.filter(ecartCompte).reduce((s, m) => s + (unite === "T" && m.ecartUnite === "KG" ? m.ecart / 1000 : m.ecart), 0)),
     unite,
   };
 }

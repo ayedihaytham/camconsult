@@ -33,6 +33,7 @@ const STATIC_ROUTES: Record<string, string> = {
   "/structuration": "Structuration",
   "/messagerie": "Messagerie",
   "/conversions": "Conversions",
+  "/simulation-paie": "Simulation de paie",
   "/journal": "Journal",
   "/parametres": "Paramètres",
 };

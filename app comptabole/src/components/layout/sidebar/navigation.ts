@@ -1,4 +1,5 @@
 import {
+  Banknote,
   BookText,
   Boxes,
   Building2,
@@ -162,6 +163,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Conversions",
         to: "/conversions",
         icon: FileOutput,
+        hideForSocieteEmploye: true,
+      },
+      {
+        label: "Simulation de paie",
+        to: "/simulation-paie",
+        icon: Banknote,
         hideForSocieteEmploye: true,
       },
     ],

@@ -57,6 +57,7 @@ describe("sidebar navigation policy", () => {
       "/structuration",
       "/messagerie",
       "/conversions",
+      "/simulation-paie",
       "/journal",
       "/parametres",
     ]);
@@ -88,6 +89,7 @@ describe("sidebar navigation policy", () => {
       "/structuration",
       "/messagerie",
       "/conversions",
+      "/simulation-paie",
     ]);
   });
 
@@ -114,6 +116,7 @@ describe("sidebar navigation policy", () => {
       "/etat-swift",
       "/structuration",
       "/conversions",
+      "/simulation-paie",
     ]);
   });
 

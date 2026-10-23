@@ -176,6 +176,9 @@ const MessageriePage = lazy(() =>
 const ParametresPage = lazy(() =>
   import("@/pages/ParametresPage").then((m) => ({ default: m.ParametresPage })),
 );
+const SimulationPaiePage = lazy(() =>
+  import("@/pages/SimulationPaiePage").then((m) => ({ default: m.SimulationPaiePage })),
+);
 const ConversionsPage = lazy(() =>
   import("@/pages/ConversionsPage").then((m) => ({ default: m.ConversionsPage })),
 );
@@ -494,6 +497,14 @@ export default function App() {
                 element={
                   <Suspense fallback={<PageFallback />}>
                     <ConversionsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/simulation-paie"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <SimulationPaiePage />
                   </Suspense>
                 }
               />

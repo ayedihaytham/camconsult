@@ -38,6 +38,7 @@ describe("getAppBreadcrumbs", () => {
     ["/structuration", "Structuration"],
     ["/messagerie", "Messagerie"],
     ["/conversions", "Conversions"],
+    ["/simulation-paie", "Simulation de paie"],
     ["/journal", "Journal"],
     ["/parametres", "Paramètres"],
   ])("résout %s vers %s", (pathname, label) => {

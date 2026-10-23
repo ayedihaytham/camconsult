@@ -402,8 +402,16 @@ function totalTonnes(lignes) {
  * Recoupe la quantité lue avec le poids net imprimé sur la facture. Un écart d'un facteur 1000 (séparateur décimal mal lu) est corrigé,
  * toutes les lignes passant en tonnes ; tout autre écart est signalé sans rien modifier.
  */
-export function validerAvecPoidsNet(lignes, poidsNet) {
+export function validerAvecPoidsNet(lignesLues, poidsNet) {
   const net = Number(poidsNet) || 0;
+  let lignes = lignesLues;
+  // Unité absente : si la quantité correspond au poids net imprimé, on en déduit l'unité (tonnes, ou kilos pour un millier).
+  if (net > 0 && lignes.length > 0 && lignes.some((l) => l.unite === "") && lignes.every((l) => l.unite === "" || l.unite === "T")) {
+    const brut = lignes.reduce((t, l) => t + l.quantite, 0);
+    const tol = Math.max(0.002, net * 0.005);
+    if (Math.abs(brut - net) <= tol) lignes = lignes.map((l) => ({ ...l, unite: "T" }));
+    else if (lignes.every((l) => l.unite === "") && Math.abs(brut / 1000 - net) <= tol) lignes = lignes.map((l) => ({ ...l, unite: "KG" }));
+  }
   const total = net > 0 && lignes.length > 0 ? totalTonnes(lignes) : null;
   if (total === null || total <= 0) return { lignes, avertissements: [] };
   const tolerance = Math.max(0.002, net * 0.005);

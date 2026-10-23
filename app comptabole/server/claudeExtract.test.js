@@ -287,6 +287,14 @@ describe("recoupement de la quantité avec le poids net imprimé", () => {
     expect(kilos.lignes[0]).toMatchObject({ quantite: 61.305, unite: "T" });
   });
 
+  it("déduit l'unité absente de la quantité quand elle correspond au poids net imprimé", () => {
+    // « Quantity(T) 44.277 » dont le modèle a oublié l'unité : le poids net imprimé (44.277 T) la révèle.
+    expect(validerAvecPoidsNet([ligne(44.277, "")], 44.277).lignes[0]).toMatchObject({ quantite: 44.277, unite: "T" });
+    expect(validerAvecPoidsNet([ligne(41973, "")], 41.973).lignes[0]).toMatchObject({ quantite: 41973, unite: "KG" });
+    // Des sacs ou des pièces restent sans unité.
+    expect(validerAvecPoidsNet([ligne(48, "")], 61.305).lignes[0].unite).toBe("");
+  });
+
   it("signale un autre écart sans rien modifier, et ne compare pas des sacs ou des pièces", () => {
     const r = validerAvecPoidsNet([ligne(50, "T")], 61.305);
     expect(r.lignes[0].quantite).toBe(50);

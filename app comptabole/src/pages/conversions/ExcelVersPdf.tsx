@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Download, FileText, LoaderCircle, RotateCcw, TriangleAlert, X } from "lucide-react";
+import { CheckCircle2, Download, FileSpreadsheet, FileText, LoaderCircle, RotateCcw, TriangleAlert, X } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { feuillesDeClasseur } from "@/lib/classeurFeuilles";
 import { download } from "@/lib/export";
+import { fichierConverti, FORMATS_SORTIE, type FormatSortie } from "@/lib/conversionSortie";
 import { lireTamponClasseur, messageImport } from "@/lib/fichierImport";
 import { texteDepuisFeuilles } from "@/lib/texteBrut";
 import { buildTablesPdf, type PdfSheet } from "@/lib/pdfTables";
 import { detecterTableaux } from "@/lib/tableaux";
 import { cn } from "@/lib/utils";
+import { TelechargerTout } from "./TelechargerTout";
 import { ZoneDepot } from "./ZoneDepot";
 import type { StatsConversion } from "./types";
 import { useIdentiteCabinet } from "./useIdentiteCabinet";
@@ -69,6 +71,7 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
   const [seulementTableaux, setSeulementTableaux] = useState(true);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfErreur, setPdfErreur] = useState(false);
+  const [formatGroupe, setFormatGroupe] = useState<FormatSortie>("pdf");
   const occupe = items.some((i) => i.status === "cours");
 
   const active = items.find((i) => i.id === activeId && i.status === "ok") ?? null;
@@ -191,9 +194,30 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
     download(new Blob([texteDepuisFeuilles(feuilles)], { type: "text/plain;charset=utf-8" }), `${item.baseName}.txt`);
   }
 
+  /** Le même contenu (les tableaux retenus) en Excel : un classeur, une feuille par tableau. */
+  async function telechargerExcel(item: ConvItem) {
+    const feuilles = retenues(item, seulementTableaux);
+    if (feuilles.length === 0) {
+      toast.error("Rien à convertir : cochez au moins un tableau");
+      return;
+    }
+    try {
+      const { blob, nom } = await fichierConverti("xlsx", feuilles, item.baseName);
+      download(blob, nom);
+    } catch {
+      toast.error("Le fichier Excel n'a pas pu être créé");
+    }
+  }
+
+  async function telechargerFormat(item: ConvItem, format: FormatSortie) {
+    if (format === "pdf") await telecharger([item]);
+    else if (format === "xlsx") await telechargerExcel(item);
+    else telechargerTexte(item);
+  }
+
   async function toutTelecharger() {
     const prets = items.filter((i) => i.status === "ok" && retenues(i, seulementTableaux).length > 0);
-    for (const p of prets) await telecharger([p]);
+    for (const p of prets) await telechargerFormat(p, formatGroupe);
   }
 
   const prets = items.filter((i) => i.status === "ok");
@@ -304,9 +328,14 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-[18px] py-3">
             <h2 className="text-[0.86rem] font-bold text-foreground">File de conversion</h2>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" size="sm" disabled={prets.length < 2} onClick={() => void toutTelecharger()} title={prets.length < 2 ? "Disponible à partir de deux fichiers prêts" : undefined}>
-                <Download className="h-3.5 w-3.5" /> Tout télécharger
-              </Button>
+              <TelechargerTout
+                formats={FORMATS_SORTIE}
+                valeur={formatGroupe}
+                onValeur={setFormatGroupe}
+                onTelecharger={() => void toutTelecharger()}
+                disabled={prets.length < 2}
+                title={prets.length < 2 ? "Disponible à partir de deux fichiers convertis" : "Télécharge chaque fichier dans le format choisi"}
+              />
               <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
             </div>
           </div>
@@ -329,6 +358,9 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
                     <>
                       <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); telechargerTexte(item); }}>
                         <FileText className="h-3.5 w-3.5" /> Texte (.txt)
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telechargerExcel(item); }}>
+                        <FileSpreadsheet className="h-3.5 w-3.5" /> Télécharger l'Excel
                       </Button>
                       <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telecharger([item]); }}>
                         <Download className="h-3.5 w-3.5" /> Télécharger le PDF

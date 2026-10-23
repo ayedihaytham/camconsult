@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { download } from "@/lib/export";
+import { fichierConverti, type FormatSortie } from "@/lib/conversionSortie";
 import { COMPTE_BANQUE, ecrituresDepuisReleve, texteEcritures } from "@/lib/ecrituresReleve";
 import {
   modeDePdf,
@@ -18,7 +19,9 @@ import {
 } from "@/lib/pdfToTables";
 import { texteDepuisFeuilles } from "@/lib/texteBrut";
 import { cn } from "@/lib/utils";
+import { TelechargerTout } from "./TelechargerTout";
 import { ZoneDepot } from "./ZoneDepot";
+import { useIdentiteCabinet } from "./useIdentiteCabinet";
 import type { StatsConversion } from "./types";
 
 type Mode = "pdf" | "both" | "xls";
@@ -38,6 +41,8 @@ interface PdfItem {
 const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const PARAMETRES_APERCU = "#navpanes=0&view=FitH";
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
+/** Formats du téléchargement groupé de ce sens : l'Excel d'abord, puis le PDF et le texte brut. */
+const FORMATS_PDF_VERS_EXCEL: { valeur: FormatSortie; nom: string }[] = [{ valeur: "xlsx", nom: "Excel" }, { valeur: "pdf", nom: "PDF" }, { valeur: "txt", nom: "Texte brut (.txt)" }];
 
 /** Conversion PDF vers Excel ou texte : lecture du texte du PDF dans le navigateur, reconstruction des lignes et
  * colonnes d'après la position du texte, puis export .xlsx ou .txt. Un PDF scanné (image) n'a pas de texte : il
@@ -51,6 +56,8 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
   const [uneSeuleFeuille, setUneSeuleFeuille] = useState(false);
   const [tableauSeul, setTableauSeul] = useState(true);
   const [compte, setCompte] = useState(COMPTE_BANQUE);
+  const [formatGroupe, setFormatGroupe] = useState<FormatSortie>("xlsx");
+  const { logo, cabinet } = useIdentiteCabinet();
   const occupe = items.some((i) => i.status === "cours");
 
   // Les adresses temporaires des PDF d'origine vivent tant que la page est ouverte, puis sont libérées.
@@ -136,6 +143,31 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
       return;
     }
     download(new Blob([texteDepuisFeuilles(f)], { type: "text/plain;charset=utf-8" }), `${item.baseName}.txt`);
+  }
+
+  /** Le même contenu (tableaux, ou document entier) mis en page en PDF aux couleurs du cabinet. */
+  async function telechargerPdf(item: PdfItem) {
+    const f = feuillesDePdf(item.pages, options);
+    if (f.length === 0) {
+      toast.error("Aucun tableau à enregistrer");
+      return;
+    }
+    try {
+      const { blob, nom } = await fichierConverti("pdf", f, item.baseName, { identite: { logo, cabinet }, unite: tableauSeul ? "tableau" : "feuille" });
+      download(blob, nom);
+    } catch {
+      toast.error("Le PDF n'a pas pu être créé");
+    }
+  }
+
+  async function telechargerFormat(item: PdfItem, format: FormatSortie) {
+    if (format === "xlsx") await telecharger(item);
+    else if (format === "pdf") await telechargerPdf(item);
+    else telechargerTexte(item);
+  }
+
+  async function toutTelecharger() {
+    for (const p of items.filter((i) => i.status === "ok")) await telechargerFormat(p, formatGroupe);
   }
 
   function telechargerEcritures(item: PdfItem) {
@@ -253,7 +285,17 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
         <LedgerSheet className="lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-[18px] py-3">
             <h2 className="text-[0.86rem] font-bold text-foreground">File de conversion</h2>
-            <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <TelechargerTout
+                formats={FORMATS_PDF_VERS_EXCEL}
+                valeur={formatGroupe}
+                onValeur={setFormatGroupe}
+                onTelecharger={() => void toutTelecharger()}
+                disabled={items.filter((i) => i.status === "ok").length < 2}
+                title={items.filter((i) => i.status === "ok").length < 2 ? "Disponible à partir de deux fichiers convertis" : "Télécharge chaque fichier dans le format choisi"}
+              />
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
+            </div>
           </div>
           <ul className="divide-y divide-border">
             {items.map((item) => (
@@ -278,8 +320,11 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
                       <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); telechargerTexte(item); }}>
                         <FileText className="h-3.5 w-3.5" /> Texte brut (.txt)
                       </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telechargerPdf(item); }}>
+                        <Download className="h-3.5 w-3.5" /> Télécharger le PDF
+                      </Button>
                       <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telecharger(item); }}>
-                        <Download className="h-3.5 w-3.5" /> Télécharger l'Excel
+                        <FileSpreadsheet className="h-3.5 w-3.5" /> Télécharger l'Excel
                       </Button>
                     </div>
                   )}

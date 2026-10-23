@@ -427,4 +427,49 @@ describe("colonnes masquables, densité et panneau de détail", () => {
     expect(pied).not.toContain("7 918");
     expect(pied).toContain("1 ligne sans unité non comptée");
   });
+
+  it("écrit l'écart sans unité, dans la ligne comme dans le pied", () => {
+    const avecEcart = base({ id: "e", achatNumFacture: "260083", fournisseur: "GREEN", achatLignes: [{ ...ligne("PET", 61.305, 45365.7), unite: "T" }], venteNumFacture: "2600091", client: "ENPLATER", venteLignes: [{ ...ligne("PET", 61.392, 58322.4), unite: "T" }], ecart: -0.087, ecartUnite: "T" });
+    render(<StockRecapTable mouvements={[avecEcart]} nouveauId={null} classing={null} colonnes={COLONNES} onEdit={vi.fn()} onDelete={vi.fn()} onPreview={vi.fn()} onClasser={vi.fn()} />);
+    expect(within(lignesDe("e")[0]).getByText("-0,087")).toBeTruthy();
+    expect(screen.queryByText("-0,087 T")).toBeNull();
+    expect(document.querySelector("[data-pied-stock]")?.textContent).toContain("Écart : -0,087");
+    expect(document.querySelector("[data-pied-stock]")?.textContent).not.toContain("Écart : -0,087 T");
+  });
+
+  describe("un seul côté quand on filtre par client ou par fournisseur", () => {
+    const m1 = base({ id: "c1", achatNumFacture: "A1", fournisseur: "GREEN", achatLignes: [{ ...ligne("PET", 10, 100, 330), unite: "T" }], achatCours: 3.3, venteNumFacture: "V1", client: "ENPLATER", venteLignes: [{ ...ligne("PET", 10, 120, 396), unite: "T" }], venteCours: 3.3, ecart: 0, ecartUnite: "T" });
+    const m2 = base({ id: "c2", achatNumFacture: "A2", fournisseur: "GREEN", achatLignes: [{ ...ligne("PET", 5, 50, 165), unite: "T" }], achatCours: 3.3, venteNumFacture: "V2", client: "ENPLATER", venteLignes: [{ ...ligne("PET", 5, 70, 231), unite: "T" }], venteCours: 3.3, ecart: 0, ecartUnite: "T" });
+    const afficherCotes = (cotes: "vente" | "achat" | "les-deux") =>
+      render(<StockRecapTable mouvements={[m1, m2]} nouveauId={null} classing={null} colonnes={COLONNES} cotes={cotes} onEdit={vi.fn()} onDelete={vi.fn()} onPreview={vi.fn()} onClasser={vi.fn()} />);
+
+    it("client : les factures de vente seulement, avec la somme en dessous", () => {
+      afficherCotes("vente");
+      expect(lignesDe("c1")).toHaveLength(1);
+      expect(within(lignesDe("c1")[0]).getByText("Vente")).toBeTruthy();
+      expect(screen.queryAllByText("Achat", { selector: "td span" })).toHaveLength(0);
+      const pied = document.querySelector("[data-pied-stock]")?.textContent ?? "";
+      expect(pied).toContain("Total vente : 15 T");
+      expect(pied).toContain("190,000 EUR");
+      expect(pied).toContain("MT TND : 627,000");
+      expect(pied).not.toContain("Marge");
+    });
+
+    it("fournisseur : les factures d'achat seulement, avec la somme en dessous", () => {
+      afficherCotes("achat");
+      expect(lignesDe("c1")).toHaveLength(1);
+      expect(within(lignesDe("c1")[0]).getByText("Achat")).toBeTruthy();
+      expect(screen.queryAllByText("Vente", { selector: "td span" })).toHaveLength(0);
+      const pied = document.querySelector("[data-pied-stock]")?.textContent ?? "";
+      expect(pied).toContain("Total achat : 15 T");
+      expect(pied).toContain("150,000 EUR");
+      expect(pied).toContain("MT TND : 495,000");
+    });
+
+    it("sans filtre unique, les deux côtés restent affichés avec la marge", () => {
+      afficherCotes("les-deux");
+      expect(lignesDe("c1")).toHaveLength(2);
+      expect(document.querySelector("[data-pied-stock]")?.textContent).toContain("Marge TND");
+    });
+  });
 });

@@ -125,6 +125,8 @@ export function StockSocietePage() {
   const comptes = useMemo(() => comptesSituation(filtrerMouvements(list, { ...criteres, situation: "tous" })), [list, criteres]);
   const clients = useMemo(() => valeursTiers(list, "client"), [list]);
   const fournisseurs = useMemo(() => valeursTiers(list, "fournisseur"), [list]);
+  // Filtre par client seul : les factures de vente seulement ; par fournisseur seul : les factures d'achat seulement ; les deux : les deux côtés.
+  const cotes = criteres.clients.size > 0 && criteres.fournisseurs.size === 0 ? "vente" : criteres.fournisseurs.size > 0 && criteres.clients.size === 0 ? "achat" : "les-deux";
   const ouvert = ouvertId ? list.find((m) => m.id === ouvertId) ?? null : null;
   const rangOuvert = ouvert ? shown.findIndex((m) => m.id === ouvert.id) : -1;
   /** Passe au mouvement précédent ou suivant de la liste affichée (en boucle). */
@@ -346,6 +348,7 @@ export function StockSocietePage() {
             densite={prefs.densite}
             onOuvrir={(m) => setOuvertId(m.id)}
             selectionId={ouvert?.id ?? null}
+            cotes={cotes}
             mouvements={shown}
             nouveauId={nouveauId}
             classing={classing}

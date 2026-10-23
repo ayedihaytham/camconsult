@@ -2,7 +2,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { AlertTriangle, ChevronRight, FolderInput, Paperclip, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
-import { ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
+import { ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantite, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
 import { montantCote } from "@/lib/coursStock";
 import type { StatutFacture } from "@/lib/fournisseurs";
 import { coteRenseigne, type CoteMouvement } from "@/lib/stockLot";
@@ -37,6 +37,8 @@ interface Props {
   onOuvrir?: (m: StockMouvement) => void;
   /** Mouvement dont le panneau est ouvert : sa ligne est mise en évidence. */
   selectionId?: string | null;
+  /** Côtés affichés : les deux (vente puis achat), ou un seul quand on filtre par client (vente) ou par fournisseur (achat) ; la somme est alors donnée sous le tableau. */
+  cotes?: "les-deux" | "vente" | "achat";
 }
 
 const STATUTS_REGLEMENT: Record<StatutFacture, { texte: string; classe: string }> = {
@@ -164,12 +166,12 @@ function CoteFin({ m, cote, onPreview, base, colonnes }: { m: StockMouvement; co
 }
 
 /** Écart d'un mouvement : valeur en pastille, avec sa situation en clair dessous (« soldé », « sans achat », « sans vente »). */
-function CelluleEcart({ m }: { m: StockMouvement }) {
+function CelluleEcart({ m, lignes = 2 }: { m: StockMouvement; lignes?: number }) {
   const legende = LEGENDE_SITUATION[situationMouvement(m)];
   return (
-    <td rowSpan={2} className={tdNum}>
+    <td rowSpan={lignes} className={tdNum}>
       <span className={cn("inline-grid min-w-7 place-items-center rounded-full px-2 py-0.5 text-xs font-semibold", m.ecart !== 0 ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>
-        {fmtQuantiteUnite(m.ecart, m.ecartUnite)}
+        {fmtQuantite(m.ecart)}
       </span>
       {legende && <span className="mt-0.5 block text-[0.65rem] font-normal leading-none text-muted-foreground">{legende}</span>}
     </td>
@@ -179,12 +181,28 @@ function CelluleEcart({ m }: { m: StockMouvement }) {
 /** Récapitulatif des opérations de stock : chaque mouvement occupe deux lignes aux colonnes alignées, une pour la vente et une pour
  * l'achat, avec la douane à droite ; le détail (produits, déclaration, pièces, actions) s'ouvre sous le mouvement. Le tableau
  * occupe la largeur de la page, sans défilement horizontal ; sur petit écran, chaque mouvement devient une carte. */
-export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onRetirerCote, onPreview, onClasser, doublons, base = "TND", reglements, colonnes = COLONNES_PAR_DEFAUT, densite = "compact", onOuvrir, selectionId = null }: Props) {
+export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDelete, onRetirerCote, onPreview, onClasser, doublons, base = "TND", reglements, colonnes = COLONNES_PAR_DEFAUT, densite = "compact", onOuvrir, selectionId = null, cotes = "les-deux" }: Props) {
   const [ouverts, setOuverts] = useState<Set<string>>(new Set());
   const colonnesAffichees = COLONNES_TABLEAU.filter((c) => !c.masquable || colonnes[c.masquable]);
   const sommeLargeurs = colonnesAffichees.reduce((t, c) => t + c.largeur, 0);
   const nbColonnes = colonnesAffichees.length;
   const total = recapStock(mouvements);
+  const cotesAffiches: ("vente" | "achat")[] = cotes === "les-deux" ? ["vente", "achat"] : [cotes];
+  const hauteur = cotesAffiches.length;
+  const premier = cotesAffiches[0];
+  /** Somme du côté affiché (filtre par client ou par fournisseur) : quantité, montant par devise et montant en dinars (ou dollars). */
+  const sommeCote = cotes === "les-deux" ? null : (() => {
+    const parDevise = new Map<string, number>();
+    let montantBase = 0;
+    for (const m of mouvements) {
+      const lignes = cotes === "vente" ? m.venteLignes : m.achatLignes;
+      const devise = cotes === "vente" ? m.venteDevise : m.achatDevise;
+      const t = totauxCote(lignes);
+      if (t.montantDevise) parDevise.set(devise, Math.round(((parDevise.get(devise) ?? 0) + t.montantDevise) * 1000) / 1000);
+      montantBase += montantCote(lignes, cotes === "vente" ? m.venteCoursUsd : m.achatCoursUsd, base);
+    }
+    return { parDevise: [...parDevise.entries()], montantBase: Math.round(montantBase * 1000) / 1000, quantite: cotes === "vente" ? total.vente.quantite : total.achat.quantite };
+  })();
   const ecarts = ecartsDeviseTotaux(mouvements);
   const marge = mouvements.reduce((s, m) => s + montantCote(m.venteLignes, m.venteCoursUsd, base) - montantCote(m.achatLignes, m.achatCoursUsd, base), 0);
 
@@ -239,8 +257,8 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     onClick={activer}
                     className={cn(ligneClasse, "border-t-2 border-border")}
                   >
-                    <td rowSpan={2} className={cn(td, "text-muted-foreground tabular-nums")}>{index + 1}</td>
-                    <td rowSpan={2} className={td}>
+                    <td rowSpan={hauteur} className={cn(td, "text-muted-foreground tabular-nums")}>{index + 1}</td>
+                    <td rowSpan={hauteur} className={td}>
                       <div className="flex items-start gap-1">
                         <button
                           type="button"
@@ -254,12 +272,12 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                         <p className="min-w-0 font-medium text-primary">{m.natureMarchandise || "Mouvement sans nature"}</p>
                       </div>
                     </td>
-                    <td rowSpan={2} className={cn(td, "whitespace-nowrap tabular-nums font-medium text-primary")} title="Numéro de la facture de vente">{m.venteNumFacture || "—"}</td>
-                    <CoteDebut m={m} cote="vente" doublon={Boolean(doublons?.vente.has(m.id))} />
-                    <CelluleEcart m={m} />
-                    <CoteFin m={m} cote="vente" onPreview={onPreview} base={base} colonnes={colonnes} />
+                    <td rowSpan={hauteur} className={cn(td, "whitespace-nowrap tabular-nums font-medium text-primary")} title="Numéro de la facture de vente">{m.venteNumFacture || "—"}</td>
+                    <CoteDebut m={m} cote={premier} doublon={Boolean(doublons?.[premier].has(m.id))} statut={premier === "achat" ? reglements?.get(m.id) : undefined} />
+                    <CelluleEcart m={m} lignes={hauteur} />
+                    <CoteFin m={m} cote={premier} onPreview={onPreview} base={base} colonnes={colonnes} />
                     {colonnes.douane && (
-                      <td rowSpan={2} className={cn(td, TEINTE.douane, filet, "text-xs leading-snug")}>
+                      <td rowSpan={hauteur} className={cn(td, TEINTE.douane, filet, "text-xs leading-snug")}>
                         {m.douaneNumDeclaration ? <p className="text-[0.8125rem] font-semibold tabular-nums text-primary">{m.douaneNumDeclaration}</p> : <p className="text-muted-foreground">—</p>}
                         {(m.douaneDate || m.douaneTypeDeclaration) && <p className="text-muted-foreground">{m.douaneDate ? formatDate(m.douaneDate) : ""}{m.douaneTypeDeclaration ? ` · type ${m.douaneTypeDeclaration}` : ""}</p>}
                         {m.douaneTauxChange ? <p className="text-muted-foreground">Taux {m.douaneTauxChange.toLocaleString("fr-FR", { maximumFractionDigits: 5 })}</p> : null}
@@ -269,10 +287,12 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                       </td>
                     )}
                   </tr>
-                  <tr data-mouvement={m.id} onClick={activer} className={ligneClasse}>
-                    <CoteDebut m={m} cote="achat" doublon={Boolean(doublons?.achat.has(m.id))} statut={reglements?.get(m.id)} />
-                    <CoteFin m={m} cote="achat" onPreview={onPreview} base={base} colonnes={colonnes} />
-                  </tr>
+                  {hauteur === 2 && (
+                    <tr data-mouvement={m.id} onClick={activer} className={ligneClasse}>
+                      <CoteDebut m={m} cote="achat" doublon={Boolean(doublons?.achat.has(m.id))} statut={reglements?.get(m.id)} />
+                      <CoteFin m={m} cote="achat" onPreview={onPreview} base={base} colonnes={colonnes} />
+                    </tr>
+                  )}
                   {ouvert && (
                     <tr className="border-t border-border bg-secondary/30">
                       <td colSpan={nbColonnes} className="p-0">
@@ -289,7 +309,15 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
         </table>
         <div data-pied-stock className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t-2 border-primary bg-muted/40 px-4 py-2.5 text-[0.8125rem] font-semibold text-primary">
           <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
-          <span className={cn("tabular-nums", total.ecart !== 0 && "text-destructive")}>Écart : {fmtQuantiteUnite(total.ecart, total.unite)}</span>
+          {sommeCote ? (
+            <>
+              <span className="tabular-nums">Total {cotes === "vente" ? "vente" : "achat"} : {fmtQuantiteUnite(sommeCote.quantite, total.unite)}</span>
+              <span className="tabular-nums">{sommeCote.parDevise.length > 0 ? sommeCote.parDevise.map(([devise, montant]) => `${fmtMontant(montant)} ${devise}`).join(" · ") : "—"}</span>
+              <span className="tabular-nums">MT {base === "USD" ? "USD" : "TND"} : {fmtMontant(sommeCote.montantBase)}</span>
+            </>
+          ) : (
+            <>
+          <span className={cn("tabular-nums", total.ecart !== 0 && "text-destructive")}>Écart : {fmtQuantite(total.ecart)}</span>
           <span>
             Vente : {fmtQuantiteUnite(total.vente.quantite, total.unite)} · Achat : {fmtQuantiteUnite(total.achat.quantite, total.unite)}
             {total.horsUnite > 0 && <span className="font-normal text-muted-foreground" title="Lignes sans unité (pièces, sacs…) : leurs quantités ne sont pas additionnées aux tonnes"> · {total.horsUnite} ligne{total.horsUnite > 1 ? "s" : ""} sans unité non comptée{total.horsUnite > 1 ? "s" : ""}</span>}
@@ -298,6 +326,8 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             ))}</>}
           </span>
           <span className={cn("tabular-nums", marge >= 0 ? "text-success" : "text-destructive")}>Marge {base} {marge >= 0 ? "+" : ""}{fmtMontant(marge)}</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -312,10 +342,10 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                 <ChevronRight className={cn("mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform", ouvert && "rotate-90")} aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-primary">{index + 1}. {m.natureMarchandise || "Mouvement sans nature"}</span>
-                  <span className="mt-1 block text-xs text-muted-foreground">Vente · {m.client || "—"} · {v.montantTnd ? fmtMontant(v.montantTnd) : "—"} TND</span>
-                  <span className="block text-xs text-muted-foreground">Achat · {m.fournisseur || "—"} · {a.montantTnd ? fmtMontant(a.montantTnd) : "—"} TND{m.achatLignes.length > 0 && reglements?.get(m.id) && <> · <StatutReglement statut={reglements.get(m.id)} /></>}</span>
+                  {cotes !== "achat" && <span className="mt-1 block text-xs text-muted-foreground">Vente · {m.client || "—"} · {v.montantTnd ? fmtMontant(v.montantTnd) : "—"} TND</span>}
+                  {cotes !== "vente" && <span className="block text-xs text-muted-foreground">Achat · {m.fournisseur || "—"} · {a.montantTnd ? fmtMontant(a.montantTnd) : "—"} TND{m.achatLignes.length > 0 && reglements?.get(m.id) && <> · <StatutReglement statut={reglements.get(m.id)} /></>}</span>}
                 </span>
-                <span className={cn("shrink-0 text-xs font-bold tabular-nums", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>Écart {fmtQuantiteUnite(m.ecart, m.ecartUnite)}</span>
+                <span className={cn("shrink-0 text-xs font-bold tabular-nums", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>Écart {fmtQuantite(m.ecart)}</span>
               </button>
               {ouvert && <div className="mt-3"><DetailMouvement m={m} classing={classing} onPreview={onPreview} onClasser={onClasser} onEdit={onEdit} onDelete={onDelete} onRetirerCote={onRetirerCote} /></div>}
             </li>

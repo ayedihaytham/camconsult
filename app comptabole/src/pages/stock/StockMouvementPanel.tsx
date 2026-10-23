@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn, formatDate } from "@/lib/utils";
-import { fmtMontant, fmtQuantiteUnite, totauxCote, ecartDevise, uniteCommune } from "@/lib/stockRecap";
+import { fmtMontant, fmtQuantite, fmtQuantiteUnite, totauxCote, ecartDevise, uniteCommune } from "@/lib/stockRecap";
 import { coteRenseigne, type CoteMouvement } from "@/lib/stockLot";
 import { situationMouvement, type SituationStock } from "@/lib/stockFiltres";
 import type { StatutFacture } from "@/lib/fournisseurs";
@@ -33,7 +33,7 @@ interface Props {
 
 const SITUATIONS: Record<SituationStock, { texte: (m: StockMouvement) => string; classe: string } | null> = {
   solde: { texte: () => "Soldé", classe: "bg-success/20 text-success" },
-  ecart: { texte: (m) => `Écart ${fmtQuantiteUnite(m.ecart, m.ecartUnite)}`, classe: "bg-destructive/15 text-destructive" },
+  ecart: { texte: (m) => `Écart ${fmtQuantite(m.ecart)}`, classe: "bg-destructive/15 text-destructive" },
   "sans-achat": { texte: () => "Vendu sans achat", classe: "bg-warning/20 text-warning" },
   "sans-vente": { texte: () => "Acheté, pas vendu", classe: "bg-primary-foreground/20 text-primary-foreground" },
   vide: null,
@@ -292,7 +292,7 @@ function Resume({ m }: { m: StockMouvement }) {
   return (
     <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
       <span>
-        Écart achat − vente : <b className={cn("tabular-nums", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>{fmtQuantiteUnite(m.ecart, m.ecartUnite)}</b>
+        Écart achat − vente : <b className={cn("tabular-nums", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>{fmtQuantite(m.ecart)}</b>
       </span>
       {ecart && (
         <span>

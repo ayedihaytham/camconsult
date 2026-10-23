@@ -400,7 +400,10 @@ export function StockMouvementFormSheet({
     setBatchImporting(true);
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      const pages = await extractPages(societeId, dataUrl);
+      const { pages, avertissements } = await extractPages(societeId, dataUrl);
+      for (const a of avertissements) toast.warning(a);
+      const nonLues = pages.filter((p) => p.erreur).length;
+      if (nonLues > 0) toast.warning(`${nonLues} page${nonLues > 1 ? "s" : ""} non lue${nonLues > 1 ? "s" : ""} : service d'extraction indisponible ou page trop dense. Relancez ou saisissez à la main.`);
       setBatchPages(pages);
       setBatchAssignments(
         Object.fromEntries(

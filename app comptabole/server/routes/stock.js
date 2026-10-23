@@ -6,7 +6,7 @@ import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { stockMouvementDto } from "../mappers.js";
 import { syntheseStock } from "../stockSynthese.js";
-import { extractDocument, extractPages } from "../ocr.js";
+import { extractDocument, extractPagesDetaillees } from "../ocr.js";
 import { ruspinaApplies } from "../ruspinaOcr.js";
 import { randomUUID } from "node:crypto";
 import { safeRouter } from "../asyncRoutes.js";
@@ -356,8 +356,9 @@ const extractPagesSchema = z.object({
   dataUrl: z.string().min(10),
 });
 
-function pagesPourEcran(pages) {
+function pagesPourEcran({ pages, avertissements = [] }) {
   return {
+    avertissements,
     pages: pages.map((p) => ({
       index: p.index,
       imageDataUrl: p.imageDataUrl,
@@ -368,6 +369,7 @@ function pagesPourEcran(pages) {
       // champs est déjà prêt, sans aller-retour serveur ni ré-OCR.
       champsByType: p.champsByType,
       ...(p.details ? { details: p.details } : {}),
+      ...(p.erreur ? { erreur: p.erreur } : {}),
     })),
   };
 }
@@ -381,14 +383,11 @@ stockRouter.post("/extract-pages", async (req, res) => {
   if (soc.missing) return res.status(400).json({ error: "Société introuvable" });
 
   try {
-    if (ruspinaApplies(soc.raisonSociale)) {
-      const jobId = startJob(req.session, async () =>
-        pagesPourEcran(await extractPages(parsed.data.dataUrl, soc.raisonSociale)),
-      );
-      return res.status(202).json({ jobId });
-    }
-    const pages = await extractPages(parsed.data.dataUrl, soc.raisonSociale);
-    res.json(pagesPourEcran(pages));
+    // Toujours en tâche de fond : un fichier de plusieurs dizaines de pages dépasse le délai d'une requête HTTP, quel que soit le moteur.
+    const jobId = startJob(req.session, async () =>
+      pagesPourEcran(await extractPagesDetaillees(parsed.data.dataUrl, soc.raisonSociale)),
+    );
+    return res.status(202).json({ jobId });
   } catch (err) {
     console.error("[stock/extract-pages]", err);
     reponseErreurExtraction(res, err);

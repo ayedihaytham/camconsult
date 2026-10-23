@@ -31,7 +31,7 @@ describe("import d'un lot de factures", () => {
     const extractPages = vi.fn(async (_s: string, dataUrl: string) => {
       void dataUrl;
       const n = extractPages.mock.calls.length;
-      return [n === 1 ? PAGE_ACHAT : n === 2 ? PAGE_VENTE : PAGE_DOUTEUSE];
+      return { pages: [n === 1 ? PAGE_ACHAT : n === 2 ? PAGE_VENTE : PAGE_DOUTEUSE], avertissements: [] as string[] };
     });
     const create = vi.fn(async (data: unknown) => ({ id: `m${create.mock.calls.length}`, ...(data as object) }));
     useStock.setState({ extractPages, create } as never);
@@ -58,7 +58,7 @@ describe("import d'un lot de factures", () => {
   it("refuse une facture déjà présente dans le stock", async () => {
     useStock.setState({
       list: [{ id: "x", achatNumFacture: "F1", venteNumFacture: "", fournisseur: "SOTACIB" }] as never,
-      extractPages: vi.fn(async () => [PAGE_ACHAT]) as never,
+      extractPages: vi.fn(async () => ({ pages: [PAGE_ACHAT], avertissements: [] })) as never,
     });
     const { container } = render(<ImportLotStockDialog open onOpenChange={vi.fn()} societeId="soc-1" />);
     fireEvent.change(container.ownerDocument.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [fichier("achat.pdf")] } });
@@ -70,7 +70,7 @@ describe("import d'un lot de factures", () => {
   it("un fichier illisible n'empêche pas la lecture des suivants", async () => {
     const extractPages = vi.fn(async () => {
       if (extractPages.mock.calls.length === 1) throw new Error("illisible");
-      return [PAGE_ACHAT];
+      return { pages: [PAGE_ACHAT], avertissements: [] as string[] };
     });
     useStock.setState({ extractPages } as never);
     const { container } = render(<ImportLotStockDialog open onOpenChange={vi.fn()} societeId="soc-1" />);
@@ -78,5 +78,18 @@ describe("import d'un lot de factures", () => {
     fireEvent.click(screen.getByRole("button", { name: /Analyser 2 fichiers/ }));
     await screen.findByText(/mouvement proposé/);
     expect(extractPages).toHaveBeenCalledTimes(2);
+  });
+
+  it("signale un fichier coupé faute de pages et une page que le moteur n'a pas pu lire", async () => {
+    const lue = { ...PAGE_ACHAT, erreur: "service d'extraction surchargé ou indisponible : relancez la lecture", guessedType: null, confidence: "faible" as const };
+    useStock.setState({
+      extractPages: vi.fn(async () => ({ pages: [PAGE_ACHAT, lue], avertissements: ["Ce fichier compte 80 pages : seules les 60 premières ont été lues. Découpez-le pour lire le reste."] })) as never,
+    });
+    const { container } = render(<ImportLotStockDialog open onOpenChange={vi.fn()} societeId="soc-1" />);
+    fireEvent.change(container.ownerDocument.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [fichier("gros.pdf")] } });
+    fireEvent.click(screen.getByRole("button", { name: /Analyser 1 fichier/ }));
+    await screen.findByText("Lecture incomplète");
+    expect(screen.getAllByText(/80 pages : seules les 60 premières/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/1 page non lue/).length).toBeGreaterThan(0);
   });
 });

@@ -4,6 +4,7 @@ import { api, ApiError } from "@/lib/api";
 import type {
   StockDocType,
   StockExtractPage,
+  StockExtractPagesResult,
   StockExtractResult,
   StockMouvement,
 } from "@/types";
@@ -87,7 +88,7 @@ interface StockState {
   extract: (type: StockDocType, dataUrl: string, societeId?: string) => Promise<StockExtractResult>;
   /** Import "document complet" : un PDF/image combinant plusieurs pièces —
    * chaque page est analysée séparément et son type deviné. */
-  extractPages: (societeId: string, dataUrl: string) => Promise<StockExtractPage[]>;
+  extractPages: (societeId: string, dataUrl: string) => Promise<StockExtractPagesResult>;
 }
 
 export const useStock = create<StockState>((set) => ({
@@ -175,12 +176,12 @@ export const useStock = create<StockState>((set) => ({
   extractPages: async (societeId, dataUrl) => {
     set({ extracting: true });
     try {
-      const response = await api.post<{ pages: StockExtractPage[] } | { jobId: string }>(
+      const response = await api.post<{ pages: StockExtractPage[]; avertissements?: string[] } | { jobId: string }>(
         "/stock/extract-pages",
         { societeId, dataUrl },
       );
-      const { pages } = await waitForExtraction<{ pages: StockExtractPage[] }>(response);
-      return pages;
+      const { pages, avertissements } = await waitForExtraction<{ pages: StockExtractPage[]; avertissements?: string[] }>(response);
+      return { pages, avertissements: avertissements ?? [] };
     } catch (e) {
       return fail(e);
     } finally {

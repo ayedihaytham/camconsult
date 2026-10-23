@@ -28,7 +28,8 @@ let client = null;
 function getClient() {
   // ANTHROPIC_BASE_URL (facultatif) : adresse d'un service compatible avec l'API
   // Anthropic. Vide ou absente = API officielle.
-  if (!client) client = new Anthropic({ baseURL: process.env.ANTHROPIC_BASE_URL?.trim() || "https://api.anthropic.com" });
+  // maxRetries : le SDK réessaie les erreurs de quota (429), de surcharge (529) et de serveur (5xx) avec une pause croissante.
+  if (!client) client = new Anthropic({ baseURL: process.env.ANTHROPIC_BASE_URL?.trim() || "https://api.anthropic.com", maxRetries: Number(process.env.ANTHROPIC_MAX_RETRIES) || 4 });
   return client;
 }
 
@@ -57,6 +58,8 @@ export const ExtractionSchema = z.object({
   // souvent plusieurs produits, jamais un seul champ par facture.
   lignes: z.array(LigneSchema),
   devise: z.string(),
+  // Poids net imprimé sur la facture, en TONNES (0 si absent) : sert seulement à recouper la quantité lue.
+  poidsNet: z.number(),
   numDeclaration: z.string(),
   typeDeclaration: z.string(),
   // Déclaration douanière uniquement (vides pour une facture).
@@ -70,7 +73,7 @@ export const ExtractionSchema = z.object({
 /** Valeur d'un champ absent. */
 const VIDES = {
   date: "", numFacture: "", partie: "", emetteur: "", client: "", devise: "", numDeclaration: "",
-  typeDeclaration: "", exportateur: "", importateur: "", tauxChange: 0, valeurTnd: 0, ptfn: 0, lignes: [],
+  typeDeclaration: "", exportateur: "", importateur: "", tauxChange: 0, valeurTnd: 0, ptfn: 0, poidsNet: 0, lignes: [],
 };
 
 /** Réponse d'un service compatible : champs absents ou null remplacés par leur valeur vide. */
@@ -113,9 +116,10 @@ Decide an invoice's type by WHO ISSUED it, never by the mere presence of a name 
   - "quantite": the number in the Quantity column (e.g. 1000 for "1000 MT"), not a number of bags or packages quoted inside the designation;
   - "prixUnitaire": the Unit price column, in the invoice currency;
   - "montantDevise": the row amount (Total column), in the invoice currency.
-  - "unite": the unit of the Quantity column, normalized: "T" for tonnes (T, To, MT, Ton, Tonne, Tonnes), "KG" for kilograms (kg, kgs, kilo, kilos), "" for anything else (bags, pieces, m3) or when no unit is printed.
+  - "unite": the unit of the Quantity column, normalized: "T" for tonnes (T, To, MT, Ton, Tonne, Tonnes), "KG" for kilograms (kg, kgs, kilo, kilos), "" for anything else (bags, pieces, m3) or when no unit is printed. The unit is the one printed in the HEADER of the Quantity column (e.g. "Quantity(T)", "Qté(T)", "Qty (KG)") and applies to every row: a footer that also quotes weights in KGS (gross weight, net weight) does NOT change the unit of the column.
   These are NEVER product rows: "HS CODE" lines, "conform to the proforma", "Total including all taxes", "Total", subtotals, VAT, stamp duty, shipping costs, amounts written in words.
   An empty or unreadable cell is null. If the quantity and the row total are readable but not the unit price, leave prixUnitaire null (do not compute it).
+- "poidsNet": the NET WEIGHT printed on the invoice ("Net weight", "Poids net", "N.W."), converted to TONNES (kilograms divided by 1000: "41973 KGS" -> 41.973, "61.392 T" -> 61.392). Null when no net weight is printed. It is only a cross-check of the quantity: never use it instead of reading the table.
 - For a customs declaration, "emetteur" and "client" are null. Customs fields (numDeclaration, typeDeclaration, tauxChange, valeurTnd, ptfn, exportateur, importateur): null for an invoice.
 
 ## 3. Customs declaration fields
@@ -320,7 +324,7 @@ ${JSON.stringify(z.toJSONSchema(ExtractionSchema))}`
 
   const response = await getClient().messages.create({
     model,
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: consigne,
     ...(compatible ? {} : { output_config: { ...(accepteEffort(model) ? { effort: "medium" } : {}), format: zodOutputFormat(ExtractionSchema) } }),
     messages: [{ role: "user", content }],
@@ -335,6 +339,12 @@ ${JSON.stringify(z.toJSONSchema(ExtractionSchema))}`
   }
   enregistrerMesure(model, inputTokens, outputTokens);
   console.log(`[ocr] Claude ${model} : ${inputTokens} jetons entrée, ${outputTokens} sortie ≈ ${coutEstime(model, inputTokens, outputTokens)}`);
+  // Réponse coupée (facture à très nombreuses lignes) : un JSON tronqué donnerait des lignes manquantes sans erreur visible.
+  if (response.stop_reason === "max_tokens") {
+    const err = new Error("Réponse tronquée : page trop dense pour être lue en une fois");
+    err.code = "REPONSE_TRONQUEE";
+    throw err;
+  }
   const texteReponse = (response.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
   // Un service compatible peut omettre les champs vides ou les mettre à null.
   const parsed = ExtractionSchema.safeParse(completerReponse(extraireJson(texteReponse)));
@@ -366,9 +376,48 @@ export function corrigerQuantiteLigne(ligne) {
   const proche = (a, b) => Math.abs(a - b) <= Math.max(0.01, Math.abs(b) * 0.005);
   if (proche(q * pu, m)) return ligne;
   for (const facteur of [1000, 0.001]) {
-    if (proche(q * facteur * pu, m)) return { ...ligne, quantite: Math.round(q * facteur * 1000) / 1000 };
+    if (proche(q * facteur * pu, m)) {
+      const corrigee = { ...ligne, quantite: Math.round(q * facteur * 1000) / 1000 };
+      // Des kilos ramenés à un millième, avec un prix qui vaut pour la tonne : la ligne est maintenant en tonnes. Garder « KG »
+      // ferait convertir deux fois (kilos en tonnes) à l'affichage.
+      if (facteur === 0.001 && ligne.unite === "KG") corrigee.unite = "T";
+      return corrigee;
+    }
   }
   return ligne;
+}
+
+/** Quantité totale en tonnes d'un ensemble de lignes, ou null si une unité n'est ni T ni KG (sacs, pièces : pas de comparaison possible). */
+function totalTonnes(lignes) {
+  let total = 0;
+  for (const l of lignes) {
+    if (l.unite === "T") total += l.quantite;
+    else if (l.unite === "KG") total += l.quantite / 1000;
+    else return null;
+  }
+  return total;
+}
+
+/**
+ * Recoupe la quantité lue avec le poids net imprimé sur la facture. Un écart d'un facteur 1000 (séparateur décimal mal lu) est corrigé,
+ * toutes les lignes passant en tonnes ; tout autre écart est signalé sans rien modifier.
+ */
+export function validerAvecPoidsNet(lignes, poidsNet) {
+  const net = Number(poidsNet) || 0;
+  const total = net > 0 && lignes.length > 0 ? totalTonnes(lignes) : null;
+  if (total === null || total <= 0) return { lignes, avertissements: [] };
+  const tolerance = Math.max(0.002, net * 0.005);
+  if (Math.abs(total - net) <= tolerance) return { lignes, avertissements: [] };
+  for (const facteur of [1000, 0.001]) {
+    if (Math.abs(total * facteur - net) <= tolerance) {
+      return {
+        lignes: lignes.map((l) => ({ ...l, quantite: Math.round((l.unite === "KG" ? l.quantite / 1000 : l.quantite) * facteur * 1000) / 1000, unite: "T" })),
+        avertissements: [],
+      };
+    }
+  }
+  const fmt = (n) => n.toLocaleString("fr-FR", { maximumFractionDigits: 3 });
+  return { lignes, avertissements: [`Quantité lue (${fmt(Math.round(total * 1000) / 1000)} T) différente du poids net imprimé (${fmt(net)} T)`] };
 }
 
 /** Code d'unité normalisé : "T", "KG" ou "". */
@@ -400,7 +449,8 @@ function normaliserLignes(lignes) {
  * le type deviné à l'écran (achat -> vente), le nom de la société reste
  * disponible plutôt que de repasser à vide. */
 export function champsByTypeFromClaude(out) {
-  const lignes = normaliserLignes(out.lignes);
+  const { lignes, avertissements } = validerAvecPoidsNet(normaliserLignes(out.lignes), out.poidsNet);
+  const alertes = avertissements.length > 0 ? { avertissements } : {};
   return {
     achat: {
       date: out.date || "",
@@ -408,6 +458,7 @@ export function champsByTypeFromClaude(out) {
       fournisseur: out.partie || "",
       devise: out.devise || "EUR",
       lignes,
+      ...alertes,
     },
     vente: {
       date: out.date || "",
@@ -415,6 +466,7 @@ export function champsByTypeFromClaude(out) {
       client: out.partie || "",
       devise: out.devise || "EUR",
       lignes,
+      ...alertes,
     },
     douane: {
       numDeclaration: out.numDeclaration || "",

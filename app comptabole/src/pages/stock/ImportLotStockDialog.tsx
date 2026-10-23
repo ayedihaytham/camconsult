@@ -9,7 +9,7 @@ import { readFileAsDataUrl } from "@/lib/file";
 import { alleger } from "@/lib/image";
 import { cn } from "@/lib/utils";
 import { completerCours, coursAutoInitial } from "@/lib/coursStock";
-import { mouvementDuGroupe, regrouperPieces, resumeMontant, type GroupeLot, type PieceAffectee, type PieceLot, type TypeAffecte } from "@/lib/stockLot";
+import { mouvementDuGroupe, regrouperPieces, resumeMontant, resumeQuantite, type GroupeLot, type PieceAffectee, type PieceLot, type TypeAffecte } from "@/lib/stockLot";
 import { useCoursChange } from "@/store/coursChange";
 import { useStock, type StockMouvementInput } from "@/store/stock";
 import type { StockDocType, StockMouvement } from "@/types";
@@ -34,6 +34,9 @@ interface Fichier {
   nom: string;
   etat: EtatFichier;
   pages: number;
+  /** Pages non lues par le moteur et avertissements de lecture (fichier coupé, par exemple). */
+  nonLues: number;
+  avertissements: string[];
 }
 
 const TITRES: Record<StockDocType, string> = { achat: "Achat", vente: "Vente", douane: "Douane" };
@@ -64,7 +67,7 @@ function Resume({ piece, type }: { piece: PieceAffectee; type: StockDocType }) {
     <>
       <span className="block font-mono text-xs">{c.numFacture || "sans n°"} · {c.date || "sans date"}</span>
       <span className="block text-xs text-muted-foreground">{(type === "achat" ? c.fournisseur : c.client) || "—"}</span>
-      <span className="block text-xs tabular-nums">{resumeMontant(c.lignes, c.devise)}</span>
+      <span className="block text-xs tabular-nums">{resumeQuantite(c.lignes) ? `${resumeQuantite(c.lignes)} · ` : ""}{resumeMontant(c.lignes, c.devise)}</span>
     </>
   );
 }
@@ -131,7 +134,7 @@ export function ImportLotStockDialog({ open, onOpenChange, societeId, onCrees }:
     annule.current = false;
     setExistants([...useStock.getState().list]);
     setEtape("lecture");
-    const suivi: Fichier[] = choisis.map((f) => ({ nom: f.name, etat: "attente", pages: 0 }));
+    const suivi: Fichier[] = choisis.map((f) => ({ nom: f.name, etat: "attente", pages: 0, nonLues: 0, avertissements: [] }));
     setFichiers(suivi);
     const lues: PieceLot[] = [];
     const modifier = (i: number, partiel: Partial<Fichier>) => setFichiers((prev) => prev.map((f, j) => (j === i ? { ...f, ...partiel } : f)));
@@ -139,7 +142,7 @@ export function ImportLotStockDialog({ open, onOpenChange, societeId, onCrees }:
       if (annule.current) break;
       modifier(i, { etat: "lecture" });
       try {
-        const pages = await extractPages(societeId, await readFileAsDataUrl(fichier));
+        const { pages, avertissements } = await extractPages(societeId, await readFileAsDataUrl(fichier));
         for (const p of pages) {
           lues.push({
             id: `${i}:${fichier.name}#${p.index}`,
@@ -149,9 +152,10 @@ export function ImportLotStockDialog({ open, onOpenChange, societeId, onCrees }:
             typeDevine: p.guessedType,
             confiance: p.confidence,
             champsByType: p.champsByType,
+            ...(p.erreur ? { erreur: p.erreur } : {}),
           });
         }
-        modifier(i, { etat: "ok", pages: pages.length });
+        modifier(i, { etat: "ok", pages: pages.length, nonLues: pages.filter((p) => p.erreur).length, avertissements });
       } catch {
         // Le store affiche déjà l'erreur ; les autres fichiers continuent.
         modifier(i, { etat: "erreur" });
@@ -247,7 +251,7 @@ export function ImportLotStockDialog({ open, onOpenChange, societeId, onCrees }:
               </p>
               <ul className="divide-y divide-border rounded-md border border-border text-sm">
                 {fichiers.map((f, i) => (
-                  <li key={`${f.nom}-${i}`} className="flex items-center justify-between gap-2 px-3 py-1.5">
+                  <li key={`${f.nom}-${i}`} className="flex flex-wrap items-center justify-between gap-x-2 px-3 py-1.5">
                     <span className="min-w-0 truncate">{f.nom}</span>
                     <span className={cn("flex shrink-0 items-center gap-1 text-xs", f.etat === "erreur" ? "text-destructive" : "text-muted-foreground")}>
                       {f.etat === "lecture" && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
@@ -257,6 +261,12 @@ export function ImportLotStockDialog({ open, onOpenChange, societeId, onCrees }:
                       {f.etat === "ok" && `${f.pages} page${f.pages > 1 ? "s" : ""}`}
                       {f.etat === "erreur" && "Échec de lecture"}
                     </span>
+                    {f.etat === "ok" && (f.nonLues > 0 || f.avertissements.length > 0) && (
+                      <span className="basis-full text-xs text-warning">
+                        {f.nonLues > 0 && <span className="block">{f.nonLues} page{f.nonLues > 1 ? "s" : ""} non lue{f.nonLues > 1 ? "s" : ""} : à relancer ou à saisir à la main.</span>}
+                        {f.avertissements.map((a) => <span key={a} className="block">{a}</span>)}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -265,6 +275,14 @@ export function ImportLotStockDialog({ open, onOpenChange, societeId, onCrees }:
 
           {etape === "resultat" && (
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+              {fichiers.some((f) => f.nonLues > 0 || f.avertissements.length > 0) && (
+                <div className="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning">
+                  <p className="font-semibold">Lecture incomplète</p>
+                  {fichiers.filter((f) => f.nonLues > 0 || f.avertissements.length > 0).map((f) => (
+                    <p key={f.nom}>{f.nom} : {[f.nonLues > 0 ? `${f.nonLues} page${f.nonLues > 1 ? "s" : ""} non lue${f.nonLues > 1 ? "s" : ""}` : "", ...f.avertissements].filter(Boolean).join(" · ")}</p>
+                  ))}
+                </div>
+              )}
               <p className="text-sm">
                 <span className="font-semibold">{groupes.length}</span> mouvement{groupes.length > 1 ? "s" : ""} proposé{groupes.length > 1 ? "s" : ""} :{" "}
                 <span className="font-semibold text-success">{nbPrets} prêt{nbPrets > 1 ? "s" : ""}</span> (cochés d'office),{" "}

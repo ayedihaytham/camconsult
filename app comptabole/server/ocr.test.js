@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ExtractionUnavailableError, douaneCoherente, douaneIncomplete, extractDocument, extractPages, resumeImport } from "./ocr.js";
+import { ExtractionUnavailableError, MAX_PAGES, douaneCoherente, douaneIncomplete, enParallele, extractDocument, extractPages, messageErreurPage, resumeImport } from "./ocr.js";
 
 // Petite image PNG valide (1x1) — le contenu n'a pas d'importance : sans moteur,
 // l'extraction doit refuser avant toute lecture.
@@ -79,5 +79,34 @@ describe("synthèse d'un import", () => {
   it("signale l'absence d'appel au modèle ou un coût inconnu", () => {
     expect(resumeImport(1, 1000, { appels: 0, entree: 0, sortie: 0, cout: 0, coutInconnu: false })).toContain("aucun appel au modèle");
     expect(resumeImport(1, 1000, { appels: 1, entree: 1, sortie: 1, cout: 0, coutInconnu: true })).toContain("coût inconnu");
+  });
+});
+
+describe("lecture d'un fichier de plusieurs pages", () => {
+  it("lit jusqu'à 60 pages par défaut (et non 15)", () => {
+    expect(MAX_PAGES).toBe(60);
+  });
+
+  it("exécute les pages quelques-unes à la fois, sans dépasser la limite, en gardant l'ordre", async () => {
+    let enCours = 0;
+    let max = 0;
+    const r = await enParallele([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 3, async (n) => {
+      enCours++;
+      max = Math.max(max, enCours);
+      await new Promise((resolve) => setTimeout(resolve, 5 + (10 - n)));
+      enCours--;
+      return n * 2;
+    });
+    expect(r).toEqual([2, 4, 6, 8, 10, 12, 14, 16, 18, 20]);
+    expect(max).toBeLessThanOrEqual(3);
+    expect(max).toBeGreaterThan(1);
+    expect(await enParallele([], 4, async () => 1)).toEqual([]);
+  });
+
+  it("dit à l'écran pourquoi une page n'a pas été lue", () => {
+    expect(messageErreurPage(Object.assign(new Error("x"), { code: "REPONSE_TRONQUEE" }))).toMatch(/trop dense/);
+    expect(messageErreurPage(Object.assign(new Error("x"), { status: 429 }))).toMatch(/surchargé/);
+    expect(messageErreurPage(Object.assign(new Error("x"), { status: 529 }))).toMatch(/surchargé/);
+    expect(messageErreurPage(new Error("autre"))).toMatch(/lecture impossible/);
   });
 });

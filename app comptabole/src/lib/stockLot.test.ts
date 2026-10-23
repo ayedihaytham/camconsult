@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { champsVidesCote, coteRenseigne, mouvementDuGroupe, mouvementVide, proximite, mots, regrouperPieces, type PieceLot } from "./stockLot";
+import { champsVidesCote, coteRenseigne, mouvementDuGroupe, mouvementVide, proximite, mots, regrouperPieces, resumeQuantite, type PieceLot } from "./stockLot";
 import type { StockChamps, StockDocType, StockLigne } from "@/types";
 
 const ligne = (designation: string, quantite: number, prixUnitaire: number): StockLigne => ({
@@ -111,5 +111,28 @@ describe("retrait d'un type de facture d'un mouvement", () => {
     expect(coteRenseigne({ ...(m as object), fournisseur: "SOTACIB" } as never, "achat")).toBe(true);
     expect(coteRenseigne({ ...(m as object), douaneNumDeclaration: "D1" } as never, "douane")).toBe(true);
     expect(coteRenseigne({ ...(m as object), client: "C" } as never, "achat")).toBe(false);
+  });
+});
+
+describe("lecture incomplète et quantités d'une pièce", () => {
+  it("une page que le moteur n'a pas lue est signalée avec sa raison, et un écart de poids net aussi", () => {
+    const nonLue = { ...achat("a1", "", "", "", 0), erreur: "service d'extraction surchargé ou indisponible : relancez la lecture" };
+    const [g] = regrouperPieces([nonLue], {});
+    expect(g.statut).toBe("verifier");
+    expect(g.anomalies.a1.join(" ")).toMatch(/Page non lue : service d'extraction surchargé/);
+
+    const avecEcart = piece("a2", "achat", { date: "2026-01-05", numFacture: "F2", fournisseur: "X", devise: "EUR", lignes: [ligne("CIMENT", 50, 44)], avertissements: ["Quantité lue (50 T) différente du poids net imprimé (61,305 T)"] });
+    const [h] = regrouperPieces([avecEcart], {});
+    expect(h.statut).toBe("verifier");
+    expect(h.anomalies.a2.join(" ")).toMatch(/poids net imprimé/);
+  });
+
+  it("écrit la quantité d'une facture avec son unité, en tonnes quand tonnes et kilos se mélangent", () => {
+    const l = (quantite: number, unite: string): StockLigne => ({ designation: "X", quantite, prixUnitaire: 1, montantDevise: quantite, montantTnd: 0, unite });
+    expect(resumeQuantite([l(61.305, "T")])).toBe("61,305 T");
+    expect(resumeQuantite([l(2000, "KG")]).replace(/\s/g, " ")).toBe("2 000 KG");
+    expect(resumeQuantite([l(1, "T"), l(500, "KG")])).toBe("1,5 T");
+    expect(resumeQuantite([l(48, "")])).toBe("48");
+    expect(resumeQuantite([])).toBe("");
   });
 });

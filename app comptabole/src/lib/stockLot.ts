@@ -20,6 +20,8 @@ export interface PieceLot {
   typeDevine: StockDocType | null;
   confiance: StockDocConfidence | null;
   champsByType: Record<StockDocType, StockChamps>;
+  /** Page que le moteur n'a pas pu lire, avec la raison à montrer. */
+  erreur?: string;
 }
 
 export interface PieceAffectee extends PieceLot {
@@ -139,6 +141,7 @@ function apparier<A, B>(gauche: A[], droite: B[], score: (a: A, b: B) => number)
 
 function anomaliesPiece(p: PieceAffectee): string[] {
   const out: string[] = [];
+  if (p.erreur) out.push(`Page non lue : ${p.erreur}`);
   if (p.confiance && p.confiance !== "haute") out.push(`Lecture à confiance ${p.confiance}`);
   if (p.typeDevine && p.typeDevine !== p.type) out.push(`Type corrigé (deviné : ${p.typeDevine})`);
   if (!p.typeDevine) out.push("Type non reconnu par le moteur");
@@ -149,6 +152,7 @@ function anomaliesPiece(p: PieceAffectee): string[] {
     if (!c.valeurTnd) out.push("Valeur en dinars absente");
     return out;
   }
+  for (const a of c.avertissements ?? []) out.push(a);
   if (!c.date) out.push("Date absente");
   if (!c.numFacture) out.push("N° de facture absent");
   if (!(p.type === "achat" ? c.fournisseur : c.client)) out.push(p.type === "achat" ? "Fournisseur absent" : "Client absent");
@@ -305,6 +309,15 @@ export function mouvementDuGroupe(g: GroupeLot, societeId: string): StockMouveme
   }
   m.natureMarchandise = a?.lignes?.[0]?.designation || v?.lignes?.[0]?.designation || "";
   return m;
+}
+
+/** Quantité totale d'une facture avec son unité, ramenée en tonnes si tonnes et kilos se mélangent : « 61,305 T ». */
+export function resumeQuantite(lignes: StockLigne[] | undefined): string {
+  if (!lignes || lignes.length === 0) return "";
+  const unites = new Set(lignes.map((l) => l.unite).filter(Boolean));
+  const unite = unites.has("T") && unites.has("KG") ? "T" : unites.size === 1 ? [...unites][0] : "";
+  const total = lignes.reduce((t, l) => t + (unite === "T" && l.unite === "KG" ? l.quantite / 1000 : l.quantite), 0);
+  return `${(Math.round(total * 1000) / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 3 })}${unite ? ` ${unite}` : ""}`;
 }
 
 /** Résumé d'un montant pour l'affichage d'une pièce : « 44 000,000 EUR ». */

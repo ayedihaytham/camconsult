@@ -40,11 +40,48 @@ const AUCUN_MOTEUR =
   "Aucun moteur d'extraction n'est configuré pour cette société. Renseignez la clé ANTHROPIC_API_KEY (ou activez le moteur RUSPINA), ou saisissez la pièce à la main.";
 
 const execFileAsync = promisify(execFile);
-const MAX_PAGES = 15;
+// Pages lues par fichier (OCR_MAX_PAGES pour ajuster). Un fichier plus long est coupé et l'écran en est prévenu.
+export const MAX_PAGES = Number(process.env.OCR_MAX_PAGES) || 60;
+// Pages envoyées en même temps au modèle : au-delà, les limites de débit du service font échouer des pages.
+const CONCURRENCE = Number(process.env.OCR_CONCURRENCE) || 4;
 // Plus grand côté (pixels) des pages rendues pour le modèle. Au-delà de ~1568 px
 // l'API réduit elle-même l'image : envoyer plus gros ne lit pas mieux et coûte
 // beaucoup plus de jetons. PAGE_MAX_PX (environnement) pour ajuster.
 const PAGE_MAX_PX = Number(process.env.PAGE_MAX_PX) || 1568;
+
+/** Exécute `travail` sur chaque élément, `limite` à la fois, en gardant l'ordre des résultats. */
+export async function enParallele(elements, limite, travail) {
+  const resultats = new Array(elements.length);
+  let suivant = 0;
+  const ouvriers = Array.from({ length: Math.max(1, Math.min(limite, elements.length)) }, async () => {
+    for (;;) {
+      const i = suivant++;
+      if (i >= elements.length) return;
+      resultats[i] = await travail(elements[i], i);
+    }
+  });
+  await Promise.all(ouvriers);
+  return resultats;
+}
+
+/** Nombre de pages d'un PDF, 0 si illisible. */
+export async function nombrePagesPdf(buffer) {
+  try {
+    const pdfParse = (await import("pdf-parse")).default;
+    const r = await pdfParse(buffer, { max: 1 });
+    return Number(r.numpages) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Phrase montrée à l'écran quand une page n'a pas pu être lue (le détail technique reste dans le journal). */
+export function messageErreurPage(err) {
+  if (err?.code === "REPONSE_TRONQUEE") return "page trop dense pour être lue en une fois : à saisir à la main";
+  const statut = Number(err?.status) || 0;
+  if (statut === 429 || statut === 529 || statut >= 500) return "service d'extraction surchargé ou indisponible : relancez la lecture";
+  return "lecture impossible : à saisir à la main ou à relancer";
+}
 
 function aiAvailable() {
   return claudeAvailable();
@@ -405,6 +442,7 @@ const lectureVide = () => ({
   partie: null,
   lignes: [],
   devise: null,
+  poidsNet: null,
   numDeclaration: null,
   typeDeclaration: null,
   tauxChange: null,
@@ -415,7 +453,7 @@ const lectureVide = () => ({
 });
 
 /** Page lue par un modèle de vision, au format attendu par l'écran. */
-function pageIA(index, imageDataUrl, lecture) {
+function pageIA(index, imageDataUrl, lecture, erreur) {
   return {
     index,
     imageDataUrl,
@@ -423,13 +461,14 @@ function pageIA(index, imageDataUrl, lecture) {
     type: lecture.type,
     confidence: lecture.confidence,
     lecture,
+    ...(erreur ? { erreur } : {}),
   };
 }
 
 /** Relit le type des factures d'un dossier d'après leur enchaînement (voir corrigerDossier). */
 function resoudreDossier(pages, raisonSociale) {
   const lectures = corrigerDossier(pages.map((p) => p.lecture ?? null), raisonSociale);
-  return pages.map((p, i) => (lectures[i] === p.lecture ? p : pageIA(p.index, p.imageDataUrl, lectures[i])));
+  return pages.map((p, i) => (lectures[i] === p.lecture ? p : pageIA(p.index, p.imageDataUrl, lectures[i], p.erreur)));
 }
 
 /**
@@ -439,10 +478,16 @@ function resoudreDossier(pages, raisonSociale) {
  * champs des différentes pièces se mélangent) et son type est déterminé.
  */
 export async function extractPages(dataUrl, raisonSociale) {
+  return (await extractPagesDetaillees(dataUrl, raisonSociale)).pages;
+}
+
+/** Comme `extractPages`, avec les avertissements de lecture (fichier coupé faute de pages, par exemple). */
+export async function extractPagesDetaillees(dataUrl, raisonSociale) {
   const debut = Date.now();
-  const { valeur: pages, mesure } = await avecMesure(() => lirePages(dataUrl, raisonSociale));
+  const avertissements = [];
+  const { valeur: pages, mesure } = await avecMesure(() => lirePages(dataUrl, raisonSociale, avertissements));
   console.log(resumeImport(pages.length, Date.now() - debut, mesure));
-  return pages;
+  return { pages, avertissements };
 }
 
 /** Ligne de synthèse d'un import : pages, durée, appels au modèle, jetons et coût estimé. */
@@ -451,7 +496,7 @@ export function resumeImport(pages, dureeMs, mesure) {
   return `[ocr] import terminé : ${pages} page${pages > 1 ? "s" : ""} en ${(dureeMs / 1000).toFixed(1)} s — ${mesure.appels} appel${mesure.appels > 1 ? "s" : ""}, ${mesure.entree} jetons entrée / ${mesure.sortie} sortie, ${cout}`;
 }
 
-async function lirePages(dataUrl, raisonSociale) {
+async function lirePages(dataUrl, raisonSociale, avertissements = []) {
   const { buffer, mime } = decodeDataUrl(dataUrl);
   if (!estPriseEnCharge(mime)) {
     throw new Error("Type de fichier non pris en charge (PDF ou image attendu)");
@@ -473,17 +518,27 @@ async function lirePages(dataUrl, raisonSociale) {
     return [pageIA(0, dataUrl, lecture)];
   }
 
-  // Les pages sont lues EN PARALLÈLE (un appel Claude par page) : la durée
-  // d'un dossier est celle de la page la plus longue, pas la somme.
+  // Les pages sont lues quelques-unes à la fois (CONCURRENCE, un appel Claude par page) : plus vite qu'une par une, sans dépasser
+  // les limites de débit du service.
+  const totalPages = estPdf(mime) ? await nombrePagesPdf(buffer) : 0;
+  if (totalPages > MAX_PAGES) {
+    avertissements.push(`Ce fichier compte ${totalPages} pages : seules les ${MAX_PAGES} premières ont été lues. Découpez-le pour lire le reste.`);
+  }
   const textPages = await tryPdfTextPages(buffer);
   if (textPages.some((t) => t.trim().length > 20)) {
-    return resoudreDossier(await Promise.all(
-      textPages.map(async (texte, index) =>
-        texte.trim().length < 20
-          ? pageIA(index, null, lectureVide())
-          : pageIA(index, null, await aiExtractPage({ texte, raisonSociale })),
-      ),
-    ), raisonSociale);
+    let premiereErreurTexte = null;
+    const lues = await enParallele(textPages, CONCURRENCE, async (texte, index) => {
+      if (texte.trim().length < 20) return pageIA(index, null, lectureVide());
+      try {
+        return pageIA(index, null, await aiExtractPage({ texte, raisonSociale }));
+      } catch (err) {
+        premiereErreurTexte ??= err;
+        console.error(`[ocr] extraction en échec (page ${index + 1}) :`, err.message);
+        return pageIA(index, null, lectureVide(), messageErreurPage(err));
+      }
+    });
+    if (premiereErreurTexte && lues.every((p) => !p.type)) throw premiereErreurTexte;
+    return resoudreDossier(lues, raisonSociale);
   }
 
   // PDF scanné : une image par page. Une page en échec (quota épuisé, panne…)
@@ -493,8 +548,10 @@ async function lirePages(dataUrl, raisonSociale) {
   if (rastered.length === 0) throw new Error("Aucune page lisible dans ce document");
   const rendu = Date.now() - debut;
   let premiereErreur = null;
-  const pages = await Promise.all(
-    rastered.map(async ({ index, png }) => {
+  const pages = await enParallele(
+    rastered,
+    CONCURRENCE,
+    async ({ index, png }) => {
       const imageDataUrl = toPngUrl(png);
       // Zones agrandies préparées pendant la lecture de la page : si c'est une
       // douane incomplète, elles sont déjà prêtes (gain de quelques secondes).
@@ -512,9 +569,9 @@ async function lirePages(dataUrl, raisonSociale) {
       } catch (err) {
         premiereErreur ??= err;
         console.error(`[ocr] extraction en échec (page ${index + 1}) :`, err.message);
-        return pageIA(index, imageDataUrl, lectureVide());
+        return pageIA(index, imageDataUrl, lectureVide(), messageErreurPage(err));
       }
-    }),
+    },
   );
   console.log(`[ocr] dossier de ${rastered.length} pages lu en ${((Date.now() - debut) / 1000).toFixed(1)} s (rendu des pages ${(rendu / 1000).toFixed(1)} s)`);
   // Aucune page lue : on le dit plutôt que d'afficher des pages vides.

@@ -612,6 +612,8 @@ export interface StockChamps {
   client?: string;
   devise?: string;
   lignes?: StockLigne[];
+  /** Écarts relevés à la lecture (quantité différente du poids net imprimé, par exemple) : à relire avant d'enregistrer. */
+  avertissements?: string[];
   numDeclaration?: string;
   typeDeclaration?: string;
   reference?: string;
@@ -645,6 +647,14 @@ export interface StockExtractPage {
   /** Informations lues par le moteur RUSPINA qui n'ont pas de champ dans le
    * mouvement (page douane : exportateur, importateur, taux, valeur). */
   details?: Record<string, string | number>;
+  /** Page que le moteur n'a pas pu lire (quota, service surchargé, page trop dense) : à saisir à la main ou à relancer. */
+  erreur?: string;
+}
+
+/** Résultat d'une lecture de fichier : ses pages, et ce qui n'a pas pu être lu en entier (fichier coupé faute de pages, par exemple). */
+export interface StockExtractPagesResult {
+  pages: StockExtractPage[];
+  avertissements: string[];
 }
 
 // ── États financiers : balance par société/exercice, reclassée par

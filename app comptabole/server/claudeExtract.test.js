@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod/v4";
-import { accepteEffort, champsByTypeFromClaude, ExtractionSchema, avecMesure, corrigerQuantiteLigne, uniteNormalisee, completerReponse, enregistrerMesure, coutNombre, coutEstime, corrigerTypeEtTiers, corrigerDossier, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
+import { accepteEffort, champsByTypeFromClaude, ExtractionSchema, avecMesure, corrigerQuantiteLigne, validerAvecPoidsNet, uniteNormalisee, completerReponse, enregistrerMesure, coutNombre, coutEstime, corrigerTypeEtTiers, corrigerDossier, designeLaSociete, extraireJson, motsDistinctifs, nomSociete, typeParEmetteur } from "./claudeExtract.js";
 
 const base = {
   type: "douane",
@@ -248,5 +248,58 @@ describe("dossier sans la société sur les factures", () => {
   it("ne touche pas une page déjà tranchée par le nom de la société", () => {
     const lectures = [achatLu, venteLue];
     expect(corrigerDossier(lectures, "01-RUSPINA")).toEqual(lectures);
+  });
+});
+
+describe("quantités en tonnes ou en kilos", () => {
+  const ligne = (quantite, prixUnitaire, montantDevise, unite) => ({ designation: "HOT WASHED PET FLAKES", quantite, prixUnitaire, montantDevise, unite });
+
+  it("des kilos ramenés à un millième passent en tonnes : l'unité suit la correction (pas de double conversion)", () => {
+    // « 41.973 » lu 41973, étiqueté KG par le pied de facture « 41973 KGS », prix à la tonne.
+    const l = corrigerQuantiteLigne(ligne(41973, 1000, 41973, "KG"));
+    expect(l).toMatchObject({ quantite: 41.973, unite: "T" });
+  });
+
+  it("une quantité en kilos cohérente avec un prix au kilo n'est pas touchée", () => {
+    expect(corrigerQuantiteLigne(ligne(2000, 1.5, 3000, "KG"))).toMatchObject({ quantite: 2000, unite: "KG" });
+  });
+
+  it("une quantité en tonnes mal séparée est corrigée sans changer d'unité", () => {
+    expect(corrigerQuantiteLigne(ligne(61305, 740, 45365.7, "T"))).toMatchObject({ quantite: 61.305, unite: "T" });
+  });
+});
+
+describe("recoupement de la quantité avec le poids net imprimé", () => {
+  const ligne = (quantite, unite) => ({ designation: "PET FLAKES", quantite, prixUnitaire: 740, montantDevise: quantite * 740, unite });
+
+  it("ne change rien quand la quantité correspond au poids net, en tonnes comme en kilos", () => {
+    expect(validerAvecPoidsNet([ligne(61.305, "T")], 61.305).avertissements).toEqual([]);
+    const kg = validerAvecPoidsNet([ligne(41973, "KG")], 41.973);
+    expect(kg.avertissements).toEqual([]);
+    expect(kg.lignes[0].quantite).toBe(41973);
+  });
+
+  it("corrige un facteur 1000 d'après le poids net, toutes les lignes passant en tonnes", () => {
+    const r = validerAvecPoidsNet([ligne(61305, "T")], 61.305);
+    expect(r.lignes).toEqual([expect.objectContaining({ quantite: 61.305, unite: "T" })]);
+    expect(r.avertissements).toEqual([]);
+    const kilos = validerAvecPoidsNet([ligne(61.305, "KG")], 61.305);
+    expect(kilos.lignes[0]).toMatchObject({ quantite: 61.305, unite: "T" });
+  });
+
+  it("signale un autre écart sans rien modifier, et ne compare pas des sacs ou des pièces", () => {
+    const r = validerAvecPoidsNet([ligne(50, "T")], 61.305);
+    expect(r.lignes[0].quantite).toBe(50);
+    expect(r.avertissements[0]).toMatch(/50 T.*poids net imprimé \(61,305 T\)/);
+    expect(validerAvecPoidsNet([ligne(48, "")], 61.305).avertissements).toEqual([]);
+    expect(validerAvecPoidsNet([ligne(50, "T")], 0).avertissements).toEqual([]);
+  });
+
+  it("les champs d'une facture portent l'avertissement jusqu'à l'écran", () => {
+    const out = { ...base, type: "achat", partie: "GREEN RECYCLING SARL", devise: "EUR", poidsNet: 61.305, lignes: [ligne(50, "T")] };
+    const champs = champsByTypeFromClaude(out);
+    expect(champs.achat.avertissements).toHaveLength(1);
+    expect(champs.vente.avertissements).toHaveLength(1);
+    expect(champs.douane.avertissements).toBeUndefined();
   });
 });

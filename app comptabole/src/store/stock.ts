@@ -80,8 +80,10 @@ interface StockState {
   fetchList: (societeId: string) => Promise<void>;
   clear: () => void;
   create: (data: StockMouvementInput) => Promise<StockMouvement>;
-  update: (id: string, data: Partial<StockMouvementInput>) => Promise<void>;
-  remove: (id: string) => Promise<void>;
+  /** `supprimerReglements` : retrait de la facture d'achat avec suppression de ses règlements (Suivi fournisseur), demandé expressément. */
+  update: (id: string, data: Partial<StockMouvementInput> & { supprimerReglements?: boolean }) => Promise<void>;
+  /** `supprimerReglements` : supprime aussi les règlements de la facture d'achat (sinon le serveur refuse). */
+  remove: (id: string, options?: { supprimerReglements?: boolean }) => Promise<void>;
   extract: (type: StockDocType, dataUrl: string, societeId?: string) => Promise<StockExtractResult>;
   /** Import "document complet" : un PDF/image combinant plusieurs pièces —
    * chaque page est analysée séparément et son type deviné. */
@@ -145,9 +147,9 @@ export const useStock = create<StockState>((set) => ({
     }
   },
 
-  remove: async (id) => {
+  remove: async (id, options) => {
     try {
-      await api.del(`/stock/mouvements/${id}`);
+      await api.del(`/stock/mouvements/${id}${options?.supprimerReglements ? "?supprimerReglements=true" : ""}`);
       set((st) => ({ list: st.list.filter((x) => x.id !== id) }));
     } catch (e) {
       fail(e);

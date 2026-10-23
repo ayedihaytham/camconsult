@@ -39,6 +39,8 @@ const ligneSchema = z.object({
 const schema = z.object({
   societeId: z.string().uuid(),
   apurementRevision: z.string().regex(/^\d+$/).optional(),
+  // Retrait de la facture d'achat avec suppression de ses règlements (Suivi fournisseur), demandée expressément à l'écran.
+  supprimerReglements: z.boolean().optional(),
   natureMarchandise: z.string().default(""),
 
   achatDate: dateStr,
@@ -207,6 +209,7 @@ stockRouter.patch("/mouvements/:id", async (req, res) => {
   const v = { ...existingDto, societeId: existing.societe_id, ...merged.data };
 
   const updCols = COL_NAMES.filter((c) => c !== "societe_id");
+  const resume = {};
   const row = await withTransaction(client => persistStock(client, {
     id: req.params.id, columns: updCols, values: values(v).slice(1),
     achatLignes: v.achatLignes, venteLignes: v.venteLignes,
@@ -214,13 +217,15 @@ stockRouter.patch("/mouvements/:id", async (req, res) => {
     revisionProvided: merged.data.apurementRevision !== undefined,
     societeId: existing.societe_id,
     apresAchat: { fournisseur: v.fournisseur, achatDevise: v.achatDevise, achatLignes: v.achatLignes },
+    supprimerReglements: merged.data.supprimerReglements === true,
+    resume,
   }));
 
   logAction(
     req.session.nom,
     "modification",
     "stock",
-    v.natureMarchandise || "Mouvement",
+    `${v.natureMarchandise || "Mouvement"}${resume.detache ? ` — ${resume.detache.touches} règlement(s) détaché(s), ${resume.detache.supprimes} supprimé(s)` : ""}`,
   );
   res.json(stockMouvementDto(row, await lignesOf(row.id)));
 });
@@ -232,12 +237,12 @@ stockRouter.delete("/mouvements/:id", async (req, res) => {
   if (!existing) return res.status(404).json({ error: "Mouvement introuvable" });
   if (!canAccess(req.session, existing.societe_id))
     return res.status(403).json({ error: "Accès au stock non autorisé" });
-  await withTransaction(client => deleteStock(client, req.params.id, existing.societe_id));
+  const detache = await withTransaction(client => deleteStock(client, req.params.id, existing.societe_id, { supprimerReglements: req.query.supprimerReglements === "true" }));
   logAction(
     req.session.nom,
     "suppression",
     "stock",
-    existing.nature_marchandise || "Mouvement",
+    `${existing.nature_marchandise || "Mouvement"}${detache ? ` — avec ${detache.touches} règlement(s) (${detache.supprimes} supprimé(s))` : ""}`,
   );
   res.json({ ok: true });
 });

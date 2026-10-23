@@ -26,6 +26,17 @@ import { DocPreviewDialog } from "./DocPreviewDialog";
 
 const NOMS_COTE: Record<CoteMouvement, string> = { achat: "la facture d'achat", vente: "la facture de vente", douane: "la déclaration douanière" };
 
+/** Prévient qu'une suppression emporte les règlements déjà saisis dans Suivi fournisseur. */
+function AvertissementReglements({ info }: { info?: { nb: number; montant: number; devise: string } }) {
+  if (!info) return null;
+  return (
+    <span className="mt-2 block rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-destructive">
+      Attention : cette facture d'achat a {info.nb} règlement{info.nb > 1 ? "s" : ""} enregistré{info.nb > 1 ? "s" : ""} dans Suivi fournisseur, pour{" "}
+      <strong>{info.montant.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} {info.devise}</strong>. Sa part est retirée de chaque règlement ; un règlement qui ne couvre plus aucune facture est supprimé. Cette action est tracée au journal.
+    </span>
+  );
+}
+
 export function StockSocietePage() {
   const { societeId = "" } = useParams();
   const navigate=useNavigate();
@@ -66,6 +77,8 @@ export function StockSocietePage() {
 
   // Statut de règlement des achats (Suivi fournisseur) : lecture seule, sans message d'erreur si l'accès n'est pas permis.
   const [reglements, setReglements] = useState<ReadonlyMap<string, StatutFacture>>(new Map());
+  // Règlements déjà enregistrés par facture d'achat : sert à prévenir avant une suppression qui les emporte.
+  const [reglesInfo, setReglesInfo] = useState<ReadonlyMap<string, { nb: number; montant: number; devise: string }>>(new Map());
   useEffect(() => {
     let actif = true;
     api
@@ -74,6 +87,15 @@ export function StockSocietePage() {
         if (!actif) return;
         const soldes = soldesFactures(etat.factures, etat.reglements);
         setReglements(new Map([...soldes].map(([id, s]) => [id, s.statut])));
+        const info = new Map<string, { nb: number; montant: number; devise: string }>();
+        for (const r of etat.reglements) {
+          for (const a of r.affectations) {
+            const f = etat.factures.find((x) => x.id === a.mouvementId);
+            const courant = info.get(a.mouvementId) ?? { nb: 0, montant: 0, devise: f?.devise ?? r.devise };
+            info.set(a.mouvementId, { ...courant, nb: courant.nb + 1, montant: Math.round((courant.montant + a.montant) * 1000) / 1000 });
+          }
+        }
+        setReglesInfo(info);
       })
       .catch(() => {});
     return () => {
@@ -376,10 +398,16 @@ export function StockSocietePage() {
         open={Boolean(toDelete)}
         onOpenChange={(o) => !o && setToDelete(null)}
         title="Supprimer ce mouvement ?"
-        description="Cette ligne de stock sera définitivement supprimée."
-        confirmLabel="Supprimer"
+        description={
+          <>
+            <span className="block">Cette ligne de stock sera définitivement supprimée.</span>
+            {toDelete && <AvertissementReglements info={reglesInfo.get(toDelete.id)} />}
+          </>
+        }
+        confirmLabel={toDelete && reglesInfo.has(toDelete.id) ? "Supprimer avec les règlements" : "Supprimer"}
+        destructive
         onConfirm={() => {
-          if (toDelete) void remove(toDelete.id).catch(() => undefined);
+          if (toDelete) void remove(toDelete.id, { supprimerReglements: reglesInfo.has(toDelete.id) }).catch(() => undefined);
           setToDelete(null);
         }}
       />
@@ -388,10 +416,19 @@ export function StockSocietePage() {
         open={Boolean(aRetirer)}
         onOpenChange={(o) => !o && setARetirer(null)}
         title={aRetirer ? `Supprimer ${NOMS_COTE[aRetirer.cote]} ?` : ""}
-        description="Le mouvement est conservé avec ses autres pièces. Les informations de cette pièce, ses produits et son document joint sont effacés."
-        confirmLabel="Supprimer"
+        description={
+          <>
+            <span className="block">Le mouvement est conservé avec ses autres pièces. Les informations de cette pièce, ses produits et son document joint sont effacés.</span>
+            {aRetirer?.cote === "achat" && <AvertissementReglements info={reglesInfo.get(aRetirer.m.id)} />}
+          </>
+        }
+        confirmLabel={aRetirer?.cote === "achat" && reglesInfo.has(aRetirer.m.id) ? "Supprimer avec les règlements" : "Supprimer"}
+        destructive
         onConfirm={() => {
-          if (aRetirer) void update(aRetirer.m.id, { ...champsVidesCote(aRetirer.cote), apurementRevision: aRetirer.m.apurementRevision }).catch(() => undefined);
+          if (aRetirer) {
+            const avecReglements = aRetirer.cote === "achat" && reglesInfo.has(aRetirer.m.id);
+            void update(aRetirer.m.id, { ...champsVidesCote(aRetirer.cote), apurementRevision: aRetirer.m.apurementRevision, ...(avecReglements ? { supprimerReglements: true } : {}) }).catch(() => undefined);
+          }
           setARetirer(null);
         }}
       />

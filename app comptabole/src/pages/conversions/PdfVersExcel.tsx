@@ -220,11 +220,29 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
         </LedgerSheet>
       </div>
 
+      <div className="min-w-0 lg:self-stretch">
       <LedgerSheet data-tour="conversions-results" className="min-w-0 lg:sticky lg:top-3">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-[18px] py-3">
           <h2 className="text-[0.86rem] font-bold text-foreground">Aperçu</h2>
           <LedgerSegmented<Mode> value={mode} onChange={setMode} ariaLabel="Mode d'aperçu" options={[{ value: "pdf", label: "PDF" }, { value: "both", label: "Côte à côte" }, { value: "xls", label: "Excel" }]} />
         </div>
+        {active && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-[18px] py-2.5" role="group" aria-label="Télécharger le fichier affiché">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Télécharger</span>
+            <Button type="button" variant="outline" size="sm" aria-label="Télécharger l'Excel affiché" onClick={() => void telecharger(active)}>
+              <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+            </Button>
+            <Button type="button" variant="outline" size="sm" aria-label="Télécharger le PDF affiché" onClick={() => void telechargerPdf(active)}>
+              <Download className="h-3.5 w-3.5" /> PDF
+            </Button>
+            <Button type="button" variant="outline" size="sm" aria-label="Télécharger les écritures affichées" onClick={() => telechargerEcritures(active)}>
+              <FileText className="h-3.5 w-3.5" /> Écritures (.txt)
+            </Button>
+            <Button type="button" variant="outline" size="sm" aria-label="Télécharger le texte brut affiché" onClick={() => telechargerTexte(active)}>
+              <FileText className="h-3.5 w-3.5" /> Texte brut (.txt)
+            </Button>
+          </div>
+        )}
         {active && feuille ? (
           <>
             {tableauSeul && modeDePdf(active.pages, options) === "complet" && (
@@ -270,7 +288,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Fichier .txt des écritures — {(ecritures?.length ?? 0) / 2} mouvements, deux lignes chacun
                 </p>
-                <pre aria-label="Aperçu du fichier texte" className="max-h-[320px] overflow-auto rounded-lg border border-border bg-secondary/30 p-3 font-mono text-xs [tab-size:12]">
+                <pre aria-label="Aperçu du fichier texte" className="max-h-[320px] overflow-auto rounded-lg border border-border bg-secondary/30 p-3 font-mono text-[0.7rem] [tab-size:6]">
                   {ecrituresTexte}
                 </pre>
               </div>
@@ -280,6 +298,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
           <p className="p-8 text-center text-sm text-muted-foreground">Ajoutez un fichier, puis cliquez sur sa ligne pour voir l'aperçu.</p>
         )}
       </LedgerSheet>
+      </div>
 
       {items.length > 0 && (
         <LedgerSheet className="lg:col-span-2">

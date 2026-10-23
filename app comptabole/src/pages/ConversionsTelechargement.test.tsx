@@ -119,4 +119,17 @@ describe("téléchargement du fichier converti : PDF, Excel ou texte, quel que s
     await waitFor(() => expect(download).toHaveBeenCalledTimes(2));
     expect(download.mock.calls.map((c) => (c as [Blob, string])[1]).sort()).toEqual(["a.xlsx", "b.xlsx"]);
   });
+
+  it("le fichier affiché se télécharge aussi depuis l'aperçu, sans descendre jusqu'à la file", async () => {
+    afficher();
+    fireEvent.click(screen.getByRole("button", { name: "PDF vers Excel" }));
+    deposer("releve.pdf");
+    const barre = await screen.findByRole("group", { name: "Télécharger le fichier affiché" });
+    for (const nom of ["Télécharger l'Excel affiché", "Télécharger le PDF affiché", "Télécharger les écritures affichées", "Télécharger le texte brut affiché"]) {
+      expect(within(barre).getByRole("button", { name: nom })).toBeTruthy();
+    }
+    fireEvent.click(within(barre).getByRole("button", { name: "Télécharger le texte brut affiché" }));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
+    expect(dernierAppel()[1]).toBe("releve.txt");
+  });
 });

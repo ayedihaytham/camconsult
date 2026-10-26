@@ -70,6 +70,7 @@ import { printTable } from "@/lib/print";
 import { cn } from "@/lib/utils";
 import { THEME_OPTIONS } from "@/lib/societeTheme";
 import { provisionnerArborescenceSociete } from "@/lib/classement";
+import { safeLocalStorage } from "@/lib/safeStorage";
 import {
   useData,
   useNoeuds,
@@ -85,30 +86,7 @@ import { logJournal } from "@/store/journal";
 import type { Collecte, Societe, SocieteTheme, Statut } from "@/types";
 import { SocieteFormSheet, type SocieteFormValues } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
-
-const MONOGRAM_TONES = [
-  "border-primary/15 bg-primary/[0.07] text-primary",
-  "border-border bg-secondary text-primary/80",
-  "border-accent/35 bg-accent/10 text-primary",
-] as const;
-
-function societeInitials(name: string) {
-  const order = name.trim().match(/^\d{1,3}/);
-  if (order) return order[0];
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length > 1) {
-    return `${words[0][0]}${words[1][0]}`.toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
-
-function monogramTone(seed: string) {
-  const index = Array.from(seed).reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0,
-  );
-  return MONOGRAM_TONES[index % MONOGRAM_TONES.length];
-}
+import { SocietesVolet, monogramTone, societeInitials } from "./SocietesVolet";
 
 function BulkActionsMenu({
   onExport,
@@ -361,6 +339,12 @@ export function SocietesListPage() {
   }, [collectes, moisCourant]);
   const moisNom = moisCourant.split(" ")[0].toLowerCase();
   const libelleCollecte = `Collecte ${/^[aeiouhéèêàâîôû]/i.test(moisNom) ? "d'" : "de "}${moisNom}`;
+  const [vue, setVue] = useState<"volet" | "tableau">(() => (safeLocalStorage.getItem("societes:vue") === "tableau" ? "tableau" : "volet"));
+  function changerVue(next: "volet" | "tableau") {
+    setVue(next);
+    safeLocalStorage.setItem("societes:vue", next);
+    if (next === "volet") clearSelection();
+  }
   const [search, setSearch] = useState("");
   const [themeFilter, setThemeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
@@ -867,13 +851,26 @@ export function SocietesListPage() {
           label="Outils du registre des sociétés"
           search={renderSearchFilter("max-w-none")}
           resultCount={!isDataLoading ? `${filtered.length} société${filtered.length > 1 ? "s" : ""}` : undefined}
-          tools={
+          tools={<>
+            <div role="group" aria-label="Présentation du registre" className="inline-flex rounded-[10px] bg-muted p-[3px]">
+              {([["volet", "Liste et volet"], ["tableau", "Tableau"]] as const).map(([valeur, libelle]) => (
+                <button
+                  key={valeur}
+                  type="button"
+                  aria-pressed={vue === valeur}
+                  onClick={() => changerVue(valeur)}
+                  className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", vue === valeur && "bg-card font-semibold text-primary shadow-sm")}
+                >
+                  {libelle}
+                </button>
+              ))}
+            </div>
             <SocietesUtilityMenu
               table={table}
               onExport={handleExport}
               onPrint={handlePrint}
             />
-          }
+          </>}
         />
       )}
 
@@ -978,102 +975,122 @@ export function SocietesListPage() {
         </div>
       )}
 
-      <DataTable
-        className="ledger-work-table societes-ledger-table bg-transparent [&>div:last-child]:space-y-0"
-        desktopDensity="ledger"
-        desktopVariant="register"
-        showSelectionHeader
-        table={table}
-        emptyMessage={emptyMessage}
-        isLoading={isDataLoading}
-        footer={<OperationalLedgerFooter table={table} itemLabel="sociétés" />}
-        getRowClassName={(row) =>
-          cn(
-            `ledger-row--${row.original.statut}`,
-            selectedIds.includes(row.original.id) && "bg-accent/[0.14] hover:bg-accent/[0.18]",
-          )
-        }
-        onRowClick={(row) => openView(row.original)}
-        mobileRow={(row) => {
-          const s = row.original;
-          const contacts = contactCount.get(s.id) ?? 0;
-          const tasks = openTaskCount.get(s.id) ?? 0;
-          const selected = selectedIds.includes(s.id);
-          return (
-            <article
-              data-state={selected ? "selected" : undefined}
-              className="relative min-w-0 border-b border-border/80 px-3 py-3 sm:px-1 data-[state=selected]:bg-accent/[0.09] data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-2 data-[state=selected]:before:left-0 data-[state=selected]:before:w-px data-[state=selected]:before:bg-accent"
-            >
-              <div className="flex min-w-0 items-center gap-2.5">
-                {isMobileSelectionActive && (
-                  <Checkbox
-                    checked={selected}
-                    onCheckedChange={() =>
-                      setSelectedIds((ids) =>
-                        selected
-                          ? ids.filter((id) => id !== s.id)
-                          : [...ids, s.id],
-                      )
-                    }
-                    aria-label={`Sélectionner ${s.raisonSociale}`}
-                    className="shrink-0"
-                  />
-                )}
-                <span
-                  className={cn(
-                    "flex size-8 shrink-0 items-center justify-center rounded-lg border text-[10px] font-bold tracking-wide",
-                    monogramTone(s.id),
+      {vue === "volet" && (
+        <div className="hidden lg:block">
+          <SocietesVolet
+            societes={filtered}
+            loading={isDataLoading}
+            emptyMessage={emptyMessage}
+            voitTaches={voitTaches}
+            libelleCollecte={libelleCollecte}
+            contactPrincipal={contactPrincipal}
+            collecteDuMois={collecteDuMois}
+            openTaskCount={openTaskCount}
+            dossiersParSociete={dossiersParSociete}
+            onOpenFiche={openView}
+            onOpenDossiers={(societe) => navigate(`/structuration?societe=${societe.id}`)}
+            menuActions={societeMenuActions}
+          />
+        </div>
+      )}
+      <div className={vue === "volet" ? "lg:hidden" : undefined}>
+        <DataTable
+          className="ledger-work-table societes-ledger-table bg-transparent [&>div:last-child]:space-y-0"
+          desktopDensity="ledger"
+          desktopVariant="register"
+          showSelectionHeader
+          table={table}
+          emptyMessage={emptyMessage}
+          isLoading={isDataLoading}
+          footer={<OperationalLedgerFooter table={table} itemLabel="sociétés" />}
+          getRowClassName={(row) =>
+            cn(
+              `ledger-row--${row.original.statut}`,
+              selectedIds.includes(row.original.id) && "bg-accent/[0.14] hover:bg-accent/[0.18]",
+            )
+          }
+          onRowClick={(row) => openView(row.original)}
+          mobileRow={(row) => {
+            const s = row.original;
+            const contacts = contactCount.get(s.id) ?? 0;
+            const tasks = openTaskCount.get(s.id) ?? 0;
+            const selected = selectedIds.includes(s.id);
+            return (
+              <article
+                data-state={selected ? "selected" : undefined}
+                className="relative min-w-0 border-b border-border/80 px-3 py-3 sm:px-1 data-[state=selected]:bg-accent/[0.09] data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-2 data-[state=selected]:before:left-0 data-[state=selected]:before:w-px data-[state=selected]:before:bg-accent"
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  {isMobileSelectionActive && (
+                    <Checkbox
+                      checked={selected}
+                      onCheckedChange={() =>
+                        setSelectedIds((ids) =>
+                          selected
+                            ? ids.filter((id) => id !== s.id)
+                            : [...ids, s.id],
+                        )
+                      }
+                      aria-label={`Sélectionner ${s.raisonSociale}`}
+                      className="shrink-0"
+                    />
                   )}
-                  aria-hidden
-                >
-                  {societeInitials(s.raisonSociale)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  {isMobileSelectionActive ? (
-                    <p className="break-words text-sm font-semibold text-foreground">
-                      {s.raisonSociale}
-                    </p>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => openView(s)}
-                      className="block max-w-full break-words text-left text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      {s.raisonSociale}
-                    </button>
-                  )}
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {s.theme} · {s.rne || "RNE non renseigné"}
-                  </p>
-                </div>
-                {!isMobileSelectionActive && (
-                  <div className="shrink-0">
-                    <LedgerRowMenu actions={societeMenuActions(s)} />
-                  </div>
-                )}
-              </div>
-              <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-xs text-muted-foreground">
-                <div
-                  className={cn(
-                    "flex min-w-0 items-center gap-2",
-                    isMobileSelectionActive ? "pl-[66px]" : "pl-[42px]",
-                  )}
-                >
-                  <span className="truncate">
-                    {contacts === 0 ? "Aucun contact" : "Contact clé non désigné"}
+                  <span
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-lg border text-[10px] font-bold tracking-wide",
+                      monogramTone(s.id),
+                    )}
+                    aria-hidden
+                  >
+                    {societeInitials(s.raisonSociale)}
                   </span>
-                  {voitTaches && (
-                    <span className="shrink-0 tabular-nums">
-                      {tasks} tâche{tasks === 1 ? "" : "s"}
-                    </span>
+                  <div className="min-w-0 flex-1">
+                    {isMobileSelectionActive ? (
+                      <p className="break-words text-sm font-semibold text-foreground">
+                        {s.raisonSociale}
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openView(s)}
+                        className="block max-w-full break-words text-left text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {s.raisonSociale}
+                      </button>
+                    )}
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {s.theme} · {s.rne || "RNE non renseigné"}
+                    </p>
+                  </div>
+                  {!isMobileSelectionActive && (
+                    <div className="shrink-0">
+                      <LedgerRowMenu actions={societeMenuActions(s)} />
+                    </div>
                   )}
                 </div>
-                <StatutDot statut={s.statut} />
-              </div>
-            </article>
-          );
-        }}
-      />
+                <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <div
+                    className={cn(
+                      "flex min-w-0 items-center gap-2",
+                      isMobileSelectionActive ? "pl-[66px]" : "pl-[42px]",
+                    )}
+                  >
+                    <span className="truncate">
+                      {contacts === 0 ? "Aucun contact" : "Contact clé non désigné"}
+                    </span>
+                    {voitTaches && (
+                      <span className="shrink-0 tabular-nums">
+                        {tasks} tâche{tasks === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </div>
+                  <StatutDot statut={s.statut} />
+                </div>
+              </article>
+            );
+          }}
+        />
+      </div>
       {!isDataLoading && filtered.length > 0 && (
         <OperationalMobilePagination table={table} itemLabel="sociétés" />
       )}

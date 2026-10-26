@@ -26,8 +26,10 @@ export function AppLayout() {
       >
         <AppSidebar />
         <CommandPalette />
-        <SidebarInset className="min-h-0 min-w-0">
+        <SidebarInset className="min-h-0 min-w-0 bg-sidebar print:bg-white">
           <Topbar />
+          {/* Feuille claire posée sur le cadre marine (menu + barre du haut) ; son filet doré rappelle la signature du cabinet. */}
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted before:pointer-events-none before:absolute before:left-[30px] before:top-0 before:z-10 before:hidden before:h-[2px] before:w-[72px] before:bg-accent lg:rounded-tl-[22px] lg:before:block print:overflow-visible print:rounded-none print:before:hidden">
           <div className="flex flex-1 flex-col overflow-y-auto bg-muted print-full">
           {/* flex-1 (flex-grow) plutôt que min-h-full (%) : une chaîne de
               flex-grow calée sur des tailles déjà définies ailleurs, jamais
@@ -43,6 +45,7 @@ export function AppLayout() {
             >
               <Outlet />
             </div>
+          </div>
           </div>
         </SidebarInset>
         {/* Le bouton « Aide » est retiré pour le moment : la visite guidée sera proposée à la première visite. */}

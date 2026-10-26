@@ -515,6 +515,8 @@
   .signature-sidebar__content {
     scrollbar-color: hsl(var(--sidebar-accent)) transparent;
     scrollbar-width: thin;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 22px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 22px), transparent 100%);
   }
 
   .signature-sidebar__content::-webkit-scrollbar {
@@ -539,11 +541,10 @@
     background: hsl(var(--sidebar-muted) / 0.55);
   }
 
-  .signature-sidebar__group-label::before {
-    width: 12px;
+  .signature-sidebar__group-label::after {
     height: 1px;
-    flex: none;
-    background: hsl(var(--sidebar-foreground) / 0.125);
+    flex: 1;
+    background: hsl(var(--sidebar-primary) / 0.3);
     content: "";
   }
 
@@ -594,15 +595,17 @@
       .signature-sidebar__content
       [data-sidebar="menu-button"] {
       height: 2.5rem;
-      gap: 0.875rem;
-      font-size: 0.95rem;
+      gap: 0.75rem;
+      padding-inline: 0.75rem;
+      border-radius: 0.625rem;
+      font-size: 0.84rem;
     }
 
     .signature-sidebar:not([data-collapsible="icon"])
       .signature-sidebar__content
       [data-sidebar="menu-button"] > svg {
-      width: 1.25rem;
-      height: 1.25rem;
+      width: 1.125rem;
+      height: 1.125rem;
     }
   }
 
@@ -612,31 +615,6 @@
     isolation: isolate;
     overflow: hidden;
     border-right: 0;
-    box-shadow: inset -3px 0 0 hsl(var(--sidebar-deep));
-  }
-
-  .signature-sidebar > [data-sidebar="sidebar"]::before,
-  .signature-sidebar[data-mobile="true"]::before {
-    position: absolute;
-    z-index: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 24%;
-    background-image:
-      repeating-linear-gradient(
-        90deg,
-        transparent 0 31px,
-        rgb(215 228 237 / 5%) 32px 33px
-      ),
-      repeating-linear-gradient(
-        0deg,
-        transparent 0 39px,
-        rgb(215 228 237 / 3%) 40px 41px
-      );
-    content: "";
-    opacity: 0.55;
-    pointer-events: none;
   }
 
   .signature-sidebar > [data-sidebar="sidebar"] > *,
@@ -645,53 +623,9 @@
     z-index: 1;
   }
 
-  .group[data-collapsible="icon"]
-    .signature-sidebar > [data-sidebar="sidebar"]::before {
-    width: 14px;
-    opacity: 0.4;
-  }
-
   .signature-sidebar [data-sidebar="header"] {
     position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    border-bottom: 1px solid rgb(226 237 245 / 8%);
-    background: hsl(var(--sidebar-deep));
-  }
-
-  .signature-sidebar [data-sidebar="header"]::before {
-    position: absolute;
-    z-index: 2;
-    top: 13px;
-    right: 17px;
-    width: 22px;
-    height: 19px;
-    border-top: 1px solid rgb(201 169 106 / 22%);
-    border-right: 1px solid rgb(201 169 106 / 22%);
-    content: "";
-    pointer-events: none;
-  }
-
-  .signature-sidebar [data-sidebar="header"]::after {
-    position: absolute;
-    z-index: 2;
-    bottom: 7px;
-    left: 16px;
-    width: 59px;
-    border-bottom: 1px solid hsl(var(--sidebar-primary));
-    content: "";
-    pointer-events: none;
-  }
-
-  .group[data-collapsible="icon"]
-    .signature-sidebar [data-sidebar="header"]::before {
-    display: none;
-  }
-
-  .group[data-collapsible="icon"]
-    .signature-sidebar [data-sidebar="header"]::after {
-    left: 12px;
-    width: 24px;
+    background: transparent;
   }
 }
 
@@ -899,3 +833,200 @@
 .societes-ledger-page tbody tr.ledger-row--annulee > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--muted-foreground) / 0.45); }
 /* Registre des factures : le tableau garde une largeur minimale (défilement horizontal en dessous) pour que la colonne « Client » ne soit jamais écrasée. */
 .facturation-ledger-table table { min-width: 1120px; }
+
+/* Page de connexion : entrée en cascade, graphique qui se trace, jauge qui se remplit, coches qui apparaissent une à une.
+   Tout s'arrête si l'utilisateur a demandé moins de mouvement. */
+@keyframes login-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes login-bar {
+  0% {
+    transform: scaleY(0);
+  }
+  12%,
+  88% {
+    transform: scaleY(1);
+  }
+  96%,
+  100% {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes login-trace {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 1;
+  }
+  16%,
+  88% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes login-fill {
+  0% {
+    transform: scaleX(0);
+  }
+  14%,
+  88% {
+    transform: scaleX(1);
+  }
+  96%,
+  100% {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes login-tick {
+  0% {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  6%,
+  88% {
+    opacity: 1;
+    transform: none;
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+@keyframes login-slide {
+  0%,
+  100% {
+    transform: translateX(-1px);
+  }
+  50% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes login-wave {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.login-rise {
+  opacity: 0;
+  animation: login-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation-delay: var(--login-delay, 0s);
+}
+
+.login-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: login-bar 10s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+  animation-delay: var(--login-delay, 0s);
+}
+
+.login-trace {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: login-trace 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: var(--login-delay, 0s);
+}
+
+.login-fill {
+  transform-origin: left;
+  animation: login-fill 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: var(--login-delay, 0s);
+}
+
+.login-tick {
+  opacity: 0;
+  animation: login-tick 10s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+  animation-delay: var(--login-delay, 0s);
+}
+
+.login-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ledger-pulse 2.4s ease-out infinite;
+}
+
+.login-slide {
+  animation: login-slide 3.2s ease-in-out infinite;
+}
+
+.login-wave {
+  animation: login-wave 3s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-rise {
+    opacity: 1;
+    animation: none;
+  }
+  .login-bar,
+  .login-fill,
+  .login-slide,
+  .login-wave,
+  .login-halo {
+    animation: none;
+  }
+  .login-tick {
+    opacity: 1;
+    animation: none;
+  }
+  .login-trace {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+}
+
+/* Carte de connexion en reçu : bords haut et bas dentelés, . */
+.login-recu {
+  --z: 14px;
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--z) 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / var(--z) 51% repeat-x;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--z) 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / var(--z) 51% repeat-x;
+}
+
+/* Initiales du médaillon de connexion : elles apparaissent en « rebondissant » à chaque changement. */
+@keyframes login-pop {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+
+.login-pop {
+  animation: login-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+.capitalize-first::first-letter {
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-pop {
+    animation: none;
+  }
+}

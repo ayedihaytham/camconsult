@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, MonitorOff, MonitorSmartphone, Settings } from "lucide-react";
+import { Bell, CheckCheck, ChevronRight, LogOut, MonitorOff, MonitorSmartphone, Settings, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { AppBreadcrumbs } from "./AppBreadcrumbs";
-import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useHistoriqueNavigation } from "@/hooks/useHistoriqueNavigation";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
 import { SocieteActiveSelect } from "./SocieteActiveSelect";
+import { visuelNotification } from "./notificationVisuel";
 import { MesAppareilsDialog } from "@/components/auth/AppareilsConnectes";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
@@ -46,75 +45,76 @@ export function Topbar() {
     navigate("/login", { replace: true });
   }
 
+  const libelleRole = isAdmin ? "Administrateur" : role;
+  const rangee = "group gap-3 rounded-xl px-2.5 py-2 text-sm font-medium focus:bg-muted focus:text-foreground";
+  const tuile = "grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-primary";
+  const fleche = <ChevronRight className="ml-auto size-4 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />;
+
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-card no-print after:pointer-events-none after:absolute after:-bottom-px after:left-0 after:h-[2px] after:w-[72px] after:bg-accent">
-      <div className="flex h-16 items-center gap-3 px-4 lg:px-6">
+    <header className="sticky top-0 z-30 bg-sidebar text-sidebar-foreground no-print">
+      <div className="flex h-[60px] items-center gap-2 px-3 lg:px-5">
         <SidebarTrigger
-          className="h-10 w-10 shrink-0 lg:h-9 lg:w-9"
+          className="h-9 w-9 shrink-0 text-sidebar-foreground hover:bg-white/10 hover:text-white"
           aria-label="Afficher ou réduire le menu"
         />
 
-        <NavigationHistorique />
-
-        <Separator orientation="vertical" className="h-4" />
         <AppBreadcrumbs />
 
-        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1">
           <SocieteActiveSelect />
+          <span className="mx-2 hidden h-[22px] w-px bg-white/15 sm:block" aria-hidden="true" />
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-1.5 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:pr-2.5"
+                className="relative ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-primary transition-shadow hover:ring-4 hover:ring-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
                 aria-label={`Menu du compte de ${nom}`}
               >
-                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-accent lg:h-9 lg:w-9">
-                  <span className="text-xs font-semibold tracking-wide">
-                    {initiales}
-                  </span>
-                  <span aria-hidden="true" className="absolute -bottom-px -right-px size-2.5 rounded-full border-2 border-card bg-success" />
-                </span>
-                <span className="hidden text-left leading-tight sm:block">
-                  <span className="block text-sm font-medium text-foreground">
-                    {nom}
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    {isAdmin ? "Administrateur" : role}
-                  </span>
-                </span>
-                <ChevronDown
-                  className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground sm:block"
-                  aria-hidden="true"
-                />
+                <span className="text-xs font-bold tracking-wide">{initiales}</span>
+                <span aria-hidden="true" className="absolute -bottom-px -right-px size-2.5 rounded-full border-2 border-sidebar bg-success" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={8} className="topbar-account-menu w-64 rounded-xl border-border/70 p-1.5 shadow-pop">
-              <div className="px-3 pb-2 pt-1.5">
-                <p className="truncate text-sm font-semibold text-foreground">{nom}</p>
-                <p className="truncate text-xs text-muted-foreground">{isAdmin ? "Administrateur" : role}</p>
+            <DropdownMenuContent align="end" sideOffset={12} className="topbar-account-menu w-[21rem] max-w-[calc(100vw-1rem)] rounded-2xl border-border/70 p-0 shadow-pop">
+              <div className="flex items-center gap-3.5 p-4">
+                <span className="relative grid size-11 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-primary">
+                  {initiales}
+                  <span aria-hidden="true" className="absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-card bg-success" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[0.95rem] font-semibold text-foreground">{nom}</p>
+                  {libelleRole && (
+                    <p className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-primary">
+                      <ShieldCheck className="size-3 shrink-0 text-accent" aria-hidden="true" />
+                      <span className="truncate">{libelleRole}</span>
+                    </p>
+                  )}
+                </div>
               </div>
-              <DropdownMenuSeparator className="mx-2 my-1" />
-              {isAdmin && (
-                <>
-                  <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={() => navigate("/parametres")}>
-                    <Settings className="h-[18px] w-[18px] text-muted-foreground" />
+              <DropdownMenuSeparator className="mx-3.5 my-0" />
+              <div className="p-1.5">
+                {isAdmin && (
+                  <DropdownMenuItem className={rangee} onClick={() => navigate("/parametres")}>
+                    <span className={tuile}><Settings className="size-[17px]" /></span>
                     Paramètres
+                    {fleche}
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="mx-3 my-1" />
-                </>
-              )}
-              <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={() => setAppareilsOpen(true)}>
-                <MonitorSmartphone className="h-[18px] w-[18px] text-muted-foreground" />
-                Mes appareils connectés
-              </DropdownMenuItem>
-              <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={() => setAutresOpen(true)}>
-                <MonitorOff className="h-[18px] w-[18px] text-muted-foreground" />
-                Déconnecter mes autres appareils
-              </DropdownMenuItem>
-              <DropdownMenuItem className="gap-3 rounded-lg px-3 py-3 text-[0.95rem]" onClick={handleLogout}>
-                <LogOut className="h-[18px] w-[18px] text-muted-foreground" />
-                Se déconnecter
-              </DropdownMenuItem>
+                )}
+                <DropdownMenuItem className={rangee} onClick={() => setAppareilsOpen(true)}>
+                  <span className={tuile}><MonitorSmartphone className="size-[17px]" /></span>
+                  Mes appareils connectés
+                  {fleche}
+                </DropdownMenuItem>
+                <DropdownMenuItem className={rangee} onClick={() => setAutresOpen(true)}>
+                  <span className={tuile}><MonitorOff className="size-[17px]" /></span>
+                  Déconnecter mes autres appareils
+                  {fleche}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="mx-2 my-1.5" />
+                <DropdownMenuItem className="group gap-3 rounded-xl px-2.5 py-2 text-sm font-medium text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={handleLogout}>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-destructive/10 text-destructive"><LogOut className="size-[17px]" /></span>
+                  Se déconnecter
+                </DropdownMenuItem>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -134,23 +134,6 @@ export function Topbar() {
         }}
       />
     </header>
-  );
-}
-
-/** Page précédente / suivante (même effet que les flèches du navigateur, Alt + ← / Alt + →). Grisés quand il n'y a pas de page de ce côté. */
-function NavigationHistorique() {
-  const { peutReculer, peutAvancer, reculer, avancer } = useHistoriqueNavigation();
-  const bouton =
-    "flex h-10 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-35 lg:h-9 lg:w-8";
-  return (
-    <div className="flex shrink-0 items-center" role="group" aria-label="Navigation dans l'historique">
-      <button type="button" className={bouton} onClick={reculer} disabled={!peutReculer} aria-label="Page précédente" title="Page précédente (Alt + ←)">
-        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-      </button>
-      <button type="button" className={bouton} onClick={avancer} disabled={!peutAvancer} aria-label="Page suivante" title="Page suivante (Alt + →)">
-        <ChevronRight className="h-5 w-5" aria-hidden="true" />
-      </button>
-    </div>
   );
 }
 
@@ -193,67 +176,66 @@ function NotificationBell() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="relative flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:h-9 lg:w-9"
+          className="relative flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/85 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
           onClick={demanderPermissionNotifications}
           aria-label="Notifications"
         >
           <Bell className="h-[18px] w-[18px]" />
           {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+            <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-sidebar bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-[22rem] rounded-xl p-1.5 shadow-pop">
-        <div className="flex items-center justify-between px-2.5 py-1.5">
-          <DropdownMenuLabel className="p-0 text-sm font-semibold">Notifications</DropdownMenuLabel>
+      <DropdownMenuContent align="end" sideOffset={12} className="w-[24rem] max-w-[calc(100vw-1rem)] rounded-2xl p-0 shadow-pop">
+        <div className="flex items-start justify-between gap-3 px-4 pb-2.5 pt-4">
+          <div>
+            <DropdownMenuLabel className="p-0 text-[0.95rem] font-semibold normal-case tracking-normal text-foreground">Notifications</DropdownMenuLabel>
+            <p className="mt-0.5 text-xs text-muted-foreground">{unread > 0 ? `${unread} non lue${unread > 1 ? "s" : ""}` : "Tout est lu"}</p>
+          </div>
           {unread > 0 && (
             <button
               onClick={() => markRead()}
-              className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
+              className="-mr-1 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-primary transition-colors hover:bg-muted"
             >
+              <CheckCheck className="size-3.5 text-accent" aria-hidden="true" />
               Tout marquer lu
             </button>
           )}
         </div>
-        <DropdownMenuSeparator className="mx-1" />
         {recent.length === 0 && (
-          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+          <p className="px-3 pb-6 pt-3 text-center text-sm text-muted-foreground">
             Aucune notification.
           </p>
         )}
-        <div className="max-h-80 overflow-y-auto">
-          {recent.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => {
-                markRead([n.id]);
-                navigate(n.lien || "/taches");
-              }}
-              className={cn(
-                "flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2.5 text-left hover:bg-muted",
-                !n.lu && "bg-accent/10",
-              )}
-            >
-              <span className="flex w-full items-start gap-2">
-                {!n.lu && (
-                  <span className="mt-1.5 h-[7px] w-[7px] shrink-0 rounded-full bg-accent" />
+        <div className="max-h-[22rem] overflow-y-auto px-1.5 pb-1.5">
+          {recent.map((n) => {
+            const { icone: Icone, tuile } = visuelNotification(n.lien);
+            return (
+              <button
+                key={n.id}
+                onClick={() => {
+                  markRead([n.id]);
+                  navigate(n.lien || "/taches");
+                }}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted",
+                  !n.lu && "bg-accent/10",
                 )}
-                <span className="text-sm font-medium text-foreground">
-                  {n.titre}
+              >
+                <span className={cn("grid size-9 shrink-0 place-items-center rounded-[10px]", tuile)} aria-hidden="true">
+                  <Icone className="size-[17px]" />
                 </span>
-              </span>
-              {n.corps && (
-                <span className="pl-3.5 text-xs text-muted-foreground">
-                  {n.corps}
+                <span className="min-w-0 flex-1">
+                  <span className={cn("block text-sm leading-snug text-foreground", n.lu ? "font-medium" : "font-semibold")}>{n.titre}</span>
+                  {n.corps && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{n.corps}</span>}
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">{formatRelative(n.creeLe)}</span>
                 </span>
-              )}
-              <span className="pl-3.5 text-[11px] text-muted-foreground">
-                {formatRelative(n.creeLe)}
-              </span>
-            </button>
-          ))}
+                {!n.lu && <span className="size-2 shrink-0 rounded-full bg-primary" aria-label="Non lue" />}
+              </button>
+            );
+          })}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Building2, Check, ChevronDown, Search } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useChoisirSociete, useSocieteActive } from "@/hooks/useSocieteActive";
@@ -53,24 +53,22 @@ export function SocieteActiveSelect() {
           type="button"
           aria-label={active ? `Société active : ${active.raisonSociale}. Changer de société` : "Choisir la société sur laquelle travailler"}
           className={cn(
-            "flex h-10 min-w-0 max-w-[9.5rem] items-center gap-2.5 rounded-[10px] border py-0 pl-2 pr-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:max-w-[16rem]",
-            active
-              ? "border-accent bg-accent/15 font-semibold text-primary"
-              : "border-border bg-card text-foreground hover:bg-secondary",
+            "flex h-9 min-w-0 max-w-[9.5rem] items-center gap-2 rounded-lg px-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar sm:max-w-[16rem]",
+            open ? "bg-white/12" : "hover:bg-white/10",
+            active ? "font-semibold text-accent" : "text-sidebar-foreground/90",
           )}
         >
-          <span aria-hidden="true" className={cn("grid size-6 shrink-0 place-items-center rounded-md text-[0.68rem] font-semibold", active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-            {active ? initials(active.raisonSociale) : "∗"}
-          </span>
-          <span className="min-w-0 text-left leading-tight">
-            <span className="hidden text-[0.68rem] font-normal text-muted-foreground sm:block">Société</span>
-            <span className="block truncate text-[0.8125rem]">{active ? active.raisonSociale : "Toutes les sociétés"}</span>
-          </span>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" />
+          {active ? (
+            <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-accent" />
+          ) : (
+            <Building2 className="h-[18px] w-[18px] shrink-0 text-sidebar-foreground/70" aria-hidden="true" />
+          )}
+          <span className="min-w-0 truncate">{active ? active.raisonSociale : "Toutes les sociétés"}</span>
+          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 opacity-70 transition-transform", open && "rotate-180")} aria-hidden="true" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={8} className="w-[min(21rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl p-0 shadow-pop">
-        <div className="flex items-center gap-2 border-b border-border px-3">
+      <PopoverContent align="end" sideOffset={12} className="w-[min(21rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl p-0 shadow-pop">
+        <div className="m-3 mb-1.5 flex items-center gap-2 rounded-[11px] border border-border bg-secondary/60 px-3 transition-colors focus-within:border-accent focus-within:bg-card focus-within:ring-[3px] focus-within:ring-accent/25">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <input
             autoFocus
@@ -81,10 +79,10 @@ export function SocieteActiveSelect() {
             }}
             placeholder="Rechercher une société…"
             aria-label="Rechercher une société"
-            className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/70"
+            className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/70"
           />
         </div>
-        <ul role="listbox" aria-label="Sociétés" className="max-h-80 overflow-y-auto p-1.5">
+        <ul role="listbox" aria-label="Sociétés" className="max-h-80 overflow-y-auto px-1.5 pb-1.5 pt-1">
           {!q && (
             <li>
               <button
@@ -93,7 +91,7 @@ export function SocieteActiveSelect() {
                 aria-selected={!active}
                 onClick={() => pick(null)}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-muted",
+                  "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-muted",
                   !active && "bg-accent/15",
                 )}
               >
@@ -114,7 +112,7 @@ export function SocieteActiveSelect() {
                 aria-selected={active?.id === s.id}
                 onClick={() => pick(s.id)}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-muted",
+                  "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-muted",
                   active?.id === s.id && "bg-accent/15",
                 )}
               >

@@ -54,7 +54,7 @@ export function AppBreadcrumbs() {
 
   return (
     <Breadcrumb aria-label="Fil d’Ariane" className="min-w-0 flex-1 overflow-hidden">
-      <BreadcrumbList className="flex-nowrap gap-1 overflow-hidden sm:gap-1.5">
+      <BreadcrumbList className="flex-nowrap gap-1 overflow-hidden text-sidebar-muted sm:gap-1.5">
         {crumbs.map((crumb, index) => {
           const isCurrent = index === crumbs.length - 1;
           const hiddenOnMobile = index < firstVisibleOnMobile;
@@ -64,7 +64,7 @@ export function AppBreadcrumbs() {
               {index > 0 && (
                 <BreadcrumbSeparator
                   className={cn(
-                    "shrink-0",
+                    "shrink-0 text-white/30",
                     index === firstVisibleOnMobile && "hidden sm:inline-flex",
                   )}
                 />
@@ -78,7 +78,7 @@ export function AppBreadcrumbs() {
               >
                 {isCurrent ? (
                   <BreadcrumbPage
-                    className="block max-w-[9rem] truncate text-sm font-semibold text-primary sm:max-w-[14rem] lg:max-w-[22rem]"
+                    className="block max-w-[9rem] truncate text-[1.05rem] font-semibold text-white sm:max-w-[14rem] lg:max-w-[22rem]"
                     title={crumb.label}
                   >
                     {crumb.label}
@@ -87,7 +87,7 @@ export function AppBreadcrumbs() {
                   <BreadcrumbLink asChild>
                     <Link
                       to={crumb.to ?? "/"}
-                      className="block max-w-[8rem] truncate text-sm sm:max-w-[12rem]"
+                      className="block max-w-[8rem] truncate text-[0.8125rem] text-sidebar-muted transition-colors hover:text-white sm:max-w-[12rem]"
                       title={crumb.label}
                     >
                       {crumb.label}

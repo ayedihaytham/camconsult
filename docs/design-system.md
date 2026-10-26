@@ -42,6 +42,22 @@ not mean cramped.
 Use semantic tokens, not arbitrary Tailwind palette values. Status always pairs
 its marker with readable text, an icon or another non-color cue.
 
+## Application shell (menu latéral et barre du haut)
+
+Le menu latéral et la barre du haut forment **un seul cadre marine** (`bg-sidebar`) ; le contenu repose sur une **feuille claire** (`bg-muted`) dont
+l'angle haut gauche est arrondi (22px, à partir de 1024px) et qui porte un filet doré de 72px en tête. À l'impression, le cadre et le filet disparaissent.
+
+- **Barre du haut** (`Topbar.tsx`, 60px) : bouton du menu, fil d'Ariane (page courante en blanc, parents en gris-bleu), puis à droite la société active,
+  les notifications et l'avatar. Aucune boîte autour des commandes : seul l'état « société choisie » se signale (nom et point en or). Les flèches
+  d'historique ne sont plus affichées (le navigateur garde Alt + ← / →) ; `useHistoriqueNavigation` reste disponible.
+- **Cartes déroulantes** (société, notifications, compte) : coins 16px, ombre `shadow-pop`, lignes à tuile d'icône 32–36px. Les notifications prennent
+  une icône et une teinte d'après leur page (`notificationVisuel.ts` : collectes en ambre, le reste neutre) ; une notification non lue a un fond chaud
+  et un point marine. « Se déconnecter » est séparé et en rouge.
+- **Menu latéral** (`SidebarNavigation.tsx`, `index.css`, `.signature-sidebar`) : marine uni (plus de trame). Titres de groupe en capitales dorées avec un
+  filet ; ce sont des boutons qui replient le groupe (état local, un groupe qui contient la page affichée se rouvre). La page active est une
+  **pastille blanche** (icône et point dorés) ; la page parente d'un sous-menu reste sur le fond marine et sa sous-page porte la pastille.
+  Messagerie garde sa pastille de messages non lus en or. Raccourcis : Ctrl K (aller à…) et Ctrl B (réduire).
+
 ## Typography and icons
 
 Use the existing modern sans/grotesk voice—Inter or the established neutral UI

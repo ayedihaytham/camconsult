@@ -88,3 +88,46 @@ describe("page de connexion : double authentification", () => {
     expect(screen.getByRole("button", { name: /Se connecter/ })).toBeTruthy();
   });
 });
+
+describe("page de connexion : accueil personnalisé", () => {
+  const titre = () => screen.getByRole("heading", { level: 1 }).textContent;
+
+  it("affiche « Connexion » tant que l'identifiant est vide, puis « Bon retour, Prénom » avec les initiales", () => {
+    afficher();
+    expect(titre()).toBe("Connexion");
+    saisir("Identifiant", "mohamed.ayedi");
+    expect(titre()).toBe("Bon retour, Mohamed");
+    expect(screen.getByText("MA")).toBeTruthy();
+    saisir("Identifiant", "");
+    expect(titre()).toBe("Connexion");
+    expect(screen.queryByText("MA")).toBeNull();
+  });
+
+  it("déduit le prénom d'une adresse e-mail, d'un seul mot, et ignore une saisie sans lettre", () => {
+    afficher();
+    saisir("Identifiant", "SARA_ben-ali@cabinet.tn");
+    expect(titre()).toBe("Bon retour, Sara");
+    expect(screen.getByText("SB")).toBeTruthy();
+    saisir("Identifiant", "admin");
+    expect(titre()).toBe("Bon retour, Admin");
+    expect(screen.getByText("AD")).toBeTruthy();
+    saisir("Identifiant", "1234");
+    expect(titre()).toBe("Connexion");
+  });
+
+  it("raccourcit un très long prénom", () => {
+    afficher();
+    saisir("Identifiant", "abcdefghijklmnopqrstuvwxyz");
+    expect(titre()).toBe("Bon retour, Abcdefghijklmno…");
+  });
+
+  it("avertit quand le verrouillage majuscules est actif sur le mot de passe", () => {
+    afficher();
+    const mdp = screen.getByLabelText("Mot de passe");
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.keyDown(mdp, { key: "A", modifierCapsLock: true });
+    expect(screen.getByRole("status").textContent).toContain("Verrouillage majuscules");
+    fireEvent.keyUp(mdp, { key: "A", modifierCapsLock: false });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});

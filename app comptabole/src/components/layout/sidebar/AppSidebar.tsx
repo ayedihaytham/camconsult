@@ -40,6 +40,7 @@ function SidebarCollapseButton() {
           >
             <Icon />
             <span>{label}</span>
+            {!collapsed && <kbd className="ml-auto rounded border border-sidebar-border px-1.5 text-[10.5px] font-semibold text-sidebar-muted">Ctrl B</kbd>}
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -62,7 +63,7 @@ function SidebarAllerA() {
               if (isMobile) setOpenMobile(false);
               useUi.getState().setPaletteOpen(true);
             }}
-            className="h-9 gap-2.5 border border-sidebar-border bg-sidebar-accent/60 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            className="h-10 gap-2.5 rounded-[10px] border border-white/15 bg-white/[0.06] text-sidebar-foreground/65 transition-colors hover:border-sidebar-primary/55 hover:bg-white/[0.11] hover:text-white"
           >
             <Search />
             {!reduit && (

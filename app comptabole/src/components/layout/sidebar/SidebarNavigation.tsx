@@ -33,7 +33,13 @@ import {
   type NavGroup,
 } from "./navigation";
 
-const NAV_ITEM_CLASS = "relative text-sidebar-muted data-[active=true]:text-sidebar-accent-foreground data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:inset-y-1.5 data-[active=true]:before:left-0 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']";
+/** Page active : pastille blanche, icône dorée et petit point doré à droite (jamais en menu réduit, où seule l'icône reste). */
+const NAV_ITEM_CLASS = "relative text-sidebar-foreground/80 hover:bg-white/10 hover:text-white data-[active=true]:bg-white data-[active=true]:font-semibold data-[active=true]:text-sidebar-deep data-[active=true]:hover:bg-white data-[active=true]:hover:text-sidebar-deep data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:after:absolute data-[active=true]:after:right-3 data-[active=true]:after:top-1/2 data-[active=true]:after:size-1.5 data-[active=true]:after:-translate-y-1/2 data-[active=true]:after:rounded-full data-[active=true]:after:bg-sidebar-primary data-[active=true]:after:content-[''] group-data-[collapsible=icon]:data-[active=true]:after:hidden";
+
+/** Page parente d'un sous-menu : reste sur le fond marine ; c'est sa sous-page active qui porte la pastille (en menu réduit, c'est elle qui l'a). */
+const PARENT_ITEM_CLASS = "relative text-sidebar-foreground/80 hover:bg-white/10 hover:text-white data-[active=true]:bg-transparent data-[active=true]:font-semibold data-[active=true]:text-white data-[active=true]:hover:bg-white/10 data-[active=true]:[&>svg:first-child]:text-sidebar-primary group-data-[collapsible=icon]:data-[active=true]:bg-white group-data-[collapsible=icon]:data-[active=true]:text-sidebar-deep group-data-[collapsible=icon]:data-[active=true]:hover:bg-white";
+
+const SUB_ITEM_CLASS = "relative text-sidebar-muted hover:bg-white/10 hover:text-white data-[active=true]:bg-white data-[active=true]:font-semibold data-[active=true]:text-sidebar-deep data-[active=true]:hover:bg-white data-[active=true]:hover:text-sidebar-deep data-[active=true]:after:absolute data-[active=true]:after:right-2.5 data-[active=true]:after:top-1/2 data-[active=true]:after:size-1.5 data-[active=true]:after:-translate-y-1/2 data-[active=true]:after:rounded-full data-[active=true]:after:bg-sidebar-primary data-[active=true]:after:content-['']";
 
 interface SidebarNavigationProps {
   groups: NavGroup[];
@@ -51,9 +57,24 @@ export function SidebarNavigation({
   const [openGroupId, setOpenGroupId] = useState(() =>
     getActiveExpandableGroupId(pathname, groups),
   );
+  /** Groupes repliés par l'utilisateur (le titre du groupe est un bouton) ; un groupe qui contient la page affichée se rouvre tout seul. */
+  const [groupesFermes, setGroupesFermes] = useState<ReadonlySet<string>>(() => new Set());
   const submenuIdPrefix = useId();
   const previousPathname = useRef(pathname);
   const isCollapsedDesktop = state === "collapsed" && !isMobile;
+
+  useEffect(() => {
+    const actif = groups.find((g) => g.items.some((i) => (i.children ? isChildRouteActive(pathname, i.children) : i.to ? isRouteActive(pathname, i.to) : false)));
+    const cle = actif ? (actif.label ?? "Overview") : null;
+    if (cle) {
+      setGroupesFermes((courants) => {
+        if (!courants.has(cle)) return courants;
+        const suivants = new Set(courants);
+        suivants.delete(cle);
+        return suivants;
+      });
+    }
+  }, [pathname, groups]);
 
   useEffect(() => {
     if (previousPathname.current !== pathname) {
@@ -65,7 +86,11 @@ export function SidebarNavigation({
 
   return (
     <>
-      {groups.map((group, groupIndex) => (
+      {groups.map((group, groupIndex) => {
+        const cleGroupe = group.label ?? "Overview";
+        const replie = groupesFermes.has(cleGroupe) && !isCollapsedDesktop;
+        const idContenu = `${submenuIdPrefix}-groupe-${groupIndex}`;
+        return (
         <SidebarGroup
           key={group.label ?? `group-${groupIndex}`}
           className={
@@ -74,9 +99,43 @@ export function SidebarNavigation({
               : "signature-sidebar__group--boundary py-1.5"
           }
         >
-          <SidebarGroupLabel className="signature-sidebar__group-label h-6 gap-2 px-2 text-[0.68rem] font-semibold text-sidebar-foreground/60">
-            {group.label ?? "Overview"}
+          <SidebarGroupLabel
+            asChild
+            className="signature-sidebar__group-label group/label h-7 w-full cursor-pointer gap-2.5 rounded-md px-2 text-[0.66rem] font-bold uppercase tracking-[0.16em] text-sidebar-primary hover:bg-transparent hover:text-sidebar-primary"
+          >
+            <button
+              type="button"
+              aria-expanded={!replie}
+              aria-controls={idContenu}
+              onClick={() =>
+                setGroupesFermes((courants) => {
+                  const suivants = new Set(courants);
+                  if (suivants.has(cleGroupe)) suivants.delete(cleGroupe);
+                  else suivants.add(cleGroupe);
+                  return suivants;
+                })
+              }
+            >
+              <span>{cleGroupe}</span>
+              <ChevronDown
+                className={cn(
+                  "order-last size-3.5 shrink-0 text-sidebar-primary/80 opacity-0 transition-[opacity,transform] duration-200 group-hover/label:opacity-100 group-focus-visible/label:opacity-100 motion-reduce:transition-none",
+                  replie && "-rotate-90 opacity-100",
+                )}
+                aria-hidden="true"
+              />
+            </button>
           </SidebarGroupLabel>
+          <div
+            id={idContenu}
+            aria-hidden={replie}
+            {...(replie ? ({ inert: "" } as object) : {})}
+            className={cn(
+              "grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
+              replie ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
+            )}
+          >
+          <div className="min-h-0 overflow-hidden">
           <SidebarGroupContent>
             <SidebarMenu>
               {group.items.map((item, itemIndex) => {
@@ -103,7 +162,7 @@ export function SidebarNavigation({
                             isActive={active}
                             tooltip={item.label}
                             aria-label={pending ? `${item.label}, notification en attente` : item.label}
-                            className={NAV_ITEM_CLASS}
+                            className={PARENT_ITEM_CLASS}
                           >
                             <DropdownMenuTrigger>
                               <Icon />
@@ -157,7 +216,7 @@ export function SidebarNavigation({
                             toggleExpandableGroup(current, item.label),
                           )}
                           aria-label={pending ? `${item.label}, notification en attente` : item.label}
-                          className={NAV_ITEM_CLASS}
+                          className={PARENT_ITEM_CLASS}
                         >
                           <Icon />
                           <span>{item.label}</span>
@@ -201,7 +260,7 @@ export function SidebarNavigation({
                                       asChild
                                       isActive={childActive}
                                       tabIndex={open ? 0 : -1}
-                                      className="relative text-sidebar-muted data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-1 data-[active=true]:before:left-0 data-[active=true]:before:w-px data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-['']"
+                                      className={SUB_ITEM_CLASS}
                                     >
                                       <NavLink to={child.to}>
                                         {childPending && <PendingDot />}
@@ -244,7 +303,7 @@ export function SidebarNavigation({
                     </SidebarMenuButton>
                     {badge ? (
                       <>
-                        <SidebarMenuBadge className="bg-sidebar-foreground font-bold text-sidebar-deep">
+                        <SidebarMenuBadge className="bg-sidebar-primary font-bold text-sidebar-deep peer-hover/menu-button:text-sidebar-deep peer-data-[active=true]/menu-button:text-sidebar-deep">
                           {badge}
                         </SidebarMenuBadge>
                         <CollapsedUnreadBadge count={badge} />
@@ -260,8 +319,11 @@ export function SidebarNavigation({
               })}
             </SidebarMenu>
           </SidebarGroupContent>
+          </div>
+          </div>
         </SidebarGroup>
-      ))}
+        );
+      })}
     </>
   );
 }

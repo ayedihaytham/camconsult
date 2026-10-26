@@ -7,7 +7,7 @@ describe("guided tour route coverage", () => {
     expect(getPageTour("/", session(), "?tab=tasks")?.id).toBe("dashboard-admin-tasks");
     for (const tab of ["overview", "attention", "deadlines", "team", "activity"]) {
       expect(getPageTour("/", session(), `?tab=${tab}`)?.id).toBe("dashboard-admin");
-      expect(getPageTour("/", session(), `?tab=${tab}`)?.version).toBe(1);
+      expect(getPageTour("/", session(), `?tab=${tab}`)?.version).toBe(2);
     }
     expect(getPageTour("/", session("societe_employe"), "?tab=tasks")?.version).toBe(1);
     expect(getPageTour("/", session("collaborateur"), "?tab=tasks")?.id).toBe("dashboard-tasks");

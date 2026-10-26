@@ -1,42 +1,29 @@
-/* Mon bureau (administrateur, responsable des collaborateurs) : colonne de surveillance à gauche (Aujourd'hui, À traiter, Équipe), semaine en tableau de 7 jours
-   et registres à onglets à droite. Jetons de l'application uniquement : marine, or, ivoire ; surfaces à 4 px, tableau à 6 px. */
-.dashboard-admin .admin-bureau { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start; }
-.dashboard-admin .bureau-side, .dashboard-admin .bureau-main { display: flex; min-width: 0; flex-direction: column; gap: 16px; }
-.dashboard-admin .bureau-card { min-width: 0; padding: 16px; border: 1px solid hsl(var(--border)); border-radius: 4px; background: hsl(var(--card)); }
-.dashboard-admin .bureau-card--warm { background: color-mix(in srgb, hsl(var(--accent)) 12%, hsl(var(--card))); border-color: color-mix(in srgb, hsl(var(--accent)) 26%, hsl(var(--border))); }
-.dashboard-admin .bureau-card-title { margin: 0 0 12px; font-family: "Playfair Display", Georgia, serif; font-size: 17px; font-weight: 600; color: hsl(var(--primary)); }
-.dashboard-admin .bureau-card .dashboard-major { border: 0; padding: 0; }
-.dashboard-admin .bureau-card .dashboard-major > header { margin: 0 0 10px; padding: 0; border: 0; align-items: center; }
-.dashboard-admin .bureau-card .dashboard-section-identity { display: flex; align-items: center; gap: 8px; }
-.dashboard-admin .bureau-card .dashboard-section-icon { width: 16px; height: 16px; padding: 0; background: none; color: hsl(var(--accent)); }
-.dashboard-admin .bureau-card .dashboard-major > header h2 { font-family: "Playfair Display", Georgia, serif; font-size: 17px; font-weight: 600; line-height: 1.3; }
-.dashboard-admin .bureau-card .dashboard-major > header a { min-height: 32px; font-size: 12px; }
-.dashboard-admin .bureau-card li + li { border-top: 1px solid hsl(var(--border)); }
+/* Mon bureau (administrateur, responsable des collaborateurs) : en-tête clair, ligne de verdict, semaine en billets perforés avec le détail du jour,
+   puis registres en tuiles. Jetons de l'application uniquement : marine, or, ivoire ; le rouge ne marque que le retard. */
+.dashboard-admin .bureau-heading { border-bottom: 1px solid hsl(var(--border)); padding: 16px 2px; }
+.dashboard-admin .bureau-heading-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-heading h1 { margin-top: 4px; font-size: 24px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-heading-context { margin-top: 4px; font-size: 12px; color: hsl(var(--muted-foreground)); }
 
-/* Aujourd'hui : quatre indicateurs en colonne */
-.dashboard-admin .admin-summary { display: flex; flex-direction: column; }
-.dashboard-admin .admin-summary-item { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-width: 0; padding: 10px 0; border-top: 1px solid hsl(var(--border)); color: hsl(var(--primary)); }
-.dashboard-admin .admin-summary-item:first-child { border-top: 0; padding-top: 0; }
-.dashboard-admin .admin-summary-item:last-child { padding-bottom: 0; }
-.dashboard-admin .admin-summary-item:hover .admin-summary-label { text-decoration: underline; }
-.dashboard-admin .admin-summary-item:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
-.dashboard-admin .admin-summary-icon { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid color-mix(in srgb, hsl(var(--accent)) 28%, hsl(var(--border))); border-radius: 6px; background: color-mix(in srgb, hsl(var(--accent)) 14%, hsl(var(--card))); color: hsl(var(--primary)); }
-.dashboard-admin .admin-summary-text { display: flex; min-width: 0; flex-direction: column; }
-.dashboard-admin .admin-summary-label { font-size: 13px; line-height: 1.35; color: hsl(var(--muted-foreground)); }
-.dashboard-admin .admin-summary-caption { font-size: 12px; line-height: 1.35; color: hsl(var(--muted-foreground)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-admin .admin-summary-caption.is-alert { color: hsl(var(--destructive)); font-weight: 600; }
-.dashboard-admin .admin-summary-unavailable { font-size: 11px; color: hsl(var(--muted-foreground)); }
-.dashboard-admin .admin-summary-value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; color: hsl(var(--primary)); }
+.dashboard-admin .admin-bureau { display: flex; flex-direction: column; gap: 12px; }
+.dashboard-admin .bureau-card { min-width: 0; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); }
 
-/* Semaine en billets : chaque jour est un billet (talon avec la date, ligne perforée, puis les collectes). */
+/* Verdict : une seule ligne ; cliquable seulement s'il y a quelque chose à traiter */
+.dashboard-admin .bureau-verdict { display: flex; align-items: center; gap: 10px; min-height: 44px; border: 1px solid hsl(var(--border)); border-radius: 12px; padding: 9px 16px; font-size: 13px; color: hsl(var(--muted-foreground)); background: hsl(var(--card)); }
+.dashboard-admin .bureau-verdict svg { width: 18px; height: 18px; flex-shrink: 0; }
+.dashboard-admin .bureau-verdict strong { font-weight: 700; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-verdict span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-admin .bureau-verdict.is-alert { border-color: color-mix(in srgb, hsl(var(--accent)) 45%, hsl(var(--border))); background: color-mix(in srgb, hsl(var(--accent)) 14%, hsl(var(--card))); box-shadow: inset 3px 0 0 hsl(var(--accent)); }
+.dashboard-admin .bureau-verdict.is-alert svg { color: hsl(var(--primary)); }
+.dashboard-admin a.bureau-verdict:hover strong { text-decoration: underline; }
+.dashboard-admin a.bureau-verdict:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.dashboard-admin .bureau-verdict.is-ok { border-color: hsl(var(--success) / .35); background: hsl(var(--success) / .08); }
+.dashboard-admin .bureau-verdict.is-ok svg { color: hsl(var(--success)); }
+
+/* Semaine en billets : chaque jour est un billet (talon avec la date, ligne perforée, puis les collectes écrites). */
+.dashboard-admin .bureau-week { padding: 16px; }
 .dashboard-admin .bureau-week > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .dashboard-admin .bureau-week-range { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 21px; font-weight: 600; color: hsl(var(--primary)); }
-.dashboard-admin .bureau-week-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-.dashboard-admin .bureau-week-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: hsl(var(--muted-foreground)); }
-.dashboard-admin .bureau-week-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.dashboard-admin .bureau-week-legend i { width: 9px; height: 9px; border-radius: 3px; background: hsl(var(--chart-2)); }
-.dashboard-admin .bureau-week-legend i.is-overdue { background: hsl(var(--destructive)); }
-.dashboard-admin .bureau-week-legend i.is-correction { background: hsl(var(--warning)); }
 .dashboard-admin .bureau-week-nav { display: inline-flex; }
 .dashboard-admin .bureau-week-nav button { display: inline-flex; min-height: 38px; min-width: 38px; align-items: center; justify-content: center; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); padding-inline: 13px; font-size: 13px; font-weight: 600; color: hsl(var(--primary)); transition: background-color .2s; }
 .dashboard-admin .bureau-week-nav button + button { margin-left: -1px; }
@@ -45,7 +32,7 @@
 .dashboard-admin .bureau-week-nav button:hover { background: hsl(var(--muted)); }
 .dashboard-admin .bureau-week-nav svg { width: 17px; height: 17px; }
 .dashboard-admin .bureau-board { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
-.dashboard-admin .bureau-day { --talon: 104px; position: relative; display: flex; min-width: 0; flex-direction: column; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); transition: transform .2s, box-shadow .2s, border-color .2s; }
+.dashboard-admin .bureau-day { --talon: 104px; position: relative; display: flex; min-width: 0; min-height: 200px; flex-direction: column; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); transition: transform .2s, box-shadow .2s, border-color .2s; }
 .dashboard-admin .bureau-day:hover { transform: translateY(-2px); box-shadow: 0 12px 22px -14px hsl(var(--primary) / .45); }
 /* Les deux encoches du billet, à hauteur de la ligne perforée. */
 .dashboard-admin .bureau-day::before,
@@ -69,41 +56,61 @@
 .dashboard-admin .bureau-day.is-today .bureau-day-head em { color: hsl(var(--accent)); }
 .dashboard-admin .bureau-day.is-today .bureau-day-head strong { color: hsl(var(--primary-foreground)); }
 .dashboard-admin .bureau-day.is-today.is-selected { border-color: hsl(var(--accent)); }
-.dashboard-admin .bureau-day-body { display: flex; min-height: 96px; flex: 1; flex-direction: column; gap: 7px; padding: 11px 12px 12px; }
-.dashboard-admin .bureau-event { position: relative; display: flex; min-width: 0; flex-direction: column; gap: 1px; margin: -3px -5px; border-radius: 6px; padding: 3px 5px 3px 20px; transition: background-color .2s; }
-.dashboard-admin .bureau-event::before { content: ""; position: absolute; left: 6px; top: 8px; width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--chart-2)); }
-.dashboard-admin .bureau-event.is-overdue::before { background: hsl(var(--destructive)); }
-.dashboard-admin .bureau-event.is-correction::before { background: hsl(var(--warning)); }
+.dashboard-admin .bureau-day-body { display: flex; flex: 1; flex-direction: column; align-items: center; gap: 8px; padding: 12px 10px 12px; text-align: center; }
+.dashboard-admin .bureau-event { display: flex; width: 100%; min-width: 0; flex-direction: column; align-items: center; gap: 1px; border-radius: 6px; padding: 2px 4px; transition: background-color .2s; }
 .dashboard-admin .bureau-event:hover { background: color-mix(in srgb, hsl(var(--accent)) 14%, transparent); }
 .dashboard-admin .bureau-event:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
-.dashboard-admin .bureau-event strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: hsl(var(--primary)); }
-.dashboard-admin .bureau-event span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-event strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-event span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-event.is-overdue span { font-weight: 700; color: hsl(var(--destructive)); }
 .dashboard-admin .bureau-day.is-today :is(.bureau-event strong, .bureau-day-more) { color: hsl(var(--primary-foreground)); }
-.dashboard-admin .bureau-day.is-today .bureau-event span { color: hsl(var(--primary-foreground) / .65); }
+.dashboard-admin .bureau-day.is-today .bureau-event span { color: hsl(var(--primary-foreground) / .7); }
+.dashboard-admin .bureau-day.is-today .bureau-event.is-overdue span { color: hsl(0 100% 85%); }
 .dashboard-admin .bureau-day.is-today .bureau-event:hover { background: hsl(var(--primary-foreground) / .1); }
-.dashboard-admin .bureau-day-more { padding-left: 15px; font-size: 11.5px; font-weight: 600; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-day-more { font-size: 11.5px; font-weight: 600; color: hsl(var(--muted-foreground)); }
 .dashboard-admin .bureau-day-empty,
-.dashboard-admin .bureau-day-weekend { margin: auto 0; text-align: center; font-size: 12px; color: hsl(var(--muted-foreground) / .65); }
+.dashboard-admin .bureau-day-weekend { margin: auto 0; text-align: center; font-size: 12px; color: hsl(var(--muted-foreground) / .8); }
 .dashboard-admin .bureau-day-weekend { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
-.dashboard-admin .bureau-day.is-today .bureau-day-empty { color: hsl(var(--primary-foreground) / .55); }
-.dashboard-admin .admin-selected-day { display: inline-flex; align-items: center; gap: 9px; margin: 14px 0 0; border-radius: 999px; background: hsl(var(--muted)); padding: 7px 14px; font-size: 13px; color: hsl(var(--primary)); }
-.dashboard-admin .admin-selected-day svg { color: hsl(var(--accent)); }
+.dashboard-admin .bureau-day.is-today .bureau-day-empty { color: hsl(var(--primary-foreground) / .6); }
 
-/* Registres à onglets */
-.dashboard-admin .bureau-registres { position: relative; }
-.dashboard-admin .bureau-registre-tabs { display: flex; height: auto; width: 100%; max-width: 100%; justify-content: flex-start; gap: 4px; overflow-x: auto; border-bottom: 1px solid hsl(var(--border)); border-radius: 0; background: transparent; padding: 0 84px 0 0; }
-.dashboard-admin .bureau-registre-tabs [role="tab"] { display: inline-flex; min-height: 44px; flex-shrink: 0; align-items: center; gap: 8px; border-radius: 0; border-bottom: 2px solid transparent; background: transparent; padding: 8px 12px; font-size: 14px; font-weight: 600; color: hsl(var(--muted-foreground)); box-shadow: none; }
-.dashboard-admin .bureau-registre-tabs [role="tab"][data-state="active"] { border-bottom-color: hsl(var(--accent)); background: transparent; color: hsl(var(--primary)); box-shadow: none; }
-.dashboard-admin .bureau-registre-count { min-width: 22px; border-radius: 999px; background: hsl(var(--muted)); padding: 0 7px; text-align: center; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.dashboard-admin .bureau-registre-tabs [role="tab"][data-state="active"] .bureau-registre-count { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
-.dashboard-admin .bureau-registre-links { position: absolute; top: 14px; right: 16px; }
-.dashboard-admin .bureau-registre-links a { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: hsl(var(--primary)); }
-.dashboard-admin .bureau-registre { margin-top: 12px; }
+/* Détail du jour choisi */
+.dashboard-admin .bureau-day-detail { margin-top: 16px; border-top: 1px solid hsl(var(--border)); padding-top: 4px; }
+.dashboard-admin .bureau-day-detail h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0 6px; font-size: 14px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-day-detail h3 span { font-size: 12px; font-weight: 400; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-day-detail li + li { border-top: 1px solid hsl(var(--border)); }
+
+/* Ligne de registre : texte à gauche, note, puis statut écrit (ou avancement) à droite ; toute la ligne est le lien */
+.dashboard-admin .bureau-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; min-height: 52px; border-radius: 6px; padding: 8px 4px; color: hsl(var(--primary)); transition: background-color .2s; }
+.dashboard-admin .bureau-line:hover { background: color-mix(in srgb, hsl(var(--accent)) 10%, transparent); }
+.dashboard-admin .bureau-line:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.dashboard-admin .bureau-line strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 600; }
+.dashboard-admin .bureau-line p { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-line-note { min-width: 80px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-line-status { min-width: 96px; text-align: right; font-size: 12px; font-weight: 600; color: hsl(var(--primary)); }
+
+/* Avancement d'une collecte : trois points reliés (à remplir, transmise, validée) et le statut écrit */
+.dashboard-admin .bureau-circuit { display: inline-flex; align-items: center; justify-content: flex-end; min-width: 190px; white-space: nowrap; }
+.dashboard-admin .bureau-circuit-step { display: inline-flex; align-items: center; }
+.dashboard-admin .bureau-circuit-step i { display: block; width: 10px; height: 10px; border: 2px solid hsl(var(--border)); border-radius: 50%; background: hsl(var(--card)); }
+.dashboard-admin .bureau-circuit-step i.is-done { border-color: hsl(var(--primary)); background: hsl(var(--primary)); }
+.dashboard-admin .bureau-circuit-step i.is-current { width: 12px; height: 12px; border: 3px solid hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / .12); }
+.dashboard-admin .bureau-circuit-step u { display: block; width: 16px; height: 2px; background: hsl(var(--border)); }
+.dashboard-admin .bureau-circuit-step u.is-done { background: hsl(var(--primary)); }
+.dashboard-admin .bureau-circuit em { min-width: 66px; margin-left: 10px; font-style: normal; font-size: 12px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-circuit.is-overdue .bureau-circuit-step i.is-current { border-color: hsl(var(--destructive)); box-shadow: 0 0 0 3px hsl(var(--destructive) / .14); }
+.dashboard-admin .bureau-circuit.is-overdue em { color: hsl(var(--destructive)); }
+
+/* Registres : quatre tuiles sélectionnables sur toute la ligne */
+.dashboard-admin .bureau-registres { padding: 14px; }
+.dashboard-admin .bureau-registre-tabs { display: grid; height: auto; width: 100%; grid-template-columns: repeat(var(--tiles, 4), minmax(0, 1fr)); gap: 8px; border-radius: 0; background: transparent; padding: 0; }
+.dashboard-admin .bureau-registre-tabs [role="tab"] { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--card)); padding: 10px 16px; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); text-align: left; box-shadow: none; transition: border-color .2s, box-shadow .2s, background-color .2s; }
+.dashboard-admin .bureau-registre-tabs [role="tab"]:hover { border-color: hsl(var(--primary) / .35); box-shadow: 0 2px 8px -4px hsl(var(--primary) / .25); }
+.dashboard-admin .bureau-registre-tabs [role="tab"][data-state="active"] { border-color: hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: 0 6px 16px -8px hsl(var(--primary) / .55); }
+.dashboard-admin .bureau-registre-count { font-size: 20px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-registre-tabs [role="tab"][data-state="active"] .bureau-registre-count { color: hsl(var(--accent)); }
+.dashboard-admin .bureau-registre { margin-top: 10px; }
 .dashboard-admin .bureau-registre li + li { border-top: 1px solid hsl(var(--border)); }
-.dashboard-admin .bureau-monogram { display: grid; width: 34px; height: 34px; flex-shrink: 0; place-items: center; border: 1px solid color-mix(in srgb, hsl(var(--accent)) 28%, hsl(var(--border))); border-radius: 999px; background: color-mix(in srgb, hsl(var(--accent)) 14%, hsl(var(--card))); font-size: 11.5px; font-weight: 700; color: hsl(33 70% 28%); }
-.dashboard-admin .bureau-registre .admin-brief-row { justify-content: flex-start; }
-.dashboard-admin .bureau-registre .admin-brief-row > svg { margin-left: auto; }
-.dashboard-admin .admin-brief-empty { padding: 20px 0; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .admin-brief-empty { padding: 20px 4px; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
 
 /* Avatars à présence, messages, équipe */
 .dashboard-admin .bureau-avatar { position: relative; display: grid; width: 38px; height: 38px; flex-shrink: 0; place-items: center; border-radius: 999px; font-size: 12px; font-weight: 700; color: hsl(var(--primary-foreground)); }
@@ -112,17 +119,13 @@
 .dashboard-admin .bureau-avatar.is-slate { background: linear-gradient(135deg, color-mix(in srgb, hsl(var(--chart-2)) 80%, white), hsl(var(--chart-2))); }
 .dashboard-admin .bureau-avatar i { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border: 2px solid hsl(var(--card)); border-radius: 999px; background: hsl(var(--muted-foreground)); }
 .dashboard-admin .bureau-avatar i.is-online { background: hsl(var(--success)); }
-.dashboard-admin .bureau-message { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; }
-.dashboard-admin .bureau-message:first-child { padding-top: 0; }
+.dashboard-admin .bureau-message { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: center; border-radius: 6px; padding: 10px 4px; transition: background-color .2s; }
+.dashboard-admin .bureau-message:hover { background: color-mix(in srgb, hsl(var(--accent)) 10%, transparent); }
+.dashboard-admin .bureau-message:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 .dashboard-admin .bureau-message-name { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; color: hsl(var(--primary)); }
 .dashboard-admin .bureau-unread-dot { display: inline-block; width: 7px; height: 7px; flex-shrink: 0; margin-left: 8px; border-radius: 999px; background: hsl(var(--chart-2)); }
 .dashboard-admin .bureau-message-preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: hsl(var(--muted-foreground)); }
-.dashboard-admin .bureau-reply { display: inline-flex; min-height: 36px; align-items: center; border-radius: 8px; background: linear-gradient(180deg, hsl(var(--primary) / .9), hsl(var(--primary))); padding-inline: 14px; font-size: 13px; font-weight: 600; color: hsl(var(--primary-foreground)); }
-.dashboard-admin .bureau-reply:hover { filter: brightness(1.15); }
-.dashboard-admin .bureau-reply:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
-.dashboard-admin .bureau-member { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; padding: 10px 0; }
-.dashboard-admin .bureau-member + .bureau-member { border-top: 1px solid hsl(var(--border) / .6); }
-.dashboard-admin .bureau-member:first-child { padding-top: 0; }
+.dashboard-admin .bureau-member { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; padding: 10px 4px; }
 .dashboard-admin .bureau-member-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; color: hsl(var(--primary)); }
 .dashboard-admin .bureau-member-name span { font-weight: 400; font-size: 12px; color: hsl(var(--muted-foreground)); }
 .dashboard-admin .bureau-member-detail { margin-top: 1px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
@@ -133,17 +136,19 @@
 .dashboard-admin .bureau-load i { height: 100%; }
 .dashboard-admin .bureau-load .is-doing, .dashboard-admin .bureau-load-legend .is-doing { background: hsl(var(--primary)); }
 .dashboard-admin .bureau-load .is-todo, .dashboard-admin .bureau-load-legend .is-todo { background: hsl(var(--accent)); }
-.dashboard-admin .bureau-load-legend { display: flex; gap: 14px; margin-top: 8px; border-top: 1px solid hsl(var(--border)); padding-top: 8px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-load-legend { display: flex; gap: 14px; margin-top: 8px; border-top: 1px solid hsl(var(--border)); padding: 8px 4px 0; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
 .dashboard-admin .bureau-load-legend i { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 2px; }
 
-@media (max-width: 1019px) { .dashboard-admin .admin-bureau { grid-template-columns: 1fr; } }
+@media (max-width: 1019px) { .dashboard-admin .bureau-registre-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 767px) {
   .dashboard-admin .bureau-board { grid-template-columns: repeat(7, minmax(132px, 1fr)); overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; }
   .dashboard-admin .bureau-day { scroll-snap-align: start; }
-  .dashboard-admin .bureau-card { padding: 12px; }
-  .dashboard-admin .bureau-registre-tabs { padding-right: 0; }
-  .dashboard-admin .bureau-registre-links { position: static; margin-top: 8px; }
-  .dashboard-admin .bureau-message { grid-template-columns: 38px minmax(0, 1fr); }
-  .dashboard-admin .bureau-reply { grid-column: 2; justify-self: start; }
+  .dashboard-admin .bureau-week, .dashboard-admin .bureau-registres { padding: 12px; }
+  .dashboard-admin .bureau-line { grid-template-columns: minmax(0, 1fr) auto; }
+  .dashboard-admin .bureau-line-note:empty, .dashboard-admin .bureau-line-note { display: none; }
+  .dashboard-admin .bureau-circuit { min-width: 0; }
+  .dashboard-admin .bureau-circuit-step { display: none; }
+  .dashboard-admin .bureau-circuit em { margin-left: 0; }
+  .dashboard-admin .bureau-heading h1 { font-size: 21px; }
 }
-@media (prefers-reduced-motion: reduce) { .dashboard-admin :is(.bureau-event, .bureau-reply, .bureau-day-head, .bureau-day, .bureau-week-nav button) { transition: none; } .dashboard-admin .bureau-day:hover { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .dashboard-admin :is(.bureau-event, .bureau-line, .bureau-message, .bureau-day, .bureau-week-nav button, .bureau-registre-tabs [role="tab"]) { transition: none; } .dashboard-admin .bureau-day:hover { transform: none; } }

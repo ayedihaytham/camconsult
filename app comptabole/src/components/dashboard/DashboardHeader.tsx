@@ -24,6 +24,15 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
     ? "Voici les éléments utiles pour suivre vos échanges avec le cabinet."
     : vueCabinet(role) ? undefined
     : societeNom ? "Tâches, collectes et échéances de ce client." : "Reprendre, avancer et préparer les prochaines transmissions.";
+  if (vueCabinet(role)) {
+    return (
+      <header data-tour="dashboard-summary" className="bureau-heading">
+        <p className="bureau-heading-eyebrow">{salutation} · {dateLabel}</p>
+        <h1>{title}</h1>
+        {societeNom && <p className="bureau-heading-context">Vue limitée à cette société</p>}
+      </header>
+    );
+  }
   return (
     <LedgerCompactHeader
       tourTarget="dashboard-summary"

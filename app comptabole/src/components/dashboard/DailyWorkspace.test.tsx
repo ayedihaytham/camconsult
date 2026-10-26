@@ -117,7 +117,7 @@ describe("Daily Workspace UI contract", () => {
     expect(container.querySelectorAll(".dashboard-resume")).toHaveLength(1);
   });
   it("provides all internal tour targets using the existing versioned registry", () => {
-    const { container } = render(<MemoryRouter><div data-tour="page-workspace"><DashboardHeader salutation="Bonjour" dateLabel="Mercredi" data={data} now={NOW} loading={false} role="admin" canAddSociete canUseMessaging /><DashboardTabs {...base} /></div></MemoryRouter>);
+    const { container } = render(<MemoryRouter><div data-tour="page-workspace"><DashboardHeader salutation="Bonjour" dateLabel="Mercredi" data={data} now={NOW} loading={false} role="collaborateur" canAddSociete canUseMessaging /><DashboardTabs {...base} /></div></MemoryRouter>);
     const tour = getPageTour("/", session("collaborateur"));
     expect(tour?.version).toBe(3);
     tour?.steps.forEach((step) => { expect(typeof step.target).toBe("string"); expect(container.querySelector(`[data-tour="${step.target}"]`)).toBeTruthy(); });
@@ -134,12 +134,18 @@ describe("Daily Workspace UI contract", () => {
     // Vue cabinet : les tâches terminées restent visibles dans leur colonne.
     expect(screen.getByText("Travail finished")).toBeTruthy();
   });
-  it("omits the cabinet/collaborator scope switch while keeping quick actions in the banner", () => {
-    const { container } = render(<MemoryRouter><DashboardHeader salutation="Bonjour Amira" dateLabel="Mercredi" data={data} now={NOW} loading={false} role="admin" canAddSociete canUseMessaging /><DashboardTabs {...base} /></MemoryRouter>);
+  it("omits the cabinet/collaborator scope switch while keeping quick actions in the collaborator banner", () => {
+    const { container } = render(<MemoryRouter><DashboardHeader salutation="Bonjour Amira" dateLabel="Mercredi" data={data} now={NOW} loading={false} role="collaborateur" canAddSociete canUseMessaging /><DashboardTabs {...base} /></MemoryRouter>);
     expect(screen.queryByRole("button", { name: "Tout le cabinet" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Collaborateur" })).toBeNull();
     expect(container.querySelector("[data-tour=dashboard-scope]")).toBeNull();
     expect(screen.getByRole("button", { name: /Actions/ })).toBeTruthy();
+  });
+  it("the cabinet view gets a plain heading with no quick actions", () => {
+    const { container } = render(<MemoryRouter><DashboardHeader salutation="Bonjour Amira" dateLabel="Mercredi" data={adminData} now={NOW} loading={false} role="admin" canAddSociete canUseMessaging /></MemoryRouter>);
+    expect(screen.getByRole("heading", { name: "Tableau de bord du cabinet" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Actions/ })).toBeNull();
+    expect(container.querySelector('[data-tour="dashboard-summary"]')).toBeTruthy();
   });
   it("attention search retains loaded results during a partial failure", () => {
     const partial = buildDashboardData(dashboardInput({ societes: [{ ...dashboardInput().societes[0], statut: "en_attente" }], collectes: [] }));
@@ -252,9 +258,11 @@ describe("Daily Workspace UI contract", () => {
   });
   it("keeps the full admin team in its tab without crowding the overview", () => {
     const team = Array.from({ length: 5 }, (_, index) => ({ id: `emp-${index}`, name: `Collaborateur ${index}`, initials: `C${index}`, active: true, online: false, aFaire: index + 1, enCours: 2, done: 0, open: index + 3, total: index + 3 }));
-    const { container, rerender } = render(<MemoryRouter><DashboardTabs {...base} data={{ ...adminData, team }} /></MemoryRouter>);
-    expect(container.querySelector('[data-tour="dashboard-team"]')).toBeNull();
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "Équipe" }), { button: 0, ctrlKey: false });
+    const overview = render(<MemoryRouter><DashboardTabs {...base} data={{ ...adminData, team }} /></MemoryRouter>);
+    expect(overview.container.querySelector('[data-tour="dashboard-team"]')).toBeNull();
+    expect(overview.container.querySelectorAll(".bureau-member")).toHaveLength(3);
+    overview.unmount();
+    const { container, rerender } = render(<MemoryRouter initialEntries={["/?tab=team"]}><DashboardTabs {...base} data={{ ...adminData, team }} /></MemoryRouter>);
     team.forEach((member) => expect(screen.getAllByText(member.name).length).toBeGreaterThan(0));
     expect(screen.queryByRole("button", { name: /Voir les tâches de/ })).toBeNull();
     rerender(<MemoryRouter><DashboardTabs {...base} data={{ ...data, role: "collaborateur", team }} /></MemoryRouter>);

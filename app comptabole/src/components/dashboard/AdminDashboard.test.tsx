@@ -16,21 +16,27 @@ const data = buildDashboardData(input);
 const props = { data, now: NOW, canUseMessaging: true, collectesLoading: false, collectesError: false, onRetryCollectes: () => {}, adminDataLoading: false, adminDataError: false, onRetryAdminData: () => {} };
 
 describe("Admin Dashboard briefing", () => {
-  it("shows four bounded domains and puts team and activity in their tabs", () => {
+  it("shows the verdict line, the week with its day detail and four registers, without the tab rail or quick actions", () => {
     const { container } = render(<MemoryRouter><DashboardTabs {...props} /></MemoryRouter>);
-    for (const name of ["Collectes du jour", "Travail à avancer", "Prochaines échéances", "Messages à lire"]) expect(screen.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeTruthy();
-    for (const name of ["Aujourd’hui", "À traiter", "Équipe"]) expect(screen.getByRole("heading", { name })).toBeTruthy();
-    const summary = screen.getByRole("navigation", { name: "L'essentiel du cabinet" });
-    expect(within(summary).getAllByRole("link")).toHaveLength(4);
-    expect(container.querySelectorAll('[data-tour="dashboard-tasks"] li')).toHaveLength(3);
+    for (const name of ["Travail à avancer", "Échéances", "Messages", "Équipe"]) expect(screen.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /^Collectes du / })).toBeTruthy();
+    expect(container.querySelector(".bureau-verdict")).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "Tâches" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Mon bureau" })).toBeNull();
+    expect(container.querySelectorAll('[data-tour="dashboard-tasks"] li')).toHaveLength(5);
     expect(container.querySelector(".dashboard-resume")).toBeNull();
     expect(container.querySelector(".dashboard-rail")).toBeNull();
-    expect(screen.getByRole("tab", { name: "Équipe" })).toBeTruthy();
+  });
+
+  it("keeps the dedicated views reachable by address, with the tab rail shown there", () => {
+    render(<MemoryRouter initialEntries={["/?tab=team"]}><DashboardTabs {...props} /></MemoryRouter>);
+    expect(screen.getByRole("tab", { name: "Mon bureau" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Équipe" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("keeps usable tasks and permission-gated messages while collection counts are unavailable", () => {
     const { container } = render(<MemoryRouter><AdminOverviewTab data={data} loading={false} error canUseMessaging={false} /></MemoryRouter>);
-    expect(screen.getAllByText("Indisponible")).toHaveLength(2);
+    expect(container.querySelector(".bureau-verdict")?.textContent).toContain("indisponible");
     expect(screen.getByText("Travail task-0")).toBeTruthy();
     expect(container.querySelector('[data-tour="dashboard-communication"]')).toBeNull();
     expect(screen.queryByText("Messages non lus")).toBeNull();

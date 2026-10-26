@@ -170,23 +170,29 @@ unread tag and presence dot. Admin also gets `Journal complet` (`/journal`). Loa
 - Admin bordereaux contribute an unpointed attention item and aggregate values.
   The cabinet aggregate remains an Admin-only item.
 
-#### Mon bureau (administrateur et responsable) — composition approuvée 2026-10-20
+#### Mon bureau (administrateur et responsable) — composition approuvée 2026-10-26
 
-`AdminOverviewTab.tsx` + `AdminBureauCards.tsx`, styled by `admin-bureau.css` (`.admin-bureau`). Under the unchanged banner and tab rail:
+`AdminOverviewTab.tsx` + `AdminBureauCards.tsx`, styled by `admin-bureau.css` (`.admin-bureau`, one column). This view **replaces the navy banner,
+the tab rail and the quick actions** (user-approved exception to the shared banner/tab-bar rule above; the collaborator and company views keep them):
 
-- **Left column (290px; one column below 1020px):** `Aujourd'hui` (the four existing indicators as a vertical list — Collectes à examiner,
-  Tâches ouvertes, Échéances du jour, Messages non lus — each with a real caption: overdue count, en cours/à faire split, deadlines of the
-  next days, first unread conversation; unavailable collection sources still show `—` + `Chargement…`/`Indisponible`), `À traiter` (warm card,
-  `AttentionList` preview of at most three non-message items) and, **admin only**, `Équipe`.
-- **Week board:** seven columns from today (previous/next shift by seven days, `Aujourd'hui` resets). Each day header is the selectable button
-  (`aria-label` `dd/mm/yyyy, N collecte(s)`); its column lists that day's real collection deadlines (three at most, then `+ N autres`), colored
-  by real state (overdue red, corrections amber, otherwise slate). Weekends are tinted. Unavailable collections show no events and no fake zero.
-- **Registres:** one tabbed card — `Collectes du jour` (selected day), `Travail à avancer` (≤3 open tasks), `Prochaines échéances` (after the selected
-  day) and, with messaging, `Messages à lire`. All panels stay mounted (`forceMount`, hidden when inactive) so tour targets exist; the tour copy names the tab.
-- **Messages à lire / Équipe presentation (user-approved exception):** gradient initials avatars with a presence dot (`online`), blue unread dot and a
-  `Répondre` button (opens `/messagerie`); the team card shows at most three alphabetical collaborators with a load bar — `En cours` and `À faire`
-  segments scaled to the busiest collaborator — and the open count. This is informational: no score, rank or capacity, and **no overdue task
-  state** (tasks have no deadline). The dedicated `Équipe` tab keeps its no-bars rule.
+- **Heading (`DashboardHeader`, `vueCabinet(role)`):** plain heading on the canvas — eyebrow `salutation · date`, title (`Tableau de bord du cabinet`
+  or the active société), thin rule. No `DashboardQuickActions`. The URL-addressable tabs still exist: the rail is hidden on `overview` only, so
+  `/?tab=tasks|attention|deadlines|team|activity` links (notifications, the verdict line) still open their dedicated views with the rail shown there.
+- **Verdict line:** one line replacing the former `Aujourd'hui` indicators and `À traiter` card. With non-message attention items it reads
+  `N point(s) demande(nt) votre attention · <first title>` and is the only link (`/?tab=attention`, no arrow); otherwise `Tout est à jour`;
+  unavailable/loading collection sources show a neutral sentence, never a fake zero.
+- **Week of perforated tickets:** seven days from today (previous/next shift by seven days, `Aujourd'hui` resets), serif range title, no color legend.
+  Each day header is the selectable button (`aria-label` `dd/mm/yyyy, N collecte(s)`); below the perforation the real collection deadlines are
+  **written**, at most two (`société` + status word: `En retard`, `À corriger`, `À examiner`, `Prévue`), then `+ N autres`. Only overdue uses red;
+  only **Sunday** is a rest day (`Dimanche`). Today is navy, the selected day has a gold ring.
+- **Day detail (under the week, `data-tour="dashboard-attention"`):** `Collectes du <date>` + count, then one row per real collection (société,
+  période, days overdue, and the `CollecteCircuit`: three connected dots for the real circuit `À remplir → Transmise → Validée` with the status written;
+  overdue turns the current dot and label red).
+- **Registres (four tiles over the full width, `forceMount`, hidden when inactive):** `Travail à avancer` (≤5 open tasks, en cours first),
+  `Échéances` (after the selected day), `Messages` (with messaging) and, **admin only**, `Équipe`. Each tile shows its real count. Rows are whole-row
+  links without arrows or buttons; messages open `/messagerie` (no `Répondre` button).
+- **Équipe registre (informational):** gradient initials avatars with a presence dot, at most three alphabetical collaborators with the `En cours` /
+  `À faire` load bar scaled to the busiest and the open count. No score, rank or capacity, no link, and **no overdue task state** (tasks have no deadline).
 
 ### Responsable des collaborateurs
 
@@ -319,8 +325,8 @@ Tasks have no mandatory deadline: the optional planned end (`finPrevue`) is show
   navy circle without conveying priority or a person category. Unread rows share
   the rail surface, and team open counts use a readable warm ink emphasis.
 - Mon bureau team (Admin only): at most three alphabetical, informational
-  collaborator rows with initials and real Ouvertes, À faire and En cours counts;
-  `Voir l’équipe` opens the dedicated team view. Rows do not filter work or rank people.
+  collaborator rows with initials and real Ouvertes, À faire and En cours counts.
+  Rows do not filter work or rank people.
 - Dedicated team (Admin only): alphabetical informational collaborator rows with À faire, En cours,
   Terminées and Ouvertes, rendered as a table on desktop and count rows on mobile.
   Names remain non-interactive because Dashboard collaborator filtering is not

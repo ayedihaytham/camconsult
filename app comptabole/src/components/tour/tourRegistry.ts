@@ -667,16 +667,15 @@ export function getPageTour(
         { target: "dashboard-task-completed", title: "Travail terminé", body: "Les tâches terminées restent consultables ; Rouvrir les remet en cours." },
       ],
     } : {
-      id: "dashboard-admin", version: 1, title: "Tableau de bord du cabinet",
+      id: "dashboard-admin", version: 2, title: "Tableau de bord du cabinet",
       steps: [
-        { target: "dashboard-summary", title: "Votre journée", body: "Le bandeau situe la journée et les actions rapides ouvrent les modules autorisés." },
-        { target: "dashboard-resume", title: "L’essentiel en un regard", body: "Collectes à examiner, tâches ouvertes, échéances du jour et messages non lus, avec leur détail. Chaque ligne ouvre sa vue complète." },
-        { target: "dashboard-tabs", title: "Approfondir une vue", body: "Les onglets donnent accès aux tâches, aux éléments à traiter, au calendrier, à l’équipe et à l’activité." },
-        { target: "dashboard-deadline-strip", title: "Choisir la journée", body: "Aujourd’hui est sélectionné au départ. Chaque jour de la semaine liste ses collectes ; sélectionnez un jour pour changer les collectes du jour et les échéances qui suivent. Les tâches et messages conservent leur état actuel." },
-        { target: "dashboard-attention", title: "Suivre les collectes du jour", body: "Premier onglet des registres : cet aperçu présente les collectes dont l’échéance correspond à la date sélectionnée. Chaque ligne ouvre son dossier." },
-        { target: "dashboard-tasks", title: "Avancer sur le travail", body: "Onglet Travail à avancer : les tâches en cours puis celles à faire sont accessibles directement." },
-        { target: "dashboard-transmissions", title: "Consulter les échéances", body: "Onglet Prochaines échéances : les dates qui suivent la journée choisie sont visibles ici. Calendrier ouvre le mois complet et le détail des collectes de chaque jour." },
-        { target: "dashboard-communication", title: "Lire les messages", body: "Onglet Messages à lire : les messages non lus sont ceux de votre compte. Répondre ouvre la Messagerie." },
+        { target: "dashboard-summary", title: "Votre journée", body: "L’en-tête situe la journée. Les modules s’ouvrent depuis le menu latéral et Aller à…, Ctrl K." },
+        { target: "dashboard-resume", title: "L’essentiel en une ligne", body: "Cette ligne annonce si des éléments demandent votre attention ; elle ouvre alors la liste À traiter. Sinon, tout est à jour." },
+        { target: "dashboard-deadline-strip", title: "Choisir la journée", body: "Aujourd’hui est sélectionné au départ. Chaque billet liste ses collectes avec leur statut écrit ; sélectionnez un jour pour changer le détail et les échéances qui suivent. Les tâches et messages conservent leur état actuel." },
+        { target: "dashboard-attention", title: "Suivre les collectes du jour", body: "Sous la semaine : les collectes dont l’échéance correspond à la date sélectionnée, avec leur avancement. Chaque ligne ouvre son dossier." },
+        { target: "dashboard-tasks", title: "Avancer sur le travail", body: "Registre Travail à avancer : les tâches en cours puis celles à faire sont accessibles directement." },
+        { target: "dashboard-transmissions", title: "Consulter les échéances", body: "Registre Échéances : les dates qui suivent la journée choisie sont visibles ici, avec l’avancement de chaque collecte." },
+        { target: "dashboard-communication", title: "Lire les messages", body: "Registre Messages : les messages non lus sont ceux de votre compte. Une ligne ouvre la Messagerie." },
       ],
     };
     if (new URLSearchParams(search).get("tab") === "tasks") return {

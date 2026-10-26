@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronDown, Copy, Download, FileSpreadsheet, FileText, LoaderCircle, RotateCcw, ScanText, TriangleAlert, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, Copy, Download, FileSpreadsheet, FileText, LoaderCircle, RotateCcw, TriangleAlert, X } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,6 @@ import {
 } from "@/lib/pdfToTables";
 import { texteDepuisFeuilles } from "@/lib/texteBrut";
 import { detailPourCopie, diagnostic, diagnostiquerErreurPdf, type DiagnosticConversion } from "@/lib/diagnosticConversion";
-import { lirePdfParOcr } from "@/lib/ocrPdf";
 import { cn } from "@/lib/utils";
 import { TelechargerTout } from "./TelechargerTout";
 import { ZoneDepot } from "./ZoneDepot";
@@ -39,8 +38,6 @@ interface PdfItem {
   pdfUrl: string | null;
   /** Cause et solutions quand le fichier n'a pas pu être converti. */
   diagnostic?: DiagnosticConversion;
-  /** Texte lu par reconnaissance de caractères : chaque chiffre doit être vérifié. */
-  ocr?: boolean;
 }
 
 const PARAMETRES_APERCU = "#navpanes=0&view=FitH";
@@ -121,27 +118,6 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
       setActiveSheet(0);
     }
     if (echecs > 0) toast.error(`${pluriel(echecs, "fichier")} non converti${echecs > 1 ? "s" : ""} : le problème est détaillé dans la file de conversion`);
-  }
-
-  /** Lecture par reconnaissance de caractères d'un PDF scanné, proposée explicitement : le résultat est signalé « à vérifier ». */
-  async function lireParOcr(item: PdfItem) {
-    const maj = (patch: Partial<PdfItem>) => setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, ...patch } : i)));
-    maj({ status: "cours", detail: "Reconnaissance de caractères : préparation…" });
-    try {
-      const pages = await lirePdfParOcr(item.file, { onProgression: ({ page, pages: total }) => maj({ detail: `Reconnaissance de caractères : page ${page} sur ${total}…` }) });
-      if (nombreDeCaracteres(pages) === 0) {
-        maj({ status: "erreur", detail: "Aucun texte reconnu sur ce scan", diagnostic: { ...diagnostic("scanne"), resume: "Aucun texte reconnu sur ce scan", cause: "La reconnaissance de caractères n'a trouvé aucun texte exploitable : image trop floue, trop sombre ou de travers.", solutions: ["Refaire le scan à plat, bien éclairé et net, puis le déposer à nouveau.", "Demander à l'émetteur le PDF d'origine (il se convertit sans erreur)."] } });
-        return;
-      }
-      const pdfUrl = URL.createObjectURL(item.file);
-      urlsRef.current.push(pdfUrl);
-      maj({ status: "ok", pages, pdfUrl, ocr: true, diagnostic: undefined, detail: `${pluriel(pages.length, "page")} lue${pages.length > 1 ? "s" : ""} par reconnaissance de caractères — à vérifier` });
-      setActiveId(item.id);
-      setActiveSheet(0);
-      toast.warning("Texte lu par reconnaissance de caractères : vérifiez chaque chiffre avant de l'utiliser");
-    } catch {
-      maj({ status: "erreur", detail: "La reconnaissance de caractères a échoué", diagnostic: { ...diagnostic("autre"), resume: "La reconnaissance de caractères a échoué", cause: "Le moteur de lecture n'a pas pu démarrer ou s'est interrompu (mémoire insuffisante, fichier très volumineux).", solutions: ["Réessayer avec un fichier plus léger (quelques pages).", "Demander à l'émetteur le PDF d'origine."] } });
-    }
   }
 
   async function copierDetail(item: PdfItem) {
@@ -229,7 +205,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
         <LedgerSheet>
           <div className="border-b border-border px-[18px] py-3">
             <h2 className="text-[0.86rem] font-bold text-foreground">Fichiers à convertir</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Fonctionne directement avec les PDF qui contiennent du texte (relevés, balances, états). Un PDF scanné peut être lu par reconnaissance de caractères, à vérifier.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Fonctionne avec les PDF qui contiennent du texte (relevés, balances, états) ; un PDF scanné n'est pas lisible.</p>
           </div>
           <div className="p-[18px]">
             <ZoneDepot accept=".pdf,application/pdf" extensions={["pdf"]} types=".pdf" occupe={occupe} libelleOccupe="Lecture en cours…" onFiles={(f) => void convertir(f)} />
@@ -292,11 +268,6 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
         )}
         {active && feuille ? (
           <>
-            {active.ocr && (
-              <p className="mx-[18px] mt-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-foreground" role="alert">
-                Texte lu par reconnaissance de caractères : une erreur de lecture est possible (un 5 lu comme un 6). Comparez chaque montant avec le PDF avant de l'utiliser.
-              </p>
-            )}
             {tableauSeul && modeDePdf(active.pages, options) === "complet" && (
               <p className="mx-[18px] mt-3 rounded-lg border border-destructive/30 px-3 py-2 text-xs font-medium text-destructive" role="alert">
                 Aucun tableau reconnu dans ce document : il est converti en entier. Décochez « Tableaux seulement » si c'est voulu.
@@ -323,7 +294,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
                         {feuille.rows.map((row, ri) => (
                           <tr key={ri}>
                             {row.map((cell, ci) => (
-                              <td key={ci} className={cn("whitespace-nowrap border border-border px-2 py-1", typeof cell === "number" && "text-right tabular-nums")}>
+                              <td key={ci} className={cn("whitespace-nowrap border border-border px-2 py-1", typeof cell === "number" && "text-right tabular-nums",)}>
                                 {typeof cell === "number" ? cell.toLocaleString("fr-FR", { maximumFractionDigits: 6 }) : String(cell ?? "")}
                               </td>
                             ))}
@@ -381,7 +352,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
                   {item.status === "ok" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" /> : item.status === "erreur" ? <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" /> : <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                    <p className={cn("text-xs", item.status === "erreur" ? "text-destructive" : item.ocr ? "font-medium text-foreground" : "text-muted-foreground")}>{item.detail}</p>
+                    <p className={cn("text-xs", item.status === "erreur" ? "text-destructive" : "text-muted-foreground")}>{item.detail}</p>
                   </div>
                   {item.status === "ok" && (
                     <div className="flex flex-wrap gap-2">
@@ -424,16 +395,10 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
                         <ol className="mt-0.5 list-decimal space-y-1 pl-4 text-muted-foreground">{item.diagnostic.solutions.map((solution) => <li key={solution}>{solution}</li>)}</ol>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {item.diagnostic.code === "scanne" && (
-                          <Button type="button" size="sm" onClick={() => void lireParOcr(item)} disabled={occupe}>
-                            <ScanText className="h-3.5 w-3.5" /> Lire par reconnaissance de caractères
-                          </Button>
-                        )}
                         <Button type="button" variant="outline" size="sm" onClick={() => void copierDetail(item)}>
                           <Copy className="h-3.5 w-3.5" /> Copier le détail
                         </Button>
                       </div>
-                      {item.diagnostic.code === "scanne" && <p className="text-muted-foreground">La lecture se fait dans votre navigateur : le fichier n'est envoyé nulle part. Elle prend quelques secondes par page.</p>}
                     </div>
                   )}
                 </div>

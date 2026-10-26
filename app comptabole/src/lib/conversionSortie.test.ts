@@ -18,7 +18,7 @@ describe("fichier converti, dans le format choisi", () => {
     expect(nomSortie("Releve août", "txt")).toBe("Releve août.txt");
   });
 
-  it("Excel : un classeur .xlsx (archive zip) avec une feuille par tableau", async () => {
+  it("Excel : un classeur .xlsx (archive zip) avec une feuille par tableau, au modèle du cabinet par défaut", async () => {
     const { blob, nom } = await fichierConverti("xlsx", feuilles, "balance");
     expect(nom).toBe("balance.xlsx");
     expect(blob.type).toContain("spreadsheetml");
@@ -27,6 +27,17 @@ describe("fichier converti, dans le format choisi", () => {
     const lu = XLSX.read(await octets(blob), { type: "array" });
     expect(lu.SheetNames).toEqual(["Balance", "Détail"]);
     const lignes = XLSX.utils.sheet_to_json<unknown[]>(lu.Sheets["Balance"], { header: 1 });
+    // Titre en A1, sous-titre en A2, en-têtes en ligne 4, données dessous.
+    expect(lignes[3]).toEqual(["Compte", "Libellé", "Débit", "Crédit"]);
+    expect(lignes[5]).toEqual(["411000", "Clients", 12345.678, 0]);
+  });
+
+  it("Excel sans le modèle : classeur simple, en-têtes en ligne 1", async () => {
+    const { blob } = await fichierConverti("xlsx", feuilles, "balance", { modele: false });
+    const XLSX = await import("xlsx");
+    const lu = XLSX.read(await octets(blob), { type: "array" });
+    const lignes = XLSX.utils.sheet_to_json<unknown[]>(lu.Sheets["Balance"], { header: 1 });
+    expect(lignes[0]).toEqual(["Compte", "Libellé", "Débit", "Crédit"]);
     expect(lignes[2]).toEqual(["411000", "Clients", 12345.678, 0]);
   });
 

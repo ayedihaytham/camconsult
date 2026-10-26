@@ -1,5 +1,6 @@
 import { buildTablesPdf, type PdfSheet } from "@/lib/pdfTables";
 import { classeurExcel } from "@/lib/pdfToTables";
+import { classeurExcelModele } from "@/lib/modeleExcelCabinet";
 import { texteDepuisFeuilles } from "@/lib/texteBrut";
 
 /** Formats dans lesquels un fichier converti se télécharge, quel que soit le sens de la conversion (Excel vers PDF ou PDF vers Excel). */
@@ -32,12 +33,18 @@ export async function fichierConverti(
   format: FormatSortie,
   feuilles: PdfSheet[],
   base: string,
-  options: { identite?: IdentitePdf; unite?: "tableau" | "feuille" } = {},
+  options: { identite?: IdentitePdf; unite?: "tableau" | "feuille"; modele?: boolean } = {},
 ): Promise<{ blob: Blob; nom: string }> {
   const nom = nomSortie(base, format);
   const mime = FORMATS_SORTIE.find((f) => f.valeur === format)!.mime;
   if (feuilles.length === 0) throw new Error("Rien à convertir");
-  if (format === "xlsx") return { blob: new Blob([await classeurExcel(feuilles)], { type: mime }), nom };
+  if (format === "xlsx") {
+    // Par défaut : classeur aux couleurs du cabinet (comme les tableaux de Collecte) ; `modele: false` : classeur simple, données dès A1.
+    const octets = options.modele === false
+      ? await classeurExcel(feuilles)
+      : await classeurExcelModele(feuilles, { titre: base, cabinet: options.identite?.cabinet?.nom });
+    return { blob: new Blob([octets], { type: mime }), nom };
+  }
   if (format === "txt") return { blob: new Blob([texteDepuisFeuilles(feuilles)], { type: mime }), nom };
   const doc = await buildTablesPdf({
     title: base,

@@ -72,6 +72,7 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfErreur, setPdfErreur] = useState(false);
   const [formatGroupe, setFormatGroupe] = useState<FormatSortie>("pdf");
+  const [modele, setModele] = useState(true);
   const occupe = items.some((i) => i.status === "cours");
 
   const active = items.find((i) => i.id === activeId && i.status === "ok") ?? null;
@@ -202,7 +203,7 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
       return;
     }
     try {
-      const { blob, nom } = await fichierConverti("xlsx", feuilles, item.baseName);
+      const { blob, nom } = await fichierConverti("xlsx", feuilles, item.baseName, { modele, identite: { logo, cabinet } });
       download(blob, nom);
     } catch {
       toast.error("Le fichier Excel n'a pas pu être créé");
@@ -245,6 +246,10 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
             <label className="flex cursor-pointer items-start gap-2.5">
               <Checkbox checked={seulementTableaux} onCheckedChange={(c) => setSeulementTableaux(Boolean(c))} className="mt-0.5" />
               <span>Tableaux seulement<span className="block text-xs text-muted-foreground">Décochez pour convertir les feuilles entières, telles quelles.</span></span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <Checkbox checked={modele} onCheckedChange={(c) => setModele(Boolean(c))} className="mt-0.5" />
+              <span>Modèle du cabinet pour l'Excel<span className="block text-xs text-muted-foreground">Titre, bandeau d'en-têtes bleu, lignes alternées, dates et montants formatés, comme les tableaux de Collecte. Décochez pour un classeur simple.</span></span>
             </label>
             {aucunTableau && <p className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-warning" role="status">Aucun tableau reconnu dans ce fichier : les feuilles entières sont converties.</p>}
             {active && unitesActives.length > 1 && (

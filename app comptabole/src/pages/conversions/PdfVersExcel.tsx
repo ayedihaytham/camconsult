@@ -11,7 +11,6 @@ import { fichierConverti, type FormatSortie } from "@/lib/conversionSortie";
 import { COMPTE_BANQUE, ecrituresDepuisReleve, texteEcritures } from "@/lib/ecrituresReleve";
 import {
   modeDePdf,
-  classeurExcel,
   feuillesDePdf,
   lireFichierPdf,
   nombreDeCaracteres,
@@ -38,7 +37,6 @@ interface PdfItem {
   pdfUrl: string | null;
 }
 
-const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const PARAMETRES_APERCU = "#navpanes=0&view=FitH";
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 /** Formats du téléchargement groupé de ce sens : l'Excel d'abord, puis le PDF et le texte brut. */
@@ -56,6 +54,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
   const [uneSeuleFeuille, setUneSeuleFeuille] = useState(false);
   const [tableauSeul, setTableauSeul] = useState(true);
   const [compte, setCompte] = useState(COMPTE_BANQUE);
+  const [modele, setModele] = useState(true);
   const [formatGroupe, setFormatGroupe] = useState<FormatSortie>("xlsx");
   const { logo, cabinet } = useIdentiteCabinet();
   const occupe = items.some((i) => i.status === "cours");
@@ -129,7 +128,8 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
       return;
     }
     try {
-      download(new Blob([await classeurExcel(f)], { type: MIME_XLSX }), `${item.baseName}.xlsx`);
+      const { blob, nom } = await fichierConverti("xlsx", f, item.baseName, { modele, identite: { logo, cabinet } });
+      download(blob, nom);
     } catch {
       toast.error("Excel impossible");
     }
@@ -211,6 +211,10 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
             <label className="flex cursor-pointer items-start gap-2.5">
               <Checkbox checked={uneSeuleFeuille} onCheckedChange={(c) => setUneSeuleFeuille(Boolean(c))} className="mt-0.5" />
               <span>Toutes les pages dans une seule feuille<span className="block text-xs text-muted-foreground">Sinon, une feuille par page du PDF.</span></span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <Checkbox checked={modele} onCheckedChange={(c) => setModele(Boolean(c))} className="mt-0.5" />
+              <span>Modèle du cabinet<span className="block text-xs text-muted-foreground">Titre, bandeau d'en-têtes bleu, lignes alternées, dates et montants formatés, comme les tableaux de Collecte. Décochez pour un classeur simple dont les données commencent en A1.</span></span>
             </label>
             <label className="flex flex-wrap items-center justify-between gap-2">
               <span>Compte de banque <span className="block text-xs text-muted-foreground">Utilisé par le fichier d'écritures (.txt).</span></span>

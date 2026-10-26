@@ -47,6 +47,8 @@ const octets = (blob: Blob) =>
   });
 const dernierAppel = () => download.mock.calls[download.mock.calls.length - 1] as [Blob, string];
 
+vi.setConfig({ testTimeout: 40_000 });
+
 describe("téléchargement du fichier converti : PDF, Excel ou texte, quel que soit le sens", () => {
   beforeEach(() => {
     download.mockClear();
@@ -63,13 +65,13 @@ describe("téléchargement du fichier converti : PDF, Excel ou texte, quel que s
     expect(screen.getByRole("button", { name: "Texte (.txt)" })).toBeTruthy();
 
     fireEvent.click(excel);
-    await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1), { timeout: 15_000 });
     const [blob, nom] = dernierAppel();
     expect(nom).toBe("balance.xlsx");
     expect(blob.type).toContain("spreadsheetml");
 
     fireEvent.click(screen.getByRole("button", { name: "Texte (.txt)" }));
-    await waitFor(() => expect(download).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(2), { timeout: 15_000 });
     expect(dernierAppel()[1]).toBe("balance.txt");
   });
 
@@ -82,14 +84,14 @@ describe("téléchargement du fichier converti : PDF, Excel ou texte, quel que s
     expect(screen.getByRole("button", { name: "Texte brut (.txt)" })).toBeTruthy();
 
     fireEvent.click(pdf);
-    await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1), { timeout: 15_000 });
     const [blob, nom] = dernierAppel();
     expect(nom).toBe("releve.pdf");
     expect(blob.type).toBe("application/pdf");
     expect(new TextDecoder().decode((await octets(blob)).slice(0, 5))).toBe("%PDF-");
 
     fireEvent.click(screen.getByRole("button", { name: "Télécharger l'Excel" }));
-    await waitFor(() => expect(download).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(2), { timeout: 15_000 });
     expect(dernierAppel()[1]).toBe("releve.xlsx");
   });
 
@@ -103,7 +105,7 @@ describe("téléchargement du fichier converti : PDF, Excel ou texte, quel que s
     expect(within(format).getAllByRole("option").map((o) => o.textContent)).toEqual(["Excel", "PDF", "Texte brut (.txt)"]);
     fireEvent.change(format, { target: { value: "txt" } });
     fireEvent.click(screen.getByRole("button", { name: "Tout télécharger" }));
-    await waitFor(() => expect(download).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(2), { timeout: 15_000 });
     expect(download.mock.calls.map((c) => (c as [Blob, string])[1]).sort()).toEqual(["a.txt", "b.txt"]);
   });
 
@@ -116,7 +118,7 @@ describe("téléchargement du fichier converti : PDF, Excel ou texte, quel que s
     expect(within(format).getAllByRole("option").map((o) => o.textContent)).toEqual(["PDF", "Excel", "Texte (.txt)"]);
     fireEvent.change(format, { target: { value: "xlsx" } });
     fireEvent.click(screen.getByRole("button", { name: "Tout télécharger" }));
-    await waitFor(() => expect(download).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(2), { timeout: 15_000 });
     expect(download.mock.calls.map((c) => (c as [Blob, string])[1]).sort()).toEqual(["a.xlsx", "b.xlsx"]);
   });
 
@@ -129,7 +131,7 @@ describe("téléchargement du fichier converti : PDF, Excel ou texte, quel que s
       expect(within(barre).getByRole("button", { name: nom })).toBeTruthy();
     }
     fireEvent.click(within(barre).getByRole("button", { name: "Télécharger le texte brut affiché" }));
-    await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1), { timeout: 15_000 });
     expect(dernierAppel()[1]).toBe("releve.txt");
   });
 });

@@ -108,10 +108,10 @@ const TOURS = {
   },
   societes: {
     id: "societes",
-    version: 3,
+    version: 4,
     title: "Sociétés",
     steps: [
-      { target: "page-identity", title: "Sociétés", body: "Consultez les sociétés accessibles et leur situation. Les compteurs du bandeau filtrent la liste par statut." },
+      { target: "page-identity", title: "Sociétés", body: "Consultez les sociétés accessibles et leur situation. Les tuiles de statut sous le titre filtrent la liste." },
       {
         target: responsiveSearch,
         title: "Rechercher et filtrer",

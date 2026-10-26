@@ -7,7 +7,6 @@ import {
   ChevronDown,
   CircleDot,
   ClipboardList,
-  Clock,
   Copy,
   Download,
   FolderOpen,
@@ -19,14 +18,13 @@ import {
   Eye,
   Building2,
   ListChecks,
-  PauseCircle,
+  Plus,
   Send,
   User,
 } from "lucide-react";
 import type { ColumnDef, Table as TanstackTable } from "@tanstack/react-table";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
-import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { StatutIcone } from "@/components/ledger/StatutIcone";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
@@ -828,22 +826,49 @@ export function SocietesListPage() {
         selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
-      <SignatureLedgerBanner
-        icon={Building2}
-        className="operational-signature-banner mb-0"
-        eyebrow="Clients & travail · Client Ledger"
-        title="Sociétés"
-        description={isAdmin
-          ? "Registre des clients du cabinet"
-          : "Registre des sociétés auxquelles vous avez accès"}
-        metrics={[
-          { label: "Sociétés", icon: Building2, value: registerSummary.total, onSelect: () => setStatutFilter("all"), active: statutFilter === "all" },
-          { label: "Actives", icon: CheckCircle2, value: registerSummary.actif, tone: "success", onSelect: () => setStatutFilter("actif"), active: statutFilter === "actif" },
-          { label: "En attente", icon: Clock, value: registerSummary.enAttente, onSelect: () => setStatutFilter("en_attente"), active: statutFilter === "en_attente" },
-          { label: registerSummary.inactif > 1 ? "Inactives" : "Inactive", icon: PauseCircle, value: registerSummary.inactif, onSelect: () => setStatutFilter("inactif"), active: statutFilter === "inactif" },
-        ]}
-        action={canEdit ? { label: "Ajouter une société", onClick: startCreate } : undefined}
-      />
+      <header data-tour="page-identity" className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-0.5 pb-4 pt-1">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Clients & travail</p>
+          <h1 className="mt-1 text-2xl font-bold leading-tight tracking-tight text-primary">Sociétés</h1>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
+            {isAdmin ? "Registre des clients du cabinet" : "Registre des sociétés auxquelles vous avez accès"}
+          </p>
+        </div>
+        {canEdit && (
+          <Button data-tour="page-primary-action" type="button" className="gap-2" onClick={startCreate}>
+            <Plus className="size-4" aria-hidden="true" />
+            Ajouter une société
+          </Button>
+        )}
+      </header>
+
+      <div role="group" aria-label="Filtrer les sociétés par statut" className="my-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {([
+          { valeur: "all", libelle: "Toutes les sociétés", total: registerSummary.total },
+          { valeur: "actif", libelle: "Actives", total: registerSummary.actif },
+          { valeur: "en_attente", libelle: "En attente", total: registerSummary.enAttente },
+          { valeur: "inactif", libelle: registerSummary.inactif > 1 ? "Inactives" : "Inactive", total: registerSummary.inactif },
+        ] as const).map(({ valeur, libelle, total }) => {
+          const active = statutFilter === valeur;
+          return (
+            <button
+              key={valeur}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setStatutFilter(valeur)}
+              className={cn(
+                "flex min-h-12 items-center justify-between gap-3 rounded-[10px] border px-4 py-2.5 text-left text-sm font-semibold transition-[border-color,box-shadow,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                active
+                  ? "border-primary bg-primary text-primary-foreground shadow-[0_6px_16px_-8px_hsl(var(--primary)/0.55)]"
+                  : "border-border bg-card text-foreground hover:border-primary/35 hover:shadow-[0_2px_8px_-4px_hsl(var(--primary)/0.25)]",
+              )}
+            >
+              <span>{libelle}</span>
+              <span className={cn("text-xl font-bold leading-none tabular-nums", active ? "text-accent" : "text-primary")}>{total}</span>
+            </button>
+          );
+        })}
+      </div>
 
       <LedgerWorkSurface className="societes-ledger-surface">
       {selectedIds.length === 0 && (

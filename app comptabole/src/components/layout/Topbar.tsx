@@ -211,7 +211,7 @@ function NotificationBell() {
         )}
         <div className="max-h-[22rem] overflow-y-auto px-1.5 pb-1.5">
           {recent.map((n) => {
-            const { icone: Icone, tuile } = visuelNotification(n.lien);
+            const { icone: Icone, tuile } = visuelNotification(n.type, n.lien);
             return (
               <button
                 key={n.id}
@@ -228,7 +228,7 @@ function NotificationBell() {
                   <Icone className="size-[17px]" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={cn("block text-sm leading-snug text-foreground", n.lu ? "font-medium" : "font-semibold")}>{n.titre}</span>
+                  <span className={cn("line-clamp-2 block text-[0.84rem] leading-snug text-foreground", n.lu ? "font-medium" : "font-semibold")}>{n.titre}</span>
                   {n.corps && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{n.corps}</span>}
                   <span className="mt-0.5 block text-[11px] text-muted-foreground">{formatRelative(n.creeLe)}</span>
                 </span>

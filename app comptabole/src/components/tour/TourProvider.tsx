@@ -10,7 +10,6 @@ import {
 } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useLocation } from "react-router-dom";
-import { HelpCircle } from "lucide-react";
 import { safeLocalStorage } from "@/lib/safeStorage";
 import { useAuth } from "@/store/auth";
 import { getPageTour, type Tour } from "./tourRegistry";
@@ -23,13 +22,16 @@ import {
 type TourContextValue = {
   tour: Tour | null;
   contextTour: Tour | null;
+  /** Vrai tant que la visite de la page n'a pas été vue : la bulle d'invitation est portée par l'icône d'aide de la barre du haut. */
+  invitation: boolean;
+  dismissInvitation: () => void;
   setContextTour: (tour: Tour | null) => void;
   start: (trigger?: HTMLElement | null) => void;
   startContext: (trigger?: HTMLElement | null) => void;
 };
 
 const TourContext = createContext<TourContextValue | null>(null);
-const NO_TOUR: TourContextValue = { tour: null, contextTour: null, setContextTour: () => {}, start: () => {}, startContext: () => {} };
+const NO_TOUR: TourContextValue = { tour: null, contextTour: null, invitation: false, dismissInvitation: () => {}, setContextTour: () => {}, start: () => {}, startContext: () => {} };
 
 export function usePageTour() {
   return useContext(TourContext) ?? NO_TOUR;
@@ -187,43 +189,8 @@ export function TourProvider({ children }: { children: ReactNode }) {
     : 16;
 
   return (
-    <TourContext.Provider value={{ tour, contextTour, setContextTour, start, startContext }}>
+    <TourContext.Provider value={{ tour, contextTour, invitation: Boolean(tour && invitation && !open), dismissInvitation, setContextTour, start, startContext }}>
       {children}
-      {tour && invitation && !open && (
-        <aside
-          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-3 z-40 w-[min(22rem,calc(100vw-1.5rem))] rounded-lg border border-border bg-card p-3 shadow-pop"
-          aria-label="Découvrir cette page"
-        >
-          <div className="flex items-start gap-2">
-            <HelpCircle
-              className="mt-0.5 size-4 shrink-0 text-primary"
-              aria-hidden="true"
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">Découvrir cette page</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Une courte visite vous montre les commandes utiles.
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 flex justify-end gap-2">
-            <button
-              type="button"
-              className="min-h-11 rounded px-3 text-xs text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={dismissInvitation}
-            >
-              Plus tard
-            </button>
-            <button
-              type="button"
-              className="min-h-11 rounded bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={(event) => start(event.currentTarget)}
-            >
-              Lancer la visite
-            </button>
-          </div>
-        </aside>
-      )}
       <DialogPrimitive.Root
         open={open}
         onOpenChange={(next) => {

@@ -8,6 +8,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
 import { SocieteActiveSelect } from "./SocieteActiveSelect";
+import { TourHelpButton } from "@/components/tour/TourHelpButton";
 import { visuelNotification } from "./notificationVisuel";
 import { MesAppareilsDialog } from "@/components/auth/AppareilsConnectes";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -61,6 +62,7 @@ export function Topbar() {
         <AppBreadcrumbs />
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
+          <TourHelpButton />
           <SocieteActiveSelect />
           <span className="mx-2 hidden h-[22px] w-px bg-white/15 sm:block" aria-hidden="true" />
           <NotificationBell />

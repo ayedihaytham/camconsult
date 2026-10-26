@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TourProvider, usePageTour } from "./TourProvider";
+import { TourHelpButton } from "./TourHelpButton";
 
 vi.mock("@/store/auth", () => ({
   useAuth: (select: (state: { session: { employeId: string } }) => unknown) => select({ session: { employeId: "tour-test" } }),
@@ -11,6 +12,7 @@ vi.mock("@/store/auth", () => ({
 function Harness() {
   const { start } = usePageTour();
   return <>
+    <TourHelpButton />
     <button onClick={(event) => start(event.currentTarget)}>Relancer</button>
     <div data-tour="page-workspace">Tableau de bord</div>
     <div data-tour="dashboard-summary">Bandeau du bureau</div>

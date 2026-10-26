@@ -1459,7 +1459,7 @@
 /* Barre d’onglets : icône, libellé et pastille de compteur. */
 .dashboard-workspace .dashboard-tab {
   gap: 8px;
-  font-size: 15px;
+  font-size: 14px;
 }
 .dashboard-workspace .dashboard-tab > svg {
   width: 18px;
@@ -1470,6 +1470,9 @@
 }
 .dashboard-workspace .dashboard-tab[data-state="active"] > svg {
   color: hsl(var(--accent));
+}
+.dashboard-workspace .dashboard-tab:not([data-state="active"]):hover > svg {
+  color: hsl(var(--primary));
 }
 .dashboard-workspace .dashboard-tab-count {
   display: inline-grid;
@@ -1483,4 +1486,20 @@
   font-size: 12px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
+}
+/* Pastilles de compteur : marine sur l'onglet actif ; l'onglet « À traiter » prend l'ambre (ce qui demande de l'attention). */
+.dashboard-workspace .dashboard-tab-count {
+  background: hsl(var(--primary) / 0.08);
+}
+.dashboard-workspace .dashboard-tab[data-state="active"] .dashboard-tab-count {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.dashboard-workspace .dashboard-tab[data-attention] .dashboard-tab-count {
+  background: hsl(var(--warning) / 0.2);
+  color: hsl(var(--warning));
+}
+.dashboard-workspace .dashboard-tab[data-attention][data-state="active"] .dashboard-tab-count {
+  background: hsl(var(--warning));
+  color: hsl(var(--primary));
 }

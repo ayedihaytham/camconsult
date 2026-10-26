@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { UsersRound } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import type { DashboardMessageActivity, DashboardTeamMember } from "@/lib/dashboard/dashboardData";
 import { WorkspaceSection } from "./WorkspaceSection";
 
@@ -32,23 +32,24 @@ export function AdminMessageRows({ messages }: { messages: DashboardMessageActiv
   );
 }
 
-/** Équipe (administrateur) : au plus trois collaborateurs par ordre alphabétique, avec présence et barre de charge (en cours / à faire, relative au plus chargé). Informatif : aucune note, aucun classement. */
+/** Équipe (administrateur) : au plus trois collaborateurs par ordre alphabétique, avec présence et barre de charge (en cours / à faire, relative au plus chargé). Consultation seule : aucun lien, aucune note, aucun classement. */
 export function AdminTeamCard({ members }: { members: DashboardTeamMember[] }) {
   const busiest = Math.max(1, ...members.map((member) => member.open));
   return (
     <div className="bureau-card">
-      <WorkspaceSection title="Équipe" icon={UsersRound} route="/?tab=team" linkLabel="Voir">
+      <WorkspaceSection title="Équipe" icon={UsersRound}>
         {members.length ? <ul>{members.slice(0, 3).map((member, index) => (
           <li key={member.id} className="bureau-member">
             <PresenceAvatar initials={member.initials} index={index + 1} online={member.online} />
             <div className="min-w-0">
-              <p className="bureau-member-name">{member.name}{!member.active && <span> · Inactif</span>}</p>
-              <div className="bureau-load" role="img" aria-label={`${member.open} ouverte${member.open > 1 ? "s" : ""} : ${member.enCours} en cours, ${member.aFaire} à faire`}>
-                <i className="is-doing" style={{ width: `${(member.enCours / busiest) * 100}%` }} />
-                <i className="is-todo" style={{ width: `${(member.aFaire / busiest) * 100}%` }} />
-              </div>
+              <p className="bureau-member-name">{toTitleCase(member.name)}{!member.active && <span> · Inactif</span>}</p>
+              <p className="bureau-member-detail">{member.open > 0 ? `${member.enCours} en cours · ${member.aFaire} à faire` : "Aucune tâche ouverte"}</p>
             </div>
-            <span className="bureau-member-count" title={`${member.enCours} en cours · ${member.aFaire} à faire`}>{member.open}</span>
+            <span className={cn("bureau-member-count", member.open === 0 && "is-zero")} title={`${member.enCours} en cours · ${member.aFaire} à faire`}>{member.open}</span>
+            <div className="bureau-load" role="img" aria-label={`${member.open} ouverte${member.open > 1 ? "s" : ""} : ${member.enCours} en cours, ${member.aFaire} à faire`}>
+              <i className="is-doing" style={{ width: `${(member.enCours / busiest) * 100}%` }} />
+              <i className="is-todo" style={{ width: `${(member.aFaire / busiest) * 100}%` }} />
+            </div>
           </li>
         ))}</ul> : <p className="admin-brief-empty">Aucun collaborateur dans ce périmètre.</p>}
         <p className="bureau-load-legend" aria-hidden="true"><span><i className="is-doing" />En cours</span><span><i className="is-todo" />À faire</span></p>

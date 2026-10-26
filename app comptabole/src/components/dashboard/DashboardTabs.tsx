@@ -18,7 +18,8 @@ import { AdminOverviewTab } from "./tabs/AdminOverviewTab";
 import { vueCabinet, type DashboardViewModel } from "@/lib/dashboard/dashboardData";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
-const DASHBOARD_TAB_TRIGGER_CLASS = "dashboard-tab relative inline-flex min-h-11 items-center gap-2 shrink-0 rounded-none border-0 bg-transparent px-0 py-3 text-muted-foreground shadow-none data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-accent after:opacity-0 data-[state=active]:after:opacity-100";
+/** Commandes segmentées : l'onglet actif est une pastille claire posée sur un rail légèrement teinté (plus de soulignement). */
+const DASHBOARD_TAB_TRIGGER_CLASS = "dashboard-tab relative inline-flex min-h-11 shrink-0 items-center gap-2 rounded-[10px] border-0 bg-transparent px-3.5 py-0 text-muted-foreground shadow-none transition-[background-color,color,box-shadow] duration-200 hover:bg-card/70 hover:text-primary motion-reduce:transition-none data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_0_hsl(var(--border)),0_6px_14px_-8px_hsl(var(--primary)/0.35)]";
 
 interface DashboardTabsProps {
   data: DashboardViewModel;
@@ -71,8 +72,8 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
     </>
   );
   const navigation = (
-      <div ref={tabRailRef} data-tour="dashboard-tabs" className="dashboard-tab-rail max-w-full overflow-x-auto border-b border-border">
-        <TabsList className="h-auto w-max min-w-full justify-start gap-5 rounded-none bg-transparent p-0 sm:min-w-0" aria-label="Sections du tableau de bord">
+      <div ref={tabRailRef} data-tour="dashboard-tabs" className="dashboard-tab-rail w-max max-w-full overflow-x-auto rounded-[14px] bg-primary/[0.06] p-1">
+        <TabsList className="h-auto w-max min-w-full justify-start gap-1 rounded-none bg-transparent p-0 sm:min-w-0" aria-label="Sections du tableau de bord">
           <TabsTrigger value="overview" className={DASHBOARD_TAB_TRIGGER_CLASS}>{isClient ? "Vue d'ensemble" : tabLabel(<LayoutGrid aria-hidden="true" />, "Mon bureau")}</TabsTrigger>
           {isClient ? (
             <>
@@ -83,7 +84,7 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
           ) : (
             <>
               <TabsTrigger value="tasks" className={DASHBOARD_TAB_TRIGGER_CLASS}>{tabLabel(<ListChecks aria-hidden="true" />, "Tâches", openTasks)}</TabsTrigger>
-              <TabsTrigger data-tour="dashboard-attention-lens" value="attention" className={DASHBOARD_TAB_TRIGGER_CLASS}>{tabLabel(<Bell aria-hidden="true" />, "À traiter", data.attentionItems.length)}</TabsTrigger>
+              <TabsTrigger data-tour="dashboard-attention-lens" data-attention="" value="attention" className={DASHBOARD_TAB_TRIGGER_CLASS}>{tabLabel(<Bell aria-hidden="true" />, "À traiter", data.attentionItems.length)}</TabsTrigger>
               <TabsTrigger value="deadlines" className={DASHBOARD_TAB_TRIGGER_CLASS}>{tabLabel(<CalendarDays aria-hidden="true" />, "Échéances", data.deadlines.length)}</TabsTrigger>
               {data.role === "admin" && <TabsTrigger value="team" className={DASHBOARD_TAB_TRIGGER_CLASS}>{tabLabel(<Users aria-hidden="true" />, "Équipe", data.team.length)}</TabsTrigger>}
               <TabsTrigger value="activity" className={DASHBOARD_TAB_TRIGGER_CLASS}>{tabLabel(<Activity aria-hidden="true" />, "Activité", activityCount)}</TabsTrigger>

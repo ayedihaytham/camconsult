@@ -28,35 +28,66 @@
 .dashboard-admin .admin-summary-unavailable { font-size: 11px; color: hsl(var(--muted-foreground)); }
 .dashboard-admin .admin-summary-value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; color: hsl(var(--primary)); }
 
-/* Semaine en tableau */
-.dashboard-admin .bureau-week > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-.dashboard-admin .bureau-week-range { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 19px; font-weight: 600; color: hsl(var(--primary)); }
-.dashboard-admin .bureau-week-nav { display: inline-flex; gap: 6px; }
-.dashboard-admin .bureau-week-nav button { display: inline-flex; min-height: 36px; min-width: 36px; align-items: center; justify-content: center; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--card)); padding-inline: 11px; font-size: 13px; font-weight: 600; color: hsl(var(--primary)); }
+/* Semaine en billets : chaque jour est un billet (talon avec la date, ligne perforée, puis les collectes). */
+.dashboard-admin .bureau-week > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.dashboard-admin .bureau-week-range { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 21px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-week-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.dashboard-admin .bureau-week-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-week-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dashboard-admin .bureau-week-legend i { width: 9px; height: 9px; border-radius: 3px; background: hsl(var(--chart-2)); }
+.dashboard-admin .bureau-week-legend i.is-overdue { background: hsl(var(--destructive)); }
+.dashboard-admin .bureau-week-legend i.is-correction { background: hsl(var(--warning)); }
+.dashboard-admin .bureau-week-nav { display: inline-flex; }
+.dashboard-admin .bureau-week-nav button { display: inline-flex; min-height: 38px; min-width: 38px; align-items: center; justify-content: center; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); padding-inline: 13px; font-size: 13px; font-weight: 600; color: hsl(var(--primary)); transition: background-color .2s; }
+.dashboard-admin .bureau-week-nav button + button { margin-left: -1px; }
+.dashboard-admin .bureau-week-nav button:first-child { border-radius: 10px 0 0 10px; }
+.dashboard-admin .bureau-week-nav button:last-child { border-radius: 0 10px 10px 0; }
 .dashboard-admin .bureau-week-nav button:hover { background: hsl(var(--muted)); }
-.dashboard-admin .bureau-week-nav svg { width: 16px; height: 16px; }
-.dashboard-admin .bureau-board { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 6px; }
-.dashboard-admin .bureau-day { display: flex; min-width: 0; flex-direction: column; border-left: 1px solid hsl(var(--border)); background: hsl(var(--card)); }
-.dashboard-admin .bureau-day:first-child { border-left: 0; }
+.dashboard-admin .bureau-week-nav svg { width: 17px; height: 17px; }
+.dashboard-admin .bureau-board { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+.dashboard-admin .bureau-day { --talon: 104px; position: relative; display: flex; min-width: 0; flex-direction: column; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); transition: transform .2s, box-shadow .2s, border-color .2s; }
+.dashboard-admin .bureau-day:hover { transform: translateY(-2px); box-shadow: 0 12px 22px -14px hsl(var(--primary) / .45); }
+/* Les deux encoches du billet, à hauteur de la ligne perforée. */
+.dashboard-admin .bureau-day::before,
+.dashboard-admin .bureau-day::after { content: ""; position: absolute; top: calc(var(--talon) - 7px); z-index: 2; width: 14px; height: 14px; border: 1px solid hsl(var(--border)); border-radius: 50%; background: hsl(var(--card)); pointer-events: none; }
+.dashboard-admin .bureau-day::before { left: -8px; }
+.dashboard-admin .bureau-day::after { right: -8px; }
 .dashboard-admin .bureau-day.is-weekend { background: color-mix(in srgb, hsl(var(--muted)) 65%, hsl(var(--card))); }
-.dashboard-admin .bureau-day-head { display: flex; min-height: 44px; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 0; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--background)); padding: 7px 4px 6px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
-.dashboard-admin .bureau-day-head strong { font-size: 19px; font-weight: 700; line-height: 1.15; color: hsl(var(--primary)); font-variant-numeric: tabular-nums; }
-.dashboard-admin .bureau-day-head:hover { background: hsl(var(--muted)); }
-.dashboard-admin .bureau-day-head:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -3px; }
-.dashboard-admin .bureau-day.is-today .bureau-day-head { box-shadow: inset 0 -2px 0 hsl(var(--accent)); }
-.dashboard-admin .bureau-day.is-selected .bureau-day-head { background: hsl(var(--primary)); color: hsl(var(--primary-foreground) / .8); }
-.dashboard-admin .bureau-day.is-selected .bureau-day-head strong { color: hsl(var(--primary-foreground)); }
-.dashboard-admin .bureau-day-body { display: flex; min-height: 150px; flex: 1; flex-direction: column; gap: 6px; padding: 6px; }
-.dashboard-admin .bureau-event { display: flex; min-width: 0; flex-direction: column; gap: 1px; border: 1px solid hsl(var(--border)); border-left: 3px solid hsl(var(--chart-2)); border-radius: 4px; background: hsl(var(--card)); padding: 5px 7px; }
-.dashboard-admin .bureau-event.is-overdue { border-left-color: hsl(var(--destructive)); }
-.dashboard-admin .bureau-event.is-correction { border-left-color: hsl(var(--warning)); }
-.dashboard-admin .bureau-event:hover { border-color: color-mix(in srgb, hsl(var(--accent)) 60%, hsl(var(--border))); border-left-color: inherit; background: color-mix(in srgb, hsl(var(--accent)) 12%, hsl(var(--card))); }
+.dashboard-admin .bureau-day-head { display: flex; height: var(--talon); flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 0; border-bottom: 2px dashed hsl(var(--primary) / .18); background: transparent; padding: 0 4px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-day-head span { font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.dashboard-admin .bureau-day-head strong { font-family: "Playfair Display", Georgia, serif; font-size: 36px; font-weight: 600; line-height: 1.05; color: hsl(var(--primary)); font-variant-numeric: tabular-nums; }
+.dashboard-admin .bureau-day-head em { font-size: 10.5px; font-style: normal; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-day-head:hover strong { color: hsl(var(--accent)); }
+.dashboard-admin .bureau-day-head:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -3px; border-radius: 10px 10px 0 0; }
+.dashboard-admin .bureau-day.is-weekend .bureau-day-head strong { color: hsl(var(--muted-foreground) / .75); }
+.dashboard-admin .bureau-day.is-selected { border-color: hsl(var(--accent)); box-shadow: 0 0 0 2px hsl(var(--accent)); }
+.dashboard-admin .bureau-day.is-today { border-color: hsl(var(--primary)); background: hsl(var(--primary)); }
+.dashboard-admin .bureau-day.is-today::before,
+.dashboard-admin .bureau-day.is-today::after { border-color: hsl(var(--primary)); }
+.dashboard-admin .bureau-day.is-today .bureau-day-head { border-bottom-color: hsl(var(--primary-foreground) / .25); }
+.dashboard-admin .bureau-day.is-today .bureau-day-head span,
+.dashboard-admin .bureau-day.is-today .bureau-day-head em { color: hsl(var(--accent)); }
+.dashboard-admin .bureau-day.is-today .bureau-day-head strong { color: hsl(var(--primary-foreground)); }
+.dashboard-admin .bureau-day.is-today.is-selected { border-color: hsl(var(--accent)); }
+.dashboard-admin .bureau-day-body { display: flex; min-height: 96px; flex: 1; flex-direction: column; gap: 7px; padding: 11px 12px 12px; }
+.dashboard-admin .bureau-event { position: relative; display: flex; min-width: 0; flex-direction: column; gap: 1px; margin: -3px -5px; border-radius: 6px; padding: 3px 5px 3px 20px; transition: background-color .2s; }
+.dashboard-admin .bureau-event::before { content: ""; position: absolute; left: 6px; top: 8px; width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--chart-2)); }
+.dashboard-admin .bureau-event.is-overdue::before { background: hsl(var(--destructive)); }
+.dashboard-admin .bureau-event.is-correction::before { background: hsl(var(--warning)); }
+.dashboard-admin .bureau-event:hover { background: color-mix(in srgb, hsl(var(--accent)) 14%, transparent); }
 .dashboard-admin .bureau-event:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
 .dashboard-admin .bureau-event strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: hsl(var(--primary)); }
 .dashboard-admin .bureau-event span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
-.dashboard-admin .bureau-day-more { font-size: 11.5px; font-weight: 600; color: hsl(var(--muted-foreground)); text-align: center; }
-.dashboard-admin .bureau-day-empty { margin: auto 0; text-align: center; color: hsl(var(--muted-foreground) / .7); }
-.dashboard-admin .admin-selected-day { margin: 10px 0 0; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-day.is-today :is(.bureau-event strong, .bureau-day-more) { color: hsl(var(--primary-foreground)); }
+.dashboard-admin .bureau-day.is-today .bureau-event span { color: hsl(var(--primary-foreground) / .65); }
+.dashboard-admin .bureau-day.is-today .bureau-event:hover { background: hsl(var(--primary-foreground) / .1); }
+.dashboard-admin .bureau-day-more { padding-left: 15px; font-size: 11.5px; font-weight: 600; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-day-empty,
+.dashboard-admin .bureau-day-weekend { margin: auto 0; text-align: center; font-size: 12px; color: hsl(var(--muted-foreground) / .65); }
+.dashboard-admin .bureau-day-weekend { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.dashboard-admin .bureau-day.is-today .bureau-day-empty { color: hsl(var(--primary-foreground) / .55); }
+.dashboard-admin .admin-selected-day { display: inline-flex; align-items: center; gap: 9px; margin: 14px 0 0; border-radius: 999px; background: hsl(var(--muted)); padding: 7px 14px; font-size: 13px; color: hsl(var(--primary)); }
+.dashboard-admin .admin-selected-day svg { color: hsl(var(--accent)); }
 
 /* Registres à onglets */
 .dashboard-admin .bureau-registres { position: relative; }
@@ -89,12 +120,15 @@
 .dashboard-admin .bureau-reply { display: inline-flex; min-height: 36px; align-items: center; border-radius: 8px; background: linear-gradient(180deg, hsl(var(--primary) / .9), hsl(var(--primary))); padding-inline: 14px; font-size: 13px; font-weight: 600; color: hsl(var(--primary-foreground)); }
 .dashboard-admin .bureau-reply:hover { filter: brightness(1.15); }
 .dashboard-admin .bureau-reply:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
-.dashboard-admin .bureau-member { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; }
+.dashboard-admin .bureau-member { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; padding: 10px 0; }
+.dashboard-admin .bureau-member + .bureau-member { border-top: 1px solid hsl(var(--border) / .6); }
 .dashboard-admin .bureau-member:first-child { padding-top: 0; }
 .dashboard-admin .bureau-member-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; color: hsl(var(--primary)); }
 .dashboard-admin .bureau-member-name span { font-weight: 400; font-size: 12px; color: hsl(var(--muted-foreground)); }
-.dashboard-admin .bureau-member-count { font-size: 13px; font-variant-numeric: tabular-nums; color: hsl(var(--muted-foreground)); }
-.dashboard-admin .bureau-load { display: flex; height: 7px; margin-top: 6px; overflow: hidden; border-radius: 4px; background: hsl(var(--muted)); }
+.dashboard-admin .bureau-member-detail { margin-top: 1px; font-size: 11.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-member-count { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: hsl(var(--primary)); }
+.dashboard-admin .bureau-member-count.is-zero { color: hsl(var(--muted-foreground) / .55); }
+.dashboard-admin .bureau-load { display: flex; grid-column: 2 / 4; height: 7px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: hsl(var(--muted)); }
 .dashboard-admin .bureau-load i, .dashboard-admin .bureau-load-legend i { display: block; }
 .dashboard-admin .bureau-load i { height: 100%; }
 .dashboard-admin .bureau-load .is-doing, .dashboard-admin .bureau-load-legend .is-doing { background: hsl(var(--primary)); }
@@ -104,12 +138,12 @@
 
 @media (max-width: 1019px) { .dashboard-admin .admin-bureau { grid-template-columns: 1fr; } }
 @media (max-width: 767px) {
-  .dashboard-admin .bureau-board { grid-template-columns: repeat(7, minmax(116px, 1fr)); overflow-x: auto; }
+  .dashboard-admin .bureau-board { grid-template-columns: repeat(7, minmax(132px, 1fr)); overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; }
+  .dashboard-admin .bureau-day { scroll-snap-align: start; }
   .dashboard-admin .bureau-card { padding: 12px; }
   .dashboard-admin .bureau-registre-tabs { padding-right: 0; }
   .dashboard-admin .bureau-registre-links { position: static; margin-top: 8px; }
-  .dashboard-admin .bureau-day-head { min-height: 44px; }
   .dashboard-admin .bureau-message { grid-template-columns: 38px minmax(0, 1fr); }
   .dashboard-admin .bureau-reply { grid-column: 2; justify-self: start; }
 }
-@media (prefers-reduced-motion: reduce) { .dashboard-admin :is(.bureau-event, .bureau-reply, .bureau-day-head) { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .dashboard-admin :is(.bureau-event, .bureau-reply, .bureau-day-head, .bureau-day, .bureau-week-nav button) { transition: none; } .dashboard-admin .bureau-day:hover { transform: none; } }

@@ -16,7 +16,7 @@ const monter = (patch = {}, props = {}) => {
   return render(<MemoryRouter><AdminOverviewTab data={data} now={NOW} loading={false} error={false} canUseMessaging {...props} /></MemoryRouter>);
 };
 
-describe("Mon bureau administrateur : semaine en tableau", () => {
+describe("Mon bureau administrateur : semaine en billets", () => {
   it("chaque jour liste ses collectes réelles, avec un lien vers le dossier, et les jours vides restent discrets", () => {
     const { container } = monter({ collectes: [collection("a", "2026-09-30", "transmis"), collection("b", "2026-10-02")] });
     const jours = container.querySelectorAll(".bureau-day");
@@ -24,9 +24,32 @@ describe("Mon bureau administrateur : semaine en tableau", () => {
     expect(jours[0].querySelector('a[href="/collectes/a"]')).toBeTruthy();
     expect(jours[2].querySelector('a[href="/collectes/b"]')).toBeTruthy();
     expect(jours[1].querySelectorAll("a")).toHaveLength(0);
-    expect(jours[1].textContent).toContain("—");
+    expect(jours[1].textContent).toContain("Rien de prévu");
     expect(jours[3].getAttribute("class")).toContain("is-weekend");
     expect(jours[0].getAttribute("class")).toContain("is-today");
+  });
+
+  it("chaque billet porte le jour, le numéro et le mois ; le week-end est annoncé comme tel", () => {
+    const { container } = monter();
+    const jours = container.querySelectorAll(".bureau-day");
+    expect(jours[0].querySelector(".bureau-day-head strong")?.textContent).toMatch(/^\d+$/);
+    expect(jours[0].querySelector(".bureau-day-head em")?.textContent?.length).toBeGreaterThan(0);
+    expect(jours[3].textContent).toContain("Week-end");
+    expect(jours[3].querySelector(".bureau-day-empty")).toBeNull();
+  });
+
+  it("la légende des couleurs est présente (en retard, à corriger, prévue) mais cachée aux lecteurs d'écran", () => {
+    const { container } = monter();
+    const legende = container.querySelector(".bureau-week-legend");
+    expect(legende?.getAttribute("aria-hidden")).toBe("true");
+    expect(legende?.textContent).toContain("En retard");
+    expect(legende?.textContent).toContain("À corriger");
+    expect(legende?.textContent).toContain("Prévue");
+  });
+
+  it("la ligne du jour choisi garde son texte (« Collectes du … · N collecte(s) »)", () => {
+    monter({ collectes: [collection("a", "2026-09-30", "transmis")] });
+    expect(screen.getByText(/^Collectes du .* · 1 collecte$/)).toBeTruthy();
   });
 
   it("au-delà de trois collectes un jour, le reste est résumé (« + N autres »)", () => {
@@ -92,7 +115,16 @@ describe("Messages à lire et Équipe", () => {
     expect((barres[1].querySelector(".is-doing") as HTMLElement).style.width).toBe("57.14285714285714%");
     expect((barres[0].querySelector(".is-doing") as HTMLElement).style.width).toBe("28.57142857142857%");
     expect(container.querySelectorAll(".bureau-avatar i.is-online")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: /Voir/ }).getAttribute("href")).toBe("/?tab=team");
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("équipe : le nom s'affiche en casse normale, avec le détail des tâches ; sans tâche, « Aucune tâche ouverte »", () => {
+    render(<MemoryRouter><AdminTeamCard members={[membre("1", "CHAIMA MEKNI", 0, 0), membre("2", "karim ben salah", 3, 2)]} /></MemoryRouter>);
+    expect(screen.getByText("Chaima Mekni")).toBeTruthy();
+    expect(screen.getByText("Karim Ben Salah")).toBeTruthy();
+    expect(screen.getByText("Aucune tâche ouverte")).toBeTruthy();
+    expect(screen.getByText("3 en cours · 2 à faire")).toBeTruthy();
+    expect(screen.queryByText("CHAIMA MEKNI")).toBeNull();
   });
 
   it("équipe vide : message clair", () => {

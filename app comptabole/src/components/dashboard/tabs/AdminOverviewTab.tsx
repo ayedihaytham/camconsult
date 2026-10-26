@@ -88,10 +88,17 @@ export function AdminOverviewTab({ data, loading, error, canUseMessaging, now = 
         <section className="bureau-card bureau-week" aria-label="Choisir la journée" data-tour="dashboard-deadline-strip">
           <header>
             <h2 className="bureau-week-range">{range}</h2>
+            <div className="bureau-week-tools">
+            <div className="bureau-week-legend" aria-hidden="true">
+              <span><i className="is-overdue" />En retard</span>
+              <span><i className="is-correction" />À corriger</span>
+              <span><i className="is-planned" />Prévue</span>
+            </div>
             <div className="bureau-week-nav">
               <button type="button" aria-label="Sept jours précédents" onClick={() => moveWeek(-1)}><ChevronLeft aria-hidden="true" /></button>
               <button type="button" className="is-today" onClick={() => { setWeekOffset(0); setSelected(null); }}>Aujourd’hui</button>
               <button type="button" aria-label="Sept jours suivants" onClick={() => moveWeek(1)}><ChevronRight aria-hidden="true" /></button>
+            </div>
             </div>
           </header>
           <div className="bureau-board" role="group" aria-label="Dates des collectes">
@@ -102,19 +109,20 @@ export function AdminOverviewTab({ data, loading, error, canUseMessaging, now = 
               return <div key={key} className={cn("bureau-day", key === today && "is-today", weekend && "is-weekend", key === day && "is-selected")}>
                 <button type="button" className="bureau-day-head" aria-label={`${formatDate(key)}, ${unavailable ? loading ? "collectes en chargement" : "collectes indisponibles" : `${items.length} collecte${items.length > 1 ? "s" : ""}`}`}
                   aria-current={key === today ? "date" : undefined} aria-pressed={key === day} onClick={() => setSelected(key)}>
-                  <span>{date.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}</span><strong>{date.getDate()}</strong>
+                  <span>{date.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}</span><strong>{date.getDate()}</strong><em>{date.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "")}</em>
                 </button>
                 <div className="bureau-day-body">
                   {items.slice(0, DAY_EVENTS_SHOWN).map((item) => <Link key={item.id} to={item.route} className={cn("bureau-event", eventTone(item))}>
                     <strong>{item.societeName}</strong><span>{item.periode}</span>
                   </Link>)}
                   {items.length > DAY_EVENTS_SHOWN && <span className="bureau-day-more">+ {items.length - DAY_EVENTS_SHOWN} autre{items.length - DAY_EVENTS_SHOWN > 1 ? "s" : ""}</span>}
-                  {!unavailable && items.length === 0 && !weekend && <span className="bureau-day-empty" aria-hidden="true">—</span>}
+                  {!unavailable && items.length === 0 && !weekend && <span className="bureau-day-empty" aria-hidden="true">Rien de prévu</span>}
+                  {!unavailable && items.length === 0 && weekend && <span className="bureau-day-weekend" aria-hidden="true">Week-end</span>}
                 </div>
               </div>;
             })}
           </div>
-          <p className="admin-selected-day" aria-live="polite">Collectes du {formatDate(day)} · {loading ? "Chargement…" : error ? "Indisponibles" : `${collections.length} collecte${collections.length > 1 ? "s" : ""}`}</p>
+          <p className="admin-selected-day" aria-live="polite"><CalendarDays className="size-[17px]" aria-hidden="true" />Collectes du {formatDate(day)} · {loading ? "Chargement…" : error ? "Indisponibles" : `${collections.length} collecte${collections.length > 1 ? "s" : ""}`}</p>
         </section>
 
         <section className="bureau-card bureau-registres" aria-label="Registres du jour">

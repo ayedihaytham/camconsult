@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONFIANCE_MINIMALE, ECHELLE_OCR, bandesASurveiller, lignesDeResultat, lignesVersItems, motsDeResultat, motsVersItems, preparerPourOcr, rangeeComplete, type MotOcr } from "./ocrPdf";
+import { CONFIANCE_MINIMALE, ECHELLE_OCR, bandesASurveiller, colonnesMontants, fusionnerMontantsRelus, lignesDeResultat, lignesVersItems, motsDeResultat, motsVersItems, preparerPourOcr, rangeeComplete, type MotOcr } from "./ocrPdf";
 
 const mot = (text: string, x0: number, y0: number, x1: number, y1: number, confidence = 90): MotOcr => ({ text, confidence, bbox: { x0, y0, x1, y1 } });
 
@@ -49,6 +49,11 @@ describe("lignes lues par la reconnaissance de caractères", () => {
     expect(new Set(items.map((i) => i.y)).size).toBe(1);
     expect(items.map((i) => i.str)).toEqual(["HOT", "WASHED", "PET", "FLAKES"]);
     expect(items[0].y).toBe(500 - 130);
+  });
+
+  it("le chiffre de tête d'un montant (« 1 » de « 1 000,000 ») est gardé même avec une confiance nulle, mais pas un chiffre isolé ailleurs", () => {
+    const items = lignesVersItems([[mot("Frais", 0, 0, 40, 20), mot("1", 100, 0, 112, 20, 0), mot("000,000", 118, 0, 200, 20, 90), mot("7", 300, 0, 312, 20, 0)]], 1, 100);
+    expect(items.map((i) => i.str)).toEqual(["Frais", "1", "000,000"]);
   });
 
   it("deux lignes gardent chacune leur hauteur, et les mots écartés disparaissent de leur ligne", () => {
@@ -116,5 +121,28 @@ describe("rangées de relevé à relire", () => {
   it("sur une page qui n'est pas un relevé à deux colonnes de montants, rien n'est relu", () => {
     const m = mots(["01-09-2026 Texte", "02-09-2026 Texte", "03-09-2026 Texte", "04-09-2026 Texte"]);
     expect(bandesASurveiller(m, 1000)).toEqual([]);
+  });
+});
+
+describe("relecture des colonnes de montants", () => {
+  const it0 = (str: string, x: number, y: number, w = 40, h = 10) => ({ str, x, y, w, h });
+
+  it("repère les centres des colonnes Débit et Crédit d'après leurs intitulés", () => {
+    const c = colonnesMontants([[it0("Date", 20, 700), it0("Débit", 400, 700), it0("Crédit", 560, 700)]]);
+    expect(c).toEqual({ debit: 420, credit: 580, demi: 80 });
+    expect(colonnesMontants([[it0("Date", 20, 700)]])).toBeNull();
+  });
+
+  it("un montant relu remplace, sur sa rangée, ce que la colonne contenait ; les autres colonnes ne sont pas touchées", () => {
+    const items = [it0("01-09-2026", 20, 600), it0("Transfert", 150, 600), it0("0,000", 405, 600), it0("17", 540, 600, 12), it0("812,500", 570, 600, 40)];
+    const relus = [it0("17 812,500", 540, 601, 70), it0("0,000", 405, 601)];
+    const fusion = fusionnerMontantsRelus(items, relus, { x0: 380, x1: 620 });
+    expect(fusion.map((i) => i.str).sort()).toEqual(["0,000", "01-09-2026", "17 812,500", "Transfert"].sort());
+  });
+
+  it("un montant perdu par la première lecture est ajouté ; une lecture qui n'est pas un montant est ignorée", () => {
+    const items = [it0("01-09-2026", 20, 600), it0("Frais", 150, 600)];
+    const fusion = fusionnerMontantsRelus(items, [it0("1 000,000", 410, 600), it0("12", 410, 500)], { x0: 380, x1: 620 });
+    expect(fusion.map((i) => i.str)).toEqual(["01-09-2026", "Frais", "1 000,000"]);
   });
 });

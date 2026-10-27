@@ -18,7 +18,7 @@ import {
 } from "@/lib/pdfToTables";
 import { texteDepuisFeuilles } from "@/lib/texteBrut";
 import { detailPourCopie, diagnostic, diagnostiquerErreurPdf, type DiagnosticConversion } from "@/lib/diagnosticConversion";
-import { lirePdfParOcr } from "@/lib/ocrPdf";
+import { lirePdfParOcr, relireMontantsParColonnes } from "@/lib/ocrPdf";
 import { cn } from "@/lib/utils";
 import { TelechargerTout } from "./TelechargerTout";
 import { ZoneDepot } from "./ZoneDepot";
@@ -47,6 +47,12 @@ const PARAMETRES_APERCU = "#navpanes=0&view=FitH";
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 /** Formats du téléchargement groupé de ce sens : l'Excel d'abord, puis le PDF et le texte brut. */
 const FORMATS_PDF_VERS_EXCEL: { valeur: FormatSortie; nom: string }[] = [{ valeur: "xlsx", nom: "Excel" }, { valeur: "pdf", nom: "PDF" }, { valeur: "txt", nom: "Texte brut (.txt)" }];
+
+/** Somme des écarts du contrôle de relevé (0 = les totaux du relevé tombent juste) ; null si le document n'imprime pas de totaux à comparer. */
+function ecartDeControle(pages: PdfTextItem[][]): number | null {
+  const controle = feuillesDePdf(pages, { tableauSeul: true, nombres: true, harmoniserLibelles: true }).find((f) => f.name === "Contrôle");
+  return controle ? controle.rows.slice(1).reduce((somme, ligne) => somme + Math.abs(Number(ligne[3]) || 0), 0) : null;
+}
 
 /** Conversion PDF vers Excel ou texte : lecture du texte du PDF dans le navigateur, reconstruction des lignes et
  * colonnes d'après la position du texte, puis export .xlsx ou .txt. Un PDF scanné (image) n'a pas de texte : il
@@ -109,9 +115,22 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
             const d = { ...diagnostic("scanne"), resume: "Aucun texte reconnu sur ce scan", cause: "La reconnaissance de caractères n'a trouvé aucun texte exploitable : image trop floue, trop sombre ou de travers.", solutions: ["Refaire le scan à plat, bien éclairé et net, puis le déposer à nouveau.", "Demander à l'émetteur le PDF d'origine (il se convertit sans erreur)."] };
             maj = { status: "erreur", detail: d.resume, diagnostic: d };
           } else {
+            // Relevé dont les totaux ne tombent pas juste : les colonnes Débit et Crédit sont relues seules (chiffres uniquement) ; la relecture n'est gardée que si elle réduit l'écart.
+            let finales = lues;
+            const avant = ecartDeControle(lues);
+            if (avant !== null && avant > 0.005) {
+              setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, detail: "Totaux du relevé non confirmés : relecture des colonnes de montants…" } : i)));
+              try {
+                const relues = await relireMontantsParColonnes(n.file, lues, { onProgression: ({ page, pages: total }) => setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, detail: `Relecture des montants : page ${page} sur ${total}…` } : i))) });
+                const apres = ecartDeControle(relues);
+                if (apres !== null && apres < avant) finales = relues;
+              } catch {
+                // La première lecture reste valable : le contrôle affichera l'écart.
+              }
+            }
             const pdfUrl = URL.createObjectURL(n.file);
             urlsRef.current.push(pdfUrl);
-            maj = { status: "ok", pages: lues, pdfUrl, ocr: true, detail: `${pluriel(lues.length, "page")} lue${lues.length > 1 ? "s" : ""} par reconnaissance de caractères — à vérifier` };
+            maj = { status: "ok", pages: finales, pdfUrl, ocr: true, detail: `${pluriel(finales.length, "page")} lue${finales.length > 1 ? "s" : ""} par reconnaissance de caractères — à vérifier` };
           }
         } else {
           const pdfUrl = URL.createObjectURL(n.file);

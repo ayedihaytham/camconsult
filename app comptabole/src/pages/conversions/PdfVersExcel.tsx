@@ -18,6 +18,7 @@ import {
 } from "@/lib/pdfToTables";
 import { texteDepuisFeuilles } from "@/lib/texteBrut";
 import { detailPourCopie, diagnostic, diagnostiquerErreurPdf, type DiagnosticConversion } from "@/lib/diagnosticConversion";
+import { lirePdfParOcr } from "@/lib/ocrPdf";
 import { cn } from "@/lib/utils";
 import { TelechargerTout } from "./TelechargerTout";
 import { ZoneDepot } from "./ZoneDepot";
@@ -36,6 +37,8 @@ interface PdfItem {
   /** Texte positionné de chaque page : permet de recalculer le tableau quand une option change. */
   pages: PdfTextItem[][];
   pdfUrl: string | null;
+  /** Texte lu par reconnaissance de caractères (PDF sans texte) : chaque chiffre doit être vérifié. */
+  ocr?: boolean;
   /** Cause et solutions quand le fichier n'a pas pu être converti. */
   diagnostic?: DiagnosticConversion;
 }
@@ -78,7 +81,9 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
 
   const options = useMemo(() => ({ nombres, uneSeuleFeuille, tableauSeul }), [nombres, uneSeuleFeuille, tableauSeul]);
   const active = items.find((i) => i.id === activeId && i.status === "ok") ?? null;
-  const feuilles = useMemo(() => (active ? feuillesDePdf(active.pages, options) : []), [active, options]);
+  const feuilles = useMemo(() => (active ? feuillesDePdf(active.pages, { ...options, harmoniserLibelles: active.ocr }) : []), [active, options]);
+  /** Contrôle du relevé (feuille « Contrôle ») : les totaux calculés comparés à ceux que le relevé imprime. */
+  const controle = feuilles.find((f) => f.name === "Contrôle") ?? null;
   const feuille = feuilles[Math.min(activeSheet, Math.max(0, feuilles.length - 1))] ?? null;
 
   /** Version texte du relevé converti : les écritures (deux lignes par mouvement), recalculée quand le tableau ou le compte change. */
@@ -97,10 +102,18 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
       try {
         const pages = await lireFichierPdf(n.file);
         if (nombreDeCaracteres(pages) === 0) {
-          const d = diagnostic("scanne");
-          maj = { status: "erreur", detail: d.resume, diagnostic: d };
-        }
-        else {
+          // PDF sans texte (scan, photo) : il est lu par reconnaissance de caractères au lieu d'être refusé.
+          setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, detail: "PDF sans texte : lecture par reconnaissance de caractères…" } : i)));
+          const lues = await lirePdfParOcr(n.file, { onProgression: ({ page, pages: total }) => setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, detail: `Reconnaissance de caractères : page ${page} sur ${total}…` } : i))) });
+          if (nombreDeCaracteres(lues) === 0) {
+            const d = { ...diagnostic("scanne"), resume: "Aucun texte reconnu sur ce scan", cause: "La reconnaissance de caractères n'a trouvé aucun texte exploitable : image trop floue, trop sombre ou de travers.", solutions: ["Refaire le scan à plat, bien éclairé et net, puis le déposer à nouveau.", "Demander à l'émetteur le PDF d'origine (il se convertit sans erreur)."] };
+            maj = { status: "erreur", detail: d.resume, diagnostic: d };
+          } else {
+            const pdfUrl = URL.createObjectURL(n.file);
+            urlsRef.current.push(pdfUrl);
+            maj = { status: "ok", pages: lues, pdfUrl, ocr: true, detail: `${pluriel(lues.length, "page")} lue${lues.length > 1 ? "s" : ""} par reconnaissance de caractères — à vérifier` };
+          }
+        } else {
           const pdfUrl = URL.createObjectURL(n.file);
           urlsRef.current.push(pdfUrl);
           maj = { status: "ok", pages, pdfUrl, detail: `${pluriel(pages.length, "page")} lue${pages.length > 1 ? "s" : ""}` };
@@ -141,7 +154,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
   }
 
   async function telecharger(item: PdfItem) {
-    const f = feuillesDePdf(item.pages, options);
+    const f = feuillesDePdf(item.pages, { ...options, harmoniserLibelles: item.ocr });
     if (f.length === 0) {
       toast.error("Aucun tableau à enregistrer");
       return;
@@ -166,7 +179,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
 
   /** Le même contenu (tableaux, ou document entier) mis en page en PDF aux couleurs du cabinet. */
   async function telechargerPdf(item: PdfItem) {
-    const f = feuillesDePdf(item.pages, options);
+    const f = feuillesDePdf(item.pages, { ...options, harmoniserLibelles: item.ocr });
     if (f.length === 0) {
       toast.error("Aucun tableau à enregistrer");
       return;
@@ -205,7 +218,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
         <LedgerSheet>
           <div className="border-b border-border px-[18px] py-3">
             <h2 className="text-[0.86rem] font-bold text-foreground">Fichiers à convertir</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Fonctionne avec les PDF qui contiennent du texte (relevés, balances, états) ; un PDF scanné n'est pas lisible.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Tous les PDF sont acceptés : le texte est lu directement, et un PDF scanné ou photographié est lu par reconnaissance de caractères (à vérifier).</p>
           </div>
           <div className="p-[18px]">
             <ZoneDepot accept=".pdf,application/pdf" extensions={["pdf"]} types=".pdf" occupe={occupe} libelleOccupe="Lecture en cours…" onFiles={(f) => void convertir(f)} />
@@ -268,6 +281,23 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
         )}
         {active && feuille ? (
           <>
+            {controle && (
+              <div className={cn("mx-[18px] mt-3 rounded-lg border px-3 py-2 text-xs", controle.rows.slice(1).every((l) => l[4] === "OK") ? "border-success/40 bg-success/10 text-foreground" : "border-destructive/30 bg-destructive/5 text-destructive")} role="status">
+                <p className="font-semibold">{controle.rows.slice(1).every((l) => l[4] === "OK") ? "Relevé contrôlé : les totaux calculés sont exactement ceux du relevé" : "Les totaux calculés ne sont pas ceux du relevé : vérifiez les lignes concernées"}</p>
+                <ul className="mt-1 space-y-0.5 text-foreground">
+                  {controle.rows.slice(1).map((l) => <li key={String(l[0])}>{String(l[0])} : {Number(l[1]).toLocaleString("fr-FR", { minimumFractionDigits: 3 })} calculé, {Number(l[2]).toLocaleString("fr-FR", { minimumFractionDigits: 3 })} au relevé{l[4] === "OK" ? " ✓" : ` — écart ${Number(l[3]).toLocaleString("fr-FR", { minimumFractionDigits: 3 })}`}</li>)}
+                </ul>
+              </div>
+            )}
+            {active.ocr && (controle && controle.rows.slice(1).every((l) => l[4] === "OK") ? (
+              <p className="mx-[18px] mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-foreground" role="status">
+                Texte lu par reconnaissance de caractères : les montants sont confirmés par les totaux et le solde du relevé. Relisez seulement les libellés.
+              </p>
+            ) : (
+              <p className="mx-[18px] mt-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-foreground" role="alert">
+                Texte lu par reconnaissance de caractères : une erreur de lecture est possible (un 5 lu comme un 6). Comparez chaque montant avec le PDF avant de l'utiliser.
+              </p>
+            ))}
             {tableauSeul && modeDePdf(active.pages, options) === "complet" && (
               <p className="mx-[18px] mt-3 rounded-lg border border-destructive/30 px-3 py-2 text-xs font-medium text-destructive" role="alert">
                 Aucun tableau reconnu dans ce document : il est converti en entier. Décochez « Tableaux seulement » si c'est voulu.
@@ -352,7 +382,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
                   {item.status === "ok" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" /> : item.status === "erreur" ? <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" /> : <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                    <p className={cn("text-xs", item.status === "erreur" ? "text-destructive" : "text-muted-foreground")}>{item.detail}</p>
+                    <p className={cn("text-xs", item.status === "erreur" ? "text-destructive" : item.ocr ? "font-medium text-foreground" : "text-muted-foreground")}>{item.detail}</p>
                   </div>
                   {item.status === "ok" && (
                     <div className="flex flex-wrap gap-2">

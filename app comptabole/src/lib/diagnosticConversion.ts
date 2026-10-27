@@ -17,7 +17,7 @@ const DIAGNOSTICS: Record<CodeDiagnostic, Omit<DiagnosticConversion, "code">> = 
     cause: "Ce PDF est une photo ou un scan de page (par exemple CamScanner) : il n'y a pas de texte à lire, seulement une image.",
     solutions: [
       "Demander à la banque ou à l'émetteur le PDF d'origine (téléchargé depuis leur espace en ligne) : il se convertit directement et sans erreur.",
-      "À défaut, ressaisir ou recopier les montants : un PDF scanné ne peut pas être converti en Excel.",
+      "À défaut, refaire le scan à plat, bien éclairé et net : l'application le lit alors par reconnaissance de caractères.",
     ],
   },
   protege: {

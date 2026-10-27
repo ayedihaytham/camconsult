@@ -18,11 +18,11 @@ describe("diagnostic d'un PDF non converti", () => {
     expect(d.cause).toContain("pas identifiée");
   });
 
-  it("le scan explique la cause et propose de demander l'original", () => {
+  it("le scan explique la cause et propose l'original, puis un meilleur scan", () => {
     const d = diagnostic("scanne");
     expect(d.cause).toMatch(/photo ou un scan/);
     expect(d.solutions[0]).toMatch(/PDF d'origine/);
-    expect(d.solutions.join(" ")).not.toMatch(/reconnaissance/);
+    expect(d.solutions[1]).toMatch(/refaire le scan/i);
   });
 
   it("le détail à copier donne fichier, taille, problème et solutions, sans contenu du document", () => {

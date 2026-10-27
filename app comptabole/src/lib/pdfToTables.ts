@@ -1,5 +1,6 @@
 import type { PdfCell, PdfSheet } from "@/lib/pdfTables";
 import { detecterTableaux } from "@/lib/tableaux";
+import { controleReleve, feuilleControle, harmoniserLibelles } from "@/lib/controleReleve";
 
 /** Un morceau de texte d'une page PDF avec sa position (origine en bas à gauche, en points). */
 export interface PdfTextItem {
@@ -323,7 +324,7 @@ export function extraireMouvements(pages: PdfTextItem[][]): string[][] | null {
  * Avec `tableauSeul`, seules les lignes du tableau des mouvements d'un relevé sont gardées (une feuille). */
 export function feuillesDePdf(
   pages: PdfTextItem[][],
-  options: OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean } = {},
+  options: OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean; harmoniserLibelles?: boolean } = {},
 ): PdfSheet[] {
   return lireTableauxPdf(pages, options).feuilles;
 }
@@ -332,16 +333,20 @@ export function feuillesDePdf(
  * le document complet. */
 export type ModeDePdf = "mouvements" | "tableaux" | "complet";
 
-type OptionsFeuilles = OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean };
+type OptionsFeuilles = OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean; harmoniserLibelles?: boolean };
 
 function lireTableauxPdf(pages: PdfTextItem[][], options: OptionsFeuilles): { mode: ModeDePdf; feuilles: PdfSheet[] } {
   if (options.tableauSeul) {
-    const mouvements = extraireMouvements(pages);
+    const lus = extraireMouvements(pages);
+    // Texte lu par OCR : les libellés abîmés sont ramenés au libellé que le relevé répète le plus souvent (jamais les montants).
+    const mouvements = lus && options.harmoniserLibelles ? harmoniserLibelles(lus) : lus;
     if (mouvements) {
       const rows = options.nombres
         ? mouvements.map((l, i) => l.map((c) => (i === 0 ? c : (convertirNombre(c) ?? c))))
         : mouvements;
-      return { mode: "mouvements", feuilles: [{ name: "Mouvements", rows, headerRow: true }] };
+      // Contrôle d'un relevé qui imprime ses totaux : les sommes des colonnes doivent être celles du relevé.
+      const controle = controleReleve(pages, mouvements);
+      return { mode: "mouvements", feuilles: [{ name: "Mouvements", rows, headerRow: true }, ...(controle ? [feuilleControle(controle)] : [])] };
     }
     // Pas un relevé bancaire : on cherche les tableaux de chaque page (au moins 3 colonnes et 3 lignes), le reste du texte est écarté.
     const trouves = pages.flatMap((p, i) => {

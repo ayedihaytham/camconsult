@@ -3,7 +3,6 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import {
   Building2,
-  CheckCircle2,
   CircleDot,
   Copy,
   Eye,
@@ -11,12 +10,12 @@ import {
   MonitorSmartphone,
   MoreHorizontal,
   Pencil,
+  Plus,
   Printer,
   ShieldCheck,
   ListChecks,
   Trash2,
   User,
-  Users,
   X,
 } from "lucide-react";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -26,7 +25,6 @@ import { useOperationalPageSize } from "@/components/data-table/useOperationalPa
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { StatutIcone } from "@/components/ledger/StatutIcone";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
-import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
@@ -282,14 +280,6 @@ export function EmployesListPage() {
   const openTaskCounts = useMemo(
     () => openTasksByCollaborator(taches),
     [taches],
-  );
-  const activeCount = useMemo(
-    () => rows.filter((e) => e.statut === "actif").length,
-    [rows],
-  );
-  const attributionCount = useMemo(
-    () => rows.reduce((count, e) => count + e.societesAssignees.length, 0),
-    [rows],
   );
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -807,40 +797,17 @@ export function EmployesListPage() {
         mobileSelecting && "ledger-selection-clearance lg:pb-0",
       )}
     >
-      <SignatureLedgerBanner
-        icon={Users}
-        className="operational-signature-banner mb-0"
-        titleId="team-ledger-title"
-        eyebrow="Organisation · Team Ledger"
-        title="Collaborateurs"
-        description="Équipe du cabinet · comptes et périmètres d'accès"
-        metrics={[
-          {
-            label: "Collaborateurs",
-            icon: Users,
-            value: rows.length,
-            loading: isDataLoading,
-            onSelect: () => setStatutFilter("all"),
-            active: statutFilter === "all",
-          },
-          {
-            label: "Actifs",
-            icon: CheckCircle2,
-            value: activeCount,
-            tone: "success",
-            loading: isDataLoading,
-            onSelect: () => setStatutFilter("actif"),
-            active: statutFilter === "actif",
-          },
-          {
-            label: "Attributions sociétés",
-            icon: Building2,
-            value: attributionCount,
-            loading: isDataLoading,
-          },
-        ]}
-        action={{ label: "Ajouter un collaborateur", onClick: startCreate }}
-      />
+      <header data-tour="page-identity" className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-border px-0.5 pb-4 pt-1">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Organisation</p>
+          <h1 id="team-ledger-title" className="mt-1 text-2xl font-bold leading-tight tracking-tight text-primary">Collaborateurs</h1>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">Équipe du cabinet · comptes et périmètres d'accès</p>
+        </div>
+        <Button data-tour="page-primary-action" type="button" className="gap-2" onClick={startCreate}>
+          <Plus className="size-4" aria-hidden="true" />
+          Ajouter un collaborateur
+        </Button>
+      </header>
 
       <LedgerWorkSurface className="employes-ledger-surface ledger-soft-rows">
       {selectedIds.length === 0 && !mobileSelecting && (

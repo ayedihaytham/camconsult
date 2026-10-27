@@ -254,16 +254,6 @@ export function SocietesListPage() {
     () => allRows.filter((s) => canSeeSociete(s.id)),
     [allRows, canSeeSociete],
   );
-  const registerSummary = useMemo(
-    () => ({
-      total: rows.length,
-      actif: rows.filter((societe) => societe.statut === "actif").length,
-      enAttente: rows.filter((societe) => societe.statut === "en_attente")
-        .length,
-      inactif: rows.filter((societe) => societe.statut === "inactif").length,
-    }),
-    [rows],
-  );
   const canEdit = isAdmin || can("modifierSocietes");
   const canDelete = isAdmin || can("supprimer");
 
@@ -826,7 +816,7 @@ export function SocietesListPage() {
         selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
-      <header data-tour="page-identity" className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-0.5 pb-4 pt-1">
+      <header data-tour="page-identity" className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-border px-0.5 pb-4 pt-1">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Clients & travail</p>
           <h1 className="mt-1 text-2xl font-bold leading-tight tracking-tight text-primary">Sociétés</h1>
@@ -841,34 +831,6 @@ export function SocietesListPage() {
           </Button>
         )}
       </header>
-
-      <div role="group" aria-label="Filtrer les sociétés par statut" className="my-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-        {([
-          { valeur: "all", libelle: "Toutes les sociétés", total: registerSummary.total },
-          { valeur: "actif", libelle: "Actives", total: registerSummary.actif },
-          { valeur: "en_attente", libelle: "En attente", total: registerSummary.enAttente },
-          { valeur: "inactif", libelle: registerSummary.inactif > 1 ? "Inactives" : "Inactive", total: registerSummary.inactif },
-        ] as const).map(({ valeur, libelle, total }) => {
-          const active = statutFilter === valeur;
-          return (
-            <button
-              key={valeur}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setStatutFilter(valeur)}
-              className={cn(
-                "flex min-h-12 items-center justify-between gap-3 rounded-[10px] border px-4 py-2.5 text-left text-sm font-semibold transition-[border-color,box-shadow,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                active
-                  ? "border-primary bg-primary text-primary-foreground shadow-[0_6px_16px_-8px_hsl(var(--primary)/0.55)]"
-                  : "border-border bg-card text-foreground hover:border-primary/35 hover:shadow-[0_2px_8px_-4px_hsl(var(--primary)/0.25)]",
-              )}
-            >
-              <span>{libelle}</span>
-              <span className={cn("text-xl font-bold leading-none tabular-nums", active ? "text-accent" : "text-primary")}>{total}</span>
-            </button>
-          );
-        })}
-      </div>
 
       <LedgerWorkSurface className="societes-ledger-surface">
       {selectedIds.length === 0 && (

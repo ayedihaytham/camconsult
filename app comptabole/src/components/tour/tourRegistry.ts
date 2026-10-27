@@ -108,10 +108,10 @@ const TOURS = {
   },
   societes: {
     id: "societes",
-    version: 4,
+    version: 5,
     title: "Sociétés",
     steps: [
-      { target: "page-identity", title: "Sociétés", body: "Consultez les sociétés accessibles et leur situation. Les tuiles de statut sous le titre filtrent la liste." },
+      { target: "page-identity", title: "Sociétés", body: "Consultez les sociétés accessibles et leur situation." },
       {
         target: responsiveSearch,
         title: "Rechercher et filtrer",
@@ -131,7 +131,7 @@ const TOURS = {
     version: 2,
     title: "Collaborateurs",
     steps: [
-      { target: "page-identity", title: "Collaborateurs", body: "Retrouvez les membres du cabinet et leur périmètre. Les compteurs du bandeau filtrent la liste." },
+      { target: "page-identity", title: "Collaborateurs", body: "Retrouvez les membres du cabinet et leur périmètre." },
       {
         target: responsiveSearch,
         title: "Rechercher et filtrer",

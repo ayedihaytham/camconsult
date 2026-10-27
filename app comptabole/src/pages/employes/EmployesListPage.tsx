@@ -79,6 +79,9 @@ import { AppareilsEmployeDialog } from "@/components/auth/AppareilsConnectes";
 import { api, ApiError } from "@/lib/api";
 import type { EmailEnvoi } from "@/types";
 import { EmployeViewSheet } from "./EmployeViewSheet";
+import { EmployesVolet } from "./EmployesVolet";
+import { TopbarSlot } from "@/components/layout/TopbarSlot";
+import { safeLocalStorage } from "@/lib/safeStorage";
 import {
   allowedPermissionCount,
   assignmentPreview,
@@ -260,6 +263,12 @@ export function EmployesListPage() {
   const duplicateEmploye = useData((s) => s.duplicateEmploye);
   const deleteEmployes = useData((s) => s.deleteEmployes);
   const setEmployeAcces = useData((s) => s.setEmployeAcces);
+  const [vue, setVue] = useState<"volet" | "tableau">(() => (safeLocalStorage.getItem("collaborateurs:vue") === "tableau" ? "tableau" : "volet"));
+  function changerVue(next: "volet" | "tableau") {
+    setVue(next);
+    safeLocalStorage.setItem("collaborateurs:vue", next);
+    if (next === "volet") clearSelection();
+  }
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
@@ -797,17 +806,24 @@ export function EmployesListPage() {
         mobileSelecting && "ledger-selection-clearance lg:pb-0",
       )}
     >
-      <header data-tour="page-identity" className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-border px-0.5 pb-4 pt-1">
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Organisation</p>
-          <h1 id="team-ledger-title" className="mt-1 text-2xl font-bold leading-tight tracking-tight text-primary">Collaborateurs</h1>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">Équipe du cabinet · comptes et périmètres d'accès</p>
-        </div>
-        <Button data-tour="page-primary-action" type="button" className="gap-2" onClick={startCreate}>
+      <h1 id="team-ledger-title" className="sr-only">Collaborateurs</h1>
+      <TopbarSlot zone="description">
+        <span data-tour="page-identity" className="whitespace-nowrap border-l border-white/20 pl-3.5 text-[13px] text-sidebar-muted">
+          Équipe du cabinet · comptes et périmètres d'accès
+        </span>
+      </TopbarSlot>
+      <TopbarSlot zone="actions">
+        <button
+          data-tour="page-primary-action"
+          type="button"
+          onClick={startCreate}
+          aria-label="Ajouter un collaborateur"
+          className="flex h-9 items-center gap-2 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-primary transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+        >
           <Plus className="size-4" aria-hidden="true" />
-          Ajouter un collaborateur
-        </Button>
-      </header>
+          <span className="hidden xl:inline">Ajouter un collaborateur</span>
+        </button>
+      </TopbarSlot>
 
       <LedgerWorkSurface className="employes-ledger-surface ledger-soft-rows">
       {selectedIds.length === 0 && !mobileSelecting && (
@@ -815,7 +831,22 @@ export function EmployesListPage() {
           label="Outils du registre des collaborateurs"
           search={renderSearchFilter()}
           resultCount={!isDataLoading ? `${filtered.length} collaborateur${filtered.length > 1 ? "s" : ""}` : undefined}
-          tools={desktopUtilityMenu}
+          tools={<>
+            <div role="group" aria-label="Présentation du registre" className="inline-flex rounded-[10px] bg-muted p-[3px]">
+              {([["volet", "Liste et volet"], ["tableau", "Tableau"]] as const).map(([valeur, libelle]) => (
+                <button
+                  key={valeur}
+                  type="button"
+                  aria-pressed={vue === valeur}
+                  onClick={() => changerVue(valeur)}
+                  className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", vue === valeur && "bg-card font-semibold text-primary shadow-sm")}
+                >
+                  {libelle}
+                </button>
+              ))}
+            </div>
+            {desktopUtilityMenu}
+          </>}
         />
       )}
       {!mobileSelecting && (
@@ -940,38 +971,59 @@ export function EmployesListPage() {
           </div>
         </div>
       )}
-      <DataTable
-        className="ledger-work-table bg-transparent [&>div:last-child]:space-y-0"
-        desktopDensity="ledger"
-        desktopVariant="register"
-        showSelectionHeader
-        table={table}
-        emptyMessage={emptyMessage}
-        isLoading={isDataLoading}
-        footer={<OperationalLedgerFooter table={table} itemLabel="collaborateurs" />}
-        onRowClick={(row) => openView(row.original)}
-        getRowClassName={(row) =>
-          cn(
-            `ledger-row--${row.original.statut}`,
-            selectedIds.includes(row.original.id) && "bg-accent/[0.14] hover:bg-accent/[0.18]",
-          )
-        }
-        mobileRow={(row) => {
-          const e = row.original;
-          return (
-            <MobileCollaboratorRow
-              employe={e}
-              assignedPreview={assignmentPreview(e, societyNames)}
-              openTasks={openTaskCounts.get(e.id) ?? 0}
-              selecting={mobileSelecting}
-              selected={selectedIds.includes(e.id)}
-              onSelect={() => toggleSelected(e.id)}
-              onOpen={() => openView(e)}
-              menuActions={employeMenuActions(e)}
-            />
-          );
-        }}
-      />
+      {vue === "volet" && (
+        <div className="hidden lg:block">
+          <EmployesVolet
+            employes={filtered}
+            loading={isDataLoading}
+            emptyMessage={emptyMessage}
+            societyNames={societyNames}
+            openTaskCounts={openTaskCounts}
+            droitsTotal={PERMISSION_TOTAL}
+            droitsActifs={allowedPermissionCount}
+            onOpenFiche={openView}
+            onOpenAcces={(employe) => {
+              setAccesTarget(employe);
+              setAccesOpen(true);
+            }}
+            menuActions={employeMenuActions}
+          />
+        </div>
+      )}
+      <div className={vue === "volet" ? "lg:hidden" : undefined}>
+        <DataTable
+          className="ledger-work-table bg-transparent [&>div:last-child]:space-y-0"
+          desktopDensity="ledger"
+          desktopVariant="register"
+          showSelectionHeader
+          table={table}
+          emptyMessage={emptyMessage}
+          isLoading={isDataLoading}
+          footer={<OperationalLedgerFooter table={table} itemLabel="collaborateurs" />}
+          onRowClick={(row) => openView(row.original)}
+          getRowClassName={(row) =>
+            cn(
+              `ledger-row--${row.original.statut}`,
+              selectedIds.includes(row.original.id) && "bg-accent/[0.14] hover:bg-accent/[0.18]",
+            )
+          }
+          mobileRow={(row) => {
+            const e = row.original;
+            return (
+              <MobileCollaboratorRow
+                employe={e}
+                assignedPreview={assignmentPreview(e, societyNames)}
+                openTasks={openTaskCounts.get(e.id) ?? 0}
+                selecting={mobileSelecting}
+                selected={selectedIds.includes(e.id)}
+                onSelect={() => toggleSelected(e.id)}
+                onOpen={() => openView(e)}
+                menuActions={employeMenuActions(e)}
+              />
+            );
+          }}
+        />
+      </div>
       {!isDataLoading && filtered.length > 0 && (
         <OperationalMobilePagination table={table} itemLabel="collaborateurs" />
       )}

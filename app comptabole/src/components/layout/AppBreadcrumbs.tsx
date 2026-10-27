@@ -53,7 +53,7 @@ export function AppBreadcrumbs() {
   const firstVisibleOnMobile = crumbs.length > 2 ? crumbs.length - 2 : 0;
 
   return (
-    <Breadcrumb aria-label="Fil d’Ariane" className="min-w-0 flex-1 overflow-hidden">
+    <Breadcrumb aria-label="Fil d’Ariane" className="min-w-0 shrink overflow-hidden">
       <BreadcrumbList className="flex-nowrap gap-1 overflow-hidden text-sidebar-muted sm:gap-1.5">
         {crumbs.map((crumb, index) => {
           const isCurrent = index === crumbs.length - 1;

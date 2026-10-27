@@ -59,9 +59,13 @@ export function Topbar() {
           aria-label="Afficher ou réduire le menu"
         />
 
-        <AppBreadcrumbs />
+        <div className="flex min-w-0 flex-1 items-center gap-3.5">
+          <AppBreadcrumbs />
+          <div id="topbar-description" className="hidden min-w-0 shrink-0 xl:flex" />
+        </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
+          <div id="topbar-actions" className="mr-1.5 hidden items-center lg:flex" />
           <TourHelpButton />
           <SocieteActiveSelect />
           <span className="mx-2 hidden h-[22px] w-px bg-white/15 sm:block" aria-hidden="true" />

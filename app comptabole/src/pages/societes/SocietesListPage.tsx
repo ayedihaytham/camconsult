@@ -84,6 +84,7 @@ import { logJournal } from "@/store/journal";
 import type { Collecte, Societe, SocieteTheme, Statut } from "@/types";
 import { SocieteFormSheet, type SocieteFormValues } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
+import { TopbarSlot } from "@/components/layout/TopbarSlot";
 import { SocietesVolet, monogramTone, societeInitials } from "./SocietesVolet";
 
 function BulkActionsMenu({
@@ -816,21 +817,24 @@ export function SocietesListPage() {
         selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
-      <header data-tour="page-identity" className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-border px-0.5 pb-4 pt-1">
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Clients & travail</p>
-          <h1 className="mt-1 text-2xl font-bold leading-tight tracking-tight text-primary">Sociétés</h1>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">
-            {isAdmin ? "Registre des clients du cabinet" : "Registre des sociétés auxquelles vous avez accès"}
-          </p>
-        </div>
-        {canEdit && (
-          <Button data-tour="page-primary-action" type="button" className="gap-2" onClick={startCreate}>
-            <Plus className="size-4" aria-hidden="true" />
-            Ajouter une société
-          </Button>
-        )}
-      </header>
+      <h1 className="sr-only">Sociétés</h1>
+      <TopbarSlot zone="description">
+        <span data-tour="page-identity" className="whitespace-nowrap border-l border-white/20 pl-3.5 text-[13px] text-sidebar-muted">
+          {isAdmin ? "Registre des clients du cabinet" : "Registre des sociétés auxquelles vous avez accès"}
+        </span>
+      </TopbarSlot>
+      {canEdit && <TopbarSlot zone="actions">
+        <button
+          data-tour="page-primary-action"
+          type="button"
+          onClick={startCreate}
+          aria-label="Ajouter une société"
+          className="flex h-9 items-center gap-2 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-primary transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          <span className="hidden xl:inline">Ajouter une société</span>
+        </button>
+      </TopbarSlot>}
 
       <LedgerWorkSurface className="societes-ledger-surface">
       {selectedIds.length === 0 && (

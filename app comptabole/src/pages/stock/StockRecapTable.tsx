@@ -81,13 +81,15 @@ const COLONNES_TABLEAU: { cle: string; largeur: number; masquable?: ColonneStock
 ];
 const COLONNES_PAR_DEFAUT: Record<ColonneStock, boolean> = { cours: true, devise: true, tnd: true, piece: true, douane: false };
 
-const th = "whitespace-nowrap px-2 py-2.5 text-left text-xs font-semibold leading-tight text-muted-foreground";
+const th = "whitespace-nowrap border-b border-primary-foreground/20 px-2 py-2 text-left align-middle text-xs font-semibold leading-tight";
 const thNum = `${th} text-right`;
 const td = "px-2 py-2.5 align-middle [overflow-wrap:anywhere]";
 const tdNum = `${td} whitespace-nowrap text-right tabular-nums`;
 /** Hauteur des cellules : serrée par défaut (deux lignes par mouvement tiennent mieux), aérée au choix. */
 const HAUTEUR = { compact: "[&>td]:py-1.5", aere: "[&>td]:py-2.5" } as const;
 const filet = "border-l-2 border-border";
+/** Filet des en-têtes marine. */
+const filetEntete = "border-l-2 border-l-primary-foreground/30";
 const etiquette = "text-xs font-medium text-muted-foreground";
 
 const TEINTE = { vente: "bg-primary/[0.06]", achat: "bg-accent/10", douane: "bg-success/10" } as const;
@@ -156,11 +158,11 @@ function CoteFin({ m, cote, onPreview, base, colonnes }: { m: StockMouvement; co
   const montant = montantCote(lignes, v ? m.venteCoursUsd : m.achatCoursUsd, base);
   return (
     <>
-      {colonnes.devise && <td className={cn(tdNum, fond)}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>}
+      {colonnes.devise && <td className={cn(tdNum, fond, filet)}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>}
       {colonnes.devise && <td className={cn(td, fond, "text-muted-foreground")}>{t.montantDevise ? (v ? m.venteDevise : m.achatDevise) : "—"}</td>}
-      {colonnes.cours && <td className={cn(tdNum, fond)}>{coursTexte(base === "USD" ? (v ? m.venteCoursUsd : m.achatCoursUsd) ?? 0 : v ? m.venteCours : m.achatCours)}</td>}
-      {colonnes.tnd && <td className={cn(tdNum, fond, "font-semibold text-primary")}>{montant ? fmtMontant(montant) : "—"}</td>}
-      {colonnes.piece && <td className={cn(td, fond, "text-center")}><Piece m={m} categorie={cote} onPreview={onPreview} /></td>}
+      {colonnes.cours && <td className={cn(tdNum, fond, !colonnes.devise && filet)}>{coursTexte(base === "USD" ? (v ? m.venteCoursUsd : m.achatCoursUsd) ?? 0 : v ? m.venteCours : m.achatCours)}</td>}
+      {colonnes.tnd && <td className={cn(tdNum, fond, !colonnes.devise && !colonnes.cours && filet, "font-semibold text-primary")}>{montant ? fmtMontant(montant) : "—"}</td>}
+      {colonnes.piece && <td className={cn(td, fond, filet, "text-center")}><Piece m={m} categorie={cote} onPreview={onPreview} /></td>}
     </>
   );
 }
@@ -169,7 +171,7 @@ function CoteFin({ m, cote, onPreview, base, colonnes }: { m: StockMouvement; co
 function CelluleEcart({ m, lignes = 2 }: { m: StockMouvement; lignes?: number }) {
   const legende = LEGENDE_SITUATION[situationMouvement(m)];
   return (
-    <td rowSpan={lignes} className={tdNum}>
+    <td rowSpan={lignes} className={cn(td, filet, "whitespace-nowrap text-center tabular-nums")}>
       <span className={cn("inline-grid min-w-7 place-items-center rounded-full px-2 py-0.5 text-xs font-semibold", m.ecart !== 0 ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>
         {fmtQuantite(m.ecart)}
       </span>
@@ -186,6 +188,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
   const colonnesAffichees = COLONNES_TABLEAU.filter((c) => !c.masquable || colonnes[c.masquable]);
   const sommeLargeurs = colonnesAffichees.reduce((t, c) => t + c.largeur, 0);
   const nbColonnes = colonnesAffichees.length;
+  const nbMontants = (colonnes.devise ? 2 : 0) + (colonnes.cours ? 1 : 0) + (colonnes.tnd ? 1 : 0);
   const total = recapStock(mouvements);
   const cotesAffiches: ("vente" | "achat")[] = cotes === "les-deux" ? ["vente", "achat"] : [cotes];
   const hauteur = cotesAffiches.length;
@@ -221,23 +224,28 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
           <colgroup>
             {colonnesAffichees.map((c) => <col key={c.cle} style={{ width: `${(c.largeur / sommeLargeurs) * 100}%` }} />)}
           </colgroup>
-          <thead>
-            <tr className="border-b border-border bg-muted/40">
-              <th scope="col" className={th}>N°</th>
+          <thead className="bg-primary text-primary-foreground">
+            <tr>
+              <th scope="col" rowSpan={2} className={th}>N°</th>
+              <th scope="colgroup" colSpan={2} className={cn(th, "text-center text-[0.6875rem] tracking-[0.14em]")}>MOUVEMENT</th>
+              <th scope="colgroup" colSpan={5} className={cn(th, filetEntete, "text-center text-[0.6875rem] tracking-[0.14em]")}>{cotes === "les-deux" ? "FACTURE" : cotes === "vente" ? "VENTE" : "ACHAT"}</th>
+              <th scope="col" rowSpan={2} className={cn(th, filetEntete, "text-center")}>Écart</th>
+              {nbMontants > 0 && <th scope="colgroup" colSpan={nbMontants} className={cn(th, filetEntete, "text-center text-[0.6875rem] tracking-[0.14em]")}>MONTANTS</th>}
+              {colonnes.piece && <th scope="col" rowSpan={2} className={cn(th, filetEntete, "text-center")}>Pièce</th>}
+              {colonnes.douane && <th scope="col" rowSpan={2} className={cn(th, filetEntete)}>Douane</th>}
+            </tr>
+            <tr>
               <th scope="col" className={th}>Mouvement</th>
               <th scope="col" className={th}>N° mouvement</th>
-              <th scope="col" className={th}>Côté</th>
+              <th scope="col" className={cn(th, filetEntete)}>Côté</th>
               <th scope="col" className={th}>Date</th>
               <th scope="col" className={th}>N° facture</th>
               <th scope="col" className={th}>Client / Fournisseur</th>
               <th scope="col" className={thNum}>Qté</th>
-              <th scope="col" className={thNum}>Écart</th>
-              {colonnes.devise && <th scope="col" className={thNum}>En devise</th>}
+              {colonnes.devise && <th scope="col" className={cn(thNum, filetEntete)}>En devise</th>}
               {colonnes.devise && <th scope="col" className={th}>Devise</th>}
-              {colonnes.cours && <th scope="col" className={thNum}>{base === "USD" ? "Cours USD" : "Cours"}</th>}
-              {colonnes.tnd && <th scope="col" className={thNum}>{base === "USD" ? "MT USD" : "MT TND"}</th>}
-              {colonnes.piece && <th scope="col" className={cn(th, "text-center")}>Pièce</th>}
-              {colonnes.douane && <th scope="col" className={cn(th, TEINTE.douane, filet)}>Douane</th>}
+              {colonnes.cours && <th scope="col" className={cn(thNum, !colonnes.devise && filetEntete)}>{base === "USD" ? "Cours USD" : "Cours"}</th>}
+              {colonnes.tnd && <th scope="col" className={cn(thNum, !colonnes.devise && !colonnes.cours && filetEntete)}>{base === "USD" ? "MT USD" : "MT TND"}</th>}
             </tr>
           </thead>
           <tbody>
@@ -246,7 +254,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
               const surbrillance = nouveauId === m.id;
               const choisi = selectionId === m.id;
               const activer = () => (onOuvrir ? onOuvrir(m) : basculer(m.id));
-              const ligneClasse = cn("cursor-pointer", HAUTEUR[densite], choisi && "[&>td]:bg-accent/15", surbrillance && "outline outline-2 -outline-offset-2 outline-accent");
+              const ligneClasse = cn("cursor-pointer", HAUTEUR[densite], index % 2 === 1 && "[&>td:not([class*=bg-])]:bg-muted/40", choisi && "[&>td]:bg-accent/15", surbrillance && "outline outline-2 -outline-offset-2 outline-accent");
               return (
                 <Fragment key={m.id}>
                   <tr
@@ -307,7 +315,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             })}
           </tbody>
         </table>
-        <div data-pied-stock className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t-2 border-primary bg-muted/40 px-4 py-2.5 text-[0.8125rem] font-semibold text-primary">
+        <div data-pied-stock className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t-2 border-primary/40 bg-primary/10 px-4 py-2.5 text-[0.8125rem] font-semibold text-primary">
           <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
           {sommeCote ? (
             <>

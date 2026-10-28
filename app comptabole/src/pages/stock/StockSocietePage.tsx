@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, Boxes, Download, Eye, EyeOff, Layers, Plus } from "lucide-react";
-import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
+import { AlertTriangle, Download, Eye, EyeOff, Layers, Plus } from "lucide-react";
+import { TopbarSlot } from "@/components/layout/TopbarSlot";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { useSocieteById, useNoeuds, useData } from "@/store/data";
@@ -19,7 +19,6 @@ import { soldesFactures, type StatutFacture } from "@/lib/fournisseurs";
 import type { EtatFournisseurs } from "@/types";
 import { StockRecapTable } from "./StockRecapTable";
 import { StockRecapSocieteTable } from "./StockRecapSocieteTable";
-import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { feuilleRecapSociete, recapSociete } from "@/lib/stockRecapSociete";
 import { appliquerFiltresRecap, FILTRES_RECAP_VIDES, sansFiltresDouane, type FiltresRecap } from "@/lib/filtresRecapSociete";
 import { download } from "@/lib/export";
@@ -45,6 +44,8 @@ function AvertissementReglements({ info }: { info?: { nb: number; montant: numbe
     </span>
   );
 }
+
+const BOUTON_BARRE = "flex h-9 items-center gap-2 rounded-lg border border-white/25 px-3 text-[13px] font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 export function StockSocietePage() {
   const { societeId = "" } = useParams();
@@ -299,54 +300,49 @@ export function StockSocietePage() {
 
   return (
     <div className="stock-page">
-      <div data-tour="stock-summary">
-        <SignatureLedgerBanner
-          icon={Boxes}
-          eyebrow="Clients & travail · Stock"
-          title="Gestion de stock"
-          description={`${societe?.raisonSociale ?? "Société"} · ${societe?.code ?? ""}`}
-          metrics={[
-            { label: shown.length > 1 ? "Mouvements" : "Mouvement", value: recap.mouvements, loading },
-            { label: "Anomalies (écart ≠ 0)", value: recap.anomalies, tone: recap.anomalies > 0 ? "destructive" : "default" },
-            ...(resumeDoubles.length > 0
-              ? [{ label: "N° de facture en doublon", value: resumeDoubles.length, tone: "destructive" as const }]
-              : []),
-            { label: "Qté achetée", value: fmtQuantiteUnite(recap.achat.quantite, recap.unite) },
-            { label: "Qté vendue", value: fmtQuantiteUnite(recap.vente.quantite, recap.unite) },
-          ]}
-          actions={
-            <div data-tour="stock-actions" className="flex flex-wrap items-center gap-2">
-              {vue === "recap" ? (
-                <>
-                  <Button variant="outline" className="signature-ledger__action" onClick={() => void exporterRecap("xlsx")}>
-                    <Download className="h-4 w-4" />
-                    Excel
-                  </Button>
-                  <Button variant="outline" className="signature-ledger__action" onClick={() => void exporterRecap("pdf")}>
-                    <Download className="h-4 w-4" />
-                    PDF
-                  </Button>
-                </>
-              ) : (
-                <Button variant="outline" className="signature-ledger__action" onClick={exportXlsx}>
-                  <Download className="h-4 w-4" />
-                  Excel
-                </Button>
-              )}
-              <Button variant="outline" className="signature-ledger__action" onClick={() => setLotOpen(true)}>
-                <Layers className="h-4 w-4" />
-                Importer un lot
-              </Button>
-              <Button variant="ledger" onClick={openNew}>
-                <Plus className="h-4 w-4" />
-                Nouveau mouvement
-              </Button>
-            </div>
-          }
-        />
-      </div>
+      <h1 className="sr-only">Gestion de stock</h1>
+      <TopbarSlot zone="description">
+        <span data-tour="page-identity" className="hidden whitespace-nowrap border-l border-white/20 pl-3.5 text-[13px] text-sidebar-muted min-[1900px]:inline">
+          Achats, ventes et douane de la société, mouvement par mouvement
+        </span>
+      </TopbarSlot>
+      <TopbarSlot zone="actions">
+        <div data-tour="stock-actions" className="flex items-center gap-2">
+          {vue === "recap" ? (
+            <>
+              <button type="button" onClick={() => void exporterRecap("xlsx")} aria-label="Exporter le récapitulatif en Excel" className={BOUTON_BARRE}>
+                <Download className="size-4" aria-hidden="true" />
+                <span className="hidden min-[1700px]:inline">Excel</span>
+              </button>
+              <button type="button" onClick={() => void exporterRecap("pdf")} aria-label="Exporter le récapitulatif en PDF" className={BOUTON_BARRE}>
+                <Download className="size-4" aria-hidden="true" />
+                <span className="hidden min-[1700px]:inline">PDF</span>
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={exportXlsx} aria-label="Exporter en Excel" className={BOUTON_BARRE}>
+              <Download className="size-4" aria-hidden="true" />
+              <span className="hidden min-[1700px]:inline">Excel</span>
+            </button>
+          )}
+          <button type="button" onClick={() => setLotOpen(true)} aria-label="Importer un lot" className={BOUTON_BARRE}>
+            <Layers className="size-4" aria-hidden="true" />
+            <span className="hidden min-[1700px]:inline">Importer un lot</span>
+          </button>
+          <button
+            data-tour="page-primary-action"
+            type="button"
+            onClick={openNew}
+            aria-label="Nouveau mouvement"
+            className="flex h-9 items-center gap-2 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-primary transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            <span className="hidden xl:inline">Nouveau mouvement</span>
+          </button>
+        </div>
+      </TopbarSlot>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="stock-register">
+      <div className="overflow-hidden rounded-xl border border-border bg-card" data-tour="stock-register">
         <StockFiltres
           criteres={criteres}
           onCriteres={setCriteres}
@@ -358,22 +354,60 @@ export function StockSocietePage() {
           affiches={shown.length}
           total={list.length}
           droite={
-            <div role="group" aria-label="Monnaie des cours et des montants" className="inline-flex items-center gap-2 text-[0.8125rem] text-muted-foreground">
-              <span className="hidden 2xl:inline">Cours et montants en</span>
-              <span className="inline-flex overflow-hidden rounded-md border border-border">
+            <>
+              <div role="group" aria-label="Présentation des mouvements" className="inline-flex rounded-[10px] bg-muted p-[3px]">
+                {([["mouvements", "Mouvements"], ["recap", "Récapitulatif"]] as const).map(([valeur, libelle]) => (
+                  <button
+                    key={valeur}
+                    type="button"
+                    aria-pressed={vue === valeur}
+                    onClick={() => setVue(valeur)}
+                    className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", vue === valeur && "bg-card font-semibold text-primary shadow-sm")}
+                  >
+                    {libelle}
+                  </button>
+                ))}
+              </div>
+              <div role="group" aria-label="Monnaie des cours et des montants" className="inline-flex rounded-[10px] bg-muted p-[3px]">
                 {([["TND", "Dinar"], ["USD", "Dollar"]] as const).map(([code, nom]) => (
                   <button
                     key={code}
                     type="button"
                     aria-pressed={base === code}
                     onClick={() => setBase(code)}
-                    className={cn("px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", base === code ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent/10")}
+                    className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", base === code && "bg-card font-semibold text-primary shadow-sm")}
                   >
                     {nom}
                   </button>
                 ))}
+              </div>
+            </>
+          }
+          chiffres={
+            <>
+              <span className="flex flex-col border-l border-border/80 pl-4 leading-tight">
+                <small className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Achetée</small>
+                <b className="text-sm tabular-nums text-primary">{fmtQuantiteUnite(recap.achat.quantite, recap.unite)}</b>
               </span>
-            </div>
+              <span className="flex flex-col border-l border-border/80 pl-4 leading-tight">
+                <small className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Vendue</small>
+                <b className="text-sm tabular-nums text-primary">{fmtQuantiteUnite(recap.vente.quantite, recap.unite)}</b>
+              </span>
+              {vue === "recap" && (
+                <button
+                  type="button"
+                  aria-pressed={prefs.colonnes.douane}
+                  onClick={basculerDouane}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    prefs.colonnes.douane ? "border-primary bg-primary/[0.06] text-primary" : "border-border bg-card text-muted-foreground hover:bg-accent/10",
+                  )}
+                >
+                  {prefs.colonnes.douane ? <Eye className="size-3.5" aria-hidden="true" /> : <EyeOff className="size-3.5" aria-hidden="true" />}
+                  Douane {prefs.colonnes.douane ? "affichée" : "masquée"}
+                </button>
+              )}
+            </>
           }
         />
         {resumeDoubles.length > 0 && (
@@ -393,34 +427,8 @@ export function StockSocietePage() {
             <p className="mt-1.5 text-xs">Vérifiez le numéro, ou supprimez le mouvement saisi deux fois.</p>
           </div>
         )}
-        {shown.length > 0 && (
-          <div className="flex items-center gap-3 px-5 pt-1">
-            <div className="min-w-0 flex-1">
-              <LedgerSegmented
-                value={vue}
-                onChange={setVue}
-                ariaLabel="Présentation des mouvements"
-                options={[{ value: "mouvements", label: "Mouvements" }, { value: "recap", label: "Récapitulatif" }]}
-              />
-            </div>
-            {vue === "recap" && (
-              <button
-                type="button"
-                aria-pressed={prefs.colonnes.douane}
-                onClick={basculerDouane}
-                className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  prefs.colonnes.douane ? "border-primary bg-primary/[0.06] text-primary" : "border-border text-muted-foreground hover:bg-accent/10",
-                )}
-              >
-                {prefs.colonnes.douane ? <Eye className="size-3.5" aria-hidden="true" /> : <EyeOff className="size-3.5" aria-hidden="true" />}
-                Douane {prefs.colonnes.douane ? "affichée" : "masquée"}
-              </button>
-            )}
-          </div>
-        )}
         {shown.length > 0 && vue === "recap" && (
-          <div className="mt-3 border-t border-border">
+          <div>
             <StockRecapSocieteTable douane={prefs.colonnes.douane} base={recapSoc} recap={recapAffiche} filtres={filtresRecap} onFiltres={setFiltresRecap} onOuvrir={(id) => { setVue("mouvements"); setOuvertId(id); }} />
           </div>
         )}

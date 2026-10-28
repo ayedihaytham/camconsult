@@ -43,23 +43,20 @@ describe("barre de filtres du stock", () => {
     expect(onCriteres).toHaveBeenCalledWith({ ...CRITERES_VIDES, recherche: "2600086" });
   });
 
-  it("filtre par client et par fournisseur, plusieurs choix possibles, avec le nombre de mouvements de chacun", () => {
+  it("filtre par client et par fournisseur depuis le bouton « Filtres », plusieurs choix possibles, avec le nombre de mouvements de chacun", () => {
     const { onCriteres } = afficher();
-    fireEvent.click(screen.getByRole("button", { name: "Filtrer par client" }));
-    const liste = within(screen.getByRole("list", { name: "Client" }));
-    expect(liste.getByText("EVERTIS ITALIA S.P.A")).toBeTruthy();
-    fireEvent.click(liste.getByRole("checkbox", { name: "EVERTIS ITALIA S.P.A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filtres" }));
+    const clients = within(screen.getByRole("list", { name: "Client" }));
+    expect(clients.getByRole("button", { name: /EVERTIS ITALIA S\.P\.A/ }).textContent).toContain("2");
+    fireEvent.click(clients.getByRole("button", { name: /EVERTIS ITALIA S\.P\.A/ }));
     expect(onCriteres).toHaveBeenCalledWith({ ...CRITERES_VIDES, clients: new Set(["evertis"]) });
-    cleanup();
-    const second = afficher();
-    fireEvent.click(screen.getByRole("button", { name: "Filtrer par fournisseur" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "GREEN RECYCLING SARL" }));
-    expect(second.onCriteres).toHaveBeenCalledWith({ ...CRITERES_VIDES, fournisseurs: new Set(["green"]) });
+    fireEvent.click(within(screen.getByRole("list", { name: "Fournisseur" })).getByRole("button", { name: /GREEN RECYCLING SARL/ }));
+    expect(onCriteres).toHaveBeenLastCalledWith({ ...CRITERES_VIDES, fournisseurs: new Set(["green"]) });
   });
 
-  it("montre combien de clients sont retenus et permet d'effacer tous les filtres", () => {
+  it("montre combien de filtres client et fournisseur sont actifs et permet d'effacer tous les filtres", () => {
     const { onCriteres } = afficher({ ...CRITERES_VIDES, clients: new Set(["evertis"]), situation: "ecart" });
-    expect(within(screen.getByRole("button", { name: "Filtrer par client" })).getByText("1")).toBeTruthy();
+    expect(within(screen.getByRole("button", { name: "Filtres (1 actif)" })).getByText("1")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Effacer les filtres" }));
     expect(onCriteres).toHaveBeenCalledWith({ situation: "tous", clients: new Set(), fournisseurs: new Set(), recherche: "" });
   });

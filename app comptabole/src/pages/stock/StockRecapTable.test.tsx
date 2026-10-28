@@ -140,8 +140,10 @@ describe("tableau récapitulatif du stock", () => {
     for (const colonne of ["N°", "Mouvement", "Écart", "Côté", "Date", "N° facture", "Client / Fournisseur", "Qté", "En devise", "Devise", "Cours", "MT TND", "Pièce", "Douane"]) {
       expect(entetes).toContain(colonne);
     }
-    // Une seule rangée d'en-têtes, aucune colonne n'est tronquée ni défilante.
-    expect(document.querySelectorAll("thead tr")).toHaveLength(1);
+    // Bandeaux de groupes au-dessus des en-têtes ; aucune colonne n'est tronquée ni défilante.
+    const groupes = Array.from(document.querySelectorAll("thead tr:first-child th")).map((th) => th.textContent);
+    for (const groupe of ["MOUVEMENT", "FACTURE", "MONTANTS"]) expect(groupes).toContain(groupe);
+    expect(document.querySelectorAll("thead tr")).toHaveLength(2);
     expect(document.querySelector("table")?.className).toContain("table-fixed");
     expect(document.querySelector("[data-tour='stock-register']")?.querySelector(".overflow-x-auto")).toBeNull();
   });
@@ -303,10 +305,12 @@ describe("N° de mouvement et monnaie des montants", () => {
 
   it("place « N° mouvement » avant le côté, et l'écart juste après la quantité : le n° de mouvement est celui de la facture de vente", () => {
     afficher();
-    const titres = Array.from(document.querySelectorAll("thead th")).map((t) => t.textContent);
+    const titres = Array.from(document.querySelectorAll("thead tr:nth-child(2) th")).map((t) => t.textContent);
     expect(titres.indexOf("N° mouvement")).toBe(titres.indexOf("Côté") - 1);
-    expect(titres.indexOf("Écart")).toBe(titres.indexOf("Qté") + 1);
-    expect(titres).toHaveLength(15);
+    // « Écart » occupe les deux rangées d'en-têtes, entre le bloc facture et le bloc montants.
+    const premiereRangee = Array.from(document.querySelectorAll("thead tr:first-child th")).map((t) => t.textContent);
+    expect(premiereRangee.indexOf("Écart")).toBe(premiereRangee.indexOf("FACTURE") + 1);
+    expect(premiereRangee.indexOf("MONTANTS")).toBe(premiereRangee.indexOf("Écart") + 1);
     const cellule = lignesDe("m1")[0].querySelector('td[title="Numéro de la facture de vente"]');
     expect(cellule?.textContent).toBe("202300001");
     expect(cellule?.getAttribute("rowspan")).toBe("2");

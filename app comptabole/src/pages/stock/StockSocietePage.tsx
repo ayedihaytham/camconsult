@@ -18,6 +18,11 @@ import { api } from "@/lib/api";
 import { soldesFactures, type StatutFacture } from "@/lib/fournisseurs";
 import type { EtatFournisseurs } from "@/types";
 import { StockRecapTable } from "./StockRecapTable";
+import { StockRecapSocieteTable } from "./StockRecapSocieteTable";
+import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
+import { feuilleRecapSociete, recapSociete } from "@/lib/stockRecapSociete";
+import { download } from "@/lib/export";
+import { useIdentiteCabinet } from "@/pages/conversions/useIdentiteCabinet";
 import { StockFiltres } from "./StockFiltres";
 import { StockMouvementPanel } from "./StockMouvementPanel";
 import { comptesSituation, CRITERES_VIDES, filtrerMouvements, valeursTiers, type CriteresStock } from "@/lib/stockFiltres";
@@ -62,6 +67,8 @@ export function StockSocietePage() {
 
   // Monnaie des cours et des montants du tableau : dinars (cours de la facture) ou dollars (cours par rapport au dollar).
   const [base, setBase] = useState<"TND" | "USD">("TND");
+  const [vue, setVue] = useState<"mouvements" | "recap">("mouvements");
+  const { logo, cabinet } = useIdentiteCabinet();
   // Filtres (situation, client, fournisseur, recherche), préférences d'affichage du tableau et mouvement ouvert dans le panneau de droite.
   const [criteres, setCriteres] = useState<CriteresStock>(CRITERES_VIDES);
   const [prefs, setPrefs] = useState<PrefsTableauStock>(() => lirePrefsStock());
@@ -137,6 +144,7 @@ export function StockSocietePage() {
   };
 
   const recap = useMemo(() => recapStock(shown), [shown]);
+  const recapSoc = useMemo(() => recapSociete(shown), [shown]);
 
   /** Retire un type de facture (achat, vente ou douane) : si c'est la seule pièce du mouvement, c'est tout le mouvement qui est proposé à la suppression. */
   function demanderRetrait(m: StockMouvement, cote: CoteMouvement) {
@@ -217,6 +225,26 @@ export function StockSocietePage() {
     setFormOpen(true);
   }
 
+  /** Le récapitulatif tel qu'affiché (mêmes lignes filtrées, mêmes colonnes) en Excel du cabinet ou en PDF. */
+  async function exporterRecap(format: "xlsx" | "pdf") {
+    const base = `Recapitulatif-stock-${societe?.code || "societe"}`;
+    const titre = `Récapitulatif des mouvements — ${societe?.raisonSociale ?? "Société"}`;
+    const sousTitre = `${shown.length} mouvement${shown.length > 1 ? "s" : ""} · édité le ${new Date().toLocaleDateString("fr-FR")}`;
+    try {
+      const feuille = feuilleRecapSociete(recapSoc);
+      if (format === "xlsx") {
+        const { classeurExcelModele } = await import("@/lib/modeleExcelCabinet");
+        const octets = await classeurExcelModele([feuille], { titre, sousTitre, cabinet: cabinet?.nom });
+        download(new Blob([octets], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${base}.xlsx`);
+      } else {
+        const { downloadTablesPdf } = await import("@/lib/pdfTables");
+        await downloadTablesPdf({ title: titre, subtitle: sousTitre, sheets: [feuille], fileName: `${base}.pdf`, plain: true, orientation: "landscape", format: "a3", logo, cabinet });
+      }
+    } catch {
+      toast.error(format === "xlsx" ? "Excel impossible" : "PDF impossible");
+    }
+  }
+
   async function exportXlsx() {
     const XLSX = await import("xlsx");
     const header = [
@@ -275,10 +303,23 @@ export function StockSocietePage() {
           ]}
           actions={
             <div data-tour="stock-actions" className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" className="signature-ledger__action" onClick={exportXlsx}>
-                <Download className="h-4 w-4" />
-                Excel
-              </Button>
+              {vue === "recap" ? (
+                <>
+                  <Button variant="outline" className="signature-ledger__action" onClick={() => void exporterRecap("xlsx")}>
+                    <Download className="h-4 w-4" />
+                    Excel
+                  </Button>
+                  <Button variant="outline" className="signature-ledger__action" onClick={() => void exporterRecap("pdf")}>
+                    <Download className="h-4 w-4" />
+                    PDF
+                  </Button>
+                </>
+              ) : (
+                <Button variant="outline" className="signature-ledger__action" onClick={exportXlsx}>
+                  <Download className="h-4 w-4" />
+                  Excel
+                </Button>
+              )}
               <Button variant="outline" className="signature-ledger__action" onClick={() => setLotOpen(true)}>
                 <Layers className="h-4 w-4" />
                 Importer un lot
@@ -340,6 +381,21 @@ export function StockSocietePage() {
           </div>
         )}
         {shown.length > 0 && (
+          <div className="px-5 pt-1">
+            <LedgerSegmented
+              value={vue}
+              onChange={setVue}
+              ariaLabel="Présentation des mouvements"
+              options={[{ value: "mouvements", label: "Mouvements" }, { value: "recap", label: "Récapitulatif" }]}
+            />
+          </div>
+        )}
+        {shown.length > 0 && vue === "recap" && (
+          <div className="mt-3 border-t border-border">
+            <StockRecapSocieteTable recap={recapSoc} onOuvrir={(id) => { setVue("mouvements"); setOuvertId(id); }} />
+          </div>
+        )}
+        {shown.length > 0 && vue === "mouvements" && (
           <StockRecapTable
             doublons={doublons}
             base={base}

@@ -17,6 +17,8 @@ export interface PdfSheet {
    * mode `plain` — pour les tableaux dont la 1re colonne peut être en
    * MAJUSCULES sans être un total (ex. noms de banque). */
   totalRows?: number;
+  /** Bandeaux de groupes posés au-dessus des en-têtes (ex. VENTE, ACHAT) : colonnes de `de` à `a` (indices à partir de 0, bornes comprises). */
+  groupes?: { titre: string; de: number; a: number }[];
 }
 
 
@@ -58,6 +60,19 @@ interface TablesPdfOpts {
   enchainer?: boolean;
 }
 
+
+/** Ligne de bandeaux de groupes de l'en-tête : une cellule par groupe (sur ses colonnes), des cellules vides ailleurs. */
+function ligneGroupes(groupes: NonNullable<PdfSheet["groupes"]>, cols: number): { content: string; colSpan?: number }[] {
+  const ligne: { content: string; colSpan?: number }[] = [];
+  for (let i = 0; i < cols; i++) {
+    const g = groupes.find((x) => x.de === i);
+    if (g) {
+      ligne.push({ content: g.titre, colSpan: g.a - g.de + 1 });
+      i = g.a;
+    } else ligne.push({ content: "" });
+  }
+  return ligne;
+}
 
 /** Construit le document sans le télécharger — pour un aperçu (iframe,
  * blob URL) avant de laisser l'utilisateur déclencher lui-même le
@@ -168,12 +183,18 @@ export async function buildTablesPdf(input: TablesPdfOpts): Promise<JsPDF> {
     autoTable(doc, {
       startY: y,
       margin: { ...(complet ? { top: hautPages } : {}), left: MARGE, right: MARGE, bottom: complet ? MARGE + 24 : MARGE + 14 },
-      head: sheet.headerRow ? [pad(sheet.rows[0] ?? [])] : undefined,
+      head: sheet.headerRow ? [...(sheet.groupes?.length ? [ligneGroupes(sheet.groupes, cols)] : []), pad(sheet.rows[0] ?? [])] : undefined,
       body: body.length ? (body as never) : [[{ content: "Aucune donnée.", colSpan: cols }]],
       styles: { font: "helvetica", fontSize: 8, cellPadding: 3.5, lineColor: [210, 210, 210], lineWidth: 0.4, textColor: 30 },
       headStyles: { fillColor: BLEU, textColor: 255, fontStyle: "bold", halign: "center", valign: "middle" },
       columnStyles: Object.fromEntries(numericCol.map((n, i) => [i, { halign: n ? "right" : "left" }])),
       didParseCell: (d) => {
+        if (d.section === "head" && sheet.groupes?.length && d.row.index === 0) {
+          const g = sheet.groupes.findIndex((x) => x.de === d.column.index);
+          d.cell.styles.fillColor = g < 0 ? [255, 255, 255] : g % 2 === 0 ? BLEU : [46, 117, 182];
+          d.cell.styles.lineWidth = g < 0 ? 0 : 0.4;
+          return;
+        }
         if (d.section !== "body") return;
         const k = kinds[d.row.index];
         if (k === "band") {

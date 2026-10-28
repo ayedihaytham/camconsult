@@ -72,6 +72,19 @@ function habillerFeuille(ws: Worksheet, f: PdfSheet, options: OptionsModele, ave
     r.height = 30;
   }
 
+  // Bandeaux de groupes (ex. VENTE, ACHAT) sur la ligne vide au-dessus des en-têtes.
+  if (entetes && f.groupes?.length) {
+    f.groupes.forEach((g, i) => {
+      ws.mergeCells(LIGNE_ENTETES - 1, g.de + 1, LIGNE_ENTETES - 1, g.a + 1);
+      const c = ws.getCell(LIGNE_ENTETES - 1, g.de + 1);
+      c.value = g.titre;
+      c.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
+      c.fill = fill(i % 2 === 0 ? BLEU : "FF2E75B6");
+      c.alignment = { horizontal: "center", vertical: "middle" };
+      c.border = bordure;
+    });
+  }
+
   const formats = Array.from({ length: nbCols }, (_, j) => formatColonne(donnees.map((r) => r[j])));
   donnees.forEach((ligne, i) => {
     const r = ws.getRow(premiere + i);
@@ -92,7 +105,9 @@ function habillerFeuille(ws: Worksheet, f: PdfSheet, options: OptionsModele, ave
         c.alignment = { horizontal: "left", vertical: "middle" };
       }
       c.border = bordure;
-      c.fill = fill(i % 2 === 1 ? GRIS_LIGNE : "FFFFFFFF");
+      const total = i >= donnees.length - (f.totalRows ?? 0);
+      c.fill = fill(total ? "FFE8EEF5" : i % 2 === 1 ? GRIS_LIGNE : "FFFFFFFF");
+      if (total) c.font = { bold: true, color: { argb: BLEU } };
     }
   });
 

@@ -97,6 +97,9 @@ const metaDe = (r: TabRow): TabRow => Object.fromEntries(Object.entries(r).filte
 /** Pièce jointe facultative de la ligne, pour les tableaux qui n'ont pas déjà leur propre colonne de pièce. */
 const CLE_PIECE = "_piece";
 
+/** Clés d'une pièce jointe de ligne (`<colonne>_fichier`, `<colonne>_fichier_nom`) : la seule chose qui reste modifiable sur une ligne déjà envoyée au cabinet. */
+const estClePiece = (k: string) => /_fichier(_nom)?$/.test(k);
+
 /** Une ligne dont aucune case saisissable n'est remplie : ajoutée pour écrire dessus, ignorée tant qu'elle reste vide. */
 function ligneVide(def: TabDef, row: TabRow) {
   return def.columns
@@ -478,7 +481,11 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
           const suite = Boolean(nom) && dejaVus.has(nom);
           if (nom) dejaVus.add(nom);
           const complete = envoiParLignes && parSociete && !meta.__envoyeeLe && ligneComplete(def, data, suite);
-          return { ...(id ? { id } : {}), data: figee ? figee.data : data, ordre, ...(complete ? { envoyee: true } : {}) };
+          // Une ligne envoyée repart telle qu'enregistrée, avec seulement la pièce jointe que la société vient d'y mettre ou d'en retirer.
+          const figeeAvecPiece = figee
+            ? { ...Object.fromEntries(Object.entries(figee.data).filter(([k]) => !estClePiece(k))), ...Object.fromEntries(Object.entries(data).filter(([k]) => estClePiece(k))) }
+            : undefined;
+          return { ...(id ? { id } : {}), data: figeeAvecPiece ?? data, ordre, ...(complete ? { envoyee: true } : {}) };
         }),
       );
       // L'enregistrement a rendu les identifiants et l'état d'envoi des lignes : on repart de ce que le serveur a gardé.
@@ -1223,6 +1230,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                     {def.columns.map((c) => (
                       <th key={c.key} className="px-2 py-1.5 font-medium">{c.label}</th>
                     ))}
+                    {(onJoindre || onVoirPiece) && <th className="px-2 py-1.5 font-medium">Pièce</th>}
                     <th className="px-2 py-1.5" />
                   </tr>
                 </thead>
@@ -1235,6 +1243,11 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                           {c.type === "number" && estColonneMontant(c.key) ? montantAffiche(derived[i]?.[c.key]) : String(derived[i]?.[c.key] ?? "")}
                         </td>
                       ))}
+                      {(onJoindre || onVoirPiece) && (
+                        <td className="px-2 py-1" data-piece-envoyee={i}>
+                          <span className="inline-flex items-center gap-0.5">{boutonsPiece(i, def.columns.find((c) => c.piece)?.key ?? CLE_PIECE, readOnly)}</span>
+                        </td>
+                      )}
                       <td className="px-2 py-1 text-right">
                         {!readOnly && onReprendre && (
                           <Button
@@ -1255,7 +1268,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 </tbody>
               </table>
               <p className="border-t border-success/20 px-3 py-1.5 text-[11px] text-muted-foreground">
-                Ces lignes sont chez le cabinet et ne se modifient plus ici. « Reprendre » la remet dans votre tableau, par exemple en cas d'erreur.
+                Ces lignes sont chez le cabinet et ne se modifient plus ici, sauf leur pièce jointe : joignez-la ou remplacez-la, puis « Enregistrer ». « Reprendre » remet une ligne dans votre tableau, par exemple en cas d'erreur.
               </p>
             </div>
           )}

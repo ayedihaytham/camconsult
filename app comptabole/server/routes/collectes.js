@@ -607,6 +607,16 @@ const lignesSchema = z.object({
     .default([]),
 });
 
+/** Clés d'une pièce jointe de ligne : `<colonne>_fichier` (identifiant du fichier) et `<colonne>_fichier_nom`. */
+const estClePiece = (k) => /_fichier(_nom)?$/.test(k);
+/** Cases d'une ligne sans ses pièces jointes, triées : la société peut joindre une pièce à une ligne envoyée, rien d'autre. */
+const sansPiece = (data) => JSON.stringify(Object.entries(data ?? {}).filter(([k]) => !estClePiece(k)).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+/** La ligne figée telle qu'enregistrée, avec les pièces jointes que la société vient d'y mettre (ou d'en retirer). */
+const figeeAvecPieces = (figee, revenue) => ({
+  ...Object.fromEntries(Object.entries(figee ?? {}).filter(([k]) => !estClePiece(k))),
+  ...Object.fromEntries(Object.entries(revenue ?? {}).filter(([k]) => estClePiece(k))),
+});
+
 collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
   const c = (await query("select * from collectes where id = $1", [req.params.id]))
     .rows[0];
@@ -641,11 +651,11 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
   const parId = new Map(existantes.map((r) => [r.id, r]));
   const parSociete = estClient(req.session);
   // Une ligne envoyée au cabinet est figée pour la société : elle doit revenir telle quelle (même identifiant, mêmes cases).
-  // Pour la modifier, la société la « reprend » (route dédiée) ou le cabinet la renvoie.
+  // Seule sa pièce jointe peut encore être ajoutée, remplacée ou retirée. Pour changer le reste, la société la « reprend » (route dédiée) ou le cabinet la renvoie.
   if (parSociete) {
     for (const f of existantes.filter((r) => r.envoyee_le)) {
       const revenue = parsed.data.lignes.find((l) => l.id === f.id);
-      if (!revenue || JSON.stringify(revenue.data ?? {}) !== JSON.stringify(f.data ?? {}))
+      if (!revenue || sansPiece(revenue.data) !== sansPiece(f.data))
         return res.status(400).json({ error: "Une ligne déjà envoyée au cabinet ne peut plus être modifiée. Rechargez la page, ou reprenez la ligne." });
     }
   }
@@ -666,7 +676,7 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
     for (const l of parsed.data.lignes) {
       const ancienne = l.id ? parId.get(l.id) : undefined;
       const envoyeeLe = ancienne?.envoyee_le ?? null;
-      const donnees = parSociete && envoyeeLe ? ancienne.data : l.data ?? {};
+      const donnees = parSociete && envoyeeLe ? figeeAvecPieces(ancienne.data, l.data) : l.data ?? {};
       const { rows } = await client.query(
         `insert into collecte_lignes (id, collecte_id, onglet, ordre, data, envoyee_le)
          values (coalesce($1::uuid, gen_random_uuid()), $2,$3,$4,$5::jsonb, case when $6::timestamptz is not null then $6::timestamptz when $7 then now() else null end) returning *`,

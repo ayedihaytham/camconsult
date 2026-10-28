@@ -678,6 +678,27 @@ describe("CollecteGrid : envoi par lignes", () => {
     succes.mockRestore();
   });
 
+  it("société : une ligne envoyée garde une colonne Pièce : on peut y joindre un fichier, et l'enregistrement ne change que la pièce", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onJoindre = vi.fn().mockResolvedValue({ id: "f7", nom: "avis.pdf" });
+    const ref = createRef<CollecteGridHandle>();
+    render(<CollecteGrid ref={ref} def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={onSave} envoiParLignes parSociete onJoindre={onJoindre} onVoirPiece={vi.fn()} onReprendre={vi.fn()} />);
+    expect(lignes()).toHaveLength(0);
+    fireEvent.change(screen.getByLabelText("Joindre un fichier à la ligne 1"), { target: { files: [new File(["%PDF"], "avis.pdf", { type: "application/pdf" })] } });
+    await waitFor(() => expect(screen.getByLabelText("Voir la pièce jointe de la ligne 1")).toBeTruthy());
+    await act(async () => ref.current?.save());
+    expect(onSave).toHaveBeenCalledWith([{ id: "a", data: { ...COMPLETE, _piece_fichier: "f7", _piece_fichier_nom: "avis.pdf" }, ordre: 0 }]);
+  });
+
+  it("société : la pièce d'une ligne envoyée se voit, et se joint seulement si le tableau n'est pas verrouillé", () => {
+    const avecPiece = { ...ligneEnvoi("a", 0, { _piece_fichier: "f1", _piece_fichier_nom: "avis.pdf" }, "2026-10-20T10:00:00Z") };
+    const { unmount } = render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[avecPiece]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes parSociete onJoindre={vi.fn()} onVoirPiece={vi.fn()} />);
+    expect(screen.getByLabelText("Voir la pièce jointe de la ligne 1")).toBeTruthy();
+    unmount();
+    render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("b", 0, {}, "2026-10-20T10:00:00Z")]} readOnly devise="TND" onSave={vi.fn()} parSociete onJoindre={vi.fn()} onVoirPiece={vi.fn()} />);
+    expect(screen.queryByLabelText(/Joindre un fichier/)).toBeNull();
+  });
+
   it("société : pas de « Reprendre » quand le tableau est verrouillé", () => {
     render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly devise="TND" onSave={vi.fn()} parSociete onReprendre={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /Reprendre/ })).toBeNull();

@@ -114,6 +114,30 @@ describe.skipIf(!actif)("intégration PostgreSQL : envoi par lignes d'une collec
       expect(ok.json.lignes).toHaveLength(3);
     });
 
+    it("la société peut joindre, remplacer ou retirer la pièce d'une ligne envoyée, mais rien d'autre ; le cabinet la voit", async () => {
+      const c = await collecte(true);
+      const url = `/api/collectes/${c.id}/lignes/${ONGLET}`;
+      const premier = await client("PUT", url, { lignes: [ligne(1, { envoyee: true })] });
+      const figee = premier.json.lignes[0];
+      // joindre une pièce
+      const joint = await client("PUT", url, { lignes: [{ id: figee.id, data: { ...figee.data, _piece_fichier: "f1", _piece_fichier_nom: "avis.pdf" } }] });
+      expect(joint.status, joint.texte).toBe(200);
+      expect(joint.json.lignes[0].data).toMatchObject({ _piece_fichier: "f1", _piece_fichier_nom: "avis.pdf", montant: figee.data.montant });
+      expect(joint.json.lignes[0].envoyeeLe).toBeTruthy();
+      expect((await lire(c.id))[0].data._piece_fichier).toBe("f1");
+      // la remplacer
+      const remplacee = await client("PUT", url, { lignes: [{ id: figee.id, data: { ...joint.json.lignes[0].data, _piece_fichier: "f2", _piece_fichier_nom: "autre.pdf" } }] });
+      expect(remplacee.json.lignes[0].data._piece_fichier).toBe("f2");
+      // la retirer
+      const retiree = await client("PUT", url, { lignes: [{ id: figee.id, data: { ...remplacee.json.lignes[0].data, _piece_fichier: "", _piece_fichier_nom: "" } }] });
+      expect(retiree.json.lignes[0].data._piece_fichier).toBe("");
+      // une autre case reste figée, même avec une pièce dans la même requête
+      const refus = await client("PUT", url, { lignes: [{ id: figee.id, data: { ...figee.data, montant: 999, _piece_fichier: "f3", _piece_fichier_nom: "x.pdf" } }] });
+      expect(refus.status).toBe(400);
+      expect(refus.json.error).toMatch(/déjà envoyée au cabinet/);
+      expect((await lire(c.id))[0].data.montant).toBe(figee.data.montant);
+    });
+
     it("le texte envoyé pour une ligne figée est ignoré : c'est l'enregistrement du serveur qui fait foi", async () => {
       const c = await collecte(true);
       const premier = await client("PUT", `/api/collectes/${c.id}/lignes/${ONGLET}`, { lignes: [ligne(1, { envoyee: true })] });

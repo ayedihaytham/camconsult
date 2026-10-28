@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, Boxes, Download, Layers, Plus } from "lucide-react";
+import { AlertTriangle, Boxes, Download, Eye, EyeOff, Layers, Plus } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { StockRecapTable } from "./StockRecapTable";
 import { StockRecapSocieteTable } from "./StockRecapSocieteTable";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { feuilleRecapSociete, recapSociete } from "@/lib/stockRecapSociete";
-import { appliquerFiltresRecap, FILTRES_RECAP_VIDES, type FiltresRecap } from "@/lib/filtresRecapSociete";
+import { appliquerFiltresRecap, FILTRES_RECAP_VIDES, sansFiltresDouane, type FiltresRecap } from "@/lib/filtresRecapSociete";
 import { download } from "@/lib/export";
 import { useIdentiteCabinet } from "@/pages/conversions/useIdentiteCabinet";
 import { StockFiltres } from "./StockFiltres";
@@ -81,6 +81,13 @@ export function StockSocietePage() {
     setPrefs(p);
     ecrirePrefsStock(p);
   };
+  /** Affiche ou masque la douane (même réglage que « Affichage » des mouvements) ; masquée, ses filtres sont retirés pour ne rien cacher en silence. */
+  const basculerDouane = () => {
+    changerPrefs({ ...prefs, colonnes: { ...prefs.colonnes, douane: !prefs.colonnes.douane } });
+  };
+  useEffect(() => {
+    if (!prefs.colonnes.douane) setFiltresRecap(sansFiltresDouane);
+  }, [prefs.colonnes.douane]);
   const fetchCounts = useStock((s) => s.fetchCounts);
   // Mouvement qui vient d'être enregistré : mis en évidence et amené à l'écran.
   const [nouveauId, setNouveauId] = useState<string | null>(null);
@@ -237,7 +244,7 @@ export function StockSocietePage() {
     const n = recapAffiche.lignes.length;
     const sousTitre = `${n} mouvement${n > 1 ? "s" : ""}${n < recapSoc.lignes.length ? ` sur ${recapSoc.lignes.length} (filtré)` : ""} · édité le ${new Date().toLocaleDateString("fr-FR")}`;
     try {
-      const feuille = feuilleRecapSociete(recapAffiche);
+      const feuille = feuilleRecapSociete(recapAffiche, { douane: prefs.colonnes.douane });
       if (format === "xlsx") {
         const { classeurExcelModele } = await import("@/lib/modeleExcelCabinet");
         const octets = await classeurExcelModele([feuille], { titre, sousTitre, cabinet: cabinet?.nom });
@@ -387,18 +394,34 @@ export function StockSocietePage() {
           </div>
         )}
         {shown.length > 0 && (
-          <div className="px-5 pt-1">
-            <LedgerSegmented
-              value={vue}
-              onChange={setVue}
-              ariaLabel="Présentation des mouvements"
-              options={[{ value: "mouvements", label: "Mouvements" }, { value: "recap", label: "Récapitulatif" }]}
-            />
+          <div className="flex items-center gap-3 px-5 pt-1">
+            <div className="min-w-0 flex-1">
+              <LedgerSegmented
+                value={vue}
+                onChange={setVue}
+                ariaLabel="Présentation des mouvements"
+                options={[{ value: "mouvements", label: "Mouvements" }, { value: "recap", label: "Récapitulatif" }]}
+              />
+            </div>
+            {vue === "recap" && (
+              <button
+                type="button"
+                aria-pressed={prefs.colonnes.douane}
+                onClick={basculerDouane}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  prefs.colonnes.douane ? "border-primary bg-primary/[0.06] text-primary" : "border-border text-muted-foreground hover:bg-accent/10",
+                )}
+              >
+                {prefs.colonnes.douane ? <Eye className="size-3.5" aria-hidden="true" /> : <EyeOff className="size-3.5" aria-hidden="true" />}
+                Douane {prefs.colonnes.douane ? "affichée" : "masquée"}
+              </button>
+            )}
           </div>
         )}
         {shown.length > 0 && vue === "recap" && (
           <div className="mt-3 border-t border-border">
-            <StockRecapSocieteTable base={recapSoc} recap={recapAffiche} filtres={filtresRecap} onFiltres={setFiltresRecap} onOuvrir={(id) => { setVue("mouvements"); setOuvertId(id); }} />
+            <StockRecapSocieteTable douane={prefs.colonnes.douane} base={recapSoc} recap={recapAffiche} filtres={filtresRecap} onFiltres={setFiltresRecap} onOuvrir={(id) => { setVue("mouvements"); setOuvertId(id); }} />
           </div>
         )}
         {shown.length > 0 && vue === "mouvements" && (

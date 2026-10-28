@@ -52,4 +52,26 @@ describe("récapitulatif de société : filtres de colonnes", () => {
     const lignes = screen.getAllByRole("row").slice(2, 4);
     expect(lignes[0].textContent).toContain("POLYMERX");
   });
+
+  it("filtre par condition : « Supérieur(e) à » 15 sur la quantité ne garde que la ligne qui y répond", () => {
+    render(<Hote />);
+    fireEvent.click(screen.getByRole("button", { name: "Filtrer la colonne Quantité (vente)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filtrer par condition" }));
+    fireEvent.change(screen.getByLabelText("Condition"), { target: { value: "sup" } });
+    expect((screen.getByRole("button", { name: "OK" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Valeur"), { target: { value: "15" } });
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    expect(screen.getByRole("status").textContent).toContain("1 filtre de colonne · 1 ligne sur 2");
+    expect(screen.queryByText("EVERTIS")).toBeNull();
+    expect(screen.getByText("POLYMERX")).toBeTruthy();
+  });
+
+  it("la douane n'apparaît que si on l'affiche", () => {
+    const { rerender } = render(<StockRecapSocieteTable base={base} recap={base} filtres={FILTRES_RECAP_VIDES} onFiltres={() => {}} />);
+    expect(screen.queryByText("DOUANE")).toBeNull();
+    expect(screen.getAllByRole("button", { name: /^Filtrer la colonne/ })).toHaveLength(18);
+    rerender(<StockRecapSocieteTable base={base} recap={base} filtres={FILTRES_RECAP_VIDES} onFiltres={() => {}} douane />);
+    expect(screen.getByText("DOUANE")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /^Filtrer la colonne/ })).toHaveLength(23);
+  });
 });

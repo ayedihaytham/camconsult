@@ -21,6 +21,15 @@ export interface CoteRecap {
   present: boolean;
 }
 
+/** Déclaration douanière du mouvement (colonnes facultatives du récapitulatif). */
+export interface DouaneRecap {
+  numDeclaration: string;
+  date: string | null;
+  type: string;
+  tauxChange: number;
+  valeurTnd: number;
+}
+
 export interface LigneRecapSociete {
   rang: number;
   id: string;
@@ -29,12 +38,14 @@ export interface LigneRecapSociete {
   achat: CoteRecap;
   /** Écart de quantité (achat − vente) du mouvement, ramené à l'unité du tableau. */
   ecart: number;
+  douane: DouaneRecap;
 }
 
 export interface TotauxRecapSociete {
   vente: { quantite: number; enDevise: number | null; mtTnd: number };
   achat: { quantite: number; enDevise: number | null; mtTnd: number };
   ecart: number;
+  douaneValeurTnd: number;
 }
 
 export interface RecapSociete {
@@ -61,6 +72,7 @@ export function recapSociete(mouvements: StockMouvement[]): RecapSociete {
     vente: cote(m.venteLignes, m.venteDate, m.venteNumFacture, m.client, m.venteDevise, m.venteCours, unite),
     achat: cote(m.achatLignes, m.achatDate, m.achatNumFacture, m.fournisseur, m.achatDevise, m.achatCours, unite),
     ecart: r3(unite === "T" && m.ecartUnite === "KG" ? m.ecart / 1000 : m.ecart),
+    douane: { numDeclaration: m.douaneNumDeclaration, date: m.douaneDate, type: m.douaneTypeDeclaration, tauxChange: m.douaneTauxChange, valeurTnd: m.douaneValeurTnd },
   }));
   return { lignes, unite, totaux: totauxDe(lignes) };
 }
@@ -77,7 +89,7 @@ export function totauxDe(lignes: LigneRecapSociete[]): TotauxRecapSociete {
       mtTnd: r3(presentes.reduce((s, c) => s + c.mtTnd, 0)),
     };
   };
-  return { vente: total(lignes.map((l) => l.vente)), achat: total(lignes.map((l) => l.achat)), ecart: r3(lignes.reduce((s, l) => s + l.ecart, 0)) };
+  return { vente: total(lignes.map((l) => l.vente)), achat: total(lignes.map((l) => l.achat)), ecart: r3(lignes.reduce((s, l) => s + l.ecart, 0)), douaneValeurTnd: r3(lignes.reduce((s, l) => s + l.douane.valeurTnd, 0)) };
 }
 
 /** « 2025-01-02 » → « 02/01/2025 » (le format que l'Excel du cabinet reconnaît comme date). */
@@ -90,21 +102,24 @@ export const COLONNES_RECAP_SOCIETE = {
   vente: { de: 1, a: 8 },
   ecart: 9,
   achat: { de: 10, a: 18 },
+  douane: { de: 19, a: 23 },
 };
 
-/** Feuille du récapitulatif pour l'Excel et le PDF : en-têtes, une ligne par mouvement, ligne de totaux ; les groupes VENTE et ACHAT sont posés au-dessus des colonnes. */
-export function feuilleRecapSociete(recap: RecapSociete): PdfSheet {
+/** Feuille du récapitulatif pour l'Excel et le PDF : en-têtes, une ligne par mouvement, ligne de totaux ; les groupes VENTE, ACHAT (et DOUANE si elle est affichée) sont posés au-dessus des colonnes. */
+export function feuilleRecapSociete(recap: RecapSociete, options: { douane?: boolean } = {}): PdfSheet {
   const q = recap.unite ? ` (${recap.unite})` : "";
-  const entetes = ["N°", "Date", "N° facture", "Nature", "Client", `Quantité${q}`, "En devise", "Devise", "MT TND", `Écart${q}`, "Date", "N° facture", "Nature", "Fournisseur", `Quantité${q}`, "En devise", "Devise", "Cours", "MT TND"];
+  const douane = options.douane === true;
+  const entetes = ["N°", "Date", "N° facture", "Nature", "Client", `Quantité${q}`, "En devise", "Devise", "MT TND", `Écart${q}`, "Date", "N° facture", "Nature", "Fournisseur", `Quantité${q}`, "En devise", "Devise", "Cours", "MT TND", ...(douane ? ["N° déclaration", "Date", "Type", "Taux de change", "Valeur (TND)"] : [])];
   const nombre = (n: number): PdfCell => n;
   const lignes = recap.lignes.map((l): PdfCell[] => [
     l.rang,
     dateJourMoisAnnee(l.vente.date), l.vente.numFacture, l.vente.present ? l.nature : "", l.vente.tiers, l.vente.present ? nombre(l.vente.quantite) : "", l.vente.present ? nombre(l.vente.enDevise) : "", l.vente.devise, l.vente.present ? nombre(l.vente.mtTnd) : "",
     nombre(l.ecart),
     dateJourMoisAnnee(l.achat.date), l.achat.numFacture, l.achat.present ? l.nature : "", l.achat.tiers, l.achat.present ? nombre(l.achat.quantite) : "", l.achat.present ? nombre(l.achat.enDevise) : "", l.achat.devise, l.achat.cours ? nombre(l.achat.cours) : "", l.achat.present ? nombre(l.achat.mtTnd) : "",
+    ...(douane ? [l.douane.numDeclaration, dateJourMoisAnnee(l.douane.date), l.douane.type, l.douane.tauxChange ? nombre(l.douane.tauxChange) : "", l.douane.valeurTnd ? nombre(l.douane.valeurTnd) : ""] : []),
   ]);
   const t = recap.totaux;
-  const pied: PdfCell[] = ["", "", "", "TOTAL", "", nombre(t.vente.quantite), t.vente.enDevise === null ? "" : nombre(t.vente.enDevise), "", nombre(t.vente.mtTnd), nombre(t.ecart), "", "", "", "", nombre(t.achat.quantite), t.achat.enDevise === null ? "" : nombre(t.achat.enDevise), "", "", nombre(t.achat.mtTnd)];
+  const pied: PdfCell[] = ["", "", "", "TOTAL", "", nombre(t.vente.quantite), t.vente.enDevise === null ? "" : nombre(t.vente.enDevise), "", nombre(t.vente.mtTnd), nombre(t.ecart), "", "", "", "", nombre(t.achat.quantite), t.achat.enDevise === null ? "" : nombre(t.achat.enDevise), "", "", nombre(t.achat.mtTnd), ...(douane ? ["", "", "", "", t.douaneValeurTnd ? nombre(t.douaneValeurTnd) : ""] : [])];
   return {
     name: "Récapitulatif",
     headerRow: true,
@@ -113,6 +128,7 @@ export function feuilleRecapSociete(recap: RecapSociete): PdfSheet {
     groupes: [
       { titre: "VENTE", de: COLONNES_RECAP_SOCIETE.vente.de, a: COLONNES_RECAP_SOCIETE.vente.a },
       { titre: "ACHAT", de: COLONNES_RECAP_SOCIETE.achat.de, a: COLONNES_RECAP_SOCIETE.achat.a },
+      ...(douane ? [{ titre: "DOUANE", de: COLONNES_RECAP_SOCIETE.douane.de, a: COLONNES_RECAP_SOCIETE.douane.a }] : []),
     ],
   };
 }

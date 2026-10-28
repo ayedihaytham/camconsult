@@ -51,6 +51,17 @@ describe("récapitulatif des mouvements d'une société", () => {
     expect(f.totalRows).toBe(1);
   });
 
+  it("avec la douane, la feuille ajoute le groupe DOUANE et sa valeur au total", () => {
+    const m = base("d", { venteNumFacture: "9", client: "X", venteLignes: [ligne(1, "T", 1, 3)], douaneNumDeclaration: "D-100", douaneDate: "2025-03-04", douaneTypeDeclaration: "IM4", douaneTauxChange: 3.2, douaneValeurTnd: 1500 });
+    const f = feuilleRecapSociete(recapSociete([m]), { douane: true });
+    expect(f.rows[0]).toHaveLength(24);
+    expect(f.rows[0].slice(19)).toEqual(["N° déclaration", "Date", "Type", "Taux de change", "Valeur (TND)"]);
+    expect(f.rows[1].slice(19)).toEqual(["D-100", "04/03/2025", "IM4", 3.2, 1500]);
+    expect(f.rows[2][23]).toBe(1500);
+    expect(f.groupes?.at(-1)).toEqual({ titre: "DOUANE", de: 19, a: 23 });
+    expect(feuilleRecapSociete(recapSociete([m])).rows[0]).toHaveLength(19);
+  });
+
   it("une date ISO devient jour/mois/année", () => {
     expect(dateJourMoisAnnee("2025-01-02")).toBe("02/01/2025");
     expect(dateJourMoisAnnee(null)).toBe("");

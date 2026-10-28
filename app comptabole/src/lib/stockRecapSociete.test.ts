@@ -63,7 +63,7 @@ describe("export Excel du récapitulatif", () => {
     const ExcelJS = (await import("exceljs")).default;
     const octets = await classeurExcelModele([feuilleRecapSociete(recapSociete([complet, venteSeule]))], { titre: "Récap", sousTitre: "2 mouvements" });
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(octets);
+    await wb.xlsx.load(Buffer.from(octets) as never);
     const ws = wb.worksheets[0];
     expect(ws.getCell(3, 2).value).toBe("VENTE");
     expect(ws.getCell(3, 11).value).toBe("ACHAT");

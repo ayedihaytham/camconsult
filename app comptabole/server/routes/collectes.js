@@ -722,6 +722,34 @@ collectesRouter.post("/:id/lignes/:onglet/:ligneId/reprendre", async (req, res) 
   res.json({ onglet: req.params.onglet, ligne: collecteLigneDto(rows[0]) });
 });
 
+/** Le cabinet demande à la société la pièce jointe d'une ligne, même complète : la ligne garde la date de la demande (`_piece_demandee`) et la société est prévenue. */
+collectesRouter.post("/:id/lignes/:onglet/:ligneId/demander-piece", async (req, res) => {
+  if (!UUID.test(req.params.ligneId)) return res.status(400).json({ error: "Ligne invalide" });
+  const c = (await query("select * from collectes where id = $1", [req.params.id])).rows[0];
+  if (!c) return res.status(404).json({ error: "Collecte introuvable" });
+  if (estClient(req.session) || !canEdit(req.session, c.societe_id))
+    return res.status(403).json({ error: "Modification non autorisée" });
+  if (await isOngletLocked(req.session, c, req.params.onglet))
+    return res.status(400).json({ error: "Ce tableau est verrouillé" });
+  const ligne = (await query("select * from collecte_lignes where id=$1 and collecte_id=$2 and onglet=$3", [req.params.ligneId, req.params.id, req.params.onglet])).rows[0];
+  if (!ligne) return res.status(404).json({ error: "Ligne introuvable" });
+  if (Object.entries(ligne.data ?? {}).some(([k, v]) => estClePiece(k) && !k.endsWith("_nom") && String(v ?? "").trim() !== ""))
+    return res.status(400).json({ error: "Cette ligne a déjà une pièce jointe" });
+  const { rows } = await query(
+    "update collecte_lignes set data = jsonb_set(data, '{_piece_demandee}', to_jsonb($4::text)) where id=$1 and collecte_id=$2 and onglet=$3 returning *",
+    [req.params.ligneId, req.params.id, req.params.onglet, new Date().toISOString()],
+  );
+  await query("update collectes set maj_le=now() where id=$1", [req.params.id]);
+  const soc = (await query("select raison_sociale from societes where id = $1", [c.societe_id])).rows[0];
+  logAction(req.session.nom, "modification", "collecte", `Pièce demandée — ligne ${rows[0].ordre + 1} du tableau « ${req.params.onglet} » — ${periodeLabel(c.periode)}`, req.params.id);
+  const clients = new Set(
+    (await query("select id from employes where role = 'societe_employe' and societe_id = $1", [c.societe_id])).rows.map((r) => r.id),
+  );
+  const cibles = (await concernedBySociete(c.societe_id, { includeAdmin: false })).filter((k) => clients.has(k));
+  notifyMany(cibles, "collecte", `Pièce demandée : ${soc?.raison_sociale ?? ""} — ${periodeLabel(c.periode)}`, `Le cabinet demande la pièce jointe de la ligne ${rows[0].ordre + 1} (« ${req.params.onglet} »)`, `/collectes/${req.params.id}`);
+  res.json({ onglet: req.params.onglet, ligne: collecteLigneDto(rows[0]) });
+});
+
 // ── Suivi de checklist d'un onglet : commentaire, reçu, date de suivi, total ──────────
 // Seuls les champs présents dans le corps sont modifiés.
 collectesRouter.patch("/:id/sections/:onglet", async (req, res) => {

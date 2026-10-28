@@ -1,5 +1,5 @@
 import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronRight, FilePlus, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Send, Trash2, Undo2, X } from "lucide-react";
+import { BellRing, Check, ChevronRight, FilePlus, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Send, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,8 @@ interface Props {
   parSociete?: boolean;
   /** La société reprend une ligne envoyée par erreur (identifiant de la ligne). */
   onReprendre?: (ligneId: string) => Promise<void>;
+  /** Cabinet : demande à la société la pièce jointe d'une ligne enregistrée, même complète (identifiant de la ligne). */
+  onDemanderPiece?: (ligneId: string) => Promise<void>;
   /** Case précise à reprendre depuis le récap; un tableau vide ouvre sa première ligne de saisie. */
   focusTarget?: { ordre: number | null; col: string | null; revision: number };
   /** Enregistrement explicite du cabinet suivi du récap ; l'auto-enregistrement conserve sa destination. */
@@ -130,6 +132,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   envoiParLignes = false,
   parSociete = false,
   onReprendre,
+  onDemanderPiece,
   focusTarget,
   saveAndContinue,
   continueLabel = "Enregistrer et vérifier",
@@ -144,6 +147,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   };
   const cellRO = (i: number, key: string) => {
     if (readOnly) return true;
+    if (figeeParSociete(i)) return true;
     if (estEntete(i)) return true;
     if (bordereauSeul && colonneDeLigne(key)) return true;
     if (!recapClient || wholeEditable) return false;
@@ -179,15 +183,14 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const [saving, setSaving] = useState(false);
   /** Vrai juste après un enregistrement de la société : les lignes qui partent alors au cabinet sont annoncées (avec « Annuler »). */
   const envoiRecent = useRef(false);
-  const [envoyeesOuvertes, setEnvoyeesOuvertes] = useState(true);
   const [reprise, setReprise] = useState<string | null>(null);
   /** Lignes parties au cabinet lors du dernier enregistrement : « Annuler l'envoi » (ou Ctrl+Z hors d'un champ) les reprend. */
   const [dernierEnvoi, setDernierEnvoi] = useState<string[]>([]);
   const reprendreIdsRef = useRef<(ids: string[]) => Promise<void>>(async () => {});
-  /** Côté société, une ligne envoyée au cabinet ne figure plus dans le tableau : elle est listée à part. */
-  const cachee = (i: number) => parSociete && Boolean(rows[i]?.__envoyeeLe);
+  /** Côté société, une ligne envoyée au cabinet reste dans le tableau (en vert) : ses cases sont figées, seule sa pièce jointe se modifie. */
+  const figeeParSociete = (i: number) => parSociete && Boolean(rows[i]?.__envoyeeLe);
   const envoyees = rows.map((_, i) => i).filter((i) => Boolean(rows[i].__envoyeeLe));
-  const dernierVisible = rows.reduce((d, _, i) => (cachee(i) ? d : i), -1);
+  const dernierVisible = rows.length - 1;
   /** Case de montant en cours de saisie (texte tapé gardé tel quel) ; les autres montants s'affichent à 3 décimales. */
   const [enSaisie, setEnSaisie] = useState<string | null>(null);
   /** Valeur d'une case modifiable : celle de la ligne ; quand elle est vide, celle que le tableau en déduit (ex. équivalent en dinars d'une facture SWIFT). */
@@ -373,7 +376,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
     envoiRecent.current = false;
     const n = parties.length;
     toast.success(`${n} ligne${n > 1 ? "s" : ""} complète${n > 1 ? "s" : ""} envoyée${n > 1 ? "s" : ""} au cabinet`, {
-      description: "Elles ne figurent plus dans ce tableau.",
+      description: "Elles restent visibles en vert ; vous pouvez y joindre une pièce.",
       duration: 12000,
       action: { label: "Annuler", onClick: () => void reprendreIds(parties) },
     });
@@ -381,6 +384,38 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   }
   reprendreIdsRef.current = reprendreIds;
   const reprendre = (i: number) => reprendreIds([String(rows[i]?.__id ?? "")].filter(Boolean));
+  /** Pièce jointe : une ligne envoyée au cabinet a ses cases figées, mais sa pièce reste modifiable tant que le tableau n'est pas verrouillé. */
+  const roPiece = (i: number, ro: boolean) => readOnly || (ro && !figeeParSociete(i));
+  const [demande, setDemande] = useState<string | null>(null);
+  /** Pièce demandée par le cabinet : un repère pour la société ; pour le cabinet, le bouton qui la demande (ou la redemande). */
+  function pieceDemandee(i: number, cle: string) {
+    const quand = rows[i]?._piece_demandee ? new Date(String(rows[i]._piece_demandee)).toLocaleDateString("fr-FR") : null;
+    const id = typeof rows[i]?.__id === "string" ? String(rows[i].__id) : null;
+    if (rows[i]?.[`${cle}_fichier`]) return null;
+    if (parSociete)
+      return quand ? (
+        <span className="rounded p-1 text-warning" title={`Le cabinet demande la pièce jointe de cette ligne (le ${quand})`}>
+          <BellRing className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">Pièce demandée par le cabinet</span>
+        </span>
+      ) : null;
+    if (!onDemanderPiece || !id || readOnly) return null;
+    return (
+      <button
+        type="button"
+        disabled={demande !== null}
+        onClick={() => {
+          setDemande(id);
+          void onDemanderPiece(id).finally(() => setDemande(null));
+        }}
+        className={cn("rounded p-1 hover:bg-warning/10", quand ? "text-warning" : "text-muted-foreground hover:text-foreground")}
+        title={quand ? `Pièce demandée le ${quand} : la redemander à la société` : "Demander la pièce jointe de cette ligne à la société"}
+        aria-label={`Demander la pièce de la ligne ${i + 1} à la société`}
+      >
+        {demande === id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <BellRing className="h-4 w-4" />}
+      </button>
+    );
+  }
   /** Pièce jointe d'une ligne : voir / retirer si un fichier est joint, sinon un trombone pour en joindre un (si la saisie est permise). */
   function boutonsPiece(i: number, cle: string, ro: boolean) {
     return (
@@ -431,6 +466,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 </label>
               )
             )}
+            {pieceDemandee(i, cle)}
       </>
     );
   }
@@ -917,7 +953,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
       {parSociete && envoiParLignes && !readOnly && (
         <p className="text-xs text-muted-foreground">
-          Envoi par lignes : chaque ligne complète part au cabinet à l'enregistrement et quitte ce tableau. Vous pouvez la reprendre en cas d'erreur.
+          Envoi par lignes : chaque ligne complète part au cabinet à l'enregistrement et reste visible en vert ; ses cases sont figées, mais vous pouvez encore y joindre sa pièce. « Reprendre » la remet en saisie en cas d'erreur.
         </p>
       )}
       {!parSociete && envoyees.length > 0 && (
@@ -986,7 +1022,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
               const resume = repli?.premier ? groupes.find((x) => x.id === repli.id) : undefined;
               return (
               <Fragment key={i}>
-              {repli?.premier && resume && !rows.every((r, k) => idLigne(r) !== repli.id || cachee(k)) && (
+              {repli?.premier && resume && true && (
                 <tr data-bordereau={repli.id} data-envoyee={!parSociete && nbEnvoyeesGroupe(repli.id) > 0 ? "" : undefined} className={cn("bg-secondary/40", !parSociete && nbEnvoyeesGroupe(repli.id) > 0 && "bg-success/10")}>
                   <td colSpan={nbCols} className="px-2 py-1.5">
                     <button
@@ -1015,7 +1051,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                   </td>
                 </tr>
               )}
-              {(!repli || repli.ouvert) && !cachee(i) && (
+              {(!repli || repli.ouvert) && (
               <tr
                 data-row={i}
                 data-envoyee={row.__envoyeeLe ? "" : undefined}
@@ -1099,7 +1135,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                             }}
                           />
                           <span className="absolute inset-y-0 right-1 flex items-center gap-0.5">
-                            {boutonsPiece(i, c.key, ro)}
+                            {boutonsPiece(i, c.key, roPiece(i, ro))}
                           </span>
                         </div>
                       ) : (
@@ -1134,12 +1170,24 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 })}
                 {colPiece && (
                   <td className="px-1 py-1 text-center">
-                    <span className="inline-flex items-center justify-center gap-0.5">{boutonsPiece(i, CLE_PIECE, cellRO(i, CLE_PIECE))}</span>
+                    <span className="inline-flex items-center justify-center gap-0.5">{boutonsPiece(i, CLE_PIECE, roPiece(i, cellRO(i, CLE_PIECE)))}</span>
                   </td>
                 )}
                 {!readOnly && (
                   <td className="px-1.5 py-1">
-                    {!structureLocked && !estEntete(i) && !(sansSuppression && i < baseline.current.length) && (
+                    {figeeParSociete(i) && onReprendre && (
+                      <button
+                        type="button"
+                        disabled={reprise !== null}
+                        onClick={() => void reprendre(i)}
+                        className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        title="Reprendre la ligne : elle redevient modifiable (par exemple en cas d'erreur)"
+                        aria-label={`Reprendre la ligne ${numeroLigne(i)}`}
+                      >
+                        <Undo2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {!figeeParSociete(i) && !structureLocked && !estEntete(i) && !(sansSuppression && i < baseline.current.length) && (
                       <button
                         onClick={() => removeRow(i)}
                         className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -1207,73 +1255,6 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
       </div>
 
 
-
-      {parSociete && envoyees.length > 0 && (
-        <section aria-label="Lignes envoyées au cabinet" className="rounded-lg border border-success/30 bg-success/5">
-          <button
-            type="button"
-            aria-expanded={envoyeesOuvertes}
-            onClick={() => setEnvoyeesOuvertes((o) => !o)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-success focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ChevronRight className={cn("size-4 shrink-0 transition-transform", envoyeesOuvertes && "rotate-90")} aria-hidden="true" />
-            <Check className="size-4 shrink-0" aria-hidden="true" />
-            Lignes envoyées au cabinet ({envoyees.length})
-            <span className="ml-auto text-xs font-normal text-muted-foreground">{envoyeesOuvertes ? "Masquer" : "Voir"}</span>
-          </button>
-          {envoyeesOuvertes && (
-            <div className="overflow-x-auto border-t border-success/30">
-              <table className="w-full text-xs">
-                <thead className="text-left text-muted-foreground">
-                  <tr>
-                    <th className="px-2 py-1.5 font-medium">#</th>
-                    {def.columns.map((c) => (
-                      <th key={c.key} className="px-2 py-1.5 font-medium">{c.label}</th>
-                    ))}
-                    {(onJoindre || onVoirPiece) && <th className="px-2 py-1.5 font-medium">Pièce</th>}
-                    <th className="px-2 py-1.5" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-success/20">
-                  {envoyees.map((i) => (
-                    <tr key={String(rows[i].__id ?? i)} data-envoyee-ligne={i}>
-                      <td className="px-2 py-1.5 text-muted-foreground">{numeroLigne(i)}</td>
-                      {def.columns.map((c) => (
-                        <td key={c.key} className="px-2 py-1.5 tabular-nums">
-                          {c.type === "number" && estColonneMontant(c.key) ? montantAffiche(derived[i]?.[c.key]) : String(derived[i]?.[c.key] ?? "")}
-                        </td>
-                      ))}
-                      {(onJoindre || onVoirPiece) && (
-                        <td className="px-2 py-1" data-piece-envoyee={i}>
-                          <span className="inline-flex items-center gap-0.5">{boutonsPiece(i, def.columns.find((c) => c.piece)?.key ?? CLE_PIECE, readOnly)}</span>
-                        </td>
-                      )}
-                      <td className="px-2 py-1 text-right">
-                        {!readOnly && onReprendre && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            disabled={reprise !== null}
-                            aria-label={`Reprendre la ligne ${numeroLigne(i)}`}
-                            onClick={() => void reprendre(i)}
-                          >
-                            Reprendre
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="border-t border-success/20 px-3 py-1.5 text-[11px] text-muted-foreground">
-                Ces lignes sont chez le cabinet et ne se modifient plus ici, sauf leur pièce jointe : joignez-la ou remplacez-la, puis « Enregistrer ». « Reprendre » remet une ligne dans votre tableau, par exemple en cas d'erreur.
-              </p>
-            </div>
-          )}
-        </section>
-      )}
 
       {canAdd && TABLEAUX_GRAND_LIVRE[def.key] && (
         <ImportDocumentDialog open={importOpen} onOpenChange={setImportOpen} def={def} devise={devise} existantes={rows} onAjouter={addRows} />

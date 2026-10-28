@@ -23,11 +23,13 @@ describe("Signature Ledger presentation", () => {
       />,
     );
 
+    // Le titre est celui de la barre du haut (texte réservé aux lecteurs d'écran) ; les chiffres forment une rangée discrète.
     expect(html).toContain("Collecte de pièces");
-    expect(html).toContain("module-banner__title");
+    expect(html).toContain("sr-only");
     expect(html.match(/<dt>/g)).toHaveLength(3);
-    expect(html).toContain("module-banner__metric--destructive");
-    expect(html).not.toContain("module-banner__create");
+    expect(html).toContain("page-head-figs");
+    expect(html).toContain("text-destructive");
+    expect(html).not.toContain("bg-accent");
   });
 
   it("uses a compact scope treatment without a lower metric band", () => {
@@ -43,9 +45,8 @@ describe("Signature Ledger presentation", () => {
       />,
     );
 
-    expect(html).toContain("signature-ledger--compact");
-    expect(html).toContain("module-banner__context");
-    expect(html).not.toContain("module-banner__metrics");
+    expect(html).toContain("Grille AFFECTAT");
+    expect(html).not.toContain("page-head-figs");
   });
 
   it("keeps the mobile create affordance icon-only with an accessible name", () => {

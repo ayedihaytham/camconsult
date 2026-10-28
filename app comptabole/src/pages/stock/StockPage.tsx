@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown, Boxes, Coins, Search } from "lucide-react";
-import { LedgerCompactHeader } from "@/components/ledger/LedgerCompactHeader";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { EmptyState } from "@/components/common/EmptyState";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { useData, useSocietes } from "@/store/data";
 import { useStock, type SyntheseStock } from "@/store/stock";
-import { Input } from "@/components/ui/input";
 import { cn, initials } from "@/lib/utils";
 import "./stock-page.css";
 import type { Societe } from "@/types";
@@ -115,19 +114,11 @@ export function StockPage() {
 
   return (
     <div className="stock-page flex flex-1 flex-col gap-3">
-      <LedgerCompactHeader
-        eyebrow="Clients & travail · Stock"
+      <PageHeaderBar
         title="Gestion de stock"
-        metrics={[
-          { label: total > 1 ? "Mouvements au total" : "Mouvement au total", value: total },
-          { label: coursManquants > 1 ? "Cours manquants" : "Cours manquant", value: coursManquants },
-          { label: alertes > 1 ? "Alertes stock" : "Alerte stock", value: alertes },
-        ]}
+        description="Mouvements d'achat, de vente et de douane de toutes vos sociétés"
         actions={
-          <Link
-            to="/cours-change"
-            className="inline-flex min-h-10 items-center gap-2 rounded-md border border-accent/60 px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/10"
-          >
+          <Link to="/cours-change">
             <Coins className="size-4" aria-hidden="true" />
             Cours de change
           </Link>
@@ -143,57 +134,68 @@ export function StockPage() {
           />
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-border px-4 py-3">
-              <label className="relative block min-w-[220px] max-w-sm flex-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/80 px-3 py-2">
+              <label className="flex h-10 min-w-[14rem] flex-1 items-center gap-2 rounded-[10px] border border-border bg-muted/40 px-3 focus-within:ring-2 focus-within:ring-ring">
                 <span className="sr-only">Rechercher une société</span>
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <Input type="search" value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher une société ou un matricule…" className="h-9 bg-card pl-9 text-sm" />
+                <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <input type="search" value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher une société ou un matricule…" className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
               </label>
-              <div role="group" aria-label="Filtrer les sociétés" className="inline-flex overflow-hidden rounded-md border border-border">
+              <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground" aria-live="polite">{affichees.length} société{affichees.length > 1 ? "s" : ""}</span>
+            </div>
+            <div data-tour="stock-summary" className="flex flex-wrap items-stretch gap-x-0.5 border-b border-border/80 bg-muted/20 px-3">
+              <div role="group" aria-label="Filtrer les sociétés" className="flex flex-wrap items-stretch">
                 {([["toutes", "Toutes", societes.length], ["avec", "Avec mouvements", nbAvec], ["sans", "Sans mouvement", societes.length - nbAvec]] as const).map(([valeur, nom, n]) => (
                   <button
                     key={valeur}
                     type="button"
                     aria-pressed={filtre === valeur}
                     onClick={() => setFiltre(valeur)}
-                    className={cn("inline-flex h-8 items-center gap-1.5 border-r border-border px-3 text-[0.8125rem] font-medium last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted")}
+                    className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded after:bg-primary" : "text-muted-foreground")}
                   >
-                    {nom} <span className="tabular-nums">{n}</span>
+                    <b className={cn("text-xl font-bold leading-none tabular-nums tracking-tight", n === 0 ? "text-muted-foreground/50" : "text-primary")}>{n}</b>
+                    {nom}
                   </button>
                 ))}
               </div>
-              <span className="ml-auto text-[0.8125rem] text-muted-foreground" aria-live="polite">{affichees.length} société{affichees.length > 1 ? "s" : ""}</span>
+              <dl className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5">
+                {([[total > 1 ? "Mouvements" : "Mouvement", total, "text-primary"], [coursManquants > 1 ? "Cours manquants" : "Cours manquant", coursManquants, coursManquants > 0 ? "text-warning" : "text-muted-foreground/60"], [alertes > 1 ? "Alertes stock" : "Alerte stock", alertes, alertes > 0 ? "text-destructive" : "text-muted-foreground/60"]] as const).map(([libelle, valeur, ton]) => (
+                  <div key={libelle} className="flex flex-col border-l border-border/80 pl-4 leading-tight">
+                    <dt className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{libelle}</dt>
+                    <dd className={cn("m-0 text-sm font-bold tabular-nums", ton)}>{valeur}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[960px] table-fixed border-collapse text-[0.8125rem] tabular-nums">
                 <caption className="sr-only">Stock par société</caption>
                 <colgroup>{LARGEURS.map((l, i) => <col key={i} style={{ width: `${l}%` }} />)}</colgroup>
-                <thead>
+                <thead className="bg-primary text-primary-foreground">
                   <tr>
                     {([["societe", "Société", "left"], ["mouvements", "Mouvements", "right"], ["valeur", "Valeur du stock", "right"], ["dernier", "Dernier mouvement", "left"], ["cours", "Cours de change", "center"]] as const).map(([colonne, titre, align]) => (
                       <th
                         key={colonne}
                         scope="col"
                         aria-sort={tri === colonne ? (sens === 1 ? "ascending" : "descending") : undefined}
-                        className="sticky top-0 border-b-2 border-r border-primary border-r-border bg-muted px-4 py-2.5 text-left text-xs font-semibold text-foreground/80"
+                        className="sticky top-0 border-b border-primary-foreground/20 px-4 py-2.5 text-left text-xs font-semibold"
                       >
-                        <button type="button" onClick={() => trier(colonne)} className={cn("flex w-full items-center gap-1.5 rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", align === "right" && "justify-end", align === "center" && "justify-center")}>
+                        <button type="button" onClick={() => trier(colonne)} className={cn("flex w-full items-center gap-1.5 rounded-sm hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent", align === "right" && "justify-end", align === "center" && "justify-center")}>
                           {titre}
-                          {tri === colonne ? (sens === 1 ? <ArrowUp className="size-3 text-primary" aria-hidden="true" /> : <ArrowDown className="size-3 text-primary" aria-hidden="true" />) : <ArrowUpDown className="size-3 opacity-35" aria-hidden="true" />}
+                          {tri === colonne ? (sens === 1 ? <ArrowUp className="size-3 text-accent" aria-hidden="true" /> : <ArrowDown className="size-3 text-accent" aria-hidden="true" />) : <ArrowUpDown className="size-3 opacity-35" aria-hidden="true" />}
                         </button>
                       </th>
                     ))}
-                    <th scope="col" className="sticky top-0 border-b-2 border-primary bg-muted px-4 py-2.5"><span className="sr-only">Action</span></th>
+                    <th scope="col" className="sticky top-0 border-b border-primary-foreground/20 px-4 py-2.5"><span className="sr-only">Action</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {affichees.map((s) => {
+                  {affichees.map((s, index) => {
                     const ligne = synthese[s.id];
                     const cours = etatCours(ligne);
                     const actif = (ligne?.mouvements ?? 0) > 0;
-                    const cellule = "h-[58px] border-b border-r border-border/70 px-4 py-2.5 align-middle";
+                    const cellule = "h-[58px] border-b border-border/70 px-4 py-2.5 align-middle";
                     return (
-                      <tr key={s.id} onClick={() => navigate(`/stock/${s.id}`)} className="cursor-pointer hover:bg-muted/40">
+                      <tr key={s.id} onClick={() => navigate(`/stock/${s.id}`)} className={cn("cursor-pointer hover:bg-accent/10", index % 2 === 1 && "bg-muted/40")}>
                         <td className={cellule}>
                           <div className="flex min-w-0 items-center gap-3">
                             <span aria-hidden="true" className={cn("grid size-8 shrink-0 place-items-center rounded-md text-[0.72rem] font-semibold", actif ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>{initials(s.raisonSociale)}</span>
@@ -239,7 +241,7 @@ export function StockPage() {
                   )}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-primary bg-muted/50 font-semibold text-primary">
+                  <tr className="border-t-2 border-primary/40 bg-primary/10 font-semibold text-primary">
                     <td className="px-4 py-2.5">Total</td>
                     <td className="px-4 py-2.5 text-right">{affichees.reduce((n, x) => n + (synthese[x.id]?.mouvements ?? 0), 0)}</td>
                     <td className="px-4 py-2.5 text-right font-medium text-muted-foreground">{(() => { const v = affichees.reduce((n, x) => n + (synthese[x.id]?.valeur ?? 0), 0); return v > 0 ? montant(v) : "—"; })()}</td>

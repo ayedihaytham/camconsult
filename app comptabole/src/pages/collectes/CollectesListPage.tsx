@@ -4,8 +4,7 @@ import { useEtatSwift } from "@/store/etatSwift";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
-import { LedgerCompactHeader } from "@/components/ledger/LedgerCompactHeader";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -176,15 +175,11 @@ export function CollectesListPage() {
 
   return (
     <div className={`flex min-w-0 flex-1 flex-col ${canCreate ? "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0" : ""}`}>
-      <LedgerCompactHeader
-        className="mb-3 operational-signature-banner"
-        eyebrow="Clients & travail"
+      <PageHeaderBar
         title="Collecte de pièces"
-        actions={canCreate && (
-          <Button data-tour="page-primary-action" type="button" variant="outline" className="module-banner__create" onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" aria-hidden="true" /> Nouvelle collecte
-          </Button>
-        )}
+        description="Suivi des pièces à collecter auprès de vos clients, tableau par tableau"
+        actionsSurPetitEcran={false}
+        action={canCreate ? { label: "Nouvelle collecte", onClick: () => setCreateOpen(true) } : undefined}
         metrics={[
           ...(isCabinet ? [{ label: "À examiner", value: collectionSummary.aExaminer, loading }] : []),
           { label: "Chez le client", value: counts.chezClient, loading },

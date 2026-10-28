@@ -890,7 +890,7 @@ describe("Collecte : envoi par lignes pour le responsable / délégué de socié
     await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
   }
 
-  it("tableau ouvert : les lignes complètes partent à l'enregistrement, disparaissent du tableau, avec « Annuler l'envoi » et les lignes listées à part", async () => {
+  it("tableau ouvert : les lignes complètes partent à l'enregistrement, restent visibles en vert, avec « Annuler l'envoi »", async () => {
     collecte.sections = [section("brouillon")];
     collecte.lignes = [ligne("l1", 0, complete(1)), ligne("l2", 1, { ...complete(2), num_cheque: "" })];
     const { refresh } = renderPage();
@@ -899,9 +899,8 @@ describe("Collecte : envoi par lignes pour le responsable / délégué de socié
     await completerEtEnregistrer();
     const envoyees = saveLignes.mock.calls[0][2] as { id?: string; envoyee?: boolean }[];
     expect(envoyees.map((l) => [l.id, l.envoyee])).toEqual([["l1", true], ["l2", true]]);
-    await waitFor(() => expect(document.querySelectorAll("tbody tr[data-row]")).toHaveLength(0));
-    expect(screen.getByRole("button", { name: /Lignes envoyées au cabinet \(2\)/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Annuler l'envoi (2)" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Annuler l'envoi (2)" })).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /Lignes envoyées au cabinet/ })).toBeNull();
   });
 
   it("tableau complété à la demande du cabinet (cases « ? ») : une ligne devenue complète part aussi", async () => {
@@ -913,7 +912,7 @@ describe("Collecte : envoi par lignes pour le responsable / délégué de socié
     await completerEtEnregistrer();
     const envoyees = saveLignes.mock.calls[0][2] as { id?: string; envoyee?: boolean }[];
     expect(envoyees.map((l) => [l.id, l.envoyee])).toEqual([["l1", true], ["l2", true]]);
-    await waitFor(() => expect(document.querySelectorAll("tbody tr[data-row]")).toHaveLength(0));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Annuler l'envoi (2)" })).toBeTruthy());
   });
 
   it("des lignes complètes déjà enregistrées (avant l'activation de l'option) s'envoient d'un clic, sans rien modifier", async () => {

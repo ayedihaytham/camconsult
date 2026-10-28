@@ -89,6 +89,7 @@ export function CollecteEditorPage() {
   const setStatut = useCollectes((s) => s.setStatut);
   const saveLignes = useCollectes((s) => s.saveLignes);
   const reprendreLigne = useCollectes((s) => s.reprendreLigne);
+  const demanderPieceLigne = useCollectes((s) => s.demanderPieceLigne);
   const saveComment = useCollectes((s) => s.saveComment);
   const saveSuivi = useCollectes((s) => s.saveSuivi);
   const marquerRecu = useCollectes((s) => s.marquerRecu);
@@ -834,6 +835,7 @@ export function CollecteEditorPage() {
                           parSociete={isClient}
                           envoiParLignes={Boolean(collecte.envoiParLignes)}
                           onReprendre={(ligneId) => reprendreLigne(id, key, ligneId)}
+                          onDemanderPiece={isClient ? undefined : (ligneId) => demanderPieceLigne(id, key, ligneId)}
                           recapClient={inRecap}
                           highlight={hl}
                           wholeEditable={inRecap && whole}

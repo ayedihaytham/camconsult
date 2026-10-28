@@ -625,7 +625,7 @@ describe("CollecteGrid : envoi par lignes", () => {
     expect(onSave).toHaveBeenCalledWith([{ id: "a", data: expect.objectContaining({ reference: "VIR-9" }), ordre: 0 }]);
   });
 
-  it("société : une ligne envoyée quitte le tableau, est listée à part et repart telle quelle à l'enregistrement", async () => {
+  it("société : une ligne envoyée reste dans le tableau, en vert et figée, et repart telle quelle à l'enregistrement", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const ref = createRef<CollecteGridHandle>();
     render(
@@ -640,9 +640,12 @@ describe("CollecteGrid : envoi par lignes", () => {
         parSociete
       />,
     );
-    expect(lignes()).toHaveLength(1); // la ligne 2 seulement
-    expect(lignes()[0].dataset.row).toBe("1");
-    saisir("reference", "VIR-2");
+    expect(lignes()).toHaveLength(2);
+    expect(lignes()[0].hasAttribute("data-envoyee")).toBe(true);
+    expect(lignes()[0].className).toContain("bg-success/10");
+    expect(champs(lignes()[0]).every((c) => c.readOnly)).toBe(true);
+    expect(within(lignes()[0]).queryByTitle("Supprimer la ligne")).toBeNull();
+    fireEvent.change(champs(lignes()[1]).find((c) => c.dataset.col === "reference") as HTMLInputElement, { target: { value: "VIR-2" } });
     await act(async () => ref.current?.save());
     expect(onSave).toHaveBeenCalledWith([
       { id: "a", data: COMPLETE, ordre: 0 },
@@ -650,15 +653,16 @@ describe("CollecteGrid : envoi par lignes", () => {
     ]);
   });
 
-  it("société : « Reprendre » remet la ligne envoyée dans le tableau", async () => {
+  it("société : « Reprendre » rend la ligne envoyée modifiable", async () => {
     const onReprendre = vi.fn().mockResolvedValue(undefined);
-    render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes parSociete onReprendre={onReprendre} />);
-    expect(lignes()).toHaveLength(0);
-    expect(screen.getByText(/Toutes les lignes ont été envoyées au cabinet/)).toBeTruthy();
+    const { rerender } = render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes parSociete onReprendre={onReprendre} />);
+    expect(lignes()).toHaveLength(1);
+    expect(champs(lignes()[0]).every((c) => c.readOnly)).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Reprendre la ligne 1" }));
     await waitFor(() => expect(onReprendre).toHaveBeenCalledWith("a"));
-    await waitFor(() => expect(lignes()).toHaveLength(1));
-    expect(screen.queryByRole("button", { name: /Lignes envoyées au cabinet/ })).toBeNull();
+    rerender(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {})]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes parSociete onReprendre={onReprendre} />);
+    await waitFor(() => expect(lignes()[0].hasAttribute("data-envoyee")).toBe(false));
+    expect(champs(lignes()[0]).some((c) => !c.readOnly)).toBe(true);
   });
 
   it("société : après l'enregistrement, un « Annuler » d'un pas reprend les lignes qui viennent de partir", async () => {
@@ -678,16 +682,29 @@ describe("CollecteGrid : envoi par lignes", () => {
     succes.mockRestore();
   });
 
-  it("société : une ligne envoyée garde une colonne Pièce : on peut y joindre un fichier, et l'enregistrement ne change que la pièce", async () => {
+  it("société : on peut joindre un fichier à une ligne envoyée, et l'enregistrement ne change que la pièce", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const onJoindre = vi.fn().mockResolvedValue({ id: "f7", nom: "avis.pdf" });
     const ref = createRef<CollecteGridHandle>();
     render(<CollecteGrid ref={ref} def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={onSave} envoiParLignes parSociete onJoindre={onJoindre} onVoirPiece={vi.fn()} onReprendre={vi.fn()} />);
-    expect(lignes()).toHaveLength(0);
+    expect(lignes()).toHaveLength(1);
     fireEvent.change(screen.getByLabelText("Joindre un fichier à la ligne 1"), { target: { files: [new File(["%PDF"], "avis.pdf", { type: "application/pdf" })] } });
     await waitFor(() => expect(screen.getByLabelText("Voir la pièce jointe de la ligne 1")).toBeTruthy());
     await act(async () => ref.current?.save());
     expect(onSave).toHaveBeenCalledWith([{ id: "a", data: { ...COMPLETE, _piece_fichier: "f7", _piece_fichier_nom: "avis.pdf" }, ordre: 0 }]);
+  });
+
+  it("cabinet : demande la pièce d'une ligne (même complète, même envoyée) ; la société voit la demande tant que la pièce manque", async () => {
+    const onDemanderPiece = vi.fn().mockResolvedValue(undefined);
+    const { unmount } = render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, {}, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes onJoindre={vi.fn()} onVoirPiece={vi.fn()} onDemanderPiece={onDemanderPiece} />);
+    fireEvent.click(screen.getByRole("button", { name: "Demander la pièce de la ligne 1 à la société" }));
+    await waitFor(() => expect(onDemanderPiece).toHaveBeenCalledWith("a"));
+    unmount();
+    render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, { _piece_demandee: "2026-10-21T08:00:00Z" }, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes parSociete onJoindre={vi.fn()} onVoirPiece={vi.fn()} />);
+    expect(screen.getByText("Pièce demandée par le cabinet")).toBeTruthy();
+    cleanup();
+    render(<CollecteGrid def={TAB_BY_KEY.virements_recus} lignes={[ligneEnvoi("a", 0, { _piece_demandee: "2026-10-21T08:00:00Z", _piece_fichier: "f1", _piece_fichier_nom: "a.pdf" }, "2026-10-20T10:00:00Z")]} readOnly={false} devise="TND" onSave={vi.fn()} envoiParLignes parSociete onJoindre={vi.fn()} onVoirPiece={vi.fn()} />);
+    expect(screen.queryByText("Pièce demandée par le cabinet")).toBeNull();
   });
 
   it("société : la pièce d'une ligne envoyée se voit, et se joint seulement si le tableau n'est pas verrouillé", () => {

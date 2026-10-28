@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
-import { Plus, type LucideIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { LedgerCompactHeader } from "./LedgerCompactHeader";
+import type { LucideIcon } from "lucide-react";
+import { PageHeaderBar } from "./PageHeaderBar";
 
 export interface SignatureLedgerMetric {
   label: string;
@@ -31,46 +29,20 @@ interface SignatureLedgerBannerProps {
   className?: string;
 }
 
-/** Shared visual grammar only; the page supplies scoped metrics and permissions. */
-export function SignatureLedgerBanner({
-  eyebrow,
-  title,
-  description,
-  metrics,
-  contextLabel,
-  action,
-  actions,
-  variant = "registry",
-  titleId,
-  className,
-}: SignatureLedgerBannerProps) {
+/**
+ * En-tête commun des pages de module. Le titre est celui de la barre du haut ; la description et les boutons d'action s'y placent aussi ;
+ * les chiffres forment une rangée discrète en haut de la page (voir PageHeaderBar). La page fournit ses chiffres et ses droits.
+ */
+export function SignatureLedgerBanner({ title, description, metrics, contextLabel, action, actions, variant = "registry", titleId, className }: SignatureLedgerBannerProps) {
   return (
-    <LedgerCompactHeader
-      className={cn(
-        "signature-ledger",
-        variant === "process" && "signature-ledger--process",
-        variant === "compact" && "signature-ledger--compact",
-        className,
-      )}
+    <PageHeaderBar
+      className={className}
       titleId={titleId}
-      eyebrow={eyebrow}
       title={title}
-      description={description}
-      contextLabel={contextLabel}
+      description={[contextLabel, description].filter(Boolean).join(" · ")}
       metrics={variant === "compact" ? [] : metrics}
-      actions={actions ?? (action && (
-          <Button
-            data-tour="page-primary-action"
-            type="button"
-            variant="outline"
-            size="sm"
-            className="module-banner__create"
-            onClick={action.onClick}
-          >
-            <Plus className="size-4" aria-hidden="true" />
-            {action.label}
-          </Button>
-        ))}
+      actions={actions}
+      action={actions ? undefined : action}
     />
   );
 }

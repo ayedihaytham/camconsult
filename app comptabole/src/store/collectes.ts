@@ -84,6 +84,8 @@ interface CollectesState {
   ) => Promise<void>;
   /** La société reprend une ligne envoyée au cabinet par erreur : elle redevient modifiable. */
   reprendreLigne: (id: string, onglet: string, ligneId: string) => Promise<void>;
+  /** Le cabinet demande à la société la pièce jointe d'une ligne (même complète) ; la société est prévenue. */
+  demanderPieceLigne: (id: string, onglet: string, ligneId: string) => Promise<void>;
   saveComment: (id: string, onglet: string, commentaire: string) => Promise<void>;
   /** Suivi de checklist d'une pièce : reçue à la main, date de suivi, total saisi (seuls les champs fournis changent). */
   saveSuivi: (
@@ -245,6 +247,19 @@ export const useCollectes = create<CollectesState>((set, get) => ({
         if (st.current?.id !== id) return {};
         return { current: { ...st.current, lignes: st.current.lignes.map((l) => (l.id === ligne.id ? ligne : l)) } };
       });
+    } catch (e) {
+      fail(e);
+    }
+  },
+
+  demanderPieceLigne: async (id, onglet, ligneId) => {
+    try {
+      const { ligne } = await api.post<{ onglet: string; ligne: CollecteLigne }>(`/collectes/${id}/lignes/${onglet}/${ligneId}/demander-piece`, {});
+      set((st) => {
+        if (st.current?.id !== id) return {};
+        return { current: { ...st.current, lignes: st.current.lignes.map((l) => (l.id === ligne.id ? ligne : l)) } };
+      });
+      toast.success("Pièce demandée à la société");
     } catch (e) {
       fail(e);
     }

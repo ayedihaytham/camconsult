@@ -58,6 +58,13 @@ l'angle haut gauche est arrondi (22px, à partir de 1024px) et qui porte un file
   **pastille blanche** (icône et point dorés) ; la page parente d'un sous-menu reste sur le fond marine et sa sous-page porte la pastille.
   Messagerie garde sa pastille de messages non lus en or. Raccourcis : Ctrl K (aller à…) et Ctrl B (réduire).
 
+- **En-tête des pages de module** (`PageHeaderBar`, repris par `SignatureLedgerBanner`) : plus de bandeau marine ni de tuiles. Le titre est celui de la
+  barre du haut (fil d'Ariane ; un `h1` réservé aux lecteurs d'écran reste dans la page), la **description** s'affiche à côté (à partir de 1700 px) et les
+  **boutons d'action** se placent à droite de la barre (`TopbarSlot`, à partir de lg ; contour sur fond marine, or pour le bouton principal `action`). Sur
+  petit écran les boutons restent dans la page. Les chiffres deviennent une **rangée discrète** en tête de page (cliquables quand ils filtrent). Le stock
+  d'une société et la liste des sociétés du stock ont leur propre barre d'outils : recherche large + « Filtres », bascule en pastille, chiffres par
+  situation qui servent de filtres.
+
 ## Typography and icons
 
 Use the existing modern sans/grotesk voice—Inter or the established neutral UI

@@ -64,18 +64,14 @@ describe("global AFFECTAT mapping safeguards", () => {
     render(<GrilleAffectatPage />);
 
     const banner = screen.getByRole("banner");
-    expect(banner.className).toContain("signature-ledger");
-    expect(banner.textContent).toContain(
-      "Paramétrage cabinet · Référentiel global",
-    );
+    expect(banner.className).toContain("page-head");
     expect(banner.textContent).toContain("Grille AFFECTAT");
+    // Sans barre du haut (page affichée seule), la description reste dans la page, précédée du contexte.
+    expect(banner.textContent).toContain("Référentiel global du cabinet");
     expect(banner.textContent).toContain(
       "Référentiel global de reclassement du cabinet, appliqué aux sociétés autorisées.",
     );
-    expect(banner.className).toContain("signature-ledger--compact");
-    expect(banner.querySelector(".module-banner__context")?.textContent)
-      .toBe("Référentiel global du cabinet");
-    expect(banner.querySelector(".module-banner__metrics")).toBeNull();
+    expect(banner.querySelector(".page-head-figs")).toBeNull();
     expect(banner.textContent).not.toContain("Sociétés accessibles");
   });
 

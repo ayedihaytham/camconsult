@@ -1,0 +1,28 @@
+/* En-tête commun des pages de module : boutons dans la barre du haut, chiffres en rangée discrète. */
+.page-head { min-width: 0; }
+.page-head:not(:has(.page-head-figs, .page-head-actions--inline)) { display: contents; }
+
+.page-head-figs { display: flex; min-width: 0; flex-wrap: wrap; margin: 0 0 16px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); overflow: hidden; }
+.page-head-fig { position: relative; display: flex; min-width: 0; align-items: baseline; gap: 8px; padding: 12px 20px; border-left: 1px solid hsl(var(--border) / .7); }
+.page-head-fig:first-child { border-left: 0; }
+.page-head-fig dt { order: 2; font-size: 12.5px; color: hsl(var(--muted-foreground)); overflow-wrap: anywhere; }
+.page-head-fig dd { order: 1; margin: 0; font-size: 20px; font-weight: 700; line-height: 1.2; letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.page-head-fig dd.page-head-fig__detail { font-size: 14px; font-weight: 600; letter-spacing: 0; }
+.page-head-fig--interactive { cursor: pointer; transition: background-color .12s; }
+.page-head-fig--interactive:hover { background: hsl(var(--muted) / .5); }
+.page-head-fig--interactive:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; }
+.page-head-fig--interactive[aria-pressed="true"] dt { color: hsl(var(--foreground)); font-weight: 600; }
+.page-head-fig--interactive[aria-pressed="true"]::after { content: ""; position: absolute; left: 20px; right: 20px; bottom: 0; height: 2px; border-radius: 2px; background: hsl(var(--primary)); }
+
+.page-head-actions { display: flex; min-width: 0; max-width: 100%; align-items: center; gap: 8px; }
+/* Dans la barre du haut (fond marine) : boutons en contour, sauf ceux déjà en or. */
+.page-head-actions--bar :is(button, a):not([class*="bg-accent"]) {
+  display: inline-flex; height: 36px; min-height: 36px; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid hsl(var(--primary-foreground) / .25); border-radius: 8px;
+  background: transparent; color: hsl(var(--primary-foreground)); font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap; box-shadow: none;
+}
+.page-head-actions--bar :is(button, a):not([class*="bg-accent"]):hover { background: hsl(var(--primary-foreground) / .1); color: hsl(var(--primary-foreground)); }
+.page-head-actions--bar :is(button, a)[class*="bg-accent"] { height: 36px; min-height: 36px; padding: 0 14px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+/* Sur petit écran : les boutons restent dans la page. */
+.page-head-actions--inline { flex-wrap: wrap; justify-content: flex-end; margin: 0 0 12px; }
+/* Lien sans style propre (ex. « Cours de change ») : même aspect qu'un bouton en contour. */
+.page-head-actions--inline :where(a:not([class])) { display: inline-flex; min-height: 40px; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--card)); color: hsl(var(--foreground)); font-size: 13px; font-weight: 600; }

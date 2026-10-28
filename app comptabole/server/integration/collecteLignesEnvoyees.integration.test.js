@@ -148,6 +148,39 @@ describe.skipIf(!actif)("intégration PostgreSQL : envoi par lignes d'une collec
     });
   });
 
+  describe("demander la pièce d'une ligne", () => {
+    it("le cabinet demande la pièce d'une ligne, même complète et envoyée : la ligne garde la date de la demande, la société est prévenue et peut y répondre", async () => {
+      const c = await collecte(true);
+      const url = `/api/collectes/${c.id}/lignes/${ONGLET}`;
+      const premier = await client("PUT", url, { lignes: [ligne(1, { envoyee: true })] });
+      const figee = premier.json.lignes[0];
+      const demande = await admin("POST", `${url}/${figee.id}/demander-piece`, {});
+      expect(demande.status, demande.texte).toBe(200);
+      expect(demande.json.ligne.data._piece_demandee).toBeTruthy();
+      expect(demande.json.ligne.envoyeeLe).toBeTruthy(); // la ligne reste envoyée et visible
+      expect(demande.json.ligne.data.montant).toBe(figee.data.montant);
+      await vi.waitFor(async () => {
+        expect((await sql.query("select count(*)::int n from notifications where titre like 'Pièce demandée%'")).rows[0].n).toBeGreaterThanOrEqual(1);
+      }, { timeout: 5000, interval: 100 });
+      // la ligne porte la demande ; la société peut joindre sa pièce : la ligne revient telle quelle avec sa demande
+      const vue = (await lire(c.id)).find((l) => l.id === figee.id);
+      expect(vue.data._piece_demandee).toBeTruthy();
+      const reponse = await client("PUT", url, { lignes: [{ id: figee.id, data: { ...vue.data, _piece_fichier: "f1", _piece_fichier_nom: "avis.pdf" } }] });
+      expect(reponse.status, reponse.texte).toBe(200);
+      expect(reponse.json.lignes[0].data).toMatchObject({ _piece_fichier: "f1", _piece_demandee: vue.data._piece_demandee });
+      // une pièce est jointe : plus rien à demander
+      expect((await admin("POST", `${url}/${figee.id}/demander-piece`, {})).status).toBe(400);
+    });
+
+    it("la société ne peut pas demander de pièce, et une ligne inconnue est refusée", async () => {
+      const c = await collecte(true);
+      const url = `/api/collectes/${c.id}/lignes/${ONGLET}`;
+      const premier = await client("PUT", url, { lignes: [ligne(1)] });
+      expect((await client("POST", `${url}/${premier.json.lignes[0].id}/demander-piece`, {})).status).toBe(403);
+      expect((await admin("POST", `${url}/00000000-0000-4000-8000-000000000000/demander-piece`, {})).status).toBe(404);
+    });
+  });
+
   describe("reprendre une ligne", () => {
     it("la société reprend une ligne envoyée par erreur : elle redevient modifiable, et le cabinet ne la voit plus en vert", async () => {
       const c = await collecte(true);

@@ -7,8 +7,8 @@ import { dateJourMoisAnnee, type CoteRecap, type RecapSociete } from "@/lib/stoc
  * Ventes à gauche, écart au milieu, achats à droite ; ce qui s'affiche ici est exactement ce que contiennent l'Excel et le PDF.
  */
 
-const th = "whitespace-nowrap border-b border-primary-foreground/20 px-2.5 py-2 text-xs font-semibold";
-const td = "whitespace-nowrap px-2.5 py-1.5 text-[0.8125rem]";
+const th = "border-b border-primary-foreground/20 px-1.5 py-2 text-[0.6875rem] font-semibold leading-tight";
+const td = "px-1.5 py-1.5 text-xs";
 const num = "text-right tabular-nums";
 /** Filet vertical qui sépare les trois blocs. */
 const bloc = "border-l-2 border-l-primary/30";
@@ -18,9 +18,9 @@ function Cote({ c, nature, achat }: { c: CoteRecap; nature: string; achat: boole
   return (
     <>
       <td className={cn(td, "tabular-nums", achat ? bloc : "")}>{dateJourMoisAnnee(c.date) || vide}</td>
-      <td className={cn(td, "font-mono")}>{c.numFacture || vide}</td>
-      <td className={cn(td, "max-w-[14rem] truncate")} title={nature}>{c.present ? nature || vide : vide}</td>
-      <td className={cn(td, "max-w-[14rem] truncate")} title={c.tiers}>{c.tiers || vide}</td>
+      <td className={cn(td, "break-all font-mono text-[0.6875rem]")}>{c.numFacture || vide}</td>
+      <td className={cn(td, "truncate")} title={nature}>{c.present ? nature || vide : vide}</td>
+      <td className={cn(td, "truncate")} title={c.tiers}>{c.tiers || vide}</td>
       <td className={cn(td, num)}>{c.present ? fmtQuantite(c.quantite) : vide}</td>
       <td className={cn(td, num)}>{c.present ? fmtMontant(c.enDevise) : vide}</td>
       <td className={td}>{c.devise || vide}</td>
@@ -35,14 +35,17 @@ export function StockRecapSocieteTable({ recap, onOuvrir }: { recap: RecapSociet
   const t = recap.totaux;
   return (
     <div className="overflow-x-auto" data-testid="stock-recap-societe">
-      <table className="w-full border-collapse text-left">
+      <table className="w-full min-w-[1100px] table-fixed border-collapse text-left">
+        <colgroup>
+          {[2.5, 5.4, 6.2, 6.8, 8.2, 4.6, 6, 3.2, 6.4, 4.2, 5.4, 6.2, 6.8, 8, 4.6, 6, 3.2, 3.8, 6.4].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+        </colgroup>
         <caption className="sr-only">Récapitulatif des mouvements : ventes, écart et achats</caption>
         <thead className="bg-primary text-primary-foreground">
           <tr>
             <th rowSpan={2} scope="col" className={cn(th, "w-10 text-center")}>N°</th>
-            <th colSpan={8} scope="colgroup" className={cn(th, "bg-primary text-center text-sm tracking-widest")}>VENTE</th>
+            <th colSpan={8} scope="colgroup" className={cn(th, "bg-primary text-center text-xs tracking-widest")}>VENTE</th>
             <th rowSpan={2} scope="col" className={cn(th, bloc, "text-center")}>Écart{q}</th>
-            <th colSpan={9} scope="colgroup" className={cn(th, bloc, "bg-primary/80 text-center text-sm tracking-widest")}>ACHAT</th>
+            <th colSpan={9} scope="colgroup" className={cn(th, bloc, "bg-primary/80 text-center text-xs tracking-widest")}>ACHAT</th>
           </tr>
           <tr>
             {["Date", "N° facture", "Nature", "Client", `Quantité${q}`, "En devise", "Devise", "MT TND"].map((h, i) => (

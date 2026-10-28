@@ -29,6 +29,7 @@ describe("getAppBreadcrumbs", () => {
     ["/taches", "Tâches"],
     ["/collectes", "Collecte de pièces"],
     ["/stock", "Gestion de stock"],
+    ["/cours-change", "Cours de change"],
     ["/etats-financiers", "États financiers"],
     ["/grille-affectat", "Paramétrage"],
     ["/bordereaux", "Bordereaux bancaires"],

@@ -53,7 +53,7 @@ const COLONNES_DOUANE: ColonneRecap[] = [
 /** Toutes les colonnes filtrables, dans l'ordre du tableau (le numéro de ligne n'en fait pas partie) ; celles de la douane sont facultatives. */
 export const COLONNES_RECAP: ColonneRecap[] = [
   ...colonnesDuCote("vente"),
-  { id: "ecart", titre: "Écart", bloc: "ecart", type: "nombre", affichage: (l) => fmtQuantite(l.ecart), tri: (l) => l.ecart },
+  { id: "ecart", titre: "Écart", bloc: "ecart", type: "nombre", affichage: (l) => fmtMontant(l.ecart), tri: (l) => l.ecart },
   ...colonnesDuCote("achat"),
   ...COLONNES_DOUANE,
 ];

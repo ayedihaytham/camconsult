@@ -126,7 +126,8 @@ export function FiltreColonneRecap({
           {actif && nbFiltres > 1 && <span className="absolute -right-1.5 -top-1.5 min-w-3.5 rounded-full bg-card px-0.5 text-center text-[0.5625rem] font-bold leading-[14px] text-primary shadow">{nbFiltres}</span>}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-2.5 text-foreground">
+      <PopoverContent align="start" collisionPadding={8} className="flex max-h-[min(40rem,var(--radix-popover-content-available-height))] w-72 flex-col p-0 text-foreground">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2.5 pb-1">
         <p className="px-1 pb-1.5 text-xs font-semibold text-muted-foreground">{titre}</p>
         <div className="grid grid-cols-2 gap-1.5 pb-2">
           <Button type="button" size="sm" variant="outline" className={cn("h-8 gap-1 text-xs", tri === "asc" && "border-primary bg-primary/[0.06] font-semibold")} onClick={() => trier("asc")}>
@@ -188,7 +189,8 @@ export function FiltreColonneRecap({
           </ul>
         </Section>
 
-        <div className="flex items-center justify-between border-t border-border pt-2.5">
+        </div>
+        <div className="flex shrink-0 items-center justify-between border-t border-border p-2.5">
           <button type="button" disabled={!actif} onClick={retirer} className="text-xs font-medium text-info hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline">
             Retirer le filtre
           </button>

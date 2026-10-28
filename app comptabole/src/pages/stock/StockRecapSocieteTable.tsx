@@ -13,7 +13,7 @@ import { FiltreColonneRecap } from "./FiltreColonneRecap";
 /** Largeur en pixels des colonnes de valeurs courtes ; les colonnes de texte n'en ont pas (elles se partagent le reste). */
 const LARGEUR: Record<string, number | undefined> = {
   "vente.date": 80, "vente.facture": 92, "vente.nature": undefined, "vente.tiers": undefined, "vente.quantite": 72, "vente.devise-montant": 92, "vente.devise": 66, "vente.mt-tnd": 94,
-  ecart: 72,
+  ecart: 76,
   "achat.date": 80, "achat.facture": 92, "achat.nature": undefined, "achat.tiers": undefined, "achat.quantite": 72, "achat.devise-montant": 92, "achat.devise": 66, "achat.cours": 60, "achat.mt-tnd": 94,
   "douane.declaration": 92, "douane.date": 80, "douane.type": 56, "douane.taux": 72, "douane.valeur": 94,
 };
@@ -22,14 +22,14 @@ const LARGEUR_RANG = 34;
 const TEXTE_MINIMUM = 52;
 /** Avec la douane, les colonnes se resserrent pour que tout tienne sans défilement, sans jamais passer sous ce que leur contenu demande. */
 const RESSERREMENT_DOUANE = 0.82;
-const PLANCHER_DOUANE: Record<string, number> = { date: 72, facture: 84, quantite: 66, "devise-montant": 80, devise: 64, cours: 60, type: 54, valeur: 90 };
+const PLANCHER_DOUANE: Record<string, number> = { date: 72, facture: 84, quantite: 66, "devise-montant": 80, devise: 64, cours: 60, type: 54, valeur: 90, ecart: 70 };
 const largeurColonne = (id: string, douane: boolean): number | undefined => {
   const l = LARGEUR[id];
   if (l === undefined || !douane) return l;
-  return Math.max(Math.round(l * RESSERREMENT_DOUANE), PLANCHER_DOUANE[id.split(".")[1]] ?? 0);
+  return Math.max(Math.round(l * RESSERREMENT_DOUANE), PLANCHER_DOUANE[id.split(".")[1] ?? id] ?? 0);
 };
 
-const TITRE_COURT: Record<string, string> = { Quantité: "Qté", "Taux de change": "Taux", "N° déclaration": "N° décl.", "Valeur (TND)": "Valeur TND" };
+const TITRE_COURT: Record<string, string> = { Quantité: "Qté", "Taux de change": "Taux", "N° déclaration": "N° décl.", Fournisseur: "Fourn.", "Valeur (TND)": "Valeur TND" };
 
 const th = "border-b border-primary-foreground/20 px-1.5 py-2 text-[0.6875rem] font-semibold leading-tight align-middle";
 const num = "text-right tabular-nums";
@@ -103,7 +103,7 @@ export function StockRecapSocieteTable({
   };
   const contenuEntete = (c: ColonneRecap) => (
     <div className={cn("flex items-center gap-1", c.bloc === "ecart" ? "flex-col" : "justify-between", LARGEUR[c.id] === undefined && "flex-wrap")}>
-      <span className={LARGEUR[c.id] === undefined ? "min-w-0 break-words" : "whitespace-nowrap"}>{titreDe(c)}</span>
+      <span className={"whitespace-nowrap"}>{titreDe(c)}</span>
       <FiltreColonneRecap
         colonneId={c.id}
         titre={c.bloc === "ecart" || c.bloc === "douane" ? c.titre : `${c.titre} (${c.bloc})`}
@@ -164,7 +164,7 @@ export function StockRecapSocieteTable({
               >
                 <td className={cn(td, "text-center font-mono text-muted-foreground")}>{l.rang}</td>
                 <Cote c={l.vente} nature={l.nature} achat={false} td={td} />
-                <td className={cn(td, num, bloc, "font-semibold", l.ecart !== 0 ? "text-destructive" : "text-success")}>{fmtQuantite(l.ecart)}</td>
+                <td className={cn(td, num, bloc, "font-semibold", l.ecart !== 0 ? "text-destructive" : "text-success")}>{fmtMontant(l.ecart)}</td>
                 <Cote c={l.achat} nature={l.nature} achat td={td} />
                 {douane && <Douane l={l} td={td} />}
               </tr>
@@ -186,7 +186,7 @@ export function StockRecapSocieteTable({
               <td className={cn(td, num)}>{t.vente.enDevise === null ? "" : fmtMontant(t.vente.enDevise)}</td>
               <td className={td} />
               <td className={cn(td, num)}>{fmtMontant(t.vente.mtTnd)}</td>
-              <td className={cn(td, num, bloc, t.ecart !== 0 && "text-destructive")}>{fmtQuantite(t.ecart)}</td>
+              <td className={cn(td, num, bloc, t.ecart !== 0 && "text-destructive")}>{fmtMontant(t.ecart)}</td>
               <td className={cn(td, bloc)} colSpan={4} />
               <td className={cn(td, num)}>{fmtQuantite(t.achat.quantite)}</td>
               <td className={cn(td, num)}>{t.achat.enDevise === null ? "" : fmtMontant(t.achat.enDevise)}</td>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown, Boxes, Coins, Search } from "lucide-react";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
@@ -8,8 +8,10 @@ import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { useData, useSocietes } from "@/store/data";
 import { useStock, type SyntheseStock } from "@/store/stock";
 import { cn, initials } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { StockSocietesVolet, operationsRecentes, type OperationRecente } from "./StockSocietesVolet";
 import "./stock-page.css";
-import type { Societe } from "@/types";
+import type { Societe, StockMouvement } from "@/types";
 
 const montant = (valeur: number) => new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(valeur);
 const jourMois = (iso: string) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(iso));
@@ -95,10 +97,44 @@ export function StockPage() {
     void fetchSynthese();
   }, [fetchSynthese]);
 
+  const affichees = useMemo(() => listerSocietes(societes, synthese, { recherche, filtre, tri, sens }), [societes, synthese, recherche, filtre, tri, sens]);
+  // Présentation : « liste et volet » (par défaut) ou tableau ; gardée dans ce navigateur.
+  const [vue, setVue] = useState<"volet" | "tableau">(() => {
+    try { return window.localStorage.getItem("stock:vue") === "tableau" ? "tableau" : "volet"; } catch { return "volet"; }
+  });
+  const changerVue = (v: "volet" | "tableau") => {
+    setVue(v);
+    try { window.localStorage.setItem("stock:vue", v); } catch { /* stockage bloqué : le choix n'est pas gardé */ }
+  };
+  const [selection, setSelection] = useState<string | null>(null);
+  // La société choisie reste celle de l'utilisateur tant qu'elle est affichée ; sinon la première avec des mouvements, ou la première de la liste.
+  const selectionId = affichees.some((x) => x.id === selection)
+    ? selection
+    : (affichees.find((x) => (synthese[x.id]?.mouvements ?? 0) > 0) ?? affichees[0])?.id ?? null;
+  const operations = useRef(new Map<string, OperationRecente[]>());
+  const [recentes, setRecentes] = useState<OperationRecente[] | null>(null);
+  useEffect(() => {
+    if (!selectionId || vue !== "volet") return;
+    const gardees = operations.current.get(selectionId);
+    if (gardees) {
+      setRecentes(gardees);
+      return;
+    }
+    let annule = false;
+    setRecentes(null);
+    api.get<StockMouvement[]>(`/stock/mouvements?societeId=${selectionId}`)
+      .then((liste) => {
+        const ops = operationsRecentes(liste);
+        operations.current.set(selectionId, ops);
+        if (!annule) setRecentes(ops);
+      })
+      .catch(() => { if (!annule) setRecentes([]); });
+    return () => { annule = true; };
+  }, [selectionId, vue]);
+
   // Une société est déjà choisie en haut : son stock s'ouvre directement, sans lui redemander laquelle.
   if (societeActive) return <Navigate to={`/stock/${societeActive.id}`} replace />;
 
-  const affichees = listerSocietes(societes, synthese, { recherche, filtre, tri, sens });
   const nbAvec = societes.filter((s) => (synthese[s.id]?.mouvements ?? 0) > 0).length;
   const trier = (colonne: ColonneStock) => {
     if (tri === colonne) setSens((x) => (x === 1 ? -1 : 1));
@@ -141,6 +177,19 @@ export function StockPage() {
                 <input type="search" value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher une société ou un matricule…" className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
               </label>
               <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground" aria-live="polite">{affichees.length} société{affichees.length > 1 ? "s" : ""}</span>
+              <div role="group" aria-label="Présentation des sociétés" className="hidden rounded-[10px] bg-muted p-[3px] lg:inline-flex">
+                {([["volet", "Liste et volet"], ["tableau", "Tableau"]] as const).map(([valeur, libelle]) => (
+                  <button
+                    key={valeur}
+                    type="button"
+                    aria-pressed={vue === valeur}
+                    onClick={() => changerVue(valeur)}
+                    className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", vue === valeur && "bg-card font-semibold text-primary shadow-sm")}
+                  >
+                    {libelle}
+                  </button>
+                ))}
+              </div>
             </div>
             <div data-tour="stock-summary" className="flex flex-wrap items-stretch gap-x-0.5 border-b border-border/80 bg-muted/20 px-3">
               <div role="group" aria-label="Filtrer les sociétés" className="flex flex-wrap items-stretch">
@@ -166,7 +215,22 @@ export function StockPage() {
                 ))}
               </dl>
             </div>
-            <div className="overflow-x-auto">
+            {vue === "volet" && (
+              <StockSocietesVolet
+                societes={affichees}
+                synthese={synthese}
+                selectionId={selectionId}
+                onSelection={(id) => {
+                  // Sur petit écran, la fiche n'a pas de place : un clic ouvre directement le stock.
+                  if (typeof window.matchMedia === "function" && !window.matchMedia("(min-width: 1024px)").matches) navigate(`/stock/${id}`);
+                  else setSelection(id);
+                }}
+                onOuvrir={(id) => navigate(`/stock/${id}`)}
+                recentes={recentes}
+                ilYA={ilYA}
+              />
+            )}
+            <div className={cn("overflow-x-auto", vue === "volet" && "hidden")}>
               <table className="w-full min-w-[960px] table-fixed border-collapse text-[0.8125rem] tabular-nums">
                 <caption className="sr-only">Stock par société</caption>
                 <colgroup>{LARGEURS.map((l, i) => <col key={i} style={{ width: `${l}%` }} />)}</colgroup>

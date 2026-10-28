@@ -743,6 +743,9 @@ export interface SuiviDeviseFacture {
   achatDate: string | null;
   achatDevise: string;
   achatMontant: number | null;
+  /** Ce que les règlements répartis sur cette facture lui ont déjà apporté, et ce qu'il lui reste à recevoir. */
+  regle: number;
+  reste: number;
 }
 
 /** Client de la gestion de stock sans fiche : ses ventes d'une année et d'une devise, à suivre. */
@@ -782,6 +785,12 @@ export interface SuiviDeviseMouvement {
   libelle: string;
   date: string | null;
   montant: number;
+  /** Encaissement du suivi bancaire auquel ce règlement est relié (null : règlement saisi à la main). */
+  mouvementBancaireId: string | null;
+  banqueDate: string | null;
+  banqueLibelle: string;
+  /** Répartition du règlement sur les factures de la fiche. */
+  affectations: { factureId: string; montant: number }[];
 }
 
 export interface SuiviDeviseFull extends SuiviDevise {
@@ -1199,6 +1208,12 @@ export interface MouvementBancaire {
   debit: number;
   credit: number;
   type: TypeMouvementBancaire;
+  /** Ligne à revoir (le jaune du classeur du cabinet). */
+  aRevoir: boolean;
+  note: string;
+  /** Part de l'encaissement déjà reliée à des règlements du suivi client devise, et ces règlements. */
+  affecteClient: number;
+  reglementsClient: { suiviId: string; mouvementId: string }[];
   /** Cours d'une opération de change (TND pour 1 unité de devise), lu dans le libellé ou la pièce. */
   cours: number | null;
   /** Règlement fournisseur rapproché de ce mouvement. */
@@ -1206,9 +1221,30 @@ export interface MouvementBancaire {
   fournisseurCle: string | null;
 }
 
+/** Solde réel de la banque en fin de mois (celui du relevé) d'un compte, avec une note du mois. */
+export interface ReleveMensuel {
+  compteId: string;
+  /** « AAAA-MM » */
+  mois: string;
+  soldeReel: number | null;
+  note: string;
+}
+
+/** Opération écrite chez la société mais pas encore passée en banque, à la fin d'un mois. */
+export interface OperationEnCoursBancaire {
+  id: string;
+  compteId: string;
+  mois: string;
+  designation: string;
+  debit: number;
+  credit: number;
+}
+
 export interface EtatBanque {
   comptes: CompteBancaire[];
   mouvements: MouvementBancaire[];
+  releves: ReleveMensuel[];
+  enCours: OperationEnCoursBancaire[];
 }
 
 // ── Cours de change (moyenne mensuelle du marché interbancaire) ──

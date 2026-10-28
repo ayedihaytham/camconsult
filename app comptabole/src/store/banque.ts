@@ -11,6 +11,12 @@ function fail(err: unknown): never {
 
 export type CompteInput = Omit<CompteBancaire, "id">;
 export type MouvementInput = MouvementImport;
+export type EnCoursInput = { designation: string; debit: number; credit: number };
+/** Soldes réels et opérations en cours des mois lus dans un classeur : posés avec l'import. */
+export interface ImportMensuel {
+  releves: { mois: string; soldeReel: number | null }[];
+  enCours: (EnCoursInput & { mois: string })[];
+}
 
 interface BanqueState extends EtatBanque {
   loading: boolean;
@@ -21,18 +27,25 @@ interface BanqueState extends EtatBanque {
   removeCompte: (id: string) => Promise<void>;
   addMouvement: (compteId: string, data: MouvementInput) => Promise<void>;
   /** Importe un relevé : renvoie le nombre de mouvements créés et ignorés (déjà présents). */
-  importMouvements: (compteId: string, mouvements: MouvementInput[]) => Promise<{ importes: number; ignores: number }>;
+  importMouvements: (compteId: string, mouvements: MouvementInput[], mensuel?: ImportMensuel) => Promise<{ importes: number; ignores: number }>;
+  /** Solde réel de la banque en fin de mois (celui du relevé) et note du mois. */
+  saveReleve: (compteId: string, mois: string, soldeReel: number | null, note?: string) => Promise<void>;
+  addEnCours: (compteId: string, mois: string, data: EnCoursInput) => Promise<void>;
+  updateEnCours: (id: string, data: EnCoursInput) => Promise<void>;
+  removeEnCours: (id: string) => Promise<void>;
+  /** Marque ou démarque une ligne « à revoir ». */
+  marquerARevoir: (id: string, aRevoir: boolean, note?: string) => Promise<void>;
   updateMouvement: (id: string, data: MouvementInput) => Promise<void>;
   removeMouvement: (id: string) => Promise<void>;
 }
 
-const vide: EtatBanque = { comptes: [], mouvements: [] };
+const vide: EtatBanque = { comptes: [], mouvements: [], releves: [], enCours: [] };
 
 export const useBanque = create<BanqueState>((set) => {
   const run = async (action: () => Promise<EtatBanque>) => {
     try {
-      const { comptes, mouvements } = await action();
-      set({ comptes, mouvements });
+      const { comptes, mouvements, releves, enCours } = await action();
+      set({ comptes, mouvements, releves, enCours });
     } catch (e) {
       fail(e);
     }
@@ -54,15 +67,20 @@ export const useBanque = create<BanqueState>((set) => {
     updateCompte: (id, data) => run(() => api.patch<EtatBanque>(`/banque/comptes/${id}`, data)),
     removeCompte: (id) => run(() => api.del<EtatBanque>(`/banque/comptes/${id}`)),
     addMouvement: (compteId, data) => run(() => api.post<EtatBanque>(`/banque/comptes/${compteId}/mouvements`, data)),
-    importMouvements: async (compteId, mouvements) => {
+    importMouvements: async (compteId, mouvements, mensuel) => {
       try {
-        const r = await api.post<EtatBanque & { importes: number; ignores: number }>(`/banque/comptes/${compteId}/import`, { mouvements });
-        set({ comptes: r.comptes, mouvements: r.mouvements });
+        const r = await api.post<EtatBanque & { importes: number; ignores: number }>(`/banque/comptes/${compteId}/import`, { mouvements, ...(mensuel ?? {}) });
+        set({ comptes: r.comptes, mouvements: r.mouvements, releves: r.releves, enCours: r.enCours });
         return { importes: r.importes, ignores: r.ignores };
       } catch (e) {
         return fail(e);
       }
     },
+    saveReleve: (compteId, mois, soldeReel, note = "") => run(() => api.put<EtatBanque>(`/banque/comptes/${compteId}/mois/${mois}`, { soldeReel, note })),
+    addEnCours: (compteId, mois, data) => run(() => api.post<EtatBanque>(`/banque/comptes/${compteId}/mois/${mois}/en-cours`, data)),
+    updateEnCours: (id, data) => run(() => api.patch<EtatBanque>(`/banque/en-cours/${id}`, data)),
+    removeEnCours: (id) => run(() => api.del<EtatBanque>(`/banque/en-cours/${id}`)),
+    marquerARevoir: (id, aRevoir, note) => run(() => api.patch<EtatBanque>(`/banque/mouvements/${id}/revoir`, { aRevoir, ...(note === undefined ? {} : { note }) })),
     updateMouvement: (id, data) => run(() => api.patch<EtatBanque>(`/banque/mouvements/${id}`, data)),
     removeMouvement: (id) => run(() => api.del<EtatBanque>(`/banque/mouvements/${id}`)),
   };

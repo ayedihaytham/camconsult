@@ -26,6 +26,21 @@ export interface EcartSociete {
   banque: number;
 }
 
+/** Opération écrite chez la société mais pas encore passée en banque (tableau « EN CIRCULATION » / « OPÉRATIONS EN COURS » du pied de feuille). */
+export interface OperationEnCours {
+  designation: string;
+  debit: number;
+  credit: number;
+}
+
+/** Ligne d'une feuille qui n'a pas été importée, avec la raison. */
+export interface LigneIgnoree {
+  /** Numéro de ligne dans la feuille (à partir de 1). */
+  ligne: number;
+  texte: string;
+  raison: string;
+}
+
 export interface FeuilleBancaire {
   mouvements: MouvementImport[];
   ignorees: number;
@@ -37,6 +52,12 @@ export interface FeuilleBancaire {
   totalCredit: number;
   /** Lignes où le montant du bloc « société » diffère de celui du bloc « banque » (frais bancaires, par exemple). */
   ecartsSociete: EcartSociete[];
+  /** Lignes de la feuille qui ne sont pas des opérations (vides, totaux) ou qui n'ont pas pu être lues, avec la raison. */
+  lignesIgnorees: LigneIgnoree[];
+  /** Dates récupérées ou corrigées (date de valeur à la place d'une date d'opération absente, année mal saisie). */
+  corrections: string[];
+  /** Tableau « opérations en cours » du pied de feuille. */
+  enCours: OperationEnCours[];
 }
 
 const minuscule = (v: unknown) => normaliser(texte(v)).toLowerCase().replace(/\s+/g, " ").trim();
@@ -46,6 +67,16 @@ const RE_LIBELLE = /libell|description|designation/;
 
 /** Une cellule qui est réellement une date (objet Date ou texte), jamais un nombre : un solde de 54 518,87 n'est pas le 25/02/2149. */
 const dateCellule = (v: unknown): string | null => (v instanceof Date || typeof v === "string" ? dateFlexible(v) : null);
+
+/** « 22/06/20263 » : une date dont l'année a un chiffre de trop (faute de frappe) ; renvoie la date avec l'année à 4 chiffres. */
+function dateAnneeAvecChiffreEnTrop(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const m = /^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})\d$/.exec(v.trim());
+  return m ? dateFlexible(`${m[1]}/${m[2]}/${m[3]}`) : null;
+}
+
+/** Libellé d'une ligne de solde de départ (« SOLDE AU 31/12/2025 », « SOLDE DEPART ») ; « SOLDE TOUT COMPTE » est une opération. */
+const RE_SOLDE_DEPART = /^SOLDE\s+(AU\s*:?\s*\d|PRECEDENT|DEPART|INITIAL|ANTERIEUR|REPORT|EN DEBUT|D'OUVERTURE|OUVERTURE)|^SOLDE$/;
 
 /** Cours de change lu dans un texte : « COURS 3.38 », « TAUX DE 3.375TND », « ACHAT VENTE DEVISE 3.3990 ». */
 export function extraireCours(...textes: string[]): number | null {
@@ -155,12 +186,55 @@ export function lireFeuilleBancaire(rows: unknown[][], fusions: FusionVerticale[
   // ── mouvements, pied de feuille ──────────────────────────────────────────
   const mouvements: MouvementImport[] = [];
   const ecartsSociete: EcartSociete[] = [];
+  const lignesIgnorees: LigneIgnoree[] = [];
+  const corrections: string[] = [];
+  const enCours: OperationEnCours[] = [];
+  const resume = (row: unknown[]) => row.map((c) => texte(c)).filter(Boolean).join(" · ").slice(0, 80);
   let ignorees = 0;
   let soldeReel: SoldeDate | null = null;
   for (let i = finBande + 1; i < lignes.length; i++) {
     const row = lignes[i];
-    const dateOp = dateFlexible(row[cols.dateOp]);
+    let dateOp = dateFlexible(row[cols.dateOp]);
     const libelle = texte(row[cols.libelle]).replace(/\s+/g, " ").trim();
+
+    // Date d'opération absente ou illisible sur une vraie opération : année mal saisie, sinon date de valeur.
+    if (!dateOp && libelle && !/^TOTAL\b/.test(normaliser(libelle)) && (montantCellule(row[debitBanque]) > 0 || montantCellule(row[creditBanque]) > 0)) {
+      const corrigee = dateAnneeAvecChiffreEnTrop(row[cols.dateOp]);
+      const valeur = cols.dateValeur !== undefined ? dateCellule(row[cols.dateValeur]) : null;
+      if (corrigee) {
+        dateOp = corrigee;
+        corrections.push(`ligne ${i + 1} : date « ${texte(row[cols.dateOp])} » lue ${corrigee.split("-").reverse().join("/")} (année avec un chiffre en trop)`);
+      } else if (valeur) {
+        dateOp = valeur;
+        corrections.push(`ligne ${i + 1} : pas de date d'opération, date de valeur ${valeur.split("-").reverse().join("/")} reprise (${libelle.slice(0, 40)})`);
+      }
+    }
+
+    // Pied de feuille : tableau des opérations en cours (sous « EN CIRCULATION » / « OPÉRATIONS EN COURS »).
+    if (!dateOp && row.some((c) => /^(en circulation|operationen en cours|operations en cours)$/.test(minuscule(c)))) {
+      let colL = -1, colD = -1, colC = -1;
+      let j = i + 1;
+      for (; j < lignes.length && j <= i + 6; j++) {
+        const h = lignes[j] ?? [];
+        colL = h.findIndex((c) => /^(libelle|designation)$/.test(minuscule(c)));
+        colD = h.findIndex((c) => /^debit$/.test(minuscule(c)));
+        colC = h.findIndex((c) => /^credit$/.test(minuscule(c)));
+        if (colL >= 0 && colD >= 0 && colC >= 0) break;
+      }
+      if (colL >= 0 && colD >= 0 && colC >= 0) {
+        for (let k = j + 1; k < lignes.length; k++) {
+          const r = lignes[k] ?? [];
+          if (r.some((c) => /^(total|solde theorique)$/.test(minuscule(c)))) break;
+          const designation = texte(r[colL]).replace(/\s+/g, " ").trim();
+          const debit = montantCellule(r[colD]);
+          const credit = montantCellule(r[colC]);
+          // Une ligne sans désignation est la ligne de total du tableau, pas une opération.
+          if (designation && (debit > 0 || credit > 0)) enCours.push({ designation, debit, credit });
+        }
+        i = j + enCours.length + 1;
+        continue;
+      }
+    }
 
     if (!dateOp) {
       const cr = row.findIndex((c) => /^solde reel$/.test(minuscule(c)));
@@ -177,7 +251,13 @@ export function lireFeuilleBancaire(rows: unknown[][], fusions: FusionVerticale[
         if (montant !== null) soldeReel ??= { date, montant: r3(montant) };
         continue;
       }
-      if (row.some((c) => texte(c))) ignorees++;
+      if (row.some((c) => texte(c))) {
+        ignorees++;
+        const montants = montantCellule(row[debitBanque]) + montantCellule(row[creditBanque]);
+        // Lignes de pied de feuille (totaux, soldes, tableaux) : normales, pas signalées. Une ligne libellée avec un montant et sans date l'est.
+        const pied = !libelle || /^(TOTAL|SOLDE|DESIGNATION|LIBELLE|OPERATIONEN|OPERATIONS)/.test(normaliser(libelle));
+        if (!pied && montants > 0) lignesIgnorees.push({ ligne: i + 1, texte: resume(row), raison: "date illisible" });
+      }
       continue;
     }
 
@@ -187,8 +267,8 @@ export function lireFeuilleBancaire(rows: unknown[][], fusions: FusionVerticale[
       ignorees++;
       continue;
     }
-    // « Solde au 31/12/2025 » d'un relevé converti : solde de départ, pas une opération.
-    if (/^SOLDE\b/.test(normaliser(libelle).trim())) {
+    // « Solde au 31/12/2025 » d'un relevé converti : solde de départ, pas une opération (« SOLDE TOUT COMPTE » en est une).
+    if (RE_SOLDE_DEPART.test(normaliser(libelle).trim())) {
       ouverture ??= { date: dateOp, montant: r3(credit - debit) };
       continue;
     }
@@ -238,6 +318,9 @@ export function lireFeuilleBancaire(rows: unknown[][], fusions: FusionVerticale[
     totalDebit: r3(mouvements.reduce((s, m) => s + m.debit, 0)),
     totalCredit: r3(mouvements.reduce((s, m) => s + m.credit, 0)),
     ecartsSociete,
+    lignesIgnorees,
+    corrections,
+    enCours,
   };
 }
 
@@ -256,6 +339,14 @@ export interface ResumeFeuille {
   /** Solde de départ + crédits − débits. */
   cloture: number | null;
   soldeReel: number | null;
+  /** Mois de la feuille (« AAAA-MM »), d'après son nom « MM-AAAA ». */
+  mois: string | null;
+  /** Solde réel de la banque en fin de mois : le solde de départ de la feuille suivante, sinon le solde réel du pied de la feuille. */
+  soldeBanque: number | null;
+  /** Opérations en cours du pied de feuille. */
+  enCours: OperationEnCours[];
+  /** Lignes non importées de la feuille, avec la raison. */
+  lignesIgnorees: LigneIgnoree[];
 }
 
 export interface ClasseurBancaire {
@@ -345,12 +436,13 @@ export function lireClasseurBancaire(feuilles: FeuilleLue[]): ClasseurBancaire {
   });
 
   let cloturePrecedente: { nom: string; montant: number } | null = null;
-  for (const { nom, lue } of lues) {
+  for (const [indexFeuille, { nom, lue }] of lues.entries()) {
     res.mouvements.push(...lue.mouvements);
     res.ignorees += lue.ignorees;
     res.ecartsSociete.push(...lue.ecartsSociete);
     res.ouverture ??= lue.ouverture;
     if (lue.soldeReel) res.soldeReel = lue.soldeReel;
+    for (const k of lue.corrections) res.avertissements.push(`« ${nom} » : ${k}.`);
 
     const cloture = lue.ouverture ? r3(lue.ouverture.montant + lue.totalCredit - lue.totalDebit) : null;
     res.feuilles.push({
@@ -361,6 +453,10 @@ export function lireClasseurBancaire(feuilles: FeuilleLue[]): ClasseurBancaire {
       ouverture: lue.ouverture?.montant ?? null,
       cloture,
       soldeReel: lue.soldeReel?.montant ?? null,
+      mois: (() => { const o = ordreMois(nom); return o === null ? null : `${Math.floor(o / 100)}-${String(o % 100).padStart(2, "0")}`; })(),
+      soldeBanque: lues[indexFeuille + 1]?.lue.ouverture?.montant ?? lue.soldeReel?.montant ?? null,
+      enCours: lue.enCours,
+      lignesIgnorees: lue.lignesIgnorees,
     });
     if (cloturePrecedente && lue.ouverture && Math.abs(lue.ouverture.montant - cloturePrecedente.montant) > 0.005) {
       res.avertissements.push(`« ${nom} » démarre à ${fr(lue.ouverture.montant)} alors que « ${cloturePrecedente.nom} » se termine à ${fr(cloturePrecedente.montant)}.`);

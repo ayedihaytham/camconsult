@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeftRight, Download, FileUp, Pencil, Plus, Trash2, Wallet } from "lucide-react";
+import { ArrowLeftRight, Download, FileUp, Flag, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -10,8 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteById } from "@/store/data";
 import { useBanque, type CompteInput, type MouvementInput } from "@/store/banque";
+import { api } from "@/lib/api";
+import { libelleNommeLeClient } from "@/lib/suiviDeviseBanque";
 import { controleSolde, coursAvant, moisDesMouvements, soldesCourants, totaux } from "@/lib/banque";
 import { exporterCompte } from "@/lib/banqueExport";
+import { synthesePeriodes } from "@/lib/banqueMois";
 import { fmtMontant } from "@/lib/stockRecap";
 import { cn } from "@/lib/utils";
 import type { MouvementBancaire } from "@/types";
@@ -19,9 +22,9 @@ import { CompteDialog } from "./CompteDialog";
 import { ImportReleveDialog } from "./ImportReleveDialog";
 import { MouvementDialog } from "./MouvementDialog";
 import { MouvementsTable } from "./MouvementsTable";
+import { RapprochementMois, libelleMois } from "./RapprochementMois";
+import { SyntheseMensuelle } from "./SyntheseMensuelle";
 
-const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-const libelleMois = (m: string) => `${MOIS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 
 export function BanqueSocietePage() {
   const { societeId = "" } = useParams();
@@ -41,10 +44,17 @@ export function BanqueSocietePage() {
   const importMouvements = useBanque((s) => s.importMouvements);
   const updateMouvement = useBanque((s) => s.updateMouvement);
   const removeMouvement = useBanque((s) => s.removeMouvement);
+  const releves = useBanque((s) => s.releves);
+  const enCours = useBanque((s) => s.enCours);
+  const saveReleve = useBanque((s) => s.saveReleve);
+  const addEnCours = useBanque((s) => s.addEnCours);
+  const removeEnCours = useBanque((s) => s.removeEnCours);
+  const marquerARevoir = useBanque((s) => s.marquerARevoir);
 
   const [choisi, setChoisi] = useState<string | null>(null);
   const [mois, setMois] = useState("tous");
   const [vueSociete, setVueSociete] = useState(false);
+  const [seulementARevoir, setSeulementARevoir] = useState(false);
   const [compteOuvert, setCompteOuvert] = useState<"nouveau" | "modifier" | null>(null);
   const [importOuvert, setImportOuvert] = useState(false);
   const [mouvementOuvert, setMouvementOuvert] = useState(false);
@@ -60,8 +70,12 @@ export function BanqueSocietePage() {
   const compte = comptes.find((c) => c.id === choisi) ?? comptes[0] ?? null;
   const mouvements = useMemo(() => tous.filter((m) => m.compteId === compte?.id), [tous, compte]);
   const soldes = useMemo(() => (compte ? soldesCourants(compte, mouvements) : new Map<string, number>()), [compte, mouvements]);
-  const moisDispo = useMemo(() => moisDesMouvements(mouvements), [mouvements]);
-  const affiches = useMemo(() => (mois === "tous" ? mouvements : mouvements.filter((m) => m.dateOp.startsWith(mois))), [mouvements, mois]);
+  const periodes = useMemo(() => (compte ? synthesePeriodes(compte, tous, releves, enCours) : []), [compte, tous, releves, enCours]);
+  const moisDispo = useMemo(() => [...new Set([...moisDesMouvements(mouvements), ...periodes.map((p) => p.mois)])].sort().reverse(), [mouvements, periodes]);
+  const duMois = useMemo(() => (mois === "tous" ? mouvements : mouvements.filter((m) => m.dateOp.startsWith(mois))), [mouvements, mois]);
+  const affiches = useMemo(() => (seulementARevoir ? duMois.filter((m) => m.aRevoir) : duMois), [duMois, seulementARevoir]);
+  const nbARevoir = useMemo(() => mouvements.filter((m) => m.aRevoir).length, [mouvements]);
+  const periode = mois === "tous" ? null : periodes.find((p) => p.mois === mois) ?? null;
   const sommes = totaux(affiches);
   const controle = compte ? controleSolde(compte, mouvements) : null;
   const nonRapproches = tous.filter((m) => m.type === "paiement_fournisseur" && m.debit > 0 && !m.reglementId).length;
@@ -92,6 +106,17 @@ export function BanqueSocietePage() {
       toast.success("Mouvement ajouté");
     }
     setEditing(null);
+  }
+
+  /** Ouvre la fiche du suivi client devise du client nommé dans l'encaissement (même devise) ; à défaut, la liste des fiches de la société. */
+  async function rapprocherClient(m: MouvementBancaire) {
+    try {
+      const fiches = await api.get<{ id: string; client: string; devise: string }[]>(`/suivi-devise?societeId=${societeId}`);
+      const candidates = fiches.filter((f) => f.devise === (compte?.devise ?? "") && libelleNommeLeClient(`${m.libelle} ${m.details}`, f.client));
+      navigate(candidates.length === 1 ? `/suivi-devise/${societeId}/${candidates[0].id}` : `/suivi-devise/${societeId}`);
+    } catch {
+      navigate(`/suivi-devise/${societeId}`);
+    }
   }
 
   /** Ouvre le suivi fournisseur avec un règlement prérempli d'après ce paiement bancaire. */
@@ -131,7 +156,7 @@ export function BanqueSocietePage() {
           actions={
             <div className="flex flex-wrap items-center gap-2">
               {compte && (
-                <Button variant="outline" className="signature-ledger__action" onClick={() => void exporterCompte(compte, mouvements)}>
+                <Button variant="outline" className="signature-ledger__action" onClick={() => void exporterCompte(compte, mouvements, releves, enCours)}>
                   <Download className="h-4 w-4" />
                   Excel
                 </Button>
@@ -227,6 +252,10 @@ export function BanqueSocietePage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Button variant={seulementARevoir ? "ledger" : "outline"} size="sm" aria-pressed={seulementARevoir} onClick={() => setSeulementARevoir((v) => !v)} disabled={nbARevoir === 0 && !seulementARevoir}>
+                <Flag className="h-3.5 w-3.5" />
+                À revoir{nbARevoir > 0 ? ` (${nbARevoir})` : ""}
+              </Button>
               <Button variant={vueSociete ? "ledger" : "outline"} size="sm" aria-pressed={vueSociete} onClick={() => setVueSociete((v) => !v)}>
                 <ArrowLeftRight className="h-3.5 w-3.5" />
                 Vue société
@@ -234,6 +263,17 @@ export function BanqueSocietePage() {
             </div>
           </div>
 
+          {periode && compte && (
+            <RapprochementMois
+              periode={periode}
+              devise={compte.devise}
+              lectureSeule={lectureSeule}
+              onSoldeReel={(v) => saveReleve(compte.id, periode.mois, v)}
+              onAjouterEnCours={(data) => addEnCours(compte.id, periode.mois, data)}
+              onRetirerEnCours={(o) => removeEnCours(o.id)}
+            />
+          )}
+          {mois === "tous" && <SyntheseMensuelle periodes={periodes} onChoisir={setMois} />}
           {affiches.length === 0 ? (
             <p className="px-5 py-12 text-center text-sm text-muted-foreground">
               {mouvements.length === 0 ? "Aucun mouvement : importez le relevé de la banque ou ajoutez-en un." : "Aucun mouvement ce mois-ci."}
@@ -251,10 +291,12 @@ export function BanqueSocietePage() {
               }}
               onDelete={setToDelete}
               onRapprocher={rapprocher}
+              onARevoir={lectureSeule ? undefined : (m) => void marquerARevoir(m.id, !m.aRevoir)}
+              onRapprocherClient={(m) => void rapprocherClient(m)}
             />
           )}
 
-          {controle && (
+          {controle && mois === "tous" && (
             <dl className="grid gap-x-6 gap-y-2 border-t-2 border-accent/40 bg-accent/[0.07] px-5 py-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
               <Cle label="Solde de départ" valeur={`${fmtMontant(compte.soldeDepart)} ${compte.devise}`} />
               <Cle label={vueSociete ? "Total débit société" : "Total débit"} valeur={fmtMontant(vueSociete ? sommes.credit : sommes.debit)} />
@@ -286,7 +328,7 @@ export function BanqueSocietePage() {
             onOpenChange={setImportOuvert}
             devise={compte.devise}
             proposerSoldeDepart={mouvements.length === 0}
-            onImport={async (liste, maj) => {
+            onImport={async (liste, maj, mensuel) => {
               // Solde de départ et solde réel du relevé : mis à jour avec le compte, avant l'import des mouvements.
               if ((maj.ouverture && maj.ouverture.date) || maj.soldeReel) {
                 await updateCompte(compte.id, {
@@ -295,7 +337,7 @@ export function BanqueSocietePage() {
                   ...(maj.soldeReel ? { soldeReel: maj.soldeReel.montant, dateReel: maj.soldeReel.date } : {}),
                 });
               }
-              const { importes, ignores } = await importMouvements(compte.id, liste);
+              const { importes, ignores } = await importMouvements(compte.id, liste, mensuel);
               toast.success(`${importes} mouvement${importes > 1 ? "s" : ""} importé${importes > 1 ? "s" : ""}${ignores ? ` · ${ignores} déjà présent${ignores > 1 ? "s" : ""}` : ""}`);
             }}
           />

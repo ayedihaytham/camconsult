@@ -23,9 +23,13 @@ export type SuiviDeviseResume = SuiviDevise & { solde: number; totalVentes: numb
 export type LotInput = Omit<SuiviDeviseLot, "id" | "suiviId" | "ordre" | "ecart">;
 export type FactureInput = Omit<
   SuiviDeviseFacture,
-  "id" | "suiviId" | "ordre" | "mouvementStockId" | "achatNumFacture" | "achatDate" | "achatDevise" | "achatMontant"
+  "id" | "suiviId" | "ordre" | "mouvementStockId" | "achatNumFacture" | "achatDate" | "achatDevise" | "achatMontant" | "regle" | "reste"
 >;
-export type MouvementInput = Omit<SuiviDeviseMouvement, "id" | "suiviId" | "ordre">;
+/** Un règlement peut être relié à un encaissement du suivi bancaire et réparti sur des factures de la fiche. */
+export type MouvementInput = Omit<SuiviDeviseMouvement, "id" | "suiviId" | "ordre" | "mouvementBancaireId" | "banqueDate" | "banqueLibelle" | "affectations"> & {
+  mouvementBancaireId?: string | null;
+  affectations?: { factureId: string; montant: number }[];
+};
 
 interface SuiviDeviseState {
   list: SuiviDeviseResume[];

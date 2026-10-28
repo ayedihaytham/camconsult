@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, Boxes, ChevronDown, Download, FileText, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, Boxes, ChevronDown, Download, FileText, Link2, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { LedgerTable } from "@/components/ledger/LedgerTable";
@@ -35,6 +35,8 @@ import { cn } from "@/lib/utils";
 import { fmt } from "@/lib/etatsFinanciers/postes";
 import { useSocieteById } from "@/store/data";
 import { useSuiviDevise } from "@/store/suiviDevise";
+import { useBanque } from "@/store/banque";
+import { encaissementsCandidats } from "@/lib/suiviDeviseBanque";
 import { downloadTablesPdf } from "@/lib/pdfTables";
 import { exportSuiviDeviseStyled } from "@/lib/suiviDevise/exportStyled";
 import type {
@@ -93,6 +95,15 @@ export function SuiviDeviseEditorPage() {
   const addMouvement = useSuiviDevise((s) => s.addMouvement);
   const updateMouvement = useSuiviDevise((s) => s.updateMouvement);
   const removeMouvement = useSuiviDevise((s) => s.removeMouvement);
+  // Encaissements du suivi bancaire de la société : un règlement s'y relie.
+  const comptesBanque = useBanque((s) => s.comptes);
+  const mouvementsBanque = useBanque((s) => s.mouvements);
+  const fetchBanque = useBanque((s) => s.fetchEtat);
+  const clearBanque = useBanque((s) => s.clear);
+  useEffect(() => {
+    void fetchBanque(societeId).catch(() => undefined);
+    return () => clearBanque();
+  }, [societeId, fetchBanque, clearBanque]);
 
   const [vue, setVue] = useState<Vue>("ventes");
   const [factureOpen, setFactureOpen] = useState(false);
@@ -104,6 +115,10 @@ export function SuiviDeviseEditorPage() {
   const [mouvementOpen, setMouvementOpen] = useState(false);
   const [editingMouvement, setEditingMouvement] = useState<SuiviDeviseMouvement | null>(null);
   const [mouvementToDelete, setMouvementToDelete] = useState<SuiviDeviseMouvement | null>(null);
+  const encaissements = useMemo(
+    () => (current ? encaissementsCandidats(mouvementsBanque, comptesBanque, current.devise, current.client, editingMouvement?.mouvementBancaireId ? { [editingMouvement.mouvementBancaireId]: editingMouvement.montant } : {}) : []),
+    [current, mouvementsBanque, comptesBanque, editingMouvement],
+  );
   const [exporting, setExporting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -205,6 +220,23 @@ export function SuiviDeviseEditorPage() {
     { id: "pu", header: "PU", align: "right", cell: (f) => fmt(f.pu) },
     { id: "montant", header: "Montant", align: "right", cell: (f) => <span className="font-semibold">{fmt(f.montantTotal)}</span> },
     {
+      id: "regle",
+      header: "Réglé",
+      align: "right",
+      cell: (f) => (f.regle > 0 ? fmt(f.regle) : <span className="text-muted-foreground">—</span>),
+    },
+    {
+      id: "reste",
+      header: "Reste",
+      align: "right",
+      cell: (f) =>
+        f.regle <= 0 ? <span className="text-muted-foreground">—</span> : f.reste <= 0.0005 ? (
+          <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">Soldée</span>
+        ) : (
+          <span className={f.reste < 0 ? "font-semibold text-destructive" : "text-foreground"}>{fmt(f.reste)}</span>
+        ),
+    },
+    {
       id: "avoir",
       header: "Avoir",
       align: "right",
@@ -257,7 +289,22 @@ export function SuiviDeviseEditorPage() {
   const mouvementColumns: DataTableColumn<SuiviDeviseMouvement>[] = [
     { id: "type", header: "Type", cell: (m) => TYPE_LABELS[m.type] },
     { id: "date", header: "Date", cell: (m) => m.date ?? "—", sortable: true, sortAccessor: (m) => m.date ?? "" },
-    { id: "libelle", header: "Libellé", cell: (m) => m.libelle || "—" },
+    {
+      id: "libelle",
+      header: "Libellé",
+      cell: (m) => (
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          {m.libelle || "—"}
+          {m.mouvementBancaireId && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[0.65rem] font-semibold text-success" title={`Relié à l'encaissement du ${m.banqueDate ? m.banqueDate.split("-").reverse().join("/") : ""} : ${m.banqueLibelle}`}>
+              <Link2 className="size-3" aria-hidden="true" />
+              Banque
+            </span>
+          )}
+          {m.affectations.length > 0 && <span className="text-[0.65rem] text-muted-foreground">sur {m.affectations.length} facture{m.affectations.length > 1 ? "s" : ""}</span>}
+        </span>
+      ),
+    },
     { id: "lot", header: "Lot", cell: (m) => (m.lotId ? lotById.get(m.lotId)?.libelle || "—" : "—") },
     { id: "montant", header: "Montant", align: "right", cell: (m) => <span className="font-semibold">{fmt(m.montant)}</span> },
     {
@@ -631,6 +678,9 @@ export function SuiviDeviseEditorPage() {
         }}
         mouvement={editingMouvement}
         lots={current.lots}
+        factures={current.factures}
+        devise={current.devise}
+        encaissements={encaissements}
         onSubmit={(v) => {
           if (editingMouvement) updateMouvement(editingMouvement.id, v);
           else addMouvement(suiviId, v);

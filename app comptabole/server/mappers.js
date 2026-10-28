@@ -721,6 +721,11 @@ export const suiviDeviseMouvementDto = (r) => ({
   libelle: r.libelle ?? "",
   date: r.date ? dateStr(r.date) : null,
   montant: num(r.montant),
+  // Encaissement du suivi bancaire auquel ce règlement est relié (null : règlement saisi à la main).
+  mouvementBancaireId: r.mouvement_bancaire_id ?? null,
+  banqueDate: r.bank_date ? dateStr(r.bank_date) : null,
+  banqueLibelle: r.bank_libelle ?? "",
+  affectations: [],
 });
 
 /**
@@ -767,10 +772,18 @@ function ecartFacture(facture, lot) {
  * lignes "LC:..." des lots) et BRAHIM (2) (même exclusion des 2 lignes
  * "LC205ILC2023/0400" de son TOTAL).
  */
-export function suiviDeviseFullDto(suiviRow, lotRows, factureRows, mouvementRows) {
+export function suiviDeviseFullDto(suiviRow, lotRows, factureRows, mouvementRows, affectationRows = []) {
   const lots = lotRows.map(suiviDeviseLotDto).sort((a, b) => a.ordre - b.ordre);
-  const factures = factureRows.map(suiviDeviseFactureDto).sort((a, b) => a.ordre - b.ordre);
   const mouvements = mouvementRows.map(suiviDeviseMouvementDto).sort((a, b) => a.ordre - b.ordre);
+  // Répartition des règlements sur les factures : ce que chaque facture a déjà reçu, et ce qu'il lui reste.
+  for (const m of mouvements) m.affectations = affectationRows.filter((a) => a.mouvement_id === m.id).map((a) => ({ factureId: a.facture_id, montant: num(a.montant) }));
+  const factures = factureRows
+    .map(suiviDeviseFactureDto)
+    .sort((a, b) => a.ordre - b.ordre)
+    .map((f) => {
+      const regle = round2(affectationRows.filter((a) => a.facture_id === f.id).reduce((t, a) => t + num(a.montant), 0));
+      return { ...f, regle, reste: round2(f.montantTotal - regle) };
+    });
 
   const totalVentes = round2(
     factures.filter((f) => !f.lotId).reduce((s, f) => s + f.montantTotal, 0),

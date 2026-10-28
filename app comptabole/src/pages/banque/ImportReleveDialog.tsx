@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Upload } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { fmtMontant } from "@/lib/stockRecap";
 import { formatDate } from "@/lib/utils";
 import { TYPE_LABELS, type MouvementImport } from "@/lib/banque";
@@ -27,6 +28,12 @@ interface Releve {
   ecartsSociete: EcartSociete[];
 }
 
+/** Soldes réels de la banque par mois et opérations en cours que le classeur donne en pied de chaque feuille. */
+export interface ImportMensuel {
+  releves: { mois: string; soldeReel: number | null }[];
+  enCours: { mois: string; designation: string; debit: number; credit: number }[];
+}
+
 /** Ce que l'import peut aussi mettre à jour sur le compte : solde de départ et solde réel du relevé. */
 export interface MiseAJourCompte {
   ouverture: SoldeDate | null;
@@ -39,7 +46,7 @@ interface Props {
   devise: string;
   /** Le compte n'a encore aucun mouvement : le solde d'ouverture du relevé peut devenir son solde de départ. */
   proposerSoldeDepart: boolean;
-  onImport: (mouvements: MouvementImport[], maj: MiseAJourCompte) => Promise<void>;
+  onImport: (mouvements: MouvementImport[], maj: MiseAJourCompte, mensuel: ImportMensuel) => Promise<void>;
 }
 
 /** Lit un relevé PDF (texte) ou un classeur Excel du cabinet (une feuille par mois) et renvoie ses mouvements. */
@@ -78,6 +85,7 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
   const [saving, setSaving] = useState(false);
   const [avecOuverture, setAvecOuverture] = useState(true);
   const [avecSoldeReel, setAvecSoldeReel] = useState(true);
+  const [avecMensuel, setAvecMensuel] = useState(true);
 
   useEffect(() => {
     if (open) return;
@@ -85,6 +93,7 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
     setErreur("");
     setAvecOuverture(true);
     setAvecSoldeReel(true);
+    setAvecMensuel(true);
   }, [open]);
 
   async function choisir(e: React.ChangeEvent<HTMLInputElement>) {
@@ -107,6 +116,11 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
   const credit = releve ? Math.round(releve.mouvements.reduce((s, m) => s + m.credit, 0) * 1000) / 1000 : 0;
   const proposerOuverture = Boolean(proposerSoldeDepart && releve?.ouverture?.date);
   const n = releve?.mouvements.length ?? 0;
+  const mensuel: ImportMensuel = {
+    releves: (releve?.feuilles ?? []).filter((f) => f.mois && f.soldeBanque !== null).map((f) => ({ mois: f.mois!, soldeReel: f.soldeBanque })),
+    enCours: (releve?.feuilles ?? []).flatMap((f) => (f.mois ? f.enCours.map((o) => ({ mois: f.mois!, ...o })) : [])),
+  };
+  const lignesPerdues = (releve?.feuilles ?? []).flatMap((f) => f.lignesIgnorees.map((l) => ({ ...l, feuille: f.nom.trim() })));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -159,7 +173,9 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
                       <th className="px-2 py-1.5 text-right">Débit</th>
                       <th className="px-2 py-1.5 text-right">Crédit</th>
                       <th className="px-2 py-1.5 text-right">Solde calculé</th>
-                      <th className="px-2 py-1.5 text-right">Solde réel</th>
+                      <th className="px-2 py-1.5 text-right">Solde réel (banque)</th>
+                      <th className="px-2 py-1.5 text-right">Écart</th>
+                      <th className="px-2 py-1.5 text-right">En cours</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -171,7 +187,12 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
                         <td className="px-2 py-1 text-right tabular-nums">{nombre(f.debit)}</td>
                         <td className="px-2 py-1 text-right tabular-nums">{nombre(f.credit)}</td>
                         <td className="px-2 py-1 text-right tabular-nums">{f.cloture == null ? "—" : nombre(f.cloture)}</td>
-                        <td className="px-2 py-1 text-right tabular-nums">{f.soldeReel == null ? "—" : nombre(f.soldeReel)}</td>
+                        <td className="px-2 py-1 text-right tabular-nums">{f.soldeBanque == null ? "—" : nombre(f.soldeBanque)}</td>
+                        {(() => {
+                          const ecart = f.soldeBanque == null || f.cloture == null ? null : Math.round((f.soldeBanque - f.cloture) * 1000) / 1000;
+                          return <td className={cn("px-2 py-1 text-right font-semibold tabular-nums", ecart ? "text-destructive" : "text-success")}>{ecart === null ? "—" : nombre(ecart)}</td>;
+                        })()}
+                        <td className="px-2 py-1 text-right tabular-nums">{f.enCours.length || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -179,7 +200,7 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
               </div>
             )}
 
-            {(releve.avertissements.length > 0 || releve.feuillesIgnorees.length > 0 || releve.ecartsSociete.length > 0) && (
+            {(releve.avertissements.length > 0 || releve.feuillesIgnorees.length > 0 || releve.ecartsSociete.length > 0 || lignesPerdues.length > 0) && (
               <div role="alert" className="space-y-1 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground">
                 <p className="flex items-center gap-1.5 font-semibold">
                   <AlertTriangle className="size-3.5 text-warning" aria-hidden="true" />À vérifier avant d'importer
@@ -188,6 +209,10 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
                   {releve.avertissements.map((a) => (
                     <li key={a}>{a}</li>
                   ))}
+                  {lignesPerdues.slice(0, 8).map((l) => (
+                    <li key={`${l.feuille}-${l.ligne}`}>Ligne non importée — « {l.feuille} » ligne {l.ligne} : {l.texte} ({l.raison}).</li>
+                  ))}
+                  {lignesPerdues.length > 8 && <li>… et {lignesPerdues.length - 8} autres lignes non importées.</li>}
                   {releve.feuillesIgnorees.length > 0 && <li>Feuille(s) sans relevé reconnu, ignorée(s) : {releve.feuillesIgnorees.join(", ")}.</li>}
                   {releve.ecartsSociete.length > 0 && (
                     <li>
@@ -237,6 +262,12 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
                 Prendre « solde au {formatDate(releve.ouverture.date)} : {nombre(releve.ouverture.montant)} {devise} » comme solde de départ du compte
               </label>
             )}
+            {(mensuel.releves.length > 0 || mensuel.enCours.length > 0) && (
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                <input type="checkbox" checked={avecMensuel} onChange={(e) => setAvecMensuel(e.target.checked)} />
+                Enregistrer les soldes réels de {mensuel.releves.length} mois et {mensuel.enCours.length} opération{mensuel.enCours.length > 1 ? "s" : ""} en cours du classeur
+              </label>
+            )}
             {releve.soldeReel && (
               <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
                 <input type="checkbox" checked={avecSoldeReel} onChange={(e) => setAvecSoldeReel(e.target.checked)} />
@@ -262,7 +293,7 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
                 await onImport(releve.mouvements, {
                   ouverture: proposerOuverture && avecOuverture ? releve.ouverture : null,
                   soldeReel: avecSoldeReel ? releve.soldeReel : null,
-                });
+                }, avecMensuel ? mensuel : { releves: [], enCours: [] });
                 onOpenChange(false);
               } catch {
                 // erreur déjà affichée par le store

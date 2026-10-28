@@ -103,7 +103,7 @@ const jourLocal = (d) => {
 
 
 async function loadFull(suiviId) {
-  const [suivi, lots, factures, mouvements] = await Promise.all([
+  const [suivi, lots, factures, mouvements, affectations] = await Promise.all([
     query("select * from suivi_devise where id = $1", [suiviId]),
     query("select * from suivi_devise_lots where suivi_id = $1 order by ordre", [suiviId]),
     // Les champs d'une facture reprise du stock se lisent en direct sur la vente du mouvement.
@@ -125,9 +125,18 @@ async function loadFull(suiviId) {
         order by f.ordre`,
       [suiviId],
     ),
-    query("select * from suivi_devise_mouvements where suivi_id = $1 order by ordre", [suiviId]),
+    query(
+      `select mv.*, b.date_op as bank_date, b.libelle as bank_libelle
+         from suivi_devise_mouvements mv left join mouvements_bancaires b on b.id = mv.mouvement_bancaire_id
+        where mv.suivi_id = $1 order by mv.ordre`,
+      [suiviId],
+    ),
+    query(
+      `select a.* from suivi_devise_affectations a join suivi_devise_mouvements mv on mv.id = a.mouvement_id where mv.suivi_id = $1`,
+      [suiviId],
+    ),
   ]);
-  return suiviDeviseFullDto(suivi.rows[0], lots.rows, factures.rows, mouvements.rows);
+  return suiviDeviseFullDto(suivi.rows[0], lots.rows, factures.rows, mouvements.rows, affectations.rows);
 }
 
 // ── Fiche (suivi_devise) ───────────────────────────
@@ -585,7 +594,59 @@ const mouvementSchema = z.object({
   libelle: z.string().default(""),
   date: z.string().nullish(),
   montant: z.coerce.number().default(0),
+  /** Règlement relié à un encaissement du suivi bancaire. */
+  mouvementBancaireId: z.string().uuid().nullish(),
+  /** Répartition du règlement sur les factures de la fiche (remplace l'existante quand elle est fournie). */
+  affectations: z.array(z.object({ factureId: z.string().uuid(), montant: z.coerce.number().positive("Montant affecté invalide") })).default([]),
 });
+
+const TOLERANCE = 0.0005;
+
+/**
+ * Contrôle un règlement relié à la banque et réparti sur des factures ; renvoie un message d'erreur, ou null.
+ * `mouvementId` : le règlement modifié (ses propres montants ne comptent pas dans ce qui est déjà affecté à l'encaissement).
+ */
+async function controlerLiaisons(client, suivi, v, mouvementId) {
+  const lie = Boolean(v.mouvementBancaireId);
+  if (v.type !== "reglement" && (lie || (v.affectations ?? []).length > 0)) return "Seul un règlement se relie à un encaissement ou se répartit sur des factures";
+  if (lie) {
+    const b = (
+      await client.query(
+        `select m.credit, m.debit, c.devise, c.societe_id from mouvements_bancaires m join comptes_bancaires c on c.id = m.compte_id where m.id = $1`,
+        [v.mouvementBancaireId],
+      )
+    ).rows[0];
+    if (!b || b.societe_id !== suivi.societe_id) return "Encaissement introuvable pour cette société";
+    if (!(Number(b.credit) > 0)) return "Seul un encaissement (crédit du compte) peut être relié à un règlement";
+    if (b.devise !== suivi.devise) return `L'encaissement est en ${b.devise} : cette fiche est en ${suivi.devise}`;
+    const deja = Number(
+      (
+        await client.query(
+          "select coalesce(sum(montant), 0) as total from suivi_devise_mouvements where mouvement_bancaire_id = $1 and ($2::uuid is null or id <> $2::uuid)",
+          [v.mouvementBancaireId, mouvementId ?? null],
+        )
+      ).rows[0].total,
+    );
+    if (deja + v.montant > Number(b.credit) + TOLERANCE) return `Le règlement dépasse ce qu'il reste à affecter sur l'encaissement (${Math.round((Number(b.credit) - deja) * 1000) / 1000})`;
+  }
+  const affectations = v.affectations ?? [];
+  if (affectations.length > 0) {
+    const ids = affectations.map((a) => a.factureId);
+    if (new Set(ids).size !== ids.length) return "Une facture ne peut figurer qu'une fois dans la répartition";
+    const { rows } = await client.query("select id from suivi_devise_factures where suivi_id = $1 and id = any($2::uuid[])", [suivi.id, ids]);
+    if (rows.length !== ids.length) return "Une facture de la répartition n'appartient pas à cette fiche";
+    const total = affectations.reduce((t, a) => t + a.montant, 0);
+    if (total > v.montant + TOLERANCE) return "La répartition dépasse le montant du règlement";
+  }
+  return null;
+}
+
+async function ecrireAffectations(client, mouvementId, affectations) {
+  await client.query("delete from suivi_devise_affectations where mouvement_id = $1", [mouvementId]);
+  for (const a of affectations) {
+    await client.query("insert into suivi_devise_affectations (mouvement_id, facture_id, montant) values ($1,$2,$3)", [mouvementId, a.factureId, a.montant]);
+  }
+}
 
 suiviDeviseRouter.post("/:id/mouvements", async (req, res) => {
   const s = await loadSuiviOrFail(req.params.id, req.session, res);
@@ -594,12 +655,19 @@ suiviDeviseRouter.post("/:id/mouvements", async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
-  await query(
-    `insert into suivi_devise_mouvements (suivi_id, lot_id, ordre, type, libelle, date, montant)
-     values ($1, $2, (select coalesce(max(ordre), 0) + 1 from suivi_devise_mouvements where suivi_id = $1),
-             $3, $4, $5, $6)`,
-    [req.params.id, v.lotId ?? null, v.type, v.libelle, v.date || null, v.montant],
-  );
+  const erreur = await withTransaction(async (client) => {
+    const e = await controlerLiaisons(client, s, v, null);
+    if (e) return e;
+    const { rows } = await client.query(
+      `insert into suivi_devise_mouvements (suivi_id, lot_id, ordre, type, libelle, date, montant, mouvement_bancaire_id)
+       values ($1, $2, (select coalesce(max(ordre), 0) + 1 from suivi_devise_mouvements where suivi_id = $1),
+               $3, $4, $5, $6, $7) returning id`,
+      [req.params.id, v.lotId ?? null, v.type, v.libelle, v.date || null, v.montant, v.type === "reglement" ? (v.mouvementBancaireId ?? null) : null],
+    );
+    await ecrireAffectations(client, rows[0].id, v.type === "reglement" ? v.affectations : []);
+    return null;
+  });
+  if (erreur) return res.status(400).json({ error: erreur });
   await query("update suivi_devise set maj_le = now() where id = $1", [req.params.id]);
   logAction(req.session.nom, "creation", "suivi_devise", `Mouvement (${v.type}) — ${s.client}`);
   res.status(201).json(await loadFull(req.params.id));
@@ -633,11 +701,25 @@ suiviDeviseRouter.patch("/mouvements/:mouvementId", async (req, res) => {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
   const merged = { ...suiviDeviseMouvementDto(existing), ...v };
-  await query(
-    `update suivi_devise_mouvements set lot_id = $2, type = $3, libelle = $4, date = $5, montant = $6
-     where id = $1`,
-    [req.params.mouvementId, merged.lotId ?? null, merged.type, merged.libelle, merged.date || null, merged.montant],
-  );
+  const suivi = (await query("select * from suivi_devise where id = $1", [existing.suivi_id])).rows[0];
+  const erreur = await withTransaction(async (client) => {
+    // Sans répartition fournie, on garde l'existante : elle doit toujours tenir dans le montant (et ne plus exister hors règlement).
+    const gardees = v.affectations === undefined
+      ? (await client.query("select facture_id, montant from suivi_devise_affectations where mouvement_id = $1", [req.params.mouvementId])).rows.map((a) => ({ factureId: a.facture_id, montant: Number(a.montant) }))
+      : v.affectations;
+    const reglement = merged.type === "reglement";
+    const controle = { ...merged, affectations: gardees, mouvementBancaireId: reglement ? merged.mouvementBancaireId : null };
+    const e = await controlerLiaisons(client, suivi, controle, req.params.mouvementId);
+    if (e) return e;
+    await client.query(
+      `update suivi_devise_mouvements set lot_id = $2, type = $3, libelle = $4, date = $5, montant = $6, mouvement_bancaire_id = $7
+       where id = $1`,
+      [req.params.mouvementId, merged.lotId ?? null, merged.type, merged.libelle, merged.date || null, merged.montant, reglement ? (merged.mouvementBancaireId ?? null) : null],
+    );
+    await ecrireAffectations(client, req.params.mouvementId, reglement ? gardees : []);
+    return null;
+  });
+  if (erreur) return res.status(400).json({ error: erreur });
   await query("update suivi_devise set maj_le = now() where id = $1", [existing.suivi_id]);
   logAction(req.session.nom, "modification", "suivi_devise", `Mouvement — ${existing.client}`);
   res.json(await loadFull(existing.suivi_id));

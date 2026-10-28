@@ -16,7 +16,7 @@ import type { CompteBancaire, MouvementBancaire } from "@/types";
 const compte: CompteBancaire = { id: "c", banque: "BTL", devise: "EUR", numero: "", soldeDepart: 213.5, dateDepart: "2026-07-31", soldeReel: null, dateReel: null };
 const mvt = (id: string, debit: number, credit: number, dateOp = "2026-08-03"): MouvementBancaire => ({
   id, compteId: "c", dateOp, dateValeur: null, libelle: "", details: "", reference: "", numPiece: "", debit, credit,
-  type: "autre", cours: null, reglementId: null, fournisseurCle: null,
+  type: "autre", aRevoir: false, note: "", affecteClient: 0, reglementsClient: [], cours: null, reglementId: null, fournisseurCle: null,
 });
 
 describe("classement des mouvements", () => {

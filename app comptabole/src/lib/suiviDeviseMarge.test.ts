@@ -5,7 +5,7 @@ import type { SuiviDeviseFacture } from "@/types";
 const facture = (patch: Partial<SuiviDeviseFacture>): SuiviDeviseFacture => ({
   id: "f", suiviId: "s", lotId: null, ordre: 1, nFacture: "1", nSecondaire: "", dateFacture: null, modePaiement: "",
   designationProduit: "", fournisseur: "", qteTonnes: 0, pu: 0, montantTotal: 0, avoirMontant: null, avoirDate: null,
-  mouvementStockId: "m", achatNumFacture: "A1", achatDate: null, achatDevise: "EUR", achatMontant: 0, ...patch,
+  mouvementStockId: "m", achatNumFacture: "A1", achatDate: null, achatDevise: "EUR", achatMontant: 0, regle: 0, reste: 0, ...patch,
 });
 
 describe("marge des factures reprises du stock", () => {

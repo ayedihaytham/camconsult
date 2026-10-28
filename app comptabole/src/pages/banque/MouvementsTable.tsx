@@ -1,4 +1,4 @@
-import { Link2, Pencil, Trash2 } from "lucide-react";
+import { Flag, Link2, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn, formatDate } from "@/lib/utils";
 import { TYPE_LABELS } from "@/lib/banque";
@@ -15,6 +15,10 @@ interface Props {
   onEdit: (m: MouvementBancaire) => void;
   onDelete: (m: MouvementBancaire) => void;
   onRapprocher: (m: MouvementBancaire) => void;
+  /** Marque ou démarque une ligne « à revoir » (le jaune du classeur du cabinet). */
+  onARevoir?: (m: MouvementBancaire) => void;
+  /** Ouvre la fiche du suivi client devise pour relier cet encaissement à un règlement. */
+  onRapprocherClient?: (m: MouvementBancaire) => void;
 }
 
 const th = "whitespace-nowrap px-2 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground";
@@ -35,7 +39,7 @@ const montant = (n: number) => (n ? fmtMontant(n) : "—");
 
 /** Mouvements d'un compte : les opérations d'un même N° pièce (opération, TVA, commission, intérêts) sont
  * regroupées, et un paiement fournisseur se rapproche de son règlement. */
-export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lectureSeule, onEdit, onDelete, onRapprocher }: Props) {
+export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lectureSeule, onEdit, onDelete, onRapprocher, onARevoir, onRapprocherClient }: Props) {
   return (
     <div className="overflow-x-auto" data-tour="banque-mouvements">
       <table className="w-full min-w-[64rem] border-collapse text-xs">
@@ -69,7 +73,9 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                 className={cn(
                   "transition-colors hover:bg-accent/[0.05]",
                   finGroupe ? "border-b border-accent/20" : "border-b border-dashed border-accent/10",
+                  m.aRevoir && "bg-warning/10 shadow-[inset_3px_0_0_hsl(var(--warning))] hover:bg-warning/15",
                 )}
+                data-a-revoir={m.aRevoir || undefined}
               >
                 <td className={cn(td, "whitespace-nowrap")}>{formatDate(m.dateOp)}</td>
                 <td className={cn(td, "whitespace-nowrap text-muted-foreground")}>{m.dateValeur ? formatDate(m.dateValeur) : "—"}</td>
@@ -111,6 +117,25 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                     </button>
                   ) : aRapprocher ? (
                     <span className="text-[0.7rem] text-warning">Non rapproché</span>
+                  ) : m.credit > 0 && m.reglementsClient.length > 0 ? (
+                    <span className="inline-flex flex-col items-start gap-0.5">
+                      <Link
+                        to={`/suivi-devise/${societeId}/${m.reglementsClient[0].suiviId}`}
+                        className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[0.65rem] font-semibold text-success hover:underline"
+                      >
+                        <Link2 className="size-3" aria-hidden="true" />
+                        Client{m.reglementsClient.length > 1 ? ` · ${m.reglementsClient.length} fiches` : ""}
+                      </Link>
+                      {m.credit - m.affecteClient > 0.0005 && <span className="text-[0.65rem] text-warning">reste {fmtMontant(m.credit - m.affecteClient)}</span>}
+                    </span>
+                  ) : m.credit > 0 && m.type === "encaissement_client" && onRapprocherClient && !lectureSeule ? (
+                    <button
+                      type="button"
+                      onClick={() => onRapprocherClient(m)}
+                      className="rounded-md border border-accent/40 px-2 py-0.5 text-[0.7rem] font-medium text-primary hover:bg-accent/10"
+                    >
+                      Règlement client
+                    </button>
                   ) : (
                     ""
                   )}
@@ -118,6 +143,18 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                 <td className={td}>
                   {!lectureSeule && (
                     <div className="flex justify-end gap-0.5">
+                      {onARevoir && (
+                        <button
+                          type="button"
+                          aria-label={m.aRevoir ? "Retirer le marquage « à revoir »" : "Marquer cette ligne à revoir"}
+                          aria-pressed={m.aRevoir}
+                          title={m.aRevoir ? "À revoir : cliquer pour retirer" : "Marquer à revoir"}
+                          onClick={() => onARevoir(m)}
+                          className={cn("flex size-7 items-center justify-center rounded-md hover:bg-warning/15", m.aRevoir ? "text-warning" : "text-muted-foreground hover:text-warning")}
+                        >
+                          <Flag className="h-4 w-4" fill={m.aRevoir ? "currentColor" : "none"} />
+                        </button>
+                      )}
                       <button
                         type="button"
                         aria-label="Modifier ce mouvement"

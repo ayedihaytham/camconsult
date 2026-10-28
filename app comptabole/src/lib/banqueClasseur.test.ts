@@ -173,3 +173,37 @@ describe("cours de change", () => {
     expect(extraireCours("FT26236F61MD\\TN1")).toBeNull();
   });
 });
+
+const BTL_TND = "BTL TND PETRA 2026.xlsx";
+
+describe.skipIf(!existsSync(`samples/${BTL_TND}`))("classeur BTL TND (un mois par feuille) : lecture fiable et soldes mensuels", () => {
+  const c = lireClasseurBancaire(feuilles(BTL_TND));
+  const feuille = (mois: string) => c.feuilles.find((f) => f.mois === mois)!;
+
+  it("lit 1 185 opérations : « SOLDE TOUT COMPTE », dates de valeur seules et années mal saisies comprises", () => {
+    expect(c.mouvements).toHaveLength(1185);
+    expect(c.mouvements.filter((m) => /SOLDE TOUT COMPTE/.test(m.libelle)).map((m) => m.debit)).toEqual([2019.23, 600.961]);
+    expect(c.avertissements.some((a) => /04-2026.*date de valeur 30\/04\/2026/.test(a))).toBe(true);
+    expect(c.avertissements.filter((a) => /22\/06\/20263/.test(a))).toHaveLength(5);
+  });
+
+  it("le solde réel de la banque d'un mois est le solde de départ du mois suivant ; six mois sur huit tombent juste", () => {
+    expect(c.feuilles.map((f) => f.mois)).toEqual(["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"]);
+    expect(c.feuilles.map((f) => f.soldeBanque)).toEqual([18842.626, 19366.028, 135276.717, 26460.068, 17606.153, 20543.857, 683.506, 108481.391]);
+    const ecarts = c.feuilles.map((f) => (f.soldeBanque === null || f.cloture === null ? null : Math.round((f.soldeBanque - f.cloture) * 1000) / 1000));
+    expect(ecarts).toEqual([0, 0, 0, 0, 0, 3.57, 5, 0]);
+  });
+
+  it("lit les opérations en cours du pied de feuille, sans la ligne de total", () => {
+    expect(feuille("2026-01").enCours).toEqual([
+      { designation: "ALIMENTATION COMPTE TND(OPP ECHG 3.37 EUR/TND).", debit: 84250, credit: 0 },
+      { designation: "REGLEMENT SOTACIB (FACT N°320001352)/CHEQ N°4000111", debit: 0, credit: 78606.274 },
+    ]);
+    expect(feuille("2026-02").enCours.map((o) => o.designation)).toEqual(["SALAIRE MOIS DE 02/2026 MARIEM", "SALAIRE MOIS DE 02/2026 SYRINE"]);
+    expect(feuille("2026-03").enCours).toEqual([]);
+  });
+
+  it("les totaux et soldes du pied de feuille ne sont pas signalés comme des lignes perdues", () => {
+    expect(c.feuilles.flatMap((f) => f.lignesIgnorees)).toEqual([]);
+  });
+});

@@ -1155,6 +1155,43 @@ create index if not exists mouvements_bancaires_compte_idx on mouvements_bancair
 -- Cours d'une opération de change (TND pour 1 unité de devise), lu dans le libellé ou le n° de pièce.
 alter table mouvements_bancaires add column if not exists cours numeric;
 
+-- Règlement client relié à un encaissement du suivi bancaire (crédit d'un compte de la devise de la fiche). Sans index unique : un
+-- encaissement peut alimenter plusieurs fiches (factures de deux exercices), chacune avec son règlement.
+alter table suivi_devise_mouvements add column if not exists mouvement_bancaire_id uuid references mouvements_bancaires(id) on delete set null;
+create index if not exists suivi_devise_mouvements_bancaire_idx on suivi_devise_mouvements(mouvement_bancaire_id) where mouvement_bancaire_id is not null;
+-- Répartition d'un règlement sur les factures de la fiche (quel que soit leur lot), comme fournisseur_affectations.
+create table if not exists suivi_devise_affectations (
+  mouvement_id uuid not null references suivi_devise_mouvements(id) on delete cascade,
+  facture_id   uuid not null references suivi_devise_factures(id) on delete cascade,
+  montant      numeric not null default 0,
+  primary key (mouvement_id, facture_id)
+);
+create index if not exists suivi_devise_affectations_facture_idx on suivi_devise_affectations(facture_id);
+
+-- Rapprochement mensuel d'un compte : solde réel de la banque en fin de mois (celui du relevé), et opérations en cours
+-- (écrites chez la société, pas encore passées en banque). Le solde théorique se calcule, il n'est pas stocké.
+create table if not exists releves_mensuels (
+  compte_id  uuid not null references comptes_bancaires(id) on delete cascade,
+  mois       text not null check (mois ~ '^[0-9]{4}-[0-9]{2}$'),
+  solde_reel numeric,
+  note       text not null default '',
+  primary key (compte_id, mois)
+);
+create table if not exists operations_en_cours (
+  id          uuid primary key default gen_random_uuid(),
+  compte_id   uuid not null references comptes_bancaires(id) on delete cascade,
+  mois        text not null check (mois ~ '^[0-9]{4}-[0-9]{2}$'),
+  designation text not null default '',
+  debit       numeric not null default 0,
+  credit      numeric not null default 0,
+  ordre       int not null default 0,
+  cree_le     timestamptz not null default now()
+);
+create index if not exists operations_en_cours_compte_idx on operations_en_cours(compte_id, mois, ordre);
+-- Ligne à revoir (le « jaune » du classeur du cabinet) et note libre.
+alter table mouvements_bancaires add column if not exists a_revoir boolean not null default false;
+alter table mouvements_bancaires add column if not exists note text not null default '';
+
 -- Rapprochement : un règlement fournisseur correspond à un seul mouvement bancaire.
 alter table fournisseur_reglements add column if not exists mouvement_bancaire_id uuid references mouvements_bancaires(id) on delete set null;
 create unique index if not exists fournisseur_reglements_mouvement_idx on fournisseur_reglements(mouvement_bancaire_id) where mouvement_bancaire_id is not null;

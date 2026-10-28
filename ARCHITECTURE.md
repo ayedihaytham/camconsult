@@ -66,6 +66,10 @@ The backend lives in `app comptabole/server/`:
   lines (`comptes_bancaires`, `mouvements_bancaires`; debit/credit are the bank's, the "vue société"
   swaps them at display). A supplier payment is matched to one `fournisseur_reglements` row through
   `mouvement_bancaire_id`. API: `server/routes/banque.js`.
+  Monthly reconciliation (`lib/banqueMois.ts`, `RapprochementMois`, tables `releves_mensuels` and `operations_en_cours`): bank real balance per
+  month, operations in transit and theoretical balance; one table with a month filter. A client receipt (credit) is linked to a
+  `suivi_devise_mouvements` règlement through `mouvement_bancaire_id` (same société, same devise, several fiches allowed) and split over the fiche's
+  invoices in `suivi_devise_affectations` (`lib/suiviDeviseBanque.ts` reads the invoice numbers cited in the bank label). Never linked to the Collecte.
 - Cours de change (`/cours-change`, `server/routes/coursChange.js`, `store/coursChange.ts`, `lib/coursChange.ts`): moyenne mensuelle
   du marché interbancaire par devise (`devises_change`, libres : USD, GBP, EUR au départ) et par année/mois (`cours_change`).
   Lecture : équipe du cabinet ; écriture et devises : admin et responsable des collaborateurs. `CoursSuggere` propose, sous le champ

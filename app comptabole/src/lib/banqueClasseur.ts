@@ -189,6 +189,7 @@ export function lireFeuilleBancaire(rows: unknown[][], fusions: FusionVerticale[
   const lignesIgnorees: LigneIgnoree[] = [];
   const corrections: string[] = [];
   const enCours: OperationEnCours[] = [];
+  let noteDate = "";
   const resume = (row: unknown[]) => row.map((c) => texte(c)).filter(Boolean).join(" · ").slice(0, 80);
   let ignorees = 0;
   let soldeReel: SoldeDate | null = null;
@@ -197,15 +198,18 @@ export function lireFeuilleBancaire(rows: unknown[][], fusions: FusionVerticale[
     let dateOp = dateFlexible(row[cols.dateOp]);
     const libelle = texte(row[cols.libelle]).replace(/\s+/g, " ").trim();
 
+    noteDate = "";
     // Date d'opération absente ou illisible sur une vraie opération : année mal saisie, sinon date de valeur.
     if (!dateOp && libelle && !/^TOTAL\b/.test(normaliser(libelle)) && (montantCellule(row[debitBanque]) > 0 || montantCellule(row[creditBanque]) > 0)) {
       const corrigee = dateAnneeAvecChiffreEnTrop(row[cols.dateOp]);
       const valeur = cols.dateValeur !== undefined ? dateCellule(row[cols.dateValeur]) : null;
       if (corrigee) {
         dateOp = corrigee;
+        noteDate = `Date « ${texte(row[cols.dateOp])} » lue ${corrigee.split("-").reverse().join("/")} (année avec un chiffre en trop).`;
         corrections.push(`ligne ${i + 1} : date « ${texte(row[cols.dateOp])} » lue ${corrigee.split("-").reverse().join("/")} (année avec un chiffre en trop)`);
       } else if (valeur) {
         dateOp = valeur;
+        noteDate = `Pas de date d'opération : date de valeur ${valeur.split("-").reverse().join("/")} reprise.`;
         corrections.push(`ligne ${i + 1} : pas de date d'opération, date de valeur ${valeur.split("-").reverse().join("/")} reprise (${libelle.slice(0, 40)})`);
       }
     }
@@ -273,12 +277,14 @@ export function lireFeuilleBancaire(rows: unknown[][], fusions: FusionVerticale[
       continue;
     }
 
+    let noteEcart = "";
     if (debitSociete !== undefined && creditSociete !== undefined) {
       // Le bloc société est le miroir de la banque : débit société = crédit banque, et inversement.
       const sd = montantCellule(row[debitSociete]);
       const sc = montantCellule(row[creditSociete]);
       if (Math.abs(sd - credit) > 0.0005 || Math.abs(sc - debit) > 0.0005) {
         ecartsSociete.push({ libelle, societe: sd || sc, banque: credit || debit });
+        noteEcart = `Montant société ${fr(sd || sc)} ≠ banque ${fr(credit || debit)} : montant de la banque importé.`;
       }
     }
 
@@ -296,9 +302,14 @@ export function lireFeuilleBancaire(rows: unknown[][], fusions: FusionVerticale[
       numPiece = "";
     }
     const type = classerMouvement(`${libelle} ${details} ${indice}`, debit, credit, estCours ? pieceBrute : numPiece);
+    const dateValeur = cols.dateValeur !== undefined ? dateCellule(row[cols.dateValeur]) : null;
+    // Date de valeur d'un mois précédent : l'opération n'est pas dans le même solde bancaire que dans le classeur.
+    const noteValeur = dateValeur && dateValeur.slice(0, 7) < dateOp.slice(0, 7) ? `Date de valeur ${dateValeur.split("-").reverse().join("/")} : un mois avant la date d'opération.` : "";
+    const notes = [noteDate, noteEcart, noteValeur].filter(Boolean);
     mouvements.push({
+      ...(notes.length ? { aRevoir: true, note: notes.join(" ") } : {}),
       dateOp,
-      dateValeur: cols.dateValeur !== undefined ? dateCellule(row[cols.dateValeur]) : null,
+      dateValeur,
       libelle,
       details,
       reference: lire(cols.reference),
@@ -398,8 +409,8 @@ export function lireClasseurBancaire(feuilles: FeuilleLue[]): ClasseurBancaire {
     lue.mouvements = lue.mouvements.map((m) => {
       const [y, mm, dd] = m.dateOp.split("-").map(Number);
       if (mm === moisNum && y !== annee) {
-        aCorriger.push(`${dd}/${mm}/${y}`);
-        return { ...m, dateOp: `${annee}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`, dateValeur: m.dateValeur && m.dateValeur.slice(5) === m.dateOp.slice(5) ? `${annee}-${m.dateValeur.slice(5)}` : m.dateValeur };
+        aCorriger.push(`${dd}/${mm}/${y} ${m.libelle.trim().slice(0, 30)}`);
+        return { ...m, aRevoir: true, note: [m.note, `Date ${dd}/${mm}/${y} corrigée en ${annee}.`].filter(Boolean).join(" "), dateOp: `${annee}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`, dateValeur: m.dateValeur && m.dateValeur.slice(5) === m.dateOp.slice(5) ? `${annee}-${m.dateValeur.slice(5)}` : m.dateValeur };
       }
       return m;
     });

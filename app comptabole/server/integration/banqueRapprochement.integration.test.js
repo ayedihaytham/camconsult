@@ -49,6 +49,14 @@ describe.skipIf(!actif)("intégration PostgreSQL : rapprochement bancaire mensue
     expect(encore.json.enCours.map((o) => o.designation)).toEqual(["ALIMENTATION"]);
   });
 
+  it("l'import garde les lignes que le classeur signale « à revoir », avec leur note", async () => {
+    const r = await admin("POST", `/api/banque/comptes/${compteId}/import`, { mouvements: [{ ...mvt("2026-04-30", "COMMISSION SIGNALEE", 2.975, 0), aRevoir: true, note: "Pas de date d'opération : date de valeur reprise." }, mvt("2026-04-30", "COMMISSION NORMALE", 1, 0)] });
+    expect(r.status, r.texte).toBe(200);
+    const signalee = r.json.mouvements.find((m) => m.libelle === "COMMISSION SIGNALEE");
+    expect(signalee).toMatchObject({ aRevoir: true, note: "Pas de date d'opération : date de valeur reprise." });
+    expect(r.json.mouvements.find((m) => m.libelle === "COMMISSION NORMALE")).toMatchObject({ aRevoir: false, note: "" });
+  });
+
   it("solde réel d'un mois : saisie, correction, retrait", async () => {
     const a = await admin("PUT", `/api/banque/comptes/${compteId}/mois/2026-03`, { soldeReel: 1234.5, note: "relevé de mars" });
     expect(a.status, a.texte).toBe(200);

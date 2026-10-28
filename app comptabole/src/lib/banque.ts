@@ -107,7 +107,11 @@ export const moisDesMouvements = (mouvements: MouvementBancaire[]) =>
 export type MouvementImport = Pick<
   MouvementBancaire,
   "dateOp" | "dateValeur" | "libelle" | "details" | "reference" | "numPiece" | "debit" | "credit" | "type" | "cours"
->;
+> & {
+  /** Ligne que l'import signale au comptable (date corrigée, date de valeur d'un autre mois, montants société et banque différents). */
+  aRevoir?: boolean;
+  note?: string;
+};
 
 const pad = (n: number) => String(n).padStart(2, "0");
 

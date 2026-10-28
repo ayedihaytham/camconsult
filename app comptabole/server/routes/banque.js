@@ -185,7 +185,7 @@ banqueRouter.post("/comptes/:id/mouvements", async (req, res) => {
 const moisSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mois invalide");
 const enCoursSchema = z.object({ designation: z.string().trim().min(1, "Désignation requise").max(300), debit: montant, credit: montant });
 const importSchema = z.object({
-  mouvements: z.array(mouvementSchema).min(1, "Aucun mouvement à importer").max(5000),
+  mouvements: z.array(mouvementSchema.and(z.object({ aRevoir: z.boolean().default(false), note: z.string().max(2000).default("") }))).min(1, "Aucun mouvement à importer").max(5000),
   /** Soldes réels de la banque par mois, lus dans le classeur (facultatif). */
   releves: z.array(z.object({ mois: moisSchema, soldeReel: z.coerce.number().nullable() })).max(60).default([]),
   /** Opérations en cours par mois, lues dans le classeur : elles remplacent celles du mois (facultatif). */
@@ -225,9 +225,9 @@ banqueRouter.post("/comptes/:id/import", async (req, res) => {
         continue;
       }
       await client.query(
-        `insert into mouvements_bancaires (societe_id, compte_id, date_op, date_valeur, libelle, details, reference, num_piece, debit, credit, type, cours, ordre)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-        [societeId, req.params.id, m.dateOp, m.dateValeur || null, m.libelle, m.details, m.reference, m.numPiece, m.debit, m.credit, m.type, m.cours ?? null, prochain++],
+        `insert into mouvements_bancaires (societe_id, compte_id, date_op, date_valeur, libelle, details, reference, num_piece, debit, credit, type, cours, ordre, a_revoir, note)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        [societeId, req.params.id, m.dateOp, m.dateValeur || null, m.libelle, m.details, m.reference, m.numPiece, m.debit, m.credit, m.type, m.cours ?? null, prochain++, m.aRevoir, m.note],
       );
       importes++;
     }

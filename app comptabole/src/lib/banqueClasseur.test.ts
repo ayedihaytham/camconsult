@@ -187,6 +187,17 @@ describe.skipIf(!existsSync(`samples/${BTL_TND}`))("classeur BTL TND (un mois pa
     expect(c.avertissements.filter((a) => /22\/06\/20263/.test(a))).toHaveLength(5);
   });
 
+  it("marque « à revoir » les 16 lignes signalées, avec la raison, et la date 2025 nomme sa ligne dans l'avertissement", () => {
+    const revoir = c.mouvements.filter((m) => m.aRevoir);
+    expect(revoir).toHaveLength(16);
+    expect(revoir.filter((m) => /chiffre en trop/.test(m.note ?? ""))).toHaveLength(5);
+    expect(revoir.filter((m) => /pas de date d'opération/i.test(m.note ?? ""))).toHaveLength(2);
+    expect(revoir.find((m) => m.libelle === "COMMISSION CPC")?.note).toMatch(/57,270.*57,217/);
+    expect(revoir.find((m) => /^COMMISSION ET TVA DE PRELEVEME/.test(m.libelle))?.note).toMatch(/30\/06\/2026/);
+    expect(revoir.find((m) => /^VIREMENT RECU RUSPINA/.test(m.libelle))?.note).toMatch(/11\/2\/2025 corrigée en 2026/);
+    expect(c.avertissements.find((a) => /mauvaise année/.test(a))).toMatch(/11\/2\/2025 VIREMENT RECU RUSPINA/);
+  });
+
   it("le solde réel de la banque d'un mois est le solde de départ du mois suivant ; six mois sur huit tombent juste", () => {
     expect(c.feuilles.map((f) => f.mois)).toEqual(["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"]);
     expect(c.feuilles.map((f) => f.soldeBanque)).toEqual([18842.626, 19366.028, 135276.717, 26460.068, 17606.153, 20543.857, 683.506, 108481.391]);

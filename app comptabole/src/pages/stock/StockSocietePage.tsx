@@ -21,6 +21,7 @@ import { StockRecapTable } from "./StockRecapTable";
 import { StockRecapSocieteTable } from "./StockRecapSocieteTable";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { feuilleRecapSociete, recapSociete } from "@/lib/stockRecapSociete";
+import { appliquerFiltresRecap, FILTRES_RECAP_VIDES, type FiltresRecap } from "@/lib/filtresRecapSociete";
 import { download } from "@/lib/export";
 import { useIdentiteCabinet } from "@/pages/conversions/useIdentiteCabinet";
 import { StockFiltres } from "./StockFiltres";
@@ -68,6 +69,9 @@ export function StockSocietePage() {
   // Monnaie des cours et des montants du tableau : dinars (cours de la facture) ou dollars (cours par rapport au dollar).
   const [base, setBase] = useState<"TND" | "USD">("TND");
   const [vue, setVue] = useState<"mouvements" | "recap">("mouvements");
+  // Filtres par colonne du récapitulatif : volontairement non mémorisés (remis à zéro au changement de société ou de vue).
+  const [filtresRecap, setFiltresRecap] = useState<FiltresRecap>(FILTRES_RECAP_VIDES);
+  useEffect(() => setFiltresRecap(FILTRES_RECAP_VIDES), [societeId, vue]);
   const { logo, cabinet } = useIdentiteCabinet();
   // Filtres (situation, client, fournisseur, recherche), préférences d'affichage du tableau et mouvement ouvert dans le panneau de droite.
   const [criteres, setCriteres] = useState<CriteresStock>(CRITERES_VIDES);
@@ -145,6 +149,7 @@ export function StockSocietePage() {
 
   const recap = useMemo(() => recapStock(shown), [shown]);
   const recapSoc = useMemo(() => recapSociete(shown), [shown]);
+  const recapAffiche = useMemo(() => appliquerFiltresRecap(recapSoc, filtresRecap), [recapSoc, filtresRecap]);
 
   /** Retire un type de facture (achat, vente ou douane) : si c'est la seule pièce du mouvement, c'est tout le mouvement qui est proposé à la suppression. */
   function demanderRetrait(m: StockMouvement, cote: CoteMouvement) {
@@ -229,9 +234,10 @@ export function StockSocietePage() {
   async function exporterRecap(format: "xlsx" | "pdf") {
     const base = `Recapitulatif-stock-${societe?.code || "societe"}`;
     const titre = `Récapitulatif des mouvements — ${societe?.raisonSociale ?? "Société"}`;
-    const sousTitre = `${shown.length} mouvement${shown.length > 1 ? "s" : ""} · édité le ${new Date().toLocaleDateString("fr-FR")}`;
+    const n = recapAffiche.lignes.length;
+    const sousTitre = `${n} mouvement${n > 1 ? "s" : ""}${n < recapSoc.lignes.length ? ` sur ${recapSoc.lignes.length} (filtré)` : ""} · édité le ${new Date().toLocaleDateString("fr-FR")}`;
     try {
-      const feuille = feuilleRecapSociete(recapSoc);
+      const feuille = feuilleRecapSociete(recapAffiche);
       if (format === "xlsx") {
         const { classeurExcelModele } = await import("@/lib/modeleExcelCabinet");
         const octets = await classeurExcelModele([feuille], { titre, sousTitre, cabinet: cabinet?.nom });
@@ -392,7 +398,7 @@ export function StockSocietePage() {
         )}
         {shown.length > 0 && vue === "recap" && (
           <div className="mt-3 border-t border-border">
-            <StockRecapSocieteTable recap={recapSoc} onOuvrir={(id) => { setVue("mouvements"); setOuvertId(id); }} />
+            <StockRecapSocieteTable base={recapSoc} recap={recapAffiche} filtres={filtresRecap} onFiltres={setFiltresRecap} onOuvrir={(id) => { setVue("mouvements"); setOuvertId(id); }} />
           </div>
         )}
         {shown.length > 0 && vue === "mouvements" && (

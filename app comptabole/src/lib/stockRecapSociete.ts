@@ -62,6 +62,11 @@ export function recapSociete(mouvements: StockMouvement[]): RecapSociete {
     achat: cote(m.achatLignes, m.achatDate, m.achatNumFacture, m.fournisseur, m.achatDevise, m.achatCours, unite),
     ecart: r3(unite === "T" && m.ecartUnite === "KG" ? m.ecart / 1000 : m.ecart),
   }));
+  return { lignes, unite, totaux: totauxDe(lignes) };
+}
+
+/** Totaux d'un ensemble de lignes (toutes, ou seulement celles qu'un filtre laisse visibles). */
+export function totauxDe(lignes: LigneRecapSociete[]): TotauxRecapSociete {
   // Les montants en devise ne s'additionnent que dans une même devise : sinon le total est laissé vide.
   const total = (cotes: CoteRecap[]) => {
     const presentes = cotes.filter((c) => c.present);
@@ -72,11 +77,7 @@ export function recapSociete(mouvements: StockMouvement[]): RecapSociete {
       mtTnd: r3(presentes.reduce((s, c) => s + c.mtTnd, 0)),
     };
   };
-  return {
-    lignes,
-    unite,
-    totaux: { vente: total(lignes.map((l) => l.vente)), achat: total(lignes.map((l) => l.achat)), ecart: r3(lignes.reduce((s, l) => s + l.ecart, 0)) },
-  };
+  return { vente: total(lignes.map((l) => l.vente)), achat: total(lignes.map((l) => l.achat)), ecart: r3(lignes.reduce((s, l) => s + l.ecart, 0)) };
 }
 
 /** « 2025-01-02 » → « 02/01/2025 » (le format que l'Excel du cabinet reconnaît comme date). */

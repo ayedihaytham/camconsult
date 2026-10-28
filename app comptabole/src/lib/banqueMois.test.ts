@@ -53,6 +53,7 @@ describe("rapprochement mensuel d'un compte", () => {
 });
 
 function feuilles(fichier: string): FeuilleLue[] {
+  if (!existsSync(`samples/${fichier}`)) return [];
   const wb = XLSX.read(readFileSync(`samples/${fichier}`), { type: "buffer", cellDates: true });
   return wb.SheetNames.map((nom) => {
     const ws = wb.Sheets[nom];
@@ -65,7 +66,7 @@ function feuilles(fichier: string): FeuilleLue[] {
 
 describe.skipIf(!existsSync("samples/BTL TND PETRA 2026.xlsx"))("rapprochement mensuel sur le classeur BTL TND", () => {
   const c = lireClasseurBancaire(feuilles("BTL TND PETRA 2026.xlsx"));
-  const cpt: CompteBancaire = { ...compte, soldeDepart: c.ouverture!.montant };
+  const cpt: CompteBancaire = { ...compte, soldeDepart: (c.ouverture?.montant ?? 0) };
   const mouvs = c.mouvements.map((m, i) => ({ ...mvt(String(i), m.dateOp, m.debit, m.credit), numPiece: m.numPiece }));
   const rels = c.feuilles.filter((f) => f.mois && f.soldeBanque !== null).map((f) => releve(f.mois!, f.soldeBanque));
   const ops = c.feuilles.flatMap((f) => f.enCours.map((o, i) => ({ id: `${f.mois}${i}`, compteId: "c", mois: f.mois!, ...o })));

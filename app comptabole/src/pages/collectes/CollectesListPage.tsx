@@ -37,6 +37,7 @@ import { CollecteFormDrawer } from "./CollecteFormDrawer";
 import { CollectesClientPage } from "./CollectesClientPage";
 import { CollectesRegistre } from "./CollectesRegistre";
 import { CollectesPipeline } from "./CollectesPipeline";
+import { CollectesVolet } from "./CollectesVolet";
 
 export function CollectesListPage() {
   const navigate = useNavigate();
@@ -61,7 +62,28 @@ export function CollectesListPage() {
   const [toDelete, setToDelete] = useState<Collecte | null>(null);
   const [vue, setVue] = useState<CollecteLens>(isCabinet ? "a_examiner" : "actives");
   const vueChoisie = useRef(false);
-  const [affichage, setAffichage] = useState<"tableau" | "pipeline">("tableau");
+  // Présentation : « liste et volet » (par défaut), tableau ou pipeline ; gardée dans ce navigateur.
+  const [affichage, setAffichage] = useState<"volet" | "tableau" | "pipeline">(() => {
+    try {
+      const v = window.localStorage.getItem("collectes:vue");
+      return v === "tableau" || v === "pipeline" ? v : "volet";
+    } catch {
+      return "volet";
+    }
+  });
+  const changerAffichage = (v: "volet" | "tableau" | "pipeline") => {
+    setAffichage(v);
+    try { window.localStorage.setItem("collectes:vue", v); } catch { /* stockage bloqué : le choix n'est pas gardé */ }
+  };
+  // La fiche a besoin de place : sur petit écran, la liste de sociétés dépliable (tableau) la remplace.
+  const [grandEcran, setGrandEcran] = useState(() => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(min-width: 1024px)").matches);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const suivre = () => setGrandEcran(mql.matches);
+    mql.addEventListener("change", suivre);
+    return () => mql.removeEventListener("change", suivre);
+  }, []);
   const [query, setQuery] = useState("");
   const [societeId, setSocieteId] = useState("all");
   const [periode, setPeriode] = useState("all");
@@ -180,16 +202,19 @@ export function CollectesListPage() {
         description="Suivi des pièces à collecter auprès de vos clients, tableau par tableau"
         actionsSurPetitEcran={false}
         action={canCreate ? { label: "Nouvelle collecte", onClick: () => setCreateOpen(true) } : undefined}
-        metrics={[
-          ...(isCabinet ? [{ label: "À examiner", value: collectionSummary.aExaminer, loading }] : []),
-          { label: "Chez le client", value: counts.chezClient, loading },
-          { label: "En retard", value: collectionSummary.enRetard, loading },
-          { label: "À corriger", value: collectionSummary.aCorriger, loading },
-        ]}
       />
 
       <section aria-label="Registre des collectes" className="overflow-hidden rounded-lg border border-border bg-card">
-        <div data-tour="collecte-lenses" role="tablist" aria-label="Vue des collectes" className="flex gap-1 overflow-x-auto border-b border-border px-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/80 px-3 py-2">
+          <div className="min-w-0 flex-1 sm:min-w-[16rem]">{search}</div>
+          <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground" aria-live="polite">{[...new Set(filtered.map((c) => c.societeId))].length} société{[...new Set(filtered.map((c) => c.societeId))].length > 1 ? "s" : ""} · {filtered.length} collecte{filtered.length > 1 ? "s" : ""}</span>
+          <div role="group" aria-label="Affichage des collectes" className="inline-flex rounded-[10px] bg-muted p-[3px]">
+            {([["volet", "Liste et volet"], ["tableau", "Tableau"], ["pipeline", "Pipeline"]] as const).map(([valeur, label]) => (
+              <button key={valeur} type="button" aria-pressed={(affichage === "volet" && !grandEcran ? "tableau" : affichage) === valeur} onClick={() => changerAffichage(valeur)} className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", (affichage === "volet" && !grandEcran ? "tableau" : affichage) === valeur && "bg-card font-semibold text-primary shadow-sm", valeur === "volet" && "max-lg:hidden")}>{label}</button>
+            ))}
+          </div>
+        </div>
+        <div data-tour="collecte-lenses" role="tablist" aria-label="Vue des collectes" className="flex flex-wrap items-stretch gap-x-0.5 overflow-x-auto border-b border-border/80 bg-muted/20 px-3">
           {onglets.map((onglet) => (
             <button
               key={onglet.value}
@@ -198,22 +223,20 @@ export function CollectesListPage() {
               aria-selected={vue === onglet.value}
               onClick={() => { vueChoisie.current = true; setVue(onglet.value); }}
               className={cn(
-                "-mb-px flex min-h-11 shrink-0 items-center gap-1.5 border-b-[3px] px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                vue === onglet.value ? "border-accent text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                "relative flex shrink-0 items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                vue === onglet.value ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded after:bg-primary" : "text-muted-foreground",
               )}
             >
+              <b className={cn("text-xl font-bold leading-none tabular-nums tracking-tight", onglet.chaud && onglet.count > 0 ? "text-warning" : onglet.count === 0 ? "text-muted-foreground/50" : "text-primary")}>{onglet.count}</b>
               {onglet.label}
-              <span className={cn("rounded-full px-2 py-0.5 text-[11.5px] tabular-nums", onglet.chaud && onglet.count > 0 ? "bg-warning/15 text-warning" : vue === onglet.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>{onglet.count}</span>
             </button>
           ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2.5 sm:px-4">
-          <div className="min-w-0 flex-1 sm:max-w-md">{search}</div>
-          <div role="group" aria-label="Affichage des collectes" className="ml-auto flex rounded-md border border-border p-0.5">
-            {([["tableau", "Tableau"], ["pipeline", "Pipeline"]] as const).map(([valeur, label]) => (
-              <button key={valeur} type="button" aria-pressed={affichage === valeur} onClick={() => setAffichage(valeur)} className={cn("min-h-8 rounded px-3 text-xs font-semibold", affichage === valeur ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</button>
-            ))}
-          </div>
+          <dl className="ml-auto flex items-center py-1.5">
+            <div className="flex flex-col border-l border-border/80 pl-4 leading-tight">
+              <dt className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">En retard</dt>
+              <dd className={cn("m-0 text-sm font-bold tabular-nums", collectionSummary.enRetard > 0 ? "text-destructive" : "text-primary")}>{loading ? "…" : collectionSummary.enRetard}</dd>
+            </div>
+          </dl>
         </div>
 
         {!loading && filtered.length === 0 ? (
@@ -233,6 +256,8 @@ export function CollectesListPage() {
           <p className="px-4 py-5 text-sm text-muted-foreground">Chargement…</p>
         ) : affichage === "pipeline" ? (
           <CollectesPipeline collectes={filtered} socNom={socNom} />
+        ) : affichage === "volet" && grandEcran ? (
+          <CollectesVolet collectes={filtered} socNom={socNom} onDelete={isAdmin || canManageCollaborateurs ? setToDelete : undefined} />
         ) : (
           <CollectesRegistre key={resetKey} collectes={filtered} socNom={socNom} onDelete={isAdmin || canManageCollaborateurs ? setToDelete : undefined} />
         )}

@@ -15,7 +15,7 @@ import { libelleEcheance } from "@/lib/collecte/echeance";
 import type { Collecte, CollecteStatut } from "@/types";
 import { cn, formatDate, formatRelative, initials } from "@/lib/utils";
 
-const STATUT: Record<CollecteStatut, { label: string; tone: string; point: string }> = {
+export const STATUT: Record<CollecteStatut, { label: string; tone: string; point: string }> = {
   brouillon: { label: "Chez le client", tone: "bg-chart-2/10 text-chart-2", point: "bg-chart-2" },
   transmis: { label: "Transmis", tone: "bg-primary/10 text-primary", point: "bg-primary" },
   a_corriger: { label: "À corriger", tone: "bg-warning/15 text-warning", point: "bg-warning" },
@@ -26,12 +26,12 @@ const STATUT: Record<CollecteStatut, { label: string; tone: string; point: strin
 /** Colonnes communes à l'en-tête et aux lignes (grand écran) : période, statut, avancement, échéance, activité, actions. */
 const GRILLE = "lg:grid-cols-[minmax(0,2.3fr)_minmax(10.5rem,1.2fr)_minmax(9.5rem,1.1fr)_6.5rem_6.5rem_7.5rem]";
 
-const aExaminer = (c: Collecte) => (c.statut === "archive" ? 0 : c.tableauxTransmis ?? 0);
-const avancement = (c: Collecte) => {
+export const aExaminer = (c: Collecte) => (c.statut === "archive" ? 0 : c.tableauxTransmis ?? 0);
+export const avancement = (c: Collecte) => {
   const n = c.onglets?.length ?? 0;
   return n > 0 ? Math.min(100, Math.round((((c.tableauxTransmis ?? 0) + (c.tableauxValides ?? 0)) / n) * 100)) : 0;
 };
-function action(c: Collecte): string {
+export function action(c: Collecte): string {
   if (aExaminer(c) > 0 || c.statut === "a_corriger" || c.statut === "transmis") return "Examiner";
   if (c.statut === "brouillon") return "Ouvrir";
   return "Consulter";
@@ -41,7 +41,7 @@ export function titreCollecte(c: Collecte): string {
   return c.periode.trim() || "Sans période";
 }
 
-interface Groupe {
+export interface Groupe {
   societeId: string;
   nom: string;
   collectes: Collecte[];
@@ -50,7 +50,7 @@ interface Groupe {
 }
 
 /** Rang de chaque collecte parmi celles de la même société qui portent le même titre (par date de création) : « collecte 1 », « collecte 2 ». */
-function rangsHomonymes(collectes: Collecte[]): Map<string, number> {
+export function rangsHomonymes(collectes: Collecte[]): Map<string, number> {
   const rangs = new Map<string, number>();
   const parTitre = new Map<string, Collecte[]>();
   for (const c of collectes) parTitre.set(titreCollecte(c), [...(parTitre.get(titreCollecte(c)) ?? []), c]);
@@ -59,6 +59,21 @@ function rangsHomonymes(collectes: Collecte[]): Map<string, number> {
     [...liste].sort((a, b) => a.creeLe.localeCompare(b.creeLe)).forEach((c, i) => rangs.set(c.id, i + 1));
   }
   return rangs;
+}
+
+/** Collectes regroupées par société : les sociétés qui ont du travail à examiner d'abord, puis l'ordre alphabétique ; les collectes d'une société de la plus récemment modifiée à la plus ancienne. */
+export function grouperParSociete(collectes: Collecte[], socNom: (societeId: string) => string, now: Date): Groupe[] {
+  const parSociete = new Map<string, Collecte[]>();
+  for (const c of collectes) parSociete.set(c.societeId, [...(parSociete.get(c.societeId) ?? []), c]);
+  return [...parSociete.entries()]
+    .map(([societeId, liste]) => ({
+      societeId,
+      nom: socNom(societeId),
+      collectes: [...liste].sort((a, b) => b.majLe.localeCompare(a.majLe)),
+      aExaminer: liste.reduce((total, c) => total + aExaminer(c), 0),
+      enRetard: liste.filter((c) => isOverdueCollection(c, now)).length,
+    }))
+    .sort((a, b) => Number(b.aExaminer > 0) - Number(a.aExaminer > 0) || a.nom.localeCompare(b.nom, "fr"));
 }
 
 /** Registre des collectes du cabinet : une ligne par société, ses collectes dépliables avec leur période, leur statut, leur avancement, leur échéance et leur dernière activité. */
@@ -71,20 +86,7 @@ export function CollectesRegistre({ collectes, socNom, onDelete }: {
   const navigate = useNavigate();
   const now = useMemo(() => new Date(), []);
 
-  const groupes = useMemo<Groupe[]>(() => {
-    const parSociete = new Map<string, Collecte[]>();
-    for (const c of collectes) parSociete.set(c.societeId, [...(parSociete.get(c.societeId) ?? []), c]);
-    return [...parSociete.entries()]
-      .map(([societeId, liste]) => ({
-        societeId,
-        nom: socNom(societeId),
-        collectes: [...liste].sort((a, b) => b.majLe.localeCompare(a.majLe)),
-        aExaminer: liste.reduce((total, c) => total + aExaminer(c), 0),
-        enRetard: liste.filter((c) => isOverdueCollection(c, now)).length,
-      }))
-      // Les sociétés qui ont du travail à examiner d'abord, puis l'ordre alphabétique.
-      .sort((a, b) => Number(b.aExaminer > 0) - Number(a.aExaminer > 0) || a.nom.localeCompare(b.nom, "fr"));
-  }, [collectes, socNom, now]);
+  const groupes = useMemo(() => grouperParSociete(collectes, socNom, now), [collectes, socNom, now]);
 
   // Ouvertes au départ : les sociétés avec du travail à examiner, ou la seule société affichée.
   const [ouverts, setOuverts] = useState<Set<string>>(

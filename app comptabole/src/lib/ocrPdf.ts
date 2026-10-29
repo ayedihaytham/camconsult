@@ -226,51 +226,65 @@ const ADRESSES = () => ({
   langPath: new URL("/ocr/lang", window.location.origin).href,
 });
 
-/** Lit un PDF sans texte (scan, photo) par reconnaissance de caractères, dans le navigateur : chaque page est dessinée, préparée puis lue ; le résultat a la forme d'un PDF avec texte. */
+/** Nombre de lecteurs de caractères qui travaillent en même temps : la moitié des cœurs, entre 1 et 6, sans dépasser le nombre de pages. */
+export const nombreDeLecteurs = (pages: number, coeurs: number = typeof navigator === "undefined" ? 4 : navigator.hardwareConcurrency || 4) => Math.max(1, Math.min(pages, 6, Math.floor(coeurs / 2)));
+
+/**
+ * Lit un PDF sans texte (scan, photo) par reconnaissance de caractères, dans le navigateur : chaque page est dessinée, préparée puis lue ; le résultat a
+ * la forme d'un PDF avec texte. Plusieurs lecteurs travaillent en parallèle, chacun prenant la page suivante dès qu'il a fini la sienne.
+ */
 export async function lirePdfParOcr(fichier: File, options: { onProgression?: (p: ProgressionOcr) => void; signal?: AbortSignal } = {}): Promise<PdfTextItem[][]> {
   const [pdfjs, worker, tesseract] = await Promise.all([import("pdfjs-dist"), import("pdfjs-dist/build/pdf.worker.min.mjs?url"), import("tesseract.js")]);
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await fichier.arrayBuffer()) }).promise;
-  const lecteur = await tesseract.createWorker("fra", 1, ADRESSES());
-  const pages: PdfTextItem[][] = [];
+  const lecteurs = await Promise.all(Array.from({ length: nombreDeLecteurs(doc.numPages) }, () => tesseract.createWorker("fra", 1, ADRESSES())));
+  const pages: PdfTextItem[][] = new Array(doc.numPages);
+  let suivante = 1;
+  let terminees = 0;
   try {
-    for (let n = 1; n <= doc.numPages; n++) {
-      if (options.signal?.aborted) throw new DOMException("Lecture annulée", "AbortError");
-      options.onProgression?.({ page: n, pages: doc.numPages });
-      const page = await doc.getPage(n);
-      const vue = page.getViewport({ scale: ECHELLE_OCR });
-      const canevas = document.createElement("canvas");
-      canevas.width = Math.ceil(vue.width);
-      canevas.height = Math.ceil(vue.height);
-      const contexte = canevas.getContext("2d");
-      if (!contexte) throw new Error("Dessin de la page impossible");
-      await page.render({ canvasContext: contexte, viewport: vue }).promise;
-      const image = contexte.getImageData(0, 0, canevas.width, canevas.height);
-      preparerPourOcr(image.data, canevas.width, canevas.height);
-      contexte.putImageData(image, 0, 0);
-      const { data } = await lecteur.recognize(canevas, {}, { blocks: true });
-      let lignes = lignesDeResultat(data);
-      // Rangées de relevé incomplètes (montant ou libellé perdu) : la bande est relue seule, à plus grande échelle, et remplace la lecture d'origine si elle est complète.
-      for (const bande of bandesASurveiller(lignes.flat(), canevas.width)) {
-        const hauteurBande = Math.max(8, Math.round(bande.y1 - bande.y0));
-        const y0 = Math.max(0, Math.round(bande.y0));
-        const relue = document.createElement("canvas");
-        relue.width = Math.round(canevas.width * 1.5);
-        relue.height = Math.round(hauteurBande * 1.5);
-        relue.getContext("2d")?.drawImage(canevas, 0, y0, canevas.width, hauteurBande, 0, 0, relue.width, relue.height);
-        await lecteur.setParameters({ tessedit_pageseg_mode: "6" as never });
-        const { data: donneesBande } = await lecteur.recognize(relue, {}, { blocks: true });
-        await lecteur.setParameters({ tessedit_pageseg_mode: "3" as never });
-        const lignesBande = lignesDeResultat(donneesBande).map((ligne) => ligne.map((mot) => ({ ...mot, bbox: { x0: mot.bbox.x0 / 1.5, x1: mot.bbox.x1 / 1.5, y0: mot.bbox.y0 / 1.5 + y0, y1: mot.bbox.y1 / 1.5 + y0 } })));
-        if (!rangeeComplete(lignesBande.map((l) => l.map((m) => m.text).join(" ")).join(" "))) continue;
-        lignes = [...lignes.filter((l) => { const centre = l.reduce((t, m) => t + (m.bbox.y0 + m.bbox.y1) / 2, 0) / l.length; return centre < bande.y0 || centre > bande.y1; }), ...lignesBande];
-      }
-      pages.push(lignesVersItems(lignes, ECHELLE_OCR, vue.height / ECHELLE_OCR));
-      canevas.width = 0;
-      canevas.height = 0;
-    }
+    await Promise.all(
+      lecteurs.map(async (lecteur) => {
+        for (;;) {
+          if (options.signal?.aborted) throw new DOMException("Lecture annulée", "AbortError");
+          const n = suivante++;
+          if (n > doc.numPages) return;
+          const page = await doc.getPage(n);
+          const vue = page.getViewport({ scale: ECHELLE_OCR });
+          const canevas = document.createElement("canvas");
+          canevas.width = Math.ceil(vue.width);
+          canevas.height = Math.ceil(vue.height);
+          const contexte = canevas.getContext("2d");
+          if (!contexte) throw new Error("Dessin de la page impossible");
+          await page.render({ canvasContext: contexte, viewport: vue }).promise;
+          const image = contexte.getImageData(0, 0, canevas.width, canevas.height);
+          preparerPourOcr(image.data, canevas.width, canevas.height);
+          contexte.putImageData(image, 0, 0);
+          const { data } = await lecteur.recognize(canevas, {}, { blocks: true });
+          let lignes = lignesDeResultat(data);
+          // Rangées de relevé incomplètes (montant ou libellé perdu) : la bande est relue seule, à plus grande échelle, et remplace la lecture d'origine si elle est complète.
+          for (const bande of bandesASurveiller(lignes.flat(), canevas.width)) {
+            const hauteurBande = Math.max(8, Math.round(bande.y1 - bande.y0));
+            const y0 = Math.max(0, Math.round(bande.y0));
+            const relue = document.createElement("canvas");
+            relue.width = Math.round(canevas.width * 1.5);
+            relue.height = Math.round(hauteurBande * 1.5);
+            relue.getContext("2d")?.drawImage(canevas, 0, y0, canevas.width, hauteurBande, 0, 0, relue.width, relue.height);
+            await lecteur.setParameters({ tessedit_pageseg_mode: "6" as never });
+            const { data: donneesBande } = await lecteur.recognize(relue, {}, { blocks: true });
+            await lecteur.setParameters({ tessedit_pageseg_mode: "3" as never });
+            const lignesBande = lignesDeResultat(donneesBande).map((ligne) => ligne.map((mot) => ({ ...mot, bbox: { x0: mot.bbox.x0 / 1.5, x1: mot.bbox.x1 / 1.5, y0: mot.bbox.y0 / 1.5 + y0, y1: mot.bbox.y1 / 1.5 + y0 } })));
+            if (!rangeeComplete(lignesBande.map((l) => l.map((m) => m.text).join(" ")).join(" "))) continue;
+            lignes = [...lignes.filter((l) => { const centre = l.reduce((t, m) => t + (m.bbox.y0 + m.bbox.y1) / 2, 0) / l.length; return centre < bande.y0 || centre > bande.y1; }), ...lignesBande];
+          }
+          pages[n - 1] = lignesVersItems(lignes, ECHELLE_OCR, vue.height / ECHELLE_OCR);
+          canevas.width = 0;
+          canevas.height = 0;
+          options.onProgression?.({ page: ++terminees, pages: doc.numPages });
+        }
+      }),
+    );
   } finally {
-    await lecteur.terminate();
+    await Promise.all(lecteurs.map((l) => l.terminate()));
     await doc.destroy();
   }
   return pages;

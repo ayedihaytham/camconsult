@@ -336,6 +336,7 @@ export function BanqueSocietePage() {
             onOpenChange={setImportOuvert}
             devise={compte.devise}
             proposerSoldeDepart={mouvements.length === 0}
+            mouvementsCompte={mouvements}
             onImport={async (liste, maj, mensuel) => {
               // Solde de départ et solde réel du relevé : mis à jour avec le compte, avant l'import des mouvements.
               if ((maj.ouverture && maj.ouverture.date) || maj.soldeReel) {

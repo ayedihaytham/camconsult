@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONFIANCE_MINIMALE, ECHELLE_OCR, bandesASurveiller, colonnesMontants, fusionnerMontantsRelus, lignesDeResultat, lignesVersItems, motsDeResultat, motsVersItems, preparerPourOcr, rangeeComplete, type MotOcr } from "./ocrPdf";
+import { CONFIANCE_MINIMALE, ECHELLE_OCR, bandesASurveiller, colonnesMontants, fusionnerMontantsRelus, lignesDeResultat, lignesVersItems, motsDeResultat, nombreDeLecteurs, motsVersItems, preparerPourOcr, rangeeComplete, type MotOcr } from "./ocrPdf";
 
 const mot = (text: string, x0: number, y0: number, x1: number, y1: number, confidence = 90): MotOcr => ({ text, confidence, bbox: { x0, y0, x1, y1 } });
 
@@ -144,5 +144,16 @@ describe("relecture des colonnes de montants", () => {
     const items = [it0("01-09-2026", 20, 600), it0("Frais", 150, 600)];
     const fusion = fusionnerMontantsRelus(items, [it0("1 000,000", 410, 600), it0("12", 410, 500)], { x0: 380, x1: 620 });
     expect(fusion.map((i) => i.str)).toEqual(["01-09-2026", "Frais", "1 000,000"]);
+  });
+});
+
+describe("lecteurs de caractères en parallèle", () => {
+  it("la moitié des cœurs, entre 1 et 6, sans dépasser le nombre de pages", () => {
+    expect(nombreDeLecteurs(29, 12)).toBe(6);
+    expect(nombreDeLecteurs(29, 16)).toBe(6);
+    expect(nombreDeLecteurs(29, 4)).toBe(2);
+    expect(nombreDeLecteurs(29, 1)).toBe(1);
+    expect(nombreDeLecteurs(3, 12)).toBe(3);
+    expect(nombreDeLecteurs(1, 12)).toBe(1);
   });
 });

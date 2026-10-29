@@ -108,14 +108,22 @@ export function BanqueSocietePage() {
     setEditing(null);
   }
 
-  /** Ouvre la fiche du suivi client devise du client nommé dans l'encaissement (même devise) ; à défaut, la liste des fiches de la société. */
+  /** Ouvre la fiche du suivi client devise du client nommé dans l'encaissement (même devise, exercice de la date si le client a plusieurs fiches) avec le règlement prérempli ; sinon la liste des fiches. */
   async function rapprocherClient(m: MouvementBancaire) {
+    const liste = () => navigate(`/suivi-devise/${societeId}`);
     try {
-      const fiches = await api.get<{ id: string; client: string; devise: string }[]>(`/suivi-devise?societeId=${societeId}`);
+      const fiches = await api.get<{ id: string; client: string; devise: string; exercice: string }[]>(`/suivi-devise?societeId=${societeId}`);
       const candidates = fiches.filter((f) => f.devise === (compte?.devise ?? "") && libelleNommeLeClient(`${m.libelle} ${m.details}`, f.client));
-      navigate(candidates.length === 1 ? `/suivi-devise/${societeId}/${candidates[0].id}` : `/suivi-devise/${societeId}`);
+      const duExercice = candidates.filter((f) => f.exercice === m.dateOp.slice(0, 4));
+      const choisie = candidates.length === 1 ? candidates[0] : duExercice.length === 1 ? duExercice[0] : null;
+      if (choisie) {
+        navigate(`/suivi-devise/${societeId}/${choisie.id}`, { state: { encaissementId: m.id } });
+      } else {
+        toast.info(candidates.length > 1 ? "Plusieurs fiches correspondent à ce client : ouvrez la bonne, puis « Nouveau mouvement » et choisissez l'encaissement." : "Aucune fiche de suivi client devise ne correspond à ce libellé : choisissez ou créez la fiche du client.");
+        liste();
+      }
     } catch {
-      navigate(`/suivi-devise/${societeId}`);
+      liste();
     }
   }
 

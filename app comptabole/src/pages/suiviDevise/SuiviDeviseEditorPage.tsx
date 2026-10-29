@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AlertTriangle, Boxes, ChevronDown, Download, FileText, Link2, Package, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
@@ -119,6 +119,22 @@ export function SuiviDeviseEditorPage() {
     () => (current ? encaissementsCandidats(mouvementsBanque, comptesBanque, current.devise, current.client, editingMouvement?.mouvementBancaireId ? { [editingMouvement.mouvementBancaireId]: editingMouvement.montant } : {}) : []),
     [current, mouvementsBanque, comptesBanque, editingMouvement],
   );
+  // Arrivée depuis le suivi bancaire (« Règlement client ») : le formulaire de règlement s'ouvre sur cet encaissement.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [encaissementInitial, setEncaissementInitial] = useState<string | null>(null);
+  const entrant = (location.state as { encaissementId?: string } | null)?.encaissementId;
+  useEffect(() => {
+    if (!entrant || !current || current.id !== suiviId || comptesBanque.length === 0) return;
+    navigate(location.pathname, { replace: true, state: null });
+    if (encaissements.some((e) => e.mouvement.id === entrant)) {
+      setEditingMouvement(null);
+      setEncaissementInitial(entrant);
+      setMouvementOpen(true);
+    } else {
+      toast.info("Cet encaissement est déjà entièrement relié, ou n'est pas dans la devise de cette fiche.");
+    }
+  }, [entrant, current, suiviId, comptesBanque, encaissements, navigate, location.pathname]);
   const [exporting, setExporting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -674,13 +690,17 @@ export function SuiviDeviseEditorPage() {
         open={mouvementOpen}
         onOpenChange={(o) => {
           setMouvementOpen(o);
-          if (!o) setEditingMouvement(null);
+          if (!o) {
+            setEditingMouvement(null);
+            setEncaissementInitial(null);
+          }
         }}
         mouvement={editingMouvement}
         lots={current.lots}
         factures={current.factures}
         devise={current.devise}
         encaissements={encaissements}
+        encaissementInitial={encaissementInitial}
         onSubmit={(v) => {
           if (editingMouvement) updateMouvement(editingMouvement.id, v);
           else addMouvement(suiviId, v);

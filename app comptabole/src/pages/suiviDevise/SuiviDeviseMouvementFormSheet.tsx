@@ -57,12 +57,14 @@ interface Props {
   /** Encaissements du suivi bancaire (crédits de la devise de la fiche) qu'il reste à affecter. */
   encaissements?: EncaissementCandidat[];
   devise?: string;
+  /** Encaissement à relier d'office à l'ouverture d'un nouveau règlement (arrivée depuis le suivi bancaire). */
+  encaissementInitial?: string | null;
   onSubmit: (values: MouvementInput) => void;
 }
 
 const fmtN = (n: number) => n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
-export function SuiviDeviseMouvementFormSheet({ open, onOpenChange, mouvement, lots, factures = [], encaissements = [], devise = "", onSubmit }: Props) {
+export function SuiviDeviseMouvementFormSheet({ open, onOpenChange, mouvement, lots, factures = [], encaissements = [], devise = "", encaissementInitial = null, onSubmit }: Props) {
   const isEdit = Boolean(mouvement);
   const {
     register,
@@ -138,6 +140,12 @@ export function SuiviDeviseMouvementFormSheet({ open, onOpenChange, mouvement, l
     setValue("montant", e.reste);
     repartir(e.reste, `${e.mouvement.libelle} ${e.mouvement.details}`);
   }
+
+  // Arrivée depuis le suivi bancaire : l'encaissement est déjà choisi, la date, le montant et la répartition sont préremplis.
+  useEffect(() => {
+    if (open && !mouvement && encaissementInitial && encaissements.some((e) => e.mouvement.id === encaissementInitial)) choisirEncaissement(encaissementInitial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mouvement, encaissementInitial]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

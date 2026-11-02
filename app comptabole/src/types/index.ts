@@ -1375,3 +1375,41 @@ export interface AlerteCoherence {
   mouvementStockId?: string;
   factureId?: string;
 }
+
+/** Situation bancaire d'une société (GET /banque/synthese), pour la page de choix de la société du Suivi bancaire. */
+export interface SyntheseBanque {
+  societeId: string;
+  comptes: { id: string; banque: string; devise: string; solde: number }[];
+  mouvements: number;
+  dernierMouvement: string | null;
+  paiementsARapprocher: number;
+  aRevoir: number;
+  /** Année des 12 mois ci-dessous : celle de la dernière opération. */
+  annee: number;
+  /** Janvier à décembre : tombe juste, écart, solde réel à saisir, ou rien ce mois-là. */
+  mois: ("ok" | "ecart" | "saisir" | null)[];
+  moisEnEcart: number;
+  moisASaisir: number;
+  ecarts: { mois: string; devise: string; banque: string; ecart: number }[];
+  aSaisir: { mois: string; devise: string; banque: string }[];
+}
+
+/** Situation du suivi fournisseur d'une société (GET /fournisseurs/synthese), pour la page de choix de la société. */
+export interface SyntheseFournisseurs {
+  societeId: string;
+  fournisseurs: number;
+  factures: number;
+  /** Factures d'achat à régler (solde au-delà de la tolérance). */
+  impayees: number;
+  /** Solde dû par devise (les devises ne s'additionnent pas). */
+  soldes: { devise: string; montant: number }[];
+  reglements: number;
+  dernierReglement: string | null;
+  /** Paiements en banque (suivi bancaire) sans règlement fournisseur. */
+  paiementsARapprocher: number;
+  /** Factures dont le n° est utilisé deux fois pour le même fournisseur. */
+  doublons: number;
+  reglementsAvantFacture: number;
+  /** Les trois fournisseurs qui ont le plus gros solde dû. */
+  principaux: { nom: string; soldes: { devise: string; montant: number }[] }[];
+}

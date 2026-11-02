@@ -19,6 +19,7 @@ const canRead = (s, societeId) =>
 
 
 import { chargerFusions, cleFournisseur, resoudre } from "../fournisseurCle.js";
+import { syntheseFournisseurs } from "../fournisseurs/synthese.js";
 export { cleFournisseur };
 
 const MODES = ["virement", "cheque", "effet", "especes", "autre"];
@@ -120,6 +121,16 @@ async function etat(societeId) {
     })),
   };
 }
+
+/** Situation du suivi fournisseur de toutes les sociétés visibles (page de choix de la société). */
+fournisseursRouter.get("/synthese", async (req, res) => {
+  const { rows } = await query(
+    `select id from societes
+      where id in (select societe_id from stock_mouvements union select societe_id from fournisseur_reglements union select societe_id from mouvements_bancaires)`,
+  );
+  const visibles = rows.map((r) => r.id).filter((id) => canRead(req.session, id));
+  res.json(await syntheseFournisseurs(visibles));
+});
 
 fournisseursRouter.get("/", async (req, res) => {
   const societeId = req.query.societeId;

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
-import type { CompteBancaire, EtatBanque } from "@/types";
+import type { CompteBancaire, EtatBanque, SyntheseBanque } from "@/types";
 import type { MouvementImport } from "@/lib/banque";
 
 function fail(err: unknown): never {
@@ -22,6 +22,10 @@ interface BanqueState extends EtatBanque {
   loading: boolean;
   /** Nombre d'actions (enregistrement, import…) en cours : allume la barre fine de chargement. */
   occupe: number;
+  /** Situation bancaire de chaque société (page de choix), et si elle est arrivée. */
+  synthese: Record<string, SyntheseBanque>;
+  syntheseChargee: boolean;
+  fetchSynthese: () => Promise<void>;
   fetchEtat: (societeId: string) => Promise<void>;
   clear: () => void;
   createCompte: (societeId: string, data: CompteInput) => Promise<void>;
@@ -62,6 +66,17 @@ export const useBanque = create<BanqueState>((set) => {
     ...vide,
     loading: false,
     occupe: 0,
+    synthese: {},
+    syntheseChargee: false,
+    fetchSynthese: async () => {
+      try {
+        const liste = await api.get<SyntheseBanque[]>("/banque/synthese");
+        set({ synthese: Object.fromEntries(liste.map((x) => [x.societeId, x])), syntheseChargee: true });
+      } catch (e) {
+        set({ syntheseChargee: true });
+        fail(e);
+      }
+    },
     fetchEtat: async (societeId) => {
       set({ loading: true });
       try {

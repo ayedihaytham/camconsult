@@ -5,6 +5,8 @@ import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { safeRouter } from "../asyncRoutes.js";
 import { alertesCoherence } from "../banque/coherence.js";
+import { statutsMoisCompte } from "../../shared/banqueStatuts.js";
+import { arrondi3 as r3 } from "../../shared/arrondi.js";
 
 /** Suivi bancaire : comptes d'une société et leurs mouvements.
  * Lecture : admin, collaborateurs de la société et responsable de la société (jamais un délégué).
@@ -118,6 +120,68 @@ banqueRouter.get("/coherence", async (req, res) => {
   if (!societeId) return res.status(400).json({ error: "societeId requis" });
   if (!canWrite(req.session, societeId)) return res.status(403).json({ error: "Accès non autorisé" });
   res.json({ alertes: await alertesCoherence(societeId) });
+});
+
+/**
+ * Situation bancaire de toutes les sociétés visibles (page de choix de la société) : comptes et soldes, ce qu'il reste à rapprocher, les lignes à revoir et,
+ * mois par mois, ce qui tombe juste, ce qui a un écart et ce dont le solde réel n'est pas saisi (même règle que le rapprochement mensuel d'un compte).
+ * Calculée avec quelques requêtes groupées, jamais ligne par ligne.
+ */
+banqueRouter.get("/synthese", async (req, res) => {
+  const { rows: tousComptes } = await query("select * from comptes_bancaires order by societe_id, ordre, cree_le");
+  const comptes = tousComptes.filter((c) => canRead(req.session, c.societe_id));
+  if (comptes.length === 0) return res.json([]);
+  const ids = comptes.map((c) => c.id);
+  const [totaux, parMois, releves, enCours] = await Promise.all([
+    query(
+      `select m.compte_id, count(*) as n, max(m.date_op) as dernier, coalesce(sum(m.debit), 0) as debit, coalesce(sum(m.credit), 0) as credit,
+              count(*) filter (where m.a_revoir) as a_revoir,
+              count(*) filter (where m.type = 'paiement_fournisseur' and m.debit > 0 and not exists (select 1 from fournisseur_reglements r where r.mouvement_bancaire_id = m.id)) as a_rapprocher
+         from mouvements_bancaires m where m.compte_id = any($1::uuid[]) group by m.compte_id`,
+      [ids],
+    ),
+    query(
+      `select compte_id, to_char(date_op, 'YYYY-MM') as mois, coalesce(sum(debit), 0) as debit, coalesce(sum(credit), 0) as credit
+         from mouvements_bancaires where compte_id = any($1::uuid[]) group by compte_id, to_char(date_op, 'YYYY-MM')`,
+      [ids],
+    ),
+    query("select compte_id, mois, solde_reel from releves_mensuels where compte_id = any($1::uuid[])", [ids]),
+    query("select distinct compte_id, mois from operations_en_cours where compte_id = any($1::uuid[])", [ids]),
+  ]);
+  const parSociete = new Map();
+  for (const c of comptes) {
+    const t = totaux.rows.find((x) => x.compte_id === c.id);
+    const statuts = statutsMoisCompte(
+      { soldeDepart: Number(c.solde_depart) },
+      parMois.rows.filter((x) => x.compte_id === c.id).map((x) => ({ mois: x.mois, debit: Number(x.debit), credit: Number(x.credit) })),
+      releves.rows.filter((x) => x.compte_id === c.id).map((x) => ({ mois: x.mois, soldeReel: x.solde_reel == null ? null : Number(x.solde_reel) })),
+      enCours.rows.filter((x) => x.compte_id === c.id).map((x) => x.mois),
+    );
+    const s = parSociete.get(c.societe_id) ?? { societeId: c.societe_id, comptes: [], mouvements: 0, dernierMouvement: null, paiementsARapprocher: 0, aRevoir: 0, statuts: [] };
+    s.comptes.push({ id: c.id, banque: c.banque, devise: c.devise, solde: r3(Number(c.solde_depart) + Number(t?.credit ?? 0) - Number(t?.debit ?? 0)) });
+    s.mouvements += Number(t?.n ?? 0);
+    const dernier = t?.dernier ? jour(t.dernier) : null;
+    if (dernier && (!s.dernierMouvement || dernier > s.dernierMouvement)) s.dernierMouvement = dernier;
+    s.paiementsARapprocher += Number(t?.a_rapprocher ?? 0);
+    s.aRevoir += Number(t?.a_revoir ?? 0);
+    for (const m of statuts) s.statuts.push({ ...m, devise: c.devise, banque: c.banque });
+    parSociete.set(c.societe_id, s);
+  }
+  const ordreGravite = { ecart: 2, saisir: 1, ok: 0 };
+  res.json(
+    [...parSociete.values()].map(({ statuts, ...s }) => {
+      // Les 12 mois de l'année de la dernière opération (à défaut, de l'année en cours) : le pire statut des comptes pour chaque mois.
+      const annee = Number((s.dernierMouvement ?? new Date().toISOString()).slice(0, 4));
+      const mois = Array.from({ length: 12 }, (_, i) => {
+        const cle = `${annee}-${String(i + 1).padStart(2, "0")}`;
+        const duMois = statuts.filter((x) => x.mois === cle);
+        return duMois.length === 0 ? null : duMois.reduce((pire, x) => (ordreGravite[x.statut] > ordreGravite[pire] ? x.statut : pire), "ok");
+      });
+      const ecarts = statuts.filter((x) => x.statut === "ecart").map((x) => ({ mois: x.mois, devise: x.devise, banque: x.banque, ecart: x.ecart }));
+      const aSaisir = statuts.filter((x) => x.statut === "saisir").map((x) => ({ mois: x.mois, devise: x.devise, banque: x.banque }));
+      return { ...s, annee, mois, moisEnEcart: ecarts.length, moisASaisir: aSaisir.length, ecarts: ecarts.slice(-6), aSaisir: aSaisir.slice(-6) };
+    }),
+  );
 });
 
 const montant = z.coerce.number().min(0, "Montant invalide").default(0);

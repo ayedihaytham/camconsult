@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
-import type { EtatFournisseurs, FactureSuivi, ModeReglement, ReglementFournisseur } from "@/types";
+import type { EtatFournisseurs, FactureSuivi, ModeReglement, ReglementFournisseur, SyntheseFournisseurs } from "@/types";
 
 function fail(err: unknown): never {
   toast.error(err instanceof ApiError ? err.message : "Opération impossible");
@@ -50,6 +50,10 @@ export interface BilanImportEtat {
 
 interface FournisseursState extends EtatFournisseurs {
   loading: boolean;
+  /** Situation du suivi fournisseur de chaque société (page de choix), et si elle est arrivée. */
+  synthese: Record<string, SyntheseFournisseurs>;
+  syntheseChargee: boolean;
+  fetchSynthese: () => Promise<void>;
   fetchEtat: (societeId: string) => Promise<void>;
   clear: () => void;
   createReglement: (data: ReglementInput) => Promise<void>;
@@ -76,6 +80,17 @@ export const useFournisseurs = create<FournisseursState>((set) => {
   return {
     ...vide,
     loading: false,
+    synthese: {},
+    syntheseChargee: false,
+    fetchSynthese: async () => {
+      try {
+        const liste = await api.get<SyntheseFournisseurs[]>("/fournisseurs/synthese");
+        set({ synthese: Object.fromEntries(liste.map((x) => [x.societeId, x])), syntheseChargee: true });
+      } catch (e) {
+        set({ syntheseChargee: true });
+        fail(e);
+      }
+    },
     fetchEtat: async (societeId) => {
       set({ loading: true });
       try {

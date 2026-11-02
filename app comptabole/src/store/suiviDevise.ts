@@ -18,7 +18,19 @@ function fail(err: unknown): never {
 
 /** Ligne de la liste : la fiche + solde et total ventes déjà calculés
  * (voir GET /suivi-devise côté serveur). */
-export type SuiviDeviseResume = SuiviDevise & { solde: number; totalVentes: number; stockAReprendre?: number };
+export type SuiviDeviseResume = SuiviDevise & {
+  solde: number;
+  totalVentes: number;
+  stockAReprendre?: number;
+  /** Pour le volet du registre. */
+  nbFactures?: number;
+  totalReglements?: number;
+  dernierReglement?: string | null;
+  apercu?: {
+    factures: { nFacture: string; dateFacture: string | null; montantTotal: number; reste: number }[];
+    reglements: { date: string | null; libelle: string; montant: number }[];
+  };
+};
 
 export type LotInput = Omit<SuiviDeviseLot, "id" | "suiviId" | "ordre" | "ecart">;
 export type FactureInput = Omit<

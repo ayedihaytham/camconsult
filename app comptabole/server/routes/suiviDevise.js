@@ -165,11 +165,21 @@ suiviDeviseRouter.get("/", async (req, res) => {
   const withSolde = await Promise.all(
     rows.map(async (r) => {
       const full = await loadFull(r.id);
+      // Aperçu pour le volet du registre : calculé à partir de la fiche déjà chargée (aucune requête de plus).
+      const parDateDesc = (champ) => (a, b) => String(b[champ] ?? "").localeCompare(String(a[champ] ?? "")) || b.ordre - a.ordre;
+      const reglements = full.mouvements.filter((m) => m.type === "reglement").sort(parDateDesc("date"));
       return {
         ...suiviDeviseDto(r),
         solde: full.solde,
         totalVentes: full.totalVentes,
         stockAReprendre: libres.filter((v) => convientA(r, v)).length,
+        nbFactures: full.factures.length,
+        totalReglements: full.totalReglements,
+        dernierReglement: reglements[0]?.date ?? null,
+        apercu: {
+          factures: [...full.factures].sort(parDateDesc("dateFacture")).slice(0, 4).map((f) => ({ nFacture: f.nFacture, dateFacture: f.dateFacture, montantTotal: f.montantTotal, reste: f.reste })),
+          reglements: reglements.slice(0, 3).map((m) => ({ date: m.date, libelle: m.libelle, montant: m.montant })),
+        },
       };
     }),
   );

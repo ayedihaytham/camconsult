@@ -11,7 +11,7 @@ import {
   Printer,
   Search,
 } from "lucide-react";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -490,7 +490,7 @@ export function StructurationPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <LedgerPageHeader
+      <PageHeaderBar
         title="Structuration"
         description={
           activeSociete
@@ -499,6 +499,7 @@ export function StructurationPage() {
               ? "Arborescence documentaire du cabinet, par société."
               : "Dossiers des sociétés auxquelles vous avez accès."
         }
+        actions={tab === "documents" ? undefined : actionsStructure}
       />
 
       <Dialog
@@ -732,7 +733,6 @@ export function StructurationPage() {
               roots={roots}
               getSocieteById={getSocieteById}
               onOpenNode={openFolder}
-              actions={actionsStructure}
             />
           )}
         </div>
@@ -756,7 +756,6 @@ export function StructurationPage() {
               onOpenNode={openFolder}
               onPreview={setPreviewNode}
               onDeposer={canAddFile ? (dossier, fichiers) => { setUploadFiles(fichiers); setUploadParent(dossier.id); } : undefined}
-              actions={actionsStructure}
             />
           )}
         </div>

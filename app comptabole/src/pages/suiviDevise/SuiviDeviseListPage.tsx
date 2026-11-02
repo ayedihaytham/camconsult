@@ -1,14 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Boxes, CircleDollarSign, Trash2 } from "lucide-react";
+import { Boxes, CircleDollarSign, Search, Trash2 } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
-import {
-  LedgerWorkSurface,
-  OperationalContentHeader,
-  OperationalLedgerToolbar,
-  OperationalMobileUtility,
-} from "@/components/ledger/OperationalLedgerLayout";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +35,8 @@ import { useSocieteById } from "@/store/data";
 import { useSuiviDevise } from "@/store/suiviDevise";
 import type { SuiviDeviseResume } from "@/store/suiviDevise";
 import type { SuiviDeviseStockClient } from "@/types";
+import { aSoldeDu, effectifs, fichesAffichees, ficheChoisie, soldeDuParDevise, type FiltreFiches } from "@/lib/suiviDeviseListe";
+import { SuiviDeviseVolet } from "./SuiviDeviseVolet";
 
 const DEVISES = ["EUR", "USD", "TND"];
 
@@ -66,6 +62,16 @@ export function SuiviDeviseListPage() {
   const [soldeOuverture, setSoldeOuverture] = useState("0");
   const [toDelete, setToDelete] = useState<SuiviDeviseResume | null>(null);
   const [recherche, setRecherche] = useState("");
+  const [filtre, setFiltre] = useState<FiltreFiches>("toutes");
+  // Présentation : « liste et volet » (par défaut) ou tableau ; gardée dans ce navigateur.
+  const [vue, setVue] = useState<"volet" | "tableau">(() => {
+    try { return window.localStorage.getItem("devise:vue") === "tableau" ? "tableau" : "volet"; } catch { return "volet"; }
+  });
+  const changerVue = (v: "volet" | "tableau") => {
+    setVue(v);
+    try { window.localStorage.setItem("devise:vue", v); } catch { /* stockage bloqué : le choix n'est pas gardé */ }
+  };
+  const [selection, setSelection] = useState<string | null>(null);
   // Clients de la gestion de stock sans fiche, proposés comme fiches à créer.
   const [clientsStock, setClientsStock] = useState<SuiviDeviseStockClient[]>([]);
   const [creation, setCreation] = useState<string | null>(null);
@@ -123,20 +129,10 @@ export function SuiviDeviseListPage() {
     }
   }
 
-  const avecSolde = list.filter((f) => f.solde > 0.01).length;
-  const q = recherche.trim().toLowerCase();
-  const visibles = !q
-    ? list
-    : list.filter((f) => [f.client, f.exercice, f.devise].some((v) => (v || "").toLowerCase().includes(q)));
-
-  const searchControl = (
-    <Input data-tour="devise-search"
-      value={recherche}
-      onChange={(e) => setRecherche(e.target.value)}
-      placeholder="Rechercher un client, un exercice ou une devise…"
-      className="h-9"
-    />
-  );
+  const nombres = useMemo(() => effectifs(list), [list]);
+  const visibles = useMemo(() => fichesAffichees(list, filtre, recherche), [list, filtre, recherche]);
+  const selectionId = ficheChoisie(visibles, selection);
+  const dus = useMemo(() => soldeDuParDevise(list), [list]);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -146,10 +142,7 @@ export function SuiviDeviseListPage() {
         eyebrow="Comptabilité · Financial Ledger"
         title={societe?.raisonSociale ?? "Société"}
         description="Une fiche par client, exercice et devise — un même client en EUR et en USD sur la même année, c'est deux fiches."
-        metrics={[
-          { label: "Fiches", value: list.length, loading },
-          { label: "Avec solde dû", value: avecSolde, tone: avecSolde > 0 ? "warning" : "default", loading },
-        ]}
+        metrics={[]}
         action={{ label: "Nouvelle fiche", onClick: () => setCreateOpen(true) }}
       />
 
@@ -191,20 +184,65 @@ export function SuiviDeviseListPage() {
         </section>
       )}
 
-      <LedgerWorkSurface className="ledger-soft-rows mt-3">
-        <OperationalLedgerToolbar label="Recherche du suivi client devise" search={searchControl} />
-        <OperationalMobileUtility label="Recherche du suivi client devise">{searchControl}</OperationalMobileUtility>
-        <OperationalContentHeader>
-          <div className="flex min-w-0 items-baseline gap-3">
-            <h2 className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">Registre des fiches</h2>
-            <p className="hidden truncate text-[11px] text-muted-foreground md:block">Client, exercice et devise</p>
-          </div>
+      <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/80 px-3 py-2">
+          <label className="flex h-10 min-w-[14rem] flex-1 items-center gap-2 rounded-[10px] border border-border bg-muted/40 px-3 focus-within:ring-2 focus-within:ring-ring">
+            <span className="sr-only">Rechercher une fiche</span>
+            <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <input
+              data-tour="devise-search"
+              type="search"
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher un client, un exercice ou une devise…"
+              className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </label>
           {!loading && (
-            <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+            <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground" aria-live="polite">
               {visibles.length} fiche{visibles.length === 1 ? "" : "s"} visible{visibles.length === 1 ? "" : "s"}
             </span>
           )}
-        </OperationalContentHeader>
+          <div role="group" aria-label="Présentation des fiches" className="hidden rounded-[10px] bg-muted p-[3px] lg:inline-flex">
+            {([["volet", "Liste et volet"], ["tableau", "Tableau"]] as const).map(([valeur, libelle]) => (
+              <button
+                key={valeur}
+                type="button"
+                aria-pressed={vue === valeur}
+                onClick={() => changerVue(valeur)}
+                className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", vue === valeur && "bg-card font-semibold text-primary shadow-sm")}
+              >
+                {libelle}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div data-tour="devise-summary" className="flex flex-wrap items-stretch gap-x-0.5 border-b border-border/80 bg-muted/20 px-3">
+          <div role="group" aria-label="Filtrer les fiches" className="flex flex-wrap items-stretch">
+            {([["toutes", "Fiches", nombres.toutes, "text-primary"], ["du", "Avec solde dû", nombres.du, "text-warning"], ["soldees", "Soldées", nombres.soldees, "text-success"], ["stock", "À reprendre du stock", nombres.stock, "text-primary"]] as const).map(([valeur, nom, n, ton]) => (
+              <button
+                key={valeur}
+                type="button"
+                aria-pressed={filtre === valeur}
+                onClick={() => setFiltre(valeur)}
+                className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded after:bg-primary" : "text-muted-foreground")}
+              >
+                <b className={cn("text-xl font-bold leading-none tabular-nums tracking-tight", n === 0 ? "text-muted-foreground/50" : ton)}>{loading ? "–" : n}</b>
+                {nom}
+              </button>
+            ))}
+          </div>
+          {dus.length > 0 && (
+            <dl className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5">
+              {dus.map((d) => (
+                <div key={d.devise} className="flex flex-col border-l border-border/80 pl-4 leading-tight">
+                  <dt className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Solde dû {dus.length > 1 ? d.devise : "total"}</dt>
+                  <dd className="m-0 text-sm font-bold tabular-nums text-warning">{fmt(d.montant)} {d.devise}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
 
         {visibles.length === 0 ? (
           <div className="border-b border-border/80 px-4 py-5">
@@ -219,6 +257,20 @@ export function SuiviDeviseListPage() {
                 </p>
               </div>
             </div>
+          </div>
+        ) : vue === "volet" ? (
+          <div data-tour="devise-register">
+            <SuiviDeviseVolet
+              fiches={visibles}
+              selectionId={selectionId}
+              onSelection={(id) => {
+                // Sur petit écran, la fiche n'a pas de place : un clic ouvre directement la fiche.
+                if (typeof window.matchMedia === "function" && !window.matchMedia("(min-width: 1024px)").matches) navigate(`/suivi-devise/${societeId}/${id}`);
+                else setSelection(id);
+              }}
+              onOuvrir={(id) => navigate(`/suivi-devise/${societeId}/${id}`)}
+              onSupprimer={setToDelete}
+            />
           </div>
         ) : (
           <div data-tour="devise-register" className="overflow-x-auto">
@@ -256,7 +308,7 @@ export function SuiviDeviseListPage() {
                     <TableCell
                       className={cn(
                         "whitespace-nowrap text-right font-semibold tabular-nums",
-                        f.solde > 0.01 && "text-warning",
+                        aSoldeDu(f) && "text-warning",
                       )}
                     >
                       {fmt(f.solde)} {f.devise}
@@ -280,7 +332,7 @@ export function SuiviDeviseListPage() {
             </Table>
           </div>
         )}
-      </LedgerWorkSurface>
+      </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-sm">

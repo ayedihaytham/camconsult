@@ -33,7 +33,7 @@ function afficher(props: Partial<React.ComponentProps<typeof VueGenerale>> = {})
   return { onOpenNode };
 }
 
-describe("vue générale : armoire de classement", () => {
+describe("vue générale : liste et volet des tiroirs", () => {
   it("montre l'armoire de l'année avec un tiroir par dossier, son nombre de fichiers et les chiffres de l'armoire", () => {
     afficher();
     const armoire = within(screen.getByRole("region", { name: "Armoire Comptabilité générale 2026" }));
@@ -41,24 +41,38 @@ describe("vue générale : armoire de classement", () => {
     expect(armoire.getByRole("button", { name: "Tiroir vente, 0 fichier" })).toBeTruthy();
     // les fichiers des sous-dossiers comptent pour leur tiroir
     expect(armoire.getByRole("button", { name: "Tiroir banque, 3 fichiers" })).toBeTruthy();
-    const chiffres = within(armoire.getByLabelText("Chiffres de l'armoire"));
-    expect(chiffres.getByText("Tiroirs").nextElementSibling?.textContent).toBe("3");
-    expect(chiffres.getByText("Fichiers").nextElementSibling?.textContent).toBe("5");
-    expect(chiffres.getByText("Remplis").nextElementSibling?.textContent).toBe("2");
-    expect(chiffres.getByText("Vides").nextElementSibling?.textContent).toBe("1");
+    expect(armoire.getByRole("button", { name: "3 Tiroirs" })).toBeTruthy();
+    expect(armoire.getByRole("button", { name: "2 Remplis" })).toBeTruthy();
+    expect(armoire.getByRole("button", { name: "1 Vides" })).toBeTruthy();
+    expect(armoire.getByLabelText("Fichiers de l'armoire").textContent).toContain("5");
     expect(screen.getByRole("button", { name: "Ajouter une arborescence" })).toBeTruthy();
   });
 
-  it("un clic ouvre le tiroir : ses fichiers, du plus récent au plus ancien ; un second clic le referme", () => {
+  it("à l'ouverture, le premier tiroir rempli est choisi : ses fichiers, du plus récent au plus ancien ; un autre tiroir se choisit d'un clic", () => {
     afficher();
-    const tiroir = screen.getByRole("button", { name: "Tiroir achat, 2 fichiers" });
-    expect(tiroir.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(tiroir);
-    expect(tiroir.getAttribute("aria-expanded")).toBe("true");
+    const achat = screen.getByRole("button", { name: "Tiroir achat, 2 fichiers" });
+    expect(achat.getAttribute("aria-current")).toBe("true");
     const contenu = within(screen.getByRole("region", { name: "Contenu du tiroir achat" }));
     expect(contenu.getAllByText(/FA-001/).map((n) => n.textContent)).toEqual(["FA-0013.pdf", "FA-0012.pdf"]);
-    fireEvent.click(tiroir);
+    const banque = screen.getByRole("button", { name: "Tiroir banque, 3 fichiers" });
+    fireEvent.click(banque);
+    expect(banque.getAttribute("aria-current")).toBe("true");
+    expect(achat.getAttribute("aria-current")).toBeNull();
     expect(screen.queryByRole("region", { name: "Contenu du tiroir achat" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Contenu du tiroir banque" })).toBeTruthy();
+  });
+
+  it("les chiffres du haut filtrent les tiroirs : remplis, vides, tous ; le tiroir choisi suit le filtre", () => {
+    afficher();
+    fireEvent.click(screen.getByRole("button", { name: "1 Vides" }));
+    expect(screen.queryByRole("button", { name: /Tiroir achat/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Tiroir vente, 0 fichier" }).getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("region", { name: "Contenu du tiroir vente" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "2 Remplis" }));
+    expect(screen.queryByRole("button", { name: /Tiroir vente/ })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /^Tiroir / })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "3 Tiroirs" }));
+    expect(screen.getAllByRole("button", { name: /^Tiroir / })).toHaveLength(3);
   });
 
   it("les sous-dossiers d'un tiroir sont des dossiers suspendus qui filtrent ses fichiers", () => {
@@ -70,44 +84,54 @@ describe("vue générale : armoire de classement", () => {
     expect(contenu.getAllByText(/releve/)).toHaveLength(2);
     fireEvent.click(contenu.getByRole("button", { name: /BTK/ }));
     expect(contenu.getAllByText(/releve/)).toHaveLength(1);
+    // un autre tiroir repart de « Tous »
+    fireEvent.click(screen.getByRole("button", { name: "Tiroir achat, 2 fichiers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tiroir banque, 3 fichiers" }));
+    expect(within(screen.getByRole("region", { name: "Contenu du tiroir banque" })).getAllByText(/releve/)).toHaveLength(3);
   });
 
-  it("un tiroir vide dit qu'il est vide ; Ouvrir dans Documents ouvre le dossier", () => {
+  it("un tiroir vide dit qu'il est vide ; Ouvrir dans Documents (bouton ou double clic) ouvre le dossier", () => {
     const { onOpenNode } = afficher();
     fireEvent.click(screen.getByRole("button", { name: "Tiroir vente, 0 fichier" }));
     const contenu = within(screen.getByRole("region", { name: "Contenu du tiroir vente" }));
     expect(contenu.getByText(/Ce tiroir est vide/)).toBeTruthy();
     fireEvent.click(contenu.getByRole("button", { name: /Ouvrir dans Documents/ }));
     expect(onOpenNode).toHaveBeenCalledWith(NODES[3]);
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Tiroir banque, 3 fichiers" }));
+    expect(onOpenNode).toHaveBeenLastCalledWith(NODES[4]);
+    // le dossier d'année s'ouvre aussi depuis la barre de l'armoire
+    fireEvent.click(within(screen.getByRole("region", { name: "Armoire Comptabilité générale 2026" })).getAllByRole("button", { name: "Ouvrir dans Documents" })[0]);
+    expect(onOpenNode).toHaveBeenLastCalledWith(NODES[1]);
   });
 
   it("la recherche met en évidence les tiroirs qui contiennent le fichier et estompe les autres", () => {
     afficher();
     fireEvent.change(screen.getByLabelText("Chercher un fichier"), { target: { value: "zit" } });
-    expect(screen.getByRole("button", { name: /Tiroir banque/ }).className).toContain("tiroir--trouve");
-    expect(screen.getByRole("button", { name: /Tiroir achat/ }).className).toContain("tiroir--estompe");
+    expect(screen.getByRole("button", { name: /Tiroir banque/ }).getAttribute("data-etat")).toBe("trouve");
+    expect(screen.getByRole("button", { name: /Tiroir achat/ }).getAttribute("data-etat")).toBe("estompe");
+    fireEvent.change(screen.getByLabelText("Chercher un fichier"), { target: { value: "" } });
+    expect(screen.getByRole("button", { name: /Tiroir banque/ }).getAttribute("data-etat")).toBeNull();
   });
 
   it("le dépôt (clic ou fichiers glissés) n'est proposé que si la session peut déposer", () => {
     afficher();
-    fireEvent.click(screen.getByRole("button", { name: "Tiroir achat, 2 fichiers" }));
     expect(screen.queryByRole("button", { name: "Déposer dans achat" })).toBeNull();
     cleanup();
 
     const onDeposer = vi.fn();
     afficher({ onDeposer });
-    fireEvent.click(screen.getByRole("button", { name: "Tiroir achat, 2 fichiers" }));
     fireEvent.click(screen.getByRole("button", { name: "Déposer dans achat" }));
     expect(onDeposer).toHaveBeenCalledWith(NODES[2]);
     const fichier = new File(["x"], "nouveau.pdf", { type: "application/pdf" });
     fireEvent.drop(screen.getByRole("button", { name: "Tiroir vente, 0 fichier" }), { dataTransfer: { files: [fichier], types: ["Files"] } });
     expect(onDeposer).toHaveBeenLastCalledWith(NODES[3], [fichier]);
+    fireEvent.drop(screen.getByRole("button", { name: "Déposer dans achat" }), { dataTransfer: { files: [fichier], types: ["Files"] } });
+    expect(onDeposer).toHaveBeenLastCalledWith(NODES[2], [fichier]);
   });
 
   it("un clic sur la fiche d'un fichier ouvre son aperçu", () => {
     const onPreview = vi.fn();
     afficher({ onPreview });
-    fireEvent.click(screen.getByRole("button", { name: "Tiroir achat, 2 fichiers" }));
     fireEvent.click(screen.getByRole("button", { name: "Aperçu de FA-0012.pdf" }));
     expect(onPreview).toHaveBeenCalledWith(NODES[7]);
   });

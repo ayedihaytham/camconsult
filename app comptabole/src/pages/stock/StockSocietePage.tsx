@@ -10,7 +10,7 @@ import { useStock, type StockMouvementInput } from "@/store/stock";
 import type { StockMouvement } from "@/types";
 import { classerDansStructuration } from "@/lib/classement";
 import { doublonsStock, resumeDoublons } from "@/lib/facturesDoublons";
-import { fmtQuantiteUnite, quantiteEn, recapStock, trierParNumero, uniteCommune } from "@/lib/stockRecap";
+import { changeDe, fmtQuantiteUnite, montantTndCote, quantiteEn, recapStock, trierParNumero, uniteCommune, type ChangeCote } from "@/lib/stockRecap";
 import { StockMouvementFormSheet } from "./StockMouvementFormSheet";
 import { cn } from "@/lib/utils";
 import { montantCote } from "@/lib/coursStock";
@@ -276,8 +276,8 @@ export function StockSocietePage() {
       const unite = uniteCommune(lignes);
       return lignes.reduce((s, l) => s + quantiteEn(l, unite), 0);
     };
-    const sumTnd = (lignes: typeof list[number]["achatLignes"]) =>
-      lignes.reduce((s, l) => s + l.montantTnd, 0);
+    // Montant en dinars : celui qui est saisi, sinon montant en devise × cours de la facture quand il est connu.
+    const sumTnd = (lignes: typeof list[number]["achatLignes"], change: ChangeCote) => montantTndCote(lignes, change);
     const sumDevise = (lignes: typeof list[number]["achatLignes"]) =>
       lignes.reduce((s, l) => s + l.montantDevise, 0);
     const designations = (lignes: typeof list[number]["achatLignes"]) =>
@@ -286,9 +286,9 @@ export function StockSocietePage() {
     const rows = list.map((m) => [
       m.natureMarchandise, m.venteNumFacture, m.ecart, m.ecartUnite,
       m.achatDate ?? "", m.achatNumFacture, m.fournisseur, designations(m.achatLignes),
-      sumQ(m.achatLignes), uniteCommune(m.achatLignes), sumDevise(m.achatLignes), m.achatDevise, m.achatCours, sumTnd(m.achatLignes), m.achatCoursUsd ?? 0, montantCote(m.achatLignes, m.achatCoursUsd, "USD"),
+      sumQ(m.achatLignes), uniteCommune(m.achatLignes), sumDevise(m.achatLignes), m.achatDevise, m.achatCours, sumTnd(m.achatLignes, changeDe(m, "achat")), m.achatCoursUsd ?? 0, montantCote(m.achatLignes, m.achatCoursUsd, "USD"),
       m.venteDate ?? "", m.venteNumFacture, m.client, designations(m.venteLignes),
-      sumQ(m.venteLignes), uniteCommune(m.venteLignes), sumDevise(m.venteLignes), m.venteDevise, m.venteCours, sumTnd(m.venteLignes), m.venteCoursUsd ?? 0, montantCote(m.venteLignes, m.venteCoursUsd, "USD"),
+      sumQ(m.venteLignes), uniteCommune(m.venteLignes), sumDevise(m.venteLignes), m.venteDevise, m.venteCours, sumTnd(m.venteLignes, changeDe(m, "vente")), m.venteCoursUsd ?? 0, montantCote(m.venteLignes, m.venteCoursUsd, "USD"),
       m.douaneNumDeclaration, m.douaneDate ?? "", m.douaneTypeDeclaration, m.douaneTauxChange, m.douaneValeurTnd, m.douanePtfn, m.douaneExportateur, m.douaneImportateur,
       m.note,
     ]);

@@ -2,7 +2,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { AlertTriangle, ChevronRight, FolderInput, Paperclip, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
-import { ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantite, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
+import { changeDe, montantTndLigne, ecartDevise, ecartsDeviseTotaux, fmtMontant, fmtQuantite, fmtQuantiteUnite, recapStock, totauxCote, uniteCommune } from "@/lib/stockRecap";
 import { montantCote } from "@/lib/coursStock";
 import type { StatutFacture } from "@/lib/fournisseurs";
 import { coteRenseigne, type CoteMouvement } from "@/lib/stockLot";
@@ -155,7 +155,7 @@ function CoteFin({ m, cote, onPreview, base, colonnes }: { m: StockMouvement; co
   const lignes = v ? m.venteLignes : m.achatLignes;
   const t = totauxCote(lignes);
   const fond = TEINTE[cote];
-  const montant = montantCote(lignes, v ? m.venteCoursUsd : m.achatCoursUsd, base);
+  const montant = montantCote(lignes, v ? m.venteCoursUsd : m.achatCoursUsd, base, changeDe(m, cote));
   return (
     <>
       {colonnes.devise && <td className={cn(tdNum, fond, filet)}>{t.montantDevise ? fmtMontant(t.montantDevise) : "—"}</td>}
@@ -202,12 +202,12 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
       const devise = cotes === "vente" ? m.venteDevise : m.achatDevise;
       const t = totauxCote(lignes);
       if (t.montantDevise) parDevise.set(devise, Math.round(((parDevise.get(devise) ?? 0) + t.montantDevise) * 1000) / 1000);
-      montantBase += montantCote(lignes, cotes === "vente" ? m.venteCoursUsd : m.achatCoursUsd, base);
+      montantBase += montantCote(lignes, cotes === "vente" ? m.venteCoursUsd : m.achatCoursUsd, base, changeDe(m, cotes === "vente" ? "vente" : "achat"));
     }
     return { parDevise: [...parDevise.entries()], montantBase: Math.round(montantBase * 1000) / 1000, quantite: cotes === "vente" ? total.vente.quantite : total.achat.quantite };
   })();
   const ecarts = ecartsDeviseTotaux(mouvements);
-  const marge = mouvements.reduce((s, m) => s + montantCote(m.venteLignes, m.venteCoursUsd, base) - montantCote(m.achatLignes, m.achatCoursUsd, base), 0);
+  const marge = mouvements.reduce((s, m) => s + montantCote(m.venteLignes, m.venteCoursUsd, base, changeDe(m, "vente")) - montantCote(m.achatLignes, m.achatCoursUsd, base, changeDe(m, "achat")), 0);
 
   const basculer = (id: string) =>
     setOuverts((s) => {
@@ -342,8 +342,8 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
       <ul className="divide-y divide-border xl:hidden" aria-label="Mouvements de stock">
         {mouvements.map((m, index) => {
           const ouvert = ouverts.has(m.id);
-          const v = totauxCote(m.venteLignes);
-          const a = totauxCote(m.achatLignes);
+          const v = totauxCote(m.venteLignes, undefined, changeDe(m, "vente"));
+          const a = totauxCote(m.achatLignes, undefined, changeDe(m, "achat"));
           return (
             <li key={m.id} id={`mouvement-carte-${m.id}`} className={cn("px-4 py-3", nouveauId === m.id && "bg-accent/15")}>
               <button type="button" aria-expanded={ouvert} onClick={() => basculer(m.id)} className="flex w-full items-start gap-2 text-left">
@@ -373,8 +373,10 @@ function Fait({ label, children, large = false }: { label: string; children: Rea
   );
 }
 
-export function LignesProduits({ lignes, devise }: { lignes: StockLigne[]; devise: string }) {
-  const total = totauxCote(lignes);
+export function LignesProduits({ lignes, devise, cours = 0 }: { lignes: StockLigne[]; devise: string; cours?: number }) {
+  // Une ligne sans montant en dinars est calculée avec le cours de la facture, quand il est connu.
+  const change = { cours, devise };
+  const total = totauxCote(lignes, undefined, change);
   const unite = uniteCommune(lignes);
   if (lignes.length === 0) return <p className="text-sm text-muted-foreground">Aucun produit.</p>;
   return (
@@ -398,7 +400,7 @@ export function LignesProduits({ lignes, devise }: { lignes: StockLigne[]; devis
             <td className="whitespace-nowrap px-1 py-1.5 text-right tabular-nums">{fmtQuantiteUnite(l.quantite, l.unite ?? "")}</td>
             <td className="whitespace-nowrap px-1 py-1.5 text-right tabular-nums">{l.prixUnitaire ? fmtMontant(l.prixUnitaire) : "—"}</td>
             <td className="whitespace-nowrap px-1 py-1.5 text-right tabular-nums">{l.montantDevise ? fmtMontant(l.montantDevise) : "—"}</td>
-            <td className="whitespace-nowrap py-1.5 pl-1 text-right font-semibold tabular-nums">{l.montantTnd ? fmtMontant(l.montantTnd) : "—"}</td>
+            <td className="whitespace-nowrap py-1.5 pl-1 text-right font-semibold tabular-nums">{montantTndLigne(l, change) ? fmtMontant(montantTndLigne(l, change)) : "—"}</td>
           </tr>
         ))}
       </tbody>
@@ -481,7 +483,7 @@ function CarteFacture({ m, cote, classing, onPreview, onClasser, onRetirerCote }
   const resume = vide ? undefined : [date ? formatDate(date) : "", numero ? `facture ${numero}` : "", tiers, cours ? `${devise} · cours ${cours.toLocaleString("fr-FR", { maximumFractionDigits: 5 })}` : devise].filter(Boolean).join(" · ");
   return (
     <Carte titre={v ? "Vente" : "Achat"} resume={resume} action={<BoutonRetirer m={m} cote={cote} nom={v ? "la facture de vente" : "la facture d'achat"} onRetirerCote={onRetirerCote} />} piece={<PieceCarte m={m} categorie={cote} classing={classing} onPreview={onPreview} onClasser={onClasser} />}>
-      {vide ? <p className="text-sm text-muted-foreground">Rien de renseigné.</p> : <LignesProduits lignes={lignes} devise={devise} />}
+      {vide ? <p className="text-sm text-muted-foreground">Rien de renseigné.</p> : <LignesProduits lignes={lignes} devise={devise} cours={cours} />}
     </Carte>
   );
 }
@@ -521,7 +523,7 @@ export function DetailMouvement({ m, classing, onPreview, onClasser, onEdit, onD
   // « +370 / −370 » trompeur alors que le total est nul.
   const detailParProduit = m.achatLignes.length > 1 || m.venteLignes.length > 1;
   const ecart = ecartDevise(m);
-  const marge = totauxCote(m.venteLignes).montantTnd - totauxCote(m.achatLignes).montantTnd;
+  const marge = totauxCote(m.venteLignes, undefined, changeDe(m, "vente")).montantTnd - totauxCote(m.achatLignes, undefined, changeDe(m, "achat")).montantTnd;
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <CarteFacture m={m} cote="vente" classing={classing} onPreview={onPreview} onClasser={onClasser} onRetirerCote={onRetirerCote} />

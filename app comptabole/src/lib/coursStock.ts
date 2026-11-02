@@ -1,5 +1,6 @@
 import { coursDuMois, coursParUnite } from "@/lib/coursChange";
 import { arrondi3 } from "../../shared/arrondi.js";
+import { montantTndCote, type ChangeCote } from "@/lib/stockRecap";
 import type { CoursChange, DeviseChange, StockLigne } from "@/types";
 
 /**
@@ -106,8 +107,8 @@ export function completerCours<T extends AvecCours>(prev: T, cote: Cote, auto: C
   return suite;
 }
 
-/** Montant d'un côté dans la monnaie choisie : dinars (montants déjà calculés) ou dollars (montant en devise × cours du dollar). */
-export function montantCote(lignes: StockLigne[], coursUsd: number | undefined, base: "TND" | "USD"): number {
-  if (base === "TND") return arrondi3(lignes.reduce((s, l) => s + (l.montantTnd || 0), 0));
+/** Montant d'un côté dans la monnaie choisie : dinars (montants calculés, ou montant en devise × cours quand le montant en dinars n'est pas saisi) ou dollars (montant en devise × cours du dollar). */
+export function montantCote(lignes: StockLigne[], coursUsd: number | undefined, base: "TND" | "USD", change?: ChangeCote): number {
+  if (base === "TND") return montantTndCote(lignes, change);
   return arrondi3(lignes.reduce((s, l) => s + (l.montantDevise || 0), 0) * (coursUsd || 0));
 }

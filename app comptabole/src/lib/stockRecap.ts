@@ -27,12 +27,35 @@ export function uniteAffichee(lignes: Pick<StockLigne, "unite">[]): string {
   return unites.size === 1 ? [...unites][0]! : "";
 }
 
-/** Totaux d'un côté (achat ou vente) d'un mouvement : une facture peut lister plusieurs produits. */
-export function totauxCote(lignes: StockLigne[], unite = uniteCommune(lignes)): RecapCote {
+/** Cours et devise d'un côté (achat ou vente) : servent à calculer en dinars une ligne dont le montant TND n'a pas été saisi. */
+export interface ChangeCote {
+  cours: number;
+  devise: string;
+}
+
+/** Cours et devise d'un côté d'un mouvement. */
+export const changeDe = (m: Pick<StockMouvement, "achatCours" | "achatDevise" | "venteCours" | "venteDevise">, cote: "achat" | "vente"): ChangeCote =>
+  cote === "vente" ? { cours: m.venteCours, devise: m.venteDevise } : { cours: m.achatCours, devise: m.achatDevise };
+
+/**
+ * Montant en dinars d'une ligne : celui qui est saisi ; à défaut, montant en devise × cours de la facture dès que le cours est connu (un montant à 0 est un cours
+ * pas encore appliqué, pas un montant nul). En dinars, le montant en devise est déjà le montant en dinars. Sans cours, 0 : rien n'est inventé.
+ */
+export function montantTndLigne(l: Pick<StockLigne, "montantDevise" | "montantTnd">, change?: ChangeCote): number {
+  if (l.montantTnd) return l.montantTnd;
+  if (change?.devise === "TND") return l.montantDevise || 0;
+  return change && change.cours > 0 ? r3((l.montantDevise || 0) * change.cours) : 0;
+}
+
+/** Montant en dinars d'un côté : somme des lignes (voir montantTndLigne). */
+export const montantTndCote = (lignes: Pick<StockLigne, "montantDevise" | "montantTnd">[], change?: ChangeCote) => r3(lignes.reduce((s, l) => s + montantTndLigne(l, change), 0));
+
+/** Totaux d'un côté (achat ou vente) d'un mouvement : une facture peut lister plusieurs produits. `change` : cours du côté, pour les lignes sans montant en dinars. */
+export function totauxCote(lignes: StockLigne[], unite = uniteCommune(lignes), change?: ChangeCote): RecapCote {
   return {
     quantite: r3(lignes.reduce((s, l) => s + quantiteEn({ quantite: l.quantite || 0, unite: l.unite }, unite), 0)),
     montantDevise: r3(lignes.reduce((s, l) => s + (l.montantDevise || 0), 0)),
-    montantTnd: r3(lignes.reduce((s, l) => s + (l.montantTnd || 0), 0)),
+    montantTnd: montantTndCote(lignes, change),
     produits: lignes.length,
   };
 }
@@ -59,9 +82,9 @@ function lignesComptees(lignes: StockLigne[], unite: string): StockLigne[] {
 export function recapStock(mouvements: StockMouvement[]): RecapStock {
   const unite = uniteCommune(mouvements.flatMap((m) => [...m.achatLignes, ...m.venteLignes]));
   const quantites = (lignes: StockLigne[]) => totauxCote(lignesComptees(lignes, unite), unite).quantite;
-  const avecQuantiteComptee = (lignes: StockLigne[]): RecapCote => ({ ...totauxCote(lignes, unite), quantite: quantites(lignes) });
-  const achat = mouvements.map((m) => avecQuantiteComptee(m.achatLignes));
-  const vente = mouvements.map((m) => avecQuantiteComptee(m.venteLignes));
+  const avecQuantiteComptee = (lignes: StockLigne[], change: ChangeCote): RecapCote => ({ ...totauxCote(lignes, unite, change), quantite: quantites(lignes) });
+  const achat = mouvements.map((m) => avecQuantiteComptee(m.achatLignes, changeDe(m, "achat")));
+  const vente = mouvements.map((m) => avecQuantiteComptee(m.venteLignes, changeDe(m, "vente")));
   const somme = (cotes: RecapCote[], cle: keyof RecapCote) => r3(cotes.reduce((s, c) => s + c[cle], 0));
   const horsUnite = mouvements.reduce((n, m) => n + m.achatLignes.length + m.venteLignes.length - lignesComptees(m.achatLignes, unite).length - lignesComptees(m.venteLignes, unite).length, 0);
   // Un mouvement sans unité (pièces) n'a pas d'écart en tonnes : il n'entre pas dans l'écart total.

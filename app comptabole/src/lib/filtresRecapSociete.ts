@@ -1,6 +1,6 @@
 import { norme } from "@/lib/stockFiltres";
 import { fmtMontant, fmtQuantite } from "@/lib/stockRecap";
-import { dateJourMoisAnnee, totauxDe, type CoteRecap, type LigneRecapSociete, type RecapSociete } from "@/lib/stockRecapSociete";
+import { dateJourMoisAnnee, sansCoursTnd, totauxDe, type CoteRecap, type LigneRecapSociete, type RecapSociete } from "@/lib/stockRecapSociete";
 
 /**
  * Filtres « façon Excel » du récapitulatif de société : chaque colonne se filtre par ses valeurs (cases à cocher) et/ou par une condition
@@ -36,7 +36,7 @@ function colonnesDuCote(bloc: "vente" | "achat"): ColonneRecap[] {
     col("devise-montant", "En devise", "nombre", (l) => montant(c(l), c(l).enDevise), (l) => (c(l).present ? c(l).enDevise : null)),
     col("devise", "Devise", "texte", (l) => c(l).devise, (l) => c(l).devise || null),
     ...(bloc === "achat" ? [col("cours", "Cours", "nombre", (l) => (c(l).cours ? String(c(l).cours).replace(".", ",") : ""), (l) => c(l).cours || null)] : []),
-    col("mt-tnd", "MT TND", "nombre", (l) => montant(c(l), c(l).mtTnd), (l) => (c(l).present ? c(l).mtTnd : null)),
+    col("mt-tnd", "MT TND", "nombre", (l) => (sansCoursTnd(c(l)) ? "" : montant(c(l), c(l).mtTnd)), (l) => (c(l).present && !sansCoursTnd(c(l)) ? c(l).mtTnd : null)),
   ];
 }
 

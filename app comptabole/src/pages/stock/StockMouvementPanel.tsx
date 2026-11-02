@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn, formatDate } from "@/lib/utils";
-import { fmtMontant, fmtQuantite, fmtQuantiteUnite, totauxCote, ecartDevise, uniteCommune } from "@/lib/stockRecap";
+import { changeDe, fmtMontant, fmtQuantite, fmtQuantiteUnite, totauxCote, ecartDevise, uniteCommune } from "@/lib/stockRecap";
 import { coteRenseigne, type CoteMouvement } from "@/lib/stockLot";
 import { situationMouvement, type SituationStock } from "@/lib/stockFiltres";
 import type { StatutFacture } from "@/lib/fournisseurs";
@@ -210,7 +210,7 @@ function SectionFacture({ m, cote, classing, onPreview, onClasser, onEdit, onRet
   const lignes = v ? m.venteLignes : m.achatLignes;
   const devise = v ? m.venteDevise : m.achatDevise;
   const cours = v ? m.venteCours : m.achatCours;
-  const t = totauxCote(lignes);
+  const t = totauxCote(lignes, undefined, { cours, devise });
   const titre = v ? "Vente" : "Achat";
   if (!coteRenseigne(m, cote)) {
     return (
@@ -245,7 +245,7 @@ function SectionFacture({ m, cote, classing, onPreview, onClasser, onEdit, onRet
         {!v && reglement && <Champ label="Règlement"><StatutReglement statut={reglement} /></Champ>}
       </dl>
       <div className="mt-2.5">
-        <LignesProduits lignes={lignes} devise={devise} />
+        <LignesProduits lignes={lignes} devise={devise} cours={cours} />
       </div>
     </Section>
   );
@@ -290,7 +290,7 @@ function SectionDouane({ m, classing, onPreview, onClasser, onEdit, onRetirerCot
 
 function Resume({ m }: { m: StockMouvement }) {
   const ecart = ecartDevise(m);
-  const marge = totauxCote(m.venteLignes).montantTnd - totauxCote(m.achatLignes).montantTnd;
+  const marge = totauxCote(m.venteLignes, undefined, changeDe(m, "vente")).montantTnd - totauxCote(m.achatLignes, undefined, changeDe(m, "achat")).montantTnd;
   const avecLesDeux = m.venteLignes.length > 0 && m.achatLignes.length > 0;
   return (
     <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">

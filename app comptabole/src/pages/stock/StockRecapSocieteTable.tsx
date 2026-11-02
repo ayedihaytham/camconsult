@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { fmtMontant, fmtQuantite } from "@/lib/stockRecap";
-import { dateJourMoisAnnee, type CoteRecap, type LigneRecapSociete, type RecapSociete } from "@/lib/stockRecapSociete";
+import { dateJourMoisAnnee, sansCoursTnd, type CoteRecap, type LigneRecapSociete, type RecapSociete } from "@/lib/stockRecapSociete";
 import { COLONNES_RECAP, FILTRES_RECAP_VIDES, nombreFiltresRecap, valeursDeColonne, type ColonneRecap, type FiltresRecap } from "@/lib/filtresRecapSociete";
 import { FiltreColonneRecap } from "./FiltreColonneRecap";
 
@@ -52,7 +52,7 @@ function Cote({ c, nature, achat, td }: { c: CoteRecap; nature: string; achat: b
       <td className={cn(td, num)}>{c.present ? fmtMontant(c.enDevise) : vide}</td>
       <td className={td}>{c.devise || vide}</td>
       {achat && <td className={cn(td, num)}>{c.cours ? c.cours.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 6 }) : vide}</td>}
-      <td className={cn(td, num, "font-medium")}>{c.present ? fmtMontant(c.mtTnd) : vide}</td>
+      <td className={cn(td, num, "font-medium")}>{!c.present ? vide : sansCoursTnd(c) ? <span className="text-muted-foreground/60" title="Cours non saisi : le montant en dinars n'est pas calculé">—</span> : fmtMontant(c.mtTnd)}</td>
     </>
   );
 }

@@ -57,8 +57,12 @@ export interface RecapSociete {
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
+/** Un montant en devise sans montant en dinars : le cours n'est pas saisi. Le dinar n'est alors pas affiché (ni compté) au lieu de montrer un trompeur 0,000. */
+export const sansCoursTnd = (c: Pick<CoteRecap, "present" | "mtTnd" | "enDevise">) => c.present && c.mtTnd === 0 && c.enDevise > 0;
+
 function cote(lignes: StockMouvement["venteLignes"], date: string | null, numFacture: string, tiers: string, devise: string, cours: number, unite: string): CoteRecap {
-  const t = totauxCote(lignes, unite);
+  // Le montant en dinars d'une ligne sans montant saisi est calculé : montant en devise × cours de la facture, dès que le cours est connu.
+  const t = totauxCote(lignes, unite, { cours, devise });
   return { date, numFacture, tiers, quantite: t.quantite, enDevise: t.montantDevise, devise, mtTnd: t.montantTnd, cours, present: lignes.length > 0 || Boolean(numFacture) };
 }
 
@@ -113,9 +117,9 @@ export function feuilleRecapSociete(recap: RecapSociete, options: { douane?: boo
   const nombre = (n: number): PdfCell => n;
   const lignes = recap.lignes.map((l): PdfCell[] => [
     l.rang,
-    dateJourMoisAnnee(l.vente.date), l.vente.numFacture, l.vente.present ? l.nature : "", l.vente.tiers, l.vente.present ? nombre(l.vente.quantite) : "", l.vente.present ? nombre(l.vente.enDevise) : "", l.vente.devise, l.vente.present ? nombre(l.vente.mtTnd) : "",
+    dateJourMoisAnnee(l.vente.date), l.vente.numFacture, l.vente.present ? l.nature : "", l.vente.tiers, l.vente.present ? nombre(l.vente.quantite) : "", l.vente.present ? nombre(l.vente.enDevise) : "", l.vente.devise, l.vente.present && !sansCoursTnd(l.vente) ? nombre(l.vente.mtTnd) : "",
     nombre(l.ecart),
-    dateJourMoisAnnee(l.achat.date), l.achat.numFacture, l.achat.present ? l.nature : "", l.achat.tiers, l.achat.present ? nombre(l.achat.quantite) : "", l.achat.present ? nombre(l.achat.enDevise) : "", l.achat.devise, l.achat.cours ? nombre(l.achat.cours) : "", l.achat.present ? nombre(l.achat.mtTnd) : "",
+    dateJourMoisAnnee(l.achat.date), l.achat.numFacture, l.achat.present ? l.nature : "", l.achat.tiers, l.achat.present ? nombre(l.achat.quantite) : "", l.achat.present ? nombre(l.achat.enDevise) : "", l.achat.devise, l.achat.cours ? nombre(l.achat.cours) : "", l.achat.present && !sansCoursTnd(l.achat) ? nombre(l.achat.mtTnd) : "",
     ...(douane ? [l.douane.numDeclaration, dateJourMoisAnnee(l.douane.date), l.douane.type, l.douane.tauxChange ? nombre(l.douane.tauxChange) : "", l.douane.valeurTnd ? nombre(l.douane.valeurTnd) : ""] : []),
   ]);
   const t = recap.totaux;

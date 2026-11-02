@@ -1219,6 +1219,10 @@ export interface MouvementBancaire {
   /** Règlement fournisseur rapproché de ce mouvement. */
   reglementId: string | null;
   fournisseurCle: string | null;
+  /** L'autre jambe du même change (sortie d'un compte, entrée de l'autre). */
+  changeLie?: { id: string; compteId: string; devise: string; montant: number; dateOp: string; coursReel: number | null } | null;
+  /** Cours réel du change relié : dinars ÷ devise (information, rien n'est recalculé avec). */
+  coursReel?: number | null;
 }
 
 /** Solde réel de la banque en fin de mois (celui du relevé) d'un compte, avec une note du mois. */
@@ -1313,4 +1317,61 @@ export interface SwiftResumeSociete {
   enCours: number;
   aJustifier: number;
   dernierVirement: string | null;
+}
+
+/** Paiement ou encaissement en banque d'un règlement, vu depuis le circuit d'un mouvement de stock. */
+export interface CircuitBanque {
+  id: string;
+  dateOp: string | null;
+  libelle: string;
+  montant: number;
+  devise: string;
+}
+
+export type CoursSource = "tnd" | "reglement" | "achat" | "vente";
+
+/** Le chemin de l'argent d'un mouvement de stock (GET /stock/mouvements/:id/circuit). */
+export interface CircuitStock {
+  mouvementId: string;
+  societeId: string;
+  achat: { numFacture: string; date: string | null; fournisseur: string; devise: string; montant: number; cours: number; montantTnd: number } | null;
+  reglementsFournisseur: {
+    id: string;
+    date: string | null;
+    mode: string;
+    reference: string;
+    devise: string;
+    brut: number;
+    retenue: number;
+    vire: number;
+    cours: number | null;
+    coursSource: CoursSource | null;
+    brutTnd: number | null;
+    vireTnd: number | null;
+    banque: CircuitBanque | null;
+  }[];
+  vente: { numFacture: string; date: string | null; client: string; devise: string; montant: number; cours: number; montantTnd: number } | null;
+  suiviDevise: { suiviId: string; factureId: string; client: string; exercice: string; devise: string; nFacture: string; montantTotal: number; avoir: number; regle: number; reste: number } | null;
+  reglementsClient: { id: string; date: string | null; libelle: string; devise: string; montant: number; cours: number | null; coursSource: CoursSource | null; montantTnd: number | null; banque: CircuitBanque | null }[];
+  totaux: {
+    decaisseTnd: number;
+    encaisseTnd: number;
+    tresorerieTnd: number;
+    resteAPayer: { devise: string; montant: number } | null;
+    resteAEncaisser: { devise: string; montant: number } | null;
+    incomplet: boolean;
+  };
+}
+
+/** Ce qui ne tombe pas juste entre le suivi bancaire, le suivi fournisseur et le suivi client devise (GET /banque/coherence). */
+export interface AlerteCoherence {
+  code: "encaissement_non_affecte" | "montant_banque_different" | "facture_surreglee" | "change_non_lie";
+  gravite: "erreur" | "attention" | "info";
+  date: string | null;
+  message: string;
+  lien: { route: string; libelle: string };
+  mouvementBancaireId?: string;
+  reglementId?: string;
+  mouvementStockId?: string;
+  factureId?: string;
 }

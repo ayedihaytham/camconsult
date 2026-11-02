@@ -1155,6 +1155,11 @@ create index if not exists mouvements_bancaires_compte_idx on mouvements_bancair
 -- Cours d'une opération de change (TND pour 1 unité de devise), lu dans le libellé ou le n° de pièce.
 alter table mouvements_bancaires add column if not exists cours numeric;
 
+-- Les deux jambes d'un même change (sortie d'un compte en devise, entrée d'un compte en dinars, ou l'inverse) : chacune pointe vers l'autre.
+-- Le cours réel (dinars ÷ devise) se calcule à partir des deux montants, il n'est pas stocké.
+alter table mouvements_bancaires add column if not exists change_lie_id uuid references mouvements_bancaires(id) on delete set null;
+create index if not exists mouvements_bancaires_change_idx on mouvements_bancaires(change_lie_id) where change_lie_id is not null;
+
 -- Règlement client relié à un encaissement du suivi bancaire (crédit d'un compte de la devise de la fiche). Sans index unique : un
 -- encaissement peut alimenter plusieurs fiches (factures de deux exercices), chacune avec son règlement.
 alter table suivi_devise_mouvements add column if not exists mouvement_bancaire_id uuid references mouvements_bancaires(id) on delete set null;

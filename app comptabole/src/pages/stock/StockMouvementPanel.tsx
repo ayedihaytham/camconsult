@@ -9,9 +9,10 @@ import { situationMouvement, type SituationStock } from "@/lib/stockFiltres";
 import type { StatutFacture } from "@/lib/fournisseurs";
 import type { StockMouvement } from "@/types";
 import { VisionneuseDocument } from "./VisionneuseDocument";
+import { CircuitFinancier } from "./CircuitFinancier";
 import { docUrl, LignesProduits, PieceCarte, StatutReglement, TITRES } from "./StockRecapTable";
 
-type Onglet = "details" | "pieces";
+type Onglet = "details" | "circuit" | "pieces";
 
 interface Props {
   /** Mouvement affiché ; null : le panneau est fermé. */
@@ -127,7 +128,7 @@ export function StockMouvementPanel({ mouvement: m, position, total, onNaviguer,
             </div>
 
             <div role="tablist" aria-label="Contenu du mouvement" className="flex shrink-0 gap-1 border-b border-border bg-card px-3">
-              {([["details", "Détails"], ["pieces", "Pièces"]] as const).map(([valeur, nom]) => (
+              {([["details", "Détails"], ["circuit", "Circuit"], ["pieces", "Pièces"]] as const).map(([valeur, nom]) => (
                 <button
                   key={valeur}
                   type="button"
@@ -150,6 +151,8 @@ export function StockMouvementPanel({ mouvement: m, position, total, onNaviguer,
                   <Resume m={m} />
                   {m.note && <p className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">Note : {m.note}</p>}
                 </>
+              ) : onglet === "circuit" ? (
+                <CircuitFinancier mouvementId={m.id} societeId={m.societeId} />
               ) : (
                 <div className="space-y-2.5">
                   <div role="group" aria-label="Pièce à afficher" className="flex flex-wrap gap-1.5">

@@ -35,6 +35,9 @@ interface BanqueState extends EtatBanque {
   removeEnCours: (id: string) => Promise<void>;
   /** Marque ou démarque une ligne « à revoir ». */
   marquerARevoir: (id: string, aRevoir: boolean, note?: string) => Promise<void>;
+  /** Relie des paires de lignes comme les deux jambes d'un même change. */
+  lierChanges: (paires: { a: string; b: string }[]) => Promise<void>;
+  delierChange: (id: string) => Promise<void>;
   updateMouvement: (id: string, data: MouvementInput) => Promise<void>;
   removeMouvement: (id: string) => Promise<void>;
 }
@@ -81,6 +84,8 @@ export const useBanque = create<BanqueState>((set) => {
     updateEnCours: (id, data) => run(() => api.patch<EtatBanque>(`/banque/en-cours/${id}`, data)),
     removeEnCours: (id) => run(() => api.del<EtatBanque>(`/banque/en-cours/${id}`)),
     marquerARevoir: (id, aRevoir, note) => run(() => api.patch<EtatBanque>(`/banque/mouvements/${id}/revoir`, { aRevoir, ...(note === undefined ? {} : { note }) })),
+    lierChanges: (paires) => run(() => api.post<EtatBanque>("/banque/changes-lies", { paires })),
+    delierChange: (id) => run(() => api.del<EtatBanque>(`/banque/mouvements/${id}/change-lie`)),
     updateMouvement: (id, data) => run(() => api.patch<EtatBanque>(`/banque/mouvements/${id}`, data)),
     removeMouvement: (id) => run(() => api.del<EtatBanque>(`/banque/mouvements/${id}`)),
   };

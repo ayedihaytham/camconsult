@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeftRight, Download, FileUp, Flag, Pencil, Plus, Receipt, Table2, Trash2, Wallet } from "lucide-react";
+import { ArrowLeftRight, Download, FileUp, Flag, Pencil, Plus, Receipt, ShieldCheck, Table2, Trash2, Wallet } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -17,7 +17,7 @@ import { exporterCompte } from "@/lib/banqueExport";
 import { aUnEcart, synthesePeriodes } from "@/lib/banqueMois";
 import { fmtMontant } from "@/lib/stockRecap";
 import { cn } from "@/lib/utils";
-import type { MouvementBancaire } from "@/types";
+import type { AlerteCoherence, MouvementBancaire } from "@/types";
 import { CompteDialog } from "./CompteDialog";
 import { ImportReleveDialog } from "./ImportReleveDialog";
 import { MouvementDialog } from "./MouvementDialog";
@@ -28,6 +28,9 @@ import { pistesEcart } from "@/lib/banqueEcart";
 import { estFrais, syntheseFrais } from "@/lib/banqueFrais";
 import { FraisBancaires } from "./FraisBancaires";
 import { SaisieRapideDialog } from "./SaisieRapideDialog";
+import { RelierChangesDialog } from "./RelierChangesDialog";
+import { CoherenceBanque } from "./CoherenceBanque";
+import { propositionsChange } from "@/lib/banqueChange";
 
 
 export function BanqueSocietePage() {
@@ -43,6 +46,8 @@ export function BanqueSocietePage() {
   const clear = useBanque((s) => s.clear);
   const createCompte = useBanque((s) => s.createCompte);
   const updateCompte = useBanque((s) => s.updateCompte);
+  const lierChanges = useBanque((s) => s.lierChanges);
+  const delierChange = useBanque((s) => s.delierChange);
   const removeCompte = useBanque((s) => s.removeCompte);
   const addMouvement = useBanque((s) => s.addMouvement);
   const importMouvements = useBanque((s) => s.importMouvements);
@@ -60,9 +65,12 @@ export function BanqueSocietePage() {
   const [vueSociete, setVueSociete] = useState(false);
   const [seulementARevoir, setSeulementARevoir] = useState(false);
   const [vueFrais, setVueFrais] = useState(false);
+  const [vueCoherence, setVueCoherence] = useState(false);
+  const [alertes, setAlertes] = useState<AlerteCoherence[] | null>(null);
   const [compteOuvert, setCompteOuvert] = useState<"nouveau" | "modifier" | null>(null);
   const [importOuvert, setImportOuvert] = useState(false);
   const [saisieRapideOuverte, setSaisieRapideOuverte] = useState(false);
+  const [changesOuverts, setChangesOuverts] = useState(false);
   const [mouvementOuvert, setMouvementOuvert] = useState(false);
   const [editing, setEditing] = useState<MouvementBancaire | null>(null);
   const [toDelete, setToDelete] = useState<MouvementBancaire | null>(null);
@@ -83,6 +91,19 @@ export function BanqueSocietePage() {
     const base = seulementARevoir ? duMois.filter((m) => m.aRevoir) : duMois;
     return vueFrais ? base.filter(estFrais) : base;
   }, [duMois, seulementARevoir, vueFrais]);
+  // Cohérence avec le suivi fournisseur et le suivi client devise : relue quand les comptes ou les mouvements changent (cabinet seulement).
+  useEffect(() => {
+    if (lectureSeule || !societeId) return;
+    let courant = true;
+    api.get<{ alertes: AlerteCoherence[] }>(`/banque/coherence?societeId=${societeId}`).then(
+      (r) => courant && setAlertes(r.alertes),
+      () => courant && setAlertes(null),
+    );
+    return () => {
+      courant = false;
+    };
+  }, [societeId, lectureSeule, tous, comptes]);
+  const propositionsChanges = useMemo(() => propositionsChange(tous, comptes), [tous, comptes]);
   const frais = useMemo(() => syntheseFrais(duMois), [duMois]);
   const nbARevoir = useMemo(() => mouvements.filter((m) => m.aRevoir).length, [mouvements]);
   const pistesParMois = useMemo(() => Object.fromEntries(periodes.filter(aUnEcart).map((p) => [p.mois, pistesEcart(p, mouvements)])), [periodes, mouvements]);
@@ -279,6 +300,18 @@ export function BanqueSocietePage() {
                 <Flag className="h-3.5 w-3.5" />
                 À revoir{nbARevoir > 0 ? ` (${nbARevoir})` : ""}
               </Button>
+              {!lectureSeule && alertes !== null && (
+                <Button variant={vueCoherence ? "ledger" : "outline"} size="sm" aria-pressed={vueCoherence} onClick={() => setVueCoherence((v) => !v)}>
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Cohérence{alertes.length > 0 ? ` (${alertes.length})` : ""}
+                </Button>
+              )}
+              {!lectureSeule && propositionsChanges.length > 0 && (
+                <Button variant="outline" size="sm" onClick={() => setChangesOuverts(true)}>
+                  <ArrowLeftRight className="h-3.5 w-3.5" />
+                  Changes à relier ({propositionsChanges.length})
+                </Button>
+              )}
               <Button variant={vueFrais ? "ledger" : "outline"} size="sm" aria-pressed={vueFrais} onClick={() => setVueFrais((v) => !v)} disabled={frais.nb === 0 && !vueFrais}>
                 <Receipt className="h-3.5 w-3.5" />
                 Frais bancaires{frais.nb > 0 ? ` (${frais.nb})` : ""}
@@ -301,6 +334,7 @@ export function BanqueSocietePage() {
               onRetirerEnCours={(o) => removeEnCours(o.id)}
             />
           )}
+          {vueCoherence && alertes !== null && <CoherenceBanque alertes={alertes} />}
           {vueFrais && compte && <FraisBancaires synthese={frais} devise={compte.devise} />}
           {mois === "tous" && !vueFrais && <SyntheseMensuelle periodes={periodes} pistes={pistesParMois} onChoisir={setMois} />}
           {affiches.length === 0 ? (
@@ -322,6 +356,7 @@ export function BanqueSocietePage() {
               onRapprocher={rapprocher}
               onARevoir={lectureSeule ? undefined : (m) => void marquerARevoir(m.id, !m.aRevoir)}
               onRapprocherClient={(m) => void rapprocherClient(m)}
+              onDelierChange={(m) => void delierChange(m.id)}
             />
           )}
 
@@ -369,6 +404,16 @@ export function BanqueSocietePage() {
               }
               const { importes, ignores } = await importMouvements(compte.id, liste, mensuel);
               toast.success(`${importes} mouvement${importes > 1 ? "s" : ""} importé${importes > 1 ? "s" : ""}${ignores ? ` · ${ignores} déjà présent${ignores > 1 ? "s" : ""}` : ""}`);
+            }}
+          />
+          <RelierChangesDialog
+            open={changesOuverts}
+            onOpenChange={setChangesOuverts}
+            propositions={propositionsChanges}
+            comptes={comptes}
+            onLier={async (paires) => {
+              await lierChanges(paires);
+              toast.success(`${paires.length} change${paires.length > 1 ? "s" : ""} relié${paires.length > 1 ? "s" : ""}`);
             }}
           />
           <SaisieRapideDialog

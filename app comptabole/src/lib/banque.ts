@@ -33,10 +33,11 @@ export function classerMouvement(libelle: string, debit: number, credit: number,
 }
 
 /** Cours de la dernière opération de change qui précède (ou date) un paiement : proposé pour régler une facture en devise. */
-export function coursAvant(mouvements: Pick<MouvementBancaire, "type" | "cours" | "dateOp">[], date: string): number | undefined {
-  return mouvements
-    .filter((m) => m.type === "change" && m.cours && m.dateOp <= date)
-    .sort((a, b) => b.dateOp.localeCompare(a.dateOp))[0]?.cours ?? undefined;
+export function coursAvant(mouvements: Pick<MouvementBancaire, "type" | "cours" | "coursReel" | "dateOp">[], date: string): number | undefined {
+  // Le cours réel d'un change relié (dinars ÷ devise des deux jambes) passe avant celui lu dans un libellé.
+  const cours = (m: Pick<MouvementBancaire, "cours" | "coursReel">) => m.coursReel || m.cours || null;
+  const m = mouvements.filter((x) => x.type === "change" && cours(x) && x.dateOp <= date).sort((a, b) => b.dateOp.localeCompare(a.dateOp))[0];
+  return m ? cours(m) ?? undefined : undefined;
 }
 
 /** Numéros de plus de 3 chiffres cités dans un libellé (« FAC N 263500 », « FACTURE N°2026061 »). */

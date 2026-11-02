@@ -1,4 +1,4 @@
-import { Flag, Link2, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Flag, Link2, Pencil, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn, formatDate } from "@/lib/utils";
 import { TYPE_LABELS } from "@/lib/banque";
@@ -19,6 +19,8 @@ interface Props {
   onARevoir?: (m: MouvementBancaire) => void;
   /** Ouvre la fiche du suivi client devise pour relier cet encaissement à un règlement. */
   onRapprocherClient?: (m: MouvementBancaire) => void;
+  /** Délie les deux jambes d'un change. */
+  onDelierChange?: (m: MouvementBancaire) => void;
 }
 
 const th = "whitespace-nowrap px-2 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground";
@@ -39,7 +41,7 @@ const montant = (n: number) => (n ? fmtMontant(n) : "—");
 
 /** Mouvements d'un compte : les opérations d'un même N° pièce (opération, TVA, commission, intérêts) sont
  * regroupées, et un paiement fournisseur se rapproche de son règlement. */
-export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lectureSeule, onEdit, onDelete, onRapprocher, onARevoir, onRapprocherClient }: Props) {
+export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lectureSeule, onEdit, onDelete, onRapprocher, onARevoir, onRapprocherClient, onDelierChange }: Props) {
   return (
     <div className="overflow-x-auto" data-tour="banque-mouvements">
       <table className="w-full min-w-[64rem] border-collapse text-xs">
@@ -136,6 +138,19 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                     >
                       Règlement client
                     </button>
+                  ) : m.changeLie ? (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[0.65rem] font-semibold text-primary"
+                      title={`L'autre jambe : ${fmtMontant(m.changeLie.montant)} ${m.changeLie.devise} le ${formatDate(m.changeLie.dateOp)}`}
+                    >
+                      <ArrowLeftRight className="size-3" aria-hidden="true" />
+                      Change lié{m.coursReel ? ` · cours ${m.coursReel.toLocaleString("fr-FR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : ""}
+                      {!lectureSeule && onDelierChange && (
+                        <button type="button" aria-label="Délier ce change" onClick={() => onDelierChange(m)} className="rounded-full p-0.5 hover:bg-primary/10">
+                          <X className="size-3" />
+                        </button>
+                      )}
+                    </span>
                   ) : (
                     ""
                   )}

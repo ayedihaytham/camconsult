@@ -74,6 +74,9 @@ The backend lives in `app comptabole/server/`:
   or Excel; a PDF is checked against the totals it prints (`lib/controleReleve.ts`) before import, and every import is verified afterwards against the
   account (`lib/verifierImport.ts`). Where to look for a monthly gap: `lib/banqueEcart.ts`; bank fees view: `lib/banqueFrais.ts`; spreadsheet-like
   quick entry: `SaisieRapideDialog` + `lib/banqueSaisieRapide.ts`.
+  Links between the four money modules: the two legs of a change are linked by `mouvements_bancaires.change_lie_id` (real rate = TND ÷ currency, computed, `lib/banqueChange.ts`,
+  `RelierChangesDialog`); a stock movement's money circuit is `GET /api/stock/mouvements/:id/circuit` (`server/stock/circuitFinancier.js`, tab « Circuit » of `StockMouvementPanel`);
+  cross-module alerts are `GET /api/banque/coherence` (`server/banque/coherence.js`, panel `CoherenceBanque`, cabinet only).
 - Cours de change (`/cours-change`, `server/routes/coursChange.js`, `store/coursChange.ts`, `lib/coursChange.ts`): moyenne mensuelle
   du marché interbancaire par devise (`devises_change`, libres : USD, GBP, EUR au départ) et par année/mois (`cours_change`).
   Lecture : équipe du cabinet ; écriture et devises : admin et responsable des collaborateurs. `CoursSuggere` propose, sous le champ

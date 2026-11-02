@@ -4,6 +4,7 @@ import { query, withTransaction } from "../db.js";
 import { requireAuth } from "../auth.js";
 import { logAction } from "../journal.js";
 import { safeRouter } from "../asyncRoutes.js";
+import { alertesCoherence } from "../banque/coherence.js";
 
 /** Suivi bancaire : comptes d'une société et leurs mouvements.
  * Lecture : admin, collaborateurs de la société et responsable de la société (jamais un délégué).
@@ -40,6 +41,19 @@ async function etat(societeId) {
       order by m.date_op, m.ordre, m.cree_le`,
     [societeId],
   );
+  // Jambes d'un même change : le cours réel est le montant en dinars ÷ le montant en devise (information, rien n'est recalculé avec).
+  const devises = new Map(comptes.map((x) => [x.id, x.devise]));
+  const parId = new Map(mouvements.map((x) => [x.id, x]));
+  const montantDe = (x) => (Number(x.debit) > 0 ? Number(x.debit) : Number(x.credit));
+  const changeLie = (m) => {
+    const autre = m.change_lie_id ? parId.get(m.change_lie_id) : null;
+    if (!autre) return null;
+    const dm = devises.get(m.compte_id);
+    const da = devises.get(autre.compte_id);
+    const [tnd, dev] = dm === "TND" && da !== "TND" ? [m, autre] : da === "TND" && dm !== "TND" ? [autre, m] : [null, null];
+    const cours = tnd && dev && montantDe(dev) > 0 ? Math.round((montantDe(tnd) / montantDe(dev)) * 10000) / 10000 : null;
+    return { id: autre.id, compteId: autre.compte_id, devise: da, montant: montantDe(autre), dateOp: jour(autre.date_op), coursReel: cours };
+  };
   const { rows: releves } = await query(
     `select r.compte_id, r.mois, r.solde_reel, r.note
        from releves_mensuels r join comptes_bancaires c on c.id = r.compte_id
@@ -78,6 +92,8 @@ async function etat(societeId) {
       credit: Number(m.credit),
       type: m.type,
       cours: m.cours == null ? null : Number(m.cours),
+      changeLie: changeLie(m),
+      coursReel: changeLie(m)?.coursReel ?? null,
       /** Part de l'encaissement déjà reliée à des règlements du suivi client devise, et ces règlements. */
       affecteClient: Number(m.affecte_client),
       reglementsClient: m.reglements_client ?? [],
@@ -94,6 +110,14 @@ banqueRouter.get("/", async (req, res) => {
   if (!societeId) return res.status(400).json({ error: "societeId requis" });
   if (!canRead(req.session, societeId)) return res.status(403).json({ error: "Accès non autorisé" });
   res.json(await etat(societeId));
+});
+
+/** Cohérence entre le suivi bancaire, le suivi fournisseur et le suivi client devise : réservée au cabinet (elle reprend des données des trois modules). */
+banqueRouter.get("/coherence", async (req, res) => {
+  const societeId = req.query.societeId;
+  if (!societeId) return res.status(400).json({ error: "societeId requis" });
+  if (!canWrite(req.session, societeId)) return res.status(403).json({ error: "Accès non autorisé" });
+  res.json({ alertes: await alertesCoherence(societeId) });
 });
 
 const montant = z.coerce.number().min(0, "Montant invalide").default(0);
@@ -347,5 +371,64 @@ banqueRouter.delete("/mouvements/:id", async (req, res) => {
   if (!canWrite(req.session, rows[0].societe_id)) return res.status(403).json({ error: "Accès non autorisé" });
   await query("delete from mouvements_bancaires where id = $1", [req.params.id]);
   logAction(req.session.nom, "suppression", "suivi bancaire", rows[0].libelle || "Mouvement");
+  res.json(await etat(rows[0].societe_id));
+});
+
+/** Deux lignes sont-elles les deux jambes d'un même change ? Renvoie le message du refus, sinon null. */
+function refusChange(a, b) {
+  if (!a || !b) return "Ligne introuvable";
+  if (a.id === b.id) return "Une ligne ne peut pas être reliée à elle-même";
+  if (a.societe_id !== b.societe_id) return "Les deux lignes ne sont pas de la même société";
+  if (a.compte_id === b.compte_id) return "Les deux jambes d'un change sont sur deux comptes différents";
+  if (a.devise === b.devise) return "Les deux comptes ont la même devise : ce n'est pas un change";
+  const sorties = Number(a.debit) > 0 && Number(b.credit) > 0;
+  const entrees = Number(a.credit) > 0 && Number(b.debit) > 0;
+  if (!sorties && !entrees) return "Une jambe fait sortir de l'argent d'un compte et l'autre en fait entrer sur l'autre compte";
+  for (const [x, y] of [[a, b], [b, a]]) if (x.change_lie_id && x.change_lie_id !== y.id) return "Une des deux lignes est déjà reliée à un autre change";
+  return null;
+}
+
+const parLigne = (ids) =>
+  query(
+    `select m.*, c.devise from mouvements_bancaires m join comptes_bancaires c on c.id = m.compte_id where m.id = any($1::uuid[])`,
+    [ids],
+  );
+
+/** Relie des paires de lignes comme jambes d'un même change (toutes ou aucune) : chaque ligne pointe vers l'autre et devient de type « change ». */
+banqueRouter.post("/changes-lies", async (req, res) => {
+  const parsed = z.object({ paires: z.array(z.object({ a: z.string().uuid(), b: z.string().uuid() })).min(1, "Aucune paire").max(200) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Données invalides" });
+  const ids = [...new Set(parsed.data.paires.flatMap((p) => [p.a, p.b]))];
+  const { rows } = await parLigne(ids);
+  const parId = new Map(rows.map((r) => [r.id, r]));
+  const societes = new Set(rows.map((r) => r.societe_id));
+  if (societes.size !== 1 || rows.length !== ids.length) return res.status(400).json({ error: "Lignes introuvables ou de sociétés différentes" });
+  const societeId = rows[0].societe_id;
+  if (!canWrite(req.session, societeId)) return res.status(403).json({ error: "Accès non autorisé" });
+  const utilisees = new Set();
+  for (const p of parsed.data.paires) {
+    const refus = refusChange(parId.get(p.a), parId.get(p.b));
+    if (refus) return res.status(400).json({ error: refus });
+    if (utilisees.has(p.a) || utilisees.has(p.b)) return res.status(400).json({ error: "Une ligne figure dans deux paires" });
+    utilisees.add(p.a);
+    utilisees.add(p.b);
+  }
+  await withTransaction(async (client) => {
+    for (const p of parsed.data.paires) {
+      await client.query("update mouvements_bancaires set change_lie_id = $2, type = 'change' where id = $1", [p.a, p.b]);
+      await client.query("update mouvements_bancaires set change_lie_id = $2, type = 'change' where id = $1", [p.b, p.a]);
+    }
+  });
+  logAction(req.session.nom, "modification", "suivi bancaire", `${parsed.data.paires.length} change(s) relié(s)`);
+  res.json(await etat(societeId));
+});
+
+/** Délie les deux jambes d'un change (les lignes restent de type « change »). */
+banqueRouter.delete("/mouvements/:id/change-lie", async (req, res) => {
+  const { rows } = await query("select societe_id from mouvements_bancaires where id = $1", [req.params.id]);
+  if (!rows[0]) return res.status(404).json({ error: "Mouvement introuvable" });
+  if (!canWrite(req.session, rows[0].societe_id)) return res.status(403).json({ error: "Accès non autorisé" });
+  await query("update mouvements_bancaires set change_lie_id = null where id = $1 or change_lie_id = $1", [req.params.id]);
+  logAction(req.session.nom, "modification", "suivi bancaire", "Change délié");
   res.json(await etat(rows[0].societe_id));
 });

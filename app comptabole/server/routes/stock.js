@@ -11,6 +11,7 @@ import { ruspinaApplies } from "../ruspinaOcr.js";
 import { randomUUID } from "node:crypto";
 import { safeRouter } from "../asyncRoutes.js";
 import { persistStock, deleteStock } from "../stock/stockService.js";
+import { circuitDuMouvement } from "../stock/circuitFinancier.js";
 
 export const stockRouter = safeRouter(Router());
 stockRouter.use(requireAuth);
@@ -192,6 +193,14 @@ stockRouter.post("/mouvements", async (req, res) => {
   );
   console.log(`[stock] mouvement créé en ${Date.now() - debut} ms (${(Number(req.headers["content-length"] || 0) / 1048576).toFixed(1)} Mo reçus)`);
   res.status(201).json(stockMouvementDto(row, await lignesOf(row.id)));
+});
+
+/** Circuit financier d'un mouvement : règlements fournisseur et client, paiements en banque, décaissé et encaissé en dinars. */
+stockRouter.get("/mouvements/:id/circuit", async (req, res) => {
+  const { rows } = await query("select societe_id from stock_mouvements where id = $1", [req.params.id]);
+  if (!rows[0]) return res.status(404).json({ error: "Mouvement introuvable" });
+  if (!canAccess(req.session, rows[0].societe_id)) return res.status(403).json({ error: "Accès non autorisé" });
+  res.json(await circuitDuMouvement(req.params.id));
 });
 
 stockRouter.patch("/mouvements/:id", async (req, res) => {

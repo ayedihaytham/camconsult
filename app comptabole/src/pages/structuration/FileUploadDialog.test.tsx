@@ -63,3 +63,21 @@ describe("FileUploadDialog : fichiers déposés sur un tiroir", () => {
     expect(onSubmit.mock.calls[0][0].map((f: { libelle: string }) => f.libelle)).toEqual(["releve.pdf", "virements.xlsx"]);
   });
 });
+
+describe("FileUploadDialog : archive .zip", () => {
+  it("décompresse l'archive : ses fichiers partent avec leur dossier, l'archive elle-même n'est pas envoyée", async () => {
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    zip.file("facture.txt", "a");
+    zip.file("banque/releve.txt", "b");
+    const archive = new File([await zip.generateAsync({ type: "blob" })], "Pièces 2026.zip", { type: "application/zip" });
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(<FileUploadDialog open onOpenChange={vi.fn()} destinationLabel="UBCI" onSubmit={onSubmit} />);
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [archive] } });
+    expect(screen.getByText(/dossier « Pièces 2026 »/)).toBeTruthy();
+    valider();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const envoyes = onSubmit.mock.calls[0][0] as { libelle: string; dossiers?: string[] }[];
+    expect(envoyes.map((f) => `${(f.dossiers ?? []).join("/")}|${f.libelle}`).sort()).toEqual(["Pièces 2026/banque|releve.txt", "Pièces 2026|facture.txt"]);
+  });
+});

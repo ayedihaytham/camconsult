@@ -19,6 +19,7 @@ import {
   formatFileSize,
   readFileAsDataUrl,
 } from "@/lib/file";
+import { estZip, lireZip, nomDossierZip } from "@/lib/archiveZip";
 
 export interface NewFichier {
   libelle: string;
@@ -26,6 +27,8 @@ export interface NewFichier {
   format: string;
   taille: string;
   dataUrl?: string;
+  /** Dossiers à créer (ou retrouver) sous la destination pour ranger ce fichier : celui d'une archive .zip décompressée. */
+  dossiers?: string[];
 }
 
 interface Props {
@@ -75,24 +78,39 @@ export function FileUploadDialog({
     setBusy(true);
     let skippedContent = 0;
     const result: NewFichier[] = [];
-    for (const f of files) {
+    const lire = async (blob: Blob, nom: string, dossiers?: string[]) => {
       let dataUrl: string | undefined;
-      if (f.size <= MAX_INLINE_FILE_BYTES) {
+      if (blob.size <= MAX_INLINE_FILE_BYTES) {
         try {
-          dataUrl = await readFileAsDataUrl(f);
+          dataUrl = await readFileAsDataUrl(blob);
         } catch {
           dataUrl = undefined;
         }
       } else {
         skippedContent++;
       }
-      result.push({
-        libelle: f.name,
-        description,
-        format: fileExtension(f.name),
-        taille: formatFileSize(f.size),
-        dataUrl,
-      });
+      result.push({ libelle: nom, description, format: fileExtension(nom), taille: formatFileSize(blob.size), dataUrl, ...(dossiers ? { dossiers } : {}) });
+    };
+    for (const f of files) {
+      if (!estZip(f.name)) {
+        await lire(f, f.name);
+        continue;
+      }
+      // Une archive .zip n'est pas envoyée telle quelle : son contenu est décompressé dans un dossier du même nom.
+      try {
+        const racine = nomDossierZip(f.name);
+        const entrees = await lireZip(f);
+        if (entrees.length === 0) toast.warning(`« ${f.name} » ne contient aucun fichier.`);
+        for (const e of entrees) await lire(e.blob, e.nom, [racine, ...e.dossiers]);
+      } catch (err) {
+        toast.error(`« ${f.name} » : ${err instanceof Error ? err.message : "lecture impossible."}`);
+        setBusy(false);
+        return;
+      }
+    }
+    if (result.length === 0) {
+      setBusy(false);
+      return;
     }
     let accepte: void | boolean = true;
     try {
@@ -148,7 +166,7 @@ export function FileUploadDialog({
               <span className="font-semibold text-foreground underline underline-offset-2">parcourez</span>
             </p>
             <p className="text-xs text-muted-foreground">
-              Le contenu des fichiers &le; 2 Mo est conservé (téléchargeable).
+              Le contenu des fichiers &le; 2 Mo est conservé (téléchargeable). Une archive .zip est décompressée dans un dossier du même nom.
             </p>
             <input
               ref={inputRef}
@@ -167,7 +185,10 @@ export function FileUploadDialog({
                   className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-secondary"
                 >
                   <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {f.name}
+                    {estZip(f.name) && <span className="ml-1.5 text-xs text-muted-foreground">→ dossier « {nomDossierZip(f.name)} »</span>}
+                  </span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {formatFileSize(f.size)}
                   </span>

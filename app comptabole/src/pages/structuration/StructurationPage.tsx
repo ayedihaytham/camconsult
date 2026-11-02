@@ -344,20 +344,40 @@ export function StructurationPage() {
   async function handleUpload(fichiers: NewFichier[]): Promise<boolean> {
     if (!uploadParent) return false;
     const parentNode = nodes.find((n) => n.id === uploadParent);
-    const resultats = await Promise.allSettled(
-      fichiers.map((f) =>
-      addNoeud({
-        libelle: f.libelle,
-        description: f.description,
-        type: "fichier",
-        societeId: parentNode?.societeId ?? null,
-        parentId: uploadParent,
-        format: f.format || undefined,
-        taille: f.taille,
-        dataUrl: f.dataUrl,
-      }),
-      ),
-    );
+    // Les fichiers d'une archive .zip décompressée portent leur chemin : chaque dossier est créé une seule fois, sous la destination, avant les fichiers.
+    const dossiersCrees = new Map<string, string>();
+    const dossierDe = async (chemin: string[]): Promise<string> => {
+      let parentId = uploadParent;
+      for (let i = 0; i < chemin.length; i++) {
+        const cle = chemin.slice(0, i + 1).join(" ");
+        let id = dossiersCrees.get(cle);
+        if (!id) {
+          id = (await addNoeud({ libelle: chemin[i], description: "", type: "dossier", societeId: parentNode?.societeId ?? null, parentId })).id;
+          dossiersCrees.set(cle, id);
+        }
+        parentId = id;
+      }
+      return parentId;
+    };
+    const resultats = [];
+    for (const f of fichiers) {
+      try {
+        const parentId = f.dossiers && f.dossiers.length > 0 ? await dossierDe(f.dossiers) : uploadParent;
+        await addNoeud({
+          libelle: f.libelle,
+          description: f.description,
+          type: "fichier",
+          societeId: parentNode?.societeId ?? null,
+          parentId,
+          format: f.format || undefined,
+          taille: f.taille,
+          dataUrl: f.dataUrl,
+        });
+        resultats.push({ status: "fulfilled" as const });
+      } catch {
+        resultats.push({ status: "rejected" as const });
+      }
+    }
     const ajoutes = resultats.filter((r) => r.status === "fulfilled").length;
     // Le store a déjà affiché l'erreur de chaque fichier refusé ; on relit l'arborescence pour que l'écran reflète exactement le serveur.
     void refreshNoeuds();
@@ -369,7 +389,8 @@ export function StructurationPage() {
         ? `${ajoutes} fichiers dans « ${parentNode?.libelle ?? ""} »`
         : (fichiers[0]?.libelle ?? "fichier"),
     );
-    toast.success(ajoutes > 1 ? `${ajoutes} fichiers ajoutés` : "Fichier ajouté", { description: fichiers[0]?.libelle });
+    const racines = [...new Set(fichiers.flatMap((f) => (f.dossiers?.[0] ? [f.dossiers[0]] : [])))];
+    toast.success(ajoutes > 1 ? `${ajoutes} fichiers ajoutés` : "Fichier ajouté", { description: racines.length > 0 ? `Dossier « ${racines.join(" », « ")} »` : fichiers[0]?.libelle });
     if (ajoutes < fichiers.length) toast.warning(`${fichiers.length - ajoutes} fichier(s) n'ont pas pu être ajoutés.`);
     return true;
   }

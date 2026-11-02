@@ -57,6 +57,7 @@
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.469.0",
     "node-forge": "1.4.0",
     "nodemailer": "^10.0.10",

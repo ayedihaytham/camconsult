@@ -21,7 +21,7 @@ export function fileExtension(name: string): string {
 /** Limite de contenu stocké en base64 (localStorage) — 2 Mo. */
 export const MAX_INLINE_FILE_BYTES = 2 * 1024 * 1024;
 
-export function readFileAsDataUrl(file: File): Promise<string> {
+export function readFileAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));

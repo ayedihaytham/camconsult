@@ -113,12 +113,23 @@ function distance(a: string, b: string): number {
   return precedent[n];
 }
 
+/** « Virement recu de l'etranger Virement recu de l'etr » : une description reprise deux fois, la seconde tronquée, redevient la première. */
+export function sansRepetition(libelle: string): string {
+  const mots = libelle.split(/\s+/);
+  for (let k = 1; k < mots.length; k++) {
+    const a = mots.slice(0, k).join(" ");
+    const b = mots.slice(k).join(" ");
+    if (b.length >= 10 && b.length < a.length && a.toLowerCase().startsWith(b.toLowerCase())) return a;
+  }
+  return libelle;
+}
+
 /**
  * Libellés lus par OCR : une variante abîmée (« Cemmission reglement », « Commissionreglement ») est ramenée au libellé le plus fréquent du relevé quand
  * elle n'en diffère que d'une ou deux lettres et que ce libellé revient au moins trois fois plus souvent. Les libellés rares ou qui contiennent des
  * chiffres (références) ne sont jamais touchés : on ne « corrige » que ce que le relevé lui-même confirme.
  */
-export function harmoniserLibelles(mouvements: string[][]): string[][] {
+export function harmoniserLibelles(mouvements: string[][], connus: string[] = []): string[][] {
   const entete = mouvements[0] ?? [];
   const iLibelle = entete.findIndex((c) => /libell|d[ée]signation/i.test(c));
   if (iLibelle < 0) return mouvements;
@@ -127,9 +138,11 @@ export function harmoniserLibelles(mouvements: string[][]): string[][] {
     const texte = (l[iLibelle] ?? "").trim();
     if (texte) frequences.set(texte, (frequences.get(texte) ?? 0) + 1);
   }
+  // Libellés déjà enregistrés dans le compte : ils servent de modèles au même titre que les libellés fréquents du relevé.
+  for (const k of new Set(connus.map((x) => x.trim()))) if (k) frequences.set(k, (frequences.get(k) ?? 0) + 3);
   const modeles = [...frequences.entries()].filter(([t, n]) => n >= 3 && t.length >= 8 && !/\d/.test(t)).sort((a, b) => b[1] - a[1]);
   const corriger = (texte: string): string => {
-    const t = texte.trim();
+    const t = sansRepetition(texte.trim());
     if (!t || /\d/.test(t) || t.length < 8) return texte;
     const n = frequences.get(t) ?? 0;
     const cle = sansFautes(t);

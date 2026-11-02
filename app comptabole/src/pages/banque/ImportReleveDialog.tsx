@@ -17,7 +17,8 @@ import {
 import { lireClasseurExcel } from "@/lib/classeurExcel";
 import { extraireMouvements, lireFichierPdf, nombreDeCaracteres, type PdfTextItem } from "@/lib/pdfToTables";
 import { lirePdfParOcr, relireMontantsParColonnes } from "@/lib/ocrPdf";
-import { controleReleve, harmoniserLibelles, type ControleReleve } from "@/lib/controleReleve";
+import { controleReleve, harmoniserLibelles, totauxImprimes, type ControleReleve } from "@/lib/controleReleve";
+import { soldeMensuelDePdf } from "@/lib/releveMensuelPdf";
 import { verifierImport } from "@/lib/verifierImport";
 import type { MouvementBancaire } from "@/types";
 
@@ -37,6 +38,8 @@ interface Releve {
   ocr: boolean;
   /** Texte lu du PDF (pour relire les montants à la demande). */
   pagesPdf: PdfTextItem[][];
+  /** PDF : solde final imprimé, rattaché au mois du relevé quand toutes ses opérations sont du même mois. */
+  releveMensuel: { mois: string; soldeReel: number } | null;
 }
 
 /** Soldes réels de la banque par mois et opérations en cours que le classeur donne en pied de chaque feuille. */
@@ -65,17 +68,40 @@ interface Props {
 const ecartTotal = (c: ControleReleve | null) => (c ? c.lignes.reduce((t, l) => t + Math.abs(l.ecart), 0) : null);
 
 /** Mouvements d'un PDF déjà lu (texte natif ou OCR), avec le contrôle de ses totaux. */
-function releveDePdf(nom: string, pages: PdfTextItem[][], ocr: boolean): Releve {
+function releveDePdf(nom: string, pages: PdfTextItem[][], ocr: boolean, connus: string[] = []): Releve {
   let tableau = extraireMouvements(pages);
-  if (ocr && tableau) tableau = harmoniserLibelles(tableau);
+  if (ocr && tableau) tableau = harmoniserLibelles(tableau, connus);
   const controle = tableau ? controleReleve(pages, tableau) : null;
   const r = tableau && lignesVersMouvements(tableau);
-  if (!r) throw new Error("Aucun tableau de mouvements reconnu (en-tête Date / Libellé / Débit / Crédit).");
-  return { nom, mouvements: r.mouvements, ignorees: r.ignorees, ouverture: r.soldeOuverture, soldeReel: null, feuilles: [], feuillesIgnorees: [], avertissements: [], ecartsSociete: [], controle, ocr, pagesPdf: pages };
+  if (!r) {
+    throw new Error(
+      ocr
+        ? "Le scan est trop peu net pour reconnaître le tableau des opérations. Refaites le scan à plat et net (300 dpi), ou déposez le PDF d'origine de la banque."
+        : "Aucun tableau de mouvements reconnu (en-tête Date / Libellé / Débit / Crédit).",
+    );
+  }
+  const imprimes = totauxImprimes(pages);
+  const soldeFinal = imprimes && imprimes.soldeCredit !== undefined && imprimes.soldeDebit !== undefined ? imprimes.soldeCredit - imprimes.soldeDebit : null;
+  const mensuel = soldeMensuelDePdf(r.mouvements, soldeFinal);
+  return {
+    nom,
+    mouvements: r.mouvements,
+    ignorees: r.ignorees,
+    ouverture: r.soldeOuverture,
+    soldeReel: mensuel ? { date: mensuel.date, montant: mensuel.soldeReel } : null,
+    feuilles: [],
+    feuillesIgnorees: [],
+    avertissements: [],
+    ecartsSociete: [],
+    controle,
+    ocr,
+    pagesPdf: pages,
+    releveMensuel: mensuel ? { mois: mensuel.mois, soldeReel: mensuel.soldeReel } : null,
+  };
 }
 
 /** Lit un relevé PDF (texte, ou image lue par reconnaissance de caractères) ou un classeur Excel du cabinet (une feuille par mois) et renvoie ses mouvements. */
-async function lireReleve(file: File, etat: (texte: string) => void): Promise<Releve> {
+async function lireReleve(file: File, etat: (texte: string) => void, connus: string[] = []): Promise<Releve> {
   const nom = file.name;
   if (/\.pdf$/i.test(nom)) {
     let pages = await lireFichierPdf(file);
@@ -86,12 +112,12 @@ async function lireReleve(file: File, etat: (texte: string) => void): Promise<Re
       if (nombreDeCaracteres(pages) === 0) throw new Error("Aucun texte reconnu sur ce scan : image trop floue, trop sombre ou de travers.");
       ocr = true;
     }
-    return releveDePdf(nom, pages, ocr);
+    return releveDePdf(nom, pages, ocr, connus);
   }
   const feuilles = await lireClasseurExcel(file);
   const lu = lireClasseurBancaire(feuilles);
   if (lu.mouvements.length === 0) throw new Error("Aucun tableau de mouvements reconnu (en-tête Date / Description / Débit / Crédit).");
-  return { nom, ...lu, controle: null, ocr: false, pagesPdf: [] };
+  return { nom, ...lu, controle: null, ocr: false, pagesPdf: [], releveMensuel: null };
 }
 
 const nombre = (n: number) => fmtMontant(n);
@@ -102,6 +128,7 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
   const [lecture, setLecture] = useState(false);
   const [etatLecture, setEtatLecture] = useState("");
   const [importe, setImporte] = useState(false);
+  const [forcer, setForcer] = useState(false);
   const fichierRef = useRef<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [avecOuverture, setAvecOuverture] = useState(true);
@@ -113,6 +140,7 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
     setReleve(null);
     setErreur("");
     setImporte(false);
+    setForcer(false);
     setAvecOuverture(true);
     setAvecSoldeReel(true);
     setAvecMensuel(true);
@@ -125,10 +153,11 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
     setLecture(true);
     setEtatLecture("");
     setErreur("");
+    setForcer(false);
     setReleve(null);
     try {
       fichierRef.current = file;
-      setReleve(await lireReleve(file, setEtatLecture));
+      setReleve(await lireReleve(file, setEtatLecture, mouvementsCompte.map((m) => m.libelle)));
     } catch (err) {
       setErreur(err instanceof Error ? err.message : "Fichier illisible.");
     } finally {
@@ -143,7 +172,7 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
     setEtatLecture("Relecture des montants…");
     try {
       const relues = await relireMontantsParColonnes(fichierRef.current, releve.pagesPdf, { onProgression: ({ page, pages: total }) => setEtatLecture(`Relecture des montants : page ${page} sur ${total}…`) });
-      const autre = releveDePdf(releve.nom, relues, true);
+      const autre = releveDePdf(releve.nom, relues, true, mouvementsCompte.map((m) => m.libelle));
       if ((ecartTotal(autre.controle) ?? Infinity) < (ecartTotal(releve.controle) ?? Infinity)) {
         setReleve(autre);
         toast.success(autre.controle?.ok ? "Relecture réussie : les totaux sont maintenant exacts" : "Relecture : l'écart avec les totaux du relevé a diminué");
@@ -160,7 +189,10 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
   const proposerOuverture = Boolean(proposerSoldeDepart && releve?.ouverture?.date);
   const n = releve?.mouvements.length ?? 0;
   const mensuel: ImportMensuel = {
-    releves: (releve?.feuilles ?? []).filter((f) => f.mois && f.soldeBanque !== null).map((f) => ({ mois: f.mois!, soldeReel: f.soldeBanque })),
+    releves: [
+      ...(releve?.feuilles ?? []).filter((f) => f.mois && f.soldeBanque !== null).map((f) => ({ mois: f.mois!, soldeReel: f.soldeBanque })),
+      ...(releve?.releveMensuel ? [releve.releveMensuel] : []),
+    ],
     enCours: (releve?.feuilles ?? []).flatMap((f) => (f.mois ? f.enCours.map((o) => ({ mois: f.mois!, ...o })) : [])),
   };
   const lignesPerdues = (releve?.feuilles ?? []).flatMap((f) => f.lignesIgnorees.map((l) => ({ ...l, feuille: f.nom.trim() })));
@@ -202,6 +234,12 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
               </p>
             )}
             {releve.controle && <ControlePanel controle={releve.controle} devise={devise} />}
+            {releve.controle && !releve.controle.ok && (
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                <input type="checkbox" checked={forcer} onChange={(e) => setForcer(e.target.checked)} />
+                Importer malgré l'écart (je vérifierai les lignes ensuite)
+              </label>
+            )}
             {releve.ocr && releve.controle && !releve.controle.ok && (
               <Button type="button" variant="outline" size="sm" disabled={lecture} onClick={() => void relireMontants()}>
                 {lecture ? etatLecture : "Relire les montants (plus lent)"}
@@ -321,7 +359,7 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
             {(mensuel.releves.length > 0 || mensuel.enCours.length > 0) && (
               <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
                 <input type="checkbox" checked={avecMensuel} onChange={(e) => setAvecMensuel(e.target.checked)} />
-                Enregistrer les soldes réels de {mensuel.releves.length} mois et {mensuel.enCours.length} opération{mensuel.enCours.length > 1 ? "s" : ""} en cours du classeur
+                Enregistrer le solde réel de {mensuel.releves.length} mois{mensuel.enCours.length > 0 ? ` et ${mensuel.enCours.length} opération${mensuel.enCours.length > 1 ? "s" : ""} en cours` : ""} {releve.feuilles.length > 0 ? "du classeur" : "du relevé"}
               </label>
             )}
             {releve.soldeReel && (
@@ -341,7 +379,7 @@ export function ImportReleveDialog({ open, onOpenChange, devise, proposerSoldeDe
           {!importe && <Button
             type="button"
             variant="ledger"
-            disabled={saving || !releve || n === 0}
+            disabled={saving || !releve || n === 0 || Boolean(releve.controle && !releve.controle.ok && !forcer)}
             onClick={async () => {
               if (!releve) return;
               setSaving(true);

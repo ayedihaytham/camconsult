@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeftRight, Download, FileUp, Flag, Pencil, Plus, Trash2, Wallet } from "lucide-react";
+import { ArrowLeftRight, Download, FileUp, Flag, Pencil, Plus, Receipt, Table2, Trash2, Wallet } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -14,7 +14,7 @@ import { api } from "@/lib/api";
 import { libelleNommeLeClient } from "@/lib/suiviDeviseBanque";
 import { controleSolde, coursAvant, moisDesMouvements, soldesCourants, totaux } from "@/lib/banque";
 import { exporterCompte } from "@/lib/banqueExport";
-import { synthesePeriodes } from "@/lib/banqueMois";
+import { aUnEcart, synthesePeriodes } from "@/lib/banqueMois";
 import { fmtMontant } from "@/lib/stockRecap";
 import { cn } from "@/lib/utils";
 import type { MouvementBancaire } from "@/types";
@@ -24,6 +24,10 @@ import { MouvementDialog } from "./MouvementDialog";
 import { MouvementsTable } from "./MouvementsTable";
 import { RapprochementMois, libelleMois } from "./RapprochementMois";
 import { SyntheseMensuelle } from "./SyntheseMensuelle";
+import { pistesEcart } from "@/lib/banqueEcart";
+import { estFrais, syntheseFrais } from "@/lib/banqueFrais";
+import { FraisBancaires } from "./FraisBancaires";
+import { SaisieRapideDialog } from "./SaisieRapideDialog";
 
 
 export function BanqueSocietePage() {
@@ -55,8 +59,10 @@ export function BanqueSocietePage() {
   const [mois, setMois] = useState("tous");
   const [vueSociete, setVueSociete] = useState(false);
   const [seulementARevoir, setSeulementARevoir] = useState(false);
+  const [vueFrais, setVueFrais] = useState(false);
   const [compteOuvert, setCompteOuvert] = useState<"nouveau" | "modifier" | null>(null);
   const [importOuvert, setImportOuvert] = useState(false);
+  const [saisieRapideOuverte, setSaisieRapideOuverte] = useState(false);
   const [mouvementOuvert, setMouvementOuvert] = useState(false);
   const [editing, setEditing] = useState<MouvementBancaire | null>(null);
   const [toDelete, setToDelete] = useState<MouvementBancaire | null>(null);
@@ -73,8 +79,13 @@ export function BanqueSocietePage() {
   const periodes = useMemo(() => (compte ? synthesePeriodes(compte, tous, releves, enCours) : []), [compte, tous, releves, enCours]);
   const moisDispo = useMemo(() => [...new Set([...moisDesMouvements(mouvements), ...periodes.map((p) => p.mois)])].sort().reverse(), [mouvements, periodes]);
   const duMois = useMemo(() => (mois === "tous" ? mouvements : mouvements.filter((m) => m.dateOp.startsWith(mois))), [mouvements, mois]);
-  const affiches = useMemo(() => (seulementARevoir ? duMois.filter((m) => m.aRevoir) : duMois), [duMois, seulementARevoir]);
+  const affiches = useMemo(() => {
+    const base = seulementARevoir ? duMois.filter((m) => m.aRevoir) : duMois;
+    return vueFrais ? base.filter(estFrais) : base;
+  }, [duMois, seulementARevoir, vueFrais]);
+  const frais = useMemo(() => syntheseFrais(duMois), [duMois]);
   const nbARevoir = useMemo(() => mouvements.filter((m) => m.aRevoir).length, [mouvements]);
+  const pistesParMois = useMemo(() => Object.fromEntries(periodes.filter(aUnEcart).map((p) => [p.mois, pistesEcart(p, mouvements)])), [periodes, mouvements]);
   const periode = mois === "tous" ? null : periodes.find((p) => p.mois === mois) ?? null;
   const sommes = totaux(affiches);
   const controle = compte ? controleSolde(compte, mouvements) : null;
@@ -175,6 +186,10 @@ export function BanqueSocietePage() {
                     <FileUp className="h-4 w-4" />
                     Importer un relevé
                   </Button>
+                  <Button variant="outline" className="signature-ledger__action" onClick={() => setSaisieRapideOuverte(true)}>
+                    <Table2 className="h-4 w-4" />
+                    Saisie rapide
+                  </Button>
                   <Button
                     variant="ledger"
                     onClick={() => {
@@ -264,6 +279,10 @@ export function BanqueSocietePage() {
                 <Flag className="h-3.5 w-3.5" />
                 À revoir{nbARevoir > 0 ? ` (${nbARevoir})` : ""}
               </Button>
+              <Button variant={vueFrais ? "ledger" : "outline"} size="sm" aria-pressed={vueFrais} onClick={() => setVueFrais((v) => !v)} disabled={frais.nb === 0 && !vueFrais}>
+                <Receipt className="h-3.5 w-3.5" />
+                Frais bancaires{frais.nb > 0 ? ` (${frais.nb})` : ""}
+              </Button>
               <Button variant={vueSociete ? "ledger" : "outline"} size="sm" aria-pressed={vueSociete} onClick={() => setVueSociete((v) => !v)}>
                 <ArrowLeftRight className="h-3.5 w-3.5" />
                 Vue société
@@ -274,6 +293,7 @@ export function BanqueSocietePage() {
           {periode && compte && (
             <RapprochementMois
               periode={periode}
+              pistes={pistesParMois[periode.mois]}
               devise={compte.devise}
               lectureSeule={lectureSeule}
               onSoldeReel={(v) => saveReleve(compte.id, periode.mois, v)}
@@ -281,7 +301,8 @@ export function BanqueSocietePage() {
               onRetirerEnCours={(o) => removeEnCours(o.id)}
             />
           )}
-          {mois === "tous" && <SyntheseMensuelle periodes={periodes} onChoisir={setMois} />}
+          {vueFrais && compte && <FraisBancaires synthese={frais} devise={compte.devise} />}
+          {mois === "tous" && !vueFrais && <SyntheseMensuelle periodes={periodes} pistes={pistesParMois} onChoisir={setMois} />}
           {affiches.length === 0 ? (
             <p className="px-5 py-12 text-center text-sm text-muted-foreground">
               {mouvements.length === 0 ? "Aucun mouvement : importez le relevé de la banque ou ajoutez-en un." : "Aucun mouvement ce mois-ci."}
@@ -348,6 +369,20 @@ export function BanqueSocietePage() {
               }
               const { importes, ignores } = await importMouvements(compte.id, liste, mensuel);
               toast.success(`${importes} mouvement${importes > 1 ? "s" : ""} importé${importes > 1 ? "s" : ""}${ignores ? ` · ${ignores} déjà présent${ignores > 1 ? "s" : ""}` : ""}`);
+            }}
+          />
+          <SaisieRapideDialog
+            open={saisieRapideOuverte}
+            onOpenChange={setSaisieRapideOuverte}
+            devise={compte.devise}
+            dateParDefaut={(() => {
+              const derniere = mouvements.reduce((max, m) => (m.dateOp > max ? m.dateOp : max), "");
+              const d = derniere || new Date().toISOString().slice(0, 10);
+              return `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+            })()}
+            onAjouter={async (liste) => {
+              const { importes, ignores } = await importMouvements(compte.id, liste);
+              toast.success(`${importes} mouvement${importes > 1 ? "s" : ""} ajouté${importes > 1 ? "s" : ""}${ignores ? ` · ${ignores} déjà présent${ignores > 1 ? "s" : ""} (même date, libellé et montant)` : ""}`);
             }}
           />
           <MouvementDialog

@@ -3,7 +3,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { aUnEcart, TVA_COMMISSION, type RapprochementMois as Periode } from "@/lib/banqueMois";
+import { aUnEcart, type RapprochementMois as Periode } from "@/lib/banqueMois";
+import type { Piste } from "@/lib/banqueEcart";
 import { fmtMontant } from "@/lib/stockRecap";
 import { lireNombre } from "@/lib/filtresRecapSociete";
 import type { OperationEnCoursBancaire } from "@/types";
@@ -22,6 +23,8 @@ function Chiffre({ libelle, valeur, fort = false, alerte = false }: { libelle: s
 
 interface Props {
   periode: Periode;
+  /** Où chercher l'écart du mois (vide sans écart). */
+  pistes?: Piste[];
   devise: string;
   lectureSeule: boolean;
   onSoldeReel: (soldeReel: number | null) => Promise<void>;
@@ -33,7 +36,7 @@ interface Props {
  * Pied de rapprochement d'un mois, comme celui de la feuille du cabinet : solde de départ, totaux, solde calculé, solde réel de la banque
  * (celui du relevé, à saisir), écart à expliquer, opérations en cours (écrites chez la société, pas encore passées en banque) et solde théorique.
  */
-export function RapprochementMois({ periode, devise, lectureSeule, onSoldeReel, onAjouterEnCours, onRetirerEnCours }: Props) {
+export function RapprochementMois({ periode, pistes = [], devise, lectureSeule, onSoldeReel, onAjouterEnCours, onRetirerEnCours }: Props) {
   const [reel, setReel] = useState(periode.soldeReel === null ? "" : String(periode.soldeReel).replace(".", ","));
   const [designation, setDesignation] = useState("");
   const [debit, setDebit] = useState("");
@@ -81,11 +84,15 @@ export function RapprochementMois({ periode, devise, lectureSeule, onSoldeReel, 
         </div>
         <Chiffre libelle="Écart" valeur={periode.ecart === null ? "—" : fmtMontant(periode.ecart)} fort alerte={ecart} />
       </dl>
-      {ecart && periode.ecartHorsTva !== null && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Écart à expliquer : si c'est une commission soumise à la TVA de {Math.round((TVA_COMMISSION - 1) * 100)} %, son montant hors taxe serait de{" "}
-          <b className="tabular-nums text-foreground">{fmtMontant(periode.ecartHorsTva)}</b>.
-        </p>
+      {ecart && pistes.length > 0 && (
+        <div role="note" className="mt-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground">
+          <p className="font-semibold">Où chercher l'écart de {fmtMontant(Math.abs(periode.ecart ?? 0))} ?</p>
+          <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+            {pistes.map((p) => (
+              <li key={p.texte}>{p.texte}</li>
+            ))}
+          </ol>
+        </div>
       )}
 
       <div className="mt-4 rounded-lg border border-border bg-card">

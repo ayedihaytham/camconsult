@@ -1,10 +1,11 @@
 import { cn } from "@/lib/utils";
 import { aUnEcart, type RapprochementMois } from "@/lib/banqueMois";
 import { fmtMontant } from "@/lib/stockRecap";
+import type { Piste } from "@/lib/banqueEcart";
 import { libelleMois } from "./RapprochementMois";
 
 /** Une ligne par mois du compte : de quoi voir d'un coup d'œil quels mois tombent juste et lesquels ont un écart à expliquer ; un clic ouvre le mois. */
-export function SyntheseMensuelle({ periodes, onChoisir }: { periodes: RapprochementMois[]; onChoisir: (mois: string) => void }) {
+export function SyntheseMensuelle({ periodes, pistes = {}, onChoisir }: { periodes: RapprochementMois[]; pistes?: Record<string, Piste[]>; onChoisir: (mois: string) => void }) {
   if (periodes.length === 0) return null;
   const th = "px-3 py-2 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground";
   return (
@@ -46,6 +47,21 @@ export function SyntheseMensuelle({ periodes, onChoisir }: { periodes: Rapproche
           </tbody>
         </table>
       </div>
+      {periodes.some(aUnEcart) && (
+        <div className="space-y-1.5 border-t border-border px-5 py-3 text-xs">
+          <h4 className="text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground">Écarts à expliquer</h4>
+          <ul className="space-y-1.5">
+            {periodes.filter(aUnEcart).map((p) => (
+              <li key={p.mois}>
+                <button type="button" onClick={() => onChoisir(p.mois)} className="font-semibold capitalize text-primary hover:underline">
+                  {libelleMois(p.mois)}
+                </button>{" "}
+                <b className="tabular-nums text-destructive">{fmtMontant(p.ecart ?? 0)}</b> — {(pistes[p.mois] ?? []).filter((x) => !/^Pointez/.test(x.texte)).map((x) => x.texte)[1] ?? (pistes[p.mois] ?? [])[0]?.texte}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

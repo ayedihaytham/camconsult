@@ -70,6 +70,10 @@ The backend lives in `app comptabole/server/`:
   month, operations in transit and theoretical balance; one table with a month filter. A client receipt (credit) is linked to a
   `suivi_devise_mouvements` règlement through `mouvement_bancaire_id` (same société, same devise, several fiches allowed) and split over the fiche's
   invoices in `suivi_devise_affectations` (`lib/suiviDeviseBanque.ts` reads the invoice numbers cited in the bank label). Never linked to the Collecte.
+  Statement import (`ImportReleveDialog`): PDF with text, scanned PDF read in the browser by OCR (`lib/ocrPdf.ts`, parallel workers, never sent off the device),
+  or Excel; a PDF is checked against the totals it prints (`lib/controleReleve.ts`) before import, and every import is verified afterwards against the
+  account (`lib/verifierImport.ts`). Where to look for a monthly gap: `lib/banqueEcart.ts`; bank fees view: `lib/banqueFrais.ts`; spreadsheet-like
+  quick entry: `SaisieRapideDialog` + `lib/banqueSaisieRapide.ts`.
 - Cours de change (`/cours-change`, `server/routes/coursChange.js`, `store/coursChange.ts`, `lib/coursChange.ts`): moyenne mensuelle
   du marché interbancaire par devise (`devises_change`, libres : USD, GBP, EUR au départ) et par année/mois (`cours_change`).
   Lecture : équipe du cabinet ; écriture et devises : admin et responsable des collaborateurs. `CoursSuggere` propose, sous le champ

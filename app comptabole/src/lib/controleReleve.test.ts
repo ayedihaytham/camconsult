@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { controleReleve, feuilleControle, harmoniserLibelles, montantDe, totauxImprimes } from "./controleReleve";
+import { controleReleve, feuilleControle, harmoniserLibelles, montantDe, sansRepetition, totauxImprimes } from "./controleReleve";
 import type { PdfTextItem } from "./pdfToTables";
 
 const ligne = (texte: string, y: number): PdfTextItem[] => texte.split("|").map((str, i) => ({ str: str.trim(), x: 20 + i * 90, y, w: 60, h: 10 }));
@@ -81,5 +81,22 @@ describe("libellés lus par OCR", () => {
   it("deux libellés distincts aussi fréquents ne sont pas fusionnés", () => {
     const rows = lignes([...Array(4).fill("Paiement principal"), ...Array(4).fill("Paiement interet")]);
     expect(libelles(harmoniserLibelles(rows))).toEqual(libelles(rows));
+  });
+});
+
+describe("libellés lus par OCR : modèles du compte et répétitions", () => {
+  const lignes = (libelles: string[]) => [ENTETE, ...libelles.map((l) => ["01-09-2026", l, "1,000", "0,000"])];
+  const libelles = (rows: string[][]) => rows.slice(1).map((l) => l[1]);
+
+  it("une variante abîmée est ramenée à un libellé déjà enregistré dans le compte, même rare dans ce relevé", () => {
+    const rows = lignes(["Commissionreglement", "Autre chose 7"]);
+    expect(libelles(harmoniserLibelles(rows, ["Commission reglement"]))[0]).toBe("Commission reglement");
+    expect(libelles(harmoniserLibelles(rows))[0]).toBe("Commissionreglement");
+  });
+
+  it("une description reprise deux fois, la seconde tronquée, redevient la première", () => {
+    expect(sansRepetition("Virement recu de l'etranger Virement recu de l'etr")).toBe("Virement recu de l'etranger");
+    expect(sansRepetition("Paiement Echeance principal")).toBe("Paiement Echeance principal");
+    expect(sansRepetition("Commission Commission")).toBe("Commission Commission");
   });
 });

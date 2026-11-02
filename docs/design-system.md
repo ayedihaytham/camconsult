@@ -366,6 +366,17 @@ skip behavior. Mon bureau's `dashboard:v3` and the company tour stay unchanged.
 - On short desktop workspaces, tighten vertical padding and gaps with CSS, not
   tiny type, fixed-height table scrollers or JavaScript viewport measurement.
 
+## Loading states
+
+Two states, from `src/components/ledger/Chargement.tsx` (`chargement.css`):
+
+- **First load of a page: faithful skeleton** (`SqueletteOr`, `SqueletteTableau` with the same column template as the real table, `LegendeChargement`). The page keeps its
+  shape (figures strip, toolbar, table) so nothing jumps when data arrives; the sweep is a light gold, not a grey pulse. Header figures use `loading: true`.
+- **Update of data already on screen** (refetch, save, import): **thin gold bar** (`BarreChargement`, sticky under the top bar) while the data stays visible, dimmed to 70 %.
+- Never show an empty-state message (« Aucun compte… », « Créez un… ») before the data has arrived: track `aCharge` (data arrived) and render the skeleton until then.
+- Skeleton blocks are decorative (`aria-hidden`); the state is announced by the `role="status"` legend or the `role="progressbar"` bar. `prefers-reduced-motion` stops the sweep and the bar.
+- Long waits (import, OCR) may add real steps; never simulated ones.
+
 ## Interaction and accessibility
 
 - Visible focus follows the existing gold ring treatment; gold focus is not a

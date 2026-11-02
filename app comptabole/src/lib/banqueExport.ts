@@ -1,7 +1,7 @@
 import { download } from "@/lib/export";
 import { formatDate } from "@/lib/utils";
 import { TYPE_LABELS } from "@/lib/banque";
-import { synthesePeriodes, type RapprochementMois } from "@/lib/banqueMois";
+import type { RapprochementMois } from "@/lib/banqueMois";
 import { arrondi3 as r3 } from "../../shared/arrondi.js";
 import type { CompteBancaire, MouvementBancaire, OperationEnCoursBancaire, ReleveMensuel } from "@/types";
 
@@ -37,21 +37,9 @@ export function feuilleMois(compte: CompteBancaire, mouvements: MouvementBancair
   ];
 }
 
-/** Exporte un compte en .xlsx : une feuille par mois (« 01-2026 ») dans la disposition du cabinet. */
+/** Exporte un compte en .xlsx : une feuille par mois (« 01-2026 ») dans la disposition du cabinet, aux couleurs de l'application (voir banqueExportStyled). */
 export async function exporterCompte(compte: CompteBancaire, mouvements: MouvementBancaire[], releves: ReleveMensuel[] = [], enCours: OperationEnCoursBancaire[] = []) {
-  const XLSX = await import("xlsx");
-  const periodes = synthesePeriodes(compte, mouvements, releves, enCours);
-  const wb = XLSX.utils.book_new();
-  for (const p of periodes) {
-    const ws = XLSX.utils.aoa_to_sheet(feuilleMois(compte, mouvements, p));
-    ws["!cols"] = [11, 11, 44, 22, 14, 22, 24, 13, 13, 13, 13, 14].map((wch) => ({ wch }));
-    ws["!merges"] = [{ s: { r: 3, c: 7 }, e: { r: 3, c: 8 } }, { s: { r: 3, c: 9 }, e: { r: 3, c: 10 } }];
-    XLSX.utils.book_append_sheet(wb, ws, `${p.mois.slice(5, 7)}-${p.mois.slice(0, 4)}`);
-  }
-  if (periodes.length === 0) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Aucun mouvement"]]), "Vide");
-  const octets = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
-  download(
-    new Blob([octets], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-    `Suivi bancaire - ${compte.banque} ${compte.devise}.xlsx`,
-  );
+  const { classeurCompteStyle } = await import("@/lib/banqueExportStyled");
+  const octets = await classeurCompteStyle(compte, mouvements, releves, enCours);
+  download(new Blob([octets], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Suivi bancaire - ${compte.banque} ${compte.devise}.xlsx`);
 }

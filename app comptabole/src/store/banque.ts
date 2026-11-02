@@ -20,6 +20,8 @@ export interface ImportMensuel {
 
 interface BanqueState extends EtatBanque {
   loading: boolean;
+  /** Nombre d'actions (enregistrement, import…) en cours : allume la barre fine de chargement. */
+  occupe: number;
   fetchEtat: (societeId: string) => Promise<void>;
   clear: () => void;
   createCompte: (societeId: string, data: CompteInput) => Promise<void>;
@@ -46,16 +48,20 @@ const vide: EtatBanque = { comptes: [], mouvements: [], releves: [], enCours: []
 
 export const useBanque = create<BanqueState>((set) => {
   const run = async (action: () => Promise<EtatBanque>) => {
+    set((s) => ({ occupe: s.occupe + 1 }));
     try {
       const { comptes, mouvements, releves, enCours } = await action();
       set({ comptes, mouvements, releves, enCours });
     } catch (e) {
       fail(e);
+    } finally {
+      set((s) => ({ occupe: s.occupe - 1 }));
     }
   };
   return {
     ...vide,
     loading: false,
+    occupe: 0,
     fetchEtat: async (societeId) => {
       set({ loading: true });
       try {
@@ -71,12 +77,15 @@ export const useBanque = create<BanqueState>((set) => {
     removeCompte: (id) => run(() => api.del<EtatBanque>(`/banque/comptes/${id}`)),
     addMouvement: (compteId, data) => run(() => api.post<EtatBanque>(`/banque/comptes/${compteId}/mouvements`, data)),
     importMouvements: async (compteId, mouvements, mensuel) => {
+      set((s) => ({ occupe: s.occupe + 1 }));
       try {
         const r = await api.post<EtatBanque & { importes: number; ignores: number }>(`/banque/comptes/${compteId}/import`, { mouvements, ...(mensuel ?? {}) });
         set({ comptes: r.comptes, mouvements: r.mouvements, releves: r.releves, enCours: r.enCours });
         return { importes: r.importes, ignores: r.ignores };
       } catch (e) {
         return fail(e);
+      } finally {
+        set((s) => ({ occupe: s.occupe - 1 }));
       }
     },
     saveReleve: (compteId, mois, soldeReel, note = "") => run(() => api.put<EtatBanque>(`/banque/comptes/${compteId}/mois/${mois}`, { soldeReel, note })),

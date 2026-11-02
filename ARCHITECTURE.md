@@ -74,6 +74,7 @@ The backend lives in `app comptabole/server/`:
   or Excel; a PDF is checked against the totals it prints (`lib/controleReleve.ts`) before import, and every import is verified afterwards against the
   account (`lib/verifierImport.ts`). Where to look for a monthly gap: `lib/banqueEcart.ts`; bank fees view: `lib/banqueFrais.ts`; spreadsheet-like
   quick entry: `SaisieRapideDialog` + `lib/banqueSaisieRapide.ts`.
+  Excel export (`lib/banqueExport.ts` → `lib/banqueExportStyled.ts`, ExcelJS, navy/gold theme): same cells and layout as `feuilleMois` (the cabinet workbook), so the file re-imports as is.
   Links between the four money modules: the two legs of a change are linked by `mouvements_bancaires.change_lie_id` (real rate = TND ÷ currency, computed, `lib/banqueChange.ts`,
   `RelierChangesDialog`); a stock movement's money circuit is `GET /api/stock/mouvements/:id/circuit` (`server/stock/circuitFinancier.js`, tab « Circuit » of `StockMouvementPanel`);
   cross-module alerts are `GET /api/banque/coherence` (`server/banque/coherence.js`, panel `CoherenceBanque`, cabinet only).

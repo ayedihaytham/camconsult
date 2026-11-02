@@ -30,6 +30,7 @@ import { FraisBancaires } from "./FraisBancaires";
 import { SaisieRapideDialog } from "./SaisieRapideDialog";
 import { RelierChangesDialog } from "./RelierChangesDialog";
 import { CoherenceBanque } from "./CoherenceBanque";
+import { BarreChargement, LegendeChargement, SqueletteOr, SqueletteTableau } from "@/components/ledger/Chargement";
 import { propositionsChange } from "@/lib/banqueChange";
 
 
@@ -42,6 +43,7 @@ export function BanqueSocietePage() {
   const comptes = useBanque((s) => s.comptes);
   const tous = useBanque((s) => s.mouvements);
   const loading = useBanque((s) => s.loading);
+  const occupe = useBanque((s) => s.occupe > 0);
   const fetchEtat = useBanque((s) => s.fetchEtat);
   const clear = useBanque((s) => s.clear);
   const createCompte = useBanque((s) => s.createCompte);
@@ -60,6 +62,8 @@ export function BanqueSocietePage() {
   const removeEnCours = useBanque((s) => s.removeEnCours);
   const marquerARevoir = useBanque((s) => s.marquerARevoir);
 
+  // Les données de cette société sont-elles arrivées ? Tant que non : squelette (jamais « aucun compte »). Ensuite : barre fine pendant une mise à jour.
+  const [aCharge, setACharge] = useState(false);
   const [choisi, setChoisi] = useState<string | null>(null);
   const [mois, setMois] = useState("tous");
   const [vueSociete, setVueSociete] = useState(false);
@@ -77,9 +81,18 @@ export function BanqueSocietePage() {
   const [compteToDelete, setCompteToDelete] = useState(false);
 
   useEffect(() => {
-    void fetchEtat(societeId).catch(() => undefined);
-    return () => clear();
+    let courant = true;
+    setACharge(false);
+    void fetchEtat(societeId)
+      .catch(() => undefined)
+      .finally(() => courant && setACharge(true));
+    return () => {
+      courant = false;
+      clear();
+    };
   }, [societeId, fetchEtat, clear]);
+  // Mise à jour d'un compte déjà affiché (rechargement, enregistrement, import) : barre fine, données conservées.
+  const majEnCours = occupe || (loading && aCharge);
 
   const compte = comptes.find((c) => c.id === choisi) ?? comptes[0] ?? null;
   const mouvements = useMemo(() => tous.filter((m) => m.compteId === compte?.id), [tous, compte]);
@@ -181,6 +194,7 @@ export function BanqueSocietePage() {
 
   return (
     <div>
+      <BarreChargement actif={majEnCours} />
       <div data-tour="banque-summary">
         <SignatureLedgerBanner
           icon={Wallet}
@@ -188,9 +202,9 @@ export function BanqueSocietePage() {
           title="Suivi bancaire"
           description={`${societe?.raisonSociale ?? "Société"} · ${societe?.code ?? ""}`}
           metrics={[
-            { label: comptes.length > 1 ? "Comptes" : "Compte", value: comptes.length, loading },
-            { label: mouvements.length > 1 ? "Mouvements" : "Mouvement", value: mouvements.length },
-            { label: "Paiements à rapprocher", value: nonRapproches, tone: nonRapproches > 0 ? "warning" : "default" },
+            { label: comptes.length > 1 ? "Comptes" : "Compte", value: comptes.length, loading: !aCharge },
+            { label: mouvements.length > 1 ? "Mouvements" : "Mouvement", value: mouvements.length, loading: !aCharge },
+            { label: "Paiements à rapprocher", value: nonRapproches, tone: nonRapproches > 0 ? "warning" : "default", loading: !aCharge },
             ...(controle && compte ? [{ label: `Solde calculé (${compte.devise})`, value: fmtMontant(controle.calcule) }] : []),
           ]}
           actions={
@@ -234,18 +248,20 @@ export function BanqueSocietePage() {
         />
       </div>
 
-      {!compte ? (
+      {!aCharge ? (
+        <SqueletteBanque />
+      ) : !compte ? (
         <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-accent/30 bg-card px-4 py-14 text-center">
           <span className="grid size-[70px] place-items-center rounded-full bg-accent/15 text-primary">
             <Wallet className="size-7" aria-hidden="true" />
           </span>
-          <p className="font-serif text-2xl font-medium text-primary">{loading ? "Chargement…" : "Aucun compte bancaire"}</p>
+          <p className="font-serif text-2xl font-medium text-primary">Aucun compte bancaire</p>
           <p className="max-w-md text-base text-muted-foreground">
             Créez un compte (banque, devise, solde de départ) puis importez son relevé pour suivre ses mouvements et rapprocher les paiements des fournisseurs.
           </p>
         </div>
       ) : (
-        <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
+        <div className={cn("mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card transition-opacity", majEnCours && "opacity-70")}>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-accent/25 px-5 py-3">
             <div className="flex flex-wrap items-center gap-3">
               <LedgerSegmented
@@ -482,6 +498,23 @@ function Cle({ label, valeur, fort = false, alerte = false }: { label: string; v
     <div>
       <dt className="text-[0.66rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">{label}</dt>
       <dd className={cn("mt-0.5 tabular-nums", fort ? "font-bold text-primary" : "text-foreground", alerte && "text-destructive")}>{valeur}</dd>
+    </div>
+  );
+}
+
+/** Premier chargement : la page garde sa forme (barre d'outils, tableau) pour que rien ne saute à l'arrivée des données. */
+function SqueletteBanque() {
+  return (
+    <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
+      <div className="flex flex-wrap items-center gap-3 border-b border-accent/25 px-5 py-3" aria-hidden="true">
+        <SqueletteOr className="h-7 w-24 rounded-full" />
+        <SqueletteOr className="h-7 w-20 rounded-full" />
+        <SqueletteOr className="ml-auto h-9 w-44 rounded-md" />
+        <SqueletteOr className="h-9 w-24 rounded-md" />
+        <SqueletteOr className="h-9 w-28 rounded-md" />
+      </div>
+      <SqueletteTableau colonnes="84px 84px minmax(14rem,1fr) 60px 80px 96px 100px 100px 112px 120px" lignes={8} droite={[6, 7, 8]} />
+      <LegendeChargement>Chargement du suivi bancaire…</LegendeChargement>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { TopbarSlot } from "@/components/layout/TopbarSlot";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SqueletteOr } from "./Chargement";
 import { cn } from "@/lib/utils";
 import type { LedgerCompactMetric } from "./LedgerCompactHeader";
 import "./page-head.css";
@@ -104,7 +104,7 @@ export function PageHeaderBar({
                 <dt>{m.label}</dt>
                 <dd className={cn(TON[m.tone ?? "default"], m.kind === "detail" && "page-head-fig__detail")}>
                   {m.icon && <m.icon className="mr-2 inline size-4 align-[-2px] opacity-70" aria-hidden="true" />}
-                  {m.loading ? <><span className="sr-only">Chargement</span><Skeleton aria-hidden="true" className="inline-block h-5 w-8 align-middle motion-reduce:animate-none" /></> : m.value}
+                  {m.loading ? <><span className="sr-only">Chargement</span><SqueletteOr className="inline-block h-5 w-8 align-middle" /></> : m.value}
                 </dd>
               </div>
             );

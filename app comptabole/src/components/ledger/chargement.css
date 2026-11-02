@@ -1,0 +1,25 @@
+/* États de chargement : squelette fidèle au premier chargement, barre fine ensuite. Marine, or, densité compacte. */
+
+/* Brique de squelette : gris chaud du thème, balayage or léger (au lieu du clignotement gris). */
+.sk-or { position: relative; height: 12px; min-width: 0; overflow: hidden; border-radius: 6px; background: hsl(var(--muted)); }
+.sk-or::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, hsl(var(--accent) / .28), transparent); animation: sk-or-balai 1.5s ease-in-out infinite; }
+@keyframes sk-or-balai { to { transform: translateX(100%); } }
+
+/* Squelette de tableau : une grille par ligne, mêmes colonnes que le tableau réel. */
+.sk-tableau { display: grid; }
+.sk-ligne { display: grid; align-items: center; gap: 14px; padding: 12px 14px; border-top: 1px solid hsl(var(--border) / .8); }
+.sk-ligne--tete { border-top: 0; padding-block: 10px; background: color-mix(in srgb, hsl(var(--accent)) 9%, hsl(var(--card))); }
+.sk-legende { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid hsl(var(--border) / .8); font-size: 12px; color: hsl(var(--muted-foreground)); }
+.sk-point { width: 7px; height: 7px; border-radius: 50%; background: hsl(var(--accent)); animation: sk-point-bat 1.1s ease-in-out infinite; }
+@keyframes sk-point-bat { 50% { opacity: .25; transform: scale(.7); } }
+
+/* Barre fine : collée sous la barre du haut pendant une mise à jour ; les données déjà affichées restent visibles (estompées). */
+.barre-chargement { position: sticky; top: 0; z-index: 30; height: 3px; margin-bottom: -3px; overflow: hidden; background: hsl(var(--accent) / .22); }
+.barre-chargement > span { position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 3px; background: hsl(var(--accent)); animation: barre-chargement-glisse 1.3s ease-in-out infinite; }
+@keyframes barre-chargement-glisse { 0% { left: -40%; } 100% { left: 102%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-or::after { display: none; }
+  .sk-point { animation: none; }
+  .barre-chargement > span { width: 100%; animation: none; opacity: .5; }
+}

@@ -84,14 +84,14 @@ describe("vue générale suit la société active", () => {
   it("montre l'armoire de la société active (et non celle de la première société)", () => {
     useSocieteActiveStore.setState({ societeId: "cam" });
     render(<VueGenerale nodes={NODES} roots={ROOTS} getSocieteById={getSocieteById} onOpenNode={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /Tiroir achat-cam/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Tiroir banque-cargo/ })).toBeNull();
+    expect(screen.getByRole("tab", { name: /Tiroir achat-cam/ })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: /Tiroir banque-cargo/ })).toBeNull();
   });
 
   it("société active sans arborescence : message clair, aucun tiroir d'une autre société", () => {
     useSocieteActiveStore.setState({ societeId: "vide" });
     render(<VueGenerale nodes={NODES} roots={ROOTS} getSocieteById={getSocieteById} onOpenNode={vi.fn()} />);
     expect(screen.getByText(/La société active n'a pas encore d'arborescence/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Tiroir/ })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /Tiroir/ })).toBeNull();
   });
 });

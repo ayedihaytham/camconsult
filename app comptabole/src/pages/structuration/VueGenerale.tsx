@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Folder, FolderOpen, Search, UploadCloud } from "lucide-react";
+import { ChevronLeft, ChevronRight, FolderOpen, Plus, Search, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { anneeDuLibelle } from "@/lib/structurationMois";
@@ -25,11 +25,12 @@ function fichiersDe(dossier: Noeud, nodes: Noeud[]): { fichier: Noeud; sous: Noe
 
 const aDesFichiers = (e: DataTransfer | null) => Boolean(e && Array.from(e.types).includes("Files"));
 
-type FiltreTiroirs = "tous" | "remplis" | "vides";
+/** Vue générale de l'arborescence d'une société : la société a une ou plusieurs armoires (ses dossiers d'année) ; chaque dossier d'une armoire est un tiroir.
+ * Les tiroirs sont des onglets (avec leur nombre de fichiers) ; sous les onglets, les dossiers suspendus (sous-dossiers) du tiroir filtrent un tableau de ses fichiers,
+ * paginé et triable. On dépose en cliquant sur « Déposer » ou en glissant des fichiers sur le tableau ou sur un onglet. La recherche met en évidence les tiroirs qui contiennent le fichier. */
+const PAGE = 25;
+type Tri = { cle: "nom" | "date"; sens: 1 | -1 };
 
-/** Vue générale de l'arborescence d'une société, en « liste et volet » : la société a une armoire (son dossier d'année), chaque dossier de l'armoire est un tiroir.
- * À gauche, la liste des tiroirs (nombre de fichiers, dernier dépôt) ; à droite, le tiroir choisi : ses dossiers suspendus (sous-dossiers), ses fichiers et une zone de dépôt.
- * Les chiffres du haut filtrent les tiroirs (tous, remplis, vides) ; la recherche met en évidence les tiroirs qui contiennent le fichier. */
 export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPreview, onDeposer, actions }: {
   nodes: Noeud[];
   roots: Noeud[];
@@ -48,7 +49,10 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
   const [sousId, setSousId] = useState<string | null>(null);
   const [recherche, setRecherche] = useState("");
   const [survol, setSurvol] = useState<string | null>(null);
-  const [filtre, setFiltre] = useState<FiltreTiroirs>("tous");
+  // Page du tableau pour le tiroir, le dossier suspendu, la recherche et le tri en cours (on repart de la première page dès que l'un d'eux change).
+  const [pageEtat, setPageEtat] = useState<{ cle: string; n: number }>({ cle: "", n: 0 });
+  const [tri, setTri] = useState<Tri>({ cle: "date", sens: -1 });
+  const [armoireId, setArmoireId] = useState<string | null>(null);
   const q = recherche.trim().toLowerCase();
 
   const armoires = useMemo(
@@ -69,6 +73,9 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
     [groupe, nodes, annee],
   );
 
+  // Une seule armoire à la fois (celle que l'on choisit ; sinon la première qui contient des fichiers) : la page ne s'allonge pas avec le nombre d'armoires.
+  const armoireVisible = armoires.find((a) => a.annuel.id === armoireId) ?? armoires.find((a) => a.tiroirs.some((t) => t.fichiers.length > 0)) ?? armoires[0] ?? null;
+
   function choisir(id: string) {
     setOuvertId(id);
     setSousId(null);
@@ -85,208 +92,230 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <SelecteursSocieteAnnee groupes={groupes} groupe={groupe} onGroupe={setChoix} annees={annees} annee={annee} onAnnee={setAnneeChoix} droite={<>{champRecherche}{actions}</>} />
 
-      {armoires.map(({ root, annuel, tiroirs }) => {
-        const total = tiroirs.reduce((s, t) => s + t.fichiers.length, 0);
+      {armoires.length > 1 && (
+        <div role="tablist" aria-label="Armoires de la société" className="flex flex-wrap gap-2 border-b border-border/80 px-3 py-2.5">
+          {armoires.map(({ annuel, tiroirs }) => {
+            const n = tiroirs.reduce((t, x) => t + x.fichiers.length, 0);
+            const actif = armoireVisible?.annuel.id === annuel.id;
+            return (
+              <button
+                key={annuel.id}
+                type="button"
+                role="tab"
+                aria-selected={actif}
+                onClick={() => {
+                  setArmoireId(annuel.id);
+                  setOuvertId(null);
+                  setSousId(null);
+                }}
+                className={cn("inline-flex items-center gap-2 rounded-lg border px-3.5 py-1.5 text-[0.8125rem] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", actif ? "border-accent bg-card text-primary shadow-sm" : "border-border bg-muted text-muted-foreground hover:text-primary")}
+              >
+                <FolderOpen className="size-4" aria-hidden="true" />
+                {annuel.libelle}
+                <span className={cn("rounded-full px-2 py-0.5 text-xs tabular-nums", n > 0 ? "bg-success/10 text-success" : "bg-background text-muted-foreground")}>{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {(armoireVisible ? [armoireVisible] : []).map(({ root, annuel, tiroirs }) => {
+        const total = tiroirs.reduce((t, x) => t + x.fichiers.length, 0);
         const remplis = tiroirs.filter((t) => t.fichiers.length > 0).length;
-        const affiches = tiroirs.filter((t) => (filtre === "remplis" ? t.fichiers.length > 0 : filtre === "vides" ? t.fichiers.length === 0 : true));
-        // Le tiroir choisi reste celui de l'utilisateur tant qu'il est affiché ; sinon le premier rempli, ou le premier de la liste.
-        const choisi = affiches.find((t) => t.dossier.id === ouvertId) ?? affiches.find((t) => t.fichiers.length > 0) ?? affiches[0] ?? null;
+        // Le tiroir choisi reste celui de l'utilisateur ; sinon le premier rempli, ou le premier de la liste.
+        const choisi = tiroirs.find((t) => t.dossier.id === ouvertId) ?? tiroirs.find((t) => t.fichiers.length > 0) ?? tiroirs[0] ?? null;
         return (
           <section key={annuel.id} aria-label={`Armoire ${annuel.libelle}`}>
-            <div className="flex flex-wrap items-stretch gap-x-0.5 border-b border-border/80 bg-muted/20 px-3">
-              <div role="group" aria-label="Filtrer les tiroirs" className="flex flex-wrap items-stretch">
-                {([["tous", "Tiroirs", tiroirs.length, "text-primary"], ["remplis", "Remplis", remplis, "text-success"], ["vides", "Vides", tiroirs.length - remplis, "text-muted-foreground"]] as const).map(([valeur, nom, n, ton]) => (
-                  <button
-                    key={valeur}
-                    type="button"
-                    aria-pressed={filtre === valeur}
-                    onClick={() => setFiltre(valeur)}
-                    className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded after:bg-primary" : "text-muted-foreground")}
-                  >
-                    <b className={cn("text-xl font-bold leading-none tabular-nums tracking-tight", n === 0 ? "text-muted-foreground/50" : ton)}>{n}</b>
-                    {nom}
-                  </button>
-                ))}
-                <div className="flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] text-muted-foreground" aria-label="Fichiers de l'armoire">
-                  <b className="text-xl font-bold leading-none tabular-nums tracking-tight text-primary">{total}</b>
-                  {total > 1 ? "Fichiers" : "Fichier"}
-                </div>
-              </div>
-              <div className="ml-auto flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-xs text-muted-foreground">
-                <span className="rounded-md border border-accent/70 bg-accent/10 px-2.5 py-0.5 font-serif text-[0.8125rem] font-semibold uppercase tracking-[0.06em] text-primary [overflow-wrap:anywhere]">{annuel.libelle}</span>
-                <span>Armoire de {root.libelle}</span>
-                <button type="button" onClick={() => onOpenNode(annuel)} className="font-semibold text-primary underline underline-offset-2 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  Ouvrir dans Documents
-                </button>
-              </div>
-            </div>
-
             {tiroirs.length === 0 ? (
               <p className="px-4 py-6 text-sm text-muted-foreground">Aucun tiroir : ajoutez des dossiers à ce dossier d'année.</p>
             ) : (
-              <div className="grid lg:grid-cols-[minmax(17rem,24rem)_minmax(0,1fr)]" data-testid="structuration-liste-volet">
-                <ul className="min-w-0 lg:border-r lg:border-border" aria-label={`Tiroirs de ${annuel.libelle}`}>
-                  {affiches.length === 0 && <li className="px-4 py-6 text-center text-sm text-muted-foreground">Aucun tiroir {filtre === "vides" ? "vide" : "rempli"}.</li>}
-                  {affiches.map(({ dossier, fichiers }) => {
+              <>
+                <div role="tablist" aria-label={`Tiroirs de ${annuel.libelle}`} className="flex gap-0.5 overflow-x-auto border-b border-border bg-muted/60 px-3 [scrollbar-width:thin]" data-testid="structuration-onglets">
+                  {tiroirs.map(({ dossier, fichiers }) => {
                     const k = fichiers.length;
                     const trouve = q !== "" && fichiers.some((f) => f.fichier.libelle.toLowerCase().includes(q));
                     const actif = choisi?.dossier.id === dossier.id;
                     return (
-                      <li key={dossier.id}>
-                        <button
-                          type="button"
-                          aria-current={actif ? "true" : undefined}
-                          aria-label={`Tiroir ${dossier.libelle}, ${pluriel(k, "fichier")}`}
-                          data-etat={trouve ? "trouve" : q !== "" ? "estompe" : undefined}
-                          onClick={() => choisir(dossier.id)}
-                          onDoubleClick={() => onOpenNode(dossier)}
-                          onDragOver={(e) => {
-                            if (!onDeposer || !aDesFichiers(e.dataTransfer)) return;
-                            e.preventDefault();
-                            setSurvol(dossier.id);
-                          }}
-                          onDragLeave={() => setSurvol(null)}
-                          onDrop={(e) => {
-                            if (!onDeposer || !aDesFichiers(e.dataTransfer)) return;
-                            e.preventDefault();
-                            setSurvol(null);
-                            onDeposer(dossier, Array.from(e.dataTransfer.files));
-                          }}
-                          className={cn(
-                            "grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3.5 border-b border-border/70 px-4 py-2.5 text-left transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                            actif && "bg-accent/15 shadow-[inset_3px_0_0_hsl(var(--accent))]",
-                            trouve && "ring-2 ring-inset ring-accent",
-                            q !== "" && !trouve && "opacity-40",
-                            survol === dossier.id && "bg-accent/25",
-                          )}
-                        >
-                          <span aria-hidden="true" className={cn("grid size-10 place-items-center rounded-xl", k > 0 ? "bg-gradient-to-br from-primary/90 to-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground")}>
-                            {actif ? <FolderOpen className="size-[1.15rem]" /> : <Folder className="size-[1.15rem]" />}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-[0.8125rem] font-bold uppercase tracking-[0.09em] text-primary">{dossier.libelle}</span>
-                            <span className="block truncate text-xs text-muted-foreground">{k > 0 ? `${pluriel(k, "fichier")} · dernier dépôt ${formatDate(fichiers[0].fichier.majLe)}` : "Vide — à remplir"}</span>
-                            {k > 0 && <span aria-hidden="true" className="mt-1.5 block h-1 overflow-hidden rounded bg-muted"><i className="block h-full w-full bg-accent" /></span>}
-                          </span>
-                          {k > 0 ? (
-                            <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-success">{k}</span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">Vide</span>
-                          )}
-                        </button>
-                      </li>
+                      <button
+                        key={dossier.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={actif}
+                        aria-label={`Tiroir ${dossier.libelle}, ${pluriel(k, "fichier")}`}
+                        data-etat={trouve ? "trouve" : q !== "" ? "estompe" : undefined}
+                        onClick={() => choisir(dossier.id)}
+                        onDoubleClick={() => onOpenNode(dossier)}
+                        onDragOver={(e) => {
+                          if (!onDeposer || !aDesFichiers(e.dataTransfer)) return;
+                          e.preventDefault();
+                          setSurvol(dossier.id);
+                        }}
+                        onDragLeave={() => setSurvol(null)}
+                        onDrop={(e) => {
+                          if (!onDeposer || !aDesFichiers(e.dataTransfer)) return;
+                          e.preventDefault();
+                          setSurvol(null);
+                          onDeposer(dossier, Array.from(e.dataTransfer.files));
+                        }}
+                        className={cn(
+                          "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3.5 py-2.5 text-[0.8125rem] uppercase tracking-[0.06em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                          actif ? "bg-card font-bold text-primary shadow-[inset_0_2px_0_hsl(var(--accent))]" : "text-muted-foreground hover:text-primary",
+                          trouve && "ring-2 ring-inset ring-accent",
+                          q !== "" && !trouve && "opacity-40",
+                          survol === dossier.id && "bg-accent/25",
+                        )}
+                      >
+                        {dossier.libelle}
+                        <em className={cn("text-[0.6875rem] font-bold not-italic tabular-nums", k > 0 ? "text-success" : "text-muted-foreground/70")}>{k}</em>
+                      </button>
                     );
                   })}
-                </ul>
+                </div>
 
-                <div className="min-w-0 border-t border-border lg:border-t-0">
-                  {choisi ? (() => {
-                    const { dossier, fichiers } = choisi;
-                    const sousDossiers = nodes.filter((n) => n.parentId === dossier.id && n.type === "dossier").sort((a, b) => a.libelle.localeCompare(b.libelle));
-                    // Le dossier suspendu choisi appartient à un autre tiroir : on revient à « Tous ».
-                    const sousActif = sousDossiers.some((s) => s.id === sousId) ? sousId : null;
-                    const liste = fichiers.filter((f) => (sousActif === null || f.sous?.id === sousActif) && (q === "" || f.fichier.libelle.toLowerCase().includes(q)));
-                    const AFFICHES = 60;
-                    return (
-                      <section aria-label={`Contenu du tiroir ${dossier.libelle}`} className="bg-gradient-to-b from-muted/40 to-card">
-                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-accent/10 px-[18px] py-3.5">
-                          <div className="min-w-0">
-                            <h3 className="font-serif text-xl font-semibold uppercase text-primary [overflow-wrap:anywhere]">{dossier.libelle}</h3>
-                            <p className="text-xs text-muted-foreground">
-                              {annuel.libelle} · {pluriel(fichiers.length, "fichier")}
-                              {fichiers.length > 0 && ` · dernier dépôt ${formatDate(fichiers[0].fichier.majLe)}`}
-                            </p>
-                          </div>
-                          <Button type="button" variant="outline" size="sm" onClick={() => onOpenNode(dossier)}>
-                            <FolderOpen className="size-4" aria-hidden="true" /> Ouvrir dans Documents
-                          </Button>
-                        </header>
-
+                {choisi && (() => {
+                  const { dossier, fichiers } = choisi;
+                  const sousDossiers = nodes.filter((n) => n.parentId === dossier.id && n.type === "dossier").sort((a, b) => a.libelle.localeCompare(b.libelle));
+                  // Le dossier suspendu choisi appartient à un autre tiroir : on revient à « Tous ».
+                  const sousActif = sousDossiers.some((x) => x.id === sousId) ? sousId : null;
+                  const liste = fichiers
+                    .filter((f) => (sousActif === null || f.sous?.id === sousActif) && (q === "" || f.fichier.libelle.toLowerCase().includes(q)))
+                    .sort((a, b) => tri.sens * (tri.cle === "nom" ? a.fichier.libelle.localeCompare(b.fichier.libelle, "fr", { numeric: true }) : a.fichier.majLe.localeCompare(b.fichier.majLe)));
+                  const cleListe = `${dossier.id}|${sousActif ?? ""}|${q}|${tri.cle}${tri.sens}`;
+                  const page = pageEtat.cle === cleListe ? pageEtat.n : 0;
+                  const debut = page * PAGE;
+                  const visibles = liste.slice(debut, debut + PAGE);
+                  const triable = (cle: Tri["cle"], titre: string) => (
+                    <th aria-sort={tri.cle === cle ? (tri.sens === 1 ? "ascending" : "descending") : "none"} className="px-4 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                      <button type="button" onClick={() => setTri((t) => (t.cle === cle ? { cle, sens: t.sens === 1 ? -1 : 1 } : { cle, sens: cle === "nom" ? 1 : -1 }))} className="inline-flex items-center gap-1 uppercase tracking-[0.1em] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        {titre}
+                        {tri.cle === cle && <span aria-hidden="true">{tri.sens === 1 ? "▴" : "▾"}</span>}
+                      </button>
+                    </th>
+                  );
+                  return (
+                    <section
+                      aria-label={`Contenu du tiroir ${dossier.libelle}`}
+                      className={cn("bg-card transition-colors", survol === "depot" && "bg-accent/10")}
+                      onDragOver={(e) => {
+                        if (!onDeposer || !aDesFichiers(e.dataTransfer)) return;
+                        e.preventDefault();
+                        setSurvol("depot");
+                      }}
+                      onDragLeave={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSurvol(null);
+                      }}
+                      onDrop={(e) => {
+                        if (!onDeposer || !aDesFichiers(e.dataTransfer)) return;
+                        e.preventDefault();
+                        setSurvol(null);
+                        onDeposer(dossier, Array.from(e.dataTransfer.files));
+                      }}
+                    >
+                      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                         {sousDossiers.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 px-[18px] pt-3" role="group" aria-label="Dossiers suspendus">
-                            {[{ id: null as string | null, libelle: "Tous", n: fichiers.length }, ...sousDossiers.map((s) => ({ id: s.id as string | null, libelle: s.libelle, n: fichiers.filter((f) => f.sous?.id === s.id).length }))].map((s) => (
+                          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Dossiers suspendus">
+                            {[{ id: null as string | null, libelle: "Tous", n: fichiers.length }, ...sousDossiers.map((x) => ({ id: x.id as string | null, libelle: x.libelle, n: fichiers.filter((f) => f.sous?.id === x.id).length }))].map((x) => (
                               <button
-                                key={s.id ?? "tous"}
+                                key={x.id ?? "tous"}
                                 type="button"
-                                aria-pressed={sousActif === s.id}
-                                onClick={() => setSousId(s.id)}
-                                className={cn("rounded-lg border px-3 py-1.5 text-[0.78rem] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", sousActif === s.id ? "border-accent bg-card text-primary shadow-sm" : "border-border bg-muted text-muted-foreground hover:text-primary")}
+                                aria-pressed={sousActif === x.id}
+                                onClick={() => setSousId(x.id)}
+                                title={x.libelle}
+                                className={cn("max-w-[16rem] truncate rounded-lg border px-3 py-1.5 text-[0.78rem] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", sousActif === x.id ? "border-accent bg-card text-primary shadow-sm" : "border-border bg-muted text-muted-foreground hover:text-primary")}
                               >
-                                {s.libelle}<i className="ml-1.5 font-normal not-italic tabular-nums opacity-65">{s.n}</i>
+                                {x.libelle}<i className="ml-1.5 font-normal not-italic tabular-nums opacity-65">{x.n}</i>
                               </button>
                             ))}
                           </div>
                         )}
-
-                        <div className={cn("grid gap-4 p-[18px]", onDeposer && "xl:grid-cols-[minmax(0,1fr)_15rem]")}>
-                          <div className="min-w-0">
-                            {liste.length === 0 ? (
-                              <p className="py-2 text-sm text-muted-foreground">
-                                {q !== "" ? "Aucun fichier ne correspond à la recherche." : `Ce tiroir est vide${sousActif ? " pour ce dossier" : ""}.${onDeposer ? " Déposez un fichier pour commencer le classement." : ""}`}
-                              </p>
-                            ) : (
-                              <ul className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
-                                {liste.slice(0, AFFICHES).map(({ fichier, sous }) => {
-                                  const contenu = (
-                                    <>
-                                      <span aria-hidden="true" className="grid h-10 w-[34px] flex-none place-items-center rounded-[4px_10px_4px_4px] border border-primary/15 bg-primary/[0.08] text-[9px] font-bold uppercase text-primary">{(fichier.format ?? "").slice(0, 4) || "—"}</span>
-                                      <span className="min-w-0">
-                                        <b className="block break-words text-[12.5px] font-semibold leading-tight">{fichier.libelle}</b>
-                                        <small className="text-[11px] text-muted-foreground">{[fichier.taille, formatDate(fichier.majLe), sous?.libelle].filter(Boolean).join(" · ")}</small>
-                                      </span>
-                                    </>
-                                  );
-                                  const carte = "flex w-full items-center gap-2.5 rounded-[10px] border border-border bg-background px-3 py-2.5 text-left";
-                                  return (
-                                    <li key={fichier.id}>
-                                      {onPreview ? (
-                                        <button type="button" className={cn(carte, "transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")} onClick={() => onPreview(fichier)} aria-label={`Aperçu de ${fichier.libelle}`}>{contenu}</button>
-                                      ) : (
-                                        <div className={carte}>{contenu}</div>
-                                      )}
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )}
-                            {liste.length > AFFICHES && (
-                              <p className="mt-3 text-xs text-muted-foreground">
-                                {AFFICHES} fichiers sur {liste.length} affichés. <button type="button" className="font-semibold text-primary underline underline-offset-2" onClick={() => onOpenNode(dossier)}>Voir tout dans Documents</button>
-                              </p>
-                            )}
-                          </div>
+                        <span className="min-w-0 text-xs text-muted-foreground">
+                          {sousDossiers.length === 0 && <>{pluriel(fichiers.length, "fichier")}{fichiers.length > 0 && ` · dernier dépôt ${formatDate(fichiers[0].fichier.majLe)}`} · </>}
+                          Armoire de {root.libelle} · {pluriel(remplis, "tiroir")} rempli{remplis > 1 ? "s" : ""} sur {tiroirs.length} · {pluriel(total, "fichier")}
+                        </span>
+                        <span className="ml-auto flex flex-wrap items-center gap-2">
                           {onDeposer && (
-                            <button
-                              type="button"
-                              className={cn("grid min-h-[150px] content-center justify-items-center gap-1 rounded-xl border-2 border-dashed border-input bg-background/60 px-3 py-4 text-center transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", survol === "depot" && "border-accent bg-accent/10")}
-                              aria-label={`Déposer dans ${dossier.libelle}`}
-                              onClick={() => onDeposer(dossier)}
-                              onDragOver={(e) => {
-                                if (!aDesFichiers(e.dataTransfer)) return;
-                                e.preventDefault();
-                                setSurvol("depot");
-                              }}
-                              onDragLeave={() => setSurvol(null)}
-                              onDrop={(e) => {
-                                if (!aDesFichiers(e.dataTransfer)) return;
-                                e.preventDefault();
-                                setSurvol(null);
-                                onDeposer(dossier, Array.from(e.dataTransfer.files));
-                              }}
-                            >
+                            <Button type="button" variant="outline" size="sm" aria-label={`Déposer dans ${dossier.libelle}`} onClick={() => onDeposer(dossier)}>
+                              <Plus className="size-4" aria-hidden="true" /> Déposer
+                            </Button>
+                          )}
+                          <Button type="button" variant="outline" size="sm" onClick={() => onOpenNode(dossier)}>
+                            <FolderOpen className="size-4" aria-hidden="true" /> Ouvrir dans Documents
+                          </Button>
+                          <button type="button" onClick={() => onOpenNode(annuel)} className="text-xs font-semibold text-primary underline underline-offset-2 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            Ouvrir l'armoire
+                          </button>
+                        </span>
+                      </div>
+
+                      {liste.length === 0 ? (
+                        <div className="px-4 pb-4">
+                          <p className="py-1 text-sm text-muted-foreground">
+                            {q !== "" ? "Aucun fichier ne correspond à la recherche." : `Ce tiroir est vide${sousActif ? " pour ce dossier" : ""}.${onDeposer ? " Déposez un fichier pour commencer le classement." : ""}`}
+                          </p>
+                          {onDeposer && q === "" && (
+                            <div className="mt-2 grid place-items-center gap-1 rounded-xl border-2 border-dashed border-input bg-background/60 px-3 py-6 text-center">
                               <UploadCloud className="size-6 text-accent" aria-hidden="true" />
-                              <b className="text-[13px] text-primary">Déposer dans ce tiroir</b>
-                              <span className="text-[11.5px] text-muted-foreground">Glissez des fichiers ici ou cliquez</span>
-                            </button>
+                              <span className="text-[12.5px] text-muted-foreground">Glissez des fichiers ici, ou utilisez « Déposer »</span>
+                            </div>
                           )}
                         </div>
-                      </section>
-                    );
-                  })() : (
-                    <p className="px-5 py-8 text-sm text-muted-foreground">Choisissez un tiroir pour voir son contenu.</p>
-                  )}
-                </div>
-              </div>
+                      ) : (
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-sm">
+                              <thead>
+                                <tr className="bg-accent/[0.07]">
+                                  {triable("nom", "Nom")}
+                                  <th className="hidden px-4 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.1em] text-muted-foreground sm:table-cell">Dossier</th>
+                                  <th className="hidden px-4 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.1em] text-muted-foreground sm:table-cell">Taille</th>
+                                  {triable("date", "Déposé le")}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {visibles.map(({ fichier, sous }) => {
+                                  const nom = (
+                                    <span className="flex min-w-0 items-center gap-2.5">
+                                      <span aria-hidden="true" className="grid h-8 w-7 flex-none place-items-center rounded-[4px_9px_4px_4px] border border-primary/15 bg-primary/[0.08] text-[8.5px] font-bold uppercase text-primary">{(fichier.format ?? "").slice(0, 4) || "—"}</span>
+                                      <span className="min-w-0 truncate font-semibold" title={fichier.libelle}>{fichier.libelle}</span>
+                                    </span>
+                                  );
+                                  return (
+                                    <tr key={fichier.id} className="border-t border-border/70 hover:bg-accent/[0.08]">
+                                      <td className="max-w-0 px-4 py-2 sm:max-w-[28rem]">
+                                        {onPreview ? (
+                                          <button type="button" className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => onPreview(fichier)} aria-label={`Aperçu de ${fichier.libelle}`}>{nom}</button>
+                                        ) : (
+                                          nom
+                                        )}
+                                      </td>
+                                      <td className="hidden max-w-[14rem] truncate px-4 py-2 text-muted-foreground sm:table-cell" title={sous?.libelle}>{sous?.libelle ?? "—"}</td>
+                                      <td className="hidden whitespace-nowrap px-4 py-2 tabular-nums sm:table-cell">{fichier.taille ?? "—"}</td>
+                                      <td className="whitespace-nowrap px-4 py-2 tabular-nums">{formatDate(fichier.majLe)}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+                            <span aria-live="polite">{debut + 1}–{Math.min(debut + PAGE, liste.length)} sur {liste.length}</span>
+                            {liste.length > PAGE && (
+                              <span className="flex items-center gap-1.5">
+                                <Button type="button" variant="outline" size="sm" disabled={page === 0} onClick={() => setPageEtat({ cle: cleListe, n: page - 1 })}>
+                                  <ChevronLeft className="size-4" aria-hidden="true" /> Précédent
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" disabled={debut + PAGE >= liste.length} onClick={() => setPageEtat({ cle: cleListe, n: page + 1 })}>
+                                  Suivant <ChevronRight className="size-4" aria-hidden="true" />
+                                </Button>
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </section>
+                  );
+                })()}
+              </>
             )}
           </section>
         );

@@ -187,6 +187,27 @@ describe.skipIf(!actif)("intégration PostgreSQL : notifications et traces par a
       expect([403, 401]).toContain((await autre("POST", `/api/messages/${id}/reaction`, { emoji: "👍" })).status);
     });
 
+    it("pièce jointe de la Structuration : seulement un document de la société du responsable de la conversation", async () => {
+      const autreSociete = (await sql.query("insert into societes(raison_sociale,code) values('Autre société','AUT') returning id")).rows[0].id;
+      const resp = (
+        await sql.query(
+          `insert into employes(nom,prenom,identifiant,mot_de_passe,role,societe_id,statut,permissions)
+           values('Responsable','Soc','resp.soc','','societe_employe',$1,'actif','{}'::jsonb) returning id`,
+          [societe],
+        )
+      ).rows[0].id;
+      const doc = async (soc, nom) => (await sql.query("insert into noeuds(libelle,type,societe_id) values($1,'fichier',$2) returning id", [nom, soc])).rows[0].id;
+      const sien = await doc(societe, "sien.pdf");
+      const etranger = await doc(autreSociete, "etranger.pdf");
+      const envoyer = (conv, noeudId) => A("POST", "/api/messages", { conversationId: conv, auteurId: "me", contenu: "", pieceJointe: { libelle: "x.pdf", noeudId } });
+      expect((await envoyer(`conv-${resp}`, sien)).status).toBe(201);
+      expect((await envoyer(`conv-${resp}`, etranger)).status).toBe(403);
+      expect((await envoyer(`conv-${employe}`, sien)).status).toBe(403); // collaborateur du cabinet : aucun document de la Structuration
+      expect((await envoyer(`conv-${resp}`, "pas-un-uuid")).status).toBe(403);
+      // une pièce jointe envoyée depuis l'appareil n'est pas concernée
+      expect((await A("POST", "/api/messages", { conversationId: `conv-${employe}`, auteurId: "me", contenu: "", pieceJointe: { libelle: "photo.jpg", dataUrl: "data:image/jpeg;base64,AA==" } })).status).toBe(201);
+    });
+
     it("un message reçu par le cabinet est lu PAR administrateur : Karim ouvre, Sara et le principal le gardent non lu ; l'employé voit « lu »", async () => {
       const emp = api(serveur.base, jwt.sign({ role: "employe", employeId: employe, v: 0 }, serveur.env.JWT_SECRET, { expiresIn: "1h" }));
       const conv = `conv-${employe}`;

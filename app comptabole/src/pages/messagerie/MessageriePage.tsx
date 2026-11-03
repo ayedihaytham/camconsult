@@ -62,7 +62,7 @@ async function contenuDuMessage(message: Message | undefined, noeuds: Noeud[]) {
 }
 
 export function MessageriePage() {
-  const { isAdmin, can, canSeeSociete, employeId } = usePermissions();
+  const { isAdmin, can, canSeeSociete, employeId, isResponsableSociete } = usePermissions();
   const adminName = toTitleCase(
     useAuth((state) => state.session?.cabinetNom ?? "Cabinet"),
   );
@@ -517,7 +517,11 @@ export function MessageriePage() {
         search={search}
         draft={draft}
         attachment={attachment}
-        attachmentItems={fichiers.map((file) => ({
+        // Seuls les documents de la société de la conversation (celle du responsable) peuvent être joints : aucune autre société, et rien pour un groupe ou un collaborateur du cabinet.
+        attachmentItems={(activeConversation?.societeId && (isAdmin ? activeEmployee?.role === "societe_employe" : isResponsableSociete)
+          ? fichiers.filter((file) => file.societeId === activeConversation.societeId)
+          : []
+        ).map((file) => ({
           id: file.id,
           label: file.libelle,
         }))}

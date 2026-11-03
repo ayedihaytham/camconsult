@@ -146,6 +146,19 @@ messagesRouter.post("/", requireMessagerie, async (req, res) => {
   const v = parsed.data;
   if (!(await ownConversation(req, v.conversationId)))
     return res.status(403).json({ error: "Conversation hors périmètre" });
+  // Un document de la Structuration ne peut être joint que dans la conversation du responsable de sa société : jamais celui d'une autre société, ni dans un groupe.
+  if (v.pieceJointe?.noeudId) {
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const autreId = v.conversationId.startsWith("conv-") ? v.conversationId.slice("conv-".length) : "";
+    const refuse = () => res.status(403).json({ error: "Ce document n'appartient pas à la société de cette conversation" });
+    if (!UUID.test(v.pieceJointe.noeudId) || !UUID.test(autreId)) return refuse();
+    const { rows: ok } = await query(
+      `select 1 from noeuds n join employes e on e.id = $2 and e.role = 'societe_employe' and e.societe_id = n.societe_id
+        where n.id = $1 and n.societe_id is not null`,
+      [v.pieceJointe.noeudId, autreId],
+    );
+    if (ok.length === 0) return refuse();
+  }
   const { rows } = await query(
     `insert into messages (conversation_id, auteur_id, contenu, envoye_le, statut, piece_jointe, admin_id)
      values ($1,$2,$3, coalesce($4::timestamptz, now()), $5, $6::jsonb, $7) returning *`,

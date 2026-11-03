@@ -82,6 +82,7 @@ export function MessageriePage() {
   const messages = useData((state) => state.messages);
   const addMessage = useData((state) => state.addMessage);
   const addNoeud = useData((state) => state.addNoeud);
+  const toggleReaction = useData((state) => state.toggleReaction);
   const markConversationRead = useData(
     (state) => state.markConversationRead,
   );
@@ -456,6 +457,8 @@ export function MessageriePage() {
     };
   }
 
+  // Mon identité pour les réactions : même clé que le serveur (« admin:<compte> » pour un administrateur, l'identifiant pour un employé).
+  const maCleReaction = isAdmin ? (monAdminId ? `admin:${monAdminId}` : null) : employeId;
   const messageItems: MessengerMessageItem[] = threadMessages.map(
     (message, index) => {
       const previous = threadMessages[index - 1];
@@ -486,6 +489,9 @@ export function MessageriePage() {
         isMine,
         isRead: message.statut === "lu",
         attachment: resolveAttachment(message.pieceJointe, allNoeuds),
+        reactions: Object.entries(message.reactions ?? {})
+          .filter(([, personnes]) => personnes.length > 0)
+          .map(([emoji, personnes]) => ({ emoji, count: personnes.length, moi: Boolean(maCleReaction && personnes.includes(maCleReaction)) })),
       };
     },
   );
@@ -548,6 +554,7 @@ export function MessageriePage() {
         onSelectAttachment={(item) => void handleSelectAttachment(item)}
         onRemoveAttachment={() => setAttachment(null)}
         onSend={send}
+        onToggleReaction={maCleReaction ? (id, emoji) => void toggleReaction(id, emoji, maCleReaction) : undefined}
       />
 
       <ClasserPieceJointeDialog

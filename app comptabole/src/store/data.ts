@@ -157,6 +157,8 @@ interface DataState {
 
   addMessage: (msg: Omit<Message, "id">) => Promise<void>;
   refreshMessages: () => Promise<void>;
+  /** Pose ou retire (bascule) la réaction de la personne `cle` sur un message ; le serveur fait foi. */
+  toggleReaction: (messageId: string, emoji: string, cle: string) => Promise<void>;
   markConversationRead: (
     conversationId: string,
     viewerAuthorId?: string,
@@ -491,6 +493,23 @@ export const useData = create<DataState>((set, get) => ({
       set({ messages: list });
     } catch {
       /* silencieux : rafraîchissement d'arrière-plan */
+    }
+  },
+  toggleReaction: async (messageId, emoji, cle) => {
+    const maj = (reactions: Record<string, string[]>) =>
+      set((st) => ({ messages: st.messages.map((m) => (m.id === messageId ? { ...m, reactions } : m)) }));
+    const avant = get().messages.find((m) => m.id === messageId)?.reactions ?? {};
+    const deja = avant[emoji] ?? [];
+    const suivantes = deja.includes(cle) ? deja.filter((k) => k !== cle) : [...deja, cle];
+    const optimiste = { ...avant, [emoji]: suivantes };
+    if (suivantes.length === 0) delete optimiste[emoji];
+    maj(optimiste);
+    try {
+      const r = await api.post<{ reactions: Record<string, string[]> }>(`/messages/${messageId}/reaction`, { emoji });
+      maj(r.reactions);
+    } catch (e) {
+      maj(avant);
+      fail(e);
     }
   },
   markConversationRead: async (conversationId, viewerAuthorId = "me") => {

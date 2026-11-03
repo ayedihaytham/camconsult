@@ -1040,6 +1040,8 @@ export interface Message {
   /** Message du cabinet : l'administrateur qui l'a écrit. */
   adminId?: string;
   auteurNom?: string;
+  /** Réactions : emoji → personnes qui l'ont mise (« admin:<id> » pour un administrateur, l'identifiant pour un employé). */
+  reactions?: Record<string, string[]>;
   pieceJointe?: {
     libelle: string;
     /** Nouveau format — fichier joint directement au message (PC ou téléphone).

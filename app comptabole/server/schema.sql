@@ -1475,3 +1475,6 @@ create table if not exists cours_change_usd (
   maj_le timestamptz not null default now(),
   primary key (devise, annee, mois)
 );
+
+-- Messagerie : réactions aux messages ({ "👍": ["admin:<id>", "<employé>"] }) ; une personne ne peut mettre qu'une fois la même réaction.
+alter table messages add column if not exists reactions jsonb not null default '{}'::jsonb;

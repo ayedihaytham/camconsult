@@ -168,6 +168,25 @@ describe.skipIf(!actif)("intégration PostgreSQL : notifications et traces par a
       }
     });
 
+    it("réactions : un administrateur et l'employé réagissent, la même réaction se retire, une réaction inconnue ou hors conversation est refusée", async () => {
+      const emp = api(serveur.base, jwt.sign({ role: "employe", employeId: employe, v: 0 }, serveur.env.JWT_SECRET, { expiresIn: "1h" }));
+      const conv = `conv-${employe}`;
+      const id = (await A("POST", "/api/messages", { conversationId: conv, auteurId: "me", contenu: "Réagissez" })).json.id;
+      const r1 = await A("POST", `/api/messages/${id}/reaction`, { emoji: "👍" });
+      expect(r1.status, r1.texte).toBe(200);
+      expect(r1.json.reactions).toEqual({ "👍": [`admin:${idA}`] });
+      const r2 = await emp("POST", `/api/messages/${id}/reaction`, { emoji: "👍" });
+      expect(r2.json.reactions["👍"]).toEqual([`admin:${idA}`, employe]);
+      expect((await lire(emp)).find((x) => x.id === id).reactions["👍"]).toHaveLength(2);
+      const r3 = await A("POST", `/api/messages/${id}/reaction`, { emoji: "👍" });
+      expect(r3.json.reactions).toEqual({ "👍": [employe] });
+      expect((await emp("POST", `/api/messages/${id}/reaction`, { emoji: "👍" })).json.reactions).toEqual({});
+      expect((await A("POST", `/api/messages/${id}/reaction`, { emoji: "💥" })).status).toBe(400);
+      expect((await A("POST", "/api/messages/00000000-0000-0000-0000-000000000000/reaction", { emoji: "👍" })).status).toBe(404);
+      const autre = api(serveur.base, jwt.sign({ role: "employe", employeId: "00000000-0000-0000-0000-0000000000aa", v: 0 }, serveur.env.JWT_SECRET, { expiresIn: "1h" }));
+      expect([403, 401]).toContain((await autre("POST", `/api/messages/${id}/reaction`, { emoji: "👍" })).status);
+    });
+
     it("un message reçu par le cabinet est lu PAR administrateur : Karim ouvre, Sara et le principal le gardent non lu ; l'employé voit « lu »", async () => {
       const emp = api(serveur.base, jwt.sign({ role: "employe", employeId: employe, v: 0 }, serveur.env.JWT_SECRET, { expiresIn: "1h" }));
       const conv = `conv-${employe}`;

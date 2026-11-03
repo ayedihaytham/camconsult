@@ -206,6 +206,39 @@ messagesRouter.post("/", requireMessagerie, async (req, res) => {
   res.status(201).json(messageDtoLeger({ ...rows[0], auteur_nom: rows[0].admin_id ? req.session.nom : null }));
 });
 
+/** Réactions autorisées (les mêmes que celles proposées par l'écran). */
+export const REACTIONS = ["👍", "❤️", "😂", "😮", "🙏", "✅"];
+
+/** Clé de la personne qui réagit : un administrateur est reconnu par son compte, un employé par son identifiant. */
+const cleReaction = (s) => (s.role === "admin" ? `admin:${s.adminId}` : s.employeId);
+
+/** Pose ou retire (bascule) la réaction de l'utilisateur sur un message de sa conversation. */
+messagesRouter.post("/:id/reaction", requireMessagerie, async (req, res) => {
+  const emoji = req.body?.emoji;
+  if (!REACTIONS.includes(emoji)) return res.status(400).json({ error: "Réaction non proposée" });
+  const m = (await query("select conversation_id, reactions from messages where id = $1", [req.params.id]).catch(() => ({ rows: [] }))).rows[0];
+  if (!m) return res.status(404).json({ error: "Message introuvable" });
+  if (!(await ownConversation(req, m.conversation_id)))
+    return res.status(403).json({ error: "Conversation hors périmètre" });
+  const cle = cleReaction(req.session);
+  const reactions = m.reactions && typeof m.reactions === "object" ? { ...m.reactions } : {};
+  const deja = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
+  const suivantes = deja.includes(cle) ? deja.filter((k) => k !== cle) : [...deja, cle];
+  if (suivantes.length > 0) reactions[emoji] = suivantes;
+  else delete reactions[emoji];
+  await query("update messages set reactions = $2::jsonb where id = $1", [req.params.id, JSON.stringify(reactions)]);
+  // Signal temps réel aux autres personnes de la conversation.
+  const conv = m.conversation_id;
+  const cibles = new Set(["admin"]);
+  if (conv.startsWith("conv-")) cibles.add(conv.slice("conv-".length));
+  else {
+    const g = (await query("select membre_ids from conversations where id = $1", [conv])).rows[0];
+    for (const id of Array.isArray(g?.membre_ids) ? g.membre_ids : []) cibles.add(id);
+  }
+  for (const k of cibles) pushToUser(k, "message");
+  res.json({ reactions });
+});
+
 messagesRouter.post("/mark-read", requireMessagerie, async (req, res) => {
   const { conversationId, viewerAuthorId } = req.body ?? {};
   if (!conversationId) return res.status(400).json({ error: "conversationId requis" });

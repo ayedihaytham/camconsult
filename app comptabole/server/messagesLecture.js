@@ -15,7 +15,7 @@ export async function lireMessages({ adminId = null, conversationIds = null } = 
     `select m.id, m.conversation_id, m.auteur_id, m.contenu, m.envoye_le,
             case when $1::uuid is not null and m.auteur_id <> 'me' then (case when l.admin_id is not null then 'lu' else 'envoye' end) else m.statut end as statut,
             (m.piece_jointe - 'dataUrl') as piece_jointe, coalesce(m.piece_jointe ? 'dataUrl', false) as pj_a_contenu,
-            m.admin_id, a.nom as auteur_nom
+            m.reactions, m.admin_id, a.nom as auteur_nom
        from messages m
        left join administrateurs a on a.id = m.admin_id
        left join messages_lus_admin l on l.message_id = m.id and l.admin_id = $1::uuid

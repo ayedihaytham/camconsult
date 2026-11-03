@@ -133,6 +133,7 @@ export const messageDto = (r) => ({
     r.envoye_le instanceof Date ? r.envoye_le.toISOString() : r.envoye_le,
   statut: r.statut,
   pieceJointe: r.piece_jointe || undefined,
+  reactions: r.reactions && typeof r.reactions === "object" ? r.reactions : {},
   // Message du cabinet : l'administrateur qui l'a écrit (absent pour un message d'employé).
   ...(r.admin_id ? { adminId: r.admin_id, auteurNom: r.auteur_nom ?? undefined } : {}),
 });
@@ -149,7 +150,7 @@ export const messageDtoLeger = (r) => {
 
 /** Colonnes d'un message SANS le contenu de sa pièce jointe, + pj_a_contenu. */
 export const MESSAGE_COLONNES_LEGERES =
-  "id, conversation_id, auteur_id, contenu, envoye_le, statut, (piece_jointe - 'dataUrl') as piece_jointe, coalesce(piece_jointe ? 'dataUrl', false) as pj_a_contenu";
+  "id, conversation_id, auteur_id, contenu, envoye_le, statut, reactions, (piece_jointe - 'dataUrl') as piece_jointe, coalesce(piece_jointe ? 'dataUrl', false) as pj_a_contenu";
 
 export const collecteDto = (r) => ({
   id: r.id,

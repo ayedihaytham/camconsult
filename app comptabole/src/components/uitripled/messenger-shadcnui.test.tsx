@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { Messenger, type MessengerConversationItem } from "./messenger-shadcnui";
+import { Messenger, type MessengerConversationItem, type MessengerMessageItem } from "./messenger-shadcnui";
 
 afterEach(cleanup);
 
@@ -97,5 +97,76 @@ describe("boîte de messagerie du cabinet", () => {
   it("garde une liste simple, sans filtres, quand il y a peu de conversations", () => {
     afficher(LISTE.slice(0, 2));
     expect(screen.queryByRole("group", { name: "Filtrer les conversations" })).toBeNull();
+  });
+});
+
+describe("conversation ouverte : fichiers et réactions", () => {
+  const msg = (id: string, extra: Partial<MessengerMessageItem> = {}): MessengerMessageItem => ({
+    id, author: "Karim Ben Salah", text: `Message ${id}`, timestamp: "13:20", dateLabel: "Aujourd'hui", showDate: id === "1", showAuthor: false, isMine: false, isRead: false, ...extra,
+  });
+  const ouvrir = (messages: MessengerMessageItem[], onToggleReaction?: (id: string, emoji: string) => void) =>
+    render(
+      <Messenger
+        conversations={LISTE}
+        selectedConversationId="2"
+        activeConversation={{ id: "2", name: "Ha Ay", subtitle: "Collaborateur", initials: "HA", isGroup: false, avatarClassName: "", canManageGroup: false }}
+        messages={messages}
+        mobileView="chat"
+        search=""
+        draft=""
+        attachment={null}
+        attachmentItems={[]}
+        canClassifyAttachments={false}
+        onClassifyAttachment={vi.fn()}
+        onDownloadAttachment={vi.fn()}
+        canCreateGroup
+        emptyConversationDescription="Aucun échange."
+        messagesContainerRef={{ current: null } as never}
+        onSearchChange={vi.fn()}
+        onSelectConversation={vi.fn()}
+        onBack={vi.fn()}
+        onCreateGroup={vi.fn()}
+        onEditGroup={vi.fn()}
+        onDeleteGroup={vi.fn()}
+        onDraftChange={vi.fn()}
+        onFileSelected={vi.fn()}
+        onSelectAttachment={vi.fn()}
+        onRemoveAttachment={vi.fn()}
+        onSend={vi.fn()}
+        onToggleReaction={onToggleReaction}
+      />,
+    );
+
+  it("l'onglet Fichiers liste les pièces jointes échangées, et dit quand il n'y en a pas", () => {
+    ouvrir([msg("1"), msg("2", { attachment: { libelle: "Releve-06.pdf", tailleOctets: 1300000, disponible: true } })]);
+    fireEvent.click(screen.getByRole("tab", { name: /Fichiers/ }));
+    const liste = within(screen.getByRole("list", { name: "Fichiers échangés" }));
+    expect(liste.getByText("Releve-06.pdf")).toBeTruthy();
+    expect(liste.getByText("1,2 Mo")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Discussion" }));
+    expect(screen.getByText("Message 1")).toBeTruthy();
+    cleanup();
+    ouvrir([msg("1")]);
+    fireEvent.click(screen.getByRole("tab", { name: /Fichiers/ }));
+    expect(screen.getByText("Aucun fichier échangé.")).toBeTruthy();
+  });
+
+  it("une réaction se pose depuis le sélecteur, et se retire en cliquant sur la pastille ; la mienne est marquée", () => {
+    const onToggle = vi.fn();
+    ouvrir([msg("1", { reactions: [{ emoji: "👍", count: 2, moi: true }, { emoji: "❤️", count: 1, moi: false }] })], onToggle);
+    const mienne = screen.getByRole("button", { name: "👍 2, la vôtre" });
+    expect(mienne.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "❤️ 1" }).getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(mienne);
+    expect(onToggle).toHaveBeenCalledWith("1", "👍");
+    fireEvent.click(screen.getByRole("button", { name: "Réagir à ce message" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Réagir 🙏" }));
+    expect(onToggle).toHaveBeenLastCalledWith("1", "🙏");
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("sans gestionnaire, aucune réaction n'est proposée", () => {
+    ouvrir([msg("1")]);
+    expect(screen.queryByRole("button", { name: "Réagir à ce message" })).toBeNull();
   });
 });

@@ -81,3 +81,23 @@ describe("FileUploadDialog : archive .zip", () => {
     expect(envoyes.map((f) => `${(f.dossiers ?? []).join("/")}|${f.libelle}`).sort()).toEqual(["Pièces 2026/banque|releve.txt", "Pièces 2026|facture.txt"]);
   });
 });
+
+describe("FileUploadDialog : collage", () => {
+  it("les fichiers collés (Ctrl+V) s'ajoutent à la liste, plusieurs à la fois ; le texte collé n'est pas intercepté", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(<FileUploadDialog open onOpenChange={vi.fn()} destinationLabel="UBCI" onSubmit={onSubmit} />);
+    const coller = (files: File[]) => {
+      const e = new Event("paste", { bubbles: true, cancelable: true }) as Event & { clipboardData?: unknown };
+      e.clipboardData = { files };
+      document.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    expect(coller([])).toBe(false);
+    expect(coller([new File(["a"], "capture.png", { type: "image/png" }), new File(["b"], "facture.pdf", { type: "application/pdf" })])).toBe(true);
+    await waitFor(() => expect(screen.getByText("capture.png")).toBeTruthy());
+    expect(screen.getByText("facture.pdf")).toBeTruthy();
+    valider();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect((onSubmit.mock.calls[0][0] as { libelle: string }[]).map((f) => f.libelle)).toEqual(["capture.png", "facture.pdf"]);
+  });
+});

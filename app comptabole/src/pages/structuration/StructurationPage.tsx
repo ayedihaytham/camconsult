@@ -164,6 +164,22 @@ export function StructurationPage() {
   const [uploadParent, setUploadParent] = useState<string | null>(null);
   /** Fichiers déposés sur un tiroir de la vue générale : ils arrivent déjà choisis dans la fenêtre d'ajout. */
   const [uploadFiles, setUploadFiles] = useState<File[] | undefined>(undefined);
+
+  // Ctrl+V sur la page : les fichiers collés ouvrent la fenêtre d'ajout vers le dossier ouvert (le texte et les champs de saisie ne sont pas touchés).
+  useEffect(() => {
+    if (!canAddFile || !currentFolder || uploadParent !== null) return;
+    const surColler = (e: ClipboardEvent) => {
+      const cible = e.target as HTMLElement | null;
+      if (cible && (cible.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(cible.tagName))) return;
+      const colles = Array.from(e.clipboardData?.files ?? []);
+      if (colles.length === 0) return;
+      e.preventDefault();
+      setUploadFiles(colles);
+      setUploadParent(currentFolder);
+    };
+    document.addEventListener("paste", surColler);
+    return () => document.removeEventListener("paste", surColler);
+  }, [canAddFile, currentFolder, uploadParent]);
   const [moveNode, setMoveNode] = useState<Noeud | null>(null);
   const [previewNode, setPreviewNode] = useState<Noeud | null>(null);
 
@@ -349,7 +365,7 @@ export function StructurationPage() {
     const dossierDe = async (chemin: string[]): Promise<string> => {
       let parentId = uploadParent;
       for (let i = 0; i < chemin.length; i++) {
-        const cle = chemin.slice(0, i + 1).join(" ");
+        const cle = chemin.slice(0, i + 1).join("/");
         let id = dossiersCrees.get(cle);
         if (!id) {
           id = (await addNoeud({ libelle: chemin[i], description: "", type: "dossier", societeId: parentNode?.societeId ?? null, parentId })).id;

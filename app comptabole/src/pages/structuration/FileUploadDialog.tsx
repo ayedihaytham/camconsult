@@ -68,10 +68,23 @@ export function FileUploadDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  function addFiles(list: FileList | null) {
-    if (!list) return;
+  function addFiles(list: FileList | File[] | null) {
+    if (!list || list.length === 0) return;
     setFiles((prev) => [...prev, ...Array.from(list)]);
   }
+
+  // Coller (Ctrl+V) : les fichiers copiés dans l'explorateur, ou une capture d'écran, s'ajoutent à la liste tant que la fenêtre est ouverte.
+  useEffect(() => {
+    if (!open) return;
+    const surColler = (e: ClipboardEvent) => {
+      const colles = Array.from(e.clipboardData?.files ?? []);
+      if (colles.length === 0) return; // du texte : le collage normal (description) continue
+      e.preventDefault();
+      setFiles((prev) => [...prev, ...colles]);
+    };
+    document.addEventListener("paste", surColler);
+    return () => document.removeEventListener("paste", surColler);
+  }, [open]);
 
   async function handleSubmit() {
     if (files.length === 0) return;
@@ -162,7 +175,7 @@ export function FileUploadDialog({
           >
             <UploadCloud className="h-6 w-6 text-muted-foreground" />
             <p className="text-sm text-foreground">
-              Glissez des fichiers ici ou{" "}
+              Glissez ou collez (Ctrl+V) des fichiers ici, ou{" "}
               <span className="font-semibold text-foreground underline underline-offset-2">parcourez</span>
             </p>
             <p className="text-xs text-muted-foreground">
@@ -173,7 +186,10 @@ export function FileUploadDialog({
               type="file"
               multiple
               className="hidden"
-              onChange={(e) => addFiles(e.target.files)}
+              onChange={(e) => {
+                addFiles(e.target.files);
+                e.target.value = ""; // permet de rechoisir le même fichier
+              }}
             />
           </div>
 

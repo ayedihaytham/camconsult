@@ -12,7 +12,8 @@ const TONS = {
 const LIBELLES = { erreur: "Incohérence", attention: "À traiter", info: "À savoir" } as const;
 
 /** Ce qui ne tombe pas juste entre le suivi bancaire, le suivi fournisseur et le suivi client devise : chaque alerte dit quoi et mène à l'écran où le corriger. */
-export function CoherenceBanque({ alertes }: { alertes: AlerteCoherence[] }) {
+/** `ici` : l'écran où l'on se trouve, dont le lien n'est pas proposé ; `sansTitre` : le titre est déjà donné par le bandeau qui contient la liste. */
+export function CoherenceBanque({ alertes, ici, sansTitre }: { alertes: AlerteCoherence[]; ici?: string; sansTitre?: boolean }) {
   if (alertes.length === 0) {
     return (
       <section aria-label="Cohérence entre modules" className="flex items-center gap-2 border-t border-border px-5 py-4 text-sm text-success">
@@ -23,7 +24,7 @@ export function CoherenceBanque({ alertes }: { alertes: AlerteCoherence[] }) {
   }
   return (
     <section aria-label="Cohérence entre modules" className="border-t-2 border-accent/40 bg-accent/[0.07] px-5 py-4">
-      <h3 className="mb-2 text-sm font-bold text-primary">Cohérence entre modules ({alertes.length})</h3>
+      {!sansTitre && <h3 className="mb-2 text-sm font-bold text-primary">Cohérence entre modules ({alertes.length})</h3>}
       <ul className="space-y-1.5">
         {alertes.slice(0, 50).map((a, i) => {
           const Icone = ICONES[a.gravite];
@@ -34,9 +35,11 @@ export function CoherenceBanque({ alertes }: { alertes: AlerteCoherence[] }) {
                 <span className={cn("mr-1.5 font-semibold", TONS[a.gravite])}>{LIBELLES[a.gravite]}</span>
                 {a.message}
               </span>
-              <Link to={a.lien.route} className="shrink-0 font-semibold text-primary hover:underline">
-                {a.lien.libelle}
-              </Link>
+              {a.lien.route !== ici && (
+                <Link to={a.lien.route} className="shrink-0 font-semibold text-primary hover:underline">
+                  {a.lien.libelle}
+                </Link>
+              )}
             </li>
           );
         })}

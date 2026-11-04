@@ -34,6 +34,7 @@ export async function alertesCoherence(societeId) {
     const partiel = Number(e.affecte) > TOLERANCE;
     ajouter({
       code: "encaissement_non_affecte",
+      modules: ["banque", "devise"],
       gravite: "attention",
       date: jour(e.date_op),
       message: partiel
@@ -62,6 +63,7 @@ export async function alertesCoherence(societeId) {
     if (Math.abs(ecart) <= TOLERANCE) continue;
     ajouter({
       code: "montant_banque_different",
+      modules: ["banque", "fournisseur"],
       gravite: "erreur",
       date: jour(p.date_reglement),
       message: `Règlement du ${date(jour(p.date_reglement))} (${p.fournisseur_cle}) : ${fr(Number(p.debit))} ${p.devise} sortis de la banque, mais factures moins retenue = ${fr(vire)} ${p.devise} (écart ${fr(ecart)}).`,
@@ -83,6 +85,7 @@ export async function alertesCoherence(societeId) {
     if (trop <= TOLERANCE || Number(a.regle) <= 0) continue;
     ajouter({
       code: "facture_surreglee",
+      modules: ["fournisseur", "stock"],
       gravite: "erreur",
       date: null,
       message: `Facture d'achat ${a.achat_num_facture || "sans numéro"} (${a.fournisseur}) sur-réglée de ${fr(trop)} ${a.achat_devise} : ${fr(Number(a.regle))} ${a.achat_devise} réglés pour ${fr(Number(a.montant))} ${a.achat_devise}.`,
@@ -102,6 +105,7 @@ export async function alertesCoherence(societeId) {
     if (trop <= TOLERANCE) continue;
     ajouter({
       code: "facture_surreglee",
+      modules: ["devise"],
       gravite: "erreur",
       date: null,
       message: `Facture client ${f.n_facture || "sans numéro"} (${f.client}) sur-réglée de ${fr(trop)} ${f.devise} : ${fr(Number(f.regle))} ${f.devise} affectés pour ${fr(du)} ${f.devise}.`,
@@ -123,6 +127,7 @@ export async function alertesCoherence(societeId) {
       const montant = Number(c.debit) > 0 ? Number(c.debit) : Number(c.credit);
       ajouter({
         code: "change_non_lie",
+        modules: ["banque"],
         gravite: "info",
         date: jour(c.date_op),
         message: `Change du ${date(jour(c.date_op))} « ${c.libelle.trim()} » (${fr(montant)} ${c.devise}) : l'autre jambe n'est pas reliée, le cours réel n'est pas connu.`,
@@ -130,6 +135,26 @@ export async function alertesCoherence(societeId) {
         mouvementBancaireId: c.id,
       });
     }
+  }
+
+  // 5. Paiements fournisseur en banque qu'aucun règlement du suivi fournisseur ne rapproche : une seule alerte pour toute la société.
+  const { rows: sansReglement } = await query(
+    `select count(*) as n, coalesce(max(m.date_op), null) as dernier
+       from mouvements_bancaires m
+      where m.societe_id = $1 and m.type = 'paiement_fournisseur' and m.debit > 0
+        and not exists (select 1 from fournisseur_reglements r where r.mouvement_bancaire_id = m.id)`,
+    [societeId],
+  );
+  const nSans = Number(sansReglement[0]?.n ?? 0);
+  if (nSans > 0) {
+    ajouter({
+      code: "paiement_non_rapproche",
+      modules: ["banque", "fournisseur"],
+      gravite: "attention",
+      date: jour(sansReglement[0].dernier),
+      message: `${nSans} paiement${nSans > 1 ? "s" : ""} fournisseur en banque ${nSans > 1 ? "n'ont" : "n'a"} pas de règlement dans le suivi fournisseur : les factures concernées restent à régler.`,
+      lien: { route: `/fournisseurs/${societeId}`, libelle: "Suivi fournisseur" },
+    });
   }
 
   return alertes.sort((a, b) => ordreGravite[a.gravite] - ordreGravite[b.gravite] || String(b.date ?? "").localeCompare(String(a.date ?? "")));

@@ -120,6 +120,19 @@ describe.skipIf(!actif)("intégration PostgreSQL : cohérence entre modules", ()
     expect(new Set(g)).toEqual(new Set(["erreur", "attention", "info"]));
   });
 
+  it("chaque alerte dit quels modules elle concerne ; les paiements en banque sans règlement fournisseur sont comptés en une seule alerte", async () => {
+    await admin("POST", `/api/banque/comptes/${eur}/import`, { mouvements: [mvt("2026-04-01", "REGLEMENT SOTACIB", 500, 0, "paiement_fournisseur"), mvt("2026-04-02", "REGLEMENT SOTACIB 2", 700, 0, "paiement_fournisseur")] });
+    const liste = await alertes();
+    const sans = liste.filter((x) => x.code === "paiement_non_rapproche");
+    expect(sans).toHaveLength(1);
+    expect(sans[0]).toMatchObject({ gravite: "attention", modules: ["banque", "fournisseur"], lien: { route: `/fournisseurs/${societe}` } });
+    expect(sans[0].message).toMatch(/^2 paiements fournisseur en banque n'ont pas de règlement/);
+    const modules = (code) => [...new Set(liste.filter((x) => x.code === code).map((x) => x.modules.join("+")))];
+    expect(modules("encaissement_non_affecte")).toEqual(["banque+devise"]);
+    expect(modules("change_non_lie")).toEqual(["banque"]);
+    expect(liste.every((x) => Array.isArray(x.modules) && x.modules.length > 0)).toBe(true);
+  });
+
   it("le compte de société n'y accède pas", async () => {
     expect((await client("GET", `/api/banque/coherence?societeId=${societe}`)).status).toBe(403);
     expect((await admin("GET", "/api/banque/coherence")).status).toBe(400);

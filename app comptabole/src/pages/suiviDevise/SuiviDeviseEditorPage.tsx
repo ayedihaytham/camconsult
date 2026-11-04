@@ -1,3 +1,4 @@
+import { CoherenceModule } from "@/pages/banque/CoherenceModule";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -446,6 +447,8 @@ export function SuiviDeviseEditorPage() {
           </span>
         </p>
       )}
+      {/* Les factures sur-réglées ne sont montrées que pour cette fiche ; les encaissements non affectés concernent toute la société. */}
+      <CoherenceModule societeId={societeId} module="devise" className="mt-3" garde={(a) => a.code !== "facture_surreglee" || a.lien.route.endsWith(`/${suiviId}`)} />
       <dl className="mt-3 grid grid-cols-1 divide-y divide-border border-y border-border bg-muted/35 sm:grid-cols-2 lg:grid-cols-4 sm:divide-x sm:divide-y-0">
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">
           <dt className="text-xs text-muted-foreground">

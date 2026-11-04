@@ -1,3 +1,4 @@
+import { CoherenceModule } from "@/pages/banque/CoherenceModule";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -177,6 +178,8 @@ export function FournisseursSocietePage() {
           }
         />
       </div>
+
+      <CoherenceModule societeId={societeId} module="fournisseur" className="mt-4" />
 
       <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="fournisseurs-recap">
         {recap.length === 0 ? (

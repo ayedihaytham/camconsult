@@ -1,3 +1,4 @@
+import { CoherenceModule } from "@/pages/banque/CoherenceModule";
 import { useEffect, useMemo, useState } from "react";
 import { useParams,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -427,6 +428,7 @@ export function StockSocietePage() {
             <p className="mt-1.5 text-xs">Vérifiez le numéro, ou supprimez le mouvement saisi deux fois.</p>
           </div>
         )}
+        <CoherenceModule societeId={societeId} module="stock" className="mx-5 mb-4" />
         {shown.length > 0 && vue === "recap" && (
           <div>
             <StockRecapSocieteTable douane={prefs.colonnes.douane} base={recapSoc} recap={recapAffiche} filtres={filtresRecap} onFiltres={setFiltresRecap} onOuvrir={(id) => { setVue("mouvements"); setOuvertId(id); }} />

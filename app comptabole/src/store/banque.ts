@@ -44,6 +44,8 @@ interface BanqueState extends EtatBanque {
   /** Relie des paires de lignes comme les deux jambes d'un même change. */
   lierChanges: (paires: { a: string; b: string }[]) => Promise<void>;
   delierChange: (id: string) => Promise<void>;
+  /** Remplace la liste des changes qui ont converti un encaissement en devise (part en devise de chacun). */
+  convertirEncaissement: (id: string, conversions: { changeId: string; montant: number }[]) => Promise<void>;
   updateMouvement: (id: string, data: MouvementInput) => Promise<void>;
   removeMouvement: (id: string) => Promise<void>;
 }
@@ -110,6 +112,7 @@ export const useBanque = create<BanqueState>((set) => {
     marquerARevoir: (id, aRevoir, note) => run(() => api.patch<EtatBanque>(`/banque/mouvements/${id}/revoir`, { aRevoir, ...(note === undefined ? {} : { note }) })),
     lierChanges: (paires) => run(() => api.post<EtatBanque>("/banque/changes-lies", { paires })),
     delierChange: (id) => run(() => api.del<EtatBanque>(`/banque/mouvements/${id}/change-lie`)),
+    convertirEncaissement: (id, conversions) => run(() => api.post<EtatBanque>(`/banque/mouvements/${id}/conversions`, { conversions })),
     updateMouvement: (id, data) => run(() => api.patch<EtatBanque>(`/banque/mouvements/${id}`, data)),
     removeMouvement: (id) => run(() => api.del<EtatBanque>(`/banque/mouvements/${id}`)),
   };

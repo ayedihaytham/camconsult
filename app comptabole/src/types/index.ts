@@ -1225,6 +1225,10 @@ export interface MouvementBancaire {
   changeLie?: { id: string; compteId: string; devise: string; montant: number; dateOp: string; coursReel: number | null } | null;
   /** Cours réel du change relié : dinars ÷ devise (information, rien n'est recalculé avec). */
   coursReel?: number | null;
+  /** Encaissement en devise : les changes qui l'ont converti en dinars (part en devise, date et cours réel de chacun). */
+  conversions?: { changeId: string; montant: number; dateOp: string; coursReel: number | null }[];
+  /** Change : part de sa sortie déjà attribuée à des encaissements. */
+  changeUtilise?: number;
 }
 
 /** Solde réel de la banque en fin de mois (celui du relevé) d'un compte, avec une note du mois. */
@@ -1367,7 +1371,9 @@ export interface CircuitStock {
 
 /** Ce qui ne tombe pas juste entre le suivi bancaire, le suivi fournisseur et le suivi client devise (GET /banque/coherence). */
 export interface AlerteCoherence {
-  code: "encaissement_non_affecte" | "montant_banque_different" | "facture_surreglee" | "change_non_lie";
+  code: "encaissement_non_affecte" | "montant_banque_different" | "facture_surreglee" | "change_non_lie" | "paiement_non_rapproche";
+  /** Modules que l'alerte concerne : chacun l'affiche sur son écran. */
+  modules: ("banque" | "fournisseur" | "devise" | "stock")[];
   gravite: "erreur" | "attention" | "info";
   date: string | null;
   message: string;

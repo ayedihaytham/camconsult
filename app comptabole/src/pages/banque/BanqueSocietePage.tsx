@@ -28,6 +28,7 @@ import { pistesEcart } from "@/lib/banqueEcart";
 import { estFrais, syntheseFrais } from "@/lib/banqueFrais";
 import { FraisBancaires } from "./FraisBancaires";
 import { SaisieRapideDialog } from "./SaisieRapideDialog";
+import { ConvertirEncaissementDialog } from "./ConvertirEncaissementDialog";
 import { RelierChangesDialog } from "./RelierChangesDialog";
 import { CoherenceBanque } from "./CoherenceBanque";
 import { BarreChargement, LegendeChargement, SqueletteOr, SqueletteTableau } from "@/components/ledger/Chargement";
@@ -50,6 +51,7 @@ export function BanqueSocietePage() {
   const updateCompte = useBanque((s) => s.updateCompte);
   const lierChanges = useBanque((s) => s.lierChanges);
   const delierChange = useBanque((s) => s.delierChange);
+  const convertirEncaissement = useBanque((s) => s.convertirEncaissement);
   const removeCompte = useBanque((s) => s.removeCompte);
   const addMouvement = useBanque((s) => s.addMouvement);
   const importMouvements = useBanque((s) => s.importMouvements);
@@ -75,6 +77,7 @@ export function BanqueSocietePage() {
   const [importOuvert, setImportOuvert] = useState(false);
   const [saisieRapideOuverte, setSaisieRapideOuverte] = useState(false);
   const [changesOuverts, setChangesOuverts] = useState(false);
+  const [conversionDe, setConversionDe] = useState<MouvementBancaire | null>(null);
   const [mouvementOuvert, setMouvementOuvert] = useState(false);
   const [editing, setEditing] = useState<MouvementBancaire | null>(null);
   const [toDelete, setToDelete] = useState<MouvementBancaire | null>(null);
@@ -373,6 +376,8 @@ export function BanqueSocietePage() {
               onARevoir={lectureSeule ? undefined : (m) => void marquerARevoir(m.id, !m.aRevoir)}
               onRapprocherClient={(m) => void rapprocherClient(m)}
               onDelierChange={(m) => void delierChange(m.id)}
+              devise={compte?.devise}
+              onConvertir={setConversionDe}
             />
           )}
 
@@ -430,6 +435,18 @@ export function BanqueSocietePage() {
             onLier={async (paires) => {
               await lierChanges(paires);
               toast.success(`${paires.length} change${paires.length > 1 ? "s" : ""} relié${paires.length > 1 ? "s" : ""}`);
+            }}
+          />
+          <ConvertirEncaissementDialog
+            open={conversionDe !== null}
+            onOpenChange={(o) => !o && setConversionDe(null)}
+            encaissement={conversionDe ? (tous.find((m) => m.id === conversionDe.id) ?? conversionDe) : null}
+            mouvements={tous}
+            devise={compte.devise}
+            onEnregistrer={async (conversions) => {
+              if (!conversionDe) return;
+              await convertirEncaissement(conversionDe.id, conversions);
+              toast.success(conversions.length === 0 ? "Liens retirés" : `Encaissement relié à ${conversions.length} change${conversions.length > 1 ? "s" : ""}`);
             }}
           />
           <SaisieRapideDialog

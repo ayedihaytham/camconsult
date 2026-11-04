@@ -1478,3 +1478,13 @@ create table if not exists cours_change_usd (
 
 -- Messagerie : réactions aux messages ({ "👍": ["admin:<id>", "<employé>"] }) ; une personne ne peut mettre qu'une fois la même réaction.
 alter table messages add column if not exists reactions jsonb not null default '{}'::jsonb;
+
+-- Encaissement en devise converti en dinars : quelle part de l'encaissement (crédit d'un compte en devise) a été vendue par quel change (sortie du même compte).
+-- Le cours réel de chaque change vient de ses deux jambes ; rien n'est recalculé avec, c'est une information de suivi.
+create table if not exists encaissement_changes (
+  encaissement_id uuid not null references mouvements_bancaires(id) on delete cascade,
+  change_id       uuid not null references mouvements_bancaires(id) on delete cascade,
+  montant         numeric(18,3) not null check (montant > 0),
+  primary key (encaissement_id, change_id)
+);
+create index if not exists encaissement_changes_change_idx on encaissement_changes(change_id);

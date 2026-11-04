@@ -56,6 +56,23 @@ async function etat(societeId) {
     const cours = tnd && dev && montantDe(dev) > 0 ? Math.round((montantDe(tnd) / montantDe(dev)) * 10000) / 10000 : null;
     return { id: autre.id, compteId: autre.compte_id, devise: da, montant: montantDe(autre), dateOp: jour(autre.date_op), coursReel: cours };
   };
+  // Conversions : part de chaque encaissement en devise vendue par un change du même compte (et part déjà utilisée de chaque change).
+  const { rows: conv } = await query(
+    `select e.encaissement_id, e.change_id, e.montant
+       from encaissement_changes e join mouvements_bancaires m on m.id = e.encaissement_id
+      where m.societe_id = $1`,
+    [societeId],
+  );
+  const conversionsDe = new Map();
+  const utiliseDe = new Map();
+  for (const x of conv) {
+    const ch = parId.get(x.change_id);
+    if (!ch) continue;
+    const lie = changeLie(ch);
+    if (!conversionsDe.has(x.encaissement_id)) conversionsDe.set(x.encaissement_id, []);
+    conversionsDe.get(x.encaissement_id).push({ changeId: x.change_id, montant: Number(x.montant), dateOp: jour(ch.date_op), coursReel: lie?.coursReel ?? null });
+    utiliseDe.set(x.change_id, Math.round(((utiliseDe.get(x.change_id) ?? 0) + Number(x.montant)) * 1000) / 1000);
+  }
   const { rows: releves } = await query(
     `select r.compte_id, r.mois, r.solde_reel, r.note
        from releves_mensuels r join comptes_bancaires c on c.id = r.compte_id
@@ -99,6 +116,9 @@ async function etat(societeId) {
       /** Part de l'encaissement déjà reliée à des règlements du suivi client devise, et ces règlements. */
       affecteClient: Number(m.affecte_client),
       reglementsClient: m.reglements_client ?? [],
+      /** Encaissement en devise : les changes qui l'ont converti ; et, pour un change, la part déjà attribuée à des encaissements. */
+      conversions: conversionsDe.get(m.id) ?? [],
+      changeUtilise: utiliseDe.get(m.id) ?? 0,
       aRevoir: Boolean(m.a_revoir),
       note: m.note ?? "",
       reglementId: m.reglement_id ?? null,
@@ -485,6 +505,46 @@ banqueRouter.post("/changes-lies", async (req, res) => {
   });
   logAction(req.session.nom, "modification", "suivi bancaire", `${parsed.data.paires.length} change(s) relié(s)`);
   res.json(await etat(societeId));
+});
+
+/**
+ * Relie un encaissement en devise aux changes qui l'ont converti en dinars (remplace la liste). Contrôles : encaissement client d'un compte en devise ;
+ * chaque change est une sortie du même compte ; la somme attribuée ne dépasse ni l'encaissement, ni ce qui reste de chaque change (autres encaissements compris).
+ */
+banqueRouter.post("/mouvements/:id/conversions", async (req, res) => {
+  const parsed = z
+    .object({ conversions: z.array(z.object({ changeId: z.string().uuid(), montant: z.number().positive() })).max(100) })
+    .safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || "Données invalides" });
+  if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) return res.status(404).json({ error: "Mouvement introuvable" });
+  const { rows } = await parLigne([req.params.id]);
+  const enc = rows[0];
+  if (!enc) return res.status(404).json({ error: "Mouvement introuvable" });
+  if (!canWrite(req.session, enc.societe_id)) return res.status(403).json({ error: "Accès non autorisé" });
+  if (!(Number(enc.credit) > 0) || enc.type !== "encaissement_client") return res.status(400).json({ error: "Seul un encaissement client peut être relié à un change" });
+  if (enc.devise === "TND") return res.status(400).json({ error: "Un encaissement en dinars n'a pas besoin de change" });
+  const ids = parsed.data.conversions.map((x) => x.changeId);
+  if (new Set(ids).size !== ids.length) return res.status(400).json({ error: "Un change figure deux fois" });
+  const changes = ids.length ? (await parLigne(ids)).rows : [];
+  const parId = new Map(changes.map((x) => [x.id, x]));
+  let total = 0;
+  for (const x of parsed.data.conversions) {
+    const ch = parId.get(x.changeId);
+    if (!ch) return res.status(400).json({ error: "Change introuvable" });
+    if (ch.societe_id !== enc.societe_id) return res.status(400).json({ error: "Ce change n'est pas de la même société" });
+    if (ch.compte_id !== enc.compte_id || !(Number(ch.debit) > 0) || ch.type !== "change")
+      return res.status(400).json({ error: "Le change doit être une sortie de change du compte qui a reçu l'encaissement" });
+    const { rows: autres } = await query("select coalesce(sum(montant), 0) as s from encaissement_changes where change_id = $1 and encaissement_id <> $2", [ch.id, enc.id]);
+    if (x.montant > Number(ch.debit) - Number(autres[0].s) + 0.0005) return res.status(400).json({ error: "Le montant dépasse ce qui reste de ce change" });
+    total += x.montant;
+  }
+  if (total > Number(enc.credit) + 0.0005) return res.status(400).json({ error: "Le total dépasse le montant de l'encaissement" });
+  await withTransaction(async (client) => {
+    await client.query("delete from encaissement_changes where encaissement_id = $1", [enc.id]);
+    for (const x of parsed.data.conversions) await client.query("insert into encaissement_changes (encaissement_id, change_id, montant) values ($1,$2,$3)", [enc.id, x.changeId, x.montant]);
+  });
+  logAction(req.session.nom, "modification", "suivi bancaire", `Encaissement relié à ${parsed.data.conversions.length} change(s)`);
+  res.json(await etat(enc.societe_id));
 });
 
 /** Délie les deux jambes d'un change (les lignes restent de type « change »). */

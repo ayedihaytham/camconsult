@@ -2,6 +2,7 @@ import { ArrowLeftRight, Flag, Link2, Pencil, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn, formatDate } from "@/lib/utils";
 import { TYPE_LABELS } from "@/lib/banque";
+import { coursMoyenConversions } from "@/lib/banqueConversion";
 import { fmtMontant } from "@/lib/stockRecap";
 import type { MouvementBancaire, TypeMouvementBancaire } from "@/types";
 
@@ -21,6 +22,10 @@ interface Props {
   onRapprocherClient?: (m: MouvementBancaire) => void;
   /** Délie les deux jambes d'un change. */
   onDelierChange?: (m: MouvementBancaire) => void;
+  /** Devise du compte affiché : seul un encaissement en devise se relie à des changes. */
+  devise?: string;
+  /** Ouvre le choix des changes qui ont converti cet encaissement en dinars. */
+  onConvertir?: (m: MouvementBancaire) => void;
 }
 
 const th = "whitespace-nowrap px-2 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground";
@@ -41,7 +46,7 @@ const montant = (n: number) => (n ? fmtMontant(n) : "—");
 
 /** Mouvements d'un compte : les opérations d'un même N° pièce (opération, TVA, commission, intérêts) sont
  * regroupées, et un paiement fournisseur se rapproche de son règlement. */
-export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lectureSeule, onEdit, onDelete, onRapprocher, onARevoir, onRapprocherClient, onDelierChange }: Props) {
+export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lectureSeule, onEdit, onDelete, onRapprocher, onARevoir, onRapprocherClient, onDelierChange, devise, onConvertir }: Props) {
   return (
     <div className="overflow-x-auto" data-tour="banque-mouvements">
       <table className="w-full min-w-[64rem] border-collapse text-xs">
@@ -101,6 +106,7 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                 <td className={tdNum}>{montant(vueSociete ? m.debit : m.credit)}</td>
                 <td className={cn(tdNum, "font-semibold", (soldes.get(m.id) ?? 0) < 0 && "text-destructive")}>{fmtMontant(soldes.get(m.id) ?? 0)}</td>
                 <td className={cn(td, "whitespace-nowrap")}>
+                  <div className="flex flex-col items-start gap-1">
                   {m.reglementId ? (
                     <Link
                       to={`/fournisseurs/${societeId}`}
@@ -154,6 +160,26 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                   ) : (
                     ""
                   )}
+                  {m.credit > 0 && m.type === "encaissement_client" && devise && devise !== "TND" && onConvertir && (m.conversions?.length ?? 0) > 0 ? (() => {
+                    const moyen = coursMoyenConversions(m.conversions ?? []);
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => onConvertir(m)}
+                        title="Changes qui ont converti cet encaissement en dinars"
+                        className="inline-flex items-center gap-1 rounded-full bg-accent/20 px-2 py-0.5 text-[0.65rem] font-semibold text-primary hover:bg-accent/30"
+                      >
+                        <ArrowLeftRight className="size-3" aria-hidden="true" />
+                        Converti {fmtMontant(moyen.converti)}/{fmtMontant(m.credit)}
+                        {moyen.cours ? ` · cours ${moyen.cours.toLocaleString("fr-FR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}${moyen.partiel ? " (partiel)" : ""}` : ""}
+                      </button>
+                    );
+                  })() : m.credit > 0 && m.type === "encaissement_client" && devise && devise !== "TND" && onConvertir && !lectureSeule ? (
+                    <button type="button" onClick={() => onConvertir(m)} className="rounded-md border border-border px-2 py-0.5 text-[0.7rem] font-medium text-muted-foreground hover:border-accent/40 hover:bg-accent/10 hover:text-primary">
+                      Relier au change
+                    </button>
+                  ) : null}
+                  </div>
                 </td>
                 <td className={td}>
                   {!lectureSeule && (

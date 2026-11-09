@@ -354,11 +354,86 @@ export function extraireMouvements(pages: PdfTextItem[][]): string[][] | null {
   return [gardees.map((a) => a.nom), ...lignes.map((l) => gardees.map((a) => l[a.i] ?? ""))];
 }
 
+// ── Colonnes indiquées à la main (relevé dont l'en-tête n'est pas reconnu) ───────────────
+
+export type RoleColonne = "" | "date" | "libelle" | "reference" | "debit" | "credit" | "solde";
+export const ROLES_COLONNES: { valeur: RoleColonne; nom: string }[] = [
+  { valeur: "", nom: "Ignorer" },
+  { valeur: "date", nom: "Date" },
+  { valeur: "libelle", nom: "Libellé de l'opération" },
+  { valeur: "reference", nom: "Référence" },
+  { valeur: "debit", nom: "Débit" },
+  { valeur: "credit", nom: "Crédit" },
+  { valeur: "solde", nom: "Solde" },
+];
+/** Colonnes d'un relevé : la zone horizontale (en points PDF) de chacune et le rôle que l'utilisateur lui a donné. */
+export interface ColonnesChoisies {
+  bandes: { debut: number; fin: number }[];
+  roles: RoleColonne[];
+}
+export interface ApercuColonnes {
+  bandes: { debut: number; fin: number }[];
+  /** Quelques lignes du tableau, cellule par colonne, pour que l'utilisateur reconnaisse ses colonnes. */
+  exemple: string[][];
+}
+
+const cellulesDePage = (items: PdfTextItem[]) => grouperLignes(items.filter((i) => i.str.trim() !== "")).map(fusionnerCellules).filter((l) => l.length > 0);
+
+/** Colonnes de la première page qui contient des lignes datées, avec un échantillon de lignes, pour l'assistant « Indiquer les colonnes ». */
+export function apercuColonnes(pages: PdfTextItem[][]): ApercuColonnes | null {
+  for (const items of pages) {
+    const lignes = cellulesDePage(items);
+    if (lignes.filter((l) => l.some((c) => DATE.test(c.texte))).length < 2) continue;
+    const bandes = colonnes(lignes);
+    if (bandes.length < 2) continue;
+    const grille = lignes.map((cellules) => {
+      const ligne = bandes.map(() => "");
+      for (const c of cellules) {
+        const i = indexColonne(c, bandes);
+        ligne[i] = ligne[i] ? `${ligne[i]} ${c.texte}` : c.texte;
+      }
+      return ligne;
+    });
+    const premiere = grille.findIndex((l) => l.some((c) => DATE.test(c)));
+    return { bandes: bandes.map((b) => ({ debut: b.debut, fin: b.fin })), exemple: grille.slice(Math.max(0, premiere - 1), Math.max(0, premiere - 1) + 7) };
+  }
+  return null;
+}
+
+/** Mouvements d'un relevé d'après les colonnes indiquées : chaque ligne dont la colonne « Date » contient une date est une opération ; une ligne
+ * sans date qui n'a que du libellé complète l'opération précédente. Renvoie null sans colonne « Date » ou sans opération. */
+export function extraireAvecColonnes(pages: PdfTextItem[][], choix: ColonnesChoisies): string[][] | null {
+  const iDate = choix.roles.indexOf("date");
+  const iLibelle = choix.roles.indexOf("libelle");
+  if (iDate < 0) return null;
+  const gardees = choix.roles.map((role, i) => ({ role, i })).filter((c) => c.role !== "");
+  const lignes: string[][] = [];
+  for (const items of pages) {
+    for (const cellules of cellulesDePage(items)) {
+      const r = choix.bandes.map(() => "");
+      for (const c of cellules) {
+        const i = indexColonne(c, choix.bandes);
+        r[i] = r[i] ? `${r[i]} ${c.texte}` : c.texte;
+      }
+      if (DATE.test(r[iDate])) {
+        r[iDate] = dateLisible(r[iDate]);
+        lignes.push(r);
+      } else if (iLibelle >= 0 && lignes.length > 0 && r[iLibelle] && r.filter(Boolean).length === 1 && r[iLibelle].length <= 60) {
+        const derniere = lignes[lignes.length - 1];
+        derniere[iLibelle] = `${derniere[iLibelle]} ${r[iLibelle]}`.trim();
+      }
+    }
+  }
+  if (lignes.length === 0) return null;
+  const nom = (role: RoleColonne) => ROLES_COLONNES.find((x) => x.valeur === role)?.nom ?? role;
+  return [gardees.map((c) => nom(c.role)), ...lignes.map((l) => gardees.map((c) => l[c.i] ?? ""))];
+}
+
 /** Une feuille par page (les pages sans texte sont ignorées), ou toutes les pages dans une seule feuille.
  * Avec `tableauSeul`, seules les lignes du tableau des mouvements d'un relevé sont gardées (une feuille). */
 export function feuillesDePdf(
   pages: PdfTextItem[][],
-  options: OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean; harmoniserLibelles?: boolean } = {},
+  options: OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean; harmoniserLibelles?: boolean; colonnes?: ColonnesChoisies } = {},
 ): PdfSheet[] {
   return lireTableauxPdf(pages, options).feuilles;
 }
@@ -367,11 +442,11 @@ export function feuillesDePdf(
  * le document complet. */
 export type ModeDePdf = "mouvements" | "tableaux" | "complet";
 
-type OptionsFeuilles = OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean; harmoniserLibelles?: boolean };
+type OptionsFeuilles = OptionsConversion & { uneSeuleFeuille?: boolean; tableauSeul?: boolean; harmoniserLibelles?: boolean; colonnes?: ColonnesChoisies };
 
 function lireTableauxPdf(pages: PdfTextItem[][], options: OptionsFeuilles): { mode: ModeDePdf; feuilles: PdfSheet[] } {
   if (options.tableauSeul) {
-    const lus = extraireMouvements(pages);
+    const lus = (options.colonnes ? extraireAvecColonnes(pages, options.colonnes) : null) ?? extraireMouvements(pages);
     // Texte lu par OCR : les libellés abîmés sont ramenés au libellé que le relevé répète le plus souvent (jamais les montants).
     const mouvements = lus && options.harmoniserLibelles ? harmoniserLibelles(lus) : lus;
     if (mouvements) {

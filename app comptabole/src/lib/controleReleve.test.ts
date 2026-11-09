@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { controleReleve, feuilleControle, harmoniserLibelles, montantDe, sansRepetition, totauxImprimes } from "./controleReleve";
+import { controleReleve, feuilleControle, harmoniserLibelles, montantDe, sansRepetition, totauxImprimes, verifierChaineSoldes } from "./controleReleve";
 import type { PdfTextItem } from "./pdfToTables";
 
 const ligne = (texte: string, y: number): PdfTextItem[] => texte.split("|").map((str, i) => ({ str: str.trim(), x: 20 + i * 90, y, w: 60, h: 10 }));
@@ -116,5 +116,50 @@ describe("contrôle par les soldes imprimés (relevé sans ligne « Totaux »)",
     const c = controleReleve(pages, [entete, ["01/09/2026", "A", "1 661 510,57", ""], ["02/09/2026", "B", "", "1 143 654,00"]]);
     expect(c?.ok).toBe(false);
     expect(c?.lignes[0].ecart).toBe(0.1);
+  });
+});
+
+describe("preuve ligne par ligne par la colonne Solde", () => {
+  const entete = ["Date", "Libellé de l'opération", "Débit", "Crédit", "Solde"];
+  const juste = [
+    entete,
+    ["01/02/2026", "Retrait", "100,000", "", "900,000"],
+    ["02/02/2026", "Virement reçu", "", "250,000", "1 150,000"],
+    ["03/02/2026", "Chèque 123", "50,000", "", "1 100,000"],
+    ["04/02/2026", "Frais", "10,000", "", "1 090,000"],
+  ];
+
+  it("des soldes qui suivent : aucune ligne suspecte", () => {
+    const r = verifierChaineSoldes(juste, 1000);
+    expect(r).toEqual({ verifiees: 4, suspectes: [] });
+  });
+
+  it("un montant rangé dans la mauvaise colonne désigne sa ligne", () => {
+    const faux = juste.map((l) => [...l]);
+    faux[2] = ["02/02/2026", "Virement reçu", "250,000", "", "1 150,000"];
+    const r = verifierChaineSoldes(faux, 1000);
+    expect(r?.suspectes.map((m) => m.rang)).toEqual([2]);
+    expect(r?.suspectes[0]).toMatchObject({ libelle: "Virement reçu", attendu: 650, lu: 1150 });
+  });
+
+  it("fonctionne sans solde de départ imprimé, et dans l'ordre inverse des dates", () => {
+    expect(verifierChaineSoldes(juste, null)?.suspectes).toEqual([]);
+    expect(verifierChaineSoldes([entete, ...juste.slice(1).reverse()], null)?.suspectes).toEqual([]);
+  });
+
+  it("le sens inverse (le crédit diminue le solde) est reconnu, une colonne qui n'est pas un solde ne conclut rien", () => {
+    const debiteur = [entete, ["01/02", "A", "", "100,000", "900,000"], ["02/02", "B", "", "50,000", "850,000"], ["03/02", "C", "20,000", "", "870,000"], ["04/02", "D", "", "10,000", "860,000"]];
+    expect(verifierChaineSoldes(debiteur, 1000)?.suspectes).toEqual([]);
+    const au_hasard = [entete, ["01/02", "A", "5,000", "", "17,000"], ["02/02", "B", "5,000", "", "3,000"], ["03/02", "C", "5,000", "", "99,000"], ["04/02", "D", "", "5,000", "1,000"]];
+    expect(verifierChaineSoldes(au_hasard, null)).toBeNull();
+  });
+
+  it("le contrôle du relevé les reprend : verdict à vérifier avec la ligne en cause", () => {
+    const faux = juste.map((l) => [...l]);
+    faux[3] = ["03/02/2026", "Chèque 123", "", "50,000", "1 100,000"];
+    const c = controleReleve([[]], faux);
+    expect(c?.ok).toBe(false);
+    expect(c?.lignes.some((l) => l.libelle.startsWith("Ligne 3"))).toBe(true);
+    expect(controleReleve([[]], juste)?.ok).toBe(true);
   });
 });

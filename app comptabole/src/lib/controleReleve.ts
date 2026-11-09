@@ -76,7 +76,46 @@ export function soldesImprimes(pages: PdfTextItem[][]): { depart: number; fin: n
   return depart !== null && fin !== null ? { depart, fin } : null;
 }
 
-/** Compare les mouvements extraits (en-tête, puis une ligne par opération) aux totaux imprimés ; null si le relevé n'imprime pas de totaux. */
+const ligneControle = (libelle: string, calcule: number, releve: number): ControleLigne => ({ libelle, calcule: arrondi(calcule), releve: arrondi(releve), ecart: arrondi(calcule - releve), ok: Math.abs(calcule - releve) < 0.0051 });
+
+/** Preuve ligne par ligne d'un relevé qui imprime une colonne « Solde » : chaque solde doit être le précédent, plus les crédits et moins les débits
+ * (ou l'inverse selon la banque, ou dans l'ordre inverse des dates). Une ligne dont le solde ne suit pas a un montant mal lu ou rangé dans la mauvaise colonne. */
+export function verifierChaineSoldes(mouvements: string[][], depart: number | null): { verifiees: number; suspectes: { rang: number; libelle: string; attendu: number; lu: number }[] } | null {
+  const entete = mouvements[0] ?? [];
+  const iDebit = entete.findIndex((c) => /d[ée]bit/i.test(c));
+  const iCredit = entete.findIndex((c) => /cr[ée]dit/i.test(c));
+  const iSolde = entete.findIndex((c) => /^solde$/i.test(c.trim()));
+  const iLibelle = entete.findIndex((c) => /libell|d[ée]signation/i.test(c));
+  if (iDebit < 0 || iCredit < 0 || iSolde < 0) return null;
+  const lignes = mouvements.slice(1).map((l, rang) => ({ rang: rang + 1, libelle: l[iLibelle] ?? "", d: montantDe(l[iDebit] ?? "") ?? 0, c: montantDe(l[iCredit] ?? "") ?? 0, s: montantDe(l[iSolde] ?? "") }));
+  if (lignes.filter((l) => l.s !== null).length < 3) return null;
+
+  // sens : +1 = le crédit augmente le solde ; l'ordre des lignes peut être celui des dates ou son inverse.
+  const essai = (sens: 1 | -1, inverse: boolean) => {
+    const suite = inverse ? [...lignes].reverse() : lignes;
+    let precedent = !inverse ? depart : null;
+    let bons = 0;
+    const mauvaises: { rang: number; libelle: string; attendu: number; lu: number }[] = [];
+    for (const l of suite) {
+      if (l.s === null) continue;
+      if (precedent !== null) {
+        const attendu = arrondi(precedent + sens * (l.c - l.d));
+        if (Math.abs(attendu - l.s) < 0.0051) bons++;
+        else mauvaises.push({ rang: l.rang, libelle: l.libelle, attendu, lu: l.s });
+      }
+      precedent = l.s;
+    }
+    return { bons, mauvaises };
+  };
+  const choix = ([1, -1] as const).flatMap((sens) => [false, true].map((inverse) => essai(sens, inverse))).sort((a, b) => b.bons - a.bons)[0];
+  const total = choix.bons + choix.mauvaises.length;
+  // Si aucun sens ne tient pour la majorité des lignes, ce n'est pas une colonne de solde courant : on ne conclut rien.
+  if (total < 3 || choix.bons / total < 0.6) return null;
+  return { verifiees: total, suspectes: choix.mauvaises };
+}
+
+/** Compare les mouvements extraits (en-tête, puis une ligne par opération) aux preuves que le relevé imprime : totaux, soldes de départ et final,
+ * colonne « Solde » ligne par ligne. Renvoie null si le relevé n'imprime aucune preuve (il est alors « non vérifiable »). */
 export function controleReleve(pages: PdfTextItem[][], mouvements: string[][]): ControleReleve | null {
   const entete = mouvements[0] ?? [];
   const iDebit = entete.findIndex((c) => /d[ée]bit/i.test(c));
@@ -84,19 +123,8 @@ export function controleReleve(pages: PdfTextItem[][], mouvements: string[][]): 
   const iLibelle = entete.findIndex((c) => /libell|d[ée]signation/i.test(c));
   if (iDebit < 0 || iCredit < 0) return null;
   const imprimes = totauxImprimes(pages);
-  if (!imprimes) {
-    const soldes = soldesImprimes(pages);
-    if (!soldes) return null;
-    let d = 0;
-    let c = 0;
-    for (const l of mouvements.slice(1)) {
-      d += montantDe(l[iDebit] ?? "") ?? 0;
-      c += montantDe(l[iCredit] ?? "") ?? 0;
-    }
-    const calcule = arrondi(soldes.depart + c - d);
-    const l: ControleLigne = { libelle: "Solde final (départ + crédits − débits)", calcule, releve: arrondi(soldes.fin), ecart: arrondi(calcule - soldes.fin), ok: Math.abs(calcule - soldes.fin) < 0.0051 };
-    return { lignes: [l], ok: l.ok };
-  }
+  const soldes = soldesImprimes(pages);
+  const lignes: ControleLigne[] = [];
 
   let debit = 0;
   let credit = 0;
@@ -104,15 +132,25 @@ export function controleReleve(pages: PdfTextItem[][], mouvements: string[][]): 
   for (const ligne of mouvements.slice(1)) {
     const d = montantDe(ligne[iDebit] ?? "") ?? 0;
     const c = montantDe(ligne[iCredit] ?? "") ?? 0;
-    if (iLibelle >= 0 && /^\W*solde\b/i.test(ligne[iLibelle] ?? "")) { ouverture += c - d; continue; }
+    if (imprimes && iLibelle >= 0 && /^\W*solde\b/i.test(ligne[iLibelle] ?? "")) { ouverture += c - d; continue; }
     debit += d;
     credit += c;
   }
-  const ligne = (libelle: string, calcule: number, releve: number): ControleLigne => ({ libelle, calcule: arrondi(calcule), releve: arrondi(releve), ecart: arrondi(calcule - releve), ok: Math.abs(calcule - releve) < 0.0051 });
-  const lignes = [ligne("Total débit", debit, imprimes.debit), ligne("Total crédit", credit, imprimes.credit)];
-  if (imprimes.soldeCredit !== undefined && imprimes.soldeDebit !== undefined) {
-    lignes.push(ligne("Solde final (ouverture + crédits − débits)", ouverture + credit - debit, imprimes.soldeCredit - imprimes.soldeDebit));
+  if (imprimes) {
+    lignes.push(ligneControle("Total débit", debit, imprimes.debit), ligneControle("Total crédit", credit, imprimes.credit));
+    if (imprimes.soldeCredit !== undefined && imprimes.soldeDebit !== undefined) {
+      lignes.push(ligneControle("Solde final (ouverture + crédits − débits)", ouverture + credit - debit, imprimes.soldeCredit - imprimes.soldeDebit));
+    }
+  } else if (soldes) {
+    lignes.push(ligneControle("Solde final (départ + crédits − débits)", soldes.depart + credit - debit, soldes.fin));
   }
+
+  const chaine = verifierChaineSoldes(mouvements, soldes?.depart ?? null);
+  if (chaine) {
+    lignes.push({ libelle: `Lignes dont le solde ne suit pas (sur ${chaine.verifiees})`, calcule: chaine.suspectes.length, releve: 0, ecart: chaine.suspectes.length, ok: chaine.suspectes.length === 0 });
+    for (const m of chaine.suspectes.slice(0, 12)) lignes.push({ libelle: `Ligne ${m.rang} : ${m.libelle.slice(0, 45)}`, calcule: m.attendu, releve: m.lu, ecart: arrondi(m.attendu - m.lu), ok: false });
+  }
+  if (lignes.length === 0) return null;
   return { lignes, ok: lignes.every((l) => l.ok) };
 }
 

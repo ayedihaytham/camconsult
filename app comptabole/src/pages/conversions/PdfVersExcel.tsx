@@ -11,6 +11,7 @@ import { fichierConverti, type FormatSortie } from "@/lib/conversionSortie";
 import { COMPTE_BANQUE, ecrituresDepuisReleve, texteEcritures } from "@/lib/ecrituresReleve";
 import {
   modeDePdf,
+  type ColonnesChoisies,
   feuillesDePdf,
   lireFichierPdf,
   nombreDeCaracteres,
@@ -22,6 +23,7 @@ import { lirePdfParOcr, relireMontantsParColonnes } from "@/lib/ocrPdf";
 import { cn } from "@/lib/utils";
 import { TelechargerTout } from "./TelechargerTout";
 import { ZoneDepot } from "./ZoneDepot";
+import { ColonnesDialog } from "./ColonnesDialog";
 import { useIdentiteCabinet } from "./useIdentiteCabinet";
 import type { StatsConversion } from "./types";
 
@@ -67,6 +69,9 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
   const [tableauSeul, setTableauSeul] = useState(true);
   const [compte, setCompte] = useState(COMPTE_BANQUE);
   const [modele, setModele] = useState(true);
+  /** Colonnes indiquées à la main, par fichier (relevé dont l'en-tête n'est pas reconnu). */
+  const [colonnesParId, setColonnesParId] = useState<Record<string, ColonnesChoisies>>({});
+  const [colonnesOuvert, setColonnesOuvert] = useState(false);
   const [formatGroupe, setFormatGroupe] = useState<FormatSortie>("xlsx");
   /** Fichiers en erreur dont le détail du problème est replié (il est ouvert par défaut). */
   const [replies, setReplies] = useState<string[]>([]);
@@ -87,7 +92,9 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
 
   const options = useMemo(() => ({ nombres, uneSeuleFeuille, tableauSeul }), [nombres, uneSeuleFeuille, tableauSeul]);
   const active = items.find((i) => i.id === activeId && i.status === "ok") ?? null;
-  const feuilles = useMemo(() => (active ? feuillesDePdf(active.pages, { ...options, harmoniserLibelles: active.ocr }) : []), [active, options]);
+  const optionsPour = (item: PdfItem) => ({ ...options, harmoniserLibelles: item.ocr, colonnes: colonnesParId[item.id] });
+  const colonnesActive = active ? colonnesParId[active.id] : undefined;
+  const feuilles = useMemo(() => (active ? feuillesDePdf(active.pages, { ...options, harmoniserLibelles: active.ocr, colonnes: colonnesActive }) : []), [active, options, colonnesActive]);
   /** Contrôle du relevé (feuille « Contrôle ») : les totaux calculés comparés à ceux que le relevé imprime. */
   const controle = feuilles.find((f) => f.name === "Contrôle") ?? null;
   const feuille = feuilles[Math.min(activeSheet, Math.max(0, feuilles.length - 1))] ?? null;
@@ -173,7 +180,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
   }
 
   async function telecharger(item: PdfItem) {
-    const f = feuillesDePdf(item.pages, { ...options, harmoniserLibelles: item.ocr });
+    const f = feuillesDePdf(item.pages, optionsPour(item));
     if (f.length === 0) {
       toast.error("Aucun tableau à enregistrer");
       return;
@@ -198,7 +205,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
 
   /** Le même contenu (tableaux, ou document entier) mis en page en PDF aux couleurs du cabinet. */
   async function telechargerPdf(item: PdfItem) {
-    const f = feuillesDePdf(item.pages, { ...options, harmoniserLibelles: item.ocr });
+    const f = feuillesDePdf(item.pages, optionsPour(item));
     if (f.length === 0) {
       toast.error("Aucun tableau à enregistrer");
       return;
@@ -222,7 +229,7 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
   }
 
   function telechargerEcritures(item: PdfItem) {
-    const f = feuillesDePdf(item.pages, { ...options, tableauSeul: true });
+    const f = feuillesDePdf(item.pages, { ...optionsPour(item), tableauSeul: true });
     const lignes = f[0] ? ecrituresDepuisReleve(f[0].rows, compte.trim() || COMPTE_BANQUE) : null;
     if (!lignes) {
       toast.error("Aucun mouvement bancaire reconnu : le fichier d'écritures n'a pas pu être créé");
@@ -255,6 +262,20 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
               <Checkbox checked={tableauSeul} onCheckedChange={(c) => setTableauSeul(Boolean(c))} className="mt-0.5" />
               <span>Tableaux seulement<span className="block text-xs text-muted-foreground">Seul le nécessaire est converti : les lignes du tableau (mouvements d'un relevé, balance, état). Titres, adresses, en-têtes et pieds de page sont écartés.</span></span>
             </label>
+            {active && tableauSeul && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Button type="button" variant="outline" size="sm" onClick={() => setColonnesOuvert(true)}>
+                  Indiquer les colonnes
+                </Button>
+                {colonnesActive ? (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setColonnesParId((c) => Object.fromEntries(Object.entries(c).filter(([id]) => id !== active.id)))}>
+                    Revenir à la lecture automatique
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground">Une colonne mal rangée ou un en-tête non reconnu ? Indiquez ce que contient chaque colonne.</span>
+                )}
+              </div>
+            )}
             <label className="flex cursor-pointer items-start gap-2.5">
               <Checkbox checked={nombres} onCheckedChange={(c) => setNombres(Boolean(c))} className="mt-0.5" />
               <span>Convertir les montants en nombres<span className="block text-xs text-muted-foreground">Sinon, ils restent du texte tel qu'imprimé.</span></span>
@@ -304,9 +325,18 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
               <div className={cn("mx-[18px] mt-3 rounded-lg border px-3 py-2 text-xs", controle.rows.slice(1).every((l) => l[4] === "OK") ? "border-success/40 bg-success/10 text-foreground" : "border-destructive/30 bg-destructive/5 text-destructive")} role="status">
                 <p className="font-semibold">{controle.rows.slice(1).every((l) => l[4] === "OK") ? "Relevé contrôlé : les totaux calculés sont exactement ceux du relevé" : "Les totaux calculés ne sont pas ceux du relevé : vérifiez les lignes concernées"}</p>
                 <ul className="mt-1 space-y-0.5 text-foreground">
-                  {controle.rows.slice(1).map((l) => <li key={String(l[0])}>{String(l[0])} : {Number(l[1]).toLocaleString("fr-FR", { minimumFractionDigits: 3 })} calculé, {Number(l[2]).toLocaleString("fr-FR", { minimumFractionDigits: 3 })} au relevé{l[4] === "OK" ? " ✓" : ` — écart ${Number(l[3]).toLocaleString("fr-FR", { minimumFractionDigits: 3 })}`}</li>)}
+                  {controle.rows.slice(1).map((l) => String(l[0]).startsWith("Lignes dont") ? (
+                    <li key={String(l[0])}>{String(l[0])} : {Number(l[1]) === 0 ? "aucune ✓" : `${Number(l[1])} à vérifier`}</li>
+                  ) : (
+                    <li key={String(l[0])}>{String(l[0])} : {Number(l[1]).toLocaleString("fr-FR", { minimumFractionDigits: 3 })} {String(l[0]).startsWith("Ligne ") ? "attendu" : "calculé"}, {Number(l[2]).toLocaleString("fr-FR", { minimumFractionDigits: 3 })} {String(l[0]).startsWith("Ligne ") ? "lu" : "au relevé"}{l[4] === "OK" ? " ✓" : ` — écart ${Number(l[3]).toLocaleString("fr-FR", { minimumFractionDigits: 3 })}`}</li>
+                  ))}
                 </ul>
               </div>
+            )}
+            {!controle && tableauSeul && modeDePdf(active.pages, options) === "mouvements" && (
+              <p className="mx-[18px] mt-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-foreground" role="alert">
+                Non vérifiable : ce relevé n'imprime ni totaux, ni solde de départ et final, ni colonne « Solde ». Les lignes sont lues, mais aucune preuve ne confirme les montants : comparez au PDF avant de les utiliser.
+              </p>
             )}
             {active.ocr && (controle && controle.rows.slice(1).every((l) => l[4] === "OK") ? (
               <p className="mx-[18px] mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-foreground" role="status">
@@ -455,6 +485,9 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
             ))}
           </ul>
         </LedgerSheet>
+      )}
+      {active && (
+        <ColonnesDialog open={colonnesOuvert} onOpenChange={setColonnesOuvert} pages={active.pages} onValider={(choix) => setColonnesParId((c) => ({ ...c, [active.id]: choix }))} />
       )}
     </div>
   );

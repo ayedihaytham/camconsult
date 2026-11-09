@@ -3,6 +3,9 @@ import {
   classeurExcel,
   convertirNombre,
   aUnTableauDeMouvements,
+  apercuColonnes,
+  extraireAvecColonnes,
+  type RoleColonne,
   feuillesDePdf,
   lireTextePdf,
   nombreDeCaracteres,
@@ -304,5 +307,37 @@ describe("autres intitulés de colonnes", () => {
     const [feuille] = feuillesDePdf([page], { tableauSeul: true, nombres: true });
     expect(feuille.name).toBe("Mouvements");
     expect(feuille.rows.slice(1)).toEqual([["03/02/2026", "Retrait DAB", 50, ""], ["04/02/2026", "Virement client", "", 900]]);
+  });
+});
+
+describe("colonnes indiquées à la main", () => {
+  // En-tête non reconnu (« Opération », « Montant ») : aucune méthode automatique ne le lit.
+  const page: PdfTextItem[] = [
+    t("Jour", 40, 700), t("Opération", 120, 700), t("Entrée", 330, 700), t("Sortie", 420, 700), t("Total", 500, 700),
+    t("03/02/2026", 40, 680), t("Retrait DAB", 120, 680), t("50,00", 420, 680), t("950,00", 500, 680),
+    t("suite du libellé", 120, 668),
+    t("04/02/2026", 40, 650), t("Virement client", 120, 650), t("900,00", 330, 650), t("1 850,00", 500, 650),
+    t("05/02/2026", 40, 630), t("Frais", 120, 630), t("10,00", 420, 630), t("1 840,00", 500, 630),
+  ];
+
+  it("propose les colonnes et un échantillon, puis lit tout le relevé avec les rôles choisis", () => {
+    const apercu = apercuColonnes([page]);
+    expect(apercu?.bandes).toHaveLength(5);
+    expect(apercu?.exemple[0]).toEqual(["Jour", "Opération", "Entrée", "Sortie", "Total"]);
+    const roles: RoleColonne[] = ["date", "libelle", "credit", "debit", "solde"];
+    const [feuille] = feuillesDePdf([page], { tableauSeul: true, nombres: true, colonnes: { bandes: apercu!.bandes, roles } });
+    expect(feuille.name).toBe("Mouvements");
+    expect(feuille.rows[0]).toEqual(["Date", "Libellé de l'opération", "Crédit", "Débit", "Solde"]);
+    expect(feuille.rows.slice(1)).toEqual([
+      ["03/02/2026", "Retrait DAB suite du libellé", "", 50, 950],
+      ["04/02/2026", "Virement client", 900, "", 1850],
+      ["05/02/2026", "Frais", "", 10, 1840],
+    ]);
+  });
+
+  it("une colonne mise sur « Ignorer » disparaît ; sans colonne Date rien n'est lu", () => {
+    const apercu = apercuColonnes([page])!;
+    expect(extraireAvecColonnes([page], { bandes: apercu.bandes, roles: ["date", "libelle", "", "debit", ""] })?.[0]).toEqual(["Date", "Libellé de l'opération", "Débit"]);
+    expect(extraireAvecColonnes([page], { bandes: apercu.bandes, roles: ["", "libelle", "credit", "debit", "solde"] })).toBeNull();
   });
 });

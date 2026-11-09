@@ -216,18 +216,35 @@ export function reconstruireTableau(items: PdfTextItem[], options: OptionsConver
   );
 }
 
-const DATE = /^\d{1,2}[/.\-]\d{1,2}([/.\-]\d{2,4})?$/;
+const MOIS = "janv?|f[ée]vr?|mars?|avr|mai|juin|juil|ao[uû]t?|sept?|oct|nov|d[ée]c|jan|feb|mar|apr|may|jun|jul|aug|sep|dec";
+/** Une date de relevé : 01/09/26, 01-09-2026, 2026-09-01, 01 SEP 26, 1 sept. 2026, 01SEP2026. */
+const DATE = new RegExp(
+  String.raw`^(\d{1,2}[/.\-]\d{1,2}([/.\-]\d{2,4})?|\d{4}[/.\-]\d{1,2}[/.\-]\d{1,2}|\d{1,2}[ /.\-]?(${MOIS})[a-zéû]*\.?([ /.\-]?\d{2,4})?)$`,
+  "i",
+);
+const NUM_MOIS: Record<string, number> = { jan: 1, fev: 2, feb: 2, mar: 3, avr: 4, apr: 4, mai: 5, may: 5, jun: 6, jui: 6, aou: 8, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+/** Une date écrite avec le nom du mois (« 01 SEP 26 ») devient JJ/MM/AAAA, que Excel reconnaît ; les autres dates restent telles quelles. */
+function dateLisible(texte: string): string {
+  const m = /^(\d{1,2})[ /.\-]?([a-zéû]+)\.?(?:[ /.\-]?(\d{2,4}))?$/i.exec(texte.trim());
+  if (!m) return texte;
+  const nom = m[2].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").slice(0, 3);
+  // « juil » / « jul » : juillet ; « jun » / « juin » : juin.
+  const mois = nom === "jui" ? (/^jui(l|ll)/i.test(m[2]) ? 7 : 6) : nom === "jul" ? 7 : NUM_MOIS[nom];
+  if (!mois || !m[3]) return texte;
+  const an = m[3].length === 2 ? `20${m[3]}` : m[3];
+  return `${m[1].padStart(2, "0")}/${String(mois).padStart(2, "0")}/${an}`;
+}
 const ARABE = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]+/g;
 
 /** Colonnes d'un relevé, reconnues par leur intitulé (le premier motif qui correspond l'emporte). */
 const COLONNES = [
   { nom: "Date de valeur", re: /valeur|^date de$/i },
-  { nom: "Date", re: /^date( op[ée]ration)?$/i },
-  { nom: "Libellé de l'opération", re: /libell|d[ée]signation/i },
-  { nom: "Débit", re: /d[ée]bit|retrait/i },
-  { nom: "Crédit", re: /cr[ée]dit|versement/i },
+  { nom: "Date", re: /^date( (d')?op[ée]ration)?$/i },
+  { nom: "Libellé de l'opération", re: /libell|d[ée]signation|intitul[ée]|d[ée]tails?|description|nature|particulars|narration/i },
+  { nom: "Débit", re: /d[ée]bit|retrait|withdrawal|sorties?/i },
+  { nom: "Crédit", re: /cr[ée]dit|versement|deposit|entr[ée]es?/i },
   { nom: "Solde", re: /^solde$/i },
-  { nom: "Référence", re: /^r[ée]f/i },
+  { nom: "Référence", re: /^(r[ée]f|n[°o] ?(op|pi[èe]ce))/i },
 ];
 const DATE_COL = 1;
 const LIBELLE_COL = 2;
@@ -246,13 +263,27 @@ function trouverEnTete(lignes: Cellule[][]): { ancres: Ancre[]; fin: number } | 
   if (i < 0) return null;
   const sommes = new Map<number, number[]>();
   let fin = i;
+  const entetes: Cellule[][] = [];
   for (let j = Math.max(0, i - 1); j <= Math.min(lignes.length - 1, i + 1); j++) {
     const cellules = lignes[j];
     if (cellules.some((c) => DATE.test(c.texte)) || !cellules.some((c) => categorie(c.texte) >= 0)) continue;
     fin = Math.max(fin, j);
-    for (const c of cellules) {
-      const k = categorie(c.texte);
-      if (k >= 0) sommes.set(k, [...(sommes.get(k) ?? []), c.x + c.w / 2]);
+    entetes.push(cellules);
+  }
+  // Un intitulé sur deux lignes (« Date » puis « opération » dessous, « Date » puis « valeur ») : on lit le texte complet de la colonne.
+  const complets = entetes.flatMap((cellules, rang) =>
+    cellules.map((c) => {
+      const centre = c.x + c.w / 2;
+      const dessous = entetes[rang + 1]?.find((d) => Math.abs(d.x + d.w / 2 - centre) < Math.max(14, c.w / 2));
+      return { c, texte: dessous && categorie(`${c.texte} ${dessous.texte}`) >= 0 ? `${c.texte} ${dessous.texte}` : c.texte };
+    }),
+  );
+  const rattaches = new Set(complets.filter((x) => x.texte !== x.c.texte).map((x) => x.c));
+  for (const { c, texte } of complets) {
+    const k = categorie(texte);
+    // « valeur » seul sous un « Date » déjà rattaché n'est pas une seconde colonne.
+    if (k >= 0 && !(texte === c.texte && !rattaches.has(c) && /^valeur$/i.test(texte) && complets.some((x) => x.texte !== x.c.texte && Math.abs(x.c.x - c.x) < 14))) {
+      sommes.set(k, [...(sommes.get(k) ?? []), c.x + c.w / 2]);
     }
   }
   if (sommes.size < 3) return null;
@@ -311,10 +342,13 @@ export function extraireMouvements(pages: PdfTextItem[][]): string[][] | null {
         const morceaux = [...op.suites, ...(op.r[libelleIdx] ? [{ y: op.y, texte: op.r[libelleIdx] }] : [])].sort((a, b) => b.y - a.y);
         op.r[libelleIdx] = morceaux.map((m) => m.texte).join(" ");
       }
+      if (dateIdx >= 0) op.r[dateIdx] = dateLisible(op.r[dateIdx]);
       lignes.push(op.r);
     }
   }
   if (!ancres) return null;
+  // En-tête reconnu mais aucune opération lue : ce n'est pas un relevé que cette méthode sait lire, on laisse les autres méthodes essayer.
+  if (lignes.length === 0) return null;
   // La date de valeur sert à ranger le texte dans la bonne colonne, mais n'est pas reprise dans le tableau.
   const gardees = ancres.map((a, i) => ({ nom: a.nom, i })).filter((a) => a.nom !== COLONNES[0].nom);
   return [gardees.map((a) => a.nom), ...lignes.map((l) => gardees.map((a) => l[a.i] ?? ""))];

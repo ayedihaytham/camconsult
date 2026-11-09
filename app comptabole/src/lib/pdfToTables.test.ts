@@ -260,3 +260,49 @@ describe("mouvements bancaires seulement", () => {
     expect(feuillesDePdf(pages, { tableauSeul: true })[0].name).toBe("Page 1");
   });
 });
+
+describe("relevé en devises : dates « 01 SEP 26 » et intitulés sur deux lignes", () => {
+  // Intitulés à deux lignes (Date / opération, Date / valeur), dates avec le nom du mois, libellé sur plusieurs lignes.
+  const page: PdfTextItem[] = [
+    t("Date", 44, 700), t("Libellé opération", 111, 700), t("Référence", 219, 700), t("Date", 333, 700), t("Débit", 394, 700), t("Crédit", 482, 700),
+    t("opération", 44, 690), t("valeur", 333, 690),
+    t("Solde départ au", 111, 670), t("1 012 566,79", 482, 670),
+    t("01 SEP 26", 44, 650), t("Commission", 111, 650), t("FT26244\TN1", 219, 650), t("01 SEP 26", 333, 650), t("26,42", 394, 650),
+    t("change TTC", 111, 638),
+    t("02 SEP 26", 44, 620), t("Virement reçu", 111, 620), t("REF9", 219, 620), t("02 SEP 26", 333, 620), t("1 500,00", 482, 620),
+  ];
+
+  it("lit les opérations, met la date en JJ/MM/AAAA et garde le libellé complet", () => {
+    const [feuille] = feuillesDePdf([page], { tableauSeul: true, nombres: true });
+    expect(feuille.name).toBe("Mouvements");
+    expect(feuille.rows[0]).toEqual(["Date", "Libellé de l'opération", "Référence", "Débit", "Crédit"]);
+    expect(feuille.rows.slice(1)).toEqual([
+      ["01/09/2026", "Commission change TTC", "FT26244\TN1", 26.42, ""],
+      ["02/09/2026", "Virement reçu", "REF9", "", 1500],
+    ]);
+  });
+
+  it("un en-tête sans aucune opération reconnue n'est pas pris pour un relevé vide", () => {
+    const sansOperation = page.filter((i) => i.y >= 690);
+    expect(aUnTableauDeMouvements([sansOperation])).toBe(false);
+  });
+});
+
+describe("dates de relevé", () => {
+  it.each([["01 SEP 26"], ["1 sept. 2026"], ["01SEP2026"], ["01/09/26"], ["01-09-2026"], ["2026-09-01"], ["15 janv 2026"]])("« %s » est une date", (texte) => {
+    expect(feuillesDePdf([[t("Date", 40, 700), t("Libellé", 100, 700), t("Débit", 300, 700), t("Crédit", 400, 700), t(texte, 40, 680), t("Achat", 100, 680), t("12,5", 300, 680)]], { tableauSeul: true, nombres: true })[0].rows).toHaveLength(2);
+  });
+});
+
+describe("autres intitulés de colonnes", () => {
+  it("reconnaît Description / Withdrawal / Deposit", () => {
+    const page = [
+      t("Date", 40, 700), t("Description", 100, 700), t("Withdrawal", 300, 700), t("Deposit", 400, 700),
+      t("03/02/2026", 40, 680), t("Retrait DAB", 100, 680), t("50,00", 300, 680),
+      t("04/02/2026", 40, 660), t("Virement client", 100, 660), t("900,00", 400, 660),
+    ];
+    const [feuille] = feuillesDePdf([page], { tableauSeul: true, nombres: true });
+    expect(feuille.name).toBe("Mouvements");
+    expect(feuille.rows.slice(1)).toEqual([["03/02/2026", "Retrait DAB", 50, ""], ["04/02/2026", "Virement client", "", 900]]);
+  });
+});

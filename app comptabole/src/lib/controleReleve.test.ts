@@ -100,3 +100,21 @@ describe("libellés lus par OCR : modèles du compte et répétitions", () => {
     expect(sansRepetition("Commission Commission")).toBe("Commission Commission");
   });
 });
+
+describe("contrôle par les soldes imprimés (relevé sans ligne « Totaux »)", () => {
+  const item = (str: string, x: number, y: number) => ({ str, x, y, w: str.length * 5, h: 10 });
+  const pages = [[item("Solde départ au", 111, 600), item("1 012 566,79", 482, 600), item("Solde fin", 111, 100), item("26 OCT 26", 155, 100), item("494 710,12", 482, 100)]];
+  const entete = ["Date", "Libellé de l'opération", "Débit", "Crédit"];
+
+  it("ouverture + crédits − débits retombe sur le solde final, sans prendre la date pour une partie du montant", () => {
+    const c = controleReleve(pages, [entete, ["01/09/2026", "A", "1 661 510,67", ""], ["02/09/2026", "B", "", "1 143 654,00"]]);
+    expect(c?.ok).toBe(true);
+    expect(c?.lignes[0]).toMatchObject({ calcule: 494710.12, releve: 494710.12, ecart: 0 });
+  });
+
+  it("un montant mal lu donne un écart chiffré", () => {
+    const c = controleReleve(pages, [entete, ["01/09/2026", "A", "1 661 510,57", ""], ["02/09/2026", "B", "", "1 143 654,00"]]);
+    expect(c?.ok).toBe(false);
+    expect(c?.lignes[0].ecart).toBe(0.1);
+  });
+});

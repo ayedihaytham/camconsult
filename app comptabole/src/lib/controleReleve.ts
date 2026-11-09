@@ -59,14 +59,44 @@ export function totauxImprimes(pages: PdfTextItem[][]): { debit: number; credit:
   return { ...totaux, ...(solde ? { soldeDebit: solde.debit, soldeCredit: solde.credit } : {}) };
 }
 
+/** Solde de départ et solde final imprimés (« Solde départ au 01 SEP 26 … », « Solde fin 26 OCT 26 … »), pour les relevés sans ligne « Totaux ». */
+export function soldesImprimes(pages: PdfTextItem[][]): { depart: number; fin: number } | null {
+  let depart: number | null = null;
+  let fin: number | null = null;
+  for (const items of pages) {
+    for (const brute of lignesDeTexte(items)) {
+      // Une date (« 26 OCT 26 », « 01/09/2026 ») collée au montant ne doit pas s'y ajouter : « 26 OCT 26 494 710,12 » vaut 494 710,12.
+      const ligne = brute.replace(/\d{1,2}[ /.-]?(?:janv?|f[ée]vr?|mars?|avr|mai|juin|juil|ao[uû]t?|sept?|oct|nov|d[ée]c|jan|feb|mar|apr|may|jun|jul|aug|sep|dec)[a-zéû]*\.?[ /.-]?\d{2,4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/gi, " ");
+      const montants = montantsDeLigne(ligne);
+      if (montants.length === 0) continue;
+      if (/^\W*(ancien\s+solde|solde\s+(d[ée]part|initial|pr[ée]c[ée]dent|d'ouverture|ouverture|report))/i.test(ligne) && depart === null) depart = montants[montants.length - 1];
+      else if (/^\W*(nouveau\s+solde|solde\s+(fin|final|nouveau|de\s+cl[oô]ture|cl[oô]ture|arr[êe]t[ée]))/i.test(ligne)) fin = montants[montants.length - 1];
+    }
+  }
+  return depart !== null && fin !== null ? { depart, fin } : null;
+}
+
 /** Compare les mouvements extraits (en-tête, puis une ligne par opération) aux totaux imprimés ; null si le relevé n'imprime pas de totaux. */
 export function controleReleve(pages: PdfTextItem[][], mouvements: string[][]): ControleReleve | null {
   const entete = mouvements[0] ?? [];
   const iDebit = entete.findIndex((c) => /d[ée]bit/i.test(c));
   const iCredit = entete.findIndex((c) => /cr[ée]dit/i.test(c));
   const iLibelle = entete.findIndex((c) => /libell|d[ée]signation/i.test(c));
+  if (iDebit < 0 || iCredit < 0) return null;
   const imprimes = totauxImprimes(pages);
-  if (!imprimes || iDebit < 0 || iCredit < 0) return null;
+  if (!imprimes) {
+    const soldes = soldesImprimes(pages);
+    if (!soldes) return null;
+    let d = 0;
+    let c = 0;
+    for (const l of mouvements.slice(1)) {
+      d += montantDe(l[iDebit] ?? "") ?? 0;
+      c += montantDe(l[iCredit] ?? "") ?? 0;
+    }
+    const calcule = arrondi(soldes.depart + c - d);
+    const l: ControleLigne = { libelle: "Solde final (départ + crédits − débits)", calcule, releve: arrondi(soldes.fin), ecart: arrondi(calcule - soldes.fin), ok: Math.abs(calcule - soldes.fin) < 0.0051 };
+    return { lignes: [l], ok: l.ok };
+  }
 
   let debit = 0;
   let credit = 0;

@@ -1,166 +1,131 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowRight, CalendarDays, Camera, Check, Mail, Phone } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { ClientPortalLink } from '@/components/client-portal-link'
-import { useOpenNow } from '@/lib/business-hours'
+import { useEffect, useRef } from 'react'
+
+import { Ico } from '@/components/gl/parts'
+import { NewsletterForm } from '@/components/gl/newsletter'
+import { initGl } from '@/components/gl/engine'
+import { glConfig } from '@/components/gl/config'
 import { getDictionary, type Lang } from '@/lib/i18n'
 
 export type CamconsultFooterProps = {
   lang?: Lang
   clientPortalUrl?: string
+  /** Accueil : le pied de page vit dans la racine de la page, qui anime déjà tout. */
+  home?: boolean
 }
 
-function withLocale(lang: Lang, href: string) {
-  if (href === '/') return `/${lang}`
-  if (href.startsWith('/#')) return `/${lang}${href.slice(1)}`
-  return `/${lang}${href}`
-}
+const DEFAULT_PORTAL = process.env.NEXT_PUBLIC_CLIENT_PORTAL_URL ?? 'https://cabinet.camconsult.com.tn/login'
 
-export function CamconsultFooter({ lang = 'fr', clientPortalUrl }: CamconsultFooterProps) {
+/** Pied de page de la maquette : colonnes sur fond marine profond, barre légale, + calendrier fiscal, réseaux et espace client du site d'origine. */
+export function CamconsultFooter({ lang = 'fr', clientPortalUrl = DEFAULT_PORTAL, home = false }: CamconsultFooterProps) {
   const dict = getDictionary(lang)
-  const isArabic = lang === 'ar'
-  const isOpen = useOpenNow()
-  const [subscribed, setSubscribed] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+  const L = (path: string) => `/${lang}${path === '/' ? '' : path}`
+  const isExternal = /^https?:\/\//i.test(clientPortalUrl)
 
-  function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSubscribed(true)
-  }
+  useEffect(() => {
+    if (home || !root.current) return
+    return initGl(root.current, glConfig(lang, false))
+  }, [home, lang])
 
   const navigation = [
-    { label: dict.nav.home, href: '/' },
-    { label: dict.nav.about, href: '/#a-propos' },
-    { label: dict.nav.services, href: '/services' },
-    { label: dict.nav.tools, href: '/outils-fiscaux' },
-    { label: dict.nav.blog, href: '/blog' },
-    { label: dict.nav.resources, href: '/ressources' },
-    { label: dict.nav.jobApplication, href: '/candidature' },
+    { label: dict.nav.home, href: L('/') },
+    { label: dict.nav.about, href: `/${lang}#bilan` },
+    { label: dict.nav.services, href: L('/services') },
+    { label: dict.nav.tools, href: L('/outils-fiscaux') },
+    { label: dict.nav.blog, href: L('/blog') },
+    { label: dict.nav.resources, href: L('/ressources') },
+    { label: dict.nav.jobApplication, href: L('/candidature') },
   ]
-
   const legal = [
-    { label: dict.footer.legal.mentions, href: '/mentions-legales' },
-    { label: dict.footer.legal.privacy, href: '/confidentialite' },
-    { label: dict.footer.legal.terms, href: '/cgu' },
-    { label: dict.footer.legal.cookies, href: '/cookies' },
+    { label: dict.footer.legal.mentions, href: L('/mentions-legales') },
+    { label: dict.footer.legal.privacy, href: L('/confidentialite') },
+    { label: dict.footer.legal.terms, href: L('/cgu') },
+    { label: dict.footer.legal.cookies, href: L('/cookies') },
   ]
-
-  const [addressLine1, ...addressRest] = dict.footer.address.split(', ')
-  const addressLine2 = addressRest.join(', ')
-  const taglineWords = dict.footer.tagline.trim().split(' ')
-  const taglineLastWord = taglineWords.pop()
-  const taglineLead = taglineWords.join(' ')
+  const [addr1, ...addrRest] = dict.footer.address.split(', ')
 
   return (
-    <footer id="contact" dir={isArabic ? 'rtl' : 'ltr'} className="brand-footer bg-feature text-feature-foreground">
-      <div className="mx-auto max-w-7xl px-6 pt-12 sm:px-10 lg:px-16">
-        {/* Calendrier fiscal — inscription aux rappels d'échéances */}
-        <div className="flex flex-col gap-5 rounded-2xl border border-feature-foreground/15 bg-feature-foreground/[0.04] p-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:p-6">
-          <div className="flex items-start gap-4">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-accent/40 bg-accent/10 text-accent-ink">
-              <CalendarDays className="size-5" aria-hidden="true" />
-            </span>
+    <div ref={root} className={home ? undefined : 'gl gl-contents'} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <footer className="foot" id="contact-footer">
+        <div className="wrap">
+          <div className="nlb">
             <div>
-              <p className="font-serif text-lg leading-tight text-feature-foreground">{dict.footer.taxCalendar}</p>
-              <p className="mt-1 max-w-sm text-sm leading-6 text-feature-muted">{dict.footer.taxCalendarText}</p>
+              <b>{dict.footer.taxCalendar}</b>
+              <p>{dict.footer.taxCalendarText}</p>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px 20px', alignItems: 'center' }}>
+              <NewsletterForm placeholder={dict.footer.newsletterPlaceholder} cta={dict.footer.newsletterCta} success={dict.footer.newsletterSuccess} />
+              <a href={L('/outils-fiscaux#calendrier-fiscal')}>{dict.footer.newsletterSeeCalendar} →</a>
             </div>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-            {subscribed ? (
-              <p className="flex items-center gap-2 text-sm font-medium text-accent-ink">
-                <Check className="size-4 shrink-0" aria-hidden="true" />
-                {dict.footer.newsletterSuccess}
-              </p>
-            ) : (
-              <form onSubmit={submitNewsletter} className="flex items-center gap-2">
-                <input
-                  type="email"
-                  required
-                  placeholder={dict.footer.newsletterPlaceholder}
-                  aria-label={dict.footer.newsletterPlaceholder}
-                  className="h-11 w-full min-w-0 rounded-full border border-feature-input bg-feature-foreground/10 px-4 text-sm text-feature-foreground placeholder:text-feature-foreground focus:border-ring focus:outline-none sm:w-52"
-                />
-                <button
-                  type="submit"
-                  className="h-11 shrink-0 rounded-full bg-card px-5 text-xs font-bold uppercase tracking-wider text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  {dict.footer.newsletterCta}
-                </button>
-              </form>
-            )}
-            <a
-              href={withLocale(lang, '/outils-fiscaux#calendrier-fiscal')}
-              className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-accent-ink underline-offset-4 hover:text-feature-foreground hover:underline"
-            >
-              {dict.footer.newsletterSeeCalendar}
-              <ArrowRight className={cn('size-3.5', isArabic && 'rtl-mirror')} aria-hidden="true" />
-            </a>
+
+          <div className="cm-foot">
+            <div>
+              <a href={home ? '#hero' : L('/')} aria-label="Cabinet Ayadi Mohamed">
+                <img src="/brand/logo-cabinet-white.png" alt="Cabinet Ayadi Mohamed — Accounting & Consulting" width={1500} height={382} style={{ width: 210, height: 'auto' }} />
+              </a>
+              <p style={{ marginTop: 16, opacity: 0.75, maxWidth: '30ch' }}>{dict.footer.tagline}</p>
+              <span className="cm-open badge" data-open>
+                <i />
+                <span data-open-txt>{dict.footer.hours}</span>
+              </span>
+              <div className="soc">
+                <a href="tel:+21698400368" aria-label={dict.footer.phoneMobile}><Ico n="phone" /></a>
+                <a href="mailto:camcompta@planet.tn" aria-label="Email"><Ico n="mail" /></a>
+                <a href="#reseaux" aria-label="Instagram"><Ico n="insta" /></a>
+              </div>
+            </div>
+            <div>
+              <h4>{dict.footer.navHeading}</h4>
+              <ul>
+                {navigation.map((n) => (
+                  <li key={n.href}><a href={n.href}>{n.label}</a></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4>{dict.footer.servicesHeading}</h4>
+              <ul>
+                {dict.footer.services.map((s) => (
+                  <li key={s}><a href={L('/services')}>{s}</a></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4>{dict.footer.contactHeading}</h4>
+              <address>
+                {addr1}
+                {addrRest.length > 0 && <><br />{addrRest.join(', ')}</>}
+                <br />
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dict.footer.address)}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--sky)', textDecoration: 'underline', textUnderlineOffset: 4 }}>
+                  {dict.footer.directions}
+                </a>
+                <span className="ph2">
+                  <a href="tel:+21671847608"><small>{dict.footer.phoneFixed}</small><span dir="ltr">71 847 608</span></a>
+                  <a href="tel:+21698400368"><small>{dict.footer.phoneMobile}</small><span dir="ltr">98 400 368</span></a>
+                </span>
+                <a href="mailto:camcompta@planet.tn">camcompta@planet.tn</a>
+                <br />
+                <span className="hrs">{dict.footer.hours}</span>
+              </address>
+              <a className="portal" href={clientPortalUrl} {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})} title={dict.clientPortal.tooltip}>
+                <Ico n="lock" />
+                {dict.clientPortal.label}
+              </a>
+            </div>
+          </div>
+          <div className="cm-foot-b">
+            <nav aria-label={dict.footer.legalLinksLabel}>
+              {legal.map((l) => (
+                <a key={l.href} href={l.href}>{l.label}</a>
+              ))}
+            </nav>
+            <span>© {new Date().getFullYear()} CAMCONSULT. {dict.footer.copyright}</span>
           </div>
         </div>
-
-        <div className="mt-10 grid gap-12 border-b border-feature-foreground/15 pb-14 lg:grid-cols-[1.35fr_0.8fr_1.15fr_1.15fr] lg:gap-10">
-          <div>
-            <a href={withLocale(lang, '/')} className="inline-flex" aria-label="Cabinet Ayadi Mohamed">
-              <img src="/brand/logo-cabinet-white.png" alt="Cabinet Ayadi Mohamed — Accounting & Consulting" width={1500} height={382} className="h-12 w-auto" />
-            </a>
-            <p className="mt-6 max-w-xs text-sm leading-7 text-feature-muted">{taglineLead} <em className="text-accent-ink">{taglineLastWord}</em></p>
-            {isOpen !== null && (
-              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-feature-foreground/15 bg-feature-foreground/5 px-3 py-1.5 text-xs text-feature-muted">
-                <span className={cn('size-2 shrink-0 rounded-full', isOpen ? 'bg-success' : 'bg-feature-foreground/30')} aria-hidden="true" />
-                {(isOpen ? dict.footer.openLabel : dict.footer.closedLabel).replace('{time}', isOpen ? dict.footer.timeClose : dict.footer.timeOpen)}
-              </div>
-            )}
-            <div className="mt-7 flex items-center gap-2">
-              {[
-                { label: dict.footer.phoneMobile, icon: Phone, href: 'tel:+21698400368' },
-                { label: 'Email', icon: Mail, href: 'mailto:camcompta@planet.tn' },
-                { label: 'Instagram', icon: Camera, href: '#reseaux' },
-              ].map(({ label, icon: Icon, href }) => <a key={label} href={href} aria-label={label} className="grid size-9 place-items-center rounded-xl border border-feature-foreground/20 text-feature-muted transition-colors duration-200 hover:border-accent hover:text-accent-ink"><Icon className="size-4" /></a>)}
-            </div>
-          </div>
-
-          <div><h2 className="footer-heading">{dict.footer.navHeading}</h2><nav className="mt-6 flex flex-col items-start gap-3">{navigation.map((item) => <a key={item.href} href={withLocale(lang, item.href)} className="footer-link">{item.label}</a>)}</nav></div>
-
-          <div><h2 className="footer-heading">{dict.footer.servicesHeading}</h2><nav className="mt-6 grid gap-3">{dict.footer.services.map((label) => <a key={label} href={withLocale(lang, '/services')} className="footer-link">{label}</a>)}</nav></div>
-
-          <div className="rounded-2xl border border-feature-foreground/15 bg-feature-foreground/[0.04] p-5">
-            <h2 className="footer-heading">{dict.footer.contactHeading}</h2>
-            <div className="mt-6 text-sm text-feature-muted">
-              <p className="font-semibold text-feature-foreground">{addressLine1}</p>
-              {addressLine2 && <p className="mt-0.5 text-feature-muted">{addressLine2}</p>}
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dict.footer.address)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1 text-sm text-accent-ink underline underline-offset-4 hover:text-feature-foreground"
-              >
-                {dict.footer.directions}
-                <ArrowRight className={cn('size-3.5', isArabic && 'rtl-mirror')} aria-hidden="true" />
-              </a>
-
-              <div className="mt-5 grid grid-cols-2 gap-4 border-t border-feature-foreground/10 pt-5">
-                <a href="tel:+21671847608" className="block">
-                  <span className="block text-[0.65rem] font-semibold uppercase tracking-wider text-feature-muted">{dict.footer.phoneFixed}</span>
-                  <span className="mt-1 block font-medium text-feature-foreground hover:text-accent-ink">71 847 608</span>
-                </a>
-                <a href="tel:+21698400368" className="block">
-                  <span className="block text-[0.65rem] font-semibold uppercase tracking-wider text-feature-muted">{dict.footer.phoneMobile}</span>
-                  <span className="mt-1 block font-medium text-feature-foreground hover:text-accent-ink">98 400 368</span>
-                </a>
-              </div>
-
-              <a href="mailto:camcompta@planet.tn" className="mt-4 block hover:text-feature-foreground">
-                camcompta@planet.tn
-              </a>
-              <p className="mt-3 font-medium text-accent-ink">{dict.footer.hours}</p>
-            </div>
-            <div className="mt-6"><ClientPortalLink href={clientPortalUrl} lang={lang} /></div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4 py-6 text-xs text-feature-muted sm:flex-row sm:items-center sm:justify-between"><p>© {new Date().getFullYear()} CAMCONSULT. {dict.footer.copyright}</p><nav className="flex flex-wrap items-center gap-x-3 gap-y-2" aria-label={dict.footer.legalLinksLabel}>{legal.map((item, index) => <span key={item.href} className="flex items-center gap-3"><a href={withLocale(lang, item.href)} className="transition-colors hover:text-accent-ink">{item.label}</a>{index < legal.length - 1 && <span aria-hidden="true" className="text-accent-ink/70">·</span>}</span>)}</nav></div>
-      </div>
-    </footer>
+      </footer>
+    </div>
   )
 }

@@ -2,241 +2,137 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { ArrowRight, Briefcase, Check, ChevronDown, Globe2, Menu, X } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
-import { ClientPortalLink } from '@/components/client-portal-link'
+import { Ico } from '@/components/gl/parts'
+import { initGl } from '@/components/gl/engine'
+import { glConfig } from '@/components/gl/config'
 import { getDictionary, LOCALES, type Lang } from '@/lib/i18n'
 
 export type CamconsultHeaderProps = {
   lang?: Lang
+  /** Conservé pour compatibilité : le nouvel en-tête s'adapte tout seul au fond qui passe dessous. */
   theme?: 'light' | 'navy'
   clientPortalUrl?: string
+  /** Accueil : l'en-tête est fixe et suit les scènes ; ailleurs il reste collé en haut de la page. */
+  home?: boolean
 }
 
-const LANGUAGE_NAMES: Record<Lang, string> = { fr: 'Français', ar: 'العربية', en: 'English' }
-const LANGUAGE_SHORT: Record<Lang, string> = { fr: 'FR', ar: 'AR', en: 'EN' }
+const LANG_LABEL: Record<Lang, string> = { fr: 'FR', ar: 'عربي', en: 'EN' }
+const DEFAULT_PORTAL = process.env.NEXT_PUBLIC_CLIENT_PORTAL_URL ?? 'https://cabinet.camconsult.com.tn/login'
 
-function withLocale(lang: Lang, href: string) {
-  if (href === '/') return `/${lang}`
-  if (href.startsWith('/#')) return `/${lang}${href.slice(1)}`
-  return `/${lang}${href}`
-}
-
-export function CamconsultHeader({ lang = 'fr', theme = 'navy', clientPortalUrl }: CamconsultHeaderProps) {
+/** En-tête à deux niveaux de la maquette : bandeau d'information (ouvert/fermé, téléphone, langues) puis barre de navigation. */
+export function CamconsultHeader({ lang = 'fr', clientPortalUrl = DEFAULT_PORTAL, home = false }: CamconsultHeaderProps) {
   const dict = getDictionary(lang)
   const pathname = usePathname()
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
-  const [langMenuOpen, setLangMenuOpen] = useState(false)
-  const [activeHref, setActiveHref] = useState('/')
-  const langMenuRef = useRef<HTMLDivElement>(null)
-  const isArabic = lang === 'ar'
-  const isNavy = theme === 'navy'
+  const [menu, setMenu] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+  const isExternal = /^https?:\/\//i.test(clientPortalUrl)
+  const L = (path: string) => `/${lang}${path === '/' ? '' : path}`
+  // Sur l'accueil, les entrées pointent vers les sections ; ailleurs vers l'accueil + section.
+  const A = (id: string) => (home ? `#${id}` : `/${lang}#${id}`)
 
-  const navigation = [
-    { label: dict.nav.home, href: '/' },
-    { label: dict.nav.about, href: '/#a-propos' },
-    { label: dict.nav.services, href: '/services' },
-    { label: dict.nav.tools, href: '/outils-fiscaux' },
-    { label: dict.nav.blog, href: '/blog' },
-    { label: dict.nav.resources, href: '/ressources' },
+  const nav: Array<{ label: string; href: string; n?: string }> = [
+    { label: dict.nav.home, href: home ? '#hero' : L('/'), n: 'hero' },
+    { label: dict.nav.about, href: A('bilan'), n: 'bilan' },
+    { label: dict.nav.services, href: A('services'), n: 'services' },
+    { label: dict.nav.tools, href: A('outils'), n: 'outils' },
+    { label: dict.nav.blog, href: L('/blog') },
+    { label: dict.nav.resources, href: L('/ressources') },
   ]
 
-  useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 50)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  const rest = pathname.replace(/^\/(fr|ar|en)/, '') || ''
 
+  // Hors accueil : en-tête compact après quelques pixels de défilement + barre de progression de lecture.
   useEffect(() => {
-    setActiveHref(window.location.pathname)
-  }, [])
-
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) setLangMenuOpen(false)
+    if (home) return
+    const hdr = root.current?.querySelector('.hdr') as HTMLElement | null
+    if (!hdr) return
+    const on = () => {
+      const y = scrollY
+      hdr.classList.toggle('cmp', y > 80)
+      const m = document.documentElement.scrollHeight - innerHeight
+      hdr.style.setProperty('--sp', (m > 0 ? y / m : 0).toFixed(4))
     }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [])
+    on()
+    addEventListener('scroll', on, { passive: true })
+    return () => removeEventListener('scroll', on)
+  }, [home, pathname])
 
-  function languageHref(next: Lang) {
-    const rest = pathname.replace(/^\/(fr|ar|en)/, '') || '/'
-    return `/${next}${rest === '/' ? '' : rest}`
-  }
+  // Hors accueil, le moteur léger ne gère que l'état ouvert/fermé et les boutons magnétiques.
+  useEffect(() => {
+    if (home || !root.current) return
+    return initGl(root.current, glConfig(lang, false))
+  }, [home, lang])
 
-  const sepClass = cn('h-6 w-px shrink-0', !isNavy ? 'bg-foreground/15' : 'bg-feature-foreground/15')
+  useEffect(() => {
+    const hdr = root.current?.querySelector('.hdr')
+    if (!hdr || !home) {
+      if (hdr) hdr.classList.toggle('iv', menu)
+      return
+    }
+  }, [menu, home])
+
+  const portal = (
+    <a href={clientPortalUrl} {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})} title={dict.clientPortal.tooltip} aria-label={`${dict.clientPortal.label} — ${dict.clientPortal.tooltip}`}>
+      <Ico n="lock" />
+      {dict.clientPortal.label}
+    </a>
+  )
 
   return (
-    <header dir={isArabic ? 'rtl' : 'ltr'} className={cn('sticky top-0 z-50 w-full transition-all duration-300 backdrop-blur-md', isNavy ? cn('border-b border-feature-foreground/10 bg-feature/95', isScrolled && 'shadow-header') : cn('border-b border-foreground/8 bg-card/90', isScrolled && 'shadow-header'))}>
-      <div className={cn('mx-auto flex max-w-[1760px] items-center gap-6 px-4 transition-all duration-300 sm:px-6 lg:px-8 xl:px-10', isScrolled ? 'min-h-[60px]' : 'min-h-[68px]')}>
-
-        {/* Logo */}
-        <a href={withLocale(lang, '/')} className="flex shrink-0 items-center" aria-label={`Cabinet Ayadi Mohamed — ${dict.nav.home}`}>
-          <img
-            src="/brand/logo-cabinet-navy.png"
-            alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
-            width={1500}
-            height={382}
-            className={cn('w-auto transition-all duration-300 dark:hidden', isScrolled ? 'h-8' : 'h-10')}
-          />
-          <img
-            src="/brand/logo-cabinet-white.png"
-            alt="Cabinet Ayadi Mohamed — Accounting & Consulting"
-            width={1500}
-            height={382}
-            className={cn('hidden w-auto transition-all duration-300 dark:block', isScrolled ? 'h-8' : 'h-10')}
-          />
-        </a>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 xl:flex 2xl:gap-3" aria-label={dict.nav.mainNavLabel}>
-          {navigation.map((item) => {
-            const href = withLocale(lang, item.href)
-            const isActive = activeHref === href || (item.href === '/' && (activeHref === '' || activeHref === `/${lang}`))
-            return (
-              <a
-                key={item.href}
-                href={href}
-                onClick={() => setActiveHref(href)}
-                className={cn('group relative shrink-0 whitespace-nowrap px-2.5 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors duration-200', !isNavy ? 'text-muted-foreground hover:text-foreground' : 'text-feature-muted hover:text-feature-foreground', isActive && cn('font-bold', !isNavy ? 'text-foreground' : 'text-feature-foreground'))}
-              >
-                {item.label}
-                <span className={cn('absolute -bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-accent transition-opacity duration-200', isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-60')} aria-hidden="true" />
-              </a>
-            )
-          })}
-        </nav>
-
-        {/* Right Actions */}
-        <div className="hidden shrink-0 items-center justify-end gap-4 xl:flex">
-          {/* Language Selector */}
-          <div ref={langMenuRef} className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => setLangMenuOpen((v) => !v)}
-              className={cn('flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest transition-colors', !isNavy ? 'text-muted-foreground hover:text-foreground' : 'text-feature-muted hover:text-feature-foreground')}
-              aria-label={dict.nav.chooseLanguage}
-              aria-expanded={langMenuOpen}
-            >
-              <Globe2 className="size-3.5 text-accent-ink" aria-hidden="true" />
-              {LANGUAGE_SHORT[lang]}
-              <ChevronDown className={cn('size-3 transition-transform', langMenuOpen && 'rotate-180')} aria-hidden="true" />
-            </button>
-            {langMenuOpen && (
-              <div className="absolute end-0 top-full z-50 mt-3 w-40 overflow-hidden rounded-2xl border border-foreground/10 bg-card p-1.5 shadow-pop" role="menu">
-                {LOCALES.map((code) => (
-                  <a
-                    key={code}
-                    href={languageHref(code)}
-                    hrefLang={code}
-                    lang={code}
-                    role="menuitem"
-                    onClick={() => setLangMenuOpen(false)}
-                    className={cn('flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors', code === lang ? 'bg-accent/15 text-foreground' : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground')}
-                  >
-                    {LANGUAGE_NAMES[code]}
-                    {code === lang && <Check className="size-3.5 text-accent-ink" aria-hidden="true" />}
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <span className={sepClass} aria-hidden="true" />
-          <div className="shrink-0"><ClientPortalLink href={clientPortalUrl} lang={lang} compact /></div>
-
-          {/* Job Application */}
-          <a
-            href={withLocale(lang, '/candidature')}
-            title={dict.nav.jobApplicationTooltip}
-            className={cn('inline-flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors', !isNavy ? 'text-muted-foreground hover:text-foreground' : 'text-feature-muted hover:text-feature-foreground')}
-          >
-            <Briefcase className="size-3.5 text-accent-ink" aria-hidden="true" />
-            {dict.nav.jobApplication}
-          </a>
-
-          {/* CTA Button */}
-          <a
-            href={withLocale(lang, '/contact')}
-            className="group inline-flex shrink-0 items-center gap-2 rounded-sm bg-accent px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-accent-foreground transition-opacity hover:opacity-90"
-          >
-            {dict.nav.bookAppointment}
-            <ArrowRight className={cn('size-3.5 transition-transform duration-300 group-hover:translate-x-0.5', isArabic && 'rotate-180')} aria-hidden="true" />
-          </a>
+    <div ref={root} className={home ? undefined : 'gl gl-contents'} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <header className={home ? 'hdr' : 'hdr st'}>
+        <div className="strip">
+          <span className="cm-open" data-open>
+            <i />
+            <span data-open-txt>{dict.footer.hours}</span>
+          </span>
+          <span className="tl">
+            <a href="tel:+21698400368" dir="ltr">+216 98 400 368</a>
+            {portal}
+            <a href={L('/candidature')} title={dict.nav.jobApplicationTooltip}>{dict.nav.jobApplication}</a>
+            <span className="lng" role="group" aria-label={dict.nav.chooseLanguage}>
+              {LOCALES.map((code) => (
+                <a key={code} href={`/${code}${rest}`} hrefLang={code} lang={code} aria-current={code === lang ? 'true' : undefined}>
+                  {LANG_LABEL[code]}
+                </a>
+              ))}
+            </span>
+          </span>
         </div>
-
-        {/* Mobile Menu Button */}
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className={cn('ml-auto grid size-10 shrink-0 place-items-center rounded-lg border transition-all duration-300 xl:hidden', !isNavy ? 'border-input text-foreground hover:bg-foreground/5' : 'border-feature-input text-feature-foreground hover:bg-feature-foreground/10')}
-          aria-expanded={isOpen}
-          aria-controls="mobile-navigation"
-          aria-label={isOpen ? dict.nav.closeMenu : dict.nav.openMenu}
-        >
-          {isOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-        </button>
-      </div>
-
-      {/* Mobile Navigation */}
-      <div
-        id="mobile-navigation"
-        className={cn('overflow-hidden transition-all duration-300 xl:hidden', !isNavy ? 'border-t border-foreground/10 bg-card/95' : 'border-t border-feature-foreground/10 bg-feature/95', isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0')}
-      >
-        <nav className="mx-auto flex max-w-7xl flex-col gap-0 px-6 py-3 sm:px-10" aria-label={dict.nav.mobileNavLabel}>
-          {navigation.map((item) => {
-            const href = withLocale(lang, item.href)
-            const isActive = activeHref === href || (item.href === '/' && (activeHref === '' || activeHref === `/${lang}`))
-            return (
-              <a
-                key={item.href}
-                href={href}
-                onClick={() => {
-                  setActiveHref(href)
-                  setIsOpen(false)
-                }}
-                className={cn('border-b px-2 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-200', !isNavy ? 'border-foreground/10 text-foreground hover:bg-foreground/5' : 'border-feature-foreground/10 text-feature-foreground hover:bg-feature-foreground/10', isActive && 'text-accent-ink')}
-              >
-                {item.label}
-              </a>
-            )
-          })}
-          <div className="mt-3 flex flex-wrap gap-2 border-b border-foreground/10 px-2 py-3">
-            {LOCALES.map((code) => (
-              <a
-                key={code}
-                href={languageHref(code)}
-                hrefLang={code}
-                lang={code}
-                onClick={() => setIsOpen(false)}
-                className={cn('rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors', code === lang ? 'border-accent bg-accent text-accent-foreground' : !isNavy ? 'border-foreground/15 text-muted-foreground' : 'border-feature-foreground/20 text-feature-muted')}
-              >
-                {LANGUAGE_SHORT[code]}
-              </a>
+        <div className="cap">
+          <a className="lg" href={home ? '#hero' : L('/')} aria-label={`Cabinet Ayadi Mohamed — ${dict.nav.home}`}>
+            <img src="/brand/logo-cabinet-white.png" alt="Cabinet Ayadi Mohamed" width={1500} height={382} />
+            <img src="/brand/logo-cabinet-navy.png" alt="" width={1500} height={382} aria-hidden="true" />
+          </a>
+          <nav id="cnav" aria-label={dict.nav.mainNavLabel}>
+            <span className="ind" aria-hidden="true" />
+            {nav.map((item) => (
+              <a key={item.label} href={item.href} data-n={item.n}>{item.label}</a>
             ))}
-          </div>
-          <ClientPortalLink href={clientPortalUrl} lang={lang} />
-          <a
-            href={withLocale(lang, '/candidature')}
-            onClick={() => setIsOpen(false)}
-            className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg border border-accent bg-transparent px-4 py-3 text-xs font-bold uppercase tracking-widest text-accent-ink transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <Briefcase className="size-4" aria-hidden="true" />
-            {dict.nav.jobApplication}
-          </a>
-          <a
-            href={withLocale(lang, '/contact')}
-            onClick={() => setIsOpen(false)}
-            className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-xs font-bold uppercase tracking-widest text-accent-foreground"
-          >
+          </nav>
+          <a className="pill" href={home ? '#contact' : L('/contact')}>
             {dict.nav.bookAppointment}
-            <ArrowRight className={cn('size-4', isArabic && 'rotate-180')} aria-hidden="true" />
+            <span className="ar"><Ico n="arrow" /></span>
           </a>
-        </nav>
-      </div>
-    </header>
+          <button type="button" className="burger" aria-label={menu ? dict.nav.closeMenu : dict.nav.openMenu} aria-expanded={menu} aria-controls="mnav" onClick={() => setMenu((v) => !v)}>
+            <Ico n={menu ? 'x' : 'menu'} />
+          </button>
+        </div>
+      </header>
+      <nav id="mnav" className={'mnav' + (menu ? ' open' : '')} aria-label={dict.nav.mobileNavLabel} onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setMenu(false) }}>
+        {nav.map((item) => (
+          <a key={item.label} href={item.href}>{item.label}</a>
+        ))}
+        <a href={home ? '#contact' : L('/contact')}>{dict.nav.bookAppointment}</a>
+        <div className="sub">
+          {LOCALES.map((code) => (
+            <a key={code} href={`/${code}${rest}`} hrefLang={code} lang={code} aria-current={code === lang ? 'true' : undefined}>{LANG_LABEL[code]}</a>
+          ))}
+          <a href={clientPortalUrl} {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{dict.clientPortal.label}</a>
+          <a href={L('/candidature')}>{dict.nav.jobApplication}</a>
+        </div>
+      </nav>
+    </div>
   )
 }

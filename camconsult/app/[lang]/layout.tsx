@@ -7,9 +7,10 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import { SITE_INDEXABLE, SITE_URL, businessStructuredData } from '@/lib/seo'
 import '../globals.css'
+import '../gl.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
-const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' })
+const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair', style: ['normal', 'italic'] })
 
 export function generateStaticParams() {
   return LOCALES.map((lang) => ({ lang }))

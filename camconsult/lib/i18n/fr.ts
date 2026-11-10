@@ -492,6 +492,33 @@ const fr = {
       },
     },
   },
+
+  // Refonte « grand livre vivant » : libellés propres à la nouvelle mise en page de l'accueil.
+  gl: {
+    hint: 'Défilez ou cliquez',
+    heroMeta: 'Du chaos des chiffres à la clarté',
+    rail: ['Accueil', 'Services', 'Bilan', 'Différence', 'Méthode', 'Outils', 'Questions', 'Contact'],
+    sectionsLabel: 'Sections',
+    ledger: { labels: ['Facture', 'Loyer', 'Salaire', 'TVA', 'CNSS', 'Banque', 'Client', 'Achat', 'Avoir', 'Frais'], head: ['Libellé', 'Débit', 'Crédit'], total: 'Total', balance: 'Solde · rapproché ✓', debit: 'D', credit: 'C' },
+    servicesTitle: ['Pour décider, démarrer,', 'gérer', 'ou sécuriser.'],
+    tapeKicker: 'Exercice en cours',
+    diff: { a: ['La rigueur, avec une vraie ', 'présence humaine.'], b: ['Nous faisons de la comptabilité un outil de ', 'décision.'] },
+    diffA: [3, 4, 1],
+    diffB: [0, 2, 5],
+    toolsUi: { income: 'Revenu', grossLabel: 'Salaire brut', employer: 'Part employeur (16 %)', employee: 'Part salarié (9 %)', cost: 'Coût employeur', effective: 'Taux effectif', estimated: 'Impôt estimé', brackets: '0 % jusqu’à 50 000 · 20 % jusqu’à 100 000 · 35 % au-delà.', vatLabel: 'TVA', statusTitle: 'Statuts juridiques', statusRows: ['Public visé', 'Capital', 'Responsabilité', 'Fiscalité', 'Gouvernance'] },
+    deadline: { text: 'Déclaration périodique, le 28 à 23h59, heure de Tunis. Recevez un rappel la veille.', added: 'Rappel ajouté', short: 'Me rappeler' },
+    form: { progress: 'Votre demande', thanks: 'Merci {name}. Nous vous répondons sous 24 h ouvrées, par e-mail', orPhone: ' ou par téléphone', again: 'Envoyer un autre message' },
+    mock: {
+      ledger: { h: 'Journal · Novembre', s: 'à jour', rows: [['Facture 0412', '1 190,000'], ['Loyer cabinet', '− 850,000'], ['Virement client', '4 760,000'], ['Rapprochement', '✓ OK']] },
+      kpi: { h: 'Tableau de bord', s: 'Mensuel', r: ['Rentabilité', '+ 12 %'] },
+      cal: { h: 'Échéances fiscales', s: 'TVA', r: ['Déclaration', '28 · 23h59'] },
+      audit: { h: 'Rapport de révision', s: 'Indépendant', rows: ['Contrôle des comptes', 'Points de vigilance', 'Recommandations'] },
+      pay: { h: 'Bulletin de paie', s: 'Mensuel', rows: [['Salaire brut', '5 000,000'], ['CNSS salarié 9 %', '− 450,000'], ['CNSS employeur 16 %', '800,000']] },
+      doc: { h: 'Dossier de création', s: 'Étapes', rows: ['Structure juridique', 'Statuts', 'Formalités', 'Démarrage'] },
+      act: { h: 'Statuts de la société', s: 'Acte', r: 'Signature' },
+      fin: { h: 'Plan de financement', s: 'Projet', r: ['Investissement', 'Analysé'] },
+    },
+  },
 }
 
 export default fr

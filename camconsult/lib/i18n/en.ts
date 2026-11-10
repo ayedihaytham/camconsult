@@ -494,6 +494,32 @@ const en: Dictionary = {
       },
     },
   },
+
+  gl: {
+    hint: 'Scroll or click',
+    heroMeta: 'From the chaos of numbers to clarity',
+    rail: ['Home', 'Services', 'Results', 'Difference', 'Method', 'Tools', 'Questions', 'Contact'],
+    sectionsLabel: 'Sections',
+    ledger: { labels: ['Invoice', 'Rent', 'Salary', 'VAT', 'CNSS', 'Bank', 'Client', 'Purchase', 'Credit note', 'Expenses'], head: ['Description', 'Debit', 'Credit'], total: 'Total', balance: 'Balance · reconciled ✓', debit: 'D', credit: 'C' },
+    servicesTitle: ['To decide, start,', 'run', 'or secure.'],
+    tapeKicker: 'Current financial year',
+    diff: { a: ['Rigour, with a truly ', 'human presence.'], b: ['We turn accounting into a tool for ', 'decisions.'] },
+    diffA: [3, 4, 1],
+    diffB: [0, 2, 5],
+    toolsUi: { income: 'Income', grossLabel: 'Gross salary', employer: 'Employer share (16 %)', employee: 'Employee share (9 %)', cost: 'Employer cost', effective: 'Effective rate', estimated: 'Estimated tax', brackets: '0 % up to 50,000 · 20 % up to 100,000 · 35 % above.', vatLabel: 'VAT', statusTitle: 'Legal forms', statusRows: ['Target', 'Capital', 'Liability', 'Tax', 'Governance'] },
+    deadline: { text: 'Periodic return, on the 28th at 11:59 pm, Tunis time. Get a reminder the day before.', added: 'Reminder added', short: 'Remind me' },
+    form: { progress: 'Your request', thanks: 'Thank you {name}. We will reply within 24 business hours, by e-mail', orPhone: ' or by phone', again: 'Send another message' },
+    mock: {
+      ledger: { h: 'Journal · November', s: 'up to date', rows: [['Invoice 0412', '1,190.000'], ['Office rent', '− 850.000'], ['Client transfer', '4,760.000'], ['Reconciliation', '✓ OK']] },
+      kpi: { h: 'Dashboard', s: 'Monthly', r: ['Profitability', '+ 12 %'] },
+      cal: { h: 'Tax deadlines', s: 'VAT', r: ['Return', '28 · 11:59 pm'] },
+      audit: { h: 'Review report', s: 'Independent', rows: ['Accounts review', 'Points of attention', 'Recommendations'] },
+      pay: { h: 'Payslip', s: 'Monthly', rows: [['Gross salary', '5,000.000'], ['CNSS employee 9 %', '− 450.000'], ['CNSS employer 16 %', '800.000']] },
+      doc: { h: 'Incorporation file', s: 'Steps', rows: ['Legal structure', 'Articles', 'Formalities', 'Start-up'] },
+      act: { h: 'Company articles', s: 'Deed', r: 'Signature' },
+      fin: { h: 'Financing plan', s: 'Project', r: ['Investment', 'Analysed'] },
+    },
+  },
 }
 
 export default en

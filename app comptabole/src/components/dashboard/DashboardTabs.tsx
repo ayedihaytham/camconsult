@@ -15,6 +15,8 @@ import { CollectionFailure } from "./WorkspaceSection";
 import { Button } from "@/components/ui/button";
 import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
 import { AdminOverviewTab } from "./tabs/AdminOverviewTab";
+import { PortefeuilleTab } from "./tabs/PortefeuilleTab";
+import "@/pages/societes/societes-registre.css";
 import { vueCabinet, type DashboardViewModel } from "@/lib/dashboard/dashboardData";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
@@ -42,7 +44,7 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
   const isClient = data.role === "societe_employe";
   const tabs = isClient
     ? ["overview", "collections", "documents", ...(canUseMessaging ? ["messages"] : [])]
-    : ["overview", "tasks", "attention", "deadlines", ...(data.role === "admin" ? ["team"] : []), "activity"];
+    : ["overview", ...(vueCabinet(data.role) ? ["portefeuille"] : []), "tasks", "attention", "deadlines", ...(data.role === "admin" ? ["team"] : []), "activity"];
   const requested = searchParams.get("tab") ?? "overview";
   const value = tabs.includes(requested) ? requested : "overview";
   useEffect(() => {
@@ -93,18 +95,30 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
         </TabsList>
       </div>
   );
+  /** Onglets de la maquette pour le cabinet : Vue d'ensemble · Portefeuille · Planning (les échéances). */
+  const ongletsCabinet = vueCabinet(data.role) && ["overview", "portefeuille", "deadlines"].includes(value);
+  const navigationCabinet = (
+    <div ref={tabRailRef} data-tour="dashboard-tabs" className="reg-onglets" >
+      <TabsList className="h-auto justify-start gap-6 rounded-none bg-transparent p-0" aria-label="Sections du tableau de bord">
+        {([["overview", "Vue d'ensemble"], ["portefeuille", "Portefeuille"], ["deadlines", "Planning"]] as const).map(([v, l]) => (
+          <TabsTrigger key={v} value={v} className="reg-onglet rounded-none border-0 bg-transparent px-0.5 shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none">{l}</TabsTrigger>
+        ))}
+      </TabsList>
+    </div>
+  );
   const bureau = data.role === "collaborateur" && value === "overview";
   const cabinetNotice = data.role === "admin" && (adminDataLoading || adminDataError);
   return (
     <Tabs data-tour="dashboard-work" value={value} onValueChange={changeTab} className={`min-w-0 ${bureau ? "dashboard-bureau" : ""}`}>
       <div className="dashboard-view-column min-w-0">
-      {!(vueCabinet(data.role) && value === "overview") && navigation}
+      {ongletsCabinet ? navigationCabinet : navigation}
       {collectesError && <div className="dashboard-source-notice mt-4"><CollectionFailure onRetry={onRetryCollectes} /></div>}
       {cabinetNotice && <div role="status" className="dashboard-source-notice mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-border py-3 text-xs text-muted-foreground"><p>{adminDataLoading ? "Chargement du journal et des bordereaux…" : "Suivi partiel : une source cabinet est indisponible. Les tâches, fichiers et messages restent accessibles."}</p>{adminDataError && <Button variant="outline" className="min-h-11" onClick={onRetryAdminData}>Réessayer le suivi cabinet</Button>}</div>}
 
       <TabsContent value="overview" className="dashboard-overview-content mt-4">
         {isClient ? <ClientOverviewTab data={data} loading={collectesLoading} error={collectesError} /> : vueCabinet(data.role) ? <AdminOverviewTab data={data} now={now} loading={collectesLoading} error={collectesError} canUseMessaging={canUseMessaging} /> : <DailyWorkspaceTab data={data} wide={wide} now={now} loading={collectesLoading} error={collectesError} adminDataLoading={adminDataLoading} adminDataError={adminDataError} canUseMessaging={canUseMessaging} />}
       </TabsContent>
+      {vueCabinet(data.role) && <TabsContent value="portefeuille" className="mt-4"><PortefeuilleTab items={data.portefeuille} loading={collectesLoading} error={collectesError} /></TabsContent>}
       {isClient ? (
         <>
           <TabsContent value="collections" className="mt-4">{!collectesError && <ClientCollectionsTab collections={data.collections} loading={collectesLoading} />}</TabsContent>

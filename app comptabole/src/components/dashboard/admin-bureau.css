@@ -31,7 +31,7 @@
 .dashboard-admin .bureau-week-nav button:last-child { border-radius: 0 10px 10px 0; }
 .dashboard-admin .bureau-week-nav button:hover { background: hsl(var(--muted)); }
 .dashboard-admin .bureau-week-nav svg { width: 17px; height: 17px; }
-.dashboard-admin .bureau-board { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+.dashboard-admin .bureau-board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; }
 .dashboard-admin .bureau-day { --talon: 104px; position: relative; display: flex; min-width: 0; min-height: 200px; flex-direction: column; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); transition: transform .2s, box-shadow .2s, border-color .2s; }
 .dashboard-admin .bureau-day:hover { transform: translateY(-2px); box-shadow: 0 12px 22px -14px hsl(var(--primary) / .45); }
 /* Les deux encoches du billet, à hauteur de la ligne perforée. */
@@ -142,7 +142,7 @@
 
 /* onglets : une seule ligne qui défile sur petit écran */
 @media (max-width: 767px) {
-  .dashboard-admin .bureau-board { grid-template-columns: repeat(7, minmax(132px, 1fr)); overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; }
+  .dashboard-admin .bureau-board { grid-template-columns: repeat(8, minmax(132px, 1fr)); overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; }
   .dashboard-admin .bureau-day { scroll-snap-align: start; }
   .dashboard-admin .bureau-week, .dashboard-admin .bureau-registres { padding: 12px; }
   .dashboard-admin .bureau-line { grid-template-columns: minmax(0, 1fr) auto; }
@@ -153,3 +153,39 @@
   .dashboard-admin .bureau-heading h1 { font-size: 21px; }
 }
 @media (prefers-reduced-motion: reduce) { .dashboard-admin :is(.bureau-event, .bureau-line, .bureau-message, .bureau-day, .bureau-week-nav button, .bureau-registre-tabs [role="tab"]) { transition: none; } .dashboard-admin .bureau-day:hover { transform: none; } }
+
+/* colonne « Retard » de la semaine : mêmes règles que les jours, classes distinctes */
+.dashboard-admin .bureau-retard { --talon: 104px; position: relative; display: flex; min-width: 0; min-height: 200px; flex-direction: column; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); transition: transform .2s, box-shadow .2s, border-color .2s; }
+.dashboard-admin .bureau-retard:hover { transform: translateY(-2px); box-shadow: 0 12px 22px -14px hsl(var(--primary) / .45); }
+.dashboard-admin .bureau-retard::before,
+.dashboard-admin .bureau-retard::after { content: ""; position: absolute; top: calc(var(--talon) - 7px); z-index: 2; width: 14px; height: 14px; border: 1px solid hsl(var(--border)); border-radius: 50%; background: hsl(var(--card)); pointer-events: none; }
+.dashboard-admin .bureau-retard::before { left: -8px; }
+.dashboard-admin .bureau-retard::after { right: -8px; }
+.dashboard-admin .bureau-retard.is-weekend { background: color-mix(in srgb, hsl(var(--muted)) 65%, hsl(var(--card))); }
+.dashboard-admin .bureau-retard-head { display: flex; height: var(--talon); flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 0; border-bottom: 2px dashed hsl(var(--primary) / .18); background: transparent; padding: 0 4px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-retard-head span { font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.dashboard-admin .bureau-retard-head strong { font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; font-size: 36px; font-weight: 600; line-height: 1.05; color: hsl(var(--primary)); font-variant-numeric: tabular-nums; }
+.dashboard-admin .bureau-retard-head em { font-size: 10.5px; font-style: normal; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-retard-head:hover strong { color: hsl(var(--accent)); }
+.dashboard-admin .bureau-retard-head:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -3px; border-radius: 10px 10px 0 0; }
+.dashboard-admin .bureau-retard.is-weekend .bureau-retard-head strong { color: hsl(var(--muted-foreground) / .75); }
+.dashboard-admin .bureau-retard.is-selected { border-color: hsl(var(--accent)); box-shadow: 0 0 0 2px hsl(var(--accent)); }
+.dashboard-admin .bureau-retard.is-today { border-color: hsl(var(--primary)); background: hsl(var(--primary)); }
+.dashboard-admin .bureau-retard.is-today::before,
+.dashboard-admin .bureau-retard.is-today::after { border-color: hsl(var(--primary)); }
+.dashboard-admin .bureau-retard.is-today .bureau-retard-head { border-bottom-color: hsl(var(--primary-foreground) / .25); }
+.dashboard-admin .bureau-retard.is-today .bureau-retard-head span,
+.dashboard-admin .bureau-retard.is-today .bureau-retard-head em { color: hsl(var(--accent)); }
+.dashboard-admin .bureau-retard.is-today .bureau-retard-head strong { color: hsl(var(--primary-foreground)); }
+.dashboard-admin .bureau-retard.is-today.is-selected { border-color: hsl(var(--accent)); }
+.dashboard-admin .bureau-retard-body { display: flex; flex: 1; flex-direction: column; align-items: center; gap: 8px; padding: 12px 10px 12px; text-align: center; }
+.dashboard-admin .bureau-retard.is-today :is(.bureau-event strong, .bureau-retard-more) { color: hsl(var(--primary-foreground)); }
+.dashboard-admin .bureau-retard.is-today .bureau-event span { color: hsl(var(--primary-foreground) / .7); }
+.dashboard-admin .bureau-retard.is-today .bureau-event.is-overdue span { color: hsl(0 100% 85%); }
+.dashboard-admin .bureau-retard.is-today .bureau-event:hover { background: hsl(var(--primary-foreground) / .1); }
+.dashboard-admin .bureau-retard-more { font-size: 11.5px; font-weight: 600; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .bureau-retard-empty,
+.dashboard-admin .bureau-retard.is-today .bureau-retard-empty { color: hsl(var(--primary-foreground) / .6); }
+  .dashboard-admin .bureau-retard { scroll-snap-align: start; }
+@media (prefers-reduced-motion: reduce) { .dashboard-admin :is(.bureau-event, .bureau-line, .bureau-message, .bureau-retard, .bureau-week-nav button, .bureau-registre-tabs [role="tab"]) { transition: none; } .dashboard-admin .bureau-retard:hover { transform: none; } }
+.dashboard-admin .bureau-retard .bureau-retard-head :is(strong, span) { color: hsl(var(--destructive)); }

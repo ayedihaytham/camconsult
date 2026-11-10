@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WorkspaceLoading } from "../WorkspaceSection";
+import { TriageDashboard } from "../TriageDashboard";
 import { AdminMessageRows, AdminTeamRows, CollecteCircuit, collecteStatutLabel } from "../AdminBureauCards";
 import { TACHE_STATUT_LABELS } from "@/types";
 import { cn, formatDate, toTitleCase } from "@/lib/utils";
@@ -22,6 +23,8 @@ export function AdminOverviewTab({ data, loading, error, canUseMessaging, now = 
   const [weekOffset, setWeekOffset] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [registre, setRegistre] = useState("travail");
+  /** Filtre de la file « À traiter maintenant » posé par la semaine : « retard » ou une date. */
+  const [filtre, setFiltre] = useState<string | null>(null);
   const today = dashboardDateKey(now);
   const days = Array.from({ length: 7 }, (_, index) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + weekOffset * 7 + index));
   const start = dashboardDateKey(days[0]);
@@ -34,6 +37,7 @@ export function AdminOverviewTab({ data, loading, error, canUseMessaging, now = 
     setWeekOffset(offset);
     setSelected(dashboardDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset * 7)));
   }
+  const retards = unavailable ? [] : data.deadlines.filter((item) => item.bucket === "overdue");
   const byDay = new Map<string, DashboardDeadline[]>();
   if (!unavailable) for (const item of data.deadlines) byDay.set(item.echeance, [...(byDay.get(item.echeance) ?? []), item]);
 
@@ -62,13 +66,25 @@ export function AdminOverviewTab({ data, loading, error, canUseMessaging, now = 
           </div>
         </header>
         <div className="bureau-board" role="group" aria-label="Dates des collectes">
+          <div className={cn("bureau-retard", filtre === "retard" && "is-selected")}>
+            <button type="button" className="bureau-retard-head" aria-label={`En retard, ${retards.length} collecte${retards.length > 1 ? "s" : ""}`} aria-pressed={filtre === "retard"} onClick={() => setFiltre(filtre === "retard" ? null : "retard")}>
+              <span>Retard</span><strong>{unavailable ? "–" : retards.length}</strong><em>&nbsp;</em>
+            </button>
+            <div className="bureau-retard-body">
+              {retards.slice(0, DAY_EVENTS_SHOWN).map((item) => <Link key={item.id} to={item.route} className="bureau-event is-overdue">
+                <strong>{item.societeName}</strong><span>{collecteStatutLabel(item)}</span>
+              </Link>)}
+              {retards.length > DAY_EVENTS_SHOWN && <span className="bureau-retard-more">+ {retards.length - DAY_EVENTS_SHOWN} autre{retards.length - DAY_EVENTS_SHOWN > 1 ? "s" : ""}</span>}
+              {!unavailable && retards.length === 0 && <span className="bureau-retard-empty" aria-hidden="true">Aucun retard</span>}
+            </div>
+          </div>
           {days.map((date) => {
             const key = dashboardDateKey(date);
             const items = byDay.get(key) ?? [];
             const sunday = date.getDay() === 0;
             return <div key={key} className={cn("bureau-day", key === today && "is-today", sunday && "is-weekend", key === day && "is-selected")}>
               <button type="button" className="bureau-day-head" aria-label={`${formatDate(key)}, ${unavailable ? loading ? "collectes en chargement" : "collectes indisponibles" : `${items.length} collecte${items.length > 1 ? "s" : ""}`}`}
-                aria-current={key === today ? "date" : undefined} aria-pressed={key === day} onClick={() => setSelected(key)}>
+                aria-current={key === today ? "date" : undefined} aria-pressed={key === day} onClick={() => { setSelected(key); setFiltre(filtre === key ? null : key); }}>
                 <span>{date.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}</span><strong>{date.getDate()}</strong><em>{date.toLocaleDateString("fr-FR", { month: "short" }).replace(".", "")}</em>
               </button>
               <div className="bureau-day-body">
@@ -94,6 +110,8 @@ export function AdminOverviewTab({ data, loading, error, canUseMessaging, now = 
             : <p className="admin-brief-empty">Aucune collecte prévue à cette date.</p>}
         </div>
       </section>
+
+      <TriageDashboard items={data.triage} filtre={filtre} onEffacerFiltre={() => setFiltre(null)} loading={loading} error={error} />
 
       <section className="bureau-card bureau-registres" aria-label="Registres du cabinet">
         <Tabs value={registre} onValueChange={setRegistre}>

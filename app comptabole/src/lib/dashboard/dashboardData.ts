@@ -55,6 +55,27 @@ export interface DashboardDeadline {
   statut?: CollecteStatut;
 }
 
+/** Une collecte à traiter (poste de triage) : en retard, à examiner (transmise par le client) ou à corriger côté client. */
+export type TriageGroupe = "retard" | "examiner" | "corriger";
+
+export interface DashboardTriageItem {
+  id: string;
+  groupe: TriageGroupe;
+  societeId: string;
+  societeName: string;
+  periode: string;
+  statut: CollecteStatut;
+  echeance: string | null;
+  /** Jours avant l'échéance (négatif = en retard), null sans échéance. */
+  daysFromToday: number | null;
+  tableauxDemandes: number;
+  tableauxTransmis: number;
+  tableauxValides: number;
+  route: string;
+  /** Autres collectes de la même société (hors archivées). */
+  autres: Array<{ id: string; periode: string; statut: CollecteStatut; route: string }>;
+}
+
 export interface DashboardTaskRow extends Tache {
   societeName: string;
   assigneeName: string;
@@ -117,11 +138,29 @@ export interface DashboardTaskCounts {
   termine: number;
 }
 
+/** Une société du portefeuille : où en sont ses collectes en cours (circuit client → cabinet). */
+export interface DashboardPortefeuilleItem {
+  societeId: string;
+  societeName: string;
+  enCours: number;
+  brouillon: number;
+  transmis: number;
+  aCorriger: number;
+  valide: number;
+  enRetard: number;
+  prochaine: { echeance: string; periode: string; route: string } | null;
+  route: string;
+}
+
 export interface DashboardViewModel {
   role: DashboardRole;
   kpis: DashboardKpi[];
   attentionItems: DashboardAttentionItem[];
   deadlines: DashboardDeadline[];
+  /** File « À traiter maintenant » : les collectes qui demandent une action du cabinet, les plus urgentes d'abord. */
+  triage: DashboardTriageItem[];
+  /** Une ligne par société ayant des collectes non archivées, les plus en retard d'abord. */
+  portefeuille: DashboardPortefeuilleItem[];
   taskCounts: DashboardTaskCounts;
   taskRows: DashboardTaskRow[];
   otherTaskRows: DashboardTaskRow[];
@@ -316,6 +355,62 @@ function buildDeadlines(
       };
     })
     .sort((left, right) => left.daysFromToday - right.daysFromToday || left.societeName.localeCompare(right.societeName));
+}
+
+const TRIAGE_ORDRE: Record<TriageGroupe, number> = { retard: 0, examiner: 1, corriger: 2 };
+
+export function buildTriage(collectes: Collecte[], societyNames: Map<string, string>, now: Date): DashboardTriageItem[] {
+  const items: DashboardTriageItem[] = [];
+  for (const collecte of collectes) {
+    if (isClosedCollection(collecte)) continue;
+    const retard = isOverdueCollection(collecte, now);
+    const groupe: TriageGroupe | null = retard ? "retard" : collecte.statut === "transmis" ? "examiner" : collecte.statut === "a_corriger" ? "corriger" : null;
+    if (!groupe) continue;
+    items.push({
+      id: collecte.id,
+      groupe,
+      societeId: collecte.societeId,
+      societeName: societyNames.get(collecte.societeId) ?? "Société",
+      periode: collecte.periode,
+      statut: collecte.statut,
+      echeance: collecte.echeance,
+      daysFromToday: collecte.echeance ? daysBetween(collecte.echeance, now) : null,
+      tableauxDemandes: collecte.tableauxDemandes ?? 0,
+      tableauxTransmis: collecte.tableauxTransmis ?? 0,
+      tableauxValides: collecte.tableauxValides ?? 0,
+      route: `/collectes/${collecte.id}`,
+      autres: collectes
+        .filter((autre) => autre.societeId === collecte.societeId && autre.id !== collecte.id && autre.statut !== "archive")
+        .map((autre) => ({ id: autre.id, periode: autre.periode, statut: autre.statut, route: `/collectes/${autre.id}` })),
+    });
+  }
+  return items.sort(
+    (a, b) =>
+      TRIAGE_ORDRE[a.groupe] - TRIAGE_ORDRE[b.groupe] ||
+      (a.daysFromToday ?? Number.MAX_SAFE_INTEGER) - (b.daysFromToday ?? Number.MAX_SAFE_INTEGER) ||
+      a.societeName.localeCompare(b.societeName, "fr"),
+  );
+}
+
+export function buildPortefeuille(collectes: Collecte[], societyNames: Map<string, string>, now: Date): DashboardPortefeuilleItem[] {
+  const map = new Map<string, DashboardPortefeuilleItem>();
+  for (const c of collectes) {
+    if (c.statut === "archive") continue;
+    const item = map.get(c.societeId) ?? {
+      societeId: c.societeId, societeName: societyNames.get(c.societeId) ?? "Société", enCours: 0, brouillon: 0, transmis: 0, aCorriger: 0, valide: 0, enRetard: 0, prochaine: null, route: `/collectes/${c.id}`,
+    };
+    if (c.statut === "valide") item.valide += 1;
+    else {
+      item.enCours += 1;
+      if (c.statut === "brouillon") item.brouillon += 1;
+      else if (c.statut === "transmis") item.transmis += 1;
+      else if (c.statut === "a_corriger") item.aCorriger += 1;
+      if (isOverdueCollection(c, now)) item.enRetard += 1;
+      if (c.echeance && (!item.prochaine || c.echeance < item.prochaine.echeance)) { item.prochaine = { echeance: c.echeance, periode: c.periode, route: `/collectes/${c.id}` }; item.route = item.prochaine.route; }
+    }
+    map.set(c.societeId, item);
+  }
+  return [...map.values()].sort((a, b) => b.enRetard - a.enRetard || b.enCours - a.enCours || a.societeName.localeCompare(b.societeName, "fr"));
 }
 
 function buildAttentionItems(
@@ -604,6 +699,8 @@ export function buildDashboardData(source: DashboardDataInput): DashboardViewMod
     kpis,
     attentionItems: buildAttentionItems(input, societyNames),
     deadlines,
+    triage: input.role === "societe_employe" ? [] : buildTriage(input.collectes, societyNames, input.now),
+    portefeuille: input.role === "societe_employe" ? [] : buildPortefeuille(input.collectes, societyNames, input.now),
     taskCounts: tasks,
     taskRows,
     otherTaskRows,

@@ -1,0 +1,87 @@
+/* « À traiter maintenant » : file de collectes à gauche, dossier ouvert à droite (maquette plateforme). */
+.dashboard-admin .triage { padding: 0; overflow: hidden; }
+.dashboard-admin .triage-entete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 18px 22px 14px; }
+.dashboard-admin .triage-entete h2 { margin: 0; font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; color: hsl(var(--primary)); }
+.dashboard-admin .triage-filtre { border: 1px solid hsl(var(--primary) / .2); border-radius: 99px; background: hsl(var(--card)); padding: 4px 12px; font-size: 12px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .triage-filtre:hover { background: #f5f8fd; }
+.dashboard-admin .triage .admin-brief-empty { margin: 0; padding: 4px 22px 22px; }
+.dashboard-admin .triage-grille { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); border-top: 1px solid hsl(var(--primary) / .1); }
+.dashboard-admin .triage-file { max-height: 640px; overflow-y: auto; border-right: 1px solid hsl(var(--primary) / .1); }
+.dashboard-admin .triage-groupe { display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 22px; background: #f7f9fc; border-bottom: 1px solid hsl(var(--primary) / .08); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .triage-groupe[data-groupe="retard"] { color: hsl(var(--destructive)); }
+.dashboard-admin .triage-groupe span { font-weight: 700; color: hsl(var(--primary)); }
+.dashboard-admin .triage-ligne { position: relative; display: grid; width: 100%; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 22px; border-bottom: 1px solid hsl(var(--primary) / .08); text-align: left; transition: background-color .15s; }
+.dashboard-admin .triage-ligne:hover { background: #f5f8fd; }
+.dashboard-admin .triage-ligne[aria-selected="true"] { background: #eaf1fb; }
+.dashboard-admin .triage-ligne[aria-selected="true"]::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: hsl(var(--primary)); }
+.dashboard-admin .triage-ligne:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; }
+.dashboard-admin .triage-nom { display: flex; min-width: 0; flex-direction: column; }
+.dashboard-admin .triage-nom strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 700; color: hsl(var(--primary)); }
+.dashboard-admin .triage-nom small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .triage-ligne em { font-style: normal; font-size: 12.5px; font-weight: 600; color: hsl(var(--foreground)); white-space: nowrap; }
+.dashboard-admin .is-retard { color: hsl(var(--destructive)) !important; }
+.dashboard-admin .triage-point { width: 8px; height: 8px; flex: none; border-radius: 2px; background: #7a8ca0; }
+.dashboard-admin [data-ton="transmis"] > .triage-point { background: #2a6dbf; }
+.dashboard-admin [data-ton="corriger"] > .triage-point { background: #c98a1b; }
+.dashboard-admin [data-ton="valide"] > .triage-point { background: #246549; }
+
+.dashboard-admin .triage-detail { min-width: 0; padding: 22px 24px 26px; }
+.dashboard-admin .triage-eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .triage-detail h3 { margin: 6px 0 10px; font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; font-size: 1.7rem; font-weight: 800; line-height: 1.1; letter-spacing: -.025em; color: hsl(var(--primary)); }
+.dashboard-admin .triage-pastille { display: inline-block; border-radius: 99px; padding: 3px 12px; font-size: 12px; font-weight: 700; background: #e2eaf0; color: #285378; }
+.dashboard-admin .triage-pastille[data-ton="transmis"] { background: #dbe8f8; color: #1f5aa6; }
+.dashboard-admin .triage-pastille[data-ton="corriger"] { background: #fbebc4; color: #8a5a0b; }
+.dashboard-admin .triage-pastille[data-ton="valide"] { background: #ddf0e5; color: #1d5d41; }
+.dashboard-admin .triage-faits { display: flex; flex-wrap: wrap; gap: 14px 40px; margin: 18px 0 0; padding: 16px 0; border-top: 1px solid hsl(var(--primary) / .1); border-bottom: 1px solid hsl(var(--primary) / .1); }
+.dashboard-admin .triage-faits dt { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .triage-faits dd { margin: 4px 0 0; font-size: 14.5px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .triage-faits dd small { display: block; font-size: 12.5px; font-weight: 700; }
+.dashboard-admin .triage-sous-titre { margin: 20px 0 10px; font-size: 10.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .triage-circuit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.dashboard-admin .triage-circuit > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid hsl(var(--primary) / .1); border-top: 3px solid #7a8ca0; border-radius: 10px; background: hsl(var(--card)); }
+.dashboard-admin .triage-circuit > div[data-ton="transmis"] { border-top-color: #2a6dbf; }
+.dashboard-admin .triage-circuit > div[data-ton="valide"] { border-top-color: #246549; }
+.dashboard-admin .triage-circuit b { font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; font-size: 1.4rem; font-weight: 800; line-height: 1.1; color: hsl(var(--primary)); font-variant-numeric: tabular-nums; }
+.dashboard-admin .triage-circuit span { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .triage-action { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 0 20px; height: 42px; border-radius: 9px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 13.5px; font-weight: 700; transition: background-color .15s; }
+.dashboard-admin .triage-action:hover { background: hsl(var(--primary) / .88); }
+.dashboard-admin .triage-action svg { width: 16px; height: 16px; }
+.dashboard-admin .triage-autres { display: grid; margin: 0; padding: 0; list-style: none; }
+.dashboard-admin .triage-autres a { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 0; font-size: 14px; color: hsl(var(--primary)); }
+.dashboard-admin .triage-autres a:hover span { text-decoration: underline; }
+.dashboard-admin .triage-autres em { font-style: normal; font-size: 12.5px; color: hsl(var(--muted-foreground)); }
+@media (max-width: 899px) {
+  .dashboard-admin .triage-grille { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-admin .triage-file { max-height: 360px; border-right: 0; border-bottom: 1px solid hsl(var(--primary) / .1); }
+}
+
+/* Portefeuille (maquette) : une ligne par société avec le circuit de ses collectes. */
+.dashboard-admin .portefeuille { padding: 0; overflow: hidden; }
+.dashboard-admin .portefeuille .triage-entete { padding-bottom: 8px; }
+.dashboard-admin .portefeuille-recherche { display: inline-flex; align-items: center; gap: 8px; min-width: 240px; height: 38px; padding: 0 12px; border: 1px solid hsl(var(--primary) / .15); border-radius: 10px; background: hsl(var(--card)); color: hsl(var(--muted-foreground)); }
+.dashboard-admin .portefeuille-recherche svg { width: 16px; height: 16px; flex: none; }
+.dashboard-admin .portefeuille-recherche input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 13.5px; color: hsl(var(--foreground)); }
+.dashboard-admin .portefeuille-legende { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0 22px 12px; list-style: none; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .portefeuille-legende li { display: inline-flex; align-items: center; gap: 6px; }
+.dashboard-admin .portefeuille-legende span { width: 10px; height: 10px; border-radius: 3px; background: #7a8ca0; }
+.dashboard-admin .portefeuille-legende [data-cle="transmis"] span { background: #2a6dbf; }
+.dashboard-admin .portefeuille-legende [data-cle="aCorriger"] span { background: #c98a1b; }
+.dashboard-admin .portefeuille-legende [data-cle="valide"] span { background: #246549; }
+.dashboard-admin .portefeuille-liste { margin: 0; padding: 0; list-style: none; border-top: 1px solid hsl(var(--primary) / .1); }
+.dashboard-admin .portefeuille-ligne { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr) 110px minmax(120px, .8fr) 20px; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid hsl(var(--primary) / .08); transition: background-color .15s; }
+.dashboard-admin .portefeuille-ligne:hover { background: #f5f8fd; }
+.dashboard-admin .portefeuille-barre { display: flex; height: 10px; overflow: hidden; border-radius: 99px; background: #eef2f7; gap: 2px; }
+.dashboard-admin .portefeuille-barre i { display: block; min-width: 6px; background: #7a8ca0; }
+.dashboard-admin .portefeuille-barre [data-cle="transmis"] { background: #2a6dbf; }
+.dashboard-admin .portefeuille-barre [data-cle="aCorriger"] { background: #c98a1b; }
+.dashboard-admin .portefeuille-barre [data-cle="valide"] { background: #246549; }
+.dashboard-admin .portefeuille-barre [data-cle="vide"] { background: #e3e9f0; }
+.dashboard-admin .portefeuille-retard { font-size: 12.5px; font-weight: 700; color: hsl(var(--muted-foreground)); white-space: nowrap; }
+.dashboard-admin .portefeuille-echeance { display: flex; flex-direction: column; min-width: 0; font-size: 13px; color: hsl(var(--primary)); }
+.dashboard-admin .portefeuille-echeance small { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.dashboard-admin .portefeuille-chevron { width: 18px; height: 18px; color: hsl(var(--muted-foreground)); }
+@media (max-width: 767px) {
+  .dashboard-admin .portefeuille-ligne { grid-template-columns: minmax(0, 1fr) auto 20px; }
+  .dashboard-admin .portefeuille-barre, .dashboard-admin .portefeuille-echeance { grid-column: 1 / -1; grid-row: 2; }
+  .dashboard-admin .portefeuille-echeance { grid-row: 3; }
+}

@@ -22,7 +22,6 @@ import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHe
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
-import { StatutIcone } from "@/components/ledger/StatutIcone";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
@@ -78,9 +77,8 @@ import { AppareilsEmployeDialog } from "@/components/auth/AppareilsConnectes";
 import { api, ApiError } from "@/lib/api";
 import type { EmailEnvoi } from "@/types";
 import { EmployeViewSheet } from "./EmployeViewSheet";
-import { EmployesVolet } from "./EmployesVolet";
+import "../societes/societes-registre.css";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
-import { safeLocalStorage } from "@/lib/safeStorage";
 import {
   allowedPermissionCount,
   assignmentPreview,
@@ -262,12 +260,6 @@ export function EmployesListPage() {
   const duplicateEmploye = useData((s) => s.duplicateEmploye);
   const deleteEmployes = useData((s) => s.deleteEmployes);
   const setEmployeAcces = useData((s) => s.setEmployeAcces);
-  const [vue, setVue] = useState<"volet" | "tableau">(() => (safeLocalStorage.getItem("collaborateurs:vue") === "tableau" ? "tableau" : "volet"));
-  function changerVue(next: "volet" | "tableau") {
-    setVue(next);
-    safeLocalStorage.setItem("collaborateurs:vue", next);
-    if (next === "volet") clearSelection();
-  }
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statutFilter, setStatutFilter] = useState("all");
@@ -573,7 +565,7 @@ export function EmployesListPage() {
                 className="truncate text-[11px] leading-4 text-muted-foreground"
                 title={`${e.type} · ${e.email}`}
               >
-                {e.type} <span aria-hidden="true">·</span> {e.email}
+                {e.email}
               </p>
               {e.doitChangerMotDePasse && (
                 <span className="mt-0.5 inline-block rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
@@ -587,10 +579,17 @@ export function EmployesListPage() {
       meta: { label: "Collaborateur", icon: User },
     },
     {
+      id: "role",
+      accessorFn: (e) => e.type,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Rôle" />,
+      cell: ({ row }) => <span className="reg-texte">{row.original.type}</span>,
+      meta: { label: "Rôle", icon: User, headerClassName: "w-[170px]" },
+    },
+    {
       id: "perimetre",
       accessorFn: (e) => e.societesAssignees.length,
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Périmètre" />
+        <DataTableColumnHeader column={column} title="Dossiers" />
       ),
       cell: ({ row }) => {
         const e = row.original;
@@ -615,13 +614,13 @@ export function EmployesListPage() {
           </div>
         );
       },
-      meta: { label: "Périmètre", icon: Building2, headerClassName: "w-[230px]" },
+      meta: { label: "Dossiers", icon: Building2, headerClassName: "w-[230px]" },
     },
     {
       id: "taches",
       accessorFn: (e) => openTaskCounts.get(e.id) ?? 0,
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Tâches" />
+        <DataTableColumnHeader column={column} title="Tâches ouvertes" />
       ),
       cell: ({ row }) => {
         const count = openTaskCounts.get(row.original.id) ?? 0;
@@ -631,7 +630,7 @@ export function EmployesListPage() {
           </span>
         );
       },
-      meta: { label: "Tâches", icon: ListChecks, headerClassName: "w-[90px] text-right", cellClassName: "text-right" },
+      meta: { label: "Tâches ouvertes", icon: ListChecks, headerClassName: "w-[140px]" },
     },
     {
       id: "acces",
@@ -651,7 +650,7 @@ export function EmployesListPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Statut" />
       ),
-      cell: ({ row }) => <StatutIcone statut={row.original.statut} />,
+      cell: ({ row }) => <span className="reg-pastille" data-statut={row.original.statut}>{STATUT_LABELS[row.original.statut]}</span>,
       meta: { label: "Statut", icon: CircleDot, headerClassName: "w-[140px]" },
     },
     {
@@ -664,25 +663,6 @@ export function EmployesListPage() {
           className="flex justify-end"
           onClick={(event) => event.stopPropagation()}
         >
-          <span className="mr-1 hidden items-center gap-1.5 lg:flex">
-            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-accent bg-accent/15 px-2.5 text-xs font-semibold shadow-none hover:bg-accent/30" onClick={() => openView(row.original)}>
-              <Eye className="size-3.5" aria-hidden="true" />
-              Fiche
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 px-2.5 text-xs font-semibold shadow-none"
-              onClick={() => {
-                setAccesTarget(row.original);
-                setAccesOpen(true);
-              }}
-            >
-              <ShieldCheck className="size-3.5" aria-hidden="true" />
-              Accès
-            </Button>
-          </span>
           <LedgerRowMenu actions={employeMenuActions(row.original)} />
         </div>
       ),
@@ -696,6 +676,7 @@ export function EmployesListPage() {
     getRowId: (e) => e.id,
     initialSorting: [{ id: "nom", desc: false }],
     pageSize,
+    initialColumnVisibility: { acces: false },
     resetKey: `${search}\u0000${typeFilter}\u0000${statutFilter}`,
   });
   const mobileSelecting = mobileSelectionMode || selectedIds.length > 0;
@@ -808,8 +789,8 @@ export function EmployesListPage() {
       <PageHeaderBar
         title="Collaborateurs"
         titleId="team-ledger-title"
-        description="Équipe du cabinet · comptes et périmètres d'accès"
-        action={{ label: "Ajouter un collaborateur", onClick: startCreate }}
+        description="Collaborateurs du cabinet"
+        action={{ label: "Collaborateur", onClick: startCreate }}
       />
 
       <LedgerWorkSurface className="employes-ledger-surface ledger-soft-rows">
@@ -819,19 +800,6 @@ export function EmployesListPage() {
           search={renderSearchFilter()}
           resultCount={!isDataLoading ? `${filtered.length} collaborateur${filtered.length > 1 ? "s" : ""}` : undefined}
           tools={<>
-            <div role="group" aria-label="Présentation du registre" className="inline-flex rounded-[10px] bg-muted p-[3px]">
-              {([["volet", "Liste et volet"], ["tableau", "Tableau"]] as const).map(([valeur, libelle]) => (
-                <button
-                  key={valeur}
-                  type="button"
-                  aria-pressed={vue === valeur}
-                  onClick={() => changerVue(valeur)}
-                  className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", vue === valeur && "bg-card font-semibold text-primary shadow-sm")}
-                >
-                  {libelle}
-                </button>
-              ))}
-            </div>
             {desktopUtilityMenu}
           </>}
         />
@@ -958,26 +926,7 @@ export function EmployesListPage() {
           </div>
         </div>
       )}
-      {vue === "volet" && (
-        <div className="hidden lg:block">
-          <EmployesVolet
-            employes={filtered}
-            loading={isDataLoading}
-            emptyMessage={emptyMessage}
-            societyNames={societyNames}
-            openTaskCounts={openTaskCounts}
-            droitsTotal={PERMISSION_TOTAL}
-            droitsActifs={allowedPermissionCount}
-            onOpenFiche={openView}
-            onOpenAcces={(employe) => {
-              setAccesTarget(employe);
-              setAccesOpen(true);
-            }}
-            menuActions={employeMenuActions}
-          />
-        </div>
-      )}
-      <div className={vue === "volet" ? "lg:hidden" : undefined}>
+      <div>
         <DataTable
           className="ledger-work-table bg-transparent [&>div:last-child]:space-y-0"
           desktopDensity="ledger"

@@ -27,7 +27,7 @@
 .dashboard-admin .aat-chips i { display: inline-block; width: 8px; height: 8px; border-radius: 999px; }
 .dashboard-admin .aat-chips i.is-file { background: hsl(var(--accent)); } .dashboard-admin .aat-chips i.is-message { background: hsl(var(--chart-2)); } .dashboard-admin .aat-chips i.is-journal { background: hsl(var(--primary)); }
 
-.dashboard-admin .aat-day { display: flex; align-items: center; gap: 12px; margin: 6px 0 4px; font-family: "Playfair Display", Georgia, serif; font-size: 19px; font-weight: 600; color: hsl(var(--primary)); }
+.dashboard-admin .aat-day { display: flex; align-items: center; gap: 12px; margin: 6px 0 4px; font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; font-size: 19px; font-weight: 600; color: hsl(var(--primary)); }
 .dashboard-admin .aat-day b { border: 1px solid hsl(var(--border)); border-radius: 999px; background: hsl(var(--card)); padding: 0 9px; font-family: inherit; font-size: 12px; font-weight: 700; color: hsl(var(--muted-foreground)); }
 .dashboard-admin .aat-day::after { content: ""; height: 1px; flex: 1; background: hsl(var(--border)); }
 .dashboard-admin .aat-timeline { position: relative; margin: 0; padding: 0; list-style: none; }

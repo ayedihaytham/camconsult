@@ -15,7 +15,7 @@ import { useSocietes } from "@/store/data";
 import { useSuiviDevise } from "@/store/suiviDevise";
 import { getAppBreadcrumbs } from "./breadcrumbs";
 
-export function AppBreadcrumbs() {
+export function AppBreadcrumbs({ clair = false }: { clair?: boolean }) {
   const { pathname } = useLocation();
   const societes = useSocietes();
   const collecteList = useCollectes((state) => state.list);
@@ -54,7 +54,7 @@ export function AppBreadcrumbs() {
 
   return (
     <Breadcrumb aria-label="Fil d’Ariane" className="min-w-0 shrink overflow-hidden">
-      <BreadcrumbList className="flex-nowrap gap-1 overflow-hidden text-sidebar-muted sm:gap-1.5">
+      <BreadcrumbList className={cn("flex-nowrap gap-1 overflow-hidden sm:gap-1.5", clair ? "text-muted-foreground" : "text-sidebar-muted")}>
         {crumbs.map((crumb, index) => {
           const isCurrent = index === crumbs.length - 1;
           const hiddenOnMobile = index < firstVisibleOnMobile;
@@ -64,7 +64,7 @@ export function AppBreadcrumbs() {
               {index > 0 && (
                 <BreadcrumbSeparator
                   className={cn(
-                    "shrink-0 text-white/30",
+                    clair ? "shrink-0 text-muted-foreground/40" : "shrink-0 text-white/30",
                     index === firstVisibleOnMobile && "hidden sm:inline-flex",
                   )}
                 />
@@ -78,7 +78,7 @@ export function AppBreadcrumbs() {
               >
                 {isCurrent ? (
                   <BreadcrumbPage
-                    className="block max-w-[9rem] truncate text-[1.05rem] font-semibold text-white sm:max-w-[14rem] lg:max-w-[22rem]"
+                    className={cn("block max-w-[9rem] truncate font-semibold sm:max-w-[14rem] lg:max-w-[22rem]", clair ? "text-[0.9rem] text-primary" : "text-[1.05rem] text-white")}
                     title={crumb.label}
                   >
                     {crumb.label}
@@ -87,7 +87,7 @@ export function AppBreadcrumbs() {
                   <BreadcrumbLink asChild>
                     <Link
                       to={crumb.to ?? "/"}
-                      className="block max-w-[8rem] truncate text-[0.8125rem] text-sidebar-muted transition-colors hover:text-white sm:max-w-[12rem]"
+                      className={cn("block max-w-[8rem] truncate text-[0.8125rem] transition-colors sm:max-w-[12rem]", clair ? "text-muted-foreground hover:text-primary" : "text-sidebar-muted hover:text-white")}
                       title={crumb.label}
                     >
                       {crumb.label}

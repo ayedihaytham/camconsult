@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
-import { TopbarSlot } from "@/components/layout/TopbarSlot";
 import { SqueletteOr } from "./Chargement";
 import { cn } from "@/lib/utils";
 import type { LedgerCompactMetric } from "./LedgerCompactHeader";
@@ -21,13 +20,13 @@ function useBarreComplete() {
   return complete;
 }
 
-const TON = { default: "text-primary", success: "text-success", warning: "text-warning", destructive: "text-destructive" } as const;
-
 /**
  * En-tête commun des pages de module : le titre est celui de la barre du haut (fil d'Ariane), la description et les boutons d'action
  * se placent dans cette barre ; les chiffres forment une rangée discrète en haut de la page (cliquables quand ils filtrent).
  * Sur petit écran, la barre du haut n'a pas de place : les boutons restent dans la page.
  */
+const TON = { default: "text-primary", success: "text-success", warning: "text-warning", destructive: "text-destructive" } as const;
+
 export function PageHeaderBar({
   title,
   description,
@@ -37,6 +36,9 @@ export function PageHeaderBar({
   titleId,
   className,
   actionsSurPetitEcran = true,
+  eyebrow,
+  visibleTitle,
+  tourTarget,
 }: {
   title: string;
   description?: ReactNode;
@@ -49,6 +51,12 @@ export function PageHeaderBar({
   className?: string;
   /** Faux : sur petit écran les boutons ne sont pas répétés dans la page (la page a déjà son bouton flottant). */
   actionsSurPetitEcran?: boolean;
+  /** Petite ligne au-dessus du titre (ex. la date). */
+  eyebrow?: ReactNode;
+  /** Titre affiché si différent du titre du document (ex. « Bonjour Mohamed » pour la page « Tableau de bord du cabinet »). */
+  visibleTitle?: string;
+  /** Repère de la visite guidée posé sur l'en-tête. */
+  tourTarget?: string;
 }) {
   const barreComplete = useBarreComplete();
   const boutons = actions ?? (action && (
@@ -57,27 +65,25 @@ export function PageHeaderBar({
       type="button"
       onClick={action.onClick}
       aria-label={action.label}
-      className="flex h-9 items-center gap-2 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-primary transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+      className="flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-[13px] font-bold text-primary transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
     >
       <Plus className="size-4" aria-hidden="true" />
-      <span className="hidden xl:inline">{action.label}</span>
+      <span>{action.label}</span>
     </button>
   ));
   return (
-    <header className={cn("page-head", className)} aria-labelledby={titleId}>
-      <h1 id={titleId} className="sr-only">{title}</h1>
-      {description && (
-        <TopbarSlot zone="description" sinonSurPlace>
-          <span data-tour="page-identity" className="hidden whitespace-nowrap border-l border-white/20 pl-3.5 text-[13px] text-sidebar-muted min-[1700px]:inline">{description}</span>
-        </TopbarSlot>
-      )}
-      {boutons && (barreComplete ? (
-        <TopbarSlot zone="actions" sinonSurPlace>
+    <header className={cn("page-head", className)} aria-labelledby={titleId} {...(tourTarget ? { "data-tour": tourTarget } : {})}>
+      <div className="page-head-main">
+        <div className="page-head-id" data-tour="page-identity">
+          {eyebrow && <p className="page-head-eyebrow">{eyebrow}</p>}
+          <h1 id={titleId} className="sr-only">{title}</h1>
+          <div className="page-head-title" aria-hidden="true">{visibleTitle ?? title}</div>
+          {description && <p className="page-head-desc">{description}</p>}
+        </div>
+        {boutons && (barreComplete || actionsSurPetitEcran) && (
           <div className="page-head-actions page-head-actions--bar no-print">{boutons}</div>
-        </TopbarSlot>
-      ) : (
-        actionsSurPetitEcran && <div className="page-head-actions page-head-actions--inline no-print">{boutons}</div>
-      ))}
+        )}
+      </div>
       {metrics.length > 0 && (
         <dl className="page-head-figs">
           {metrics.map((m) => {
@@ -85,6 +91,7 @@ export function PageHeaderBar({
             return (
               <div
                 key={m.label}
+                data-tone={m.tone ?? "default"}
                 className={cn("page-head-fig", interactif && "page-head-fig--interactive")}
                 {...(interactif
                   ? {
@@ -101,11 +108,11 @@ export function PageHeaderBar({
                     }
                   : {})}
               >
-                <dt>{m.label}</dt>
                 <dd className={cn(TON[m.tone ?? "default"], m.kind === "detail" && "page-head-fig__detail")}>
                   {m.icon && <m.icon className="mr-2 inline size-4 align-[-2px] opacity-70" aria-hidden="true" />}
                   {m.loading ? <><span className="sr-only">Chargement</span><SqueletteOr className="inline-block h-5 w-8 align-middle" /></> : m.value}
                 </dd>
+                <dt>{m.label}</dt>
               </div>
             );
           })}

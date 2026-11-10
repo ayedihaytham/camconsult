@@ -18,7 +18,6 @@ import {
   Eye,
   Building2,
   ListChecks,
-  Plus,
   Send,
   User,
 } from "lucide-react";
@@ -84,7 +83,7 @@ import { logJournal } from "@/store/journal";
 import type { Collecte, Societe, SocieteTheme, Statut } from "@/types";
 import { SocieteFormSheet, type SocieteFormValues } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
-import { TopbarSlot } from "@/components/layout/TopbarSlot";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { SocietesVolet, monogramTone, societeInitials } from "./SocietesVolet";
 
 function BulkActionsMenu({
@@ -817,24 +816,11 @@ export function SocietesListPage() {
         selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
-      <h1 className="sr-only">Sociétés</h1>
-      <TopbarSlot zone="description">
-        <span data-tour="page-identity" className="whitespace-nowrap border-l border-white/20 pl-3.5 text-[13px] text-sidebar-muted">
-          {isAdmin ? "Registre des clients du cabinet" : "Registre des sociétés auxquelles vous avez accès"}
-        </span>
-      </TopbarSlot>
-      {canEdit && <TopbarSlot zone="actions">
-        <button
-          data-tour="page-primary-action"
-          type="button"
-          onClick={startCreate}
-          aria-label="Ajouter une société"
-          className="flex h-9 items-center gap-2 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-primary transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          <span className="hidden xl:inline">Ajouter une société</span>
-        </button>
-      </TopbarSlot>}
+      <PageHeaderBar
+        title="Sociétés"
+        description={isAdmin ? "Registre des clients du cabinet" : "Registre des sociétés auxquelles vous avez accès"}
+        action={canEdit ? { label: "Ajouter une société", onClick: startCreate } : undefined}
+      />
 
       <LedgerWorkSurface className="societes-ledger-surface">
       {selectedIds.length === 0 && (

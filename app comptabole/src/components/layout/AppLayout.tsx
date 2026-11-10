@@ -7,6 +7,8 @@ import { useUi } from "@/store/ui";
 import { cn } from "@/lib/utils";
 import { TourProvider } from "@/components/tour/TourProvider";
 import { useSocieteRouteSync } from "@/hooks/useSocieteActive";
+import { useSuiviReprise } from "@/store/reprise";
+import { BandeExercice } from "./BandeExercice";
 
 const EDGE_TO_EDGE_REGISTERS = new Set(["/societes", "/employes", "/collectes", "/taches", "/etats-financiers"]);
 
@@ -16,6 +18,7 @@ export function AppLayout() {
   const setCollapsed = useUi((state) => state.setCollapsed);
   const edgeToEdgeMobile = EDGE_TO_EDGE_REGISTERS.has(pathname);
   useSocieteRouteSync();
+  useSuiviReprise();
 
   return (
     <TourProvider>
@@ -29,8 +32,9 @@ export function AppLayout() {
         <SidebarInset className="min-h-0 min-w-0 bg-sidebar print:bg-white">
           <Topbar />
           {/* Feuille claire posée sur le cadre marine (menu + barre du haut) ; son filet doré rappelle la signature du cabinet. */}
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted before:pointer-events-none before:absolute before:left-[30px] before:top-0 before:z-10 before:hidden before:h-[2px] before:w-[72px] before:bg-accent lg:rounded-tl-[22px] lg:before:block print:overflow-visible print:rounded-none print:before:hidden">
-          <div className="flex flex-1 flex-col overflow-y-auto bg-muted print-full">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--sheet))] before:pointer-events-none before:absolute before:left-[30px] before:top-0 before:z-10 before:hidden before:h-[2px] before:w-[72px] before:bg-accent lg:rounded-tl-[22px] print:overflow-visible print:rounded-none">
+          <BandeExercice />
+          <div className="flex flex-1 flex-col overflow-y-auto bg-[hsl(var(--sheet))] print-full">
           {/* flex-1 (flex-grow) plutôt que min-h-full (%) : une chaîne de
               flex-grow calée sur des tailles déjà définies ailleurs, jamais
               un pourcentage — plus fiable pour qu'une page courte remplisse

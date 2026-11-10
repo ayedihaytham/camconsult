@@ -9,6 +9,8 @@
   :root {
     /* Neutres canoniques — papier chaud, encre et filets CamConsult. */
     --background: 45 22.222% 96.471%;
+    /* Feuille de travail (maquette plateforme) : fond clair légèrement bleuté sous les cartes blanches. */
+    --sheet: 216 38% 95.5%;
     --foreground: 0 0% 10.196%;
 
     --card: 0 0% 100%;
@@ -250,9 +252,10 @@
 /* Ledger Work Surface: one ruled working plane shared by operational registers. */
 .ledger-work-surface {
   min-width: 0;
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.25rem;
+  border: 1px solid hsl(var(--primary) / 0.1);
+  border-radius: 14px;
   background: hsl(var(--card));
+  box-shadow: 0 1px 2px hsl(var(--primary) / 0.05), 0 12px 32px -18px hsl(var(--primary) / 0.18);
 }
 
 .ledger-work-surface .operational-ledger-toolbar {
@@ -542,10 +545,7 @@
   }
 
   .signature-sidebar__group-label::after {
-    height: 1px;
-    flex: 1;
-    background: hsl(var(--sidebar-primary) / 0.3);
-    content: "";
+    display: none;
   }
 
   .signature-sidebar__content [data-sidebar="menu-sub"].signature-sidebar__nested {
@@ -631,14 +631,14 @@
 
 /* Liste des sociétés — carte douce (coins arrondis, noms en serif, lignes aérées). */
 .societes-ledger-page {
-  --soft-border: color-mix(in srgb, hsl(var(--accent)) 24%, hsl(var(--border)));
-  --soft-block: color-mix(in srgb, hsl(var(--accent)) 14%, hsl(var(--card)));
+  --soft-border: hsl(var(--primary) / 0.1);
+  --soft-block: #f5f8fd;
 }
 .societes-ledger-page .ledger-work-surface {
   overflow: hidden;
   border-color: var(--soft-border);
   border-radius: 12px;
-  background: color-mix(in srgb, hsl(var(--background)) 50%, hsl(var(--card)));
+  background: hsl(var(--card));
 }
 .societes-ledger-page .ledger-work-surface .operational-ledger-toolbar {
   border-bottom-color: var(--soft-border);
@@ -647,27 +647,28 @@
   border-radius: 10px;
 }
 :is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table thead tr {
-  background: hsl(var(--primary)) !important;
+  background: #f7f9fc !important;
 }
 :is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density thead th {
   height: 2.6rem;
   padding-inline: 0.75rem;
-  border-bottom-color: hsl(var(--primary));
-  border-right: 1px solid hsl(var(--primary-foreground) / 0.16);
-  color: hsl(var(--primary-foreground) / 0.92);
-  font-size: 0.68rem;
-  letter-spacing: 0.07em;
+  border-bottom-color: hsl(var(--border));
+  border-right: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   white-space: nowrap;
 }
 :is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density thead th:last-child {
   border-right: 0;
 }
 :is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table thead th svg {
-  color: hsl(var(--accent));
+  color: hsl(var(--muted-foreground));
 }
 :is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table thead [role="checkbox"] {
-  border-color: hsl(var(--primary-foreground) / 0.8);
-  background: hsl(var(--primary-foreground));
+  border-color: hsl(var(--input));
+  background: hsl(var(--card));
 }
 :is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr {
   height: 3.6rem;
@@ -677,7 +678,10 @@
   border-bottom: 0;
 }
 :is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr:nth-child(even) {
-  background: color-mix(in srgb, hsl(var(--background)) 55%, hsl(var(--card)));
+  background: transparent;
+}
+:is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density tbody tr:hover {
+  background: #f5f8fd;
 }
 :is(.societes-ledger-page, .employes-ledger-page) .ledger-work-surface .ledger-work-table table.ledger-table-density tbody td {
   padding: 0.4rem 0.75rem;
@@ -723,7 +727,7 @@
 
 /* Tâches — carte douce, même langage que la liste des sociétés. */
 .taches-work-ledger {
-  --soft-border: color-mix(in srgb, hsl(var(--accent)) 24%, hsl(var(--border)));
+  --soft-border: hsl(var(--primary) / 0.1);
 }
 .taches-work-ledger .ledger-work-surface {
   overflow: hidden;
@@ -740,7 +744,7 @@
 
 /* Carte douce pour tous les registres : bandeau, surface de travail, tableaux. */
 :root {
-  --soft-border: color-mix(in srgb, hsl(var(--accent)) 24%, hsl(var(--border)));
+  --soft-border: hsl(var(--primary) / 0.1);
 }
 .ledger-work-surface {
   overflow: hidden;
@@ -755,7 +759,7 @@
   border-radius: 10px;
 }
 .ledger-work-surface .ledger-work-table thead tr {
-  background: color-mix(in srgb, hsl(var(--accent)) 9%, hsl(var(--card))) !important;
+  background: #f7f9fc !important;
 }
 .ledger-work-surface .ledger-work-table thead th {
   border-bottom-color: var(--soft-border);
@@ -1818,4 +1822,69 @@
   .lx-tk.er {
     animation: none;
   }
+}
+
+/* ===== Barre du haut et bande d'exercice (maquette plateforme) ===== */
+.dossier-tabs { display: flex; min-width: 0; align-items: flex-end; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.dossier-tabs::-webkit-scrollbar { display: none; }
+.dossier-tab { position: relative; display: flex; height: 40px; max-width: 200px; flex: none; align-items: center; gap: 8px; padding: 0 12px; border-radius: 11px 11px 0 0; color: #b9c9d8; font-size: 12.8px; font-weight: 600; transition: background-color .2s, color .2s; }
+.dossier-tab--societe { padding: 0 6px 0 0; }
+.dossier-tab:hover { background: rgba(254, 244, 232, .09); }
+.dossier-tab[data-actif="true"] { background: hsl(var(--card)); color: hsl(var(--primary)); }
+.dossier-tab[data-actif="true"]::before, .dossier-tab[data-actif="true"]::after { content: ""; position: absolute; bottom: 0; width: 11px; height: 11px; pointer-events: none; }
+.dossier-tab[data-actif="true"]::before { left: -11px; background: radial-gradient(circle at 0 0, transparent 10.5px, hsl(var(--card)) 11px); }
+.dossier-tab[data-actif="true"]::after { right: -11px; background: radial-gradient(circle at 100% 0, transparent 10.5px, hsl(var(--card)) 11px); }
+.dossier-tab__corps { display: flex; min-width: 0; align-items: center; gap: 8px; height: 100%; padding: 0 4px 0 12px; font-weight: 600; }
+.dossier-tab__point { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #7a8ca0; box-shadow: 0 0 0 3px rgba(122, 140, 160, .25); }
+.dossier-tab[data-actif="true"] .dossier-tab__point { background: hsl(var(--accent)); box-shadow: 0 0 0 3px hsl(var(--accent) / .25); }
+.dossier-tab__fermer { display: grid; width: 20px; height: 20px; flex: none; place-items: center; border-radius: 6px; opacity: .55; }
+.dossier-tab__fermer:hover { background: rgba(127, 145, 165, .3); opacity: 1; }
+.dossier-tab__plus { display: grid; width: 32px; height: 32px; flex: none; place-items: center; margin-bottom: 4px; border-radius: 9px; color: #b9c9d8; }
+.dossier-tab__plus:hover { background: rgba(254, 244, 232, .12); color: #fff; }
+.dossier-tab:focus-visible, .dossier-tab__corps:focus-visible, .dossier-tab__fermer:focus-visible, .dossier-tab__plus:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: -2px; }
+
+.topbar-search { display: flex; height: 38px; width: 230px; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid rgba(254, 244, 232, .14); border-radius: 10px; background: rgba(254, 244, 232, .09); color: #c5d3e0; font-size: 13px; transition: background-color .2s, border-color .2s; }
+.topbar-search:hover { background: rgba(254, 244, 232, .15); border-color: hsl(var(--accent)); }
+.topbar-search__texte { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-search kbd { margin-left: auto; padding: 2px 6px; border: 1px solid rgba(254, 244, 232, .2); border-radius: 5px; background: rgba(254, 244, 232, .1); font: 600 10.5px Inter, system-ui, sans-serif; color: #c5d3e0; white-space: nowrap; }
+@media (max-width: 1279px) { .topbar-search { width: 38px; justify-content: center; padding: 0; } .topbar-search__texte, .topbar-search kbd { display: none; } }
+
+.topbar-reprise { display: flex; height: 38px; max-width: 250px; align-items: center; gap: 10px; padding: 0 12px 0 14px; border: 1px solid rgba(201, 169, 106, .6); border-radius: 99px; background: rgba(201, 169, 106, .16); color: #fef4e8; white-space: nowrap; transition: background-color .2s, transform .2s; }
+.topbar-reprise:hover { background: rgba(201, 169, 106, .28); transform: translateY(-1px); }
+.topbar-reprise__texte { display: flex; min-width: 0; flex-direction: column; line-height: 1.15; text-align: left; }
+.topbar-reprise__texte b { font-size: 12.5px; font-weight: 700; }
+.topbar-reprise__texte small { overflow: hidden; text-overflow: ellipsis; font-size: 10.5px; font-weight: 600; color: #e6d3a6; }
+@media (max-width: 1399px) { .topbar-reprise__texte small { display: none; } }
+@media (max-width: 1179px) { .topbar-reprise { display: none; } }
+
+.bande-exercice { display: flex; min-height: 46px; flex: none; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 6px 18px; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--card)); }
+.bande-exercice__fil { display: flex; min-width: 0; flex: 1 1 220px; align-items: center; }
+.bande-exercice__mois { display: none; align-items: center; gap: 12px; }
+@media (min-width: 1280px) { .bande-exercice__mois { display: flex; } }
+.bande-exercice__titre { font-size: 10.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: hsl(var(--muted-foreground)); white-space: nowrap; }
+.bande-exercice__mois ol { display: flex; margin: 0; padding: 3px; gap: 2px; list-style: none; border-radius: 12px; background: hsl(var(--sheet)); }
+.bande-exercice__mois li { position: relative; display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; font-size: 11.5px; font-weight: 700; color: hsl(var(--muted-foreground) / .55); }
+.bande-exercice__mois li[data-etat="passe"] { color: hsl(var(--muted-foreground)); }
+.bande-exercice__mois li[data-etat="courant"] { background: hsl(var(--primary)); color: #fff; }
+.bande-exercice__mois li[data-etat="courant"]::after { content: ""; position: absolute; bottom: 3px; width: 3px; height: 3px; border-radius: 50%; background: hsl(var(--accent)); }
+.bande-exercice__circuit { display: none; gap: 2px; overflow: hidden; border-radius: 9px; }
+@media (min-width: 1100px) { .bande-exercice__circuit { display: flex; } }
+.bande-statut { display: flex; height: 28px; align-items: center; gap: 6px; padding: 0 14px; color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; transition: filter .2s; }
+.bande-statut b { font-weight: 800; font-variant-numeric: tabular-nums; }
+.bande-statut:hover { filter: brightness(1.12); }
+.bande-statut:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; }
+.bande-statut--client { background: #7a8ca0; }
+.bande-statut--transmis { background: #2a6dbf; }
+.bande-statut--corriger { background: #c98a1b; }
+.bande-statut--validees { background: #246549; }
+
+/* ===== Onglets et cartes de la maquette ===== */
+.dashboard-workspace [role="tablist"] { gap: 26px; border-bottom: 1px solid rgba(11, 37, 69, .1); background: transparent; }
+
+/* Petit écran : la bande reste en une ligne qui défile (fil d'Ariane, puis circuit des collectes) ; les mois n'apparaissent qu'à partir de 1280 px. */
+@media (max-width: 1023px) {
+  .bande-exercice { flex-wrap: nowrap; overflow-x: auto; gap: 14px; padding: 6px 12px; scrollbar-width: none; }
+  .bande-exercice::-webkit-scrollbar { display: none; }
+  .bande-exercice__fil { flex: 0 0 auto; min-width: max-content; }
+  .bande-exercice__circuit { display: flex; flex: none; }
 }

@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Bell, CheckCheck, ChevronRight, LogOut, MonitorOff, MonitorSmartphone, Settings, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
-import { AppBreadcrumbs } from "./AppBreadcrumbs";
+import { DossierTabs } from "./DossierTabs";
+import { RechercheBouton } from "./RechercheBouton";
+import { RepriseBouton } from "./RepriseBouton";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/store/auth";
 import { useData, useNotifications } from "@/store/data";
@@ -59,13 +61,17 @@ export function Topbar() {
           aria-label="Afficher ou réduire le menu"
         />
 
-        <div className="flex min-w-0 flex-1 items-center gap-3.5">
-          <AppBreadcrumbs />
-          <div id="topbar-description" className="hidden min-w-0 shrink-0 xl:flex" />
+        {/* Le fil d'Ariane est dans la bande sous la barre ; la barre porte les onglets de dossiers (grand écran) et reste dégagée sur petit écran. */}
+        <div className="hidden min-w-0 flex-1 items-end self-end lg:flex">
+          <DossierTabs />
         </div>
+        <div className="min-w-0 flex-1 lg:hidden" />
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
-          <div id="topbar-actions" className="mr-1.5 hidden items-center lg:flex" />
+          <div className="hidden items-center gap-2 pr-1 lg:flex">
+            <RechercheBouton />
+            <RepriseBouton />
+          </div>
           <TourHelpButton />
           <SocieteActiveSelect />
           <span className="mx-2 hidden h-[22px] w-px bg-white/15 sm:block" aria-hidden="true" />

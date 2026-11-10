@@ -10,7 +10,6 @@ import {
   MonitorSmartphone,
   MoreHorizontal,
   Pencil,
-  Plus,
   Printer,
   ShieldCheck,
   ListChecks,
@@ -80,7 +79,7 @@ import { api, ApiError } from "@/lib/api";
 import type { EmailEnvoi } from "@/types";
 import { EmployeViewSheet } from "./EmployeViewSheet";
 import { EmployesVolet } from "./EmployesVolet";
-import { TopbarSlot } from "@/components/layout/TopbarSlot";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { safeLocalStorage } from "@/lib/safeStorage";
 import {
   allowedPermissionCount,
@@ -806,24 +805,12 @@ export function EmployesListPage() {
         mobileSelecting && "ledger-selection-clearance lg:pb-0",
       )}
     >
-      <h1 id="team-ledger-title" className="sr-only">Collaborateurs</h1>
-      <TopbarSlot zone="description">
-        <span data-tour="page-identity" className="whitespace-nowrap border-l border-white/20 pl-3.5 text-[13px] text-sidebar-muted">
-          Équipe du cabinet · comptes et périmètres d'accès
-        </span>
-      </TopbarSlot>
-      <TopbarSlot zone="actions">
-        <button
-          data-tour="page-primary-action"
-          type="button"
-          onClick={startCreate}
-          aria-label="Ajouter un collaborateur"
-          className="flex h-9 items-center gap-2 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-primary transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          <span className="hidden xl:inline">Ajouter un collaborateur</span>
-        </button>
-      </TopbarSlot>
+      <PageHeaderBar
+        title="Collaborateurs"
+        titleId="team-ledger-title"
+        description="Équipe du cabinet · comptes et périmètres d'accès"
+        action={{ label: "Ajouter un collaborateur", onClick: startCreate }}
+      />
 
       <LedgerWorkSurface className="employes-ledger-surface ledger-soft-rows">
       {selectedIds.length === 0 && !mobileSelecting && (

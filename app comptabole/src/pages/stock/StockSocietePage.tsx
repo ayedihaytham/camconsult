@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { AlertTriangle, Download, Eye, EyeOff, Layers, Plus } from "lucide-react";
-import { TopbarSlot } from "@/components/layout/TopbarSlot";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { useSocieteById, useNoeuds, useData } from "@/store/data";
@@ -301,14 +301,11 @@ export function StockSocietePage() {
 
   return (
     <div className="stock-page">
-      <h1 className="sr-only">Gestion de stock</h1>
-      <TopbarSlot zone="description">
-        <span data-tour="page-identity" className="hidden whitespace-nowrap border-l border-white/20 pl-3.5 text-[13px] text-sidebar-muted min-[1900px]:inline">
-          Achats, ventes et douane de la société, mouvement par mouvement
-        </span>
-      </TopbarSlot>
-      <TopbarSlot zone="actions">
-        <div data-tour="stock-actions" className="flex items-center gap-2">
+      <PageHeaderBar
+        title="Gestion de stock"
+        description="Achats, ventes et douane de la société, mouvement par mouvement"
+        actions={
+<div data-tour="stock-actions" className="flex items-center gap-2">
           {vue === "recap" ? (
             <>
               <button type="button" onClick={() => void exporterRecap("xlsx")} aria-label="Exporter le récapitulatif en Excel" className={BOUTON_BARRE}>
@@ -341,7 +338,8 @@ export function StockSocietePage() {
             <span className="hidden xl:inline">Nouveau mouvement</span>
           </button>
         </div>
-      </TopbarSlot>
+        }
+      />
 
       <div className="overflow-hidden rounded-xl border border-border bg-card" data-tour="stock-register">
         <StockFiltres

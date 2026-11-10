@@ -11,7 +11,7 @@
 .dashboard-admin .atk-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 3px; }
 .dashboard-admin .atk-legend strong { color: hsl(var(--foreground)); }
 .dashboard-admin .atk-percent { margin: 0; text-align: right; }
-.dashboard-admin .atk-percent strong { display: block; font-family: "Playfair Display", Georgia, serif; font-size: 34px; line-height: 1; color: hsl(var(--primary)); }
+.dashboard-admin .atk-percent strong { display: block; font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; font-size: 34px; line-height: 1; color: hsl(var(--primary)); }
 .dashboard-admin .atk-percent span { font-size: 12px; color: hsl(var(--muted-foreground)); }
 
 .dashboard-admin .atk-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
@@ -90,7 +90,7 @@
 .dashboard-admin .atk-start { display: flex; flex-direction: column; align-items: center; gap: 10px; border: 1px dashed color-mix(in srgb, hsl(var(--accent)) 30%, hsl(var(--border))); border-radius: 10px; background: linear-gradient(180deg, color-mix(in srgb, hsl(var(--accent)) 12%, hsl(var(--card))), hsl(var(--card))); padding: 30px 20px; text-align: center; }
 .dashboard-admin .atk-start-icon { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 14px; background: linear-gradient(135deg, hsl(var(--primary) / .9), hsl(var(--primary))); color: hsl(var(--accent)); }
 .dashboard-admin .atk-start-icon svg { width: 26px; height: 26px; }
-.dashboard-admin .atk-start h3 { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 22px; color: hsl(var(--primary)); }
+.dashboard-admin .atk-start h3 { margin: 0; font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; font-size: 22px; color: hsl(var(--primary)); }
 .dashboard-admin .atk-start p { max-width: 52ch; margin: 0; color: hsl(var(--muted-foreground)); }
 .dashboard-admin .atk-start ol { display: grid; width: 100%; max-width: 720px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0 0; padding: 0; list-style: none; text-align: left; }
 .dashboard-admin .atk-start li { border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--card)); padding: 11px 12px; font-size: 12.5px; color: hsl(var(--muted-foreground)); }

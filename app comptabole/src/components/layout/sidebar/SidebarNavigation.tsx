@@ -33,13 +33,13 @@ import {
   type NavGroup,
 } from "./navigation";
 
-/** Page active : pastille blanche, icône dorée et petit point doré à droite (jamais en menu réduit, où seule l'icône reste). */
-const NAV_ITEM_CLASS = "relative text-sidebar-foreground/80 hover:bg-white/10 hover:text-white data-[active=true]:bg-white data-[active=true]:font-semibold data-[active=true]:text-sidebar-deep data-[active=true]:hover:bg-white data-[active=true]:hover:text-sidebar-deep data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:after:absolute data-[active=true]:after:right-3 data-[active=true]:after:top-1/2 data-[active=true]:after:size-1.5 data-[active=true]:after:-translate-y-1/2 data-[active=true]:after:rounded-full data-[active=true]:after:bg-sidebar-primary data-[active=true]:after:content-[''] group-data-[collapsible=icon]:data-[active=true]:after:hidden";
+/** Page active (maquette) : fond doré translucide, texte ivoire, barre dorée à gauche (en menu réduit, seule l'icône garde la teinte). */
+const NAV_ITEM_CLASS = "relative text-[#C5D3E0] hover:bg-[rgba(254,244,232,.07)] hover:text-white data-[active=true]:bg-[rgba(201,169,106,.16)] data-[active=true]:font-semibold data-[active=true]:text-[#FEF4E8] data-[active=true]:hover:bg-[rgba(201,169,106,.24)] data-[active=true]:hover:text-[#FEF4E8] data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-2 data-[active=true]:before:bottom-2 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-r data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-[''] group-data-[collapsible=icon]:data-[active=true]:before:hidden";
 
 /** Page parente d'un sous-menu : reste sur le fond marine ; c'est sa sous-page active qui porte la pastille (en menu réduit, c'est elle qui l'a). */
-const PARENT_ITEM_CLASS = "relative text-sidebar-foreground/80 hover:bg-white/10 hover:text-white data-[active=true]:bg-transparent data-[active=true]:font-semibold data-[active=true]:text-white data-[active=true]:hover:bg-white/10 data-[active=true]:[&>svg:first-child]:text-sidebar-primary group-data-[collapsible=icon]:data-[active=true]:bg-white group-data-[collapsible=icon]:data-[active=true]:text-sidebar-deep group-data-[collapsible=icon]:data-[active=true]:hover:bg-white";
+const PARENT_ITEM_CLASS = "relative text-sidebar-foreground/80 hover:bg-[rgba(254,244,232,.07)] hover:text-white data-[active=true]:bg-transparent data-[active=true]:font-semibold data-[active=true]:text-white data-[active=true]:hover:bg-white/10 data-[active=true]:[&>svg:first-child]:text-sidebar-primary group-data-[collapsible=icon]:data-[active=true]:bg-white group-data-[collapsible=icon]:data-[active=true]:text-sidebar-deep group-data-[collapsible=icon]:data-[active=true]:hover:bg-white";
 
-const SUB_ITEM_CLASS = "relative text-sidebar-muted hover:bg-white/10 hover:text-white data-[active=true]:bg-white data-[active=true]:font-semibold data-[active=true]:text-sidebar-deep data-[active=true]:hover:bg-white data-[active=true]:hover:text-sidebar-deep data-[active=true]:after:absolute data-[active=true]:after:right-2.5 data-[active=true]:after:top-1/2 data-[active=true]:after:size-1.5 data-[active=true]:after:-translate-y-1/2 data-[active=true]:after:rounded-full data-[active=true]:after:bg-sidebar-primary data-[active=true]:after:content-['']";
+const SUB_ITEM_CLASS = "relative text-sidebar-muted hover:bg-[rgba(254,244,232,.07)] hover:text-white data-[active=true]:bg-[rgba(201,169,106,.16)] data-[active=true]:font-semibold data-[active=true]:text-[#FEF4E8] data-[active=true]:hover:bg-[rgba(201,169,106,.24)] data-[active=true]:hover:text-[#FEF4E8] data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-2 data-[active=true]:before:bottom-2 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-r data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-[''] group-data-[collapsible=icon]:data-[active=true]:before:hidden";
 
 interface SidebarNavigationProps {
   groups: NavGroup[];
@@ -101,7 +101,7 @@ export function SidebarNavigation({
         >
           <SidebarGroupLabel
             asChild
-            className="signature-sidebar__group-label group/label h-7 w-full cursor-pointer gap-2.5 rounded-md px-2 text-[0.66rem] font-bold uppercase tracking-[0.16em] text-sidebar-primary hover:bg-transparent hover:text-sidebar-primary"
+            className="signature-sidebar__group-label group/label h-7 w-full cursor-pointer gap-2.5 rounded-md px-2 text-[0.62rem] font-bold uppercase tracking-[0.16em] text-[#7F95AA] hover:bg-transparent hover:text-[#C5D3E0]"
           >
             <button
               type="button"

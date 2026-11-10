@@ -1,4 +1,5 @@
 import { LedgerCompactHeader } from "@/components/ledger/LedgerCompactHeader";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { DashboardQuickActions } from "@/components/dashboard/DashboardQuickActions";
 import { vueCabinet, type DashboardRole, type DashboardViewModel } from "@/lib/dashboard/dashboardData";
 import { formatNumber } from "@/lib/utils";
@@ -25,12 +26,22 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
     : vueCabinet(role) ? undefined
     : societeNom ? "Tâches, collectes et échéances de ce client." : "Reprendre, avancer et préparer les prochaines transmissions.";
   if (vueCabinet(role)) {
+    // Vue cabinet (maquette) : bloc marine « Bonjour … » avec les quatre chiffres du jour.
+    const enRetard = data.deadlines.filter((d) => d.bucket === "overdue").length;
     return (
-      <header data-tour="dashboard-summary" className="bureau-heading">
-        <p className="bureau-heading-eyebrow">{salutation} · {dateLabel}</p>
-        <h1>{title}</h1>
-        {societeNom && <p className="bureau-heading-context">Vue limitée à cette société</p>}
-      </header>
+      <PageHeaderBar
+        tourTarget="dashboard-summary"
+        title={title}
+        visibleTitle={salutation}
+        eyebrow={dateLabel}
+        description={societeNom ? "Vue limitée à cette société" : undefined}
+        metrics={[
+          { label: "en retard", value: loading ? "…" : enRetard, tone: "destructive" },
+          { label: "à examiner", value: loading ? "…" : data.collectionCounts.transmis },
+          { label: "à corriger", value: loading ? "…" : data.collectionCounts.a_corriger, tone: "warning" },
+          { label: "messages non lus", value: data.unreadMessages.length },
+        ]}
+      />
     );
   }
   return (

@@ -39,6 +39,14 @@ const STATIC_ROUTES: Record<string, string> = {
   "/parametres": "Paramètres",
 };
 
+/** Libellé court d'une adresse de l'application (« Collecte de pièces », « Suivi bancaire »…), pour les raccourcis qui y ramènent. */
+export function labelDeChemin(chemin: string): string {
+  const sansRequete = chemin.split("?")[0];
+  if (STATIC_ROUTES[sansRequete]) return STATIC_ROUTES[sansRequete];
+  const racine = "/" + (sansRequete.split("/").filter(Boolean)[0] ?? "");
+  return STATIC_ROUTES[racine] ?? "Page précédente";
+}
+
 function paramsFor(path: string, pathname: string) {
   return matchPath({ path, end: true }, pathname)?.params;
 }

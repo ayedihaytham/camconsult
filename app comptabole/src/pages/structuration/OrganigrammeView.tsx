@@ -93,7 +93,7 @@ export function OrganigrammeView({
             const { dossiers, fichiers } = countDescendants(root.id, nodes);
             const enfants = nodes
               .filter((n) => n.parentId === root.id && n.type === "dossier" && (annee === null || (anneeDuLibelle(n.libelle) ?? annee) === annee))
-              .sort((a, b) => a.libelle.localeCompare(b.libelle));
+              .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }));
             return (
               <div key={root.id} className="mb-4 last:mb-0">
                 <div className="flex flex-wrap items-baseline gap-x-4 border-b border-border py-2">
@@ -156,7 +156,7 @@ function BrancheAnnee({ dossier, nodes, annee, moisChoisi, onOpenNode, onChoisir
   onOpenNode: (n: Noeud) => void;
   onChoisirMois: (m: MoisChoisi) => void;
 }) {
-  const dossiers = nodes.filter((n) => n.parentId === dossier.id && n.type === "dossier").sort((a, b) => a.libelle.localeCompare(b.libelle));
+  const dossiers = nodes.filter((n) => n.parentId === dossier.id && n.type === "dossier").sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }));
   return (
     <div className="ml-3 border-l border-border pl-3">
       <div className="flex flex-wrap items-baseline gap-x-4 py-2">

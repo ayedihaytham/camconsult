@@ -44,6 +44,18 @@ describe("explorateur de documents (tableau et arborescence réunis)", () => {
     expect(onSelectedIdsChange).toHaveBeenCalledWith(["f1"]);
   });
 
+  it("« Tout sélectionner » coche tous les éléments du dossier, puis les décoche", () => {
+    const onSelectedIdsChange = vi.fn();
+    afficher({ currentId: "a", selectedIds: [], onSelectedIdsChange });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Tout sélectionner" }));
+    expect(onSelectedIdsChange).toHaveBeenCalledWith(["f1", "f2"]);
+    cleanup();
+    const encore = vi.fn();
+    afficher({ currentId: "a", selectedIds: ["f1", "f2"], onSelectedIdsChange: encore });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Tout sélectionner" }));
+    expect(encore).toHaveBeenCalledWith([]);
+  });
+
   it("propose de dupliquer une arborescence racine, pas un sous-dossier", () => {
     const onDuplicate = vi.fn();
     afficher({ onDuplicate });

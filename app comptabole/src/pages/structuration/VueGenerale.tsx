@@ -60,13 +60,13 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
       (groupe?.roots ?? []).flatMap((root) =>
         nodes
           .filter((n) => n.parentId === root.id && n.type === "dossier" && (annee === null || (anneeDuLibelle(n.libelle) ?? annee) === annee))
-          .sort((a, b) => a.libelle.localeCompare(b.libelle))
+          .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }))
           .map((annuel) => ({
             root,
             annuel,
             tiroirs: nodes
               .filter((n) => n.parentId === annuel.id && n.type === "dossier")
-              .sort((a, b) => a.libelle.localeCompare(b.libelle))
+              .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }))
               .map((dossier) => ({ dossier, fichiers: fichiersDe(dossier, nodes) })),
           })),
       ),
@@ -174,7 +174,7 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
 
                 {choisi && (() => {
                   const { dossier, fichiers } = choisi;
-                  const sousDossiers = nodes.filter((n) => n.parentId === dossier.id && n.type === "dossier").sort((a, b) => a.libelle.localeCompare(b.libelle));
+                  const sousDossiers = nodes.filter((n) => n.parentId === dossier.id && n.type === "dossier").sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }));
                   // Le dossier suspendu choisi appartient à un autre tiroir : on revient à « Tous ».
                   const sousActif = sousDossiers.some((x) => x.id === sousId) ? sousId : null;
                   const liste = fichiers

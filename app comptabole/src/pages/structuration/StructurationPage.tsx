@@ -325,9 +325,9 @@ export function StructurationPage() {
     logJournal(
       "suppression",
       "dossier",
-      `${selectedIds.length} arborescences`,
+      `${selectedIds.length} élément${selectedIds.length > 1 ? "s" : ""}`,
     );
-    toast.success(`${selectedIds.length} arborescences supprimées`);
+    toast.success(`${selectedIds.length} élément${selectedIds.length > 1 ? "s supprimés" : " supprimé"}`);
     setSelectedIds([]);
   }
 
@@ -905,8 +905,8 @@ export function StructurationPage() {
       <ConfirmDialog
         open={bulkDeleteOpen}
         onOpenChange={setBulkDeleteOpen}
-        title={`Supprimer ${selectedIds.length} arborescences ?`}
-        description="Les arborescences sélectionnées et tout leur contenu seront définitivement supprimés."
+        title={`Supprimer ${selectedIds.length} élément${selectedIds.length > 1 ? "s" : ""} ?`}
+        description="Les éléments sélectionnés et tout leur contenu seront définitivement supprimés."
         confirmLabel="Tout supprimer"
         onConfirm={confirmBulkDelete}
       />

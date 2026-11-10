@@ -103,7 +103,7 @@ export function FileTree({
   const childrenOf = (id: string | null) =>
     (byParent.get(id) ?? []).sort((a, b) => {
       if (a.type !== b.type) return a.type === "dossier" ? -1 : 1;
-      return a.libelle.localeCompare(b.libelle);
+      return a.libelle.localeCompare(b.libelle, "fr", { numeric: true });
     });
 
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
@@ -119,7 +119,7 @@ export function FileTree({
   }, [currentId, nodeById]);
 
   const currentChildren = items
-    ? [...items].sort((a, b) => (a.type !== b.type ? (a.type === "dossier" ? -1 : 1) : a.libelle.localeCompare(b.libelle)))
+    ? [...items].sort((a, b) => (a.type !== b.type ? (a.type === "dossier" ? -1 : 1) : a.libelle.localeCompare(b.libelle, "fr", { numeric: true })))
     : childrenOf(currentId);
 
   /** Dossiers et fichiers contenus (tous niveaux) dans chaque dossier : colonne « Contenu ». */
@@ -369,6 +369,29 @@ export function FileTree({
             )}
           </div>
         ) : (
+          <>
+          {onSelectedIdsChange && canDelete && (() => {
+            const ids = currentChildren.map((n) => n.id);
+            const nbChoisis = ids.filter((id) => selection.has(id)).length;
+            const tous = nbChoisis === ids.length;
+            return (
+              <div className="flex items-center gap-3 border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+                <Checkbox
+                  checked={tous ? true : nbChoisis > 0 ? "indeterminate" : false}
+                  onCheckedChange={() =>
+                    onSelectedIdsChange(
+                      tous
+                        ? (selectedIds ?? []).filter((id) => !ids.includes(id))
+                        : [...(selectedIds ?? []).filter((id) => !ids.includes(id)), ...ids],
+                    )
+                  }
+                  aria-label="Tout sélectionner"
+                  className="shrink-0"
+                />
+                <span>{tous ? "Tout désélectionner" : `Tout sélectionner (${ids.length})`}</span>
+              </div>
+            );
+          })()}
           <ul>
             {currentChildren.map((n, i) => {
               const isFolder = n.type === "dossier";
@@ -540,6 +563,7 @@ export function FileTree({
               );
             })}
           </ul>
+          </>
         )}
       </div>
     </div>

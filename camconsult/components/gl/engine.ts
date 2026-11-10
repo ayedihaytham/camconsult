@@ -41,35 +41,44 @@ export function initGl(root: El, cfg: GlConfig): () => void {
   const fmt = (v: number) => new Intl.NumberFormat(cfg.locale, { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(v)
   const rtl = getComputedStyle(root).direction === 'rtl'
 
-  /* ---------------- boucle de défilement : scènes + images ---------------- */
-  type Scene = { el: El; fn?: (p: number, el: El, r: DOMRect) => void; p: number }
+  /* ---------------- boucle de défilement : scènes + images ----------------
+     La géométrie des scènes est mesurée une fois (et au redimensionnement) : pendant le défilement on ne lit plus la mise en page,
+     on ne réécrit que ce qui a changé, et le défilement reste celui du navigateur (fluide, hors thread principal). */
+  type Scene = { el: El; fn?: (p: number, el: El) => void; p: number; top: number; h: number }
   const scenes: Scene[] = []
   const frames: Array<() => void> = []
   let dirty = false
+  let force = true
   let painted = -1
   let running = false
   let last = 0
   let vel = 0
-  const scene = (el: El | null, fn?: Scene['fn']) => { if (el) scenes.push({ el, fn, p: -1 }) }
+  const scene = (el: El | null, fn?: Scene['fn']) => { if (el) scenes.push({ el, fn, p: -1, top: -1, h: 0 }) }
   const frame = (fn: () => void) => { frames.push(fn) }
-  const progOf = (s: Scene) => {
-    const r = s.el.getBoundingClientRect()
-    const tot = r.height - innerHeight
-    return { r, p: tot > 0 ? clamp(-r.top / tot, 0, 1) : r.top < innerHeight ? 1 : 0 }
+  const measScenes = () => {
+    const y = scrollY
+    scenes.forEach((s) => { const r = s.el.getBoundingClientRect(); s.top = r.top + y; s.h = r.height; s.p = -1 })
   }
   const paint = () => {
-    const os = scenes.map(progOf)
-    scenes.forEach((s, i) => {
-      const o = os[i]
-      const vis = o.r.bottom > -innerHeight * 0.5 && o.r.top < innerHeight * 1.5
+    const y = scrollY
+    const ih = innerHeight
+    const moved = y !== painted || force
+    if (!moved) { dirty = false; return }
+    scenes.forEach((s) => {
+      if (s.top < 0) { const r = s.el.getBoundingClientRect(); s.top = r.top + y; s.h = r.height }
+      const vis = s.top + s.h - y > -ih * 0.5 && s.top - y < ih * 1.5
       if (!vis && s.p >= 0) return
-      s.p = reduce ? 1 : o.p
-      if (!s.el.hasAttribute('data-nop')) s.el.style.setProperty('--p', s.p.toFixed(4))
-      s.fn?.(s.p, s.el, o.r)
+      const tot = s.h - ih
+      const p = reduce ? 1 : tot > 0 ? clamp((y - s.top) / tot, 0, 1) : s.top - y < ih ? 1 : 0
+      if (p === s.p) return
+      s.p = p
+      if (!s.el.hasAttribute('data-nop')) s.el.style.setProperty('--p', p.toFixed(4))
+      s.fn?.(p, s.el)
     })
     frames.forEach((f) => f())
     dirty = false
-    painted = scrollY
+    force = false
+    painted = y
   }
   const loop = () => {
     if (dead) return
@@ -82,44 +91,25 @@ export function initGl(root: El, cfg: GlConfig): () => void {
     dirty = true
     if (!running) { running = true; raf(loop) }
   }
-  const start = () => { paint(); const t = setTimeout(paint, 120); cleanups.push(() => clearTimeout(t)); kick() }
+  const start = () => { force = true; paint(); const t = setTimeout(() => { force = true; paint() }, 120); cleanups.push(() => clearTimeout(t)); kick() }
   on(window, 'scroll', () => { if (scrollY !== painted) kick() }, { passive: true })
-  on(window, 'resize', kick)
+  on(window, 'resize', () => { force = true; measScenes(); kick() })
 
-  /* ---------------- défilement fluide + ancres ---------------- */
-  let target = scrollY
-  let cur = scrollY
-  let smoothing = false
+  /* ---------------- ancres (défilement natif) ---------------- */
   const maxScroll = () => document.documentElement.scrollHeight - innerHeight
-  const step = () => {
-    if (dead) return
-    cur += (target - cur) * 0.14
-    if (Math.abs(target - cur) < 0.4) { cur = target; smoothing = false }
-    scrollTo(0, cur)
-    paint()
-    if (smoothing) raf(step)
-  }
-  const scrollToY = (y: number) => {
-    target = clamp(y, 0, maxScroll())
-    if (!fine || reduce) { scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' }); return }
-    if (!smoothing) { smoothing = true; cur = scrollY; raf(step) }
-  }
+  const scrollToY = (y: number) => { scrollTo({ top: clamp(y, 0, maxScroll()), behavior: reduce ? 'auto' : 'smooth' }) }
   if (cfg.home) {
     let lastY = scrollY
-    const v = () => { vel += (scrollY - lastY - vel) * 0.12; lastY = scrollY; if (!dead) raf(v) }
-    raf(v)
-    if (fine && !reduce) {
-      on(window, 'wheel', (e) => {
-        const we = e as WheelEvent
-        const t = we.target as El
-        if (we.ctrlKey || t.closest('textarea,input,[data-nosnap]')) return
-        we.preventDefault()
-        const dy = we.deltaMode === 1 ? we.deltaY * 32 : we.deltaY
-        target = clamp((smoothing ? target : scrollY) + dy, 0, maxScroll())
-        if (!smoothing) { smoothing = true; cur = scrollY; raf(step) }
-      }, { passive: false })
-      on(window, 'scroll', () => { if (!smoothing) { target = scrollY; cur = scrollY } }, { passive: true })
+    let vOn = false
+    // vitesse de défilement (ruban de chiffres) : mesurée seulement pendant que la page bouge
+    const v = () => {
+      if (dead) return
+      vel += (scrollY - lastY - vel) * 0.12
+      lastY = scrollY
+      if (Math.abs(vel) > 0.05 || scrollY !== painted) raf(v)
+      else { vel = 0; vOn = false }
     }
+    on(window, 'scroll', () => { if (!vOn) { vOn = true; raf(v) } }, { passive: true })
     on(root, 'click', (e) => {
       const a = (e.target as El).closest('a[href^="#"]') as HTMLAnchorElement | null
       if (!a || a.getAttribute('href') === '#') return
@@ -419,7 +409,7 @@ export function initGl(root: El, cfg: GlConfig): () => void {
   let IPv = 0
   let DKv = 0
   if (mnav) {
-    const mmo = new MutationObserver(() => { dirty = true; kick() })
+    const mmo = new MutationObserver(() => { force = true; kick() })
     mmo.observe(mnav, { attributes: true, attributeFilter: ['class'] })
     cleanups.push(() => mmo.disconnect())
   }
@@ -484,7 +474,7 @@ export function initGl(root: El, cfg: GlConfig): () => void {
     const bal = totD - totC
     add(cfg.ledger.balance, gx.lab, yt + rowH, 'left', 1, 's'); add(fmt(Math.abs(bal)) + ' ' + (bal >= 0 ? cfg.ledger.debit : cfg.ledger.credit), gx.cre, yt + rowH, 'right', 1, 's')
     const syms = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '%', '+', '−', '×', '÷', ',', '00', '19', '7', '13']
-    for (let k = 0; k < (narrow ? 40 : 90); k++) noise.push({ t: syms[(r() * syms.length) | 0], x: r() * W, y: r() * H, s: 14 + r() * 70, rot: (r() - 0.5) * 1.6, ph: r() * 6.28, sp: 0.2 + r() * 0.5, a: 0.05 + r() * 0.18 })
+    for (let k = 0; k < (narrow ? 26 : 56); k++) noise.push({ t: syms[(r() * syms.length) | 0], x: r() * W, y: r() * H, s: 14 + r() * 70, rot: (r() - 0.5) * 1.6, ph: r() * 6.28, sp: 0.2 + r() * 0.5, a: 0.05 + r() * 0.18 })
   }
   const dark = () => document.documentElement.classList.contains('dark')
   const draw = (o: number) => {
@@ -501,7 +491,7 @@ export function initGl(root: El, cfg: GlConfig): () => void {
         const x = n.x + Math.sin(t * n.sp + n.ph) * 30 * inv
         const y = n.y + Math.cos(t * n.sp * 0.8 + n.ph) * 24 * inv
         cx.save(); cx.translate(x, y); cx.rotate(n.rot * inv); cx.globalAlpha = n.a * inv * inv; cx.fillStyle = ink
-        cx.font = '600 ' + n.s + 'px Inter, system-ui, sans-serif'; cx.textAlign = 'center'; cx.fillText(n.t, 0, 0); cx.restore()
+        setFont('600 ' + Math.round(n.s) + 'px Inter, system-ui, sans-serif'); cx.textAlign = 'center'; cx.fillText(n.t, 0, 0); cx.restore()
       })
     const ra = clamp((o - 0.5) * 2, 0, 1)
     if (ra > 0) {
@@ -532,10 +522,12 @@ export function initGl(root: El, cfg: GlConfig): () => void {
       cx.save(); cx.translate(x, y); cx.rotate(rot); cx.globalAlpha = a
       cx.fillStyle = p.cls === 's' ? (e > 0.95 ? '#4FA27A' : headC) : p.cls === 'h' ? headC : ink
       if (p.cls === 's' && e > 0.95 && !dark()) cx.fillStyle = '#246549'
-      cx.font = (p.cls === 'h' ? '700 ' : p.b ? '600 ' : '500 ') + s + 'px Inter, system-ui, sans-serif'
+      setFont((p.cls === 'h' ? '700 ' : p.b ? '600 ' : '500 ') + Math.round(s * 2) / 2 + 'px Inter, system-ui, sans-serif')
       cx.textAlign = p.al; cx.fillText(p.t, 0, 0); cx.restore()
     })
   }
+  let curFont = ''
+  const setFont = (f: string) => { if (f !== curFont) { cx.font = f; curFont = f } }
   let heroRunning = false
   const heroLoop = () => {
     if (!heroVis) { heroRunning = false; return }
@@ -548,9 +540,10 @@ export function initGl(root: El, cfg: GlConfig): () => void {
   const sizeCanvas = () => {
     meas()
     const s = cv.parentElement!.getBoundingClientRect()
-    DPR = Math.min(2, devicePixelRatio || 1)
+    DPR = Math.min(1.5, devicePixelRatio || 1)
     W = s.width; H = s.height
     cv.width = W * DPR; cv.height = H * DPR
+    curFont = ''
     cx.setTransform(DPR, 0, 0, DPR, 0, 0)
     build(); draw(oNow)
   }
@@ -586,7 +579,9 @@ export function initGl(root: El, cfg: GlConfig): () => void {
     if (!heroO) { heroO = 1; heroKick() }
     const ip = ease(seg(p, 0, 0.8))
     IPv = ip
-    hero.style.setProperty('--ip', ip.toFixed(4))
+    hero.style.setProperty('--ip', ip.toFixed(3))
+    const hs = ip < 0.004 ? '0' : ip > 0.996 ? '1' : 'm'
+    if (hero.dataset.ip !== hs) hero.dataset.ip = hs
     const open = ip > 0.9
     if (open) { xa.setAttribute('inert', ''); xb.removeAttribute('inert') } else { xb.setAttribute('inert', ''); xa.removeAttribute('inert') }
     keys.forEach((k, i) => k.style.setProperty('--k', ease(seg(p, 0.45 + i * 0.07, 0.85 + i * 0.04)).toFixed(3)))
@@ -616,8 +611,10 @@ export function initGl(root: El, cfg: GlConfig): () => void {
   }
   on(TR, 'scroll', () => { if (MOB()) svUpdate() }, { passive: true })
   const sbar = $('.sprog .bar i')
+  const svLast = SC.map(() => ({ t: '', o: '', i: '' }))
+  let svBest = -1
   scene(sv, (p) => {
-    if (sbar) sbar.style.setProperty('--p', p.toFixed(4))
+    if (sbar) sbar.style.setProperty('--p', p.toFixed(3))
     if (MOB()) { tr.style.transform = ''; svUpdate(); return }
     if (!G.sc) return
     const tot = G.tot || 0
@@ -627,15 +624,22 @@ export function initGl(root: El, cfg: GlConfig): () => void {
       const d = (G.sc![i] - p * tot - innerWidth / 2) / innerWidth
       const ad = Math.min(Math.abs(d), 1)
       const dim = pinned && c.dataset.c !== pinned
-      c.style.transform = 'scale(' + (1 - 0.12 * ad).toFixed(3) + ') translateY(' + (ad * 26).toFixed(1) + 'px)'
-      c.style.opacity = dim ? '.28' : (1 - ad * 0.25).toFixed(3)
-      SCI[i].style.transform = 'translateX(' + (clamp(d * 1.4, -1, 1) * -14).toFixed(1) + 'px)'
+      const t = 'scale(' + (1 - 0.12 * ad).toFixed(3) + ') translateY(' + (ad * 26).toFixed(0) + 'px)'
+      const o = dim ? '.28' : (1 - ad * 0.25).toFixed(2)
+      const ti = 'translateX(' + (clamp(d * 1.4, -1, 1) * -14).toFixed(0) + 'px)'
+      const L = svLast[i]
+      if (t !== L.t) { c.style.transform = t; L.t = t }
+      if (o !== L.o) { c.style.opacity = o; L.o = o }
+      if (ti !== L.i) { SCI[i].style.transform = ti; L.i = ti }
       if (Math.abs(d) < bd) { bd = Math.abs(d); best = i }
     })
-    const curK = SC[best].dataset.c
-    NK.forEach((b) => b.setAttribute('aria-pressed', String(pinned ? b.dataset.k === pinned : b.dataset.k === curK)))
-    if (scnt) scnt.textContent = pad(best + 1) + ' / ' + pad(SC.length)
-    setAct(best)
+    if (best !== svBest) {
+      svBest = best
+      const curK = SC[best].dataset.c
+      NK.forEach((b) => b.setAttribute('aria-pressed', String(pinned ? b.dataset.k === pinned : b.dataset.k === curK)))
+      if (scnt) scnt.textContent = pad(best + 1) + ' / ' + pad(SC.length)
+      setAct(best)
+    }
   })
   NK.forEach((b) =>
     on(b, 'click', () => {
@@ -720,6 +724,7 @@ export function initGl(root: El, cfg: GlConfig): () => void {
   if (cnav) on(cnav, 'pointerleave', () => placeInd(NL.filter((a) => a.dataset.n === actN)[0]))
 
   const meas = () => {
+    measScenes()
     const y = scrollY
     const g = (el: El) => { const r = el.getBoundingClientRect(); return [r.top + y, r.bottom + y] }
     G.secs = SECS.map((s) => { const el = document.getElementById(s[0]); return el ? g(el) : [0, 0] })
@@ -741,6 +746,8 @@ export function initGl(root: El, cfg: GlConfig): () => void {
     return G.dark!.some((d) => y >= d[0] && y < d[1])
   }
   const cta = $('#cta')!
+  let lastIo = ''
+  let lastSp = ''
   frame(() => {
     if (!G.secs) return
     const y = scrollY
@@ -754,7 +761,8 @@ export function initGl(root: El, cfg: GlConfig): () => void {
       NL.forEach((a) => a.classList.toggle('on', a.dataset.n === actN))
       placeInd(NL.filter((a) => a.dataset.n === actN)[0])
     }
-    cta.style.setProperty('--io', clamp(1 - (G.cta![0] - y) / innerHeight, 0, 1).toFixed(3))
+    const io = clamp(1 - (G.cta![0] - y) / innerHeight, 0, 1).toFixed(2)
+    if (io !== lastIo) { lastIo = io; cta.style.setProperty('--io', io) }
     const menu = !!mnav && mnav.classList.contains('open')
     const dk = isDark(40, innerWidth / 2)
     hdr.classList.toggle('iv', menu || dk)
@@ -763,9 +771,9 @@ export function initGl(root: El, cfg: GlConfig): () => void {
     lastScroll = y
     void dy
     const mm = document.documentElement.scrollHeight - innerHeight
-    hdr.style.setProperty('--sp', (mm > 0 ? y / mm : 0).toFixed(4))
+    const sp = (mm > 0 ? y / mm : 0).toFixed(3)
+    if (sp !== lastSp) { lastSp = sp; hdr.style.setProperty('--sp', sp) }
     railEl.classList.toggle('lt', !isDark(innerHeight * 0.5, innerWidth - 18))
-    if (pr) pr.style.setProperty('--sp', (mm > 0 ? y / mm : 0).toFixed(4))
     if (fab) fab.classList.toggle('on', G.hero![1] - y < innerHeight * 0.35 && !(G.ct![0] - y < innerHeight * 0.6 && G.ct![1] - y > 0))
   })
 

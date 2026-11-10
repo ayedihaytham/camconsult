@@ -64,6 +64,19 @@ describe("FileUploadDialog : fichiers déposés sur un tiroir", () => {
   });
 });
 
+describe("FileUploadDialog : tout retirer", () => {
+  it("« Tout retirer » vide la liste d'un coup et désactive l'ajout", () => {
+    const f1 = new File(["a"], "releve.pdf");
+    const f2 = new File(["b"], "virements.xlsx");
+    render(<FileUploadDialog open onOpenChange={vi.fn()} destinationLabel="BANQUE" initialFiles={[f1, f2]} onSubmit={vi.fn()} />);
+    expect(screen.getByText("2 fichiers à ajouter")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Tout retirer/ }));
+    expect(screen.queryByText("releve.pdf")).toBeNull();
+    expect(screen.queryByText("virements.xlsx")).toBeNull();
+    expect((screen.getByRole("button", { name: /^Ajouter/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
 describe("FileUploadDialog : archive .zip", () => {
   it("décompresse l'archive : ses fichiers partent avec leur dossier, l'archive elle-même n'est pas envoyée", async () => {
     const JSZip = (await import("jszip")).default;

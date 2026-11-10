@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { File as FileIcon, UploadCloud, X } from "lucide-react";
+import { File as FileIcon, FileArchive, Trash2, UploadCloud, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -153,7 +153,7 @@ export function FileUploadDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -194,33 +194,56 @@ export function FileUploadDialog({
           </div>
 
           {files.length > 0 && (
-            <ul className="max-h-44 space-y-1 overflow-y-auto rounded-md border border-border p-2">
-              {files.map((f, i) => (
-                <li
-                  key={`${f.name}-${i}`}
-                  className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-secondary"
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>{files.length} fichier{files.length > 1 ? "s" : ""} à ajouter</span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setFiles([])}
+                  className="inline-flex items-center gap-1 font-medium hover:text-destructive disabled:opacity-50"
                 >
-                  <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate">
-                    {f.name}
-                    {estZip(f.name) && <span className="ml-1.5 text-xs text-muted-foreground">→ dossier « {nomDossierZip(f.name)} »</span>}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatFileSize(f.size)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFiles((prev) => prev.filter((_, j) => j !== i))
-                    }
-                    className="text-muted-foreground hover:text-destructive"
-                    aria-label="Retirer"
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Tout retirer
+                </button>
+              </div>
+              <ul className="max-h-44 space-y-1 overflow-y-auto rounded-md border border-border p-2">
+                {files.map((f, i) => (
+                  <li
+                    key={`${f.name}-${i}`}
+                    className="flex min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-secondary"
                   >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    {estZip(f.name) ? (
+                      <FileArchive className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate" title={f.name}>{f.name}</span>
+                      {estZip(f.name) && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          Décompressée dans le dossier « {nomDossierZip(f.name)} »
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
+                      {formatFileSize(f.size)}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        setFiles((prev) => prev.filter((_, j) => j !== i))
+                      }
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label="Retirer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           <div className="space-y-1.5">

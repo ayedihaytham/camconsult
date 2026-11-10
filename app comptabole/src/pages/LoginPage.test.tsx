@@ -131,3 +131,24 @@ describe("page de connexion : accueil personnalisé", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 });
+
+describe("page de connexion : validation automatique du code", () => {
+  it("le sixième chiffre valide le code sans cliquer sur « Vérifier » ; un code de secours n'est pas envoyé tout seul", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(reponse(200, { etape: "2fa", ticket: "t" }))
+      .mockResolvedValueOnce(reponse(200, { token: "jeton", session: SESSION }));
+    vi.stubGlobal("fetch", fetchMock);
+    afficher();
+    saisir("Identifiant", "admin");
+    saisir("Mot de passe", "mdp");
+    fireEvent.click(screen.getByRole("button", { name: /Se connecter/ }));
+    await screen.findByRole("form", { name: "Vérification en deux étapes" });
+    saisir("Code de vérification", "AB12-CD34");
+    await new Promise((r) => setTimeout(r, 600));
+    expect(fetchMock).toHaveBeenCalledTimes(1); // seul l'appel de connexion : le code de secours attend le bouton
+    saisir("Code de vérification", "654321");
+    expect(await screen.findByText("Tableau de bord")).toBeTruthy();
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ ticket: "t", code: "654321" });
+  });
+});

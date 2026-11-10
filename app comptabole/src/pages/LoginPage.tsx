@@ -29,11 +29,11 @@ const COULOIRS = [
 const ETIQUETTES_DOSSIER = ["Chez le client", "Transmis", "À corriger", "Validé ✓"];
 
 /** Aperçu illustratif du circuit de collecte (noms, chiffres et échéances fictifs) : le dossier « Votre accès » avance avec la saisie, le bureau se dévoile à mesure. */
-function CircuitApercu({ prenom, initiales, etape, refuse, avancement }: { prenom: string; initiales: string; etape: 0 | 1; refuse: boolean; avancement: number }) {
+function CircuitApercu({ prenom, initiales, etape, refuse, valide, avancement }: { prenom: string; initiales: string; etape: 0 | 1; refuse: boolean; valide: boolean; avancement: number }) {
   const couloirs = useRef<HTMLDivElement>(null);
   const refs = useRef<(HTMLDivElement | null)[]>([]);
   const dossier = useRef<HTMLDivElement>(null);
-  const actif = refuse ? 2 : etape;
+  const actif = valide ? 3 : refuse ? 2 : etape;
   const palier = Math.min(4, Math.floor(avancement * 4 + 1e-6));
 
   // Place le dossier sous le titre du couloir actif (mesure d'affichage uniquement).
@@ -135,7 +135,30 @@ export function LoginPage() {
     return () => clearTimeout(t);
   }, [error]);
 
-  if (status === "authed") return <Navigate to={from} replace />;
+  /** Animation de bienvenue (présentation) : l'ouverture de l'espace attend la fin de l'animation, sauf si l'utilisateur a demandé moins de mouvement. */
+  const [enAttente, setEnAttente] = useState(false);
+  const [reussi, setReussi] = useState(false);
+  useEffect(() => {
+    if (!reussi) return;
+    const t = setTimeout(() => navigate(from, { replace: true }), 3200);
+    return () => clearTimeout(t);
+  }, [reussi, navigate, from]);
+  const ouvrir = () => {
+    const reduit = typeof window.matchMedia !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduit) navigate(from, { replace: true });
+    else setReussi(true);
+  };
+
+  // Comme dans la maquette : le sixième chiffre valide le code sans cliquer sur « Vérifier » (le bouton reste disponible).
+  useEffect(() => {
+    if (!ticket || busy || enAttente || !/^\d{6}$/.test(code.replace(/\s/g, ""))) return;
+    // court délai : on voit le sixième chiffre se poser, et un clic sur « Vérifier » pris entre-temps annule cet envoi
+    const t = setTimeout(() => void handleCode(), 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, ticket, busy, enAttente]);
+
+  if (status === "authed" && !enAttente) return <Navigate to={from} replace />;
 
   const { initiales, prenom } = accueilDepuis(identifiant);
   /** Avancement de l'identification (0 à 1) : fait se dévoiler l'aperçu à mesure de la saisie. */
@@ -147,24 +170,31 @@ export function LoginPage() {
     e.preventDefault();
     setError(null);
     setBusy(true);
+    setEnAttente(true);
     const res = await login(identifiant, motDePasse);
     setBusy(false);
-    if (res.ok) navigate(from, { replace: true });
+    if (res.ok) ouvrir();
     else if (res.etape === "2fa" && res.ticket) {
+      setEnAttente(false);
       setTicket(res.ticket);
       setCode("");
-    } else setError(res.error ?? "Identifiant ou mot de passe incorrect.");
+    } else {
+      setEnAttente(false);
+      setError(res.error ?? "Identifiant ou mot de passe incorrect.");
+    }
   }
 
-  async function handleCode(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleCode(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!ticket) return;
     setError(null);
     setBusy(true);
+    setEnAttente(true);
     const res = await verifier2fa(ticket, code);
     setBusy(false);
-    if (res.ok) navigate(from, { replace: true });
+    if (res.ok) ouvrir();
     else {
+      setEnAttente(false);
       setError(res.error ?? "Code incorrect.");
       // ticket expiré : il faut reprendre depuis le mot de passe
       if (res.error?.includes("expiré")) setTicket(null);
@@ -172,6 +202,8 @@ export function LoginPage() {
     }
   }
 
+  const chiffres = code.replace(/\s/g, "");
+  const boitesCode = /^\d{0,6}$/.test(chiffres);
   const boutonClass = "lx-go";
 
   return (
@@ -195,7 +227,7 @@ export function LoginPage() {
           </h2>
           <p className="lx-sub">Chaque dossier suit son circuit. Votre accès aussi : votre bureau se dévoile à mesure que vous vous identifiez.</p>
         </div>
-        <CircuitApercu prenom={prenom} initiales={initiales} etape={ticket ? 1 : 0} refuse={refuse} avancement={avancement} />
+        <CircuitApercu prenom={prenom} initiales={initiales} etape={ticket ? 1 : 0} refuse={refuse} valide={reussi} avancement={reussi ? 1 : avancement} />
         <p className="lx-fn">Aperçu illustratif : noms, chiffres et échéances sont fictifs, aucune donnée réelle n'est affichée avant la connexion.</p>
       </div>
 
@@ -222,18 +254,35 @@ export function LoginPage() {
                 <Smartphone aria-hidden="true" />
                 Saisissez le code à 6 chiffres de votre application d'authentification, ou l'un de vos codes de secours.
               </p>
-              <IconField label="Code de vérification" htmlFor="code2fa" icon={KeyRound}>
-                <input
-                  id="code2fa"
-                  autoFocus
-                  inputMode="text"
-                  autoComplete="one-time-code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="123 456"
-                  className={cn(inputClass, "lx-input-code")}
-                />
-              </IconField>
+              <div className="text-left">
+                <label htmlFor="code2fa" className="lx-label">
+                  Code de vérification
+                </label>
+                {/* Six cases pour un code à chiffres ; un code de secours (lettres, plus long) retrouve un champ de texte simple. Le champ est le même dans les deux cas. */}
+                <div className={cn(boitesCode ? "lx-otp" : "lx-row")}>
+                  {boitesCode ? (
+                    <div className="lx-otp-cases" aria-hidden="true">
+                      {Array.from({ length: 6 }, (_, i) => (
+                        <span key={i} className={cn("lx-otp-case", chiffres[i] && "f", i === Math.min(chiffres.length, 5) && "cur")}>
+                          {chiffres[i] ?? ""}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <KeyRound className="lx-row-icon" aria-hidden="true" />
+                  )}
+                  <input
+                    id="code2fa"
+                    autoFocus
+                    inputMode={boitesCode ? "numeric" : "text"}
+                    autoComplete="one-time-code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder={boitesCode ? undefined : "123 456"}
+                    className={cn(boitesCode ? "lx-otp-input" : cn(inputClass, "lx-input-code"))}
+                  />
+                </div>
+              </div>
               {error && (
                 <p role="alert" className="lx-err">
                   <Lock aria-hidden="true" />
@@ -318,6 +367,18 @@ export function LoginPage() {
           <p className="lx-copy">© {new Date().getFullYear()} Cabinet AYEDI Mohamed</p>
         </div>
       </main>
+
+      <div className={cn("lx-win", reussi && "on")} role="status" aria-live="polite" aria-hidden={!reussi}>
+        <svg className="lx-win-ck" viewBox="0 0 80 80" aria-hidden="true">
+          <circle cx="40" cy="40" r="38" />
+          <path d="M24 41l11 11 21-23" />
+        </svg>
+        <h3>{prenom ? `Bienvenue, ${prenom}` : "Bienvenue"}</h3>
+        <p>Ouverture de votre espace…</p>
+        <div className="lx-win-bar">
+          <i />
+        </div>
+      </div>
     </div>
   );
 }

@@ -1379,6 +1379,9 @@
   display: grid;
   gap: 18px;
 }
+.lx-form.hidden {
+  display: none;
+}
 .lx-label {
   display: block;
   font-size: 0.68rem;
@@ -1565,6 +1568,139 @@
   border: 2px solid currentColor;
   border-right-color: transparent;
   animation: login-spin 0.7s linear infinite;
+}
+
+/* Code de vérification : six cases posées sur le champ réel (transparent), la case active est surlignée. */
+.lx-otp {
+  position: relative;
+  margin-top: 8px;
+}
+.lx-otp-cases {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+.lx-otp-case {
+  display: grid;
+  place-items: center;
+  height: 56px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(11, 37, 69, 0.3);
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.6rem;
+  color: var(--lx-navy);
+  transition: border-color 0.25s, transform 0.25s, background 0.25s;
+}
+.lx-otp-case.f {
+  background: rgba(201, 169, 106, 0.16);
+  border-color: var(--lx-ac);
+}
+.lx-otp:focus-within .lx-otp-case.cur {
+  border-color: var(--lx-ac);
+  transform: translateY(-3px);
+}
+.lx-otp-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 1.6rem;
+  letter-spacing: 3rem;
+  opacity: 0.01;
+  cursor: text;
+}
+
+/* Animation d'ouverture de l'espace après une connexion réussie. */
+.lx-win {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  color: var(--lx-ivory);
+  background: radial-gradient(60% 60% at 50% 45%, #1a3558, var(--lx-navy-d));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s 0.15s;
+}
+.lx-win.on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.lx-win-ck {
+  width: 96px;
+  height: 96px;
+  overflow: visible;
+}
+.lx-win-ck circle {
+  fill: none;
+  stroke: var(--lx-gold);
+  stroke-width: 2.5;
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.45s;
+}
+.lx-win-ck path {
+  fill: none;
+  stroke: var(--lx-gold);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 54;
+  stroke-dashoffset: 54;
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 1.25s;
+}
+.lx-win.on .lx-win-ck circle,
+.lx-win.on .lx-win-ck path {
+  stroke-dashoffset: 0;
+}
+.lx-win h3 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 500;
+  font-size: 2.1rem;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.6s 1.35s, transform 0.6s 1.35s;
+}
+.lx-win p {
+  font-size: 0.9rem;
+  color: #aac5df;
+  opacity: 0;
+  transition: opacity 0.6s 1.5s;
+}
+.lx-win.on h3,
+.lx-win.on p {
+  opacity: 1;
+  transform: none;
+}
+.lx-win-bar {
+  width: 200px;
+  height: 3px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+.lx-win-bar i {
+  display: block;
+  height: 100%;
+  background: var(--lx-gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1.6s cubic-bezier(0.4, 0, 0.2, 1) 1.5s;
+}
+.lx-win.on .lx-win-bar i {
+  transform: none;
 }
 
 /* Écrans d'accès à une colonne : fond du circuit, carte papier. */

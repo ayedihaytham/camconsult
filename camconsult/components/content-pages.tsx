@@ -1,20 +1,53 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowDownToLine, ArrowRight, CalendarDays, ChevronDown, Clock3, FileText, Mail, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { ArrowDownToLine, CalendarDays, Clock3, FileText, Mail, X } from 'lucide-react'
+import { PageHero, PageShell } from '@/components/gl/page'
+import { Ico } from '@/components/gl/parts'
 import { getDictionary, type Lang } from '@/lib/i18n'
-
-function Hero({ title, eyebrow, description }: { title: string; eyebrow: string; description: string }) {
-  return <section className="bg-feature px-6 pb-16 pt-28 text-feature-foreground sm:px-10 lg:px-16"><div className="mx-auto max-w-7xl"><p className="eyebrow mt-12">{eyebrow}</p><h1 className="mt-4 font-serif text-5xl leading-none sm:text-7xl">{title}</h1><p className="mt-6 max-w-2xl text-base leading-7 text-feature-muted">{description}</p></div></section>
-}
 
 export function BlogPage({ lang = 'fr' }: { lang?: Lang }) {
   const { blog } = getDictionary(lang)
   const [category, setCategory] = useState(blog.categories[0])
-  const filtered = useMemo(() => category === blog.categories[0] ? blog.articles : blog.articles.filter((article) => article.category === category), [category, blog])
-  return <main dir={lang === 'ar' ? 'rtl' : 'ltr'}><Hero eyebrow={blog.eyebrow} title={blog.title} description={blog.description} /><section className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-7xl"><div className="flex flex-wrap gap-2" aria-label="Filtres par catégorie">{blog.categories.map((item) => <button key={item} type="button" onClick={() => setCategory(item)} className={cn('rounded-full border px-5 py-2.5 text-xs font-semibold transition-colors duration-200', category === item ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-card text-muted-foreground hover:border-accent hover:text-foreground')}>{item}</button>)}</div><div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">{filtered.map((article) => <article key={article.title} className="group overflow-hidden rounded-sm border border-border bg-card transition-all duration-300 hover:-translate-y-1 hover:border-accent hover:shadow-xl hover:shadow-shadow/5"><img src={article.image} alt="" width={800} height={800} loading="lazy" decoding="async" className="aspect-[16/9] w-full object-cover grayscale-[15%] transition-transform duration-500 group-hover:scale-105" /><div className="p-6"><span className="badge badge-accent">{article.category}</span><h2 className="mt-5 font-serif text-2xl leading-tight text-foreground">{article.title}</h2><p className="mt-3 text-sm leading-6 text-muted-foreground">{article.excerpt}</p><div className="mt-7 flex items-center gap-4 text-[11px] text-muted-foreground"><span className="inline-flex items-center gap-1.5"><CalendarDays className="size-3.5 text-accent-ink" />{article.date}</span><span className="inline-flex items-center gap-1.5"><Clock3 className="size-3.5 text-accent-ink" />{article.read}</span></div><a href="#article" className="mt-6 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground transition-colors group-hover:text-accent-ink">{blog.readArticle} <ArrowRight className="size-4 transition-transform group-hover:translate-x-1 rtl-mirror" /></a></div></article>)}</div><div className="mt-14 flex items-center justify-center gap-2"><button className="grid size-9 place-items-center rounded-full bg-feature text-xs text-feature-foreground">1</button><button className="grid size-9 place-items-center rounded-full border border-border text-xs text-foreground transition-colors hover:border-accent">2</button><button className="grid size-9 place-items-center rounded-full border border-border text-xs text-foreground transition-colors hover:border-accent">3</button></div></div></section></main>
+  const filtered = useMemo(() => (category === blog.categories[0] ? blog.articles : blog.articles.filter((article) => article.category === category)), [category, blog])
+  return (
+    <PageShell lang={lang}>
+      <main>
+        <PageHero lang={lang} eyebrow={blog.eyebrow} title={blog.title} description={blog.description} />
+        <section className="ip sheet">
+          <div className="ipw">
+            <div className="chp" aria-label="Filtres par catégorie">
+              {blog.categories.map((item) => (
+                <button key={item} type="button" aria-pressed={category === item} onClick={() => setCategory(item)}>{item}</button>
+              ))}
+            </div>
+            <div className="ip-grid c3" style={{ marginTop: 40 }}>
+              {filtered.map((article) => (
+                <article key={article.title} className="card flush hv" data-sa>
+                  <img src={article.image} alt="" width={800} height={800} loading="lazy" decoding="async" />
+                  <div className="bd">
+                    <span className="tag">{article.category}</span>
+                    <h2>{article.title}</h2>
+                    <p>{article.excerpt}</p>
+                    <div className="meta">
+                      <span><CalendarDays className="size-3.5" aria-hidden="true" />{article.date}</span>
+                      <span><Clock3 className="size-3.5" aria-hidden="true" />{article.read}</span>
+                    </div>
+                    <a href="#article" className="go" style={{ paddingTop: 6 }}>{blog.readArticle} <Ico n="arrow" /></a>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="pager" aria-hidden="true">
+              <button type="button" aria-current="page">1</button>
+              <button type="button">2</button>
+              <button type="button">3</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </PageShell>
+  )
 }
 
 export function ResourcesPage({ lang = 'fr' }: { lang?: Lang }) {
@@ -23,6 +56,76 @@ export function ResourcesPage({ lang = 'fr' }: { lang?: Lang }) {
   const [modal, setModal] = useState<string | null>(null)
   const [faqCategory, setFaqCategory] = useState(resources.faqCategories[0])
   const visibleFaq = faqCategory === resources.faqCategories[0] ? resources.faq : resources.faq.filter((item) => item.category === faqCategory)
-  const isArabic = lang === 'ar'
-  return <main dir={isArabic ? 'rtl' : 'ltr'}><Hero eyebrow={resources.eyebrow} title={resources.title} description={resources.description} /><section className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto max-w-7xl"><div className="flex items-end justify-between gap-6"><div><p className="eyebrow">{resources.guidesEyebrow}</p><h2 className="mt-3 font-serif text-4xl text-foreground">{resources.guidesTitle}</h2></div><p className="hidden max-w-sm text-right text-sm leading-6 text-muted-foreground md:block">{resources.guidesText}</p></div><div className="mt-10 grid gap-5 md:grid-cols-3">{resources.guides.map((guide) => <article key={guide.title} className="flex flex-col rounded-sm border border-border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:border-accent hover:shadow-xl hover:shadow-shadow/5"><div className="flex items-center justify-between"><div className="grid size-12 place-items-center rounded-sm bg-accent-soft text-foreground"><FileText className="size-6 text-accent-ink" /></div><span className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground">{resources.pdfPages}</span></div><h3 className="mt-8 font-serif text-2xl text-foreground">{guide.title}</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">{guide.description}</p><Button variant="outline" className="mt-8 w-full justify-center" onClick={() => setModal(guide.title)}><ArrowDownToLine data-icon="inline-start" />{resources.download}</Button></article>)}</div><div className="mt-28"><div className="flex flex-wrap items-end justify-between gap-5"><div><p className="eyebrow">{resources.faqEyebrow}</p><h2 className="mt-3 font-serif text-4xl text-foreground">{resources.faqTitle}</h2></div><div className="flex flex-wrap gap-2">{resources.faqCategories.map((item) => <button key={item} type="button" onClick={() => { setFaqCategory(item); setOpenFaq(0) }} className={cn('rounded-full border px-4 py-2 text-xs font-semibold transition-colors', faqCategory === item ? 'border-accent bg-accent text-accent-foreground' : 'border-border text-muted-foreground hover:border-accent')}>{item}</button>)}</div></div><div className="mt-8 max-w-4xl border-t border-border">{visibleFaq.map((item, index) => <div key={item.question} className="border-b border-border"><button type="button" className="flex w-full items-center justify-between gap-6 py-6 text-left" onClick={() => setOpenFaq(openFaq === index ? -1 : index)} aria-expanded={openFaq === index}><span className="font-serif text-xl text-foreground">{item.question}</span><ChevronDown className={cn('size-5 shrink-0 text-accent-ink transition-transform', openFaq === index && 'rotate-180')} /></button><div className={cn('grid transition-[grid-template-rows,opacity] duration-300', openFaq === index ? 'grid-rows-[1fr] pb-6 opacity-100' : 'grid-rows-[0fr] opacity-0')}><p className="min-h-0 overflow-hidden text-sm leading-7 text-muted-foreground">{item.answer}</p></div></div>)}</div></div></div></section>{modal && <div className="fixed inset-0 z-[60] grid place-items-center bg-scrim/70 p-6 backdrop-blur-sm"><div role="dialog" aria-modal="true" className="relative w-full max-w-md rounded-sm bg-card p-7 shadow-2xl"><button type="button" onClick={() => setModal(null)} className="absolute right-5 top-5 text-muted-foreground hover:text-foreground" aria-label={resources.modal.close}><X className="size-5" /></button><div className="grid size-12 place-items-center rounded-sm bg-accent-soft text-accent-ink"><Mail className="size-6" /></div><p className="eyebrow mt-7">{resources.modal.accessFree}</p><h2 className="mt-3 pr-8 font-serif text-3xl text-foreground">{resources.modal.title}</h2><p className="mt-3 text-sm leading-6 text-muted-foreground">{resources.modal.description(modal)}</p><label className="field-label mt-7">{resources.modal.emailLabel}<input type="email" id="ressource-email" name="email" autoComplete="email" placeholder="vous@entreprise.com" className="field-input" /></label><Button className="mt-5 w-full justify-center" onClick={() => setModal(null)}>{resources.modal.submit} <ArrowRight data-icon="inline-end" /></Button><p className="mt-4 text-center text-[11px] text-muted-foreground">{resources.modal.privacy}</p></div></div>}</main>
+  return (
+    <PageShell lang={lang}>
+      <main>
+        <PageHero lang={lang} eyebrow={resources.eyebrow} title={resources.title} description={resources.description} />
+        <section className="ip sheet">
+          <div className="ipw">
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20 }}>
+              <div>
+                <p className="eb">{resources.guidesEyebrow}</p>
+                <h2>{resources.guidesTitle}</h2>
+              </div>
+              <p style={{ maxWidth: '38ch', color: 'var(--mfg)', lineHeight: 1.7 }}>{resources.guidesText}</p>
+            </div>
+            <div className="ip-grid c3" style={{ marginTop: 40 }}>
+              {resources.guides.map((guide) => (
+                <article key={guide.title} className="card hv" data-sa>
+                  <div className="row">
+                    <span className="ic"><FileText className="size-5" aria-hidden="true" /></span>
+                    <span className="tag">{resources.pdfPages}</span>
+                  </div>
+                  <h3 style={{ marginTop: 18 }}>{guide.title}</h3>
+                  <p>{guide.description}</p>
+                  <button type="button" className="pill o" style={{ marginTop: 'auto', justifyContent: 'center', color: 'var(--primary)' }} onClick={() => setModal(guide.title)}>
+                    <ArrowDownToLine className="size-4" aria-hidden="true" />{resources.download}
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+        <section className="ip alt sheet" id="faq">
+          <div className="ipw">
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20 }}>
+              <div>
+                <p className="eb">{resources.faqEyebrow}</p>
+                <h2>{resources.faqTitle}</h2>
+              </div>
+              <div className="chp">
+                {resources.faqCategories.map((item) => (
+                  <button key={item} type="button" aria-pressed={faqCategory === item} onClick={() => { setFaqCategory(item); setOpenFaq(0) }}>{item}</button>
+                ))}
+              </div>
+            </div>
+            <div className="cm-faq" style={{ marginTop: 34, maxWidth: 900, borderTop: '1px solid var(--line)' }}>
+              {visibleFaq.map((item, index) => (
+                <details key={item.question} open={openFaq === index}>
+                  <summary onClick={(e) => { e.preventDefault(); setOpenFaq(openFaq === index ? -1 : index) }} aria-expanded={openFaq === index}>
+                    <span className="n num">{String(index + 1).padStart(2, '0')}</span><span className="q">{item.question}</span><i />
+                  </summary>
+                  <p>{item.answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+        {modal && (
+          <div className="modal">
+            <div role="dialog" aria-modal="true" className="box cm-form">
+              <button type="button" className="x" onClick={() => setModal(null)} aria-label={resources.modal.close}><X className="size-5" /></button>
+              <span className="ic" style={{ width: 52, height: 52, borderRadius: 16, display: 'grid', placeItems: 'center', background: '#E2EAF0', color: '#285378' }}><Mail className="size-6" /></span>
+              <p className="eb" style={{ marginTop: 10 }}>{resources.modal.accessFree}</p>
+              <h2>{resources.modal.title}</h2>
+              <p style={{ color: '#4B6070', lineHeight: 1.6 }}>{resources.modal.description(modal)}</p>
+              <label className="lb" style={{ marginTop: 10 }}>{resources.modal.emailLabel}<input type="email" id="ressource-email" name="email" autoComplete="email" placeholder="vous@entreprise.com" dir="ltr" /></label>
+              <button type="button" className="pill" style={{ justifyContent: 'center', marginTop: 8 }} onClick={() => setModal(null)}>{resources.modal.submit} <Ico n="arrow" /></button>
+              <p style={{ textAlign: 'center', fontSize: '.72rem', color: '#4B6070' }}>{resources.modal.privacy}</p>
+            </div>
+          </div>
+        )}
+      </main>
+    </PageShell>
+  )
 }

@@ -1,5 +1,5 @@
-import { ChevronRight, FileText, ShieldCheck } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { FileText, ShieldCheck } from 'lucide-react'
+import { PageHero, PageShell } from '@/components/gl/page'
 import { getDictionary, type Lang } from '@/lib/i18n'
 
 type LegalKey = 'mentions' | 'privacy' | 'terms' | 'cookies'
@@ -11,15 +11,51 @@ const LEGAL_PATHS: Record<LegalKey, string> = {
 export function LegalPages({ lang = 'fr', initialPage = 'mentions' }: { lang?: Lang; initialPage?: LegalKey }) {
   const { legal } = getDictionary(lang)
   const page = legal.pages[initialPage]
-  const rtl = lang === 'ar'
-  return <main dir={rtl ? 'rtl' : 'ltr'} className="bg-background text-foreground">
-    <section className="bg-feature px-6 pb-16 pt-28 text-feature-foreground sm:px-10 lg:px-16"><div className="mx-auto max-w-7xl"><div className="flex items-center gap-2 text-xs text-feature-muted"><span>{legal.breadcrumbHome}</span><span>/</span><span className="text-accent-ink">{page.title}</span></div><p className="eyebrow mt-12">{page.label}</p><h1 className="mt-4 max-w-3xl font-serif text-5xl leading-none sm:text-7xl">{page.title}</h1><p className="mt-6 text-sm text-feature-muted">{legal.updatedLabel} : {page.updated}</p></div></section>
-    <div className="mx-auto grid max-w-7xl gap-12 px-6 py-16 sm:px-10 lg:grid-cols-[250px_minmax(0,720px)] lg:gap-20 lg:px-16 lg:py-24">
-      <aside className="lg:sticky lg:top-28 lg:self-start"><p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{legal.tocLabel}</p><nav aria-label={legal.tocLabel} className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">{page.sections.map((section, index) => <a key={section.id} href={`#${section.id}`} className="group inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-accent hover:text-foreground lg:border-0 lg:px-0"><span className="text-accent-ink">0{index + 1}</span>{section.title}<ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5 rtl-mirror" /></a>)}</nav><div className="mt-8 hidden border-t border-border pt-6 text-xs leading-5 text-muted-foreground lg:block"><ShieldCheck className="mb-3 size-5 text-accent-ink" />{legal.tocNote}</div></aside>
-      <article className="max-w-[720px]"><div className="mb-12 border-b border-border pb-10"><FileText className="size-7 text-accent-ink" /><p className="mt-6 text-lg leading-8 text-muted-foreground">{page.intro}</p></div>{page.sections.map((section) => <section key={section.id} id={section.id} className="scroll-mt-28 border-b border-border py-10 first:pt-0 last:border-0"><h2 className="font-serif text-3xl text-foreground">{section.title}</h2><div className="mt-5 flex flex-col gap-4 text-sm leading-7 text-muted-foreground">{section.body.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div></section>)}</article>
-    </div>
-    <div className="border-y border-border bg-card px-6 py-5 sm:px-10 lg:px-16"><div className="mx-auto flex max-w-7xl flex-wrap gap-2">{legal.nav.map((item) => <a key={item.key} href={`/${lang}${LEGAL_PATHS[item.key as LegalKey]}`} aria-current={initialPage === item.key ? 'page' : undefined} className={cn('rounded-full border px-4 py-2 text-xs font-semibold transition-colors duration-200', initialPage === item.key ? 'border-accent bg-accent text-accent-foreground' : 'border-border text-muted-foreground hover:border-accent hover:text-foreground')}>{item.label}</a>)}</div></div>
-  </main>
+  return (
+    <PageShell lang={lang}>
+      <main>
+        <PageHero
+          lang={lang}
+          crumbs={[legal.breadcrumbHome, page.title]}
+          eyebrow={page.label}
+          title={page.title}
+          extra={<p style={{ marginTop: 6, fontSize: '.84rem', color: '#AAC5DF' }}>{legal.updatedLabel} : {page.updated}</p>}
+        />
+        <section className="ip sheet">
+          <div className="ipw legal">
+            <aside>
+              <p className="lbl">{legal.tocLabel}</p>
+              <nav aria-label={legal.tocLabel}>
+                {page.sections.map((section, index) => (
+                  <a key={section.id} href={`#${section.id}`}><span>0{index + 1}</span>{section.title}</a>
+                ))}
+              </nav>
+              <p className="nt2"><ShieldCheck className="size-5" style={{ color: 'var(--ok)', marginBottom: 8 }} aria-hidden="true" />{legal.tocNote}</p>
+            </aside>
+            <article>
+              <div className="lead">
+                <FileText className="size-7" style={{ color: 'var(--accent)', marginBottom: 14 }} aria-hidden="true" />
+                <p>{page.intro}</p>
+              </div>
+              {page.sections.map((section) => (
+                <section key={section.id} id={section.id}>
+                  <h2>{section.title}</h2>
+                  <div className="prose">{section.body.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
+                </section>
+              ))}
+            </article>
+          </div>
+        </section>
+        <div className="legalnav">
+          <div className="ipw chp">
+            {legal.nav.map((item) => (
+              <a key={item.key} href={`/${lang}${LEGAL_PATHS[item.key as LegalKey]}`} aria-current={initialPage === item.key ? 'page' : undefined}>{item.label}</a>
+            ))}
+          </div>
+        </div>
+      </main>
+    </PageShell>
+  )
 }
 
 export type { LegalKey }

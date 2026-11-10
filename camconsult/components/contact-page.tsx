@@ -1,30 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Clock3, Mail, MapPin, Phone, Send } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { Check, Clock3, Mail, MapPin, Phone } from 'lucide-react'
+import { PageHero, PageShell } from '@/components/gl/page'
+import { Ico } from '@/components/gl/parts'
 import { getDictionary, type Lang } from '@/lib/i18n'
 
 type RequestType = 'quote' | 'meeting' | 'info'
 type ContactPageProps = { lang?: Lang }
 
-function Hero({ isArabic, contact }: { isArabic: boolean; contact: ReturnType<typeof getDictionary>['contact'] }) {
-  return (
-    <section className="bg-feature px-6 pb-16 pt-28 text-feature-foreground sm:px-10 lg:px-16">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex items-center gap-2 text-xs text-feature-muted"><span>{contact.breadcrumbHome}</span><span>/</span><span className="text-accent-ink">{contact.breadcrumbContact}</span></div>
-        <p className="eyebrow mt-12">{contact.eyebrow}</p>
-        <h1 className="mt-4 font-serif text-5xl leading-none sm:text-7xl">{contact.title}</h1>
-        <p className="mt-6 max-w-2xl text-base leading-7 text-feature-muted">{contact.description}</p>
-      </div>
-    </section>
-  )
-}
-
 export function ContactPage({ lang = 'fr' }: ContactPageProps) {
   const { contact } = getDictionary(lang)
-  const isArabic = lang === 'ar'
   const [requestType, setRequestType] = useState<RequestType>('quote')
   const [selectedDays, setSelectedDays] = useState<string[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle')
@@ -41,9 +27,77 @@ export function ContactPage({ lang = 'fr' }: ContactPageProps) {
     window.setTimeout(() => { setStatus('success'); setFormKey((key) => key + 1) }, 700)
   }
 
-  return <main dir={isArabic ? 'rtl' : 'ltr'}><Hero isArabic={isArabic} contact={contact} /><section className="px-6 py-20 sm:px-10 lg:px-16 lg:py-28"><div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-20"><div><div className="flex flex-wrap gap-2 border-b border-border pb-5" role="tablist" aria-label={contact.requestTypeLabel}>{(Object.keys(contact.requestTypes) as RequestType[]).map((type) => <button key={type} type="button" role="tab" aria-selected={requestType === type} onClick={() => { setRequestType(type); setStatus('idle') }} className={cn('rounded-full border px-5 py-2.5 text-xs font-semibold transition-all duration-200', requestType === type ? 'border-accent bg-accent text-accent-foreground' : 'border-border bg-card text-muted-foreground hover:border-accent hover:text-foreground')}>{contact.requestTypes[type]}</button>)}</div>
-      {status === 'success' ? <div className="mt-10 border border-accent/40 bg-accent-soft p-8 text-foreground" role="status"><div className="grid size-12 place-items-center rounded-full bg-accent"><Check aria-hidden="true" /></div><h2 className="mt-6 font-serif text-3xl">{contact.successTitle}</h2><p className="mt-3 text-sm leading-6">{contact.successText}</p><button type="button" onClick={() => setStatus('idle')} className="mt-6 text-xs font-bold uppercase tracking-wider underline underline-offset-4">{contact.sendAnother}</button></div> : <form key={formKey} onSubmit={submit} className="mt-10 flex flex-col gap-6" noValidate><div className="grid gap-6 sm:grid-cols-2"><label className="field-label">{contact.form.name}<input name="name" required className="field-input" autoComplete="name" /></label><label className="field-label">{contact.form.email}<input name="email" type="email" required className="field-input" autoComplete="email" /></label><label className="field-label">{contact.form.phone}<input name="phone" type="tel" className="field-input" autoComplete="tel" /></label>{requestType === 'quote' ? <label className="field-label">{contact.form.company}<input name="company" className="field-input" /></label> : requestType === 'meeting' ? <label className="field-label">{contact.form.slots}<select name="slot" className="field-input"><option>{contact.form.morning}</option><option>{contact.form.afternoon}</option></select></label> : <label className="field-label">{contact.form.activity}<input name="activity" className="field-input" /></label>}</div>{requestType === 'meeting' && <fieldset className="flex flex-col gap-3"><legend className="field-label">{contact.form.preferredDays}</legend><div className="flex flex-wrap gap-2">{contact.weekdays.map((day) => <label key={day} className={cn('cursor-pointer rounded-sm border px-4 py-2 text-xs font-semibold transition-colors', selectedDays.includes(day) ? 'border-accent bg-accent-soft text-foreground' : 'border-border bg-card text-muted-foreground hover:border-accent')}><input type="checkbox" name="days" value={day} checked={selectedDays.includes(day)} onChange={() => toggleDay(day)} className="sr-only" />{day}</label>)}</div></fieldset>}<label className="field-label">{contact.form.message}<textarea name="message" required rows={5} className="field-input resize-y" /></label>{error && <p className="text-xs font-medium text-destructive" role="alert">{error}</p>}<Button type="submit" variant="primary" disabled={status === 'loading'} className="w-fit">{status === 'loading' ? contact.form.loading : contact.form.submit}<Send data-icon="inline-end" className={cn('transition-transform duration-300', isArabic ? 'rtl-mirror' : 'group-hover:translate-x-1')} /></Button></form>}
-    </div><aside className="h-fit border border-border bg-card p-7 lg:sticky lg:top-28"><p className="eyebrow">{contact.sidebarEyebrow}</p><h2 className="mt-3 font-serif text-3xl text-foreground">{contact.sidebarTitle}</h2><div className="mt-8 flex flex-col gap-5 text-sm text-muted-foreground"><p className="flex gap-3"><MapPin className="size-5 shrink-0 text-accent-ink" aria-hidden="true" />21 Rue Iraq<br />1001 Lafayette, Tunis</p><a href="tel:+21671847608" className="flex gap-3 hover:text-foreground"><Phone className="size-5 shrink-0 text-accent-ink" aria-hidden="true" />71 847 608</a><a href="tel:+21698400368" className="flex gap-3 hover:text-foreground"><Phone className="size-5 shrink-0 text-accent-ink" aria-hidden="true" />98 400 368</a><a href="mailto:camcompta@planet.tn" className="flex gap-3 hover:text-foreground"><Mail className="size-5 shrink-0 text-accent-ink" aria-hidden="true" />camcompta@planet.tn</a><p className="flex gap-3"><Clock3 className="size-5 shrink-0 text-accent-ink" aria-hidden="true" />{contact.hours}</p></div><div className="mt-8 flex aspect-[4/3] items-center justify-center border border-dashed border-accent/60 bg-accent-soft text-center text-xs text-muted-foreground"><MapPin className="mr-2 size-4 text-accent-ink" aria-hidden="true" />{contact.mapPlaceholder}</div></aside></div></section></main>
+  return (
+    <PageShell lang={lang} fab={false}>
+      <main>
+        <PageHero lang={lang} crumbs={[contact.breadcrumbHome, contact.breadcrumbContact]} eyebrow={contact.eyebrow} title={contact.title} description={contact.description} />
+        <section className="ip sheet">
+          <div className="ipw split">
+            <div className={'cm-form page fm' + (status === 'success' ? ' done' : '')} style={{ display: 'block' }}>
+              <div className="chp" role="tablist" aria-label={contact.requestTypeLabel} style={{ marginBottom: 28 }}>
+                {(Object.keys(contact.requestTypes) as RequestType[]).map((type) => (
+                  <button key={type} type="button" role="tab" aria-selected={requestType === type} onClick={() => { setRequestType(type); setStatus('idle') }}>{contact.requestTypes[type]}</button>
+                ))}
+              </div>
+              <form key={formKey} onSubmit={submit} className="cm-form" noValidate style={{ background: 'none', border: 0, padding: 0 }}>
+                  <div className="two">
+                    <label className="lb">{contact.form.name}<input name="name" required autoComplete="name" /></label>
+                    <label className="lb">{contact.form.email}<input name="email" type="email" required autoComplete="email" dir="ltr" /></label>
+                    <label className="lb">{contact.form.phone}<input name="phone" type="tel" autoComplete="tel" dir="ltr" /></label>
+                    {requestType === 'quote' ? (
+                      <label className="lb">{contact.form.company}<input name="company" /></label>
+                    ) : requestType === 'meeting' ? (
+                      <label className="lb">{contact.form.slots}<select name="slot"><option>{contact.form.morning}</option><option>{contact.form.afternoon}</option></select></label>
+                    ) : (
+                      <label className="lb">{contact.form.activity}<input name="activity" /></label>
+                    )}
+                  </div>
+                  {requestType === 'meeting' && (
+                    <fieldset style={{ border: 0, padding: 0 }}>
+                      <legend className="lb" style={{ marginBottom: 8 }}>{contact.form.preferredDays}</legend>
+                      <div className="days">
+                        {contact.weekdays.map((day) => (
+                          <label key={day} className={selectedDays.includes(day) ? 'on' : undefined}>
+                            <input type="checkbox" name="days" value={day} checked={selectedDays.includes(day)} onChange={() => toggleDay(day)} className="sr" />
+                            {day}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  )}
+                  <label className="lb">{contact.form.message}<textarea name="message" required rows={5} /></label>
+                  {error && <p className="err" role="alert">{error}</p>}
+                  <button type="submit" className="send" disabled={status === 'loading'} style={{ justifySelf: 'start' }}>
+                    <span>{status === 'loading' ? contact.form.loading : contact.form.submit}</span><Ico n="arrow" />
+                  </button>
+                </form>
+                <div className="okp" role="status" aria-live="polite">
+                  <div className="sp">{Array.from({ length: 10 }, (_, n) => <i key={n} style={{ ['--a' as string]: n * 36 + 'deg' }} />)}</div>
+                  <svg className="big" viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" /><path d="M24 41l11 11 21-23" /></svg>
+                  <h3>{contact.successTitle}</h3>
+                  <p>{contact.successText}</p>
+                  <button type="button" onClick={() => setStatus('idle')}>{contact.sendAnother}</button>
+                </div>
+            </div>
+            <aside>
+              <div className="card" style={{ padding: 28 }}>
+                <p className="eb">{contact.sidebarEyebrow}</p>
+                <h2 style={{ fontSize: '2rem', marginTop: 4 }}>{contact.sidebarTitle}</h2>
+                <div className="side-info" style={{ marginTop: 18, color: 'var(--mfg)' }}>
+                  <p><MapPin className="size-5 shrink-0" aria-hidden="true" /><span>21 Rue Iraq<br />1001 Lafayette, Tunis</span></p>
+                  <a href="tel:+21671847608" dir="ltr"><Phone className="size-5 shrink-0" aria-hidden="true" />71 847 608</a>
+                  <a href="tel:+21698400368" dir="ltr"><Phone className="size-5 shrink-0" aria-hidden="true" />98 400 368</a>
+                  <a href="mailto:camcompta@planet.tn"><Mail className="size-5 shrink-0" aria-hidden="true" />camcompta@planet.tn</a>
+                  <p><Clock3 className="size-5 shrink-0" aria-hidden="true" />{contact.hours}</p>
+                </div>
+                <div className="map" style={{ marginTop: 22 }}><span><MapPin className="size-4" style={{ display: 'inline', marginInlineEnd: 6 }} aria-hidden="true" />{contact.mapPlaceholder}</span></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </PageShell>
+  )
 }
 
 export default ContactPage

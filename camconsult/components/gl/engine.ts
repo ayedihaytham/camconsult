@@ -377,6 +377,7 @@ export function initGl(root: El, cfg: GlConfig): () => void {
   addSa('#nk button', 0.7); addSa('.tt .eb'); addSa('.tape .q'); addSa('.vol .eb'); addSa('.vol .cols div', 1)
   addSa('#cta .eb'); addSa('#cta p:not(.eb)'); addSa('#cta .pill'); addSa('.foot .cm-foot>div', 1); addSa('.foot .cm-foot-b'); addSa('.mg')
   addSa('.dl .eb'); addSa('.dl p,.dl [data-ics]'); addSa('.dl .cd div', 1)
+  addSa('[data-sa]', 0.7)
   addSa('.blog .eb'); addSa('.blog article', 1.2); addSa('.blog .nl'); addSa('.trust div', 0.8)
   const io2 = new IntersectionObserver((es) => {
     es.forEach((e) => {

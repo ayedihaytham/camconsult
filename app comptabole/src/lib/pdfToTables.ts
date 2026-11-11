@@ -240,7 +240,7 @@ const ARABE = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]+/g;
 const COLONNES = [
   { nom: "Date de valeur", re: /valeur|^date de$/i },
   { nom: "Date", re: /^date( (d')?op[ée]ration)?$/i },
-  { nom: "Libellé de l'opération", re: /libell|d[ée]signation|intitul[ée]|d[ée]tails?|description|nature|particulars|narration/i },
+  { nom: "Libellé de l'opération", re: /libell|d[ée]signation|intitul[ée]|d[ée]tails?|description|nature|particulars|narration/i },
   { nom: "Débit", re: /d[ée]bit|retrait|withdrawal|sorties?/i },
   { nom: "Crédit", re: /cr[ée]dit|versement|deposit|entr[ée]es?/i },
   { nom: "Solde", re: /^solde$/i },
@@ -259,8 +259,16 @@ const categorie = (texte: string) => COLONNES.findIndex((c) => c.re.test(texte.t
 /** Colonnes du relevé d'après la ligne d'en-tête (Date, Libellé, Date de valeur, Débit, Crédit…), qui peut
  * tenir sur deux lignes : on garde le centre de chaque intitulé, les valeurs étant alignées dessous. */
 function trouverEnTete(lignes: Cellule[][]): { ancres: Ancre[]; fin: number } | null {
-  const i = lignes.findIndex((l) => l.some((c) => COLONNES[LIBELLE_COL].re.test(c.texte)));
-  if (i < 0) return null;
+  // Un mot du texte courant (« détaillé », « nature ») peut ressembler à l'intitulé du libellé : on essaie chaque ligne candidate jusqu'à trouver un vrai en-tête.
+  for (let i = 0; i < lignes.length; i++) {
+    if (!lignes[i].some((c) => COLONNES[LIBELLE_COL].re.test(c.texte))) continue;
+    const trouve = enTeteAutour(lignes, i);
+    if (trouve) return trouve;
+  }
+  return null;
+}
+
+function enTeteAutour(lignes: Cellule[][], i: number): { ancres: Ancre[]; fin: number } | null {
   const sommes = new Map<number, number[]>();
   let fin = i;
   const entetes: Cellule[][] = [];

@@ -219,7 +219,8 @@ export function harmoniserLibelles(mouvements: string[][], connus: string[] = []
       const d = distance(cle, sansFautes(modele));
       if (d <= 2) return modele;
     }
-    return texte;
+    // Aucun modèle plus fréquent, mais la description répétée (« … de l'etranger … de l'etr ») est tout de même réduite à une seule.
+    return t;
   };
   return [mouvements[0], ...mouvements.slice(1).map((l) => l.map((c, i) => (i === iLibelle ? corriger(c) : c)))];
 }

@@ -24,7 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { StatusDot, type StatusTone } from "@/components/ledger/StatusDot";
 import { DataTable } from "@/components/data-table/DataTable";
 import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHeader";
@@ -234,8 +234,8 @@ export function JournalPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <LedgerPageHeader
-        title="Journal d'activité"
+      <PageHeaderBar
+        title="Journal"
         description="Historique des actions sensibles (créations, modifications, suppressions, connexions)."
       />
 

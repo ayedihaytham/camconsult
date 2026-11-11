@@ -1,25 +1,24 @@
 import {
-  Banknote,
+  ArrowLeftRight,
+  BarChart3,
   BookText,
   Boxes,
   Building2,
   Calculator,
   CircleDollarSign,
-  Coins,
-  Globe,
   ClipboardList,
-  FileOutput,
+  Coins,
   FileText,
   FolderTree,
   Landmark,
   LayoutDashboard,
   ListChecks,
   MessageSquare,
-  Receipt,
-  Truck,
-  Wallet,
+  Percent,
   ScrollText,
-  Settings,
+  SlidersHorizontal,
+  Truck,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -42,11 +41,13 @@ export interface NavItem {
   to?: string;
   icon: LucideIcon;
   children?: NavChild[];
-  badgeKey?: "unread";
+  badgeKey?: "unread" | "taches" | "collectes";
   adminOnly?: boolean;
   /** Visible aussi pour le responsable de société (pas son délégué), en plus
    * de l'admin — la page reste en lecture seule pour lui. */
   responsableSocieteOk?: boolean;
+  /** Visible aussi pour le responsable des collaborateurs (voir usePermissions().canManageCollaborateurs). */
+  equipeManagerOk?: boolean;
   perm?: PermissionKey;
   hideForSocieteEmploye?: boolean;
   /** Masqué pour un délégué de société seulement : l'équipe du cabinet et le responsable de société le voient. */
@@ -62,98 +63,10 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    items: [{ label: "Dashboard", to: "/", icon: LayoutDashboard }],
-  },
-  {
-    label: "Clients & travail",
+    label: "Aujourd'hui",
     items: [
-      {
-        label: "Sociétés",
-        icon: Building2,
-        hideForSocieteEmploye: true,
-        children: [
-          { label: "Liste des sociétés", to: "/societes" },
-          {
-            label: "Collaborateurs",
-            to: "/employes",
-            adminOnly: true,
-            equipeManagerOk: true,
-          },
-        ],
-      },
-      {
-        label: "Tâches",
-        to: "/taches",
-        icon: ListChecks,
-      },
-      { label: "Collecte de pièces", to: "/collectes", icon: ClipboardList },
-      { label: "Souche de chèques", to: "/ma-souche", icon: BookText, societeOnly: true },
-      {
-        label: "Gestion de stock",
-        to: "/stock",
-        icon: Boxes,
-        hideForSocieteEmploye: true,
-      },
-      { label: "Cours de change", to: "/cours-change", icon: Coins, hideForSocieteEmploye: true },
-      { label: "Suivi fournisseur", to: "/fournisseurs", icon: Truck, hideForDelegue: true },
-      { label: "Suivi bancaire", to: "/banque", icon: Wallet, hideForDelegue: true },
-    ],
-  },
-  {
-    label: "Comptabilité",
-    items: [
-      { label: "Apurement TVA", to: "/apurement", icon: ClipboardList, hideForSocieteEmploye: true },
-      {
-        label: "États financiers",
-        icon: Calculator,
-        hideForSocieteEmploye: true,
-        children: [
-          { label: "Balance & synthèse", to: "/etats-financiers" },
-          {
-            label: "Paramétrage",
-            to: "/grille-affectat",
-            adminOnly: true,
-          },
-        ],
-      },
-      {
-        label: "Bordereaux bancaires",
-        to: "/bordereaux",
-        icon: Landmark,
-        adminOnly: true,
-      },
-      {
-        label: "Facturation",
-        to: "/facturation",
-        icon: FileText,
-        adminOnly: true,
-      },
-      {
-        label: "État client",
-        to: "/honoraires",
-        icon: Receipt,
-        adminOnly: true,
-        responsableSocieteOk: true,
-      },
-      {
-        label: "Souche de chèques",
-        to: "/souche-cheques",
-        icon: BookText,
-        adminOnly: true,
-      },
-      {
-        label: "Suivi client devise",
-        to: "/suivi-devise",
-        icon: CircleDollarSign,
-        hideForSocieteEmploye: true,
-      },
-      { label: "État SWIFT", to: "/etat-swift", icon: Globe },
-    ],
-  },
-  {
-    label: "Organisation",
-    items: [
-      { label: "Structuration", to: "/structuration", icon: FolderTree },
+      { label: "Tableau de bord", to: "/", icon: LayoutDashboard },
+      { label: "Mes tâches", to: "/taches", icon: ListChecks, badgeKey: "taches" },
       {
         label: "Messagerie",
         to: "/messagerie",
@@ -161,30 +74,59 @@ export const NAV_GROUPS: NavGroup[] = [
         badgeKey: "unread",
         perm: "messagerie",
       },
+    ],
+  },
+  {
+    label: "Clients",
+    items: [
+      { label: "Sociétés", to: "/societes", icon: Building2, hideForSocieteEmploye: true },
+      { label: "Collectes de pièces", to: "/collectes", icon: ClipboardList, badgeKey: "collectes" },
+      { label: "Structuration", to: "/structuration", icon: FolderTree },
       {
-        label: "Conversions",
-        to: "/conversions",
-        icon: FileOutput,
-        hideForSocieteEmploye: true,
+        label: "Honoraires",
+        to: "/honoraires",
+        icon: CircleDollarSign,
+        adminOnly: true,
+        responsableSocieteOk: true,
       },
       {
-        label: "Simulation de paie",
-        to: "/simulation-paie",
-        icon: Banknote,
-        hideForSocieteEmploye: true,
+        label: "Facturation",
+        to: "/facturation",
+        icon: FileText,
+        adminOnly: true,
       },
     ],
   },
   {
-    label: "Administration",
+    label: "Comptabilité",
     items: [
+      { label: "Apurement TVA", to: "/apurement", icon: Percent, hideForSocieteEmploye: true },
+      { label: "Fournisseurs", to: "/fournisseurs", icon: Truck, hideForDelegue: true },
+      { label: "Stock", to: "/stock", icon: Boxes, hideForSocieteEmploye: true },
       { label: "Journal", to: "/journal", icon: ScrollText, adminOnly: true },
-      {
-        label: "Paramètres",
-        to: "/parametres",
-        icon: Settings,
-        adminOnly: true,
-      },
+      { label: "États financiers", to: "/etats-financiers", icon: BarChart3, hideForSocieteEmploye: true },
+      { label: "Paramétrage AFFECTAT", to: "/grille-affectat", icon: Calculator, adminOnly: true },
+    ],
+  },
+  {
+    label: "Banque & devises",
+    items: [
+      { label: "Suivi bancaire", to: "/banque", icon: Landmark, hideForDelegue: true },
+      { label: "Souche de chèques", to: "/souche-cheques", icon: BookText, adminOnly: true },
+      { label: "Ma souche", to: "/ma-souche", icon: BookText, societeOnly: true },
+      { label: "Bordereaux", to: "/bordereaux", icon: ListChecks, adminOnly: true },
+      { label: "Cours de change", to: "/cours-change", icon: ArrowLeftRight, hideForSocieteEmploye: true },
+      { label: "Suivi client devise", to: "/suivi-devise", icon: Coins, hideForSocieteEmploye: true },
+      { label: "État SWIFT", to: "/etat-swift", icon: CircleDollarSign },
+    ],
+  },
+  {
+    label: "Cabinet",
+    items: [
+      { label: "Équipe", to: "/employes", icon: Users, adminOnly: true, equipeManagerOk: true },
+      { label: "Conversions", to: "/conversions", icon: ArrowLeftRight, hideForSocieteEmploye: true },
+      { label: "Simulation de paie", to: "/simulation-paie", icon: Calculator, hideForSocieteEmploye: true },
+      { label: "Paramètres", to: "/parametres", icon: SlidersHorizontal, adminOnly: true },
     ],
   },
 ];
@@ -221,7 +163,8 @@ export function visibleNavigation({
         if (
           item.adminOnly &&
           !isAdmin &&
-          !(item.responsableSocieteOk && isResponsableSociete)
+          !(item.responsableSocieteOk && isResponsableSociete) &&
+          !(item.equipeManagerOk && canManageCollaborateurs)
         )
           return false;
         if (item.societeOnly && !lectureSeule) return false;

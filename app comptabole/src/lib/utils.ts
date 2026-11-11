@@ -82,11 +82,11 @@ export function isCurrentMonth(d: string | Date | null | undefined): boolean {
  * interpolation) — le scanner JIT de Tailwind ne détecte que des chaînes
  * littérales présentes dans le code source. */
 const AVATAR_PALETTE = [
-  "bg-chart-1/12 text-chart-1",
-  "bg-chart-2/12 text-chart-2",
-  "bg-chart-3/12 text-chart-3",
-  "bg-chart-4/12 text-chart-4",
-  "bg-chart-5/12 text-chart-5",
+  "bg-[#3F7F73] text-white",
+  "bg-[#5A3F8C] text-white",
+  "bg-[#8A6A2E] text-white",
+  "bg-[#2F5F8C] text-white",
+  "bg-[#0B2545] text-white",
 ] as const;
 
 /** Couleur d'avatar stable par identifiant — chaque personne garde toujours

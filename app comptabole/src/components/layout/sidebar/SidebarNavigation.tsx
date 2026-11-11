@@ -45,12 +45,15 @@ interface SidebarNavigationProps {
   groups: NavGroup[];
   unreadMessages: number;
   unreadNotifications: AppNotification[];
+  /** Pastilles de comptage des autres entrées du menu (tâches ouvertes, collectes à examiner). */
+  compteurs?: { taches?: number; collectes?: number };
 }
 
 export function SidebarNavigation({
   groups,
   unreadMessages,
   unreadNotifications,
+  compteurs = {},
 }: SidebarNavigationProps) {
   const { pathname } = useLocation();
   const { isMobile, setOpenMobile, state } = useSidebar();
@@ -140,10 +143,8 @@ export function SidebarNavigation({
             <SidebarMenu>
               {group.items.map((item, itemIndex) => {
                 const Icon = item.icon;
-                const badge =
-                  item.badgeKey === "unread" && unreadMessages > 0
-                    ? unreadMessages
-                    : null;
+                const decompte = item.badgeKey === "unread" ? unreadMessages : item.badgeKey === "taches" ? (compteurs.taches ?? 0) : item.badgeKey === "collectes" ? (compteurs.collectes ?? 0) : 0;
+                const badge = decompte > 0 ? decompte : null;
 
                 if (item.children) {
                   const active = isChildRouteActive(pathname, item.children);
@@ -295,7 +296,7 @@ export function SidebarNavigation({
                       <NavLink
                         to={to}
                         end={to === "/"}
-                        aria-label={badge ? `${item.label}, ${badge} message${badge > 1 ? "s" : ""} non lu${badge > 1 ? "s" : ""}` : pending ? `${item.label}, notification en attente` : item.label}
+                        aria-label={badge ? (item.badgeKey === "unread" ? `${item.label}, ${badge} message${badge > 1 ? "s" : ""} non lu${badge > 1 ? "s" : ""}` : `${item.label}, ${badge}`) : pending ? `${item.label}, notification en attente` : item.label}
                       >
                         <Icon />
                         <span>{item.label}</span>

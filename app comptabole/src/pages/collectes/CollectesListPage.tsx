@@ -198,7 +198,7 @@ export function CollectesListPage() {
   return (
     <div className={`flex min-w-0 flex-1 flex-col ${canCreate ? "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0" : ""}`}>
       <PageHeaderBar
-        title="Collecte de pièces"
+        title="Collectes de pièces"
         description="Suivi des pièces à collecter auprès de vos clients, tableau par tableau"
         actionsSurPetitEcran={false}
         action={canCreate ? { label: "Nouvelle collecte", onClick: () => setCreateOpen(true) } : undefined}

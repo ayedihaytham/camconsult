@@ -129,7 +129,7 @@ export function FournisseursSocietePage() {
         <SignatureLedgerBanner
           icon={Truck}
           eyebrow="Clients & travail · Fournisseurs"
-          title="Suivi fournisseur"
+          title="Fournisseurs"
           description={`${societe?.raisonSociale ?? "Société"} · ${societe?.code ?? ""}`}
           metrics={[
             { label: recap.length > 1 ? "Fournisseurs" : "Fournisseur", value: recap.length, loading },

@@ -10,7 +10,7 @@
     /* Neutres canoniques — papier chaud, encre et filets CamConsult. */
     --background: 45 22.222% 96.471%;
     /* Feuille de travail (maquette plateforme) : fond clair légèrement bleuté sous les cartes blanches. */
-    --sheet: 216 38% 95.5%;
+    --sheet: 216 52% 95%;
     --foreground: 0 0% 10.196%;
 
     --card: 0 0% 100%;
@@ -689,10 +689,6 @@
 /* Colonnes à largeur fixe : en dessous de cette largeur, le tableau défile au lieu d'écraser les titres. */
 .societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density { min-width: 1120px; }
 .employes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density { min-width: 1000px; }
-/* Fine bande de couleur à gauche de chaque ligne, selon le statut de la société. */
-:is(.societes-ledger-page, .employes-ledger-page) tbody tr.ledger-row--actif > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--success)); }
-:is(.societes-ledger-page, .employes-ledger-page) tbody tr.ledger-row--en_attente > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--warning)); }
-:is(.societes-ledger-page, .employes-ledger-page) tbody tr.ledger-row--inactif > td:first-child { box-shadow: inset 4px 0 0 hsl(var(--muted-foreground) / 0.45); }
 .societes-ledger-page .societes-ledger-monogram {
   width: 2.5rem;
   height: 2.5rem;
@@ -787,9 +783,9 @@
   padding: 0.5rem 1rem;
 }
 .ledger-soft-rows .ledger-soft-name {
-  @apply font-serif;
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
   line-height: 1.3;
   color: hsl(var(--primary));
 }
@@ -1888,3 +1884,6 @@
   .bande-exercice__fil { flex: 0 0 auto; min-width: max-content; }
   .bande-exercice__circuit { display: flex; flex: none; }
 }
+
+/* Maquette : la bande d'exercice ne répète pas le titre d'une page de premier niveau (il est dans l'en-tête marine) ; le fil d'Ariane reste pour les sous-pages. */
+.bande-exercice__fil ol:has(> li:only-child) { display: none; }

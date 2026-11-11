@@ -100,7 +100,7 @@ export function StockPage() {
   const affichees = useMemo(() => listerSocietes(societes, synthese, { recherche, filtre, tri, sens }), [societes, synthese, recherche, filtre, tri, sens]);
   // Présentation : « liste et volet » (par défaut) ou tableau ; gardée dans ce navigateur.
   const [vue, setVue] = useState<"volet" | "tableau">(() => {
-    try { return window.localStorage.getItem("stock:vue") === "tableau" ? "tableau" : "volet"; } catch { return "volet"; }
+    try { return window.localStorage.getItem("stock:vue") === "volet" ? "volet" : "tableau"; } catch { return "tableau"; }
   });
   const changerVue = (v: "volet" | "tableau") => {
     setVue(v);
@@ -151,7 +151,7 @@ export function StockPage() {
   return (
     <div className="stock-page flex flex-1 flex-col gap-3">
       <PageHeaderBar
-        title="Gestion de stock"
+        title="Stock"
         description="Mouvements d'achat, de vente et de douane de toutes vos sociétés"
         actions={
           <Link to="/cours-change">

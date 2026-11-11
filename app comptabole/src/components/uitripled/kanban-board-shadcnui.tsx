@@ -27,7 +27,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChartNoAxesGantt, Columns3, GripVertical, List, ListChecks, Lock } from "lucide-react";
+import { GripVertical, ListChecks, Lock } from "lucide-react";
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
@@ -44,6 +44,7 @@ import { TaskAssignee } from "@/components/tasks/TaskAssignee";
 import { TaskActivity } from "@/components/tasks/TaskActivity";
 import { TaskTableView } from "@/components/tasks/TaskTableView";
 import { TaskGanttView } from "@/components/tasks/TaskGanttView";
+import { TaskListView } from "@/components/tasks/TaskListView";
 import { TaskNextAction } from "@/components/tasks/TaskNextAction";
 import { createTaskTableColumns } from "@/components/tasks/taskTableColumns";
 import { getTaskPlanning, presentTasks, societeInitiales } from "@/components/tasks/taskTypes";
@@ -109,7 +110,7 @@ export function TasksKanban({
 }: TasksKanbanProps) {
   const [activeTask, setActiveTask] = useState<PresentedTask | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [view, setView] = useState<"kanban" | "list" | "gantt">(() => typeof window !== "undefined" && window.innerWidth < 1024 ? "list" : "kanban");
+  const [view, setView] = useState<"kanban" | "list" | "gantt" | "table">("list");
   const [mobileStatus, setMobileStatus] = useState<TacheStatut>("a_faire");
   const [statusOverrides, setStatusOverrides] = useState<
     Record<string, TacheStatut>
@@ -386,7 +387,7 @@ export function TasksKanban({
         icon={ListChecks}
         className="operational-signature-banner"
         eyebrow="Clients & travail · Work Ledger"
-        title="Tâches"
+        title="Mes tâches"
         description={description}
         metrics={[
           { label: "Ouvertes", value: summary.open },
@@ -408,9 +409,9 @@ export function TasksKanban({
         <OperationalMobileUtility label="Recherche et filtres des tâches">
           {renderSearchFilter()}
         </OperationalMobileUtility>
-        <div className="task-views-toolbar" data-tour="tasks-views"><div className="task-view-options" role="group" aria-label="Vue des tâches">{([{ id: "kanban", label: "Kanban", icon: Columns3 }, { id: "list", label: "Liste", icon: List }, { id: "gantt", label: "Gantt", icon: ChartNoAxesGantt }] as const).map(({ id, label, icon: Icon }) => <Button key={id} type="button" variant="ghost" className="h-10 px-3 text-xs" aria-pressed={view === id} onClick={() => { setView(id); setActiveTask(null); }}><Icon className="size-4" aria-hidden="true" />{label}</Button>)}</div><span className="text-xs tabular-nums text-muted-foreground">{filteredTasks.length} tâche{filteredTasks.length > 1 ? "s" : ""}</span></div>
+        <div className="task-views-toolbar" data-tour="tasks-views"><div className="task-view-options" role="group" aria-label="Vue des tâches">{([{ id: "list", label: "Liste" }, { id: "gantt", label: "Chronologie" }, { id: "kanban", label: "Kanban" }, { id: "table", label: "Tableau" }] as const).map(({ id, label }) => <button key={id} type="button" className="task-view-tab" aria-pressed={view === id} onClick={() => { setView(id); setActiveTask(null); }}>{label}</button>)}</div><span className="text-xs tabular-nums text-muted-foreground">{filteredTasks.length} tâche{filteredTasks.length > 1 ? "s" : ""}</span></div>
         <div data-tour="tasks-board" className="min-w-0">
-          {filteredTasks.length === 0 ? <TasksEmptyState message={emptyMessage} /> : view === "gantt" ? <TaskGanttView tasks={filteredTasks} {...taskActions} /> : view === "list" ? <TaskTableView table={taskTable} emptyMessage={emptyMessage} {...taskActions} /> : kanbanBoard}
+          {filteredTasks.length === 0 ? <TasksEmptyState message={emptyMessage} /> : view === "gantt" ? <TaskGanttView tasks={filteredTasks} {...taskActions} /> : view === "list" ? <TaskListView table={taskTable} emptyMessage={emptyMessage} {...taskActions} /> : view === "table" ? <TaskTableView table={taskTable} emptyMessage={emptyMessage} {...taskActions} /> : kanbanBoard}
         </div>
       </LedgerWorkSurface>
     </OperationalLedgerPage>

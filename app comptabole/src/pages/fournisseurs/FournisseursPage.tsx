@@ -30,7 +30,7 @@ export function FournisseursPage() {
   const [filtre, setFiltre] = useState<FiltreFournisseurs>("toutes");
   // Présentation : « liste et volet » (par défaut) ou tableau ; gardée dans ce navigateur.
   const [vue, setVue] = useState<"volet" | "tableau">(() => {
-    try { return window.localStorage.getItem("fournisseurs:vue") === "tableau" ? "tableau" : "volet"; } catch { return "volet"; }
+    try { return window.localStorage.getItem("fournisseurs:vue") === "volet" ? "volet" : "tableau"; } catch { return "tableau"; }
   });
   const changerVue = (v: "volet" | "tableau") => {
     setVue(v);
@@ -47,7 +47,7 @@ export function FournisseursPage() {
 
   return (
     <div className="fournisseurs-page flex flex-1 flex-col gap-3">
-      <PageHeaderBar title="Suivi fournisseur" description="Choisissez une société pour suivre les factures d'achat de ses fournisseurs et leurs règlements." />
+      <PageHeaderBar title="Fournisseurs" description="Choisissez une société pour suivre les factures d'achat de ses fournisseurs et leurs règlements." />
 
       <div className="overflow-hidden rounded-xl border border-border bg-card" data-tour="fournisseurs-societes">
         {societes.length === 0 ? (

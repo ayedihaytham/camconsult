@@ -40,7 +40,7 @@ export function HonorairesRecapPage() {
       <SignatureLedgerBanner
         icon={Receipt}
         eyebrow="Comptabilité · Financial Ledger"
-        title="État client"
+        title="Honoraires"
         description="Récapitulatif des comptes clients : ce que chaque société doit au cabinet, les plus gros soldes d'abord."
         metrics={[
           { label: general.clients > 1 ? "Clients" : "Client", value: general.clients, loading },

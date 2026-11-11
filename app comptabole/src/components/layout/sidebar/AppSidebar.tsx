@@ -1,8 +1,13 @@
 import { type ComponentProps, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { ChevronsLeft, ChevronsRight, Search } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useConversations, useData, useNotifications } from "@/store/data";
+import { useConversations, useData, useNotifications, useTaches } from "@/store/data";
+import { useAuth } from "@/store/auth";
+import { useSocieteActive } from "@/hooks/useSocieteActive";
+import { useSocieteActiveStore } from "@/store/societeActive";
+import { ChevronLeft } from "lucide-react";
+import { useCollectes } from "@/store/collectes";
+import { toTitleCase } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -12,75 +17,55 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  useSidebar,
 } from "@/components/ui/sidebar";
-import { useUi } from "@/store/ui";
 import { useNavigationGroups } from "./useNavigationGroups";
 import { SidebarNavigation } from "./SidebarNavigation";
 import { unreadMessageCount } from "./navigation";
 
-/** Pied du menu : réduit / développe le menu (même action que le bouton de la
- * barre du haut et le raccourci clavier). Masqué sur mobile, où le menu est un
- * tiroir qui se ferme au clic hors du panneau. */
-function SidebarCollapseButton() {
-  const { state, isMobile, toggleSidebar } = useSidebar();
-  if (isMobile) return null;
-  const collapsed = state === "collapsed";
-  const Icon = collapsed ? ChevronsRight : ChevronsLeft;
-  const label = collapsed ? "Développer le menu" : "Réduire le menu";
+/** Bloc utilisateur du pied du menu (maquette) : initiales, nom et fonction du compte connecté. */
+function SidebarUtilisateur() {
+  const { session } = useAuth();
+  const nom = toTitleCase(session?.nom ?? "Utilisateur");
+  const fonction = session?.fonction ?? "";
+  const initiales = nom.split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0]?.toUpperCase()).join("") || "?";
   return (
-    <SidebarFooter className="signature-sidebar__footer shrink-0 gap-0 border-t border-white/10 p-2">
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            tooltip={label}
-            aria-label={label}
-            onClick={toggleSidebar}
-            className="h-10 gap-3 text-sidebar-muted hover:text-sidebar-accent-foreground"
-          >
-            <Icon />
-            <span>{label}</span>
-            {!collapsed && <kbd className="ml-auto rounded border border-sidebar-border px-1.5 text-[10.5px] font-semibold text-sidebar-muted">Ctrl B</kbd>}
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
+    <SidebarFooter className="signature-sidebar__footer shrink-0 gap-0 p-2">
+      <div className="signature-sidebar__user flex items-center gap-2.5 rounded-[10px] bg-[rgba(254,244,232,.05)] p-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1.5">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-[11px] font-bold text-sidebar-deep" aria-hidden="true">{initiales}</span>
+        <div className="min-w-0 text-[12.5px] font-semibold leading-4 text-[#FEF4E8] group-data-[collapsible=icon]:hidden">
+          <p className="truncate">{nom}</p>
+          {fonction && <small className="block truncate text-[11px] font-medium text-[#9FB4C8]">{fonction}</small>}
+        </div>
+      </div>
     </SidebarFooter>
   );
 }
 
-/** « Aller à… » (Ctrl K) : sous le logo ; une simple loupe quand le menu est réduit. */
-function SidebarAllerA() {
-  const { state, isMobile, setOpenMobile } = useSidebar();
-  const reduit = state === "collapsed" && !isMobile;
+/** Dossier client ouvert (maquette) : retour au cabinet, puis le nom du dossier au-dessus des pages retargetées sur ce dossier. */
+function SidebarDossier() {
+  const societe = useSocieteActive();
+  const choisir = useSocieteActiveStore((s) => s.setSocieteId);
+  if (!societe) return null;
+  const initiales = societe.raisonSociale.split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0]?.toUpperCase()).join("");
   return (
-    <div className="shrink-0 px-2 pb-1 pt-2">
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            tooltip="Aller à… (Ctrl K)"
-            aria-label="Aller à une page ou une société"
-            onClick={() => {
-              if (isMobile) setOpenMobile(false);
-              useUi.getState().setPaletteOpen(true);
-            }}
-            className="h-10 gap-2.5 rounded-[10px] border border-white/15 bg-white/[0.06] text-sidebar-foreground/65 transition-colors hover:border-sidebar-primary/55 hover:bg-white/[0.11] hover:text-white"
-          >
-            <Search />
-            {!reduit && (
-              <>
-                <span>Aller à…</span>
-                <kbd className="ml-auto rounded border border-sidebar-border px-1.5 text-[10.5px] font-semibold text-sidebar-muted">Ctrl K</kbd>
-              </>
-            )}
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
+    <div className="signature-sidebar__dossier shrink-0 px-3 pb-1 pt-2 group-data-[collapsible=icon]:hidden">
+      <button type="button" onClick={() => choisir(null)} className="mb-2 inline-flex items-center gap-1.5 rounded-[7px] px-2 py-1 text-[12px] font-semibold text-[#9FB4C8] transition-colors hover:bg-[rgba(254,244,232,.07)] hover:text-[#FEF4E8]">
+        <ChevronLeft className="size-3.5" aria-hidden="true" />
+        Retour au cabinet
+      </button>
+      <div className="flex items-center gap-2.5 rounded-xl border border-[rgba(201,169,106,.4)] bg-[rgba(254,244,232,.05)] p-2.5">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-[11px] font-bold text-sidebar-deep" aria-hidden="true">{initiales}</span>
+        <div className="min-w-0 text-[13px] font-bold leading-4 text-[#FEF4E8]">
+          <p className="truncate">{societe.raisonSociale}</p>
+          <small className="block truncate text-[9.5px] font-semibold uppercase tracking-[0.12em] text-[#9FB4C8]">Dossier client · exercice {new Date().getFullYear()}</small>
+        </div>
+      </div>
     </div>
   );
 }
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
-  const { isAdmin, employeId } = usePermissions();
+  const { isAdmin, employeId, poste } = usePermissions();
   const { pathname } = useLocation();
   const markNotificationsRead = useData((s) => s.markNotificationsRead);
   const conversations = useConversations(
@@ -90,6 +75,17 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
     (notification) => !notification.lu,
   );
   const groups = useNavigationGroups();
+  const taches = useTaches();
+  const collectes = useCollectes((state) => state.list);
+  const fetchCollectes = useCollectes((state) => state.fetchList);
+  const equipe = poste !== "societe_employe";
+  useEffect(() => {
+    if (equipe) void fetchCollectes().catch(() => undefined);
+  }, [equipe, fetchCollectes]);
+  const compteurs = {
+    taches: taches.filter((t) => t.statut !== "termine").length,
+    collectes: collectes.filter((c) => c.statut === "transmis").length,
+  };
   const unreadMessages = unreadMessageCount(
     conversations,
     isAdmin,
@@ -148,17 +144,18 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarAllerA />
+      <SidebarDossier />
 
       <SidebarContent className="signature-sidebar__content">
         <SidebarNavigation
           groups={groups}
           unreadMessages={unreadMessages}
           unreadNotifications={unreadNotifications}
+          compteurs={compteurs}
         />
       </SidebarContent>
 
-      <SidebarCollapseButton />
+      <SidebarUtilisateur />
 
       <SidebarRail />
     </Sidebar>

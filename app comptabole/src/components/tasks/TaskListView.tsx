@@ -56,10 +56,7 @@ export function TaskListView({
   return (
     <div className="task-work-register min-w-0">
       <OperationalContentHeader className="min-h-10 border-x-0 border-t-0">
-        <h2 className="text-sm font-semibold text-foreground">File de travail</h2>
-        <p className="hidden text-xs text-muted-foreground sm:block">
-          Lecture par statut · prochaines actions à portée de main
-        </p>
+        <h2 className="font-display text-base font-extrabold text-primary">{allFilteredTasks.filter((t) => t.task.statut !== "termine").length} tâche{allFilteredTasks.filter((t) => t.task.statut !== "termine").length > 1 ? "s" : ""} ouverte{allFilteredTasks.filter((t) => t.task.statut !== "termine").length > 1 ? "s" : ""}</h2>
       </OperationalContentHeader>
       {groups.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>
@@ -67,33 +64,31 @@ export function TaskListView({
         <section key={group.status} aria-labelledby={`task-list-${group.status}`}>
           <header
             className={cn(
-              "flex min-h-8 items-center gap-2 border-b border-border/80 bg-muted/20 px-3 sm:px-4",
-              index > 0 && "border-t border-border/80",
+              "flex min-h-10 items-center gap-2 bg-[#FBF9F3] px-4 sm:px-5",
+              index > 0 && "mt-3",
             )}
           >
-            <span className={cn("h-3.5 w-px", STATUS_RULE[group.status])} aria-hidden="true" />
-            <h3 id={`task-list-${group.status}`} className="text-[11px] font-bold uppercase tracking-[0.09em] text-foreground/80">
+            <span className={cn("hidden", STATUS_RULE[group.status])} aria-hidden="true" />
+            <h3 id={`task-list-${group.status}`} className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-primary">
               {STATUS_LABELS[group.status]}
             </h3>
-            <span className="text-[11px] text-muted-foreground">
-              {group.totalCount} au total
-              {group.tasks.length !== group.totalCount && ` · ${group.tasks.length} sur cette page`}
+            <span className="text-[11px] font-bold text-primary">
+              {group.totalCount}
             </span>
           </header>
           <div>
-            {group.tasks.map((presented, taskIndex) => {
+            {group.tasks.map((presented) => {
               const task = presented.task;
               return (
                 <article
                   key={task.id}
                   className={cn(
-                    "task-ledger-row grid min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,.95fr)_auto_auto] items-center gap-3 px-3 py-2 transition-colors hover:bg-muted/20 sm:px-4",
-                    taskIndex < group.tasks.length - 1 && "border-b border-border/70",
+                    "task-ledger-row mx-3 mt-2 grid min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,.95fr)_auto_auto] items-center gap-3 rounded-xl border border-primary/10 bg-card px-4 py-3 shadow-[0_1px_2px_hsl(var(--primary)/0.05)] transition-colors hover:bg-[#F5F8FD]",
                     actions.pendingTaskIds.has(task.id) && "opacity-70",
                   )}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold leading-5 text-foreground" title={task.titre}>{task.titre}</p>
+                    <p className="truncate text-sm font-bold leading-5 text-primary" title={task.titre}>{task.titre}</p>
                     {task.description && <p className="mt-0.5 truncate text-xs leading-4 text-muted-foreground" title={task.description}>{task.description}</p>}
                   </div>
                   <span className="min-w-0 truncate text-xs text-foreground/75" title={presented.societeName}>{presented.societeName}</span>

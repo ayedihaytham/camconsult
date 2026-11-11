@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { LedgerPageHeader } from "@/components/ledger/LedgerPageHeader";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import {
   Messenger,
   type MessengerActiveConversation,
@@ -366,7 +366,7 @@ export function MessageriePage() {
   if (!hasAccess) {
     return (
       <div>
-        <LedgerPageHeader title="Messagerie" />
+        <PageHeaderBar title="Messagerie" />
         <div className="rounded-sm border border-border bg-card">
           <EmptyState
             icon={MessageSquare}
@@ -498,14 +498,14 @@ export function MessageriePage() {
 
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] min-h-[28rem] min-w-0 flex-col sm:h-[calc(100dvh-7rem)]">
-      <LedgerPageHeader
+      <PageHeaderBar
         title="Messagerie"
         description={
           isAdmin
             ? "Échanges avec les collaborateurs, liés aux dossiers clients."
             : "Échange avec le responsable du cabinet."
         }
-        className="mb-0"
+        className="shrink-0"
       />
 
       <Messenger

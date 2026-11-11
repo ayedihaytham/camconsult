@@ -120,18 +120,7 @@ export function DataTable<TData>({
                           : header.column.id === "selection" ||
                               header.column.id === "actions"
                             ? null
-                            : (() => {
-                                const Icon = header.column.columnDef.meta?.icon;
-                                const label = header.column.columnDef.meta?.label ?? header.column.id;
-                                return Icon ? (
-                                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                                    <Icon className="size-3.5 shrink-0" />
-                                    {label}
-                                  </span>
-                                ) : (
-                                  label
-                                );
-                              })()
+                            : (header.column.columnDef.meta?.label ?? header.column.id)
                         : flexRender(
                             header.column.columnDef.header,
                             header.getContext(),

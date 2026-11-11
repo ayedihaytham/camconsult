@@ -36,7 +36,7 @@ export function CollectesClientPage({ list, loading, societeNom }: { list: Colle
         className="mb-0"
         variant="process"
         eyebrow="Clients & travail"
-        title="Collecte de pièces"
+        title="Collectes de pièces"
         description={`${societeNom ? `${societeNom} · ` : ""}Remplissez les tableaux demandés puis transmettez-les au cabinet.`}
         metrics={[
           { label: "À compléter", value: aCompleter, tone: aCompleter > 0 ? "warning" : "default", loading },

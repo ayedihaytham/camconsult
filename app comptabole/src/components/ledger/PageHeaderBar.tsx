@@ -27,6 +27,11 @@ function useBarreComplete() {
  */
 const TON = { default: "text-primary", success: "text-success", warning: "text-warning", destructive: "text-destructive" } as const;
 
+/** « MERCREDI 11 NOVEMBRE » : la ligne qui coiffe chaque en-tête de page dans la maquette. */
+function dateDuJour(): string {
+  return new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+}
+
 export function PageHeaderBar({
   title,
   description,
@@ -75,49 +80,49 @@ export function PageHeaderBar({
     <header className={cn("page-head", className)} aria-labelledby={titleId} {...(tourTarget ? { "data-tour": tourTarget } : {})}>
       <div className="page-head-main">
         <div className="page-head-id" data-tour="page-identity">
-          {eyebrow && <p className="page-head-eyebrow">{eyebrow}</p>}
+          <p className="page-head-eyebrow">{eyebrow ?? dateDuJour()}</p>
           <h1 id={titleId} className="sr-only">{title}</h1>
           <div className="page-head-title" aria-hidden="true">{visibleTitle ?? title}</div>
           {description && <p className="page-head-desc">{description}</p>}
         </div>
+      {metrics.length > 0 && (
+          <dl className="page-head-figs">
+            {metrics.map((m) => {
+              const interactif = Boolean(m.onSelect);
+              return (
+                <div
+                  key={m.label}
+                  data-tone={m.tone ?? "default"}
+                  className={cn("page-head-fig", interactif && "page-head-fig--interactive")}
+                  {...(interactif
+                    ? {
+                        role: "button",
+                        tabIndex: 0,
+                        "aria-pressed": Boolean(m.active),
+                        onClick: m.onSelect,
+                        onKeyDown: (e: React.KeyboardEvent) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            m.onSelect?.();
+                          }
+                        },
+                      }
+                    : {})}
+                >
+                  <dd className={cn(TON[m.tone ?? "default"], m.kind === "detail" && "page-head-fig__detail")}>
+                    {m.icon && <m.icon className="mr-2 inline size-4 align-[-2px] opacity-70" aria-hidden="true" />}
+                    {m.loading ? <><span className="sr-only">Chargement</span><SqueletteOr className="inline-block h-5 w-8 align-middle" /></> : m.value}
+                  </dd>
+                  <dt>{m.label}</dt>
+                </div>
+              );
+            })}
+          </dl>
+        )}
         {boutons && (barreComplete || actionsSurPetitEcran) && (
           <div className="page-head-actions page-head-actions--bar no-print">{boutons}</div>
         )}
       </div>
-      {metrics.length > 0 && (
-        <dl className="page-head-figs">
-          {metrics.map((m) => {
-            const interactif = Boolean(m.onSelect);
-            return (
-              <div
-                key={m.label}
-                data-tone={m.tone ?? "default"}
-                className={cn("page-head-fig", interactif && "page-head-fig--interactive")}
-                {...(interactif
-                  ? {
-                      role: "button",
-                      tabIndex: 0,
-                      "aria-pressed": Boolean(m.active),
-                      onClick: m.onSelect,
-                      onKeyDown: (e: React.KeyboardEvent) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          m.onSelect?.();
-                        }
-                      },
-                    }
-                  : {})}
-              >
-                <dd className={cn(TON[m.tone ?? "default"], m.kind === "detail" && "page-head-fig__detail")}>
-                  {m.icon && <m.icon className="mr-2 inline size-4 align-[-2px] opacity-70" aria-hidden="true" />}
-                  {m.loading ? <><span className="sr-only">Chargement</span><SqueletteOr className="inline-block h-5 w-8 align-middle" /></> : m.value}
-                </dd>
-                <dt>{m.label}</dt>
-              </div>
-            );
-          })}
-        </dl>
-      )}
     </header>
   );
 }

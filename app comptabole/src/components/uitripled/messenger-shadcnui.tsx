@@ -163,7 +163,7 @@ function ConversationAvatar({
       <Avatar className={cn(avatarSize, isGroup ? "rounded-md" : "rounded-full")}>
         <AvatarFallback
           className={cn(
-            "bg-secondary text-xs font-semibold text-primary",
+            "bg-secondary text-xs font-bold text-primary",
             avatarClassName,
             isGroup ? "rounded-md" : "rounded-full",
           )}
@@ -332,7 +332,7 @@ export function Messenger({
         <div className={cn("space-y-3 p-4", avecFiltres ? "pb-0" : "border-b border-border")}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="font-serif text-lg font-medium text-primary">Conversations</h2>
+              <h2 className="font-display text-lg font-extrabold text-primary">Conversations</h2>
               <p className="text-xs text-muted-foreground">
                 {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
               </p>
@@ -342,7 +342,7 @@ export function Messenger({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="shrink-0"
+                className="shrink-0 border-transparent bg-accent font-bold text-primary shadow-none hover:bg-accent/90"
                 onClick={onCreateGroup}
                 aria-label="Nouveau groupe"
               >
@@ -371,7 +371,7 @@ export function Messenger({
           </div>
 
           {avecFiltres && (
-            <div className="-mx-4 flex overflow-x-auto border-b border-border px-4 [scrollbar-width:none]" role="group" aria-label="Filtrer les conversations">
+            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="group" aria-label="Filtrer les conversations">
               {FILTRES.map((f) => {
                 const total = conversations.filter(f.garde).length;
                 return (
@@ -381,12 +381,12 @@ export function Messenger({
                     aria-pressed={filtre === f.value}
                     onClick={() => setFiltre(f.value)}
                     className={cn(
-                      "-mb-px flex-1 shrink-0 whitespace-nowrap border-b-2 px-2 pb-2 pt-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      filtre === f.value ? "border-accent font-semibold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground",
+                      "shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      filtre === f.value ? "border-primary bg-primary font-bold text-primary-foreground" : "border-primary/15 bg-card font-semibold text-primary hover:bg-primary/5",
                     )}
                   >
                     {f.label}
-                    <span className={cn("ml-1 font-semibold tabular-nums", f.value === "non_lues" && total > 0 && "text-chart-2")}>{total}</span>
+                    <span className="ml-1 font-semibold tabular-nums opacity-80">{total}</span>
                   </button>
                 );
               })}

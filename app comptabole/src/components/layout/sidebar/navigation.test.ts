@@ -38,28 +38,28 @@ describe("sidebar navigation policy", () => {
 
     expect(routes).toEqual([
       "/",
-      "/societes",
-      "/employes",
       "/taches",
+      "/messagerie",
+      "/societes",
       "/collectes",
-      "/stock",
-      "/cours-change",
-      "/fournisseurs",
-      "/banque",
+      "/structuration",
+      "/honoraires",
+      "/facturation",
       "/apurement",
+      "/fournisseurs",
+      "/stock",
+      "/journal",
       "/etats-financiers",
       "/grille-affectat",
-      "/bordereaux",
-      "/facturation",
-      "/honoraires",
+      "/banque",
       "/souche-cheques",
+      "/bordereaux",
+      "/cours-change",
       "/suivi-devise",
       "/etat-swift",
-      "/structuration",
-      "/messagerie",
+      "/employes",
       "/conversions",
       "/simulation-paie",
-      "/journal",
       "/parametres",
     ]);
   });
@@ -76,20 +76,20 @@ describe("sidebar navigation policy", () => {
 
     expect(routes).toEqual([
       "/",
-      "/societes",
-      "/employes",
       "/taches",
+      "/messagerie",
+      "/societes",
       "/collectes",
-      "/stock",
-      "/cours-change",
-      "/fournisseurs",
-      "/banque",
+      "/structuration",
       "/apurement",
+      "/fournisseurs",
+      "/stock",
       "/etats-financiers",
+      "/banque",
+      "/cours-change",
       "/suivi-devise",
       "/etat-swift",
-      "/structuration",
-      "/messagerie",
+      "/employes",
       "/conversions",
       "/simulation-paie",
     ]);
@@ -106,18 +106,18 @@ describe("sidebar navigation policy", () => {
 
     expect(routes).toEqual([
       "/",
-      "/societes",
       "/taches",
+      "/societes",
       "/collectes",
-      "/stock",
-      "/cours-change",
-      "/fournisseurs",
-      "/banque",
+      "/structuration",
       "/apurement",
+      "/fournisseurs",
+      "/stock",
       "/etats-financiers",
+      "/banque",
+      "/cours-change",
       "/suivi-devise",
       "/etat-swift",
-      "/structuration",
       "/conversions",
       "/simulation-paie",
     ]);
@@ -135,11 +135,11 @@ describe("sidebar navigation policy", () => {
     expect(routes).toEqual([
       "/",
       "/taches",
+      "/messagerie",
       "/collectes",
+      "/structuration",
       "/ma-souche",
       "/etat-swift",
-      "/structuration",
-      "/messagerie",
     ]);
   });
 });
@@ -152,14 +152,14 @@ describe("État client pour le responsable de société", () => {
     ).toEqual([
       "/",
       "/taches",
+      "/messagerie",
       "/collectes",
-      "/ma-souche",
+      "/structuration",
+      "/honoraires",
       "/fournisseurs",
       "/banque",
-      "/honoraires",
+      "/ma-souche",
       "/etat-swift",
-      "/structuration",
-      "/messagerie",
     ]);
     // Le délégué a les mêmes accès : côté client il est lui aussi « responsable » (voir usePermissions).
   });
@@ -280,7 +280,7 @@ describe("espace du compte de société cliente", () => {
     const routes = destinations(
       visibleNavigation({ isAdmin: false, lectureSeule: true, can: allowAll, isResponsableSociete: true, espaceCollecteSeul: true }),
     );
-    expect(routes).toEqual(["/", "/collectes", "/ma-souche", "/etat-swift", "/structuration", "/messagerie"]);
+    expect(routes).toEqual(["/", "/messagerie", "/collectes", "/structuration", "/ma-souche", "/etat-swift"]);
   });
 
   it("n'y change rien pour le cabinet", () => {

@@ -4,7 +4,7 @@ import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner
 import { EmptyState } from "@/components/common/EmptyState";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useData, useSocietes } from "@/store/data";
-import { initials } from "@/lib/utils";
+import "@/pages/societes/societes-registre.css";
 
 interface Props {
   icon: LucideIcon;
@@ -30,7 +30,9 @@ export function SocieteChoixPage({ icon, eyebrow, title, description, basePath, 
     <div className="flex flex-1 flex-col">
       <SignatureLedgerBanner variant="compact" icon={icon} eyebrow={eyebrow} title={title} description={description} metrics={[]} />
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour={tourId}>
+      <h2 className="mt-2 font-display text-base font-extrabold text-primary">Dossiers</h2>
+      <p className="mb-3 text-sm text-muted-foreground">{description}</p>
+      <div className="overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]" data-tour={tourId}>
         {societes.length === 0 ? (
           <EmptyState
             icon={Icon}
@@ -38,32 +40,32 @@ export function SocieteChoixPage({ icon, eyebrow, title, description, basePath, 
             description="Créez une société ou faites-vous assigner un périmètre."
           />
         ) : (
-          <ul className="divide-y divide-accent/25">
-            {societes.map((s) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`${basePath}/${s.id}`)}
-                  aria-label={`Ouvrir ${title.toLowerCase()} de ${s.raisonSociale}`}
-                  className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-accent/[0.06] focus-visible:bg-accent/[0.06] focus-visible:outline-none"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="grid size-[54px] shrink-0 place-items-center rounded-xl bg-accent/15 text-sm font-bold text-primary"
+          <>
+            <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_2.5rem] items-center bg-[#F7F9FC] px-5 py-3 text-[0.66rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+              <span>Société</span>
+              <span>Situation</span>
+              <span />
+            </div>
+            <ul>
+              {societes.map((s) => (
+                <li key={s.id} className="border-t border-primary/10">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`${basePath}/${s.id}`)}
+                    aria-label={`Ouvrir ${title.toLowerCase()} de ${s.raisonSociale}`}
+                    className="grid w-full grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_2.5rem] items-center px-5 py-3 text-left transition-colors hover:bg-[#F5F8FD] focus-visible:bg-[#F5F8FD] focus-visible:outline-none"
                   >
-                    {initials(s.raisonSociale)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-serif text-xl font-medium leading-tight text-primary">{s.raisonSociale}</span>
-                    <span className="mt-0.5 block truncate text-sm text-muted-foreground">
-                      {s.theme} · {s.rne || "RNE non renseigné"} · {s.code}
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold text-primary">{s.raisonSociale}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{s.theme} · {s.rne || "RNE non renseigné"} · {s.code}</span>
                     </span>
-                  </span>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
+                    <span><span className="reg-pastille" data-statut={s.statut}>{s.statut === "actif" ? "Actif" : s.statut === "en_attente" ? "En attente" : "Inactif"}</span></span>
+                    <ChevronRight className="ml-auto size-4 text-muted-foreground" aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </div>

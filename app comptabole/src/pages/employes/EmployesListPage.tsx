@@ -787,7 +787,7 @@ export function EmployesListPage() {
       )}
     >
       <PageHeaderBar
-        title="Collaborateurs"
+        title="Équipe"
         titleId="team-ledger-title"
         description="Collaborateurs du cabinet"
         action={{ label: "Collaborateur", onClick: startCreate }}

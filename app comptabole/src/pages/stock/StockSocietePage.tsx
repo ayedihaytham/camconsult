@@ -302,7 +302,7 @@ export function StockSocietePage() {
   return (
     <div className="stock-page">
       <PageHeaderBar
-        title="Gestion de stock"
+        title="Stock"
         description="Achats, ventes et douane de la société, mouvement par mouvement"
         actions={
 <div data-tour="stock-actions" className="flex items-center gap-2">

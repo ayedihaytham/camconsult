@@ -15,13 +15,13 @@ function mount(onStatusChange = vi.fn().mockResolvedValue(undefined)) {
   return render(<TasksKanban tasks={tasks} hasAnyTasks activeFilterCount={0} societes={[]} collaborateurs={[]} collaboratorPresence={new Map()} description="Travail du cabinet" summary={{ open: 2, todo: 1, doing: 1, done: 0 }} canManage canEditTask={() => true} canChangeStatus={() => true} onStatusChange={onStatusChange} onCreate={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} filterControls={null} filterKey="all" onResetFilters={vi.fn()} />);
 }
 describe("vues des tâches", () => {
-  it("partage la recherche entre Kanban, Liste et Gantt", () => {
+  it("partage la recherche entre Kanban, Liste et Chronologie", () => {
     mount();
     fireEvent.change(screen.getAllByLabelText("Rechercher une tâche")[0], { target: { value: "TVA" } });
-    fireEvent.click(screen.getByRole("button", { name: "Gantt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Chronologie" }));
     expect(screen.getByText("Contrôle TVA")).toBeTruthy();
     expect(screen.queryByText("Rapprochement bancaire")).toBeNull();
-    expect(screen.getByRole("button", { name: "Gantt" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Chronologie" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Liste" }));
     expect(screen.getAllByText("Contrôle TVA").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Rechercher une tâche")[0].getAttribute("value")).toBe("TVA");
@@ -29,6 +29,7 @@ describe("vues des tâches", () => {
   it("sépare les poignées de déplacement des actions et restaure le statut après un échec", async () => {
     const onStatusChange = vi.fn().mockRejectedValue(new Error("Connexion"));
     const { container } = mount(onStatusChange);
+    fireEvent.click(screen.getByRole("button", { name: "Kanban" }));
     expect(screen.getByRole("button", { name: "Déplacer la tâche : Contrôle TVA" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Passer en cours : Contrôle TVA" }));
     await waitFor(() => expect(onStatusChange).toHaveBeenCalledWith(tasks[0], "en_cours"));

@@ -14,20 +14,20 @@ export interface BreadcrumbData {
 }
 
 const STATIC_ROUTES: Record<string, string> = {
-  "/": "Dashboard",
+  "/": "Tableau de bord",
   "/societes": "Sociétés",
-  "/employes": "Collaborateurs",
-  "/taches": "Tâches",
-  "/collectes": "Collecte de pièces",
-  "/stock": "Gestion de stock",
+  "/employes": "Équipe",
+  "/taches": "Mes tâches",
+  "/collectes": "Collectes de pièces",
+  "/stock": "Stock",
   "/cours-change": "Cours de change",
-  "/fournisseurs": "Suivi fournisseur",
+  "/fournisseurs": "Fournisseurs",
   "/banque": "Suivi bancaire",
   "/etats-financiers": "États financiers",
-  "/grille-affectat": "Paramétrage",
-  "/bordereaux": "Bordereaux bancaires",
+  "/grille-affectat": "Paramétrage AFFECTAT",
+  "/bordereaux": "Bordereaux",
   "/facturation": "Facturation",
-  "/honoraires": "État client",
+  "/honoraires": "Honoraires",
   "/souche-cheques": "Souche de chèques",
   "/suivi-devise": "Suivi client devise",
   "/etat-swift": "État SWIFT",
@@ -106,7 +106,7 @@ export function getAppBreadcrumbs(
   const stockParams = paramsFor("/stock/:societeId", pathname);
   if (stockParams) {
     return [
-      { label: "Gestion de stock", to: "/stock" },
+      { label: "Stock", to: "/stock" },
       { label: societeName(stockParams.societeId) },
     ];
   }
@@ -114,7 +114,7 @@ export function getAppBreadcrumbs(
   const fournisseursParams = paramsFor("/fournisseurs/:societeId", pathname);
   if (fournisseursParams) {
     return [
-      { label: "Suivi fournisseur", to: "/fournisseurs" },
+      { label: "Fournisseurs", to: "/fournisseurs" },
       { label: societeName(fournisseursParams.societeId) },
     ];
   }
@@ -130,7 +130,7 @@ export function getAppBreadcrumbs(
   const honorairesParams = paramsFor("/honoraires/:societeId", pathname);
   if (honorairesParams) {
     return [
-      { label: "État client", to: "/honoraires" },
+      { label: "Honoraires", to: "/honoraires" },
       { label: societeName(honorairesParams.societeId) },
     ];
   }
@@ -186,7 +186,7 @@ export function getAppBreadcrumbs(
         : societeName(collecte.societeId)
       : "Collecte";
     return [
-      { label: "Collecte de pièces", to: "/collectes" },
+      { label: "Collectes de pièces", to: "/collectes" },
       { label },
     ];
   }

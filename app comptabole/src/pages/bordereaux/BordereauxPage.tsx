@@ -175,7 +175,7 @@ export function BordereauxPage() {
       <SignatureLedgerBanner
         icon={Landmark}
         eyebrow="Comptabilité · Banque"
-        title="Bordereaux bancaires"
+        title="Bordereaux"
         description="Virements, remises de traites et remises de chèques."
         metrics={[
           { label: filtered.length > 1 ? "Bordereaux" : "Bordereau", value: filtered.length, loading },

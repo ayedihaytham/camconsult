@@ -23,17 +23,17 @@ const data: BreadcrumbData = {
 
 describe("getAppBreadcrumbs", () => {
   it.each([
-    ["/", "Dashboard"],
+    ["/", "Tableau de bord"],
     ["/societes", "Sociétés"],
-    ["/employes", "Collaborateurs"],
-    ["/taches", "Tâches"],
-    ["/collectes", "Collecte de pièces"],
-    ["/stock", "Gestion de stock"],
+    ["/employes", "Équipe"],
+    ["/taches", "Mes tâches"],
+    ["/collectes", "Collectes de pièces"],
+    ["/stock", "Stock"],
     ["/cours-change", "Cours de change"],
     ["/etats-financiers", "États financiers"],
-    ["/grille-affectat", "Paramétrage"],
-    ["/bordereaux", "Bordereaux bancaires"],
-    ["/honoraires", "État client"],
+    ["/grille-affectat", "Paramétrage AFFECTAT"],
+    ["/bordereaux", "Bordereaux"],
+    ["/honoraires", "Honoraires"],
     ["/souche-cheques", "Souche de chèques"],
     ["/suivi-devise", "Suivi client devise"],
     ["/structuration", "Structuration"],
@@ -48,7 +48,7 @@ describe("getAppBreadcrumbs", () => {
 
   it("résout une société dans le stock", () => {
     expect(getAppBreadcrumbs("/stock/soc-73d9a8", data)).toEqual([
-      { label: "Gestion de stock", to: "/stock" },
+      { label: "Stock", to: "/stock" },
       { label: "Atlas Conseil SARL" },
     ]);
   });
@@ -68,7 +68,7 @@ describe("getAppBreadcrumbs", () => {
 
   it("résout une collecte sans exposer son identifiant", () => {
     expect(getAppBreadcrumbs("/collectes/collecte-73d9a8", data)).toEqual([
-      { label: "Collecte de pièces", to: "/collectes" },
+      { label: "Collectes de pièces", to: "/collectes" },
       { label: "Atlas Conseil SARL · Septembre 2026" },
     ]);
   });
@@ -80,7 +80,7 @@ describe("getAppBreadcrumbs", () => {
         collectes: [{ ...data.collectes[0], periode: "   " }],
       }),
     ).toEqual([
-      { label: "Collecte de pièces", to: "/collectes" },
+      { label: "Collectes de pièces", to: "/collectes" },
       { label: "Atlas Conseil SARL" },
     ]);
   });

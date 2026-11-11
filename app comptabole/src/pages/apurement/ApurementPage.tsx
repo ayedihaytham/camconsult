@@ -537,10 +537,13 @@ export function ApurementPage() {
                   header: "Société",
                   cell: (s) => (
                     <Link
-                      className="font-medium underline"
+                      className="block font-bold text-primary hover:underline"
                       to={`/apurement/${s.id}?${period}`}
                     >
                       {s.raisonSociale}
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        {s.factures === 0 ? "Aucune facture ce trimestre" : `${s.factures} facture${s.factures > 1 ? "s" : ""} · TVA suspendue ${tnd(s.tva)}`}
+                      </span>
                     </Link>
                   ),
                 },

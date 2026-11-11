@@ -1,7 +1,9 @@
-.taches-work-ledger .task-views-toolbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 12px; border-bottom: 1px solid hsl(var(--border)); }
-.taches-work-ledger .task-view-options { display: inline-flex; max-width: 100%; gap: 2px; padding: 3px; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--card)); }
-.taches-work-ledger .task-view-options button { border-radius: 5px; }
-.taches-work-ledger .task-view-options button[aria-pressed="true"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.taches-work-ledger .task-views-toolbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 0 22px; border-bottom: 1px solid hsl(var(--primary) / .12); }
+.taches-work-ledger .task-view-options { display: inline-flex; max-width: 100%; gap: 26px; }
+.taches-work-ledger .task-view-tab { position: relative; padding: 14px 2px 14px; font-size: 14px; font-weight: 600; color: hsl(var(--muted-foreground)); transition: color .15s; }
+.taches-work-ledger .task-view-tab:hover { color: hsl(var(--primary)); }
+.taches-work-ledger .task-view-tab[aria-pressed="true"] { color: hsl(var(--primary)); }
+.taches-work-ledger .task-view-tab[aria-pressed="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: #c9a96a; }
 .taches-work-ledger .task-kanban-board { display: grid; min-width: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 12px; padding: 12px; }
 .taches-work-ledger .task-board-column { min-width: 0; border: 1px solid hsl(var(--border)); border-radius: 8px; background: hsl(var(--muted) / .4); }
 .taches-work-ledger .task-board-column-heading { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid hsl(var(--border)); }
@@ -76,7 +78,7 @@
   .taches-work-ledger .task-kanban-mobile-status button[aria-pressed="true"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
   .taches-work-ledger .task-drag-handle { width: 36px; height: 44px; }
   .taches-work-ledger .task-card-footer > button { min-height: 44px; }
-  .taches-work-ledger .task-views-toolbar .task-view-options button { height: 44px; }
+  .taches-work-ledger .task-views-toolbar .task-view-options button { min-height: 44px; }
 }
 @media (max-width: 639px) {
   .taches-work-ledger .tasks-gantt-controls { width: 100%; }

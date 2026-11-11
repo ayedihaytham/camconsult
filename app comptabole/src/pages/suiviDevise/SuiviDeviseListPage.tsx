@@ -65,7 +65,7 @@ export function SuiviDeviseListPage() {
   const [filtre, setFiltre] = useState<FiltreFiches>("toutes");
   // Présentation : « liste et volet » (par défaut) ou tableau ; gardée dans ce navigateur.
   const [vue, setVue] = useState<"volet" | "tableau">(() => {
-    try { return window.localStorage.getItem("devise:vue") === "tableau" ? "tableau" : "volet"; } catch { return "volet"; }
+    try { return window.localStorage.getItem("devise:vue") === "volet" ? "volet" : "tableau"; } catch { return "tableau"; }
   });
   const changerVue = (v: "volet" | "tableau") => {
     setVue(v);

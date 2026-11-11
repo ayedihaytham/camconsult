@@ -5,7 +5,8 @@
 // ses colonnes dans chaque module ; chaque page ne fournit que son texte, son
 // filtrage par permission et sa route de destination.
 import { useMemo, useState, type ReactNode } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
+import "@/pages/societes/societes-registre.css";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { LucideIcon } from "lucide-react";
 import { Label } from "@/components/ui/label";
@@ -57,40 +58,23 @@ function SocietyMonogram({ name }: { name: string }) {
 const SOCIETY_COLUMNS: ColumnDef<Societe, unknown>[] = [
   {
     accessorKey: "raisonSociale",
-    meta: { label: "Société", headerClassName: "w-[33%]", cellClassName: "max-w-[360px]" },
-    cell: ({ row }) => (
-      <span className="ledger-soft-name block truncate font-semibold text-foreground">{row.original.raisonSociale}</span>
-    ),
-  },
-  {
-    id: "codeRne",
-    accessorFn: (row) => `${row.code ?? ""} ${row.rne ?? ""}`,
-    meta: { label: "Code · RNE", headerClassName: "w-[22%]", cellClassName: "text-[11px]" },
+    meta: { label: "Société", headerClassName: "w-[55%]" },
     cell: ({ row }) => (
       <>
-        <span className="block truncate font-mono font-semibold text-foreground/85">{row.original.code || "—"}</span>
-        <span className="block truncate text-muted-foreground">{row.original.rne || "RNE non renseigné"}</span>
+        <span className="reg-nom block truncate">{row.original.raisonSociale}</span>
+        <span className="block truncate text-xs text-muted-foreground">{row.original.theme} · {row.original.code || "—"} · {row.original.rne || "RNE non renseigné"}</span>
       </>
     ),
   },
   {
-    accessorKey: "theme",
-    meta: { label: "Type de structure", headerClassName: "w-[22%]", cellClassName: "text-muted-foreground" },
-    cell: ({ row }) => <span className="block truncate">{row.original.theme}</span>,
-  },
-  {
     accessorKey: "statut",
-    meta: { label: "Statut", headerClassName: "w-[13%]" },
-    cell: ({ row }) => <SocietyStatus statut={row.original.statut} />,
+    meta: { label: "Situation" },
+    cell: ({ row }) => <span className="reg-pastille" data-statut={row.original.statut}>{STATUS[row.original.statut].label}</span>,
   },
   {
     id: "access",
-    meta: { label: "Accès", headerClassName: "w-[10%] text-right", cellClassName: "text-right text-xs font-semibold text-primary" },
-    cell: () => (
-      <span className="inline-flex min-h-9 items-center justify-end gap-1.5 underline-offset-4 group-hover:underline group-focus-visible:underline">
-        Ouvrir <ArrowUpRight className="size-3.5" aria-hidden="true" />
-      </span>
-    ),
+    meta: { label: "Accès", headerClassName: "w-10", cellClassName: "text-right text-muted-foreground" },
+    cell: () => <ChevronRight className="ml-auto size-4" aria-label="Ouvrir" />,
   },
 ];
 

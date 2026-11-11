@@ -18,4 +18,5 @@
 .reg-pastille[data-statut="inactif"] { background: #ecedf0; color: #5c6670; }
 .societes-ledger-table thead th { background: #f7f9fc; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
 /* Nom de société sur une ligne, colonne assez large (maquette) ; les titres de colonnes ne portent pas d'icône. */
-.reg-nom { white-space: nowrap; }
+.reg-nom { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reg-code { white-space: nowrap; }

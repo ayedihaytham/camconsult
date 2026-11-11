@@ -687,7 +687,7 @@
   padding: 0.4rem 0.75rem;
 }
 /* Colonnes à largeur fixe : en dessous de cette largeur, le tableau défile au lieu d'écraser les titres. */
-.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density { min-width: 1120px; }
+.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density { min-width: 1140px; table-layout: fixed; }
 .employes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density { min-width: 1000px; }
 .societes-ledger-page .societes-ledger-monogram {
   width: 2.5rem;

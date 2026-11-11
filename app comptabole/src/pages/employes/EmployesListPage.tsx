@@ -22,6 +22,7 @@ import { DataTableColumnHeader } from "@/components/data-table/DataTableColumnHe
 import { useDataTable } from "@/components/data-table/useDataTable";
 import { useOperationalPageSize } from "@/components/data-table/useOperationalPageSize";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
+import { LedgerRowIcons } from "@/components/ledger/LedgerRowIcons";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
@@ -663,10 +664,10 @@ export function EmployesListPage() {
           className="flex justify-end"
           onClick={(event) => event.stopPropagation()}
         >
-          <LedgerRowMenu actions={employeMenuActions(row.original)} />
+          <LedgerRowIcons actions={employeMenuActions(row.original)} />
         </div>
       ),
-      meta: { headerClassName: "w-[220px]", cellClassName: "w-[220px]" },
+      meta: { headerClassName: "w-[190px]", cellClassName: "w-[190px]" },
     },
   ];
   const pageSize = useOperationalPageSize(8);

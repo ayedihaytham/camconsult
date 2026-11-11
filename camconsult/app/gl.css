@@ -211,7 +211,7 @@
 .gl .ms article{min-height:62vh;display:flex;flex-direction:column;justify-content:center;gap:12px;border-top:1px solid var(--primary);padding:30px 0;opacity:.28;transition:opacity .5s}
 .gl .ms article.on{opacity:1}
 .gl .ms h3{font-size:clamp(2rem,4vw,3.6rem);line-height:1.04;color:var(--primary)}.gl .ms .a{color:var(--accent);font-weight:500;font-size:1.1rem}.gl .ms .b{color:var(--mfg);line-height:1.7;max-width:42ch}
-@media(max-width:820px){.gl .mg{grid-template-columns:1fr}.gl .mn{height:22vh;top:70px;z-index:3;background:#E8EDF0}.gl .mn b{font-size:9rem}.gl .ms article{min-height:44vh}}
+@media(max-width:820px){.gl .mg{grid-template-columns:1fr}.gl .mn{height:22vh;top:70px;z-index:3;background:var(--mnbg,#E8EDF0)}.gl .mn b{font-size:9rem}.gl .ms article{min-height:44vh}}
 /* ===== OUTILS : cadrans ===== */
 .gl .tools{background:var(--bg);padding-block:clamp(80px,11vw,150px)}
 .gl .tl{margin-top:50px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
@@ -498,6 +498,7 @@
 .dark .gl .sc,.dark .gl .tc,.dark .gl .fm,.dark .gl .dial,.dark .gl .sv,.dark .gl .st-card{--paper:#FCFBF8;--card:#FCFBF8;--primary:#0B2545;--mfg:#4B6070;--line:#CBD3D8;--accent:#285378;--soft:#E2EAF0;--fg:#20374D;color:#0B2545}
 .dark .gl .met,.dark .gl .ct{background:#162638}
 .dark .gl .ms .a,.dark .gl .eb{color:var(--sky)}
+.dark .gl .mn{--mnbg:#162638}
 .dark .gl .la{background:var(--bg);color:#E6EBEF}
 .dark .gl .la h1 em,.dark .gl .la .meta,.dark .gl .la .fig span{color:var(--sky)}
 .dark .gl .tape{background:var(--card)}

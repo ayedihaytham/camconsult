@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import type { ColumnDef, Table as TanstackTable } from "@tanstack/react-table";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
+import { LedgerRowIcons } from "@/components/ledger/LedgerRowIcons";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
@@ -619,14 +620,14 @@ export function SocietesListPage() {
       cell: ({ row }) => (
         <span className="reg-nom">{row.original.raisonSociale}</span>
       ),
-      meta: { label: "Société", icon: Building2 },
+      meta: { label: "Société", icon: Building2, headerClassName: "w-[220px]", cellClassName: "max-w-[220px]" },
     },
     {
       id: "code",
       accessorFn: (societe) => societe.code,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
       cell: ({ row }) => <span className="reg-code">{row.original.code}</span>,
-      meta: { label: "Code", icon: CircleDot, headerClassName: "w-[110px]" },
+      meta: { label: "Code", icon: CircleDot, headerClassName: "w-[90px]" },
     },
     {
       id: "rne",
@@ -640,14 +641,14 @@ export function SocietesListPage() {
       accessorFn: (societe) => societe.theme,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
       cell: ({ row }) => <span className="reg-texte">{row.original.theme}</span>,
-      meta: { label: "Type", icon: Building2 },
+      meta: { label: "Type", icon: Building2, headerClassName: "w-[120px]" },
     },
     {
       id: "tva",
       accessorFn: (societe) => societe.tva,
       header: ({ column }) => <DataTableColumnHeader column={column} title="TVA" />,
       cell: ({ row }) => <span className="reg-texte">{row.original.tva || "—"}</span>,
-      meta: { label: "TVA", icon: CircleDot, headerClassName: "w-[130px]" },
+      meta: { label: "TVA", icon: CircleDot, headerClassName: "w-[100px]" },
     },
     {
       id: "contactCle",
@@ -736,7 +737,7 @@ export function SocietesListPage() {
           </span>
         );
       },
-      meta: { label: "Dossiers en cours", icon: FolderOpen, headerClassName: "w-[190px]" },
+      meta: { label: "Dossiers en cours", icon: FolderOpen, headerClassName: "w-[140px]" },
     },
     {
       accessorKey: "statut",
@@ -744,7 +745,7 @@ export function SocietesListPage() {
         <DataTableColumnHeader column={column} title="Statut" />
       ),
       cell: ({ row }) => <span className="reg-pastille" data-statut={row.original.statut}>{STATUT_LABELS[row.original.statut]}</span>,
-      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-[140px]" },
+      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-[100px]" },
     },
     {
       id: "actions",
@@ -758,13 +759,13 @@ export function SocietesListPage() {
             className="flex items-center justify-end"
             onClick={(e) => e.stopPropagation()}
           >
-            <LedgerRowMenu actions={societeMenuActions(s)} />
+            <LedgerRowIcons actions={societeMenuActions(s)} />
           </div>
         );
       },
       meta: {
-        headerClassName: "w-[250px]",
-        cellClassName: "w-[250px]",
+        headerClassName: "w-[200px]",
+        cellClassName: "w-[200px]",
       },
     },
   ];

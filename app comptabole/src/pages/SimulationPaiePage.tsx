@@ -82,7 +82,7 @@ export function SimulationPaiePage() {
         ]}
       />
 
-      <div role="group" aria-label="Sens de la simulation" className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div role="group" aria-label="Sens de la simulation" className="mt-4 flex flex-wrap gap-2">
         {SENS.map((s) => {
           const actif = sens === s.value;
           return (
@@ -91,21 +91,21 @@ export function SimulationPaiePage() {
               type="button"
               aria-label={s.titre}
               aria-pressed={actif}
+              title={s.detail}
               onClick={() => setSens(s.value)}
               className={cn(
-                "rounded-xl border border-accent/30 bg-card px-4 py-3 text-left transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                actif && "border-primary bg-primary text-primary-foreground hover:bg-primary",
+                "rounded-full border px-4 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                actif ? "border-primary bg-primary text-primary-foreground" : "border-primary/20 bg-card text-primary hover:bg-[#F5F8FD]",
               )}
             >
-              <span className="block text-sm font-semibold">{s.titre}</span>
-              <span className={cn("block text-xs", actif ? "text-primary-foreground/80" : "text-muted-foreground")}>{s.detail}</span>
+              {s.titre}
             </button>
           );
         })}
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-        <section aria-label="Saisie" className="space-y-3 rounded-xl border border-accent/30 bg-card p-4">
+        <section aria-label="Saisie" className="space-y-3 rounded-xl border border-primary/10 bg-card p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Champ id="sp-mois" label="Mois de paie" aide={bareme ? `Barème ${bareme.annee} appliqué` : "Aucun barème avant 2022"}>
               <Input id="sp-mois" type="month" value={mois} onChange={(e) => setMois(e.target.value)} />
@@ -143,7 +143,7 @@ export function SimulationPaiePage() {
           </div>
         </section>
 
-        <section aria-label="Résultat" className="space-y-3 rounded-xl border border-accent/30 bg-card p-4">
+        <section aria-label="Résultat" className="space-y-3 rounded-xl border border-primary/10 bg-card p-4">
           {!bareme ? (
             <p role="alert" className="text-sm text-destructive">
               Aucun barème n'est disponible pour ce mois (les barèmes commencent en 2022).

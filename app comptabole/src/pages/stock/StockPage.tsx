@@ -199,9 +199,9 @@ export function StockPage() {
                     type="button"
                     aria-pressed={filtre === valeur}
                     onClick={() => setFiltre(valeur)}
-                    className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded after:bg-primary" : "text-muted-foreground")}
+                    className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-[3px] after:rounded after:bg-[#C9A96A]" : "text-muted-foreground")}
                   >
-                    <b className={cn("text-xl font-bold leading-none tabular-nums tracking-tight", n === 0 ? "text-muted-foreground/50" : "text-primary")}>{n}</b>
+                    <b className={cn("text-sm font-bold leading-none tabular-nums tracking-tight", n === 0 ? "text-muted-foreground/50" : "text-primary")}>{n}</b>
                     {nom}
                   </button>
                 ))}
@@ -234,16 +234,16 @@ export function StockPage() {
               <table className="w-full min-w-[960px] table-fixed border-collapse text-[0.8125rem] tabular-nums">
                 <caption className="sr-only">Stock par société</caption>
                 <colgroup>{LARGEURS.map((l, i) => <col key={i} style={{ width: `${l}%` }} />)}</colgroup>
-                <thead className="bg-primary text-primary-foreground">
+                <thead className="bg-[#F7F9FC] text-muted-foreground">
                   <tr>
                     {([["societe", "Société", "left"], ["mouvements", "Mouvements", "right"], ["valeur", "Valeur du stock", "right"], ["dernier", "Dernier mouvement", "left"], ["cours", "Cours de change", "center"]] as const).map(([colonne, titre, align]) => (
                       <th
                         key={colonne}
                         scope="col"
                         aria-sort={tri === colonne ? (sens === 1 ? "ascending" : "descending") : undefined}
-                        className="sticky top-0 border-b border-primary-foreground/20 px-4 py-2.5 text-left text-xs font-semibold"
+                        className="sticky top-0 border-b border-primary/10 px-4 py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-[0.1em]"
                       >
-                        <button type="button" onClick={() => trier(colonne)} className={cn("flex w-full items-center gap-1.5 rounded-sm hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent", align === "right" && "justify-end", align === "center" && "justify-center")}>
+                        <button type="button" onClick={() => trier(colonne)} className={cn("flex w-full items-center gap-1.5 rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", align === "right" && "justify-end", align === "center" && "justify-center")}>
                           {titre}
                           {tri === colonne ? (sens === 1 ? <ArrowUp className="size-3 text-accent" aria-hidden="true" /> : <ArrowDown className="size-3 text-accent" aria-hidden="true" />) : <ArrowUpDown className="size-3 opacity-35" aria-hidden="true" />}
                         </button>

@@ -44,8 +44,8 @@ export function ConversionsPage() {
         }
       />
 
-      <div role="group" aria-label="Sens de la conversion" className="mt-4 grid gap-3 sm:grid-cols-2">
-        {SENS.map((s) => {
+      <div role="group" aria-label="Sens de la conversion" className="mt-4 flex gap-7 border-b border-primary/12">
+        {[...SENS].reverse().map((s) => {
           const actif = sens === s.value;
           return (
             <button
@@ -53,19 +53,14 @@ export function ConversionsPage() {
               type="button"
               aria-label={s.titre}
               aria-pressed={actif}
+              title={s.detail}
               onClick={() => changerSens(s.value)}
               className={cn(
-                "flex items-center gap-3 rounded-xl border border-accent/30 bg-card px-4 py-3 text-left transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                actif && "border-primary bg-primary text-primary-foreground hover:bg-primary",
+                "-mb-px border-b-[3px] pb-3 pt-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                actif ? "border-[#C9A96A] text-primary" : "border-transparent text-muted-foreground hover:text-primary",
               )}
             >
-              <span className={cn("grid size-10 shrink-0 place-items-center rounded-lg", actif ? "bg-primary-foreground/10 text-accent" : "bg-accent/15 text-primary")}>
-                <s.icone className="size-5" aria-hidden="true" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-bold">{s.titre}</span>
-                <span className={cn("block text-xs", actif ? "text-primary-foreground/80" : "text-muted-foreground")}>{s.detail}</span>
-              </span>
+              {s.titre}
             </button>
           );
         })}

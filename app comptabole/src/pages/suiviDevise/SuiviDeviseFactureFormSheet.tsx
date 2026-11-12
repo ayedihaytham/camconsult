@@ -216,7 +216,7 @@ export function SuiviDeviseFactureFormSheet({ open, onOpenChange, facture, lots,
               </div>
             </div>
             {liee && (
-              <p className="rounded-md border border-accent/30 bg-accent/[0.07] px-3 py-2 text-xs text-foreground">
+              <p className="rounded-md border border-primary/10 bg-accent/[0.07] px-3 py-2 text-xs text-foreground">
                 Reprise de la gestion de stock : le n°, la date, le produit, le fournisseur, la quantité, le PU et le montant se modifient
                 dans le mouvement de stock. Le lot, le mode de paiement et l'avoir se règlent ici.
               </p>

@@ -118,8 +118,8 @@ export function BordereauFormSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
-        <div className="shrink-0 border-b border-accent/30 px-6 pb-5 pt-6 sm:px-8">
+      <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-primary/10 p-0">
+        <div className="shrink-0 border-b border-primary/10 px-6 pb-5 pt-6 sm:px-8">
           <DialogTitle className="pr-8 font-serif text-3xl font-medium text-primary">
             {isEdit ? "Modifier le bordereau" : "Nouveau bordereau"}
           </DialogTitle>
@@ -178,7 +178,7 @@ export function BordereauFormSheet({
             </CardField>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-accent/30 bg-card">
+          <div className="overflow-hidden rounded-xl border border-primary/10 bg-card">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[44rem] text-sm">
                 <thead className="bg-accent/[0.08] text-sm text-primary">
@@ -255,7 +255,7 @@ export function BordereauFormSheet({
                 </tbody>
               </table>
             </div>
-            <div className="flex items-center justify-end gap-10 border-t border-accent/25 bg-accent/[0.05] px-5 py-4">
+            <div className="flex items-center justify-end gap-10 border-t border-primary/10 bg-accent/[0.05] px-5 py-4">
               <span className="text-base text-muted-foreground">Sous-total du bordereau</span>
               <span className="min-w-24 text-right text-xl font-bold tabular-nums text-primary">
                 {total.toLocaleString("fr-FR", {
@@ -296,7 +296,7 @@ export function BordereauFormSheet({
           </div>
         </div>
 
-        <div className="flex shrink-0 justify-end gap-3 border-t border-accent/30 px-6 py-4 sm:px-8">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-primary/10 px-6 py-4 sm:px-8">
           <Button type="button" variant="outline" className="h-12 rounded-lg px-6" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>

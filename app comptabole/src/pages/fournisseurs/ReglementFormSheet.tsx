@@ -180,7 +180,7 @@ export function ReglementFormSheet({
 
         <SheetBody className="space-y-4">
           {initial && !reglement && (
-            <p className="rounded-md border border-accent/30 bg-accent/[0.07] px-3 py-2 text-sm text-foreground" role="status">
+            <p className="rounded-md border border-primary/10 bg-accent/[0.07] px-3 py-2 text-sm text-foreground" role="status">
               Paiement bancaire du {formatDate(initial.date)} : <strong className="tabular-nums">{fmtMontant(initial.montant)} {initial.devise}</strong>
               {initial.libelle && <span className="block truncate text-xs text-muted-foreground">{initial.libelle}</span>}
               {brut > 0 && Math.abs(vire - initial.montant) > 0.0015 && (
@@ -323,7 +323,7 @@ export function ReglementFormSheet({
             </div>
           )}
 
-          <dl className="grid grid-cols-3 gap-3 rounded-md border border-accent/30 bg-secondary/30 px-4 py-3 text-sm">
+          <dl className="grid grid-cols-3 gap-3 rounded-md border border-primary/10 bg-secondary/30 px-4 py-3 text-sm">
             <div>
               <dt className="text-xs text-muted-foreground">Total des factures</dt>
               <dd className="font-semibold tabular-nums">

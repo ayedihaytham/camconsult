@@ -225,7 +225,7 @@ export function ImportGrandLivreDialog({ open, onOpenChange, collecte, editableT
             {parTable.size > 0 && (
               <ul className="flex flex-wrap gap-2">
                 {[...parTable].map(([table, v]) => (
-                  <li key={table} className="rounded-md border border-accent/30 bg-card px-3 py-1.5 text-xs">
+                  <li key={table} className="rounded-md border border-primary/10 bg-card px-3 py-1.5 text-xs">
                     <span className="font-semibold text-primary">{TAB_BY_KEY[table].label}</span> · {v.n} ligne{v.n > 1 ? "s" : ""} · {nombre(v.total)}
                   </li>
                 ))}

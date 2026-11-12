@@ -15,7 +15,7 @@ export function FraisBancaires({ synthese, devise }: { synthese: SyntheseFrais; 
   }
   const maxNature = Math.max(...synthese.parNature.map((n) => Math.abs(n.total)), 0.001);
   return (
-    <section aria-label="Frais bancaires" className="border-t-2 border-accent/40 bg-accent/[0.07] px-5 py-4">
+    <section aria-label="Frais bancaires" className="border-t-2 border-primary/15 bg-accent/[0.07] px-5 py-4">
       <h3 className="mb-3 text-sm font-bold text-primary">Frais bancaires</h3>
       <dl className="mb-4 flex flex-wrap gap-x-8 gap-y-2">
         <div>

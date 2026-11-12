@@ -193,8 +193,8 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteI
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[94vh] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
-          <div className="shrink-0 border-b border-accent/30 px-6 pb-4 pt-6 sm:px-8">
+        <DialogContent className="flex max-h-[94vh] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-primary/10 p-0">
+          <div className="shrink-0 border-b border-primary/10 px-6 pb-4 pt-6 sm:px-8">
             <DialogTitle className="pr-8 font-serif text-3xl font-medium text-primary">
               {mode === "modification" ? `Modifier la facture ${source?.numero ?? ""}` : mode === "copie" ? "Dupliquer la facture" : "Nouvelle facture d'honoraires"}
             </DialogTitle>
@@ -226,7 +226,7 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteI
                   </Select>
                 </label>
                 {societe && (
-                  <div className="grid gap-1.5 rounded-xl border border-accent/25 bg-background/60 px-3.5 py-2.5 text-[13px]" aria-label="Fiche du client">
+                  <div className="grid gap-1.5 rounded-xl border border-primary/10 bg-background/60 px-3.5 py-2.5 text-[13px]" aria-label="Fiche du client">
                     <p className="font-semibold text-primary">{societe.raisonSociale}</p>
                     <p className="text-muted-foreground">
                       {societe.tva ? `MF ${societe.tva}` : "Matricule fiscal non renseigné"} · {societe.adresse || "Adresse non renseignée"}
@@ -301,7 +301,7 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteI
               </Rubrique>
 
               <Rubrique titre="Prestations">
-                <div className="overflow-hidden rounded-xl border border-accent/25" role="table" aria-label="Lignes de la facture">
+                <div className="overflow-hidden rounded-xl border border-primary/10" role="table" aria-label="Lignes de la facture">
                   <div className="hidden grid-cols-[minmax(0,1fr)_5.5rem_7.5rem_7.5rem_2.25rem] gap-2 bg-primary px-2.5 py-2 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-primary-foreground sm:grid" role="row">
                     <span role="columnheader">Description</span>
                     <span role="columnheader" className="text-right">Qté</span>
@@ -369,7 +369,7 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteI
               </label>
             </div>
 
-            <aside aria-label="Récapitulatif" className="border-t border-accent/30 bg-background/60 px-6 py-5 sm:px-8 lg:overflow-y-auto lg:border-l lg:border-t-0 lg:px-6">
+            <aside aria-label="Récapitulatif" className="border-t border-primary/10 bg-background/60 px-6 py-5 sm:px-8 lg:overflow-y-auto lg:border-l lg:border-t-0 lg:px-6">
               <div className="space-y-4">
                 <div>
                   <h2 className="mb-2 font-serif text-base font-bold text-primary">Récapitulatif</h2>
@@ -389,7 +389,7 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteI
                   <b className="block text-[13px] text-primary">{montantEnLettres(totaux.netAPayer)}</b>
                 </p>
 
-                <div className="space-y-1.5 rounded-xl border border-accent/25 bg-card px-3 py-2.5 text-xs">
+                <div className="space-y-1.5 rounded-xl border border-primary/10 bg-card px-3 py-2.5 text-xs">
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Facture électronique</h3>
                   {!societe ? (
                     <p className="text-muted-foreground">Choisissez d'abord le client.</p>
@@ -418,7 +418,7 @@ export function FactureFormSheet({ open, onOpenChange, onSubmit, defaultSocieteI
             </aside>
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-accent/30 px-6 py-4 sm:px-8">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-primary/10 px-6 py-4 sm:px-8">
             <p className={cn("text-sm", peutGenerer ? "text-success" : "text-muted-foreground")} role="status">
               {message}
             </p>

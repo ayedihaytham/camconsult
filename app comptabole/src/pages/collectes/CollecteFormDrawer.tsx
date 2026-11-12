@@ -313,7 +313,7 @@ export function CollecteFormDrawer({
           </section>
 
           {!isEdit && (
-            <section className="space-y-3 rounded-lg border border-accent/30 bg-muted/10 p-3.5" aria-label="Grand-livre des comptes">
+            <section className="space-y-3 rounded-lg border border-primary/10 bg-muted/10 p-3.5" aria-label="Grand-livre des comptes">
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Grand-livre des comptes (facultatif)</h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">

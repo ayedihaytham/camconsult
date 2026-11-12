@@ -203,12 +203,12 @@ export function BordereauxPage() {
         }
       />
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
+      <div className="mt-4 overflow-hidden rounded-xl border border-primary/10 bg-card">
         <div
           data-tour="bordereaux-filters"
           role="group"
           aria-label="Type de bordereau"
-          className="flex min-w-0 gap-8 overflow-x-auto border-b border-accent/25 px-6"
+          className="flex min-w-0 gap-8 overflow-x-auto border-b border-primary/10 px-6"
         >
           {TYPES.map((t) => {
             const active = type === t;
@@ -279,7 +279,7 @@ export function BordereauxPage() {
 
         <div data-tour="bordereaux-register" className="px-6 pb-6">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-accent/40 px-4 py-12 text-center">
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-primary/15 px-4 py-12 text-center">
               <span className="grid size-[60px] place-items-center rounded-full bg-accent/15 text-primary">
                 <Landmark className="size-6" aria-hidden="true" />
               </span>
@@ -293,8 +293,8 @@ export function BordereauxPage() {
           ) : (
             <div className="space-y-4">
               {filtered.map((b) => (
-                <article key={b.id} className="overflow-hidden rounded-xl border border-accent/30 bg-card">
-                  <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-accent/25 bg-accent/[0.07] px-5 py-4">
+                <article key={b.id} className="overflow-hidden rounded-xl border border-primary/10 bg-card">
+                  <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-primary/10 bg-accent/[0.07] px-5 py-4">
                     <span className="text-base text-muted-foreground">
                       N° <span className="font-semibold text-primary">{b.numero || "—"}</span>
                     </span>
@@ -341,12 +341,12 @@ export function BordereauxPage() {
                     </button>
                   </header>
                   {b.note && (
-                    <p className="border-b border-accent/25 px-5 py-2 text-sm text-muted-foreground">{b.note}</p>
+                    <p className="border-b border-primary/10 px-5 py-2 text-sm text-muted-foreground">{b.note}</p>
                   )}
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[40rem] text-base">
                       <thead>
-                        <tr className="border-b border-accent/25 text-sm font-semibold text-muted-foreground">
+                        <tr className="border-b border-primary/10 text-sm font-semibold text-muted-foreground">
                           <th className="w-14 px-5 py-3 text-left">N°</th>
                           <th className="px-3 py-3 text-left">CHQ / Effet</th>
                           <th className="px-3 py-3 text-left">{b.volet === "client" ? "Client" : "Fournisseur"}</th>

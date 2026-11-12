@@ -202,7 +202,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
       </div>
 
       {employes.length === 0 && (
-        <p className="rounded-lg border border-dashed border-accent/40 px-4 py-5 text-center text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-primary/15 px-4 py-5 text-center text-sm text-muted-foreground">
           Aucun compte. Ajoutez le responsable de cette société, puis ses
           délégués, qui recevront les tâches qu'il leur confie.
         </p>

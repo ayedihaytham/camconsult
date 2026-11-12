@@ -15,7 +15,7 @@ export function LedgerSegmented<T extends string>({
   ariaLabel?: string;
 }) {
   return (
-    <div className="flex min-w-0 gap-5 overflow-x-auto border-b border-border" role="group" aria-label={ariaLabel}>
+    <div className="flex min-w-0 gap-5 overflow-x-auto border-b border-primary/12" role="group" aria-label={ariaLabel}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -23,10 +23,10 @@ export function LedgerSegmented<T extends string>({
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "-mb-px shrink-0 border-b-2 pb-2.5 pt-1 text-sm font-semibold transition-colors",
+            "-mb-px shrink-0 border-b-[3px] pb-2.5 pt-1 text-sm font-semibold transition-colors",
             value === o.value
-              ? "border-foreground text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground",
+              ? "border-[#C9A96A] text-primary"
+              : "border-transparent text-muted-foreground hover:text-primary",
           )}
         >
           {o.label}

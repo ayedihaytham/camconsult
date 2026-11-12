@@ -50,8 +50,8 @@ export function HonorairesRecapPage() {
         ]}
       />
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="honoraires-summary">
-        <div className="flex flex-wrap items-center gap-3 border-b border-accent/25 px-5 py-4">
+      <div className="mt-4 overflow-hidden rounded-xl border border-primary/10 bg-card" data-tour="honoraires-summary">
+        <div className="flex flex-wrap items-center gap-3 border-b border-primary/10 px-5 py-4">
           <div className="relative min-w-[14rem] flex-1 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <input
@@ -95,7 +95,7 @@ export function HonorairesRecapPage() {
                 <col style={{ width: "5%" }} />
               </colgroup>
               <thead>
-                <tr className="border-b border-accent/25 bg-accent/[0.07]">
+                <tr className="border-b border-primary/10 bg-accent/[0.07]">
                   <th className={`${th} text-left`}>Client</th>
                   <th className={`${th} text-right`}>Lignes</th>
                   <th className={`${th} text-right`}>Déclaré</th>
@@ -148,7 +148,7 @@ export function HonorairesRecapPage() {
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-accent/40 bg-accent/[0.07] font-bold text-primary">
+                <tr className="border-t-2 border-primary/15 bg-accent/[0.07] font-bold text-primary">
                   <td className={td}>Total ({total.clients})</td>
                   <td className={td} />
                   <td className={`${td} text-right tabular-nums`}>{fmtMontant(total.declare)}</td>

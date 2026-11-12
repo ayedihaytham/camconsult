@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertCircle, Banknote, Building2, CalendarDays, CheckCircle2, Coins, Eye, Globe, Pencil, Plus, Send, Text, Trash2, Activity } from "lucide-react";
+import { AlertCircle, Banknote, CheckCircle2, Coins, Eye, Globe, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -128,7 +128,7 @@ export function EtatSwiftSociete({ societeId, integre = false, lectureSeule = fa
         {bandeau}
         <fieldset disabled={lectureSeule} className="mt-4 min-w-0 space-y-3 border-0 p-0">
           {virements.length === 0 ? (
-            <div className="overflow-hidden rounded-xl border border-accent/30 bg-card">
+            <div className="overflow-hidden rounded-xl border border-primary/10 bg-card">
               <EmptyState icon={Globe} title={loading ? "Chargement…" : "Aucun virement à justifier"} description="Le cabinet vous enverra ici les virements SWIFT dont il attend les factures d'achat." />
             </div>
           ) : (
@@ -206,7 +206,7 @@ export function EtatSwiftSociete({ societeId, integre = false, lectureSeule = fa
           )}
         </div>
       )}
-      <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
+      <div className="mt-4 overflow-hidden rounded-xl border border-primary/10 bg-card">
         {virements.length === 0 ? (
           <EmptyState
             icon={Globe}
@@ -217,13 +217,13 @@ export function EtatSwiftSociete({ societeId, integre = false, lectureSeule = fa
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse text-sm">
               <thead>
-                <tr className="bg-primary text-left text-[11px] uppercase tracking-wide text-primary-foreground">
-                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5"><CalendarDays className="size-3.5 text-accent" aria-hidden="true" />Date</span></th>
-                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5"><Text className="size-3.5 text-accent" aria-hidden="true" />Libellé</span></th>
-                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5"><Building2 className="size-3.5 text-accent" aria-hidden="true" />Banque</span></th>
-                  <th className="px-3 py-2.5 text-right"><span className="inline-flex items-center gap-1.5"><Coins className="size-3.5 text-accent" aria-hidden="true" />Montant à justifier (TND)</span></th>
-                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5"><Activity className="size-3.5 text-accent" aria-hidden="true" />Justifié par la société</span></th>
-                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-3.5 text-accent" aria-hidden="true" />Statut</span></th>
+                <tr className="bg-[#F7F9FC] text-left text-[0.66rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5">Date</span></th>
+                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5">Libellé</span></th>
+                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5">Banque</span></th>
+                  <th className="px-3 py-2.5 text-right"><span className="inline-flex items-center gap-1.5">Montant à justifier (TND)</span></th>
+                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5">Justifié par la société</span></th>
+                  <th className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5">Statut</span></th>
                   <th className="px-3 py-2.5" />
                 </tr>
               </thead>

@@ -87,7 +87,7 @@ export function SocieteShortcuts({ societe }: { societe: Societe }) {
   return (
     <section
       aria-label={`Accès rapides au dossier ${societe.raisonSociale}`}
-      className="min-w-0 rounded-xl border border-accent/30 bg-card p-3"
+      className="min-w-0 rounded-xl border border-primary/10 bg-card p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-muted-foreground">
@@ -107,7 +107,7 @@ export function SocieteShortcuts({ societe }: { societe: Societe }) {
           <Link
             key={base}
             to={lienDeSociete(base, societe.id)}
-            className="group flex min-h-16 min-w-0 flex-col gap-1 rounded-lg border border-accent/25 bg-secondary/40 p-2 transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            className="group flex min-h-16 min-w-0 flex-col gap-1 rounded-lg border border-primary/10 bg-secondary/40 p-2 transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
             <span className="flex items-center justify-between">
               <Icon className="size-4 text-primary" aria-hidden="true" />

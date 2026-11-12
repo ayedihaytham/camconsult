@@ -181,7 +181,7 @@ export function FournisseursSocietePage() {
 
       <CoherenceModule societeId={societeId} module="fournisseur" className="mt-4" />
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="fournisseurs-recap">
+      <div className="mt-4 overflow-hidden rounded-xl border border-primary/10 bg-card" data-tour="fournisseurs-recap">
         {recap.length === 0 ? (
           <div className="flex flex-col items-center gap-3 px-4 py-14 text-center">
             <span className="grid size-[70px] place-items-center rounded-full bg-accent/15 text-primary">
@@ -195,7 +195,7 @@ export function FournisseursSocietePage() {
         ) : (
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-accent/25 bg-accent/[0.07]">
+              <tr className="border-b border-primary/10 bg-accent/[0.07]">
                 <th className={th}>Fournisseur</th>
                 <th className={thNum}>Factures</th>
                 <th className={thNum}>Facturé</th>
@@ -243,8 +243,8 @@ export function FournisseursSocietePage() {
       </div>
 
       {actif && (
-        <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
-          <div className="flex items-center justify-between gap-3 border-b border-accent/25 px-5 py-4">
+        <div className="mt-4 overflow-hidden rounded-xl border border-primary/10 bg-card">
+          <div className="flex items-center justify-between gap-3 border-b border-primary/10 px-5 py-4">
             <h2 className="font-serif text-xl font-medium text-primary">{actif.nom}</h2>
             <span className="text-sm tabular-nums text-muted-foreground">
               {actif.nbFactures} facture{actif.nbFactures > 1 ? "s" : ""}

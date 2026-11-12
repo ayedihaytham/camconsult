@@ -433,7 +433,7 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
         </div>
       </section>
 
-      {notice && <p className="mx-4 mt-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-muted-foreground">{notice}</p>}
+      {notice && <p className="mx-4 mt-3 rounded-lg border border-primary/10 bg-accent/10 px-3 py-2 text-sm text-muted-foreground">{notice}</p>}
 
       <div className="hidden lg:block">
         <table className="w-full table-fixed text-sm">

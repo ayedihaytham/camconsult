@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle, Building2, CalendarDays, CheckCircle2, ChevronRight, Clock, Coins, Globe, MinusCircle, Search, Activity } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, Clock, Globe, MinusCircle, Search } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -119,7 +119,7 @@ export function EtatSwiftRegistre() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-accent/30 bg-card" data-tour="etat-swift-societes">
+      <div className="overflow-hidden rounded-xl border border-primary/10 bg-card" data-tour="etat-swift-societes">
         {visibles.length === 0 ? (
           <EmptyState
             icon={Globe}
@@ -130,13 +130,13 @@ export function EtatSwiftRegistre() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[940px] border-collapse text-sm">
               <thead>
-                <tr className="bg-primary text-left text-[11px] uppercase tracking-wide text-primary-foreground">
-                  <th className="px-3 py-3"><span className="inline-flex items-center gap-1.5"><Building2 className="size-3.5 text-accent" aria-hidden="true" />Société</span></th>
-                  <th className="px-3 py-3 text-right"><span className="inline-flex items-center gap-1.5"><Globe className="size-3.5 text-accent" aria-hidden="true" />Virements</span></th>
-                  <th className="px-3 py-3 text-right"><span className="inline-flex items-center gap-1.5"><Coins className="size-3.5 text-accent" aria-hidden="true" />Montant à justifier (TND)</span></th>
-                  <th className="px-3 py-3"><span className="inline-flex items-center gap-1.5"><Activity className="size-3.5 text-accent" aria-hidden="true" />Avancement</span></th>
-                  <th className="px-3 py-3"><span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-3.5 text-accent" aria-hidden="true" />État</span></th>
-                  <th className="px-3 py-3"><span className="inline-flex items-center gap-1.5"><CalendarDays className="size-3.5 text-accent" aria-hidden="true" />Dernier virement</span></th>
+                <tr className="bg-[#F7F9FC] text-left text-[0.66rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                  <th className="px-3 py-3"><span className="inline-flex items-center gap-1.5">Société</span></th>
+                  <th className="px-3 py-3 text-right"><span className="inline-flex items-center gap-1.5">Virements</span></th>
+                  <th className="px-3 py-3 text-right"><span className="inline-flex items-center gap-1.5">Montant à justifier (TND)</span></th>
+                  <th className="px-3 py-3"><span className="inline-flex items-center gap-1.5">Avancement</span></th>
+                  <th className="px-3 py-3"><span className="inline-flex items-center gap-1.5">État</span></th>
+                  <th className="px-3 py-3"><span className="inline-flex items-center gap-1.5">Dernier virement</span></th>
                   <th className="px-3 py-3" />
                 </tr>
               </thead>

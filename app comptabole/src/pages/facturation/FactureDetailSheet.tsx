@@ -179,7 +179,7 @@ export function FactureDetailSheet({ facture, cabinet, onOpenChange, onOpenEinvo
               <section aria-label="Aperçu du PDF">
                 <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Aperçu du PDF</h3>
                 {apercu ? (
-                  <iframe src={`${apercu}${PARAMETRES_APERCU}`} title={`Aperçu de la facture ${f.numero}`} className="aspect-[1/1.4142] max-h-[70vh] w-full rounded-lg border border-accent/30 bg-card" />
+                  <iframe src={`${apercu}${PARAMETRES_APERCU}`} title={`Aperçu de la facture ${f.numero}`} className="aspect-[1/1.4142] max-h-[70vh] w-full rounded-lg border border-primary/10 bg-card" />
                 ) : (
                   <Button type="button" variant="outline" size="sm" onClick={() => void afficherApercu()} disabled={apercuEnCours}>
                     {apercuEnCours ? <LoaderCircle className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : <Eye className="mr-1.5 size-4" aria-hidden="true" />}

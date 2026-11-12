@@ -173,7 +173,7 @@ function Etiquette({ ton, children }: { ton: keyof typeof TONS; children: React.
 
 function ChampConfirmation({ valeur, onChange }: { valeur: string; onChange: (v: string) => void }) {
   return (
-    <div className="space-y-1.5 rounded-sm border border-accent/40 bg-accent/10 p-3">
+    <div className="space-y-1.5 rounded-sm border border-primary/15 bg-accent/10 p-3">
       <Label htmlFor="admin-confirmation">Votre mot de passe · requis pour confirmer</Label>
       <Input id="admin-confirmation" type="password" autoComplete="current-password" value={valeur} onChange={(e) => onChange(e.target.value)} />
     </div>

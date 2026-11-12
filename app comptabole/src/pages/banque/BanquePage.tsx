@@ -83,9 +83,9 @@ export function BanquePage() {
                     type="button"
                     aria-pressed={filtre === valeur}
                     onClick={() => setFiltre(valeur)}
-                    className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded after:bg-primary" : "text-muted-foreground")}
+                    className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-[3px] after:rounded after:bg-[#C9A96A]" : "text-muted-foreground")}
                   >
-                    <b className={cn("text-xl font-bold leading-none tabular-nums tracking-tight", !chargee && valeur !== "toutes" ? "text-muted-foreground/50" : n === 0 ? "text-muted-foreground/50" : ton)}>{!chargee && valeur !== "toutes" ? "–" : n}</b>
+                    <b className={cn("text-sm font-bold leading-none tabular-nums tracking-tight", !chargee && valeur !== "toutes" ? "text-muted-foreground/50" : n === 0 ? "text-muted-foreground/50" : ton)}>{!chargee && valeur !== "toutes" ? "–" : n}</b>
                     {nom}
                   </button>
                 ))}

@@ -77,7 +77,7 @@ interface Props {
   total: number;
 }
 
-const FIGURE_ACTIVE = "after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded after:bg-primary";
+const FIGURE_ACTIVE = "after:absolute after:inset-x-4 after:bottom-0 after:h-[3px] after:rounded after:bg-[#C9A96A]";
 
 /**
  * Barre de filtres du stock, dans le style de Sociétés : une recherche large qui porte le bouton « Filtres » (client, fournisseur), le nombre
@@ -178,7 +178,7 @@ export function StockFiltres({ criteres, onCriteres, clients, fournisseurs, comp
                 onClick={() => onCriteres({ ...criteres, situation: s.valeur })}
                 className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", actif ? `font-semibold text-foreground ${FIGURE_ACTIVE}` : "text-muted-foreground")}
               >
-                <b className={cn("text-xl font-bold leading-none tabular-nums tracking-tight", alerte ? "text-destructive" : comptes[s.valeur] === 0 ? "text-muted-foreground/50" : "text-primary")}>{comptes[s.valeur]}</b>
+                <b className={cn("text-sm font-bold leading-none tabular-nums tracking-tight", alerte ? "text-destructive" : comptes[s.valeur] === 0 ? "text-muted-foreground/50" : "text-primary")}>{comptes[s.valeur]}</b>
                 {s.nom}
               </button>
             );

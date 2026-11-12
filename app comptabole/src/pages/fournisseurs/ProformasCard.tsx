@@ -15,12 +15,12 @@ const th = "whitespace-nowrap px-3 py-2 text-left text-[0.62rem] font-bold upper
 export function ProformasCard({ proformas }: { proformas: ProformaSuivie[] }) {
   if (proformas.length === 0) return null;
   return (
-    <section aria-label="Proformas" className="border-t border-accent/25">
+    <section aria-label="Proformas" className="border-t border-primary/10">
       <h3 className="px-5 pb-1 pt-3 text-[0.66rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">Proformas</h3>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[40rem] border-collapse text-xs">
           <thead>
-            <tr className="border-b border-accent/25 bg-accent/[0.04]">
+            <tr className="border-b border-primary/10 bg-accent/[0.04]">
               <th className={th}>N° proforma</th>
               <th className={th}>Date</th>
               <th className={`${th} text-right`}>Qté proforma</th>

@@ -241,7 +241,7 @@ export function EmployeFormSheet({
               </Field>
             </div>
 
-            <div className="space-y-3 rounded-xl border border-accent/30 bg-card p-4">
+            <div className="space-y-3 rounded-xl border border-primary/10 bg-card p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Identifiants de connexion
               </p>

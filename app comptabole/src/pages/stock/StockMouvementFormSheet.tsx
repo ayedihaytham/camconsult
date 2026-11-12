@@ -525,7 +525,7 @@ export function StockMouvementFormSheet({
           e.preventDefault();
           demanderFermeture();
         }}
-        className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[1600px] flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0 [&>button:last-child]:text-primary-foreground [&>button:last-child]:opacity-80 [&>button:last-child]:hover:opacity-100 [&>button:last-child]:focus:ring-primary-foreground/60 [&>button:last-child]:focus:ring-offset-primary">
+        className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[1600px] flex-col gap-0 overflow-hidden rounded-2xl border-primary/10 p-0 [&>button:last-child]:text-primary-foreground [&>button:last-child]:opacity-80 [&>button:last-child]:hover:opacity-100 [&>button:last-child]:focus:ring-primary-foreground/60 [&>button:last-child]:focus:ring-offset-primary">
         <div className="shrink-0 border-b border-primary-foreground/15 bg-primary px-6 pb-4 pt-5 text-primary-foreground sm:px-8">
           <DialogTitle className="pr-10 font-serif text-2xl font-bold text-primary-foreground">
             {isEdit ? "Modifier le mouvement" : "Nouveau mouvement de stock"}

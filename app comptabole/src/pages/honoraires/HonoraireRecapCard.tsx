@@ -28,8 +28,8 @@ export function HonoraireRecapCard({ list }: { list: HonoraireLigne[] }) {
   const groupes = vue === "type" ? recap.parType : recap.parAnnee;
 
   return (
-    <section data-tour="honoraires-summary" aria-label="Récapitulatif du compte client" className="mt-3 overflow-hidden rounded-xl border border-accent/30 bg-card">
-      <dl className="grid grid-cols-2 divide-accent/25 border-b border-accent/25 bg-accent/[0.06] sm:grid-cols-3 sm:divide-x lg:grid-cols-6">
+    <section data-tour="honoraires-summary" aria-label="Récapitulatif du compte client" className="mt-3 overflow-hidden rounded-xl border border-primary/10 bg-card">
+      <dl className="grid grid-cols-2 divide-primary/10 border-b border-primary/10 bg-accent/[0.06] sm:grid-cols-3 sm:divide-x lg:grid-cols-6">
         <Chiffre label="Déclarations à reverser">{fmtMontant(recap.declare)}</Chiffre>
         <Chiffre label="Honoraires">{fmtMontant(recap.honoraires)}</Chiffre>
         <Chiffre label="Total dû">{fmtMontant(recap.total)}</Chiffre>
@@ -69,7 +69,7 @@ export function HonoraireRecapCard({ list }: { list: HonoraireLigne[] }) {
               <col style={{ width: "14%" }} />
             </colgroup>
             <thead>
-              <tr className="border-b border-accent/25">
+              <tr className="border-b border-primary/10">
                 <th className={`${th} text-left`}>{vue === "type" ? "Type" : "Année"}</th>
                 <th className={`${th} text-right`}>Lignes</th>
                 <th className={`${th} text-right`}>Déclaré</th>
@@ -95,7 +95,7 @@ export function HonoraireRecapCard({ list }: { list: HonoraireLigne[] }) {
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-accent/40 font-bold text-primary">
+              <tr className="border-t-2 border-primary/15 font-bold text-primary">
                 <td className="px-3 py-2">Total</td>
                 <td className="px-3 py-2 text-right tabular-nums">{recap.nbLignes}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{fmtMontant(recap.declare)}</td>

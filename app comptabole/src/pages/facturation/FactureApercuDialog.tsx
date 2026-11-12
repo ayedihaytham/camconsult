@@ -47,10 +47,10 @@ export function FactureApercuDialog({ open, onOpenChange, facture, cabinet }: Pr
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* La fenêtre épouse la page : une feuille A4 (rapport 1 : 1,414) occupe la hauteur disponible, sans bandes vides de chaque côté. */}
       <DialogContent
-        className="flex h-[96vh] max-w-none flex-col gap-0 rounded-2xl border-accent/30 p-0"
+        className="flex h-[96vh] max-w-none flex-col gap-0 rounded-2xl border-primary/10 p-0"
         style={{ width: "min(96vw, calc((96vh - 9.5rem) / 1.4142 + 3rem))" }}
       >
-        <DialogHeader className="shrink-0 border-b border-accent/30 px-6 pb-3 pt-5">
+        <DialogHeader className="shrink-0 border-b border-primary/10 px-6 pb-3 pt-5">
           <DialogTitle className="font-serif text-2xl font-medium text-primary">Aperçu de la facture {facture?.numero}</DialogTitle>
           <DialogDescription>Rendu fidèle du PDF, page entière. Le filigrane « Aperçu » n'apparaît pas sur la facture générée.</DialogDescription>
         </DialogHeader>
@@ -60,14 +60,14 @@ export function FactureApercuDialog({ open, onOpenChange, facture, cabinet }: Pr
               L'aperçu n'a pas pu être préparé.
             </p>
           ) : url ? (
-            <iframe src={`${url}${PARAMETRES_APERCU}`} title="Aperçu de la facture" className="h-full w-full rounded-lg border border-accent/30 bg-card" />
+            <iframe src={`${url}${PARAMETRES_APERCU}`} title="Aperçu de la facture" className="h-full w-full rounded-lg border border-primary/10 bg-card" />
           ) : (
             <p className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> Préparation de l'aperçu…
             </p>
           )}
         </div>
-        <div className="flex shrink-0 justify-end border-t border-accent/30 px-6 py-2.5">
+        <div className="flex shrink-0 justify-end border-t border-primary/10 px-6 py-2.5">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Fermer
           </Button>

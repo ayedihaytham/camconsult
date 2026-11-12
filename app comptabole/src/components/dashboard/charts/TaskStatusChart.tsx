@@ -15,7 +15,7 @@ export function TaskStatusChart({ counts, nextDeadline }: { counts: DashboardTas
   const navigate = useNavigate();
   const total = counts.a_faire + counts.en_cours + counts.termine;
   return (
-    <aside className="min-w-0 self-start rounded-lg border border-accent/30 bg-accent/12 p-4 shadow-none">
+    <aside className="min-w-0 self-start rounded-lg border border-primary/10 bg-accent/12 p-4 shadow-none">
       <header className="flex items-start justify-between gap-3 border-b border-accent/35 pb-3">
         <div>
           <h2 className="text-base font-semibold text-primary">Avancement des tâches</h2>

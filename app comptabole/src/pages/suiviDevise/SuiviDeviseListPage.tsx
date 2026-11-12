@@ -150,9 +150,9 @@ export function SuiviDeviseListPage() {
         <section
           data-tour="devise-stock-clients"
           aria-label="Clients de la gestion de stock sans fiche"
-          className="mt-3 overflow-hidden rounded-xl border border-accent/30 bg-card"
+          className="mt-3 overflow-hidden rounded-xl border border-primary/10 bg-card"
         >
-          <header className="flex items-center gap-2 border-b border-accent/25 px-4 py-2.5">
+          <header className="flex items-center gap-2 border-b border-primary/10 px-4 py-2.5">
             <Boxes className="size-4 text-primary" aria-hidden="true" />
             <h2 className="text-[10px] font-extrabold uppercase tracking-[0.11em] text-primary">Clients de la gestion de stock</h2>
             <span className="text-[11px] text-muted-foreground">sans fiche — leurs ventes sont reprises automatiquement</span>
@@ -225,9 +225,9 @@ export function SuiviDeviseListPage() {
                 type="button"
                 aria-pressed={filtre === valeur}
                 onClick={() => setFiltre(valeur)}
-                className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded after:bg-primary" : "text-muted-foreground")}
+                className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-[3px] after:rounded after:bg-[#C9A96A]" : "text-muted-foreground")}
               >
-                <b className={cn("text-xl font-bold leading-none tabular-nums tracking-tight", n === 0 ? "text-muted-foreground/50" : ton)}>{loading ? "–" : n}</b>
+                <b className={cn("text-sm font-bold leading-none tabular-nums tracking-tight", n === 0 ? "text-muted-foreground/50" : ton)}>{loading ? "–" : n}</b>
                 {nom}
               </button>
             ))}

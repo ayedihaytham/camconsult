@@ -63,7 +63,7 @@ export function LienAccesDialog({ acces, onClose }: { acces: LienAcces | null; o
                   {ETAT_EMAIL[acces.emailEnvoi]}
                 </p>
               )}
-              <p className="flex items-start gap-2 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-[13px] text-foreground">
+              <p className="flex items-start gap-2 rounded-md border border-primary/15 bg-accent/10 px-3 py-2 text-[13px] text-foreground">
                 <Info className="mt-0.5 size-4 shrink-0 text-accent-foreground" aria-hidden="true" />
                 Ce lien ne sera plus affiché une fois cette fenêtre fermée. Pour en obtenir un autre, utilisez de nouveau « Lien d'accès ».
               </p>

@@ -92,7 +92,7 @@ export function SwiftVirementDialog({
           <Champ id="swift-banque" label="Banque" icone={Building2}>
             <Input id="swift-banque" value={banque} onChange={(e) => setBanque(e.target.value)} placeholder="Ex. BIAT" />
           </Champ>
-          <p className="flex items-start gap-2 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-[13px] text-foreground">
+          <p className="flex items-start gap-2 rounded-md border border-primary/15 bg-accent/10 px-3 py-2 text-[13px] text-foreground">
             <Send className="mt-0.5 size-4 shrink-0 text-accent-foreground" aria-hidden="true" />
             <span>
               <b>Enregistrer et envoyer</b> prévient la société par notification. Sinon le virement reste dans votre brouillon, invisible pour elle.

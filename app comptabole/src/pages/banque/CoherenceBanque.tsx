@@ -23,7 +23,7 @@ export function CoherenceBanque({ alertes, ici, sansTitre }: { alertes: AlerteCo
     );
   }
   return (
-    <section aria-label="Cohérence entre modules" className="border-t-2 border-accent/40 bg-accent/[0.07] px-5 py-4">
+    <section aria-label="Cohérence entre modules" className="border-t-2 border-primary/15 bg-accent/[0.07] px-5 py-4">
       {!sansTitre && <h3 className="mb-2 text-sm font-bold text-primary">Cohérence entre modules ({alertes.length})</h3>}
       <ul className="space-y-1.5">
         {alertes.slice(0, 50).map((a, i) => {

@@ -1,6 +1,6 @@
 // Ligne « libellé / valeur » des fiches détail (Sheet) — Fiche collaborateur,
 // Fiche société… Un seul patron visuel pour toutes les fiches de carte :
-// `<dl className="divide-y divide-accent/25 overflow-hidden rounded-xl border border-accent/30 bg-card">`
+// `<dl className="divide-y divide-primary/10 overflow-hidden rounded-xl border border-primary/10 bg-card">`
 // autour d'une ou plusieurs `DetailRow`.
 import { cn } from "@/lib/utils";
 

@@ -30,6 +30,7 @@ import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
+import { PageKpiCards } from "@/components/ledger/PageKpiCards";
 import {
   LedgerWorkSurface,
   OperationalLedgerFooter,
@@ -725,13 +726,7 @@ export function FacturationPage() {
             ? `Factures de ${societeActive.raisonSociale} : émission, échéance, paiement et facture électronique signée.`
             : "Factures d'honoraires du cabinet : émission, échéance, paiement et facture électronique signée."
         }
-        metrics={[
-          { label: portee.length > 1 ? "Factures" : "Facture", icon: FileText, value: portee.length, loading, onSelect: () => { setStatut("all"); setRetardSeul(false); setFiltreEi("all"); }, active: statut === "all" && !retardSeul && filtreEi === "all" },
-          { label: "Facturé", icon: Wallet, value: formatTnd(facture), loading },
-          { label: "Encaissé", icon: CheckCircle2, value: formatTnd(encaisse), tone: "success", loading, onSelect: () => { setStatut("payee"); setRetardSeul(false); }, active: statut === "payee" },
-          { label: "En retard", icon: AlertCircle, value: nbRetard, tone: nbRetard > 0 ? "warning" : "default", loading, onSelect: () => { setStatut("all"); setRetardSeul(true); }, active: retardSeul },
-          { label: "À traiter", icon: FileKey2, value: nbATraiter, tone: nbATraiter > 0 ? "warning" : "default", loading, onSelect: () => { setFiltreEi("traiter"); }, active: filtreEi === "traiter" },
-        ]}
+        metrics={[]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" className="signature-ledger__action" onClick={() => setCabinetOpen(true)}>
@@ -756,6 +751,14 @@ export function FacturationPage() {
         }
       />
 
+      <PageKpiCards metrics={[
+          { label: portee.length > 1 ? "Factures" : "Facture", icon: FileText, value: portee.length, loading, onSelect: () => { setStatut("all"); setRetardSeul(false); setFiltreEi("all"); }, active: statut === "all" && !retardSeul && filtreEi === "all" },
+          { label: "Facturé", icon: Wallet, value: formatTnd(facture), loading },
+          { label: "Encaissé", icon: CheckCircle2, value: formatTnd(encaisse), tone: "success", loading, onSelect: () => { setStatut("payee"); setRetardSeul(false); }, active: statut === "payee" },
+          { label: "En retard", icon: AlertCircle, value: nbRetard, tone: nbRetard > 0 ? "warning" : "default", loading, onSelect: () => { setStatut("all"); setRetardSeul(true); }, active: retardSeul },
+          { label: "À traiter", icon: FileKey2, value: nbATraiter, tone: nbATraiter > 0 ? "warning" : "default", loading, onSelect: () => { setFiltreEi("traiter"); }, active: filtreEi === "traiter" },
+      ]} />
+
       <FacturationMiseEnRoute etapes={etapes} occupe={essai} onAction={(c) => void actionEtape(c)} />
 
       <LedgerWorkSurface className="societes-ledger-surface">
@@ -770,7 +773,7 @@ export function FacturationPage() {
 
         <OperationalMobileUtility label="Recherche et filtres du registre des factures">{rechercheFiltres()}</OperationalMobileUtility>
 
-        <div role="group" aria-label="Filtres rapides" className="flex flex-wrap gap-2 border-b border-accent/25 px-3 py-2.5">
+        <div role="group" aria-label="Filtres rapides" className="flex flex-wrap gap-2 border-b border-primary/10 px-3 py-2.5">
           {pastilles.map((c) => {
             const actif = pastilleActive === c.id;
             return (

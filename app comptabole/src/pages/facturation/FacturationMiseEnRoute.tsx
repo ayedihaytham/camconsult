@@ -44,7 +44,7 @@ export function FacturationMiseEnRoute({ etapes, occupe = null, onAction }: Prop
   }
 
   return (
-    <section aria-label="Mise en route de la facture électronique" className="rounded-xl border border-accent/30 bg-card px-5 py-3.5">
+    <section aria-label="Mise en route de la facture électronique" className="rounded-xl border border-primary/10 bg-card px-5 py-3.5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex flex-wrap items-center gap-3 font-serif text-base font-bold text-primary">
           {complete && !attention ? (
@@ -79,7 +79,7 @@ export function FacturationMiseEnRoute({ etapes, occupe = null, onAction }: Prop
           {etapes.map((e) => (
             <li
               key={e.id}
-              className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2.5 gap-y-0.5 rounded-lg border border-accent/25 bg-background/60 px-3 py-2.5"
+              className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2.5 gap-y-0.5 rounded-lg border border-primary/10 bg-background/60 px-3 py-2.5"
               data-etat={e.etat}
             >
               <span

@@ -896,7 +896,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         const nom = def.plageNumeros.libelle;
         const commun = def.plageNumeros.commun;
         return (
-          <div data-tour="collecte-plage" className="space-y-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-3">
+          <div data-tour="collecte-plage" className="space-y-2 rounded-lg border border-primary/15 bg-accent/5 px-3 py-3">
             <p className="text-sm font-semibold text-foreground">Avant de saisir : les numéros de votre souche</p>
             <p className="text-xs text-muted-foreground">
               Indiquez le premier et le dernier numéro de {nom} à remplir{commun ? ` et ${commun.label.toLowerCase() === "banque" ? "la banque" : `le champ « ${commun.label} »`}` : ""} : une ligne est créée pour chaque numéro, vous n'avez plus qu'à compléter les autres cases.

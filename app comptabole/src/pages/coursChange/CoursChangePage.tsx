@@ -169,45 +169,48 @@ export function CoursChangePage() {
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">{base === "USD" && devises.length > 0 ? "Aucune devise autre que le dollar : ajoutez-en une pour saisir ses cours par rapport au dollar." : "Aucune devise. Ajoutez-en une pour saisir ses cours."}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[34rem] border-collapse text-[0.8125rem] tabular-nums">
+            <table className="w-full min-w-[64rem] border-collapse text-[0.8125rem] tabular-nums">
               <thead>
-                <tr className="bg-primary text-xs text-primary-foreground">
-                  <th scope="col" className="border-r border-primary-foreground/15 px-4 py-3 text-left font-semibold">Mois</th>
-                  {colonnes.map((d) => (
-                    <th key={d.code} scope="col" className="border-r border-primary-foreground/15 px-3 py-3 text-right font-medium last:border-r-0">
-                      <span className="inline-flex items-center justify-end gap-1.5">
-                        <span title={d.libelle} className="text-sm font-semibold">{d.code}</span>
-                        <span className="font-normal text-primary-foreground/70">{d.unite > 1 ? `(pour ${d.unite})` : ""}</span>
+                <tr className="bg-[#F7F9FC] text-[0.66rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                  <th scope="col" className="border-b border-r border-primary/10 px-4 py-3 text-left">Devise</th>
+                  {MOIS.map((nom, i) => (
+                    <th key={nom} scope="col" className={cn("border-b border-primary/10 px-2 py-3 text-right", annee === anneeCourante && i + 1 === new Date().getMonth() + 1 && "bg-[#EAF1FB] text-primary")}>
+                      {nom.slice(0, 3)}
+                    </th>
+                  ))}
+                  <th scope="col" className="border-b border-l border-primary/10 px-3 py-3 text-right">Moy. {annee}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {colonnes.map((d) => (
+                  <tr key={d.code} className="hover:bg-[#F5F8FD]">
+                    <th scope="row" className="min-w-[9rem] border-b border-r border-primary/10 px-4 py-2 text-left align-middle">
+                      <span className="flex items-center gap-1.5">
+                        <span title={d.libelle} className="font-display text-sm font-extrabold text-primary">{d.code}</span>
+                        <span className="text-xs font-normal text-muted-foreground">{d.unite > 1 ? `(pour ${d.unite})` : ""}</span>
                         {peutModifier && <button
                           type="button"
                           aria-label={`Supprimer la devise ${d.code}`}
                           onClick={() => setASupprimer(d.code)}
-                          className="rounded p-1 text-primary-foreground/60 hover:bg-primary-foreground/15 hover:text-primary-foreground"
+                          className="ml-auto rounded p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary"
                         >
                           <Trash2 className="size-3.5" />
                         </button>}
                       </span>
-                      {d.libelle && <span className="block text-xs font-normal text-primary-foreground/70">{d.libelle}</span>}
-                      <span className="mt-0.5 block text-xs font-normal text-primary-foreground/60">{cours.filter((c) => c.devise === d.code && c.annee === annee).length} / 12 mois saisis</span>
+                      {d.libelle && <span className="block text-xs font-normal text-muted-foreground">{d.libelle}</span>}
+                      <span className="block text-[0.6875rem] font-normal text-muted-foreground">{cours.filter((c) => c.devise === d.code && c.annee === annee).length} / 12 mois saisis</span>
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {MOIS.map((nom, i) => (
-                  <tr key={nom} className={cn("even:bg-muted/25 hover:bg-muted/50", annee === anneeCourante && i + 1 === new Date().getMonth() + 1 && "bg-accent/15 even:bg-accent/15")}>
-                    <th scope="row" className="h-11 border-b border-r border-border/70 px-4 py-1 text-left font-medium text-foreground">{nom}</th>
-                    {colonnes.map((d) => {
+                    {MOIS.map((nom, i) => {
                       const k = cle(d.code, i + 1);
                       const v = saisie[k] ?? "";
                       const invalide = lire(v) === "invalide";
                       return (
-                        <td key={d.code} className="border-b border-r border-border/70 p-0 last:border-r-0">
+                        <td key={nom} className={cn("border-b border-primary/10 p-0", annee === anneeCourante && i + 1 === new Date().getMonth() + 1 && "bg-[#EAF1FB]")}>
                           <Input
                             inputMode="decimal"
                             aria-label={`${d.code} ${nom} ${annee}`}
                             aria-invalid={invalide || undefined}
-                            className={cn("h-11 rounded-none border-0 bg-transparent px-4 text-right text-sm tabular-nums shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent", invalide && "bg-destructive/10 text-destructive", v !== texte(enregistres.get(k)) && !invalide && "bg-warning/10")}
+                            className={cn("h-11 min-w-[4.5rem] rounded-none border-0 bg-transparent px-2 text-right text-sm tabular-nums shadow-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent", invalide && "bg-destructive/10 text-destructive", v !== texte(enregistres.get(k)) && !invalide && "bg-warning/10")}
                             value={v}
                             readOnly={!peutModifier}
                             placeholder="—"
@@ -216,19 +219,12 @@ export function CoursChangePage() {
                         </td>
                       );
                     })}
+                    <td className="border-b border-l border-primary/10 px-3 py-2 text-right text-sm font-bold text-primary">
+                      {texte(moyenneAnnee(cours, d.code, annee)) || "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-primary bg-muted/50 text-sm font-semibold text-primary">
-                  <th scope="row" className="border-r border-border/70 px-4 py-2.5 text-left">Moyenne {annee}</th>
-                  {colonnes.map((d) => (
-                    <td key={d.code} className="border-r border-border/70 px-4 py-2.5 text-right tabular-nums last:border-r-0">
-                      {texte(moyenneAnnee(cours, d.code, annee)) || "—"}
-                    </td>
-                  ))}
-                </tr>
-              </tfoot>
             </table>
           </div>
         )}

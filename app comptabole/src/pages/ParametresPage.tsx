@@ -366,7 +366,7 @@ export function ParametresPage() {
                     autoComplete="new-password"
                   />
                 </div>
-                <div className="rounded-sm border border-accent/40 bg-accent/10 p-3.5">
+                <div className="rounded-sm border border-primary/15 bg-accent/10 p-3.5">
                   <ChampMotDePasse
                     id="param-mdp-actuel"
                     label="Mot de passe actuel · requis pour enregistrer"

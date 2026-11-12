@@ -57,7 +57,7 @@ export function ApercuFactureCabinet({ cabinet }: { cabinet: FactureCabinet }) {
 
   const echelle = largeur / LARGEUR_A4;
   return (
-    <div ref={boite} className="overflow-hidden rounded-lg border border-accent/25 bg-muted" style={{ height: HAUTEUR_A4 * echelle }}>
+    <div ref={boite} className="overflow-hidden rounded-lg border border-primary/10 bg-muted" style={{ height: HAUTEUR_A4 * echelle }}>
       <iframe
         title="Aperçu de la facture avec l'identité du cabinet"
         srcDoc={html}

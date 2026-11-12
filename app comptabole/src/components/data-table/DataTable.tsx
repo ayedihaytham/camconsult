@@ -86,7 +86,7 @@ export function DataTable<TData>({
           "hidden lg:block",
           isRegisterDesktop
             ? "overflow-visible border-y border-border/80 bg-transparent"
-            : "overflow-hidden rounded-xl border border-accent/25 bg-card",
+            : "overflow-hidden rounded-xl border border-primary/10 bg-card",
         )}
       >
         <Table

@@ -28,7 +28,7 @@ export function Rubrique({ titre, children }: { titre: string; children: ReactNo
 /** Carte de la colonne de droite. */
 export function Carte({ titre, serif = true, children, className }: { titre: string; serif?: boolean; children: ReactNode; className?: string }) {
   return (
-    <section className={cn("space-y-2.5 rounded-xl border border-accent/25 bg-card px-4 py-3.5", className)}>
+    <section className={cn("space-y-2.5 rounded-xl border border-primary/10 bg-card px-4 py-3.5", className)}>
       <h3 className={serif ? "font-serif text-[15px] font-bold text-primary" : "text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground"}>{titre}</h3>
       {children}
     </section>
@@ -90,8 +90,8 @@ interface Props {
 export function FenetreFacturation({ open, onOpenChange, titre, description, enTete, children, aside, pied }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[94vh] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-accent/30 p-0">
-        <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-accent/30 px-6 pb-4 pt-6 sm:px-8">
+      <DialogContent className="flex max-h-[94vh] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-primary/10 p-0">
+        <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-primary/10 px-6 pb-4 pt-6 sm:px-8">
           <div className="min-w-0 pr-8">
             <DialogTitle className="font-serif text-3xl font-medium text-primary">{titre}</DialogTitle>
             <DialogDescription className="mt-1 max-w-[62ch] text-sm text-muted-foreground">{description}</DialogDescription>
@@ -101,10 +101,10 @@ export function FenetreFacturation({ open, onOpenChange, titre, description, enT
 
         <div className={cn("min-h-0 flex-1 overflow-y-auto", aside && "lg:grid lg:grid-cols-[minmax(0,1fr)_21rem] lg:overflow-hidden")}>
           <div className="space-y-6 px-6 py-5 sm:px-8 lg:overflow-y-auto">{children}</div>
-          {aside && <aside className="space-y-3.5 border-t border-accent/30 bg-background/60 px-6 py-5 sm:px-8 lg:overflow-y-auto lg:border-l lg:border-t-0 lg:px-5">{aside}</aside>}
+          {aside && <aside className="space-y-3.5 border-t border-primary/10 bg-background/60 px-6 py-5 sm:px-8 lg:overflow-y-auto lg:border-l lg:border-t-0 lg:px-5">{aside}</aside>}
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-accent/30 px-6 py-4 sm:px-8">{pied}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-primary/10 px-6 py-4 sm:px-8">{pied}</div>
       </DialogContent>
     </Dialog>
   );

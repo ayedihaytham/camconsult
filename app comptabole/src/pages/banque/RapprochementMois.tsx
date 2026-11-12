@@ -55,7 +55,7 @@ export function RapprochementMois({ periode, pistes = [], devise, lectureSeule, 
   }
 
   return (
-    <section aria-label={`Rapprochement de ${libelleMois(periode.mois)}`} className="border-t-2 border-accent/40 bg-accent/[0.07] px-5 py-4" data-tour="banque-rapprochement">
+    <section aria-label={`Rapprochement de ${libelleMois(periode.mois)}`} className="border-t-2 border-primary/15 bg-accent/[0.07] px-5 py-4" data-tour="banque-rapprochement">
       <h3 className="mb-3 text-sm font-bold text-primary">Rapprochement de {libelleMois(periode.mois)}</h3>
       <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-6">
         <Chiffre libelle="Solde de départ" valeur={monnaie(periode.ouverture)} />

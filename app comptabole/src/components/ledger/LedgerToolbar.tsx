@@ -92,7 +92,7 @@ export function LedgerToolbar({
       </div>
 
       {selectedCount > 0 && (
-        <div className="flex items-center justify-between rounded-2xl border border-accent/25 bg-accent/[0.07] px-4 py-2.5 text-sm shadow-sm animate-fade-in">
+        <div className="flex items-center justify-between rounded-2xl border border-primary/10 bg-accent/[0.07] px-4 py-2.5 text-sm shadow-sm animate-fade-in">
           <span className="font-semibold text-foreground">
             {selectedCount} ligne{selectedCount > 1 ? "s" : ""} sélectionnée
             {selectedCount > 1 ? "s" : ""}

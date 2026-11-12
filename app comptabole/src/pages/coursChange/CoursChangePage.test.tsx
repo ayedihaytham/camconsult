@@ -45,13 +45,13 @@ afterEach(cleanup);
 const rendre = () => render(<MemoryRouter><CoursChangePage /></MemoryRouter>);
 
 describe("page Cours de change", () => {
-  it("affiche les mois en lignes et les devises en colonnes pour l'année choisie", () => {
+  it("affiche les devises en lignes et les mois en colonnes pour l'année choisie", () => {
     rendre();
-    expect(screen.getByRole("columnheader", { name: /EUR/ })).toBeTruthy();
-    expect(screen.getByRole("columnheader", { name: /USD/ })).toBeTruthy();
+    expect(screen.getByRole("rowheader", { name: /EUR/ })).toBeTruthy();
+    expect(screen.getByRole("rowheader", { name: /USD/ })).toBeTruthy();
     expect((screen.getByLabelText(`EUR Janvier ${annee}`) as HTMLInputElement).value).toBe("3,3167");
     expect((screen.getByLabelText(`USD Février ${annee}`) as HTMLInputElement).value).toBe("");
-    expect(screen.getAllByRole("rowheader").map((r) => r.textContent).slice(0, 3)).toEqual(["Janvier", "Février", "Mars"]);
+    expect(screen.getAllByRole("columnheader").map((c) => c.textContent).slice(1, 4)).toEqual(["Jan", "Fév", "Mar"]);
   });
 
   it("change d'année et en liste les années déjà renseignées", () => {

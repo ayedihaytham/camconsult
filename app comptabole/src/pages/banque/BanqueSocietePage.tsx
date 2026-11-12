@@ -254,7 +254,7 @@ export function BanqueSocietePage() {
       {!aCharge ? (
         <SqueletteBanque />
       ) : !compte ? (
-        <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-accent/30 bg-card px-4 py-14 text-center">
+        <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-primary/10 bg-card px-4 py-14 text-center">
           <span className="grid size-[70px] place-items-center rounded-full bg-accent/15 text-primary">
             <Wallet className="size-7" aria-hidden="true" />
           </span>
@@ -264,8 +264,8 @@ export function BanqueSocietePage() {
           </p>
         </div>
       ) : (
-        <div className={cn("mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card transition-opacity", majEnCours && "opacity-70")}>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-accent/25 px-5 py-3">
+        <div className={cn("mt-4 overflow-hidden rounded-xl border border-primary/10 bg-card transition-opacity", majEnCours && "opacity-70")}>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary/10 px-5 py-3">
             <div className="flex flex-wrap items-center gap-3">
               <LedgerSegmented
                 value={compte.id}
@@ -382,7 +382,7 @@ export function BanqueSocietePage() {
           )}
 
           {controle && mois === "tous" && (
-            <dl className="grid gap-x-6 gap-y-2 border-t-2 border-accent/40 bg-accent/[0.07] px-5 py-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
+            <dl className="grid gap-x-6 gap-y-2 border-t-2 border-primary/15 bg-accent/[0.07] px-5 py-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
               <Cle label="Solde de départ" valeur={`${fmtMontant(compte.soldeDepart)} ${compte.devise}`} />
               <Cle label={vueSociete ? "Total débit société" : "Total débit"} valeur={fmtMontant(vueSociete ? sommes.credit : sommes.debit)} />
               <Cle label={vueSociete ? "Total crédit société" : "Total crédit"} valeur={fmtMontant(vueSociete ? sommes.debit : sommes.credit)} />
@@ -522,8 +522,8 @@ function Cle({ label, valeur, fort = false, alerte = false }: { label: string; v
 /** Premier chargement : la page garde sa forme (barre d'outils, tableau) pour que rien ne saute à l'arrivée des données. */
 function SqueletteBanque() {
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-accent/30 bg-card">
-      <div className="flex flex-wrap items-center gap-3 border-b border-accent/25 px-5 py-3" aria-hidden="true">
+    <div className="mt-4 overflow-hidden rounded-xl border border-primary/10 bg-card">
+      <div className="flex flex-wrap items-center gap-3 border-b border-primary/10 px-5 py-3" aria-hidden="true">
         <SqueletteOr className="h-7 w-24 rounded-full" />
         <SqueletteOr className="h-7 w-20 rounded-full" />
         <SqueletteOr className="ml-auto h-9 w-44 rounded-md" />

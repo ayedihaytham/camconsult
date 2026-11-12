@@ -21,7 +21,7 @@ const th = "whitespace-nowrap px-2 py-2.5 text-left text-[0.62rem] font-bold upp
 const thNum = `${th} text-right`;
 const td = "whitespace-nowrap px-2 py-2 align-middle";
 const tdNum = `${td} text-right tabular-nums`;
-const groupe = "border-l border-accent/30";
+const groupe = "border-l border-primary/10";
 
 const montant = (n: number) => (n ? fmtMontant(n) : "—");
 
@@ -32,13 +32,13 @@ export function FournisseurEtatTable({ lignes, factures, lectureSeule, onEditReg
     <div className="overflow-x-auto" data-tour="fournisseurs-etat">
       <table className="w-full min-w-[78rem] border-collapse text-xs">
         <thead>
-          <tr className="border-y border-accent/25 bg-accent/[0.07]">
+          <tr className="border-y border-primary/10 bg-accent/[0.07]">
             <th colSpan={8} className={`${th} text-primary`}>Facture d'achat</th>
             <th colSpan={7} className={`${th} ${groupe} text-primary`}>Règlement</th>
             <th colSpan={2} className={`${th} ${groupe} text-primary`}>Liens</th>
             <th colSpan={2} className={`${th} ${groupe} text-primary`}>Suivi</th>
           </tr>
-          <tr className="border-b border-accent/25 bg-accent/[0.04]">
+          <tr className="border-b border-primary/10 bg-accent/[0.04]">
             <th className={th}>N° facture</th>
             <th className={th}>Date</th>
             <th className={thNum}>Qté</th>

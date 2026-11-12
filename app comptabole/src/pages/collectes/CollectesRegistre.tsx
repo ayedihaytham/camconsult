@@ -109,7 +109,7 @@ export function CollectesRegistre({ collectes, socNom, onDelete }: {
           {toutOuvert ? "Tout replier" : "Tout déplier"}
         </Button>
       </div>
-      <div aria-hidden="true" className={cn("hidden border-b border-accent/25 bg-accent/[0.07] px-4 py-1.5 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground lg:grid lg:gap-x-3", GRILLE)}>
+      <div aria-hidden="true" className={cn("hidden border-b border-primary/10 bg-accent/[0.07] px-4 py-1.5 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-muted-foreground lg:grid lg:gap-x-3", GRILLE)}>
         <span>Société / période</span>
         <span>Statut</span>
         <span>Avancement</span>

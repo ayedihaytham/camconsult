@@ -16,7 +16,7 @@ export function LedgerSheet({
     <div
       {...props}
       className={cn(
-        "overflow-hidden rounded-2xl border border-border bg-card shadow-card",
+        "overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]",
         className,
       )}
     >
@@ -33,8 +33,8 @@ export function LedgerSheetHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border px-[18px] py-3.5">
-      <h2 className="text-[0.86rem] font-bold text-foreground">{title}</h2>
+    <div className="flex items-baseline justify-between gap-3 border-b border-primary/10 px-[18px] py-3.5">
+      <h2 className="font-display text-[0.95rem] font-extrabold text-primary">{title}</h2>
       {action}
     </div>
   );
@@ -51,7 +51,7 @@ export function LedgerSheetLink({
     <button
       type="button"
       onClick={onClick}
-      className="text-xs font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground hover:underline"
+      className="text-xs font-bold text-primary underline underline-offset-2 transition-colors hover:text-primary/80"
     >
       {children}
     </button>

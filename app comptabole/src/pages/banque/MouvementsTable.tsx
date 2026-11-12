@@ -51,7 +51,7 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
     <div className="overflow-x-auto" data-tour="banque-mouvements">
       <table className="w-full min-w-[64rem] border-collapse text-xs">
         <thead>
-          <tr className="border-y border-accent/25 bg-accent/[0.07]">
+          <tr className="border-y border-primary/10 bg-accent/[0.07]">
             <th className={th}>Date op.</th>
             <th className={th}>Valeur</th>
             <th className={th}>Description</th>
@@ -119,7 +119,7 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                     <button
                       type="button"
                       onClick={() => onRapprocher(m)}
-                      className="rounded-md border border-accent/40 px-2 py-0.5 text-[0.7rem] font-medium text-primary hover:bg-accent/10"
+                      className="rounded-md border border-primary/15 px-2 py-0.5 text-[0.7rem] font-medium text-primary hover:bg-accent/10"
                     >
                       Créer le règlement
                     </button>
@@ -140,7 +140,7 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                     <button
                       type="button"
                       onClick={() => onRapprocherClient(m)}
-                      className="rounded-md border border-accent/40 px-2 py-0.5 text-[0.7rem] font-medium text-primary hover:bg-accent/10"
+                      className="rounded-md border border-primary/15 px-2 py-0.5 text-[0.7rem] font-medium text-primary hover:bg-accent/10"
                     >
                       Règlement client
                     </button>
@@ -175,7 +175,7 @@ export function MouvementsTable({ societeId, mouvements, soldes, vueSociete, lec
                       </button>
                     );
                   })() : m.credit > 0 && m.type === "encaissement_client" && devise && devise !== "TND" && onConvertir && !lectureSeule ? (
-                    <button type="button" onClick={() => onConvertir(m)} className="rounded-md border border-border px-2 py-0.5 text-[0.7rem] font-medium text-muted-foreground hover:border-accent/40 hover:bg-accent/10 hover:text-primary">
+                    <button type="button" onClick={() => onConvertir(m)} className="rounded-md border border-border px-2 py-0.5 text-[0.7rem] font-medium text-muted-foreground hover:border-primary/15 hover:bg-accent/10 hover:text-primary">
                       Relier au change
                     </button>
                   ) : null}

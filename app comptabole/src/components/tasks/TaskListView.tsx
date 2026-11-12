@@ -83,11 +83,11 @@ export function TaskListView({
                 <article
                   key={task.id}
                   className={cn(
-                    "task-ledger-row mx-3 mt-2 grid min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,.95fr)_auto_auto] items-center gap-3 rounded-xl border border-primary/10 bg-card px-4 py-3 shadow-[0_1px_2px_hsl(var(--primary)/0.05)] transition-colors hover:bg-[#F5F8FD]",
+                    "task-ledger-row mx-3 mt-2 grid min-w-0 grid-cols-2 items-center gap-x-3 gap-y-2 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,.95fr)_auto_auto] rounded-xl border border-primary/10 bg-card px-4 py-3 shadow-[0_1px_2px_hsl(var(--primary)/0.05)] transition-colors hover:bg-[#F5F8FD]",
                     actions.pendingTaskIds.has(task.id) && "opacity-70",
                   )}
                 >
-                  <div className="min-w-0">
+                  <div className="col-span-2 min-w-0 md:col-span-1">
                     <p className="truncate text-sm font-bold leading-5 text-primary" title={task.titre}>{task.titre}</p>
                     {task.description && <p className="mt-0.5 truncate text-xs leading-4 text-muted-foreground" title={task.description}>{task.description}</p>}
                   </div>

@@ -30,7 +30,7 @@
 
 ### `societe_employe`
 
-- Product scope, for now: the sidebar only offers Dashboard and Collecte de pièces
+- Product scope: the sidebar offers Dashboard, Messagerie, Collecte de pièces, Structuration, Souche (`/ma-souche`), État SWIFT and, read-only on its own society, Honoraires (État client), Suivi fournisseur and Suivi bancaire
   (`visibleNavigation({ espaceCollecteSeul })`), and `DataBoundary` redirects any
   other address to `/collectes` (`cheminAutoriseClient`). This is a UI scope; backend
   authorization is unchanged. Inside a collecte the client sees only the Récap and the

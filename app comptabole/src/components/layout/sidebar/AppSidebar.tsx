@@ -45,7 +45,8 @@ function SidebarUtilisateur() {
 function SidebarDossier() {
   const societe = useSocieteActive();
   const choisir = useSocieteActiveStore((s) => s.setSocieteId);
-  if (!societe) return null;
+  const client = usePermissions().poste === "societe_employe";
+  if (!societe || client) return null;
   const initiales = societe.raisonSociale.split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0]?.toUpperCase()).join("");
   return (
     <div className="signature-sidebar__dossier shrink-0 px-3 pb-1 pt-2 group-data-[collapsible=icon]:hidden">

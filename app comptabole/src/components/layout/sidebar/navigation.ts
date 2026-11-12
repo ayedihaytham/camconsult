@@ -135,7 +135,7 @@ export const NAV_GROUPS: NavGroup[] = [
 export function cheminAutoriseClient(pathname: string): boolean {
   return (
     pathname === "/" ||
-    ["/collectes", "/structuration", "/messagerie", "/etat-swift", "/ma-souche"].some((base) => pathname === base || pathname.startsWith(`${base}/`))
+    ["/collectes", "/structuration", "/messagerie", "/etat-swift", "/ma-souche", "/fournisseurs", "/banque", "/honoraires"].some((base) => pathname === base || pathname.startsWith(`${base}/`))
   );
 }
 
@@ -159,7 +159,7 @@ export function visibleNavigation({
     ...group,
     items: group.items
       .filter((item) => {
-        if (espaceCollecteSeul) return Boolean(item.to) && cheminAutoriseClient(item.to!) && !item.adminOnly && (!item.perm || can(item.perm));
+        if (espaceCollecteSeul) return Boolean(item.to) && cheminAutoriseClient(item.to!) && (!item.adminOnly || Boolean(item.responsableSocieteOk)) && (!item.perm || can(item.perm));
         if (
           item.adminOnly &&
           !isAdmin &&

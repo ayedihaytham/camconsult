@@ -390,9 +390,7 @@ export function MessageriePage() {
       const memberCount = conversation.membreIds?.length ?? 0;
       const directContext = isAdmin
         ? [employee?.type, societe?.raisonSociale].filter(Boolean).join(" · ")
-        : ["Responsable du cabinet", societe?.raisonSociale]
-            .filter(Boolean)
-            .join(" · ");
+        : "Responsable du cabinet";
 
       return {
         id: conversation.id,
@@ -403,7 +401,7 @@ export function MessageriePage() {
         lastMessage: conversation.dernierMessage,
         lastMessageTime: formatTime(conversation.dernierMessageLe),
         hasMessages: avecMessages.has(conversation.id),
-        groupe: societe?.raisonSociale ?? (isConversationGroup ? "Groupes" : "Cabinet"),
+        groupe: !isAdmin && !isConversationGroup ? "Cabinet" : (societe?.raisonSociale ?? (isConversationGroup ? "Groupes" : "Cabinet")),
         unread: conversation.nonLus,
         initials: partnerInitials(conversation, employee),
         isGroup: isConversationGroup,

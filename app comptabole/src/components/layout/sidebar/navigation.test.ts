@@ -276,11 +276,11 @@ describe("sidebar indicators", () => {
 });
 
 describe("espace du compte de société cliente", () => {
-  it("ne garde que le Dashboard, la Collecte de pièces, l'État SWIFT, la Structuration et la Messagerie", () => {
+  it("ne garde que le Dashboard, la Collecte, la Structuration, la Messagerie, la Souche, l'État SWIFT et, en lecture, Honoraires, Fournisseurs et Banque", () => {
     const routes = destinations(
       visibleNavigation({ isAdmin: false, lectureSeule: true, can: allowAll, isResponsableSociete: true, espaceCollecteSeul: true }),
     );
-    expect(routes).toEqual(["/", "/messagerie", "/collectes", "/structuration", "/ma-souche", "/etat-swift"]);
+    expect(routes).toEqual(["/", "/messagerie", "/collectes", "/structuration", "/honoraires", "/fournisseurs", "/banque", "/ma-souche", "/etat-swift"]);
   });
 
   it("n'y change rien pour le cabinet", () => {
@@ -290,8 +290,8 @@ describe("espace du compte de société cliente", () => {
   });
 
   it("n'autorise que ces quatre espaces comme adresses", () => {
-    for (const ok of ["/", "/collectes", "/collectes/abc-123", "/structuration", "/messagerie", "/etat-swift", "/etat-swift/s1", "/ma-souche"]) expect(cheminAutoriseClient(ok)).toBe(true);
-    for (const non of ["/taches", "/fournisseurs", "/banque/s1", "/honoraires", "/parametres", "/collectes-autre"]) {
+    for (const ok of ["/", "/collectes", "/collectes/abc-123", "/structuration", "/messagerie", "/etat-swift", "/etat-swift/s1", "/ma-souche", "/fournisseurs/s1", "/banque/s1", "/honoraires"]) expect(cheminAutoriseClient(ok)).toBe(true);
+    for (const non of ["/taches", "/stock", "/parametres", "/collectes-autre"]) {
       expect(cheminAutoriseClient(non)).toBe(false);
     }
   });

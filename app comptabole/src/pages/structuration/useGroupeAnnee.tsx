@@ -74,25 +74,27 @@ export function SelecteursSocieteAnnee({ groupes, groupe, onGroupe, annees, anne
   droite?: ReactNode;
 }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2.5">
-      <span className="text-sm text-muted-foreground">Société</span>
-      <Select value={groupe?.cle} onValueChange={onGroupe}>
-        <SelectTrigger className="h-9 w-64" aria-label="Organigramme de la société">
-          <SelectValue placeholder="Aucune arborescence" />
-        </SelectTrigger>
-        <SelectContent>
-          {groupes.map((g) => (
-            <SelectItem key={g.cle} value={g.cle}>
-              {g.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="flex shrink-0 flex-wrap items-end gap-4 px-0 py-3">
+      <div className="grid gap-1.5">
+        <span className="text-xs font-semibold text-muted-foreground">Société</span>
+        <Select value={groupe?.cle} onValueChange={onGroupe}>
+          <SelectTrigger className="h-10 w-64 rounded-[10px] bg-card" aria-label="Organigramme de la société">
+            <SelectValue placeholder="Aucune arborescence" />
+          </SelectTrigger>
+          <SelectContent>
+            {groupes.map((g) => (
+              <SelectItem key={g.cle} value={g.cle}>
+                {g.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       {annees.length > 0 && (
-        <>
-          <span className="text-sm text-muted-foreground">Année</span>
+        <div className="grid gap-1.5">
+          <span className="text-xs font-semibold text-muted-foreground">Année</span>
           <Select value={String(annee)} onValueChange={(v) => onAnnee(Number(v))}>
-            <SelectTrigger className="h-9 w-28" aria-label="Année de l'organigramme">
+            <SelectTrigger className="h-10 w-40 rounded-[10px] bg-card" aria-label="Année de l'organigramme">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -103,7 +105,7 @@ export function SelecteursSocieteAnnee({ groupes, groupe, onGroupe, annees, anne
               ))}
             </SelectContent>
           </Select>
-        </>
+        </div>
       )}
       {droite && <div className="ml-auto flex flex-wrap items-center gap-2">{droite}</div>}
     </div>

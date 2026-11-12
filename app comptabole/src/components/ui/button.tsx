@@ -15,16 +15,16 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "border border-input bg-background hover:border-accent/60 hover:bg-secondary hover:text-secondary-foreground",
+          "border border-primary/25 bg-card font-semibold text-primary hover:bg-[#F5F8FD] hover:text-primary",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/70",
         ghost: "hover:bg-secondary hover:text-secondary-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         // CTA principale de l'app — or sur marine (identité CAMCONSULT).
         ledger:
-          "bg-accent text-xs font-bold uppercase tracking-wide text-accent-foreground hover:bg-accent/85",
+          "bg-accent text-[13px] font-bold text-accent-foreground hover:bg-accent/85",
         "ledger-text":
-          "h-auto rounded-sm bg-transparent p-0 text-xs font-bold uppercase tracking-wide text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground active:scale-100",
+          "h-auto rounded-sm bg-transparent p-0 text-xs font-bold text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground active:scale-100",
       },
       size: {
         default: "h-9 px-4 py-2",

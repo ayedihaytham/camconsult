@@ -89,8 +89,9 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
   );
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <SelecteursSocieteAnnee groupes={groupes} groupe={groupe} onGroupe={setChoix} annees={annees} annee={annee} onAnnee={setAnneeChoix} droite={<>{champRecherche}{actions}</>} />
+    <div>
+      <SelecteursSocieteAnnee groupes={groupes} groupe={groupe} onGroupe={setChoix} annees={annees} annee={annee} onAnnee={setAnneeChoix} droite={actions} />
+      <div className="overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]">
 
       {armoires.length > 1 && (
         <div role="tablist" aria-label="Armoires de la société" className="flex flex-wrap gap-2 border-b border-border/80 px-3 py-2.5">
@@ -126,11 +127,19 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
         const choisi = tiroirs.find((t) => t.dossier.id === ouvertId) ?? tiroirs.find((t) => t.fichiers.length > 0) ?? tiroirs[0] ?? null;
         return (
           <section key={annuel.id} aria-label={`Armoire ${annuel.libelle}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-3 pt-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Armoire</p>
+                <h2 className="font-display text-xl font-extrabold leading-tight text-primary">{annuel.libelle}</h2>
+                <p className="text-xs text-muted-foreground">{pluriel(tiroirs.length, "tiroir")} · {pluriel(total, "fichier")}</p>
+              </div>
+              {champRecherche}
+            </div>
             {tiroirs.length === 0 ? (
               <p className="px-4 py-6 text-sm text-muted-foreground">Aucun tiroir : ajoutez des dossiers à ce dossier d'année.</p>
             ) : (
               <>
-                <div role="tablist" aria-label={`Tiroirs de ${annuel.libelle}`} className="flex gap-0.5 overflow-x-auto border-b border-border bg-muted/60 px-3 [scrollbar-width:thin]" data-testid="structuration-onglets">
+                <div role="tablist" aria-label={`Tiroirs de ${annuel.libelle}`} className="flex gap-0.5 overflow-x-auto border-y border-primary/10 bg-[#F4F7FB] px-3 pt-2 [scrollbar-width:thin]" data-testid="structuration-onglets">
                   {tiroirs.map(({ dossier, fichiers }) => {
                     const k = fichiers.length;
                     const trouve = q !== "" && fichiers.some((f) => f.fichier.libelle.toLowerCase().includes(q));
@@ -159,7 +168,7 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
                         }}
                         className={cn(
                           "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3.5 py-2.5 text-[0.8125rem] uppercase tracking-[0.06em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                          actif ? "bg-card font-bold text-primary shadow-[inset_0_2px_0_hsl(var(--accent))]" : "text-muted-foreground hover:text-primary",
+                          actif ? "bg-card font-bold text-primary shadow-[0_-1px_0_hsl(var(--primary)/0.1)]" : "text-muted-foreground hover:text-primary",
                           trouve && "ring-2 ring-inset ring-accent",
                           q !== "" && !trouve && "opacity-40",
                           survol === dossier.id && "bg-accent/25",
@@ -264,23 +273,24 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
                           <div className="overflow-x-auto">
                             <table className="w-full border-collapse text-sm">
                               <thead>
-                                <tr className="bg-accent/[0.07]">
+                                <tr className="bg-[#F7F9FC]">
                                   {triable("nom", "Nom")}
                                   <th className="hidden px-4 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.1em] text-muted-foreground sm:table-cell">Dossier</th>
                                   <th className="hidden px-4 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-[0.1em] text-muted-foreground sm:table-cell">Taille</th>
                                   {triable("date", "Déposé le")}
+                                  <th className="w-20 px-4 py-2.5" aria-label="Actions" />
                                 </tr>
                               </thead>
                               <tbody>
                                 {visibles.map(({ fichier, sous }) => {
                                   const nom = (
                                     <span className="flex min-w-0 items-center gap-2.5">
-                                      <span aria-hidden="true" className="grid h-8 w-7 flex-none place-items-center rounded-[4px_9px_4px_4px] border border-primary/15 bg-primary/[0.08] text-[8.5px] font-bold uppercase text-primary">{(fichier.format ?? "").slice(0, 4) || "—"}</span>
+                                      <span aria-hidden="true" className="grid h-8 w-7 flex-none place-items-center rounded-lg border border-primary/15 bg-[#F4F7FB] text-[8.5px] font-bold uppercase text-primary">{(fichier.format ?? "").slice(0, 4) || "—"}</span>
                                       <span className="min-w-0 truncate font-semibold" title={fichier.libelle}>{fichier.libelle}</span>
                                     </span>
                                   );
                                   return (
-                                    <tr key={fichier.id} className="border-t border-border/70 hover:bg-accent/[0.08]">
+                                    <tr key={fichier.id} className="border-t border-primary/10 hover:bg-[#F5F8FD]">
                                       <td className="max-w-0 px-4 py-2 sm:max-w-[28rem]">
                                         {onPreview ? (
                                           <button type="button" className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => onPreview(fichier)} aria-label={`Aperçu de ${fichier.libelle}`}>{nom}</button>
@@ -291,6 +301,7 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
                                       <td className="hidden max-w-[14rem] truncate px-4 py-2 text-muted-foreground sm:table-cell" title={sous?.libelle}>{sous?.libelle ?? "—"}</td>
                                       <td className="hidden whitespace-nowrap px-4 py-2 tabular-nums sm:table-cell">{fichier.taille ?? "—"}</td>
                                       <td className="whitespace-nowrap px-4 py-2 tabular-nums">{formatDate(fichier.majLe)}</td>
+                                      <td className="whitespace-nowrap px-4 py-2 text-right">{onPreview && <button type="button" onClick={() => onPreview(fichier)} className="text-xs font-bold text-primary underline underline-offset-2" aria-label={`Ouvrir l'aperçu de ${fichier.libelle}`}>Aperçu</button>}</td>
                                     </tr>
                                   );
                                 })}
@@ -301,10 +312,10 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
                             <span aria-live="polite">{debut + 1}–{Math.min(debut + PAGE, liste.length)} sur {liste.length}</span>
                             {liste.length > PAGE && (
                               <span className="flex items-center gap-1.5">
-                                <Button type="button" variant="outline" size="sm" disabled={page === 0} onClick={() => setPageEtat({ cle: cleListe, n: page - 1 })}>
+                                <Button type="button" variant="outline" size="sm" className="rounded-full border-primary/30 font-bold" disabled={page === 0} onClick={() => setPageEtat({ cle: cleListe, n: page - 1 })}>
                                   <ChevronLeft className="size-4" aria-hidden="true" /> Précédent
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" disabled={debut + PAGE >= liste.length} onClick={() => setPageEtat({ cle: cleListe, n: page + 1 })}>
+                                <Button type="button" variant="outline" size="sm" className="rounded-full border-primary/30 font-bold" disabled={debut + PAGE >= liste.length} onClick={() => setPageEtat({ cle: cleListe, n: page + 1 })}>
                                   Suivant <ChevronRight className="size-4" aria-hidden="true" />
                                 </Button>
                               </span>
@@ -325,6 +336,7 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
           {sansArborescence ? "La société active n'a pas encore d'arborescence : choisissez une autre société ou créez-en une." : "Aucun dossier pour cette année."}
         </p>
       )}
+      </div>
     </div>
   );
 }

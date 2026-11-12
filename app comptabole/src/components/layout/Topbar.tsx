@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, CheckCheck, ChevronRight, LogOut, MonitorOff, MonitorSmartphone, Settings, ShieldCheck } from "lucide-react";
+import { Bell, Keyboard, LogOut, MonitorOff, ShieldCheck, ShieldHalf, User } from "lucide-react";
+import { useUi } from "@/store/ui";
 import { toast } from "sonner";
 import { cn, formatRelative, toTitleCase } from "@/lib/utils";
 import { DossierTabs } from "./DossierTabs";
@@ -20,7 +21,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -49,9 +49,7 @@ export function Topbar() {
   }
 
   const libelleRole = isAdmin ? "Administrateur" : role;
-  const rangee = "group gap-3 rounded-xl px-2.5 py-2 text-sm font-medium focus:bg-muted focus:text-foreground";
-  const tuile = "grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-primary";
-  const fleche = <ChevronRight className="ml-auto size-4 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />;
+  const rangee = "gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-primary focus:bg-[#F5F8FD] focus:text-primary";
 
   return (
     <header className="sticky top-0 z-30 bg-sidebar text-sidebar-foreground no-print">
@@ -86,47 +84,43 @@ export function Topbar() {
                 <span aria-hidden="true" className="absolute -bottom-px -right-px size-2.5 rounded-full border-2 border-sidebar bg-success" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={12} className="topbar-account-menu w-[21rem] max-w-[calc(100vw-1rem)] rounded-2xl border-border/70 p-0 shadow-pop">
+            <DropdownMenuContent align="end" sideOffset={12} className="topbar-account-menu w-[21rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border-primary/10 p-0 shadow-pop">
               <div className="flex items-center gap-3.5 p-4">
-                <span className="relative grid size-11 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-primary">
-                  {initiales}
-                  <span aria-hidden="true" className="absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-card bg-success" />
-                </span>
+                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-primary">{initiales}</span>
                 <div className="min-w-0">
-                  <p className="truncate text-[0.95rem] font-semibold text-foreground">{nom}</p>
-                  {libelleRole && (
-                    <p className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-primary">
-                      <ShieldCheck className="size-3 shrink-0 text-accent" aria-hidden="true" />
-                      <span className="truncate">{libelleRole}</span>
-                    </p>
-                  )}
+                  <p className="truncate font-display text-[1rem] font-extrabold text-primary">{nom}</p>
+                  {libelleRole && <p className="truncate text-xs text-muted-foreground">{libelleRole} · Cabinet Ayadi Mohamed</p>}
                 </div>
               </div>
-              <DropdownMenuSeparator className="mx-3.5 my-0" />
-              <div className="p-1.5">
+              <div className="mx-4 mb-3 flex items-start gap-2.5 rounded-xl bg-[#E8F4EC] px-3 py-2.5 text-[#1D5D41]">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <div className="text-[13px] font-bold leading-4">Session sécurisée<span className="block text-xs font-normal text-[#2F6F52]">Cet appareil, connecté en ce moment</span></div>
+              </div>
+              <div className="px-2 pb-2">
                 {isAdmin && (
                   <DropdownMenuItem className={rangee} onClick={() => navigate("/parametres")}>
-                    <span className={tuile}><Settings className="size-[17px]" /></span>
-                    Paramètres
-                    {fleche}
+                    <User className="size-[17px] text-muted-foreground" aria-hidden="true" />
+                    Mon profil
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem className={rangee} onClick={() => setAppareilsOpen(true)}>
-                  <span className={tuile}><MonitorSmartphone className="size-[17px]" /></span>
-                  Mes appareils connectés
-                  {fleche}
+                  <ShieldHalf className="size-[17px] text-muted-foreground" aria-hidden="true" />
+                  Sécurité et appareils
                 </DropdownMenuItem>
                 <DropdownMenuItem className={rangee} onClick={() => setAutresOpen(true)}>
-                  <span className={tuile}><MonitorOff className="size-[17px]" /></span>
+                  <MonitorOff className="size-[17px] text-muted-foreground" aria-hidden="true" />
                   Déconnecter mes autres appareils
-                  {fleche}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className="mx-2 my-1.5" />
-                <DropdownMenuItem className="group gap-3 rounded-xl px-2.5 py-2 text-sm font-medium text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={handleLogout}>
-                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-destructive/10 text-destructive"><LogOut className="size-[17px]" /></span>
-                  Se déconnecter
+                <DropdownMenuItem className={rangee} onClick={() => useUi.getState().setPaletteOpen(true)}>
+                  <Keyboard className="size-[17px] text-muted-foreground" aria-hidden="true" />
+                  Raccourcis et recherche
+                  <kbd className="ml-auto rounded border border-primary/15 px-1.5 text-[10.5px] font-semibold text-muted-foreground">Ctrl K</kbd>
                 </DropdownMenuItem>
               </div>
+              <DropdownMenuItem className="gap-3 rounded-none border-t border-primary/10 bg-[#FBF9F3] px-4 py-3.5 text-sm font-bold text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={handleLogout}>
+                <LogOut className="size-[17px]" aria-hidden="true" />
+                Se déconnecter
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -182,7 +176,8 @@ function NotificationBell() {
   }, [refresh]);
 
   const unread = notifications.filter((n) => !n.lu).length;
-  const recent = notifications.slice(0, 10);
+  const [filtre, setFiltre] = useState<"toutes" | "non_lues">("toutes");
+  const recent = (filtre === "non_lues" ? notifications.filter((n) => !n.lu) : notifications).slice(0, 10);
 
   return (
     <DropdownMenu>
@@ -200,28 +195,35 @@ function NotificationBell() {
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={12} className="w-[24rem] max-w-[calc(100vw-1rem)] rounded-2xl p-0 shadow-pop">
-        <div className="flex items-start justify-between gap-3 px-4 pb-2.5 pt-4">
-          <div>
-            <DropdownMenuLabel className="p-0 text-[0.95rem] font-semibold normal-case tracking-normal text-foreground">Notifications</DropdownMenuLabel>
-            <p className="mt-0.5 text-xs text-muted-foreground">{unread > 0 ? `${unread} non lue${unread > 1 ? "s" : ""}` : "Tout est lu"}</p>
-          </div>
+      <DropdownMenuContent align="end" sideOffset={12} className="w-[26rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border-primary/10 p-0 shadow-pop">
+        <div className="flex items-baseline justify-between gap-3 px-5 pb-3 pt-4">
+          <DropdownMenuLabel className="p-0 font-display text-xl font-extrabold normal-case tracking-normal text-primary">Notifications</DropdownMenuLabel>
           {unread > 0 && (
-            <button
-              onClick={() => markRead()}
-              className="-mr-1 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-primary transition-colors hover:bg-muted"
-            >
-              <CheckCheck className="size-3.5 text-accent" aria-hidden="true" />
-              Tout marquer lu
+            <button onClick={() => markRead()} className="text-xs font-bold text-primary underline underline-offset-2 hover:text-primary/80">
+              Tout marquer comme lu
             </button>
           )}
         </div>
+        <div className="mx-5 mb-3 inline-flex rounded-xl bg-[#F4F7FB] p-1" role="group" aria-label="Filtrer les notifications">
+          {([["toutes", "Toutes"], ["non_lues", "Non lues"]] as const).map(([valeur, libelle]) => (
+            <button
+              key={valeur}
+              type="button"
+              aria-pressed={filtre === valeur}
+              onClick={() => setFiltre(valeur)}
+              className={cn("inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors", filtre === valeur && "bg-card text-primary shadow-sm")}
+            >
+              {libelle}
+              {valeur === "non_lues" && unread > 0 && <span className="rounded-full bg-[#2A6DBF] px-1.5 text-[11px] font-bold text-white">{unread}</span>}
+            </button>
+          ))}
+        </div>
         {recent.length === 0 && (
           <p className="px-3 pb-6 pt-3 text-center text-sm text-muted-foreground">
-            Aucune notification.
+            {filtre === "non_lues" ? "Aucune notification non lue." : "Aucune notification."}
           </p>
         )}
-        <div className="max-h-[22rem] overflow-y-auto px-1.5 pb-1.5">
+        <div className="max-h-[24rem] overflow-y-auto px-2 pb-2">
           {recent.map((n) => {
             const { icone: Icone, tuile } = visuelNotification(n.type, n.lien);
             return (
@@ -232,22 +234,26 @@ function NotificationBell() {
                   navigate(n.lien || "/taches");
                 }}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted",
-                  !n.lu && "bg-accent/10",
+                  "flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#F5F8FD]",
+                  !n.lu && "bg-[#F0F5FC]",
                 )}
               >
-                <span className={cn("grid size-9 shrink-0 place-items-center rounded-[10px]", tuile)} aria-hidden="true">
-                  <Icone className="size-[17px]" />
+                <span className={cn("grid size-10 shrink-0 place-items-center rounded-full", tuile)} aria-hidden="true">
+                  <Icone className="size-[18px]" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={cn("line-clamp-2 block text-[0.84rem] leading-snug text-foreground", n.lu ? "font-medium" : "font-semibold")}>{n.titre}</span>
-                  {n.corps && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{n.corps}</span>}
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">{formatRelative(n.creeLe)}</span>
+                  <span className={cn("block text-[0.9rem] leading-snug text-primary", n.lu ? "font-semibold" : "font-bold")}>{n.titre}</span>
+                  {n.corps && <span className="mt-0.5 block text-[13px] leading-snug text-muted-foreground">{n.corps}</span>}
+                  <span className="mt-1 block text-[11.5px] text-muted-foreground">{formatRelative(n.creeLe)}</span>
                 </span>
-                {!n.lu && <span className="size-2 shrink-0 rounded-full bg-primary" aria-label="Non lue" />}
+                {!n.lu && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[#2A6DBF]" aria-label="Non lue" />}
               </button>
             );
           })}
+        </div>
+        <div className="flex items-center justify-between border-t border-primary/10 bg-[#FBF9F3] px-5 py-3 text-xs font-bold text-primary">
+          <button type="button" onClick={() => navigate("/taches")} className="underline underline-offset-2">Voir mes tâches</button>
+          <button type="button" onClick={() => navigate("/parametres")} className="underline underline-offset-2">Préférences</button>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

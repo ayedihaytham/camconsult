@@ -53,7 +53,7 @@ import { ArborescenceFormSheet, type ArboFormValues } from "./ArborescenceFormSh
 import { FileTree } from "./FileTree";
 import { OrganigrammeView } from "./OrganigrammeView";
 import { VueGenerale } from "./VueGenerale";
-import { FileUploadDialog, type NewFichier } from "./FileUploadDialog";
+import { FileUploadDialog, type NewFichier, type SuiviEnvoi } from "./FileUploadDialog";
 import { MoveNodeDialog } from "./MoveNodeDialog";
 import { FilePreviewDialog } from "./FilePreviewDialog";
 
@@ -357,7 +357,7 @@ export function StructurationPage() {
   }
 
   /** Renvoie true quand au moins un fichier est enregistré : la fenêtre se ferme alors. « Ajouté » n'est annoncé qu'une fois le serveur d'accord. */
-  async function handleUpload(fichiers: NewFichier[]): Promise<boolean> {
+  async function handleUpload(fichiers: NewFichier[], suivi?: SuiviEnvoi): Promise<boolean> {
     if (!uploadParent) return false;
     const parentNode = nodes.find((n) => n.id === uploadParent);
     // Les fichiers d'une archive .zip décompressée portent leur chemin : chaque dossier est créé une seule fois, sous la destination, avant les fichiers.
@@ -376,7 +376,8 @@ export function StructurationPage() {
       return parentId;
     };
     const resultats = [];
-    for (const f of fichiers) {
+    for (const [rang, f] of fichiers.entries()) {
+      suivi?.(rang, "cours");
       try {
         const parentId = f.dossiers && f.dossiers.length > 0 ? await dossierDe(f.dossiers) : uploadParent;
         await addNoeud({
@@ -390,8 +391,10 @@ export function StructurationPage() {
           dataUrl: f.dataUrl,
         });
         resultats.push({ status: "fulfilled" as const });
+        suivi?.(rang, "ok");
       } catch {
         resultats.push({ status: "rejected" as const });
+        suivi?.(rang, "erreur");
       }
     }
     const ajoutes = resultats.filter((r) => r.status === "fulfilled").length;

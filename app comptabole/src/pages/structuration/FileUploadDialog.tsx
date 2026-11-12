@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { File as FileIcon, FileArchive, Trash2, UploadCloud, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, File as FileIcon, FileArchive, LoaderCircle, Trash2, UploadCloud, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,8 +38,21 @@ interface Props {
   destinationLabel: string;
   /** Fichiers déjà choisis à l'ouverture (déposés sur un tiroir de la vue générale). */
   initialFiles?: File[];
-  /** Peut être asynchrone : la fenêtre reste ouverte (bouton occupé) jusqu'à la réponse, et ne se ferme que si le résultat n'est pas `false`. */
-  onSubmit: (fichiers: NewFichier[]) => void | boolean | Promise<void | boolean>;
+  /** Peut être asynchrone : la fenêtre reste ouverte (bouton occupé) jusqu'à la réponse, et ne se ferme que si le résultat n'est pas `false`.
+   * `suivi` permet d'annoncer l'avancement de chaque fichier (en cours, envoyé, refusé). */
+  onSubmit: (fichiers: NewFichier[], suivi?: SuiviEnvoi) => void | boolean | Promise<void | boolean>;
+}
+
+export type EtatEnvoi = "attente" | "cours" | "ok" | "erreur";
+export type SuiviEnvoi = (index: number, etat: EtatEnvoi) => void;
+
+/** Avancement affiché pendant l'import : lecture des fichiers (décompression des .zip), puis envoi de chacun. */
+interface Avancement {
+  phase: "lecture" | "envoi";
+  lus: number;
+  aLire: number;
+  courant: string;
+  elements: { nom: string; etat: EtatEnvoi }[];
 }
 
 export function FileUploadDialog({
@@ -53,6 +66,7 @@ export function FileUploadDialog({
   const [description, setDescription] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [avancement, setAvancement] = useState<Avancement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -64,6 +78,7 @@ export function FileUploadDialog({
     setDescription("");
     setDragOver(false);
     setBusy(false);
+    setAvancement(null);
     // initialFiles ne compte qu'à l'ouverture
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -89,6 +104,7 @@ export function FileUploadDialog({
   async function handleSubmit() {
     if (files.length === 0) return;
     setBusy(true);
+    setAvancement({ phase: "lecture", lus: 0, aLire: files.length, courant: files[0]?.name ?? "", elements: [] });
     let skippedContent = 0;
     const result: NewFichier[] = [];
     const lire = async (blob: Blob, nom: string, dossiers?: string[]) => {
@@ -104,9 +120,16 @@ export function FileUploadDialog({
       }
       result.push({ libelle: nom, description, format: fileExtension(nom), taille: formatFileSize(blob.size), dataUrl, ...(dossiers ? { dossiers } : {}) });
     };
-    for (const f of files) {
+    let lus = 0;
+    const marquerLu = (suivant: string) => {
+      lus++;
+      setAvancement((a) => (a ? { ...a, lus, courant: suivant } : a));
+    };
+    for (const [rang, f] of files.entries()) {
+      const suivant = files[rang + 1]?.name ?? "";
       if (!estZip(f.name)) {
         await lire(f, f.name);
+        marquerLu(suivant);
         continue;
       }
       // Une archive .zip n'est pas envoyée telle quelle : son contenu est décompressé dans un dossier du même nom.
@@ -115,19 +138,29 @@ export function FileUploadDialog({
         const entrees = await lireZip(f);
         if (entrees.length === 0) toast.warning(`« ${f.name} » ne contient aucun fichier.`);
         for (const e of entrees) await lire(e.blob, e.nom, [racine, ...e.dossiers]);
+        marquerLu(suivant);
       } catch (err) {
         toast.error(`« ${f.name} » : ${err instanceof Error ? err.message : "lecture impossible."}`);
         setBusy(false);
+        setAvancement(null);
         return;
       }
     }
     if (result.length === 0) {
       setBusy(false);
+      setAvancement(null);
       return;
     }
+    setAvancement({ phase: "envoi", lus: 0, aLire: result.length, courant: "", elements: result.map((r) => ({ nom: r.libelle, etat: "attente" as EtatEnvoi })) });
+    const suivi: SuiviEnvoi = (index, etat) =>
+      setAvancement((a) => {
+        if (!a) return a;
+        const elements = a.elements.map((e, i) => (i === index ? { ...e, etat } : e));
+        return { ...a, elements, lus: elements.filter((e) => e.etat === "ok" || e.etat === "erreur").length, courant: etat === "cours" ? elements[index]?.nom ?? "" : a.courant };
+      });
     let accepte: void | boolean = true;
     try {
-      accepte = await onSubmit(result);
+      accepte = await onSubmit(result, suivi);
     } catch {
       accepte = false;
     }
@@ -137,6 +170,7 @@ export function FileUploadDialog({
       );
     }
     setBusy(false);
+    setAvancement(null);
     if (accepte !== false) onOpenChange(false);
   }
 
@@ -193,7 +227,35 @@ export function FileUploadDialog({
             />
           </div>
 
-          {files.length > 0 && (
+          {avancement && (
+            <div className="min-w-0 space-y-2.5 rounded-lg border border-primary/10 bg-[#F7F9FC] p-3" role="status" aria-live="polite">
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="font-semibold text-primary">
+                  {avancement.phase === "lecture" ? "Lecture des fichiers…" : "Envoi en cours…"}
+                </span>
+                <span className="tabular-nums text-muted-foreground">
+                  {avancement.lus} / {avancement.aLire} {avancement.phase === "lecture" ? "lus" : "envoyés"}
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-primary/10" role="progressbar" aria-valuemin={0} aria-valuemax={avancement.aLire} aria-valuenow={avancement.lus}>
+                <div className="h-full rounded-full bg-[#C9A96A] transition-[width] duration-300" style={{ width: `${avancement.aLire === 0 ? 0 : Math.round((avancement.lus / avancement.aLire) * 100)}%` }} />
+              </div>
+              {avancement.phase === "lecture" && avancement.courant && <p className="truncate text-xs text-muted-foreground">Suivant : {avancement.courant}</p>}
+              {avancement.phase === "envoi" && (
+                <ul className="max-h-44 space-y-0.5 overflow-y-auto">
+                  {avancement.elements.map((e, i) => (
+                    <li key={`${e.nom}-${i}`} className="flex min-w-0 items-center gap-2 px-1 py-1 text-sm">
+                      {e.etat === "ok" ? <CheckCircle2 className="size-4 shrink-0 text-success" aria-label="Envoyé" /> : e.etat === "erreur" ? <AlertCircle className="size-4 shrink-0 text-destructive" aria-label="Refusé" /> : e.etat === "cours" ? <LoaderCircle className="size-4 shrink-0 animate-spin text-primary motion-reduce:animate-none" aria-label="En cours" /> : <span className="size-4 shrink-0 rounded-full border border-primary/20" aria-label="En attente" />}
+                      <span className={cn("min-w-0 flex-1 truncate", e.etat === "attente" && "text-muted-foreground", e.etat === "erreur" && "text-destructive")} title={e.nom}>{e.nom}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{e.etat === "ok" ? "Envoyé" : e.etat === "erreur" ? "Refusé" : e.etat === "cours" ? "En cours" : "En attente"}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {!avancement && files.length > 0 && (
             <div className="min-w-0 space-y-1.5">
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span>{files.length} fichier{files.length > 1 ? "s" : ""} à ajouter</span>
@@ -259,7 +321,7 @@ export function FileUploadDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
           <Button
@@ -268,7 +330,7 @@ export function FileUploadDialog({
             onClick={handleSubmit}
           >
             {busy
-              ? "Import…"
+              ? avancement?.phase === "envoi" ? `Envoi ${avancement.lus} / ${avancement.aLire}…` : "Lecture…"
               : `Ajouter ${files.length || ""} fichier${files.length > 1 ? "s" : ""}`}
           </Button>
         </DialogFooter>

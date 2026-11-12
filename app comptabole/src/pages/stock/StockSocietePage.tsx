@@ -4,6 +4,7 @@ import { useParams,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { AlertTriangle, Download, Eye, EyeOff, Layers, Plus } from "lucide-react";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
+import { PageKpiCards } from "@/components/ledger/PageKpiCards";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { useSocieteById, useNoeuds, useData } from "@/store/data";
@@ -341,7 +342,14 @@ export function StockSocietePage() {
         }
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card" data-tour="stock-register">
+      <PageKpiCards metrics={[
+        { label: "Mouvements", value: shown.length },
+        { label: "Achetée", value: fmtQuantiteUnite(recap.achat.quantite, recap.unite) },
+        { label: "Vendue", value: fmtQuantiteUnite(recap.vente.quantite, recap.unite) },
+        { label: "Écart (vendue − achetée)", value: fmtQuantiteUnite(recap.vente.quantite - recap.achat.quantite, recap.unite), tone: recap.vente.quantite - recap.achat.quantite === 0 ? "default" : "warning" },
+      ]} />
+
+      <div className="overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]" data-tour="stock-register">
         <StockFiltres
           criteres={criteres}
           onCriteres={setCriteres}

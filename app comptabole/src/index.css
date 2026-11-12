@@ -8,7 +8,7 @@
 @layer base {
   :root {
     /* Neutres canoniques — papier chaud, encre et filets CamConsult. */
-    --background: 45 22.222% 96.471%;
+    --background: 0 0% 100%;
     /* Feuille de travail (maquette plateforme) : fond clair légèrement bleuté sous les cartes blanches. */
     --sheet: 216 52% 95%;
     --foreground: 0 0% 10.196%;

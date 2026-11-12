@@ -173,7 +173,7 @@ export function EmployeViewSheet({
                   </Button>
                 )}
                 {onAcces && (
-                  <Button type="button" variant="outline" className="gap-2 border-accent bg-accent/15 hover:bg-accent/30" onClick={() => onAcces(employe)}>
+                  <Button type="button" variant="outline" className="gap-2" onClick={() => onAcces(employe)}>
                     <ShieldCheck className="size-4" aria-hidden="true" />
                     Accès
                   </Button>

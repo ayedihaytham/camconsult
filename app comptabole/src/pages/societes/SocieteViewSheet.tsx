@@ -40,7 +40,7 @@ function Rubrique({ icone: Icone, titre, children }: { icone: typeof FileText; t
   return (
     <section>
       <h3 className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
-        <Icone className="size-4 text-accent" aria-hidden="true" />
+        <Icone className="size-4 text-muted-foreground" aria-hidden="true" />
         {titre}
       </h3>
       {children}
@@ -82,7 +82,7 @@ export function SocieteViewSheet({
         {societe && (
           <>
             <DialogHeader className="flex-row items-center gap-3.5 space-y-0 border-b border-border px-[18px] py-4 pr-14">
-              <span className="grid size-12 shrink-0 place-items-center rounded-[10px] border border-border bg-accent/15 text-[15px] font-extrabold text-primary" aria-hidden="true">
+              <span className="grid size-12 shrink-0 place-items-center rounded-[10px] border border-border bg-[#F4F7FB] text-[15px] font-extrabold text-primary" aria-hidden="true">
                 {initiales(societe.raisonSociale)}
               </span>
               <div className="min-w-0 flex-1">
@@ -133,7 +133,7 @@ export function SocieteViewSheet({
                 </Button>
               )}
               {onOpenDossiers && (
-                <Button type="button" variant="outline" className="gap-2 border-accent bg-accent/15 hover:bg-accent/30" onClick={() => onOpenDossiers(societe)}>
+                <Button type="button" variant="outline" className="gap-2" onClick={() => onOpenDossiers(societe)}>
                   <FolderOpen className="size-4" aria-hidden="true" />
                   Mes dossiers
                 </Button>

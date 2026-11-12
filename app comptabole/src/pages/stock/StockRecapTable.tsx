@@ -81,18 +81,18 @@ const COLONNES_TABLEAU: { cle: string; largeur: number; masquable?: ColonneStock
 ];
 const COLONNES_PAR_DEFAUT: Record<ColonneStock, boolean> = { cours: true, devise: true, tnd: true, piece: true, douane: false };
 
-const th = "whitespace-nowrap border-b border-primary-foreground/20 px-2 py-2 text-left align-middle text-xs font-semibold leading-tight";
+const th = "whitespace-nowrap border-b border-primary/10 px-2 py-2.5 text-left align-middle text-[0.62rem] font-bold uppercase leading-tight tracking-[0.04em]";
 const thNum = `${th} text-right`;
 const td = "px-2 py-2.5 align-middle [overflow-wrap:anywhere]";
 const tdNum = `${td} whitespace-nowrap text-right tabular-nums`;
 /** Hauteur des cellules : serrée par défaut (deux lignes par mouvement tiennent mieux), aérée au choix. */
 const HAUTEUR = { compact: "[&>td]:py-1.5", aere: "[&>td]:py-2.5" } as const;
-const filet = "border-l-2 border-border";
+const filet = "border-l border-primary/10";
 /** Filet des en-têtes marine. */
-const filetEntete = "border-l-2 border-l-primary-foreground/30";
+const filetEntete = "border-l border-l-primary/10";
 const etiquette = "text-xs font-medium text-muted-foreground";
 
-const TEINTE = { vente: "bg-primary/[0.06]", achat: "bg-accent/10", douane: "bg-success/10" } as const;
+const TEINTE = { vente: "bg-card", achat: "bg-card", douane: "bg-card" } as const;
 
 const jour = (d: string | null) => (d ? formatDate(d) : "—");
 const coursTexte = (c: number) => (c ? c.toLocaleString("fr-FR", { maximumFractionDigits: 5 }) : "—");
@@ -128,8 +128,8 @@ function CoteDebut({ m, cote, doublon, statut }: { m: StockMouvement; cote: "ven
   const fond = TEINTE[cote];
   return (
     <>
-      <td className={cn(td, fond, v ? "shadow-[inset_4px_0_0_hsl(var(--primary))]" : "shadow-[inset_4px_0_0_hsl(var(--accent))]")}>
-        <span className={cn("inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", v ? "bg-primary/15 text-primary" : "bg-accent/30 text-accent-foreground")}>{v ? "Vente" : "Achat"}</span>
+      <td className={cn(td, fond, "")}>
+        <span className={cn("inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", v ? "bg-[#DBE8F8] text-[#1F5AA6]" : "bg-[#DDF0E5] text-[#1D5D41]")}>{v ? "Vente" : "Achat"}</span>
       </td>
       <td className={cn(td, fond, "whitespace-nowrap tabular-nums")}>{jour(v ? m.venteDate : m.achatDate)}</td>
       <td className={cn(td, fond, "whitespace-nowrap tabular-nums text-[0.78rem] text-foreground/80")} title={doublon ? `${numero} : ce numéro de facture est déjà utilisé par un autre mouvement` : undefined}>
@@ -224,7 +224,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
           <colgroup>
             {colonnesAffichees.map((c) => <col key={c.cle} style={{ width: `${(c.largeur / sommeLargeurs) * 100}%` }} />)}
           </colgroup>
-          <thead className="bg-primary text-primary-foreground">
+          <thead className="bg-[#F7F9FC] text-muted-foreground">
             <tr>
               <th scope="col" rowSpan={2} className={th}>N°</th>
               <th scope="colgroup" colSpan={2} className={cn(th, "text-center text-[0.6875rem] tracking-[0.14em]")}>MOUVEMENT</th>
@@ -254,7 +254,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
               const surbrillance = nouveauId === m.id;
               const choisi = selectionId === m.id;
               const activer = () => (onOuvrir ? onOuvrir(m) : basculer(m.id));
-              const ligneClasse = cn("cursor-pointer", HAUTEUR[densite], index % 2 === 1 && "[&>td:not([class*=bg-])]:bg-muted/40", choisi && "[&>td]:bg-accent/15", surbrillance && "outline outline-2 -outline-offset-2 outline-accent");
+              const ligneClasse = cn("cursor-pointer", HAUTEUR[densite], choisi && "[&>td]:bg-accent/15", surbrillance && "outline outline-2 -outline-offset-2 outline-accent");
               return (
                 <Fragment key={m.id}>
                   <tr
@@ -315,7 +315,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             })}
           </tbody>
         </table>
-        <div data-pied-stock className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t-2 border-primary/40 bg-primary/10 px-4 py-2.5 text-[0.8125rem] font-semibold text-primary">
+        <div data-pied-stock className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-primary/10 bg-[#F7F9FC] px-4 py-3 text-[0.8125rem] font-semibold text-primary">
           <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
           {sommeCote ? (
             <>

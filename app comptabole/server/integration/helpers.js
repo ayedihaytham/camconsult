@@ -62,6 +62,9 @@ export async function demarrerServeur(urlBase, extra = {}) {
     PATH: process.env.PATH,
     SystemRoot: process.env.SystemRoot,
     NODE_ENV: "production",
+    // Les tests couvrent tous les modules : on ouvre tout (en production, MODULES_ACTIFS absent n'ouvre que les modules validés).
+    ENVIRONNEMENT: "test",
+    MODULES_ACTIFS: "*",
     API_PORT: String(port),
     PORT: String(port),
     DATABASE_URL: urlBase,

@@ -1,10 +1,14 @@
 name: Build & push app-comptable
 
-# Publication de l'image : uniquement depuis main, et seulement après les contrôles (types, tests, construction, tests d'intégration
+# Deux environnements, deux étiquettes d'image :
+#   branche main        -> image « :test »   (test.camconsult.com.tn, tous les modules)
+#   branche production  -> image « :latest » (cabinet.camconsult.com.tn, modules validés seulement)
+# On passe en production en avançant la branche « production » sur un commit déjà validé en test (voir deploy/README.md).
+# Publication de l'image : uniquement depuis main ou production, et seulement après les contrôles (types, tests, construction, tests d'intégration
 # PostgreSQL). Une demande de fusion (pull request) ne lance que les contrôles : aucun secret, aucune publication.
 on:
   push:
-    branches: [main]
+    branches: [main, production]
     paths:
       - "app comptabole/**"
       - ".github/workflows/app-comptable.yml"
@@ -111,7 +115,7 @@ jobs:
   docker:
     needs: [tests, build, integration]
     # Jamais pour une pull request, jamais depuis une autre branche (un lancement manuel sur une branche ne publie pas « latest »).
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -133,8 +137,8 @@ jobs:
           context: "./app comptabole"
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/app-comptable:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/app-comptable:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-comptable:${{ github.ref == 'refs/heads/production' && 'latest' || 'test' }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/app-comptable:${{ github.ref == 'refs/heads/production' && 'prod' || 'test' }}-${{ github.sha }}
           cache-from: type=gha
           # Le cache n'est qu'une accélération : une erreur d'écriture du cache GitHub (ex. « blob not_found ») ne doit pas faire échouer la publication.
           cache-to: type=gha,mode=max,ignore-error=true

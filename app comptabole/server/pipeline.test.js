@@ -23,10 +23,16 @@ describe("chaîne de déploiement", () => {
     expect(workflow).not.toMatch(/if:\s*false/);
   });
 
-  it("la publication est impossible depuis une pull request ou une autre branche que main", () => {
+  it("la publication est impossible depuis une pull request ou une autre branche que main (test) et production", () => {
     const docker = workflow.slice(indexDocker);
-    expect(docker).toMatch(/if:\s*github\.event_name != 'pull_request' && github\.ref == 'refs\/heads\/main'/);
+    expect(docker).toMatch(/if:\s*github\.event_name != 'pull_request' && \(github\.ref == 'refs\/heads\/main' \|\| github\.ref == 'refs\/heads\/production'\)/);
     expect(workflow).toMatch(/pull_request:/);
+  });
+
+  it("main publie l'image « test », seule la branche production publie « latest » (la production ne bouge pas à chaque push)", () => {
+    const docker = workflow.slice(indexDocker);
+    expect(docker).toContain("github.ref == 'refs/heads/production' && 'latest' || 'test'");
+    expect(docker).not.toMatch(/app-comptable:latest\s*\n/);
   });
 
   it("aucun secret n'est accessible aux contrôles (ils tournent aussi pour les pull requests) et les droits sont en lecture seule", () => {
@@ -59,7 +65,7 @@ describe("autres chemins de publication", () => {
     const pr = declencheurs.slice(declencheurs.indexOf("pull_request:"), declencheurs.indexOf("workflow_dispatch"));
     expect(pr).not.toMatch(/paths(-ignore)?:|branches(-ignore)?:/);
     // push : seulement main (une branche de travail poussée seule ne lance rien) ; pas de workflow_call ni de workflow imbriqué.
-    expect(declencheurs).toMatch(/push:\s*\n\s*branches:\s*\[main\]/);
+    expect(declencheurs).toMatch(/push:\s*\n\s*branches:\s*\[main, production\]/);
     for (const w of [workflow, site]) expect(w).not.toMatch(/workflow_call|workflow_run|pull_request_target/);
   });
 
@@ -75,7 +81,8 @@ describe("autres chemins de publication", () => {
 
 describe("configuration nginx du dépôt (revue statique ; nginx n'a pas pu être lancé ici)", () => {
   const nginx = readFileSync(new URL("../../deploy/nginx-camconsult.conf", import.meta.url), "utf-8");
-  const bloc = nginx.slice(nginx.indexOf("server_name cabinet.camconsult.com.tn"), nginx.indexOf("server_name monitor.camconsult.com.tn"));
+  const bloc = nginx.slice(nginx.indexOf("server_name cabinet.camconsult.com.tn"), nginx.indexOf("# ENVIRONNEMENT DE TEST"));
+  const blocTest = nginx.slice(nginx.indexOf("server_name test.camconsult.com.tn"), nginx.indexOf("server_name monitor.camconsult.com.tn"));
 
   it("masque la version de nginx et X-Powered-By pour l'application", () => {
     expect(bloc).toContain("server_tokens off;");
@@ -92,6 +99,12 @@ describe("configuration nginx du dépôt (revue statique ; nginx n'a pas pu êtr
     }
   });
 
+  it("le bloc de test vise uniquement la pile de test (5182), jamais la production", () => {
+    expect(blocTest).toContain("proxy_pass http://127.0.0.1:5182;");
+    expect(blocTest).not.toContain("5181");
+    expect(blocTest).toContain("server_tokens off;");
+  });
+
   it("ne répète aucun en-tête de sécurité (ils sont posés par l'application : pas de doublon)", () => {
     expect(nginx).not.toMatch(/add_header\s+(Strict-Transport-Security|X-Content-Type-Options|X-Frame-Options|Referrer-Policy|Permissions-Policy|Content-Security-Policy)/i);
   });
@@ -100,6 +113,19 @@ describe("configuration nginx du dépôt (revue statique ; nginx n'a pas pu êtr
     const compose = readFileSync(new URL("../../deploy/docker-compose.yml", import.meta.url), "utf-8");
     expect(compose).toContain('"127.0.0.1:5181:8080"');
     expect(compose).not.toMatch(/-\s*"(0\.0\.0\.0:)?5181:/);
+  });
+
+  it("le compose de test a sa propre base et son propre port, et n'ouvre que l'interface locale", () => {
+    const test = readFileSync(new URL("../../deploy/docker-compose.test.yml", import.meta.url), "utf-8");
+    const prod = readFileSync(new URL("../../deploy/docker-compose.yml", import.meta.url), "utf-8");
+    expect(test).toContain('"127.0.0.1:5182:8080"');
+    expect(test).toContain("camconsult_test_pgdata");
+    expect(test).not.toContain("camconsult_pgdata:");
+    expect(test).toContain("app-comptable:test");
+    expect(test).toContain("ENVIRONNEMENT: test");
+    // Production : environnement et liste de modules explicites dans le compose.
+    expect(prod).toContain("ENVIRONNEMENT: production");
+    expect(prod).toMatch(/MODULES_ACTIFS: \$\{MODULES_ACTIFS:-tableau-de-bord,/);
   });
 });
 

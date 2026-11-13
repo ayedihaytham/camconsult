@@ -21,6 +21,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { cheminActif } from "@/store/config";
 import type {
   AppNotification,
   Conversation,
@@ -159,6 +160,8 @@ export function visibleNavigation({
     ...group,
     items: group.items
       .filter((item) => {
+        // Module fermé dans cet environnement (production) : absent du menu.
+        if (item.to && !cheminActif(item.to)) return false;
         if (espaceCollecteSeul) return Boolean(item.to) && cheminAutoriseClient(item.to!) && (!item.adminOnly || Boolean(item.responsableSocieteOk)) && (!item.perm || can(item.perm));
         if (
           item.adminOnly &&
@@ -179,9 +182,10 @@ export function visibleNavigation({
               ...item,
               children: item.children.filter(
                 (child) =>
-                  !child.adminOnly ||
+                  cheminActif(child.to) &&
+                  (!child.adminOnly ||
                   isAdmin ||
-                  (child.equipeManagerOk && canManageCollaborateurs),
+                  (child.equipeManagerOk && canManageCollaborateurs)),
               ),
             }
           : item,

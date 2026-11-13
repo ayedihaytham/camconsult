@@ -7,6 +7,64 @@ Actions à chaque push sur `main` et poussées sur Docker Hub
 `watchtower` du `docker-compose.yml` les tire et relance les conteneurs tout
 seul (vérification toutes les 60s).
 
+## 0. Deux environnements : test et production
+
+| | **Test** | **Production** |
+| --- | --- | --- |
+| Adresse | `https://test.camconsult.com.tn` | `https://cabinet.camconsult.com.tn` |
+| Branche Git | `main` | `production` |
+| Image Docker | `merba7/app-comptable:test` | `merba7/app-comptable:latest` |
+| Pile Docker | `docker-compose.test.yml` (projet `camconsult-test`) | `docker-compose.yml` |
+| Base de données | propre (volume `camconsult_test_pgdata`), données de démonstration | propre (volume `camconsult_pgdata`), données réelles |
+| Port interne | `127.0.0.1:5182` | `127.0.0.1:5181` |
+| Modules | **tous** (`MODULES_ACTIFS="*"`) + bandeau « Environnement de test » | seulement ceux de `MODULES_ACTIFS` |
+
+**Modules ouverts en production** (liste validée) : Tableau de bord, Mes tâches, Messagerie, Sociétés, Collectes de pièces,
+Structuration, Stock, Journal, Cours de change, Suivi client devise, Équipe, Conversions, Paramètres. Les autres (Facturation,
+Honoraires, Fournisseurs, Apurement TVA, Suivi bancaire, Souche de chèques, Bordereaux, États financiers, État SWIFT,
+Simulation de paie, AFFECTAT) sont cachés du menu, renvoient à l'accueil et leur API répond 403 — la règle est appliquée par le
+serveur (`app comptabole/shared/modules.js`, `server/modules.js`). Fournisseurs, Suivi bancaire et État SWIFT n'ont **pas de page**
+en production, mais leur API reste lisible parce que le Stock et les Collectes s'en servent. Tous les rôles peuvent se connecter ;
+ils voient seulement les modules ouverts.
+
+### Mettre un module en production
+1. Le valider sur le test (tous les rôles concernés).
+2. Ajouter sa clé à `MODULES_ACTIFS` dans le `.env` de production du VPS (clés dans `shared/modules.js`), puis
+   `docker compose up -d` (le serveur relit la variable au démarrage). Aucun nouveau code n'est nécessaire.
+
+### Publier une version en production
+Le test reçoit automatiquement chaque `git push` sur `main`. La production ne bouge **que** lorsque la branche `production`
+avance, sur un commit déjà essayé sur le test :
+
+```bash
+git fetch origin
+git push origin origin/main:production      # avance `production` jusqu'au dernier commit validé en test
+```
+
+Pour ne promouvoir qu'une version précise : `git push origin <sha>:production`. Retour arrière : `git push --force-with-lease
+origin <ancien-sha>:production` (ou relancer l'image `app-comptable:prod-<ancien-sha>` à la main).
+
+### Créer l'environnement de test (une seule fois)
+1. **DNS** : enregistrement A `test.camconsult.com.tn` → `102.204.205.214` (comme `cabinet.`).
+2. **VPS** : mettre à jour `/opt/camconsult` (`docker-compose.yml`, `docker-compose.test.yml`, `.env.test`), puis :
+   ```bash
+   cd /opt/camconsult
+   cp .env.test.example .env.test && nano .env.test        # mots de passe et JWT_SECRET DIFFÉRENTS de la production
+   docker compose -f docker-compose.test.yml --env-file .env.test up -d
+   docker compose -f docker-compose.test.yml --env-file .env.test ps
+   ```
+3. **Nginx** : ajouter à la main (voir l'avertissement « Mettre à jour » plus bas) le bloc `test.camconsult.com.tn` de
+   `nginx-camconsult.conf` dans le fichier live, puis `nginx -t && systemctl reload nginx`.
+4. **HTTPS** : `certbot --nginx -d test.camconsult.com.tn`.
+5. Recommandé : protéger le test (mot de passe nginx ou liste d'IP, lignes commentées dans le bloc) — il ne doit contenir aucune
+   donnée réelle.
+6. **Première publication** : `git push origin main` construit l'image `:test` (Watchtower la tire sous 60 s). L'image `:test`
+   doit exister avant l'étape 2.
+
+> ⚠️ **Avant la première publication de la branche `production`** : la production actuelle est servie par `:latest`, mise à jour à
+> chaque push sur `main` jusqu'ici. Désormais `main` ne publie plus que `:test` ; `:latest` ne change que sur `production`.
+> La nouvelle image de production applique par défaut la liste de modules validés même si `MODULES_ACTIFS` est absent du `.env`.
+
 ## 1. Prérequis GitHub (une seule fois)
 
 Dans le dépôt `ayedihaytham/camconsult` sur github.com → **Settings → Secrets
@@ -164,9 +222,12 @@ docker compose ps        # "ocr-ruspina" doit passer à "healthy"
 
 ## Mettre à jour
 
-Rien à faire manuellement : `git push` sur `main` → GitHub Actions build +
-push l'image → Watchtower la détecte (≤ 60s) et relance le conteneur
-concerné automatiquement. Vérifier après coup :
+- **Test** : `git push` sur `main` → GitHub Actions construit l'image `:test` → Watchtower la détecte (≤ 60 s) et relance
+  `app-comptable-test`.
+- **Production** : `git push origin origin/main:production` (voir « Publier une version en production ») → image `:latest` →
+  Watchtower relance `app-comptable`.
+
+Vérifier après coup :
 
 ```bash
 docker compose logs -f watchtower

@@ -9,6 +9,7 @@ import { TourProvider } from "@/components/tour/TourProvider";
 import { useSocieteRouteSync } from "@/hooks/useSocieteActive";
 import { useSuiviReprise } from "@/store/reprise";
 import { BandeExercice } from "./BandeExercice";
+import { useConfig } from "@/store/config";
 
 const EDGE_TO_EDGE_REGISTERS = new Set(["/societes", "/employes", "/collectes", "/taches", "/etats-financiers"]);
 
@@ -17,11 +18,17 @@ export function AppLayout() {
   const collapsed = useUi((state) => state.collapsed);
   const setCollapsed = useUi((state) => state.setCollapsed);
   const edgeToEdgeMobile = EDGE_TO_EDGE_REGISTERS.has(pathname);
+  const environnement = useConfig((s) => s.environnement);
   useSocieteRouteSync();
   useSuiviReprise();
 
   return (
     <TourProvider>
+      {environnement === "test" && (
+        <div role="status" className="no-print pointer-events-none fixed bottom-3 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#C9A96A] px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#0B2545] shadow-md">
+          Environnement de test
+        </div>
+      )}
       <SidebarProvider
         open={!collapsed}
         onOpenChange={(open) => setCollapsed(!open)}

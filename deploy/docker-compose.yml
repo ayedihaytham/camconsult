@@ -33,6 +33,10 @@ services:
       NODE_ENV: production
       API_PORT: 8080
       DATABASE_URL: postgres://cabinet:${DB_PASSWORD}@db:5432/cabinet
+      # Environnement de PRODUCTION : seuls les modules validés sont ouverts (menu, pages et API). Pour en ouvrir un de plus, ajoutez
+      # sa clé à MODULES_ACTIFS dans .env (liste des clés : app comptabole/shared/modules.js) puis `docker compose up -d`.
+      ENVIRONNEMENT: production
+      MODULES_ACTIFS: ${MODULES_ACTIFS:-tableau-de-bord,taches,messagerie,societes,collectes,structuration,stock,journal,cours-change,suivi-devise,equipe,conversions,parametres}
       JWT_SECRET: ${JWT_SECRET:?Definissez JWT_SECRET dans .env}
       CORS_ORIGIN: https://cabinet.camconsult.com.tn
       # Adresse publique utilisée dans les liens d'accès (activation, nouveau mot de passe) envoyés ou affichés.

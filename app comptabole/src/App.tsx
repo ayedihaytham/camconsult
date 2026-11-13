@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RequireModule } from "@/components/auth/RequireModule";
+import { useConfig } from "@/store/config";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { RequireEquipeManager } from "@/components/auth/RequireEquipeManager";
 import { RequireEquipe } from "@/components/auth/RequireEquipe";
@@ -294,8 +296,11 @@ function DataBoundary({ children }: { children: React.ReactNode }) {
 export default function App() {
   const status = useAuth((s) => s.status);
   const restore = useAuth((s) => s.restore);
+  const configChargee = useConfig((s) => s.chargee);
+  const chargerConfig = useConfig((s) => s.charger);
 
   useEffect(() => {
+    void chargerConfig();
     restore();
     // Session expirée (jeton refusé par le serveur) : retour à la connexion, sans requêtes qui échouent en boucle.
     registerSessionExpiredHandler(() => {
@@ -308,9 +313,9 @@ export default function App() {
         description: "Videz le cache du navigateur si le problème persiste.",
       }),
     );
-  }, [restore]);
+  }, [restore, chargerConfig]);
 
-  if (status === "loading") {
+  if (status === "loading" || !configChargee) {
     return <FullScreenLoader label="Connexion…" />;
   }
   if (status === "indisponible") {
@@ -341,6 +346,7 @@ export default function App() {
                 </DataBoundary>
               }
             >
+              <Route element={<RequireModule />}>
               <Route
                 path="/"
                 element={
@@ -663,6 +669,7 @@ export default function App() {
                   </Suspense>
                 }
               />
+              </Route>
             </Route>
           </Route>
         </Routes>

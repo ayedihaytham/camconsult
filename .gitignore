@@ -10,6 +10,7 @@ out/
 .env
 .env.*
 !.env.example
+!.env.test.example
 
 # Dozzle — credentials générés sur le VPS, jamais commités
 deploy/users.yml

@@ -1,0 +1,62 @@
+# Environnement de TEST — https://test.camconsult.com.tn
+#
+# Pile séparée de la production : sa propre base PostgreSQL (volume distinct), son propre secret de session, son propre port.
+# Elle suit la branche `main` (image « :test »), tous les modules sont ouverts, et aucune donnée réelle ne doit y entrer.
+#
+#   cd /opt/camconsult
+#   cp .env.test.example .env.test && nano .env.test
+#   docker compose -f docker-compose.test.yml --env-file .env.test up -d
+#
+# Watchtower (lancé par docker-compose.yml) met l'image « :test » à jour toute seule : il surveille tous les conteneurs étiquetés.
+
+name: camconsult-test
+
+services:
+  db-test:
+    image: postgres:16-alpine
+    container_name: camconsult-test-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cabinet
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Definissez DB_PASSWORD dans .env.test}
+      POSTGRES_DB: cabinet
+    volumes:
+      - camconsult_test_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cabinet -d cabinet"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  app-comptable-test:
+    image: merba7/app-comptable:test
+    container_name: app-comptable-test
+    restart: unless-stopped
+    depends_on:
+      db-test:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 8080
+      DATABASE_URL: postgres://cabinet:${DB_PASSWORD}@db-test:5432/cabinet
+      JWT_SECRET: ${JWT_SECRET:?Definissez JWT_SECRET dans .env.test (différent de la production)}
+      CORS_ORIGIN: https://test.camconsult.com.tn
+      APP_URL: https://test.camconsult.com.tn
+      # Test : bandeau « Environnement de test » et TOUS les modules ouverts.
+      ENVIRONNEMENT: test
+      MODULES_ACTIFS: "*"
+      ADMIN_IDENTIFIANT: ${ADMIN_IDENTIFIANT:-admin.test}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Definissez ADMIN_PASSWORD dans .env.test}
+      ADMIN_NOM: ${ADMIN_NOM:-Administrateur Test}
+      ADMIN_ROLE: ${ADMIN_ROLE:-Expert-comptable — Responsable du cabinet}
+      # Pas d'envoi d'e-mails réels depuis le test : SMTP volontairement absent. Clé de lecture des pièces : facultative.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SIGNATURE_CLE_SECRET: ${SIGNATURE_CLE_SECRET:-}
+    ports:
+      # Nginx (sur l'hôte) fait le reverse-proxy depuis test.camconsult.com.tn ; 5181 est pris par la production.
+      - "127.0.0.1:5182:8080"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+volumes:
+  camconsult_test_pgdata:

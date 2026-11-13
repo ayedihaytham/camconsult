@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { cheminActif } from "@/store/config";
 import {
   Building2,
   ChevronDown,
@@ -74,7 +75,7 @@ export function DashboardQuickActions({ role, canAddSociete, canUseMessaging, in
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        {actions.map((action) => {
+        {actions.filter((a) => cheminActif(a.route)).map((action) => {
           const Icon = action.icon;
           return (
             <DropdownMenuItem className="min-h-11" key={action.label} onSelect={() => navigate(action.route)}>

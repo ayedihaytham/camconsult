@@ -37,6 +37,7 @@ import { dataRouter } from "./routes/data.js";
 import { eventsRouter } from "./routes/events.js";
 import { startRelancesScheduler } from "./relances.js";
 import { demarrerSuiviTtn } from "./ttn/suivi.js";
+import { configPublique, garderModules } from "./modules.js";
 import { securityHeaders } from "./securityHeaders.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -68,6 +69,10 @@ app.get("/api/health", async (_req, res) => {
     res.status(503).json({ ok: false });
   }
 });
+
+app.get("/api/config", configPublique);
+// Modules fermés dans cet environnement (voir shared/modules.js) : refusés avant d'atteindre leur routeur.
+app.use("/api", garderModules);
 
 app.use("/api/auth", authRouter);
 app.use("/api/administrateurs", administrateursRouter);

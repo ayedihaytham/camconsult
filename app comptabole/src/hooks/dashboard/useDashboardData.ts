@@ -15,6 +15,7 @@ import {
   useTaches,
 } from "@/store/data";
 import { useJournal } from "@/store/journal";
+import { cheminActif } from "@/store/config";
 
 export function useDashboardData(selectedEmployeeId: string | null = null) {
   const { isAdmin, poste, employeId, can } = usePermissions();
@@ -84,7 +85,8 @@ export function useDashboardData(selectedEmployeeId: string | null = null) {
     setAdminDataReady(false);
     setAdminDataError(false);
     setBordereauxError(false);
-    Promise.allSettled([fetchBordereaux(), fetchJournal()]).then((results) => {
+    // Bordereaux fermés dans cet environnement : rien à charger (la liste reste vide).
+    Promise.allSettled([cheminActif("/bordereaux") ? fetchBordereaux() : Promise.resolve(), fetchJournal()]).then((results) => {
       if (active) {
         setBordereauxError(results[0].status === "rejected");
         setAdminDataError(results.some((result) => result.status === "rejected") || useJournal.getState().error);

@@ -64,6 +64,7 @@ import {
 } from "@/components/ui/select";
 import { exportRows, type ExportFormat } from "@/lib/export";
 import { printTable } from "@/lib/print";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { THEME_OPTIONS } from "@/lib/societeTheme";
 import { provisionnerArborescenceSociete } from "@/lib/classement";
@@ -351,6 +352,35 @@ export function SocietesListPage() {
 
   const [toDelete, setToDelete] = useState<Societe | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  /** Ce que la suppression définitive effacerait en plus du dossier (factures, honoraires, banque…), lu au serveur à l'ouverture de la confirmation. */
+  const [impact, setImpact] = useState<{ id: string; raisonSociale: string; elements: string }[]>([]);
+  useEffect(() => {
+    const ids = toDelete ? [toDelete.id] : bulkDeleteOpen ? selectedIds : [];
+    if (ids.length === 0) {
+      setImpact([]);
+      return;
+    }
+    let actuel = true;
+    api.post<{ id: string; raisonSociale: string; elements: string }[]>("/societes/impact", { ids }).then(
+      (r) => actuel && setImpact(r),
+      () => actuel && setImpact([]),
+    );
+    return () => {
+      actuel = false;
+    };
+  }, [toDelete, bulkDeleteOpen, selectedIds]);
+  const detailImpact = impact.length > 0 && (
+    <span className="mt-3 block rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-[13px] text-foreground">
+      <span className="block font-semibold text-destructive">Seront aussi supprimés, sans retour possible :</span>
+      {impact.map((i) => (
+        <span key={i.id} className="mt-1 block">
+          {impact.length > 1 && <b>{i.raisonSociale} : </b>}
+          {i.elements}
+        </span>
+      ))}
+      <span className="mt-1.5 block text-xs text-muted-foreground">Les factures supprimées laissent un trou dans la numérotation.</span>
+    </span>
+  );
 
   function startCreate() {
     setEditing(null);
@@ -418,7 +448,7 @@ export function SocietesListPage() {
 
   async function confirmDelete() {
     if (!toDelete) return;
-    await deleteSocietes([toDelete.id]);
+    await deleteSocietes([toDelete.id], true);
     logJournal("suppression", "societe", toDelete.raisonSociale);
     setSelectedIds((ids) => ids.filter((id) => id !== toDelete.id));
     toast.success("Société supprimée", { description: toDelete.raisonSociale });
@@ -430,7 +460,7 @@ export function SocietesListPage() {
     const noms = rows
       .filter((s) => selectedIds.includes(s.id))
       .map((s) => s.raisonSociale);
-    await deleteSocietes(selectedIds);
+    await deleteSocietes(selectedIds, true);
     logJournal(
       "suppression",
       "societe",
@@ -1128,6 +1158,7 @@ export function SocietesListPage() {
             </span>{" "}
             et ses accès seront définitivement supprimés. Cette action est
             irréversible.
+            {detailImpact}
           </>
         }
         confirmPhrase={toDelete?.code}
@@ -1139,7 +1170,7 @@ export function SocietesListPage() {
         open={bulkDeleteOpen}
         onOpenChange={setBulkDeleteOpen}
         title={`Supprimer ${selectedIds.length} sociétés ?`}
-        description="Toutes les sociétés sélectionnées et leurs accès seront définitivement supprimés."
+        description={<>Toutes les sociétés sélectionnées et leurs accès seront définitivement supprimés.{detailImpact}</>}
         confirmPhrase={`SUPPRIMER ${selectedIds.length}`}
         confirmLabel="Supprimer définitivement"
         onConfirm={confirmBulkDelete}

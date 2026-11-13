@@ -388,8 +388,11 @@ export function MessageriePage() {
       const societe = socById(conversation.societeId);
       const isConversationGroup = conversation.type === "groupe";
       const memberCount = conversation.membreIds?.length ?? 0;
+      // Seul un compte de société est rattaché à une société : l'équipe du cabinet (comptable, responsable du cabinet…) ne l'est jamais.
+      const cote = employee?.role === "societe_employe" ? societe : null;
+      const fonction = employee?.role === "responsable_collaborateurs" ? "Responsable du cabinet" : employee?.type;
       const directContext = isAdmin
-        ? [employee?.type, societe?.raisonSociale].filter(Boolean).join(" · ")
+        ? [fonction, cote?.raisonSociale].filter(Boolean).join(" · ")
         : "Responsable du cabinet";
 
       return {
@@ -401,7 +404,7 @@ export function MessageriePage() {
         lastMessage: conversation.dernierMessage,
         lastMessageTime: formatTime(conversation.dernierMessageLe),
         hasMessages: avecMessages.has(conversation.id),
-        groupe: !isAdmin && !isConversationGroup ? "Cabinet" : (societe?.raisonSociale ?? (isConversationGroup ? "Groupes" : "Cabinet")),
+        groupe: isConversationGroup ? "Groupes" : isAdmin && cote ? cote.raisonSociale : "Équipe du cabinet",
         unread: conversation.nonLus,
         initials: partnerInitials(conversation, employee),
         isGroup: isConversationGroup,
@@ -431,11 +434,11 @@ export function MessageriePage() {
       .join(" · ");
     const directSubtitle = isAdmin
       ? [
-          activeEmployee?.type,
+          activeEmployee?.role === "responsable_collaborateurs" ? "Responsable du cabinet" : activeEmployee?.type,
           activeConversation.enLigne
             ? "En ligne"
             : `Vu ${formatRelative(activeConversation.derniereConnexion)}`,
-          activeSociete?.raisonSociale,
+          activeEmployee?.role === "societe_employe" ? activeSociete?.raisonSociale : null,
         ]
           .filter(Boolean)
           .join(" · ")

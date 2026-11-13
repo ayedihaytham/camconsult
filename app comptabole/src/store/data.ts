@@ -136,7 +136,8 @@ interface DataState {
   addSociete: (data: Omit<Societe, "id" | "creeLe">) => Promise<Societe>;
   updateSociete: (id: string, patch: Partial<Societe>) => Promise<void>;
   duplicateSociete: (id: string, nextCode: string) => Promise<void>;
-  deleteSocietes: (ids: string[]) => Promise<void>;
+  /** `definitive` : suppression en cascade confirmée, y compris les factures et opérations qui bloquent la suppression simple. */
+  deleteSocietes: (ids: string[], definitive?: boolean) => Promise<void>;
 
   addEmploye: (data: Omit<Employe, "id" | "creeLe">) => Promise<Employe>;
   updateEmploye: (id: string, patch: Partial<Employe>) => Promise<Employe | undefined>;
@@ -338,9 +339,9 @@ export const useData = create<DataState>((set, get) => ({
       fail(e);
     }
   },
-  deleteSocietes: async (ids) => {
+  deleteSocietes: async (ids, definitive = false) => {
     try {
-      await api.post("/societes/bulk-delete", { ids });
+      await api.post("/societes/bulk-delete", { ids, ...(definitive ? { confirmationDefinitive: "SUPPRIMER DEFINITIVEMENT" } : {}) });
       set((st) => ({
         societes: st.societes.filter((x) => !ids.includes(x.id)),
         // les noeuds rattachés sont supprimés côté serveur (cascade)

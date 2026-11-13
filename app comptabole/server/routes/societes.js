@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { query } from "../db.js";
+import { query, withTransaction } from "../db.js";
 import { requireAuth, canSeeSociete, porteeSocietes } from "../auth.js";
 import { can } from "../permissions.js";
 import { logAction } from "../journal.js";
@@ -139,6 +139,14 @@ const PROTEGEES_SQL = `
   where s.id = any($1::uuid[])
     and (f.n + h.n + r.n + b.n + w.n + m.n + l.n + c.n + d.n) > 0`;
 
+// Ce qu'une suppression définitive effacerait avec les sociétés choisies (factures, honoraires, banque…), pour l'afficher avant de confirmer.
+societesRouter.post("/impact", requireDelete, async (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter((i) => typeof i === "string") : [];
+  if (ids.length === 0) return res.json([]);
+  const { rows } = await query(PROTEGEES_SQL, [ids]);
+  res.json(rows.map((r) => ({ id: r.id, raisonSociale: r.raison_sociale, elements: r.elements })));
+});
+
 societesRouter.post("/bulk-delete", requireDelete, async (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
   if (ids.length === 0) return res.json({ deleted: 0 });
@@ -171,10 +179,15 @@ societesRouter.post("/bulk-delete", requireDelete, async (req, res) => {
   }
   let rows;
   try {
-    ({ rows } = await query(
-      "delete from societes where id = any($1::uuid[]) returning raison_sociale",
-      [ids],
-    ));
+    // Suppression définitive confirmée : tout le dossier part en cascade, y compris les factures d'honoraires et leurs dossiers de facture
+    // électronique (clés étrangères « restrict », qui ne se retirent pas d'elles-mêmes). Une transaction : tout est supprimé, ou rien.
+    ({ rows } = await withTransaction(async (client) => {
+      if (req.body?.confirmationDefinitive === "SUPPRIMER DEFINITIVEMENT") {
+        await client.query("delete from facture_einvoice where facture_id in (select id from factures where societe_id = any($1::uuid[]))", [ids]);
+        await client.query("delete from factures where societe_id = any($1::uuid[])", [ids]);
+      }
+      return client.query("delete from societes where id = any($1::uuid[]) returning raison_sociale", [ids]);
+    }));
   } catch (err) {
     // Clé étrangère protectrice (ex. factures émises) : même confirmée, la suppression est impossible et rien n'est supprimé.
     if (err.code === "23503")

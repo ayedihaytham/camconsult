@@ -1859,10 +1859,26 @@
 @media (min-width: 1280px) { .bande-exercice__mois { display: flex; } }
 .bande-exercice__titre { font-size: 10.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: hsl(var(--muted-foreground)); white-space: nowrap; }
 .bande-exercice__mois ol { display: flex; margin: 0; padding: 3px; gap: 2px; list-style: none; border-radius: 12px; background: hsl(var(--sheet)); }
-.bande-exercice__mois li { position: relative; display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; font-size: 11.5px; font-weight: 700; color: hsl(var(--muted-foreground) / .55); }
-.bande-exercice__mois li[data-etat="passe"] { color: hsl(var(--muted-foreground)); }
-.bande-exercice__mois li[data-etat="courant"] { background: hsl(var(--primary)); color: #fff; }
-.bande-exercice__mois li[data-etat="courant"]::after { content: ""; position: absolute; bottom: 3px; width: 3px; height: 3px; border-radius: 50%; background: hsl(var(--accent)); }
+.bande-exercice__mois li { display: block; }
+.bande-exercice__mois li button { position: relative; display: grid; min-width: 40px; height: 28px; place-items: center; border-radius: 8px; padding: 0 4px 3px; font-size: 11px; font-weight: 700; letter-spacing: .02em; color: hsl(var(--muted-foreground) / .55); cursor: pointer; transition: background .15s; }
+.bande-exercice__mois li button:hover { background: hsl(var(--card)); }
+.bande-exercice__mois li button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+.bande-exercice__mois li[data-etat="passe"] button { color: hsl(var(--primary)); }
+.bande-exercice__mois li[data-etat="courant"] button { background: hsl(var(--primary)); color: #fff; }
+.bande-exercice__mois li[data-etat="courant"] button:hover { background: hsl(var(--primary)); }
+.bande-point { position: absolute; bottom: 3px; left: 50%; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; }
+.bande-point--validees { background: #246549; }
+.bande-point--en_cours { background: #2a6dbf; }
+.bande-point--retard { background: #b3402a; }
+.bande-exercice__mois li[data-etat="courant"] .bande-point--validees,
+.bande-exercice__mois li[data-etat="courant"] .bande-point--en_cours { background: hsl(var(--accent)); }
+.bande-exercice__selecteur { display: flex; align-items: center; }
+@media (min-width: 1280px) { .bande-exercice__selecteur { display: none; } }
+.bande-selecteur { display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); }
+.bande-selecteur__fleche { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; color: hsl(var(--muted-foreground)); }
+.bande-selecteur__fleche:hover { background: hsl(var(--sheet)); color: hsl(var(--primary)); }
+.bande-selecteur__valeur { min-width: 9.5rem; padding: 0 10px; font-family: "Plus Jakarta Sans", sans-serif; font-size: 13.5px; font-weight: 800; color: hsl(var(--primary)); white-space: nowrap; text-align: center; }
+.bande-selecteur button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; border-radius: 8px; }
 .bande-exercice__circuit { display: none; gap: 2px; overflow: hidden; border-radius: 9px; }
 @media (min-width: 1100px) { .bande-exercice__circuit { display: flex; } }
 .bande-statut { display: flex; height: 28px; align-items: center; gap: 6px; padding: 0 14px; color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; transition: filter .2s; }
@@ -1883,6 +1899,7 @@
   .bande-exercice::-webkit-scrollbar { display: none; }
   .bande-exercice__fil { flex: 0 0 auto; min-width: max-content; }
   .bande-exercice__circuit { display: flex; flex: none; }
+  .bande-exercice__selecteur { flex: none; }
 }
 
 /* Maquette : la bande d'exercice ne répète pas le titre d'une page de premier niveau (il est dans l'en-tête marine) ; le fil d'Ariane reste pour les sous-pages. */

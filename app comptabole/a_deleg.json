@@ -1,0 +1,312 @@
+[
+ {
+  "route": "/",
+  "final": "/",
+  "h1": "Bon après-midi Nadia",
+  "len": 705,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/societes",
+  "final": "/collectes",
+  "h1": "Collectes de pièces",
+  "len": 723,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/employes",
+  "final": "/collectes",
+  "h1": "Collectes de pièces",
+  "len": 620,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/taches",
+  "final": "/collectes",
+  "h1": "Collectes de pièces",
+  "len": 620,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/collectes",
+  "final": "/collectes",
+  "h1": "Collectes de pièces",
+  "len": 620,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/structuration",
+  "final": "/structuration",
+  "h1": "Structuration",
+  "len": 739,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/messagerie",
+  "final": "/messagerie",
+  "h1": "Messagerie",
+  "len": 813,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/honoraires",
+  "final": "/honoraires/:id",
+  "h1": "Atlas Conseil SARL",
+  "len": 1566,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/honoraires/:id",
+  "final": "/honoraires/:id",
+  "h1": "Atlas Conseil SARL",
+  "len": 1463,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/facturation",
+  "final": "/collectes",
+  "h1": "Collectes de pièces",
+  "len": 641,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/apurement",
+  "final": "/collectes",
+  "h1": "Collectes de pièces",
+  "len": 641,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/apurement/:id",
+  "final": "/collectes",
+  "h1": "",
+  "len": 329,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/fournisseurs",
+  "js": 0,
+  "http": ""
+ },
+ {
+  "route": "/fournisseurs/:id",
+  "js": 0,
+  "http": ""
+ },
+ {
+  "route": "/stock",
+  "final": "/stock",
+  "h1": "",
+  "len": 0,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": ""
+ },
+ {
+  "route": "/stock/:id",
+  "final": "/collectes",
+  "h1": "",
+  "len": 329,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/journal",
+  "final": "/collectes",
+  "h1": "",
+  "len": 23,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": ""
+ },
+ {
+  "route": "/etats-financiers",
+  "final": "/collectes",
+  "h1": "",
+  "len": 329,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/etats-financiers/:id",
+  "final": "/collectes",
+  "h1": "",
+  "len": 329,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/grille-affectat",
+  "final": "/collectes",
+  "h1": "Collectes de pièces",
+  "len": 641,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/banque",
+  "final": "/banque",
+  "h1": "",
+  "len": 329,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/banque/:id",
+  "js": 0,
+  "http": ""
+ },
+ {
+  "route": "/souche-cheques",
+  "js": 0,
+  "http": ""
+ },
+ {
+  "route": "/souche-cheques/:id",
+  "final": "/collectes",
+  "h1": "",
+  "len": 23,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": ""
+ },
+ {
+  "route": "/ma-souche",
+  "final": "/ma-souche",
+  "h1": "",
+  "len": 0,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": ""
+ },
+ {
+  "route": "/bordereaux",
+  "final": "/collectes",
+  "h1": "Collectes de pièces",
+  "len": 641,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/cours-change",
+  "final": "/collectes",
+  "h1": "Collectes de pièces",
+  "len": 641,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/suivi-devise",
+  "final": "/collectes",
+  "h1": "",
+  "len": 329,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/suivi-devise/:id",
+  "final": "/collectes",
+  "h1": "",
+  "len": 329,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/etat-swift",
+  "js": 0,
+  "http": ""
+ },
+ {
+  "route": "/etat-swift/:id",
+  "js": 0,
+  "http": ""
+ },
+ {
+  "route": "/conversions",
+  "final": "/collectes",
+  "h1": "",
+  "len": 371,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/simulation-paie",
+  "final": "/collectes",
+  "h1": "",
+  "len": 329,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ },
+ {
+  "route": "/parametres",
+  "final": "/collectes",
+  "h1": "",
+  "len": 329,
+  "err": false,
+  "js": 0,
+  "http": "",
+  "menu": "Tableau de bord|Messagerie|Collectes de pièces|Structuration|Honoraires|Fournisseurs|Suivi bancaire|Ma souche|État SWIFT"
+ }
+]

@@ -2,7 +2,9 @@ import { virementDepuisLigne } from "@/lib/collecte/grandLivre";
 import { virementDejaPresent } from "@/lib/swiftDoublons";
 import { useEtatSwift } from "@/store/etatSwift";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { X } from "lucide-react";
+import { MOIS_LONGS, moisDeCollecte } from "@/lib/collecte/moisExercice";
 import { toast } from "sonner";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
@@ -48,10 +50,19 @@ export function CollectesListPage() {
   const societeActive = useSocieteActive();
   const toutes = useCollectes((s) => s.list);
   // Société active : tout le registre (compteurs, filtres, bannière) porte sur son dossier.
-  const list = useMemo(
-    () => (societeActive ? toutes.filter((c) => c.societeId === societeActive.id) : toutes),
-    [toutes, societeActive],
-  );
+  // Mois choisi dans la bande d'exercice (?mois=AAAA-MM) : la liste ne montre que les collectes de ce mois.
+  const [params, setParams] = useSearchParams();
+  const moisParam = /^(20\d{2})-(0[1-9]|1[0-2])$/.exec(params.get("mois") ?? "");
+  const moisChoisi = moisParam ? { annee: Number(moisParam[1]), mois: Number(moisParam[2]) - 1 } : null;
+  const list = useMemo(() => {
+    const deLaSociete = societeActive ? toutes.filter((c) => c.societeId === societeActive.id) : toutes;
+    if (!moisChoisi) return deLaSociete;
+    return deLaSociete.filter((c) => {
+      const m = moisDeCollecte(c);
+      return m?.annee === moisChoisi.annee && m.mois === moisChoisi.mois;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toutes, societeActive, moisChoisi?.annee, moisChoisi?.mois]);
   const loading = useCollectes((s) => s.loadingList);
   const fetchList = useCollectes((s) => s.fetchList);
   const create = useCollectes((s) => s.create);
@@ -60,8 +71,9 @@ export function CollectesListPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Collecte | null>(null);
-  const [vue, setVue] = useState<CollecteLens>(isCabinet ? "a_examiner" : "actives");
+  const [vue, setVue] = useState<CollecteLens>(params.get("mois") ? "toutes" : isCabinet ? "a_examiner" : "actives");
   const vueChoisie = useRef(false);
+  const moisAffiche = moisChoisi ? `${MOIS_LONGS[moisChoisi.mois]} ${moisChoisi.annee}` : null;
   // Présentation : « liste et volet » (par défaut), tableau ou pipeline ; gardée dans ce navigateur.
   const [affichage, setAffichage] = useState<"volet" | "tableau" | "pipeline">(() => {
     try {
@@ -93,6 +105,12 @@ export function CollectesListPage() {
   useEffect(() => {
     fetchList();
   }, [fetchList]);
+
+  // Choisir un mois dans la bande d'exercice montre toutes ses collectes, quel que soit leur statut.
+  const moisCle = params.get("mois");
+  useEffect(() => {
+    if (moisCle) { vueChoisie.current = true; setVue("toutes"); }
+  }, [moisCle]);
 
   // Le choix de la barre du haut remplace le filtre de société propre à la page.
   useEffect(() => {
@@ -207,6 +225,11 @@ export function CollectesListPage() {
       <section aria-label="Registre des collectes" className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/80 px-3 py-2">
           <div className="min-w-0 flex-1 sm:min-w-[16rem]">{search}</div>
+          {moisAffiche && (
+            <button type="button" onClick={() => setParams({})} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-bold capitalize text-primary-foreground" aria-label={`Retirer le filtre du mois ${moisAffiche}`}>
+              {moisAffiche} <X className="size-3.5" aria-hidden="true" />
+            </button>
+          )}
           <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground" aria-live="polite">{[...new Set(filtered.map((c) => c.societeId))].length} société{[...new Set(filtered.map((c) => c.societeId))].length > 1 ? "s" : ""} · {filtered.length} collecte{filtered.length > 1 ? "s" : ""}</span>
           <div role="group" aria-label="Affichage des collectes" className="inline-flex rounded-[10px] bg-muted p-[3px]">
             {([["volet", "Liste et volet"], ["tableau", "Tableau"], ["pipeline", "Pipeline"]] as const).map(([valeur, label]) => (

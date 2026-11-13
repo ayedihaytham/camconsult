@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { BookText } from "lucide-react";
+import { BookText, Plus } from "lucide-react";
 import { SignatureLedgerBanner } from "@/components/ledger/SignatureLedgerBanner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { CollecteGrid, type CollecteGridHandle } from "@/pages/collectes/CollecteGrid";
@@ -10,6 +10,7 @@ import { useSocieteById } from "@/store/data";
 import { api } from "@/lib/api";
 import { TAB_BY_KEY } from "@/lib/collecte/tabs";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import type { CollecteLigne, SectionStatut } from "@/types";
 
 interface SoucheCollecte {
@@ -51,6 +52,32 @@ export function SoucheClientPage() {
     void charger();
   }, [charger]);
 
+  const [ouverture, setOuverture] = useState(false);
+  const moisCourant = new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  const moisCourantMaj = moisCourant.charAt(0).toUpperCase() + moisCourant.slice(1);
+
+  /** Ouvre la souche du mois sans attendre la prochaine collecte du cabinet, puis la sélectionne. */
+  async function ouvrirSouche() {
+    setOuverture(true);
+    try {
+      const r = await api.post<{ collecteId: string; periode: string; creee: boolean }>("/collectes/souche", { societeId });
+      await charger();
+      setChoisie(r.collecteId);
+      toast.success(r.creee ? `Souche de ${r.periode} ouverte` : `La souche de ${r.periode} existe déjà`);
+    } catch {
+      toast.error("La souche n'a pas pu être ouverte.");
+    } finally {
+      setOuverture(false);
+    }
+  }
+
+  const boutonOuvrir = (
+    <Button type="button" variant="ledger" className="gap-2" disabled={ouverture || souches === null} onClick={() => void ouvrirSouche()}>
+      <Plus className="size-4" aria-hidden="true" />
+      {ouverture ? "Ouverture…" : `Ouvrir la souche de ${moisCourantMaj}`}
+    </Button>
+  );
+
   const souche = souches?.find((s) => s.collecteId === choisie) ?? null;
   const editable = souche ? OUVERTS.includes(souche.statut) : false;
 
@@ -75,6 +102,7 @@ export function SoucheClientPage() {
         eyebrow="Votre espace"
         title="Souche de chèques"
         description={`${societe?.raisonSociale ?? "Société"} · les chèques que vous avez émis`}
+        action={souches && !souches.some((s) => s.periode.toLowerCase() === moisCourantMaj.toLowerCase()) ? { label: `Ouvrir la souche de ${moisCourantMaj}`, onClick: () => void ouvrirSouche() } : undefined}
         metrics={[
           { label: "Périodes", value: souches?.length ?? 0, icon: BookText, loading: souches === null },
           { label: "Chèques de la période", value: souche?.lignes.length ?? 0, loading: souches === null },
@@ -85,7 +113,7 @@ export function SoucheClientPage() {
         {souches === null ? (
           <EmptyState title="Chargement…" description="" />
         ) : souches.length === 0 || !souche || !def ? (
-          <EmptyState icon={BookText} title="Aucune souche à remplir" description="Le cabinet ouvrira votre souche avec la prochaine collecte de pièces : elle apparaîtra ici." />
+          <EmptyState icon={BookText} title="Aucune souche à remplir" description="Ouvrez la souche du mois pour saisir vos chèques, ou attendez que le cabinet l'ouvre avec la prochaine collecte de pièces." action={boutonOuvrir} />
         ) : (
           <>
             {souches.length > 1 && (

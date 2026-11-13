@@ -342,6 +342,38 @@ collectesRouter.get("/souche", async (req, res) => {
   );
 });
 
+// Le responsable ou délégué de société ouvre lui-même une souche pour un mois (« Novembre 2026 ») quand le cabinet n'en a pas encore demandé :
+// une collecte réduite au seul tableau « souche de chèques », sur SA société. Une souche déjà ouverte pour ce mois est renvoyée telle quelle.
+const MOIS_FR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+collectesRouter.post("/souche", async (req, res) => {
+  if (!estClient(req.session)) return res.status(403).json({ error: "Réservé au responsable ou au délégué de la société" });
+  const societeId = String(req.body?.societeId || "");
+  if (!societeId) return res.status(400).json({ error: "societeId requis" });
+  if (!canSeeSociete(req.session, societeId)) return res.status(403).json({ error: "Société hors périmètre" });
+  const maintenant = new Date();
+  const periode = `${MOIS_FR[maintenant.getMonth()]} ${maintenant.getFullYear()}`;
+  const existante = (
+    await query(
+      "select id from collectes where societe_id = $1 and lower(periode) = lower($2) and onglets @> '[\"souche_cheques\"]'::jsonb limit 1",
+      [societeId, periode],
+    )
+  ).rows[0];
+  if (existante) return res.json({ collecteId: existante.id, periode, creee: false });
+  const soc = (await query("select raison_sociale from societes where id = $1", [societeId])).rows[0];
+  if (!soc) return res.status(400).json({ error: "Société introuvable" });
+  const creee = await withTransaction(async (client) => {
+    const { rows } = await client.query(
+      `insert into collectes (societe_id, periode, onglets, devise, relance_cadence_jours, envoi_par_lignes)
+       values ($1,$2,'["souche_cheques"]'::jsonb,'TND',3,false) returning *`,
+      [societeId, periode],
+    );
+    await client.query("insert into collecte_sections (collecte_id, onglet) values ($1,'souche_cheques') on conflict do nothing", [rows[0].id]);
+    return rows[0];
+  });
+  logAction(req.session.nom, "creation", "collecte", `${soc.raison_sociale} — souche ${periode}`, creee.id);
+  res.status(201).json({ collecteId: creee.id, periode, creee: true });
+});
+
 // ── Détail ────────────────────────────────────────
 collectesRouter.get("/:id", async (req, res) => {
   const full = await loadCollecte(req.params.id);

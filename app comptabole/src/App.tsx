@@ -10,6 +10,7 @@ import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { RequireEquipeManager } from "@/components/auth/RequireEquipeManager";
 import { RequireEquipe } from "@/components/auth/RequireEquipe";
 import { RequireEtatClient } from "@/components/auth/RequireEtatClient";
+import { RequireSocieteEmploye } from "@/components/auth/RequireSocieteEmploye";
 import { RequireSuiviFournisseur } from "@/components/auth/RequireSuiviFournisseur";
 import { useAuth } from "@/store/auth";
 import { useData } from "@/store/data";
@@ -508,14 +509,16 @@ export default function App() {
                   </Suspense>
                 }
               />
-              <Route
-                path="/ma-souche"
-                element={
-                  <Suspense fallback={<PageFallback />}>
-                    <SoucheClientPage />
-                  </Suspense>
-                }
-              />
+              <Route element={<RequireSocieteEmploye />}>
+                <Route
+                  path="/ma-souche"
+                  element={
+                    <Suspense fallback={<PageFallback />}>
+                      <SoucheClientPage />
+                    </Suspense>
+                  }
+                />
+              </Route>
               <Route
                 path="/etat-swift"
                 element={

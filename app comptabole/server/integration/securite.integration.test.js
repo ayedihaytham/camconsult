@@ -209,16 +209,18 @@ describe.skipIf(!actif)("intégration PostgreSQL : sécurité, migration et conc
     expect(liste.texte).not.toContain("mdp-herite-test");
   });
 
-  it("suppression d'une société : refusée (409) si elle porte une facture, impossible même confirmée (conservation), et rien n'est perdu", async () => {
+  it("suppression d'une société : refusée (409) si elle porte une facture, effacée en cascade (factures comprises) une fois confirmée", async () => {
     const s = await admin("POST", "/api/societes", { raisonSociale: "Société Facturée", code: "SYN-2" });
     await sql.query("insert into factures (societe_id, numero) values ($1, '2026-9001')", [s.json.id]);
     const refus = await admin("POST", "/api/societes/bulk-delete", { ids: [s.json.id] });
     expect(refus.status).toBe(409);
     expect(refus.json.error).toMatch(/facture/);
-    const confirme = await admin("POST", "/api/societes/bulk-delete", { ids: [s.json.id], confirmationDefinitive: "SUPPRIMER DEFINITIVEMENT" });
-    expect([409, 500]).toContain(confirme.status);
     expect((await sql.query("select count(*)::int n from societes where id = $1", [s.json.id])).rows[0].n).toBe(1);
     expect((await sql.query("select count(*)::int n from factures where societe_id = $1", [s.json.id])).rows[0].n).toBe(1);
+    const confirme = await admin("POST", "/api/societes/bulk-delete", { ids: [s.json.id], confirmationDefinitive: "SUPPRIMER DEFINITIVEMENT" });
+    expect(confirme.status).toBe(200);
+    expect((await sql.query("select count(*)::int n from societes where id = $1", [s.json.id])).rows[0].n).toBe(0);
+    expect((await sql.query("select count(*)::int n from factures where societe_id = $1", [s.json.id])).rows[0].n).toBe(0);
   });
 
   it("société sans écriture à conserver : supprimée avec ses données, après confirmation non requise", async () => {

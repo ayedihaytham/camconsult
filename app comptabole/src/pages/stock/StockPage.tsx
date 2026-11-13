@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowUp, ArrowUpDown, Boxes, Coins, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Boxes, ChevronRight, Coins, Search } from "lucide-react";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
+import { PageKpiCards } from "@/components/ledger/PageKpiCards";
 import { EmptyState } from "@/components/common/EmptyState";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteActive } from "@/hooks/useSocieteActive";
@@ -161,7 +162,20 @@ export function StockPage() {
         }
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card" data-tour="stock-societes">
+      {societes.length > 0 && (
+        <div data-tour="stock-summary">
+          <PageKpiCards
+            className="mb-0"
+            metrics={[
+              { label: total > 1 ? "Mouvements" : "Mouvement", value: total },
+              { label: coursManquants > 1 ? "Cours manquants" : "Cours manquant", value: coursManquants, tone: coursManquants > 0 ? "warning" : "default" },
+              { label: alertes > 1 ? "Alertes stock" : "Alerte stock", value: alertes, tone: alertes > 0 ? "destructive" : "default" },
+            ]}
+          />
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]" data-tour="stock-societes">
         {societes.length === 0 ? (
           <EmptyState
             icon={Boxes}
@@ -191,29 +205,18 @@ export function StockPage() {
                 ))}
               </div>
             </div>
-            <div data-tour="stock-summary" className="flex flex-wrap items-stretch gap-x-0.5 border-b border-border/80 bg-muted/20 px-3">
-              <div role="group" aria-label="Filtrer les sociétés" className="flex flex-wrap items-stretch">
-                {([["toutes", "Toutes", societes.length], ["avec", "Avec mouvements", nbAvec], ["sans", "Sans mouvement", societes.length - nbAvec]] as const).map(([valeur, nom, n]) => (
-                  <button
-                    key={valeur}
-                    type="button"
-                    aria-pressed={filtre === valeur}
-                    onClick={() => setFiltre(valeur)}
-                    className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", filtre === valeur ? "font-semibold text-foreground after:absolute after:inset-x-4 after:bottom-0 after:h-[3px] after:rounded after:bg-[#C9A96A]" : "text-muted-foreground")}
-                  >
-                    <b className={cn("text-sm font-bold leading-none tabular-nums tracking-tight", n === 0 ? "text-muted-foreground/50" : "text-primary")}>{n}</b>
-                    {nom}
-                  </button>
-                ))}
-              </div>
-              <dl className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5">
-                {([[total > 1 ? "Mouvements" : "Mouvement", total, "text-primary"], [coursManquants > 1 ? "Cours manquants" : "Cours manquant", coursManquants, coursManquants > 0 ? "text-warning" : "text-muted-foreground/60"], [alertes > 1 ? "Alertes stock" : "Alerte stock", alertes, alertes > 0 ? "text-destructive" : "text-muted-foreground/60"]] as const).map(([libelle, valeur, ton]) => (
-                  <div key={libelle} className="flex flex-col border-l border-border/80 pl-4 leading-tight">
-                    <dt className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{libelle}</dt>
-                    <dd className={cn("m-0 text-sm font-bold tabular-nums", ton)}>{valeur}</dd>
-                  </div>
-                ))}
-              </dl>
+            <div role="group" aria-label="Filtrer les sociétés" className="flex flex-wrap items-center gap-2 border-b border-border/80 px-3 py-2.5">
+              {([["toutes", "Toutes", societes.length], ["avec", "Avec mouvements", nbAvec], ["sans", "Sans mouvement", societes.length - nbAvec]] as const).map(([valeur, nom, n]) => (
+                <button
+                  key={valeur}
+                  type="button"
+                  aria-pressed={filtre === valeur}
+                  onClick={() => setFiltre(valeur)}
+                  className={cn("h-8 rounded-full border px-3.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", filtre === valeur ? "border-primary bg-primary text-primary-foreground" : "border-primary/15 bg-card text-primary hover:bg-[#F5F8FD]")}
+                >
+                  {nom} · {n}
+                </button>
+              ))}
             </div>
             {vue === "volet" && (
               <StockSocietesVolet
@@ -243,9 +246,9 @@ export function StockPage() {
                         aria-sort={tri === colonne ? (sens === 1 ? "ascending" : "descending") : undefined}
                         className="sticky top-0 border-b border-primary/10 px-4 py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-[0.1em]"
                       >
-                        <button type="button" onClick={() => trier(colonne)} className={cn("flex w-full items-center gap-1.5 rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", align === "right" && "justify-end", align === "center" && "justify-center")}>
+                        <button type="button" onClick={() => trier(colonne)} className={cn("group/tri flex w-full items-center gap-1.5 rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", align === "right" && "justify-end", align === "center" && "justify-center")}>
                           {titre}
-                          {tri === colonne ? (sens === 1 ? <ArrowUp className="size-3 text-accent" aria-hidden="true" /> : <ArrowDown className="size-3 text-accent" aria-hidden="true" />) : <ArrowUpDown className="size-3 opacity-35" aria-hidden="true" />}
+                          {tri === colonne ? (sens === 1 ? <ArrowUp className="size-3 text-accent" aria-hidden="true" /> : <ArrowDown className="size-3 text-accent" aria-hidden="true" />) : <ArrowUpDown className="size-3 opacity-0 transition-opacity group-hover/tri:opacity-40" aria-hidden="true" />}
                         </button>
                       </th>
                     ))}
@@ -253,13 +256,13 @@ export function StockPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {affichees.map((s, index) => {
+                  {affichees.map((s) => {
                     const ligne = synthese[s.id];
                     const cours = etatCours(ligne);
                     const actif = (ligne?.mouvements ?? 0) > 0;
                     const cellule = "h-[58px] border-b border-border/70 px-4 py-2.5 align-middle";
                     return (
-                      <tr key={s.id} onClick={() => navigate(`/stock/${s.id}`)} className={cn("cursor-pointer hover:bg-accent/10", index % 2 === 1 && "bg-muted/40")}>
+                      <tr key={s.id} onClick={() => navigate(`/stock/${s.id}`)} className="cursor-pointer hover:bg-[#F5F8FD]">
                         <td className={cellule}>
                           <div className="flex min-w-0 items-center gap-3">
                             <span aria-hidden="true" className={cn("grid size-8 shrink-0 place-items-center rounded-md text-[0.72rem] font-semibold", actif ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>{initials(s.raisonSociale)}</span>
@@ -281,7 +284,7 @@ export function StockPage() {
                         </td>
                         <td className={cn(cellule, "text-center")}>
                           {cours.tone === "none" ? <span className="text-muted-foreground/60">—</span> : (
-                            <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium", cours.tone === "ok" ? "bg-success/10 text-success" : "bg-warning/10 text-warning")}>
+                            <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold", cours.tone === "ok" ? "bg-[#DDF0E5] text-[#1D5D41]" : "bg-[#FBEBC4] text-[#8A5A0B]")}>
                               <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
                               {cours.label}
                             </span>
@@ -292,9 +295,9 @@ export function StockPage() {
                             type="button"
                             onClick={(e) => { e.stopPropagation(); navigate(`/stock/${s.id}`); }}
                             aria-label={`Ouvrir le stock de ${s.raisonSociale}`}
-                            className="min-h-9 whitespace-nowrap rounded font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="inline-flex size-9 items-center justify-center rounded-lg border border-primary/15 text-primary transition-colors hover:bg-[#F5F8FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
-                            Ouvrir →
+                            <ChevronRight className="size-4" aria-hidden="true" />
                           </button>
                         </td>
                       </tr>
@@ -305,7 +308,7 @@ export function StockPage() {
                   )}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-primary/40 bg-primary/10 font-semibold text-primary">
+                  <tr className="bg-[#F7F9FC] font-semibold text-primary">
                     <td className="px-4 py-2.5">Total</td>
                     <td className="px-4 py-2.5 text-right">{affichees.reduce((n, x) => n + (synthese[x.id]?.mouvements ?? 0), 0)}</td>
                     <td className="px-4 py-2.5 text-right font-medium text-muted-foreground">{(() => { const v = affichees.reduce((n, x) => n + (synthese[x.id]?.valeur ?? 0), 0); return v > 0 ? montant(v) : "—"; })()}</td>

@@ -77,7 +77,6 @@ interface Props {
   total: number;
 }
 
-const FIGURE_ACTIVE = "after:absolute after:inset-x-4 after:bottom-0 after:h-[3px] after:rounded after:bg-[#C9A96A]";
 
 /**
  * Barre de filtres du stock, dans le style de Sociétés : une recherche large qui porte le bouton « Filtres » (client, fournisseur), le nombre
@@ -165,8 +164,8 @@ export function StockFiltres({ criteres, onCriteres, clients, fournisseurs, comp
           </Popover>
         </span>
       </div>
-      <div data-tour="stock-summary" className="flex flex-wrap items-stretch gap-x-0.5 border-b border-border/80 bg-muted/20 px-3">
-        <div role="group" aria-label="Situation des mouvements" className="flex flex-wrap items-stretch">
+      <div data-tour="stock-summary" className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/80 px-3 py-2.5">
+        <div role="group" aria-label="Situation des mouvements" className="flex flex-wrap items-center gap-2">
           {SITUATIONS.map((s) => {
             const actif = criteres.situation === s.valeur;
             const alerte = (s.valeur === "ecart" || s.valeur === "sans-achat") && comptes[s.valeur] > 0;
@@ -176,10 +175,9 @@ export function StockFiltres({ criteres, onCriteres, clients, fournisseurs, comp
                 type="button"
                 aria-pressed={actif}
                 onClick={() => onCriteres({ ...criteres, situation: s.valeur })}
-                className={cn("relative flex items-baseline gap-2 px-4 py-3 text-[0.8125rem] transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", actif ? `font-semibold text-foreground ${FIGURE_ACTIVE}` : "text-muted-foreground")}
+                className={cn("flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", actif ? "border-primary bg-primary text-primary-foreground" : "border-primary/15 bg-card text-primary hover:bg-[#F5F8FD]")}
               >
-                <b className={cn("text-sm font-bold leading-none tabular-nums tracking-tight", alerte ? "text-destructive" : comptes[s.valeur] === 0 ? "text-muted-foreground/50" : "text-primary")}>{comptes[s.valeur]}</b>
-                {s.nom}
+                {s.nom} · <b className={cn("font-bold tabular-nums", !actif && alerte && "text-destructive")}>{comptes[s.valeur]}</b>
               </button>
             );
           })}

@@ -32,10 +32,14 @@ import {
   useEmployes,
   useNoeuds,
   useSocietes,
+  useTaches,
 } from "@/store/data";
 import type { Conversation, Message, Noeud } from "@/types";
 import { ClasserPieceJointeDialog } from "./ClasserPieceJointeDialog";
 import { GroupeFormDialog } from "./GroupeFormDialog";
+import { BandeDossier, PanneauDossier, collecteDuFil } from "./DossierLie";
+import { TacheFormSheet } from "../taches/TacheFormSheet";
+import { useCollectes } from "@/store/collectes";
 
 /** Pièce jointe telle qu'affichée : le contenu n'est plus dans la liste des
  * messages, seulement l'indication qu'il est disponible. Les anciens
@@ -62,7 +66,15 @@ async function contenuDuMessage(message: Message | undefined, noeuds: Noeud[]) {
 }
 
 export function MessageriePage() {
-  const { isAdmin, can, canSeeSociete, employeId, isResponsableSociete } = usePermissions();
+  const { isAdmin, can, canSeeSociete, employeId, isResponsableSociete, canManageCollaborateurs } = usePermissions();
+  const collectesListe = useCollectes((state) => state.list);
+  const fetchCollectes = useCollectes((state) => state.fetchList);
+  const tachesListe = useTaches();
+  const addTache = useData((state) => state.addTache);
+  const [tacheOuverte, setTacheOuverte] = useState<{ titre: string; description: string } | null>(null);
+  useEffect(() => {
+    void fetchCollectes().catch(() => undefined);
+  }, [fetchCollectes]);
   const adminName = toTitleCase(
     useAuth((state) => state.session?.cabinetNom ?? "Cabinet"),
   );
@@ -458,6 +470,39 @@ export function MessageriePage() {
     };
   }
 
+  /** « · Atlas Textile » après le rôle d'un compte de société, vide pour l'équipe du cabinet. */
+  const societeLabel = (e: { societeId?: string | null }) => {
+    const nom = socById(e.societeId ?? null)?.raisonSociale;
+    return nom ? ` · ${nom}` : "";
+  };
+  const societeDuFil = activeConversation?.societeId && (isGroup || activeEmployee?.role === "societe_employe" || !isAdmin) ? socById(activeConversation.societeId) : null;
+  const collecteLiee = collecteDuFil(collectesListe, societeDuFil?.id);
+  const routeCollecte = collecteLiee ? `/collectes/${collecteLiee.id}` : null;
+  const tachesLiees = societeDuFil ? tachesListe.filter((t) => t.societeId === societeDuFil.id && t.statut !== "termine") : [];
+  const reponsesRapides = isAdmin || canManageCollaborateurs
+    ? ["Pièces bien reçues ✓", "Il manque un document…", "Pouvez-vous confirmer le montant ?"]
+    : ["Voici les pièces demandées.", "Pouvez-vous me rappeler ?"];
+  const mentionnables = isAdmin || canManageCollaborateurs
+    ? employes.filter((e) => e.role !== "societe_employe" && e.statut === "actif").map((e) => employeNomComplet(e))
+    : [];
+  const peutCreerTache = (isAdmin || canManageCollaborateurs || isResponsableSociete) && Boolean(societeDuFil);
+  const membres = !activeConversation
+    ? []
+    : isGroup
+      ? [
+          { nom: adminName, role: "Responsable du cabinet" },
+          ...(activeConversation.membreIds ?? []).flatMap((id) => {
+            const e = empById(id);
+            return e ? [{ nom: employeNomComplet(e), role: e.role === "societe_employe" ? `Compte de société${societeLabel(e)}` : e.type }] : [];
+          }),
+        ]
+      : [
+          { nom: partnerLabel(activeConversation, activeEmployee), role: activeEmployee?.role === "responsable_collaborateurs" ? "Responsable du cabinet" : activeEmployee?.role === "societe_employe" ? `Compte de société${societeLabel(activeEmployee)}` : (activeEmployee?.type ?? "Cabinet"), enLigne: isAdmin ? activeConversation.enLigne : cabinetEnLigne },
+          { nom: isAdmin ? adminName : "Vous", role: isAdmin ? "Vous" : "Votre compte" },
+        ];
+  /** Dernier message reçu dans le fil : sert de titre quand on crée une tâche sans avoir rien saisi. */
+  const dernierRecu = [...threadMessages].reverse().find((m) => m.auteurId !== "me" || !isAdmin) ?? null;
+
   // Mon identité pour les réactions : même clé que le serveur (« admin:<compte> » pour un administrateur, l'identifiant pour un employé).
   const maCleReaction = isAdmin ? (monAdminId ? `admin:${monAdminId}` : null) : employeId;
   const messageItems: MessengerMessageItem[] = threadMessages.map(
@@ -559,8 +604,35 @@ export function MessageriePage() {
         onSelectAttachment={(item) => void handleSelectAttachment(item)}
         onRemoveAttachment={() => setAttachment(null)}
         onSend={send}
+        contexte={societeDuFil ? <BandeDossier societeNom={societeDuFil.raisonSociale} collecte={collecteLiee} route={routeCollecte} /> : undefined}
+        panneauDroit={societeDuFil ? <PanneauDossier societeNom={societeDuFil.raisonSociale} collecte={collecteLiee} taches={tachesLiees} route={routeCollecte} /> : undefined}
+        reponsesRapides={reponsesRapides}
+        mentionnables={mentionnables}
+        membres={membres}
+        onCreerTache={
+          peutCreerTache
+            ? () => {
+                const source = draft.trim() || dernierRecu?.contenu || "";
+                setTacheOuverte({ titre: source.replace(/\s+/g, " ").slice(0, 80), description: source });
+              }
+            : undefined
+        }
         onToggleReaction={maCleReaction ? (id, emoji) => void toggleReaction(id, emoji, maCleReaction) : undefined}
       />
+
+      {societeDuFil && (
+        <TacheFormSheet
+          open={tacheOuverte !== null}
+          onOpenChange={(o) => !o && setTacheOuverte(null)}
+          defaultSocieteId={societeDuFil.id}
+          lockedSocieteId={isResponsableSociete ? societeDuFil.id : null}
+          initial={tacheOuverte}
+          onSubmit={async (values) => {
+            await addTache(values);
+            toast.success("Tâche créée depuis la conversation", { description: values.titre });
+          }}
+        />
+      )}
 
       <ClasserPieceJointeDialog
         open={Boolean(classifying)}

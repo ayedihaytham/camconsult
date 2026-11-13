@@ -62,6 +62,8 @@ interface Props {
   assignees?: Employe[];
   /** Société imposée (responsable de société) : le sélecteur est masqué. */
   lockedSocieteId?: string | null;
+  /** Valeurs proposées à la création (titre, description) : par exemple depuis un message de la Messagerie. */
+  initial?: { titre?: string; description?: string } | null;
   onSubmit: (values: {
     titre: string;
     description: string;
@@ -80,6 +82,7 @@ export function TacheFormSheet({
   defaultSocieteId,
   assignees,
   lockedSocieteId,
+  initial,
   onSubmit,
 }: Props) {
   const isEdit = Boolean(tache);
@@ -117,15 +120,15 @@ export function TacheFormSheet({
             finPrevue: tache.finPrevue ?? "",
           }
         : {
-            titre: "",
-            description: "",
+            titre: initial?.titre ?? "",
+            description: initial?.description ?? "",
             societeId: lockedSocieteId ?? defaultSocieteId ?? "",
             assigneId: NONE,
             debutPrevu: "",
             finPrevue: "",
           },
     );
-  }, [open, tache, defaultSocieteId, lockedSocieteId, reset]);
+  }, [open, tache, defaultSocieteId, lockedSocieteId, initial, reset]);
 
   const societeId = watch("societeId");
   const assigneId = watch("assigneId");

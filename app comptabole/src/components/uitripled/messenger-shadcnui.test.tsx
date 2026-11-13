@@ -143,7 +143,7 @@ describe("conversation ouverte : fichiers et réactions", () => {
     const liste = within(screen.getByRole("list", { name: "Fichiers échangés" }));
     expect(liste.getByText("Releve-06.pdf")).toBeTruthy();
     expect(liste.getByText("1,2 Mo")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "Discussion" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Conversation" }));
     expect(screen.getByText("Message 1")).toBeTruthy();
     cleanup();
     ouvrir([msg("1")]);

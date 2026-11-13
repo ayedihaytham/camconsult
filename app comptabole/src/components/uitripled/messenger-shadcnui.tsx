@@ -1,4 +1,4 @@
-import type { FormEvent, RefObject } from "react";
+import type { FormEvent, ReactNode, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -144,6 +144,18 @@ interface MessengerProps {
   onSend: () => void;
   /** Pose ou retire ma réaction sur un message ; absent : les réactions ne sont pas proposées. */
   onToggleReaction?: (messageId: string, emoji: string) => void;
+  /** Bande « dossier lié » sous l'en-tête du fil (la collecte dont on parle), affichée dans l'onglet Conversation. */
+  contexte?: ReactNode;
+  /** Panneau du dossier à droite du fil (écrans larges). */
+  panneauDroit?: ReactNode;
+  /** Réponses prêtes, proposées au-dessus de la saisie : un clic les ajoute au message. */
+  reponsesRapides?: string[];
+  /** Personnes qu'on peut mentionner (« @Prénom ») : un menu les propose dans la saisie. */
+  mentionnables?: string[];
+  /** Crée une tâche à partir du message en cours de saisie, ou du dernier message reçu. */
+  onCreerTache?: () => void;
+  /** Participants de la conversation (onglet Membres). */
+  membres?: { nom: string; role: string; enLigne?: boolean }[];
 }
 
 function ConversationAvatar({
@@ -284,9 +296,15 @@ export function Messenger({
   onRemoveAttachment,
   onSend,
   onToggleReaction,
+  contexte,
+  panneauDroit,
+  reponsesRapides,
+  mentionnables,
+  onCreerTache,
+  membres,
 }: MessengerProps) {
   const shouldReduceMotion = useReducedMotion();
-  const [onglet, setOnglet] = useState<"discussion" | "fichiers">("discussion");
+  const [onglet, setOnglet] = useState<"discussion" | "fichiers" | "membres">("discussion");
   const [reactionOuverte, setReactionOuverte] = useState<string | null>(null);
   const conversationActiveId = activeConversation?.id;
   useEffect(() => {
@@ -321,7 +339,7 @@ export function Messenger({
   };
 
   return (
-    <section className="relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-lg border border-border bg-card md:grid-cols-[minmax(18rem,22.5rem)_minmax(0,1fr)]">
+    <section className={cn("relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)] md:grid-cols-[minmax(18rem,22.5rem)_minmax(0,1fr)]", panneauDroit && activeConversation && "xl:grid-cols-[minmax(18rem,22.5rem)_minmax(0,1fr)_19rem]")}>
       <aside data-tour="messages-list"
         className={cn(
           "min-h-0 flex-col border-border bg-card md:flex md:border-r",
@@ -515,7 +533,7 @@ export function Messenger({
               </div>
 
               <div role="tablist" aria-label="Contenu de la conversation" className="ml-1 flex shrink-0 items-center gap-3 sm:gap-4">
-                {([["discussion", "Discussion"], ["fichiers", "Fichiers"]] as const).map(([valeur, libelle]) => (
+                {([["discussion", "Conversation"], ["fichiers", "Fichiers"], ...(membres && membres.length > 0 ? [["membres", "Membres"] as const] : [])] as const).map(([valeur, libelle]) => (
                   <button
                     key={valeur}
                     type="button"
@@ -558,13 +576,30 @@ export function Messenger({
               )}
             </header>
 
+            {contexte && onglet === "discussion" && <div className="px-3 pt-3 sm:px-6">{contexte}</div>}
+
             <div data-tour="messages-thread"
               ref={messagesContainerRef}
               className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6"
               aria-label={`Messages avec ${activeConversation.name}`}
               aria-live="off"
             >
-              {onglet === "fichiers" ? (
+              {onglet === "membres" ? (
+                <ul className="mx-auto max-w-2xl space-y-2" aria-label="Membres de la conversation">
+                  {(membres ?? []).map((m) => (
+                    <li key={m.nom} className="flex items-center gap-3 rounded-xl border border-primary/10 bg-card px-4 py-3">
+                      <span className="grid size-9 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary" aria-hidden="true">
+                        {m.nom.split(/\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase()).join("")}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-primary">{m.nom}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{m.role}</span>
+                      </span>
+                      {m.enLigne !== undefined && <span className={cn("text-xs font-semibold", m.enLigne ? "text-success" : "text-muted-foreground")}>{m.enLigne ? "● En ligne" : "Hors ligne"}</span>}
+                    </li>
+                  ))}
+                </ul>
+              ) : onglet === "fichiers" ? (
                 fichiersEchanges.length === 0 ? (
                   <div className="flex h-full min-h-40 items-center justify-center text-center">
                     <div>
@@ -741,6 +776,20 @@ export function Messenger({
               className="bg-background px-3 pb-3 pr-16 pt-1 sm:px-5 sm:pb-4 sm:pr-16"
               aria-label="Écrire un message"
             >
+              {reponsesRapides && reponsesRapides.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="Réponses prêtes">
+                  {reponsesRapides.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => onDraftChange(draft.trim() ? `${draft.trimEnd()} ${r}` : r)}
+                      className="rounded-full border border-primary/20 bg-card px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-[#F5F8FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              )}
               {attachment && (
                 <div className="mb-2 flex min-w-0 items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-2 text-xs">
                   <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -817,6 +866,29 @@ export function Messenger({
                     </DropdownMenuSub>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                {mentionnables && mentionnables.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1 rounded-lg bg-[#FBF3DD] px-2.5 text-xs font-bold text-[#8a5a0b] hover:bg-[#F7EBC8] hover:text-[#8a5a0b]" aria-label="Mentionner une personne" title="Mentionner une personne">
+                        @ <span className="hidden 2xl:inline">Mentionner</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="top" className="max-h-64 overflow-y-auto">
+                      <DropdownMenuLabel>Mentionner</DropdownMenuLabel>
+                      {mentionnables.map((nom) => (
+                        <DropdownMenuItem key={nom} onClick={() => onDraftChange(`${draft}${draft && !draft.endsWith(" ") ? " " : ""}@${nom} `)}>
+                          @{nom}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {onCreerTache && (
+                  <Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1 rounded-lg bg-[#E8F4EC] px-2.5 text-xs font-bold text-[#1D5D41] hover:bg-[#D9EDE0] hover:text-[#1D5D41]" onClick={onCreerTache} aria-label="Créer une tâche à partir de ce message" title="Créer une tâche à partir de ce message">
+                    ☑ <span className="hidden 2xl:inline">Créer une tâche</span>
+                  </Button>
+                )}
 
                 <label htmlFor="messenger-editor" className="sr-only">
                   Écrivez un message
@@ -899,6 +971,12 @@ export function Messenger({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {panneauDroit && activeConversation && (
+        <aside className="hidden min-h-0 flex-col gap-4 overflow-y-auto border-l border-primary/10 bg-card p-4 xl:flex" aria-label="Dossier lié">
+          {panneauDroit}
+        </aside>
+      )}
 
       <div
         ref={liveRegionRef}

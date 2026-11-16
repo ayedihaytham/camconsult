@@ -150,8 +150,13 @@ alter table apurement_exports drop constraint if exists apurement_exports_declar
 create unique index if not exists apurement_exports_source on apurement_exports(declaration_id,type,source_hash);
 -- Append-only domain history and frozen bytes. Database administrator can still
 -- alter triggers; off-site backups remain an operational requirement.
+-- Seule exception : la suppression DÉFINITIVE et confirmée d'une société (POST /api/societes/bulk-delete), qui lève le drapeau
+-- `app.purge_societe` pour la durée de sa transaction. Une modification ou une suppression ordinaire reste refusée.
 create or replace function apurement_immutable() returns trigger language plpgsql as $$
-begin raise exception 'Apurement: enregistrement immuable'; end $$;
+begin
+  if TG_OP = 'DELETE' and current_setting('app.purge_societe', true) = 'on' then return old; end if;
+  raise exception 'Apurement: enregistrement immuable';
+end $$;
 drop trigger if exists apurement_audit_immutable on apurement_audit;
 create trigger apurement_audit_immutable before update or delete on apurement_audit for each row execute function apurement_immutable();
 drop trigger if exists apurement_export_immutable on apurement_exports;
@@ -160,6 +165,7 @@ drop trigger if exists apurement_preuve_immutable on apurement_preuves;
 create trigger apurement_preuve_immutable before update or delete on apurement_preuves for each row execute function apurement_immutable();
 create or replace function apurement_import_frozen() returns trigger language plpgsql as $$
 begin
+  if TG_OP = 'DELETE' and current_setting('app.purge_societe', true) = 'on' then return old; end if;
   if old.committed_at is not null then raise exception 'Apurement: import validé immuable'; end if;
   if TG_OP='DELETE' then return old; end if;
   return new;
@@ -170,6 +176,7 @@ drop trigger if exists apurement_piece_lien_immutable on apurement_pieces_liens;
 create trigger apurement_piece_lien_immutable before update or delete on apurement_pieces_liens for each row execute function apurement_immutable();
 create or replace function apurement_depot_frozen() returns trigger language plpgsql as $$
 begin
+  if TG_OP = 'DELETE' and current_setting('app.purge_societe', true) = 'on' then return old; end if;
   if TG_OP='DELETE' or old.statut<>'depose' then raise exception 'Apurement: dépôt immuable'; end if;
   return new;
 end $$;
@@ -177,6 +184,7 @@ drop trigger if exists apurement_depot_immutable on apurement_depots;
 create trigger apurement_depot_immutable before update or delete on apurement_depots for each row execute function apurement_depot_frozen();
 create or replace function apurement_declaration_frozen() returns trigger language plpgsql as $$
 begin
+  if TG_OP = 'DELETE' and current_setting('app.purge_societe', true) = 'on' then return old; end if;
   if old.statut = 'valide' then raise exception 'Apurement: déclaration validée immuable'; end if;
   if TG_OP = 'DELETE' then return old; end if;
   return new;

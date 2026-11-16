@@ -223,6 +223,49 @@ describe.skipIf(!actif)("intégration PostgreSQL : sécurité, migration et conc
     expect((await sql.query("select count(*)::int n from factures where societe_id = $1", [s.json.id])).rows[0].n).toBe(0);
   });
 
+  it("suppression d'une société avec des données d'Apurement TVA (immuables) : refusée sans confirmation, effacée avec elle ; les pièces partagées restent", async () => {
+    const q = async (texte, valeurs) => (await sql.query(texte, valeurs)).rows;
+    const s = (await admin("POST", "/api/societes", { raisonSociale: "Société Apurement", code: "SYN-AP" })).json.id;
+    const autre = (await admin("POST", "/api/societes", { raisonSociale: "Autre Société", code: "SYN-AQ" })).json.id;
+    const fournisseur = (await q("insert into apurement_fournisseurs (societe_id, raison_sociale) values ($1,'Fournisseur') returning id", [s]))[0].id;
+    const autorisation = (await q("insert into apurement_autorisations (societe_id, numero) values ($1,'AUT-1') returning id", [s]))[0].id;
+    const bc = (await q("insert into apurement_bons_commande (societe_id, autorisation_id, fournisseur_id, numero) values ($1,$2,$3,'BC-1') returning id", [s, autorisation, fournisseur]))[0].id;
+    const facture = (await q(
+      `insert into apurement_factures (societe_id, bc_id, fournisseur_id, numero_facture, date_precision, montant_ht_millimes, taux_tva_bps, tva_calculee_millimes, tva_suspendue_millimes, tva_mode, annee, trimestre, created_by)
+       values ($1,$2,$3,'F-1','unknown',1000,1900,190,190,'auto',2026,'T3','test') returning id`, [s, bc, fournisseur]))[0].id;
+    await q("insert into apurement_controles_ack (societe_id, facture_id, code, fingerprint, motif, acteur) values ($1,$2,'C1','fp','ok','test')", [s, facture]);
+    await q("insert into apurement_profils_fiscaux (societe_id) values ($1)", [s]);
+    await q("insert into apurement_audit (societe_id, acteur, action, entity_id) values ($1,'test','creation',$2)", [s, facture]);
+    await q("insert into apurement_preuves (hash, contenu, mime, taille) values ('h-propre', 'a', 'text/plain', 1), ('h-partage', 'b', 'text/plain', 1)");
+    const lien = (await q("insert into apurement_pieces_liens (societe_id, parent_type, parent_id, source, nom, preuve_hash) values ($1,'facture',$2,'test','p.txt','h-propre') returning id", [s, facture]))[0].id;
+    await q("insert into apurement_pieces_liens (societe_id, parent_type, parent_id, source, nom, preuve_hash) values ($1,'facture',$2,'test','q.txt','h-partage'), ($3,'facture',$2,'test','q.txt','h-partage')", [s, facture, autre]);
+    const declaration = (await q("insert into apurement_declarations (societe_id, annee, trimestre, version, statut) values ($1,2026,'T3',1,'valide') returning id", [s]))[0].id;
+    await q("insert into apurement_depots (societe_id, declaration_id, date_depot, reference, statut, preuve_id, acteur) values ($1,$2,'2026-10-20','REF','depose',$3,'test')", [s, declaration, lien]);
+    await q("insert into apurement_exports (societe_id, declaration_id, type, contenu, hash, nom, mime) values ($1,$2,'pdf','x','hx','e.pdf','application/pdf')", [s, declaration]);
+    await q("insert into apurement_politiques_calcul (societe_id, mode, reference, preuve_id, approved_by) values ($1,'demi_superieur_facture','R',$2,'test')", [s, lien]);
+    const regle = (await q("insert into apurement_reminder_rules (societe_id, annee, trimestre, echeance, cadence_jours) values ($1,2026,'T3','2026-10-20',7) returning id", [s]))[0].id;
+    await q("insert into apurement_reminder_runs (rule_id, user_key, fenetre) values ($1,'u',1)", [regle]);
+
+    // Sans confirmation : refusée, et le détail nomme l'Apurement TVA.
+    const refus = await admin("POST", "/api/societes/bulk-delete", { ids: [s] });
+    expect(refus.status).toBe(409);
+    expect(refus.json.error).toMatch(/Apurement TVA/);
+    expect((await q("select count(*)::int n from societes where id = $1", [s]))[0].n).toBe(1);
+    // L'effacement ordinaire des preuves reste interdit hors suppression de société.
+    await expect(sql.query("delete from apurement_audit where societe_id = $1", [s])).rejects.toThrow(/immuable/);
+
+    // Avec la confirmation : tout part, y compris l'historique immuable ; la pièce utilisée par une autre société reste.
+    const ok = await admin("POST", "/api/societes/bulk-delete", { ids: [s], confirmationDefinitive: "SUPPRIMER DEFINITIVEMENT" });
+    expect(ok.status, ok.texte).toBe(200);
+    for (const t of ["apurement_audit", "apurement_factures", "apurement_declarations", "apurement_depots", "apurement_exports", "apurement_pieces_liens", "apurement_reminder_rules"])
+      expect((await q(`select count(*)::int n from ${t} where societe_id = $1`, [s]))[0].n, t).toBe(0);
+    expect((await q("select count(*)::int n from societes where id = $1", [s]))[0].n).toBe(0);
+    expect((await q("select hash from apurement_preuves order by hash")).map((r) => r.hash)).toEqual(["h-partage"]);
+    expect((await q("select count(*)::int n from apurement_pieces_liens where societe_id = $1", [autre]))[0].n).toBe(1);
+    // Le drapeau n'a pas survécu à la transaction : l'immuabilité est de nouveau en vigueur.
+    await expect(sql.query("delete from apurement_preuves")).rejects.toThrow(/immuable/);
+  });
+
   it("société sans écriture à conserver : supprimée avec ses données, après confirmation non requise", async () => {
     const s = await admin("POST", "/api/societes", { raisonSociale: "Société Vide", code: "SYN-3" });
     const r = await admin("POST", "/api/societes/bulk-delete", { ids: [s.json.id] });

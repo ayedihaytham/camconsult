@@ -34,3 +34,14 @@ describe("runConfirmation", () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("runConfirmation : message du serveur", () => {
+  it("transmet le message d'une erreur d'API, pas celui d'une erreur réseau", async () => {
+    const effects = { setPending: vi.fn(), setError: vi.fn(), setDetail: vi.fn(), close: vi.fn() };
+    const api = Object.assign(new Error("Suppression impossible : la société porte des factures."), { status: 409 });
+    await runConfirmation(() => Promise.reject(api), { current: false }, effects);
+    expect(effects.setDetail).toHaveBeenLastCalledWith("Suppression impossible : la société porte des factures.");
+    await runConfirmation(() => Promise.reject(new Error("network")), { current: false }, effects);
+    expect(effects.setDetail).toHaveBeenLastCalledWith(null);
+  });
+});

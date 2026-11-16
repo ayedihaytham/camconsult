@@ -125,7 +125,8 @@ const PROTEGEES_SQL = `
       case when m.n > 0 then m.n || ' mouvement(s) de stock' end,
       case when l.n > 0 then l.n || ' balance(s)' end,
       case when c.n > 0 then c.n || ' souche(s) de chèques' end,
-      case when d.n > 0 then d.n || ' suivi(s) en devise' end) as elements
+      case when d.n > 0 then d.n || ' suivi(s) en devise' end,
+      case when a.n > 0 then a.n || ' élément(s) d''Apurement TVA (preuves, audit et déclarations fiscales)' end) as elements
   from societes s
   cross join lateral (select count(*) n from factures where societe_id = s.id) f
   cross join lateral (select count(*) n from honoraires_lignes where societe_id = s.id) h
@@ -136,8 +137,9 @@ const PROTEGEES_SQL = `
   cross join lateral (select count(*) n from balances where societe_id = s.id) l
   cross join lateral (select count(*) n from souche_cheques where societe_id = s.id) c
   cross join lateral (select count(*) n from suivi_devise where societe_id = s.id) d
+  cross join lateral (select (select count(*) from apurement_audit where societe_id = s.id) + (select count(*) from apurement_profils_fiscaux where societe_id = s.id) n) a
   where s.id = any($1::uuid[])
-    and (f.n + h.n + r.n + b.n + w.n + m.n + l.n + c.n + d.n) > 0`;
+    and (f.n + h.n + r.n + b.n + w.n + m.n + l.n + c.n + d.n + a.n) > 0`;
 
 // Ce qu'une suppression définitive effacerait avec les sociétés choisies (factures, honoraires, banque…), pour l'afficher avant de confirmer.
 societesRouter.post("/impact", requireDelete, async (req, res) => {
@@ -146,6 +148,24 @@ societesRouter.post("/impact", requireDelete, async (req, res) => {
   const { rows } = await query(PROTEGEES_SQL, [ids]);
   res.json(rows.map((r) => ({ id: r.id, raisonSociale: r.raison_sociale, elements: r.elements })));
 });
+
+/**
+ * Efface les données d'Apurement TVA des sociétés (preuves, audit, déclarations, dépôts, exports) : elles sont immuables en usage normal,
+ * et ne partent qu'avec la suppression définitive confirmée. Le drapeau `app.purge_societe` n'existe que le temps de la transaction
+ * (set_config local) et ne lève que les protections contre la SUPPRESSION. L'ordre suit les clés étrangères, des feuilles vers la racine.
+ */
+async function purgerApurement(client, ids) {
+  await client.query("select set_config('app.purge_societe', 'on', true)");
+  const parSociete = (table) => client.query(`delete from ${table} where societe_id = any($1::uuid[])`, [ids]);
+  await client.query("delete from apurement_reminder_runs where rule_id in (select id from apurement_reminder_rules where societe_id = any($1::uuid[]))", [ids]);
+  for (const table of [
+    "apurement_reminder_rules", "apurement_politiques_calcul", "apurement_depots", "apurement_exports", "apurement_declarations",
+    "apurement_controles_ack", "apurement_factures", "apurement_imports", "apurement_bons_commande", "apurement_autorisations",
+    "apurement_fournisseurs", "apurement_pieces_manquantes", "apurement_pieces_liens", "apurement_audit", "apurement_profils_fiscaux",
+  ]) await parSociete(table);
+  // Les pièces (identifiées par leur empreinte) peuvent être partagées : seules celles que plus aucun lien n'utilise disparaissent.
+  await client.query("delete from apurement_preuves where hash not in (select preuve_hash from apurement_pieces_liens)");
+}
 
 societesRouter.post("/bulk-delete", requireDelete, async (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
@@ -183,6 +203,7 @@ societesRouter.post("/bulk-delete", requireDelete, async (req, res) => {
     // électronique (clés étrangères « restrict », qui ne se retirent pas d'elles-mêmes). Une transaction : tout est supprimé, ou rien.
     ({ rows } = await withTransaction(async (client) => {
       if (req.body?.confirmationDefinitive === "SUPPRIMER DEFINITIVEMENT") {
+        await purgerApurement(client, ids);
         await client.query("delete from facture_einvoice where facture_id in (select id from factures where societe_id = any($1::uuid[]))", [ids]);
         await client.query("delete from factures where societe_id = any($1::uuid[])", [ids]);
       }
@@ -190,8 +211,12 @@ societesRouter.post("/bulk-delete", requireDelete, async (req, res) => {
     }));
   } catch (err) {
     // Clé étrangère protectrice (ex. factures émises) : même confirmée, la suppression est impossible et rien n'est supprimé.
-    if (err.code === "23503")
-      return res.status(409).json({ error: "Suppression impossible : la société porte des écritures qui doivent être conservées (factures). Archivez-la (statut Inactif)." });
+    if (err.code === "23503") {
+      // `err.table` est la table qui référence encore la société : on la nomme au lieu d'accuser toujours les factures.
+      const t = String(err.table ?? "");
+      const nature = t.startsWith("apurement_") ? "des données d'Apurement TVA (preuves et audit fiscal, immuables)" : t === "factures" || t === "facture_einvoice" ? "des factures" : t ? `des données liées (${t})` : "des données à conserver";
+      return res.status(409).json({ error: `Suppression impossible : la société porte ${nature}. Archivez-la (statut Inactif) pour la retirer des listes.`, table: t || undefined });
+    }
     throw err;
   }
   for (const s of before) {

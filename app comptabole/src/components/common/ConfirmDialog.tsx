@@ -41,6 +41,7 @@ export function ConfirmDialog({
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const [error, setError] = useState(false);
+  const [detail, setDetail] = useState<string | null>(null);
   const needsPhrase = Boolean(confirmPhrase);
   const canConfirm = !needsPhrase || typed.trim() === confirmPhrase;
 
@@ -48,6 +49,7 @@ export function ConfirmDialog({
     if (pendingRef.current) return;
     if (!next) setTyped("");
     setError(false);
+    setDetail(null);
     onOpenChange(next);
   }
 
@@ -56,6 +58,7 @@ export function ConfirmDialog({
     await runConfirmation(onConfirm, pendingRef, {
       setPending,
       setError,
+      setDetail,
       close: () => handleOpenChange(false),
     });
   }
@@ -106,7 +109,7 @@ export function ConfirmDialog({
 
         {error && (
           <p role="alert" className="text-sm text-destructive">
-            L’opération a échoué. Vérifiez les données puis réessayez.
+            {detail ?? "L’opération a échoué. Vérifiez les données puis réessayez."}
           </p>
         )}
         <DialogFooter>

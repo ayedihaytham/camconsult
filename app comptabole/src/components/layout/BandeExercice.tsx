@@ -20,7 +20,7 @@ const CIRCUIT: Array<{ statut: Collecte["statut"]; label: string; classe: string
 
 /** Bande sous la barre du haut (maquette) : fil d'Ariane, exercice en cours (mois écoulés et mois courant) et circuit des collectes
  * (combien chez le client, transmises, à corriger, validées) ; un clic sur un statut ouvre la collecte de pièces. */
-export function BandeExercice() {
+export function BandeExercice({ integree = false }: { /** Posée en pied du bandeau marine d'une page (un seul bloc avec le tableau). */ integree?: boolean }) {
   const navigate = useNavigate();
   const societe = useSocieteActive();
   const [collectes, setCollectes] = useState<Collecte[] | null>(null);
@@ -59,8 +59,8 @@ export function BandeExercice() {
   const compte = (statut: Collecte["statut"]) => (collectes ?? []).filter((c) => c.statut === statut).length;
 
   return (
-    <div className="bande-exercice no-print">
-      <div className="bande-exercice__fil"><AppBreadcrumbs clair /></div>
+    <div className={cn("bande-exercice no-print", integree && "bande-exercice--integree")}>
+      {!integree && <div className="bande-exercice__fil"><AppBreadcrumbs clair /></div>}
       <div className="bande-exercice__mois" role="group" aria-label={`Exercice ${annee}`}>
         <span className="bande-exercice__titre">Exercice {annee}</span>
         <ol>

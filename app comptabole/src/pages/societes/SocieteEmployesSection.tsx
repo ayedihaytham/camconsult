@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertCircle,
+  ArrowLeft,
   AtSign,
+  CheckCircle2,
   KeyRound,
   Info,
   Mail,
@@ -16,14 +18,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { LienAccesDialog, type LienAcces } from "@/components/common/LienAccesDialog";
+import { LienAccesCorps, type LienAcces } from "@/components/common/LienAccesDialog";
 import { Switch } from "@/components/common/Switch";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { IDENTIFIANT_RE, suggestIdentifiant } from "@/lib/identifiant";
@@ -51,13 +48,15 @@ const emptyDraft = () => ({
 type Draft = ReturnType<typeof emptyDraft>;
 type FormMode = { kind: "add" } | { kind: "edit"; employe: Employe } | null;
 
-
-export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { societeId: string; peutSupprimer?: boolean }) {
+/**
+ * Comptes de la société (responsable, délégués) : l'état du formulaire et du lien d'accès. La fiche de la société l'utilise pour changer
+ * de vue DANS LA MÊME CARTE (fiche, nouveau compte, accès créé) au lieu d'empiler des fenêtres.
+ */
+export function useComptesSociete(societeId: string) {
   const employes = useSocieteEmployes(societeId);
   const societe = useSocieteById(societeId);
   const addEmploye = useData((s) => s.addEmploye);
   const updateEmploye = useData((s) => s.updateEmploye);
-  const deleteEmployes = useData((s) => s.deleteEmployes);
 
   const [mode, setMode] = useState<FormMode>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -65,7 +64,6 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
-  const [toDelete, setToDelete] = useState<Employe | null>(null);
   const [lienAcces, setLienAcces] = useState<LienAcces | null>(null);
 
   const isEdit = mode?.kind === "edit";
@@ -151,7 +149,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
       }
       setMode(null);
     } catch (err) {
-      // Le store affiche déjà le message du serveur ; on garde le panneau ouvert.
+      // Le store affiche déjà le message du serveur ; on garde le formulaire ouvert.
       setError(
         err instanceof ApiError ? err.message : "Impossible d'enregistrer ce compte.",
       );
@@ -173,8 +171,6 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
     }
   }
 
-  const responsables = employes.filter((e) => !e.delegue);
-  const delegues = employes.filter((e) => e.delegue);
   const modifie =
     mode?.kind === "edit"
       ? draft.prenom !== mode.employe.prenom ||
@@ -183,26 +179,67 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
         draft.email !== (mode.employe.email ?? "") ||
         draft.delegue !== Boolean(mode.employe.delegue)
       : true;
-  const probleme = mode ? validate() : null;
-  const roleLabel = draft.delegue ? "délégué" : "responsable";
+
+  return {
+    employes,
+    societe,
+    mode,
+    isEdit,
+    draft,
+    setDraft,
+    identifiantTouched,
+    setIdentifiantTouched,
+    error,
+    busy,
+    envoiEnCours,
+    lienAcces,
+    setLienAcces,
+    openAdd,
+    openEdit,
+    fermerFormulaire: () => setMode(null),
+    /** À la fermeture de la carte : on repart de la fiche (ni formulaire, ni lien d'accès restés ouverts). */
+    reinitialiser: () => {
+      setMode(null);
+      setLienAcces(null);
+      setError(null);
+    },
+    submit,
+    envoyerAcces,
+    modifie,
+    probleme: mode ? validate() : null,
+    /** Vue de la carte : la fiche, le formulaire d'un compte, ou l'accès créé. */
+    vue: (lienAcces ? "acces" : mode ? "compte" : "fiche") as "fiche" | "compte" | "acces",
+  };
+}
+
+export type ComptesSociete = ReturnType<typeof useComptesSociete>;
+
+/** Liste des responsables et délégués, avec « Ajouter » (ouvre le formulaire dans la même carte). */
+export function SocieteEmployesSection({ comptes, peutSupprimer = true, videMasque = false }: { comptes: ComptesSociete; peutSupprimer?: boolean; /** Le cadre « Pour démarrer » guide déjà : pas d'encadré « Aucun compte ». */ videMasque?: boolean }) {
+  const { employes, openAdd, openEdit, envoyerAcces } = comptes;
+  const updateEmploye = useData((s) => s.updateEmploye);
+  const deleteEmployes = useData((s) => s.deleteEmployes);
+  const [toDelete, setToDelete] = useState<Employe | null>(null);
+
+  const responsables = employes.filter((e) => !e.delegue);
+  const delegues = employes.filter((e) => e.delegue);
 
   return (
     <div className="space-y-2.5">
-      <LienAccesDialog acces={lienAcces} onClose={() => setLienAcces(null)} />
       <div className="flex items-center justify-between gap-3">
         <h4 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
           <Users className="size-4 text-accent" aria-hidden="true" />
           Responsables et délégués
           <span className="rounded-full border border-border bg-muted px-2 text-[11px] font-semibold tracking-normal text-muted-foreground">{employes.length}</span>
         </h4>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs font-semibold" onClick={openAdd}>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs font-semibold max-sm:h-10" onClick={openAdd}>
           <Plus className="size-3.5" aria-hidden="true" />
           Ajouter
         </Button>
       </div>
 
-      {employes.length === 0 && (
-        <p className="rounded-lg border border-dashed border-primary/15 px-4 py-5 text-center text-sm text-muted-foreground">
+      {employes.length === 0 && !videMasque && (
+        <p className="rounded-lg border border-dashed border-primary/15 px-4 py-3 text-center text-sm text-muted-foreground">
           Aucun compte. Ajoutez le responsable de cette société, puis ses
           délégués, qui recevront les tâches qu'il leur confie.
         </p>
@@ -260,7 +297,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1.5 px-2.5 text-xs font-semibold shadow-none"
+                    className="h-7 gap-1.5 px-2.5 text-xs font-semibold shadow-none max-sm:h-10"
                     onClick={() => openEdit(e)}
                     aria-label={`Modifier ${e.prenom} ${e.nom}`}
                   >
@@ -271,7 +308,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1.5 px-2.5 text-xs font-semibold shadow-none"
+                    className="h-7 gap-1.5 px-2.5 text-xs font-semibold shadow-none max-sm:h-10"
                     onClick={() => void envoyerAcces(e)}
                     aria-label={`Lien d'accès de ${e.prenom}`}
                   >
@@ -283,7 +320,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 gap-1.5 border-destructive/30 px-2.5 text-xs font-semibold text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive"
+                      className="h-7 gap-1.5 border-destructive/30 px-2.5 text-xs font-semibold text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive max-sm:h-10"
                       onClick={() => setToDelete(e)}
                       aria-label={`Supprimer ${e.prenom} ${e.nom}`}
                     >
@@ -298,239 +335,7 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
         </ul>
       )}
 
-      <Dialog
-        open={mode !== null}
-        onOpenChange={(open) => {
-          if (!open && !busy) setMode(null);
-        }}
-      >
-        <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[520px] flex-col gap-0 overflow-hidden rounded-lg p-0">
-          <div className="flex shrink-0 items-center gap-3.5 border-b border-border px-[18px] py-4 pr-14">
-            <span
-              aria-hidden="true"
-              className={cn(
-                "grid size-12 shrink-0 place-items-center rounded-full text-[15px] font-extrabold",
-                draft.prenom.trim() || draft.nom.trim()
-                  ? "bg-primary text-accent"
-                  : "border border-dashed border-input bg-muted/60 text-muted-foreground/70",
-              )}
-            >
-              {draft.prenom.trim() || draft.nom.trim() ? initials(`${draft.prenom} ${draft.nom}`) : "··"}
-            </span>
-            <div className="min-w-0 flex-1">
-              <DialogTitle className="font-serif text-[22px] font-semibold leading-tight text-primary">
-                {isEdit
-                  ? `Modifier le ${roleLabel}`
-                  : draft.delegue
-                    ? "Nouveau délégué"
-                    : "Nouveau responsable"}
-              </DialogTitle>
-              <DialogDescription className="truncate text-[12.5px] text-muted-foreground">
-                {isEdit
-                  ? `${`${draft.prenom} ${draft.nom}`.trim()}${societe ? ` · ${societe.raisonSociale}` : ""}`
-                  : societe
-                    ? `Société ${societe.raisonSociale}`
-                    : "Informations du compte de la société."}
-              </DialogDescription>
-            </div>
-          </div>
-
-          <form
-            className="flex min-h-0 flex-1 flex-col"
-            onSubmit={(ev) => {
-              ev.preventDefault();
-              void submit();
-            }}
-          >
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[18px] py-3.5">
-              <section className="space-y-2.5">
-                <h3 id="emp-role-titre" className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
-                  <ShieldCheck className="size-4 text-accent" aria-hidden="true" />
-                  Rôle
-                </h3>
-                <div role="radiogroup" aria-labelledby="emp-role-titre" className="grid grid-cols-2 gap-2.5">
-                  {[
-                    { value: false, label: "Responsable", hint: "Donne les tâches", Icone: ShieldCheck },
-                    { value: true, label: "Délégué", hint: "Reçoit les tâches", Icone: Users },
-                  ].map((o) => {
-                    const selected = draft.delegue === o.value;
-                    return (
-                      <button
-                        key={o.label}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        onClick={() => setDraft((d) => ({ ...d, delegue: o.value }))}
-                        className={cn(
-                          "grid grid-cols-[34px_1fr] items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                          selected
-                            ? "border-accent bg-accent/15 shadow-[0_0_0_2px_hsl(var(--accent)/0.18)]"
-                            : "border-input bg-card hover:border-accent",
-                        )}
-                      >
-                        <span className={cn("grid size-[34px] place-items-center rounded-lg", selected ? "bg-primary text-accent" : "bg-muted text-muted-foreground")}>
-                          <o.Icone className="size-4" aria-hidden="true" />
-                        </span>
-                        <span>
-                          <span className="block text-sm font-semibold text-primary">{o.label}</span>
-                          <span className="block text-xs text-muted-foreground">{o.hint}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="space-y-2.5">
-                <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
-                  <User className="size-4 text-accent" aria-hidden="true" />
-                  Identité
-                </h3>
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="emp-prenom" className="text-[11.5px] font-semibold text-muted-foreground">
-                      Prénom <span className="text-destructive" aria-hidden="true">*</span>
-                    </Label>
-                    <div className="relative">
-                      <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                      <Input
-                        id="emp-prenom"
-                        autoFocus
-                        value={draft.prenom}
-                        onChange={(ev) => setDraft((d) => ({ ...d, prenom: ev.target.value }))}
-                        className="h-10 pl-9 text-[13.5px]"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="emp-nom" className="text-[11.5px] font-semibold text-muted-foreground">
-                      Nom <span className="text-destructive" aria-hidden="true">*</span>
-                    </Label>
-                    <div className="relative">
-                      <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                      <Input
-                        id="emp-nom"
-                        value={draft.nom}
-                        onChange={(ev) => setDraft((d) => ({ ...d, nom: ev.target.value }))}
-                        className="h-10 pl-9 text-[13.5px]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-2.5">
-                <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
-                  <KeyRound className="size-4 text-accent" aria-hidden="true" />
-                  Connexion
-                </h3>
-                <div className="space-y-1">
-                  <Label htmlFor="emp-identifiant" className="text-[11.5px] font-semibold text-muted-foreground">
-                    Identifiant <span className="text-destructive" aria-hidden="true">*</span>
-                  </Label>
-                  <div className="relative">
-                    <AtSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                    <Input
-                      id="emp-identifiant"
-                      value={draft.identifiant}
-                      onChange={(ev) => {
-                        setIdentifiantTouched(true);
-                        setDraft((d) => ({ ...d, identifiant: ev.target.value }));
-                      }}
-                      placeholder="prenom.nom"
-                      className="h-10 pl-9 text-[13.5px]"
-                    />
-                  </div>
-                  <p className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
-                    <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                    {isEdit
-                      ? `C'est avec cet identifiant que ${draft.prenom || "la personne"} se connecte — prévenez-la s'il change.`
-                      : !identifiantTouched
-                        ? "Proposé à partir du prénom et du nom — modifiable."
-                        : "Minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre."}
-                  </p>
-                </div>
-
-                {!isEdit && (
-                  <p className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
-                    <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                    À l'enregistrement, un lien d'accès à usage unique est créé : {draft.prenom || "la personne"} choisit elle-même son mot de passe.
-                  </p>
-                )}
-
-                <div className="space-y-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <Label htmlFor="emp-email" className="text-[11.5px] font-semibold text-muted-foreground">
-                      Email <span className="text-destructive" aria-hidden="true">*</span>
-                    </Label>
-                    {mode?.kind === "edit" && draft.email.trim() === mode.employe.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()) && (
-                      <button
-                        type="button"
-                        disabled={envoiEnCours}
-                        onClick={() => void envoyerAcces(mode.employe)}
-                        className="inline-flex items-center gap-1 text-[11.5px] font-bold text-primary underline underline-offset-2 disabled:opacity-50"
-                      >
-                        <Mail className="size-3.5" aria-hidden="true" />
-                        {envoiEnCours ? "Création du lien…" : "Lien d'accès"}
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                    <Input
-                      id="emp-email"
-                      type="email"
-                      required
-                      value={draft.email}
-                      onChange={(ev) => setDraft((d) => ({ ...d, email: ev.target.value }))}
-                      placeholder="prenom@societe.tn"
-                      className="h-10 pl-9 text-[13.5px]"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              {error && (
-                <p role="alert" className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-                  {error}
-                </p>
-              )}
-            </div>
-
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-[18px] py-3">
-              <span className={cn("mr-auto text-xs", isEdit ? (modifie || probleme ? "font-bold text-warning" : "text-muted-foreground") : probleme ? "font-bold text-warning" : "text-muted-foreground")}>
-                {isEdit
-                  ? modifie
-                    ? (probleme ?? "Modifications non enregistrées")
-                    : "Aucune modification en attente"
-                  : (probleme ?? "Prêt à être ajouté")}
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => setMode(null)}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                variant="ledger"
-                className="gap-2"
-                disabled={busy || (isEdit && !modifie)}
-              >
-                {isEdit ? <Save className="size-4" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
-                {isEdit
-                  ? "Enregistrer"
-                  : draft.delegue
-                    ? "Ajouter le délégué"
-                    : "Ajouter le responsable"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <p className="text-xs text-muted-foreground">Les responsables donnent les tâches aux délégués.</p>
 
       <ConfirmDialog
         open={Boolean(toDelete)}
@@ -552,5 +357,323 @@ export function SocieteEmployesSection({ societeId, peutSupprimer = true }: { so
         }}
       />
     </div>
+  );
+}
+
+/** Fil d'étapes de l'ajout : 1 Compte, 2 Accès. */
+function FilEtapes({ etape }: { etape: 1 | 2 }) {
+  const pastille = (n: 1 | 2, libelle: string) => {
+    const fait = etape > n;
+    const actuel = etape === n;
+    return (
+      <span className={cn("flex items-center gap-1.5 text-[11.5px] font-bold", actuel ? "text-primary" : fait ? "text-success" : "text-muted-foreground")}>
+        <i className={cn("grid size-[22px] place-items-center rounded-full border-2 text-[10.5px] not-italic", actuel ? "border-primary bg-primary text-primary-foreground" : fait ? "border-success bg-success text-white" : "border-border")}>
+          {fait ? "✓" : n}
+        </i>
+        {libelle}
+      </span>
+    );
+  };
+  return (
+    <div className="flex items-center gap-2" aria-label={`Étape ${etape} sur 2`}>
+      {pastille(1, "Compte")}
+      <hr className="flex-1 border-t-2 border-border" />
+      {pastille(2, "Accès")}
+    </div>
+  );
+}
+
+/** En-tête commun des vues « compte » et « accès » : retour à la fiche, titre, société. */
+function EnteteVue({ onRetour, titre, sousTitre, avatar }: { onRetour?: () => void; titre: string; sousTitre: string; avatar?: React.ReactNode }) {
+  return (
+    <div className="flex shrink-0 items-center gap-3 border-b border-border px-[18px] py-4 pr-14">
+      {onRetour && (
+        <button
+          type="button"
+          onClick={onRetour}
+          aria-label="Retour à la fiche"
+          className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-primary transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:size-11"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+        </button>
+      )}
+      {avatar}
+      <div className="min-w-0 flex-1">
+        <DialogTitle className="font-serif text-[22px] font-semibold leading-tight text-primary">{titre}</DialogTitle>
+        <DialogDescription className="truncate text-[12.5px] text-muted-foreground">{sousTitre}</DialogDescription>
+      </div>
+    </div>
+  );
+}
+
+/** Vue « nouveau compte » / « modifier le compte » : le formulaire, dans la même carte que la fiche. */
+export function CompteFormVue({ comptes }: { comptes: ComptesSociete }) {
+  const { mode, isEdit, draft, setDraft, identifiantTouched, setIdentifiantTouched, error, busy, envoiEnCours, societe, modifie, probleme, submit, envoyerAcces, fermerFormulaire } = comptes;
+  const roleLabel = draft.delegue ? "délégué" : "responsable";
+
+  return (
+    <>
+      <EnteteVue
+        onRetour={busy ? undefined : fermerFormulaire}
+        titre={isEdit ? `Modifier le ${roleLabel}` : draft.delegue ? "Nouveau délégué" : "Nouveau responsable"}
+        sousTitre={
+          isEdit
+            ? `${`${draft.prenom} ${draft.nom}`.trim()}${societe ? ` · ${societe.raisonSociale}` : ""}`
+            : societe
+              ? `Société ${societe.raisonSociale}`
+              : "Informations du compte de la société."
+        }
+        avatar={
+          <span
+            aria-hidden="true"
+            className={cn(
+              "grid size-12 shrink-0 place-items-center rounded-full text-[15px] font-extrabold max-sm:hidden",
+              draft.prenom.trim() || draft.nom.trim()
+                ? "bg-primary text-accent"
+                : "border border-dashed border-input bg-muted/60 text-muted-foreground/70",
+            )}
+          >
+            {draft.prenom.trim() || draft.nom.trim() ? initials(`${draft.prenom} ${draft.nom}`) : "··"}
+          </span>
+        }
+      />
+
+      <form
+        className="flex min-h-0 flex-1 flex-col"
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          void submit();
+        }}
+      >
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[18px] py-3.5">
+          {!isEdit && <FilEtapes etape={1} />}
+
+          <section className="space-y-2.5">
+            <h3 id="emp-role-titre" className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
+              <ShieldCheck className="size-4 text-accent" aria-hidden="true" />
+              Rôle
+            </h3>
+            <div role="radiogroup" aria-labelledby="emp-role-titre" className="grid grid-cols-2 gap-2.5">
+              {[
+                { value: false, label: "Responsable", hint: "Donne les tâches", Icone: ShieldCheck },
+                { value: true, label: "Délégué", hint: "Reçoit les tâches", Icone: Users },
+              ].map((o) => {
+                const selected = draft.delegue === o.value;
+                return (
+                  <button
+                    key={o.label}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setDraft((d) => ({ ...d, delegue: o.value }))}
+                    className={cn(
+                      "grid grid-cols-[34px_1fr] items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      selected
+                        ? "border-accent bg-accent/15 shadow-[0_0_0_2px_hsl(var(--accent)/0.18)]"
+                        : "border-input bg-card hover:border-accent",
+                    )}
+                  >
+                    <span className={cn("grid size-[34px] place-items-center rounded-lg", selected ? "bg-primary text-accent" : "bg-muted text-muted-foreground")}>
+                      <o.Icone className="size-4" aria-hidden="true" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold text-primary">{o.label}</span>
+                      <span className="block text-xs text-muted-foreground">{o.hint}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="space-y-2.5">
+            <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
+              <User className="size-4 text-accent" aria-hidden="true" />
+              Identité
+            </h3>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="emp-prenom" className="text-[11.5px] font-semibold text-muted-foreground">
+                  Prénom <span className="text-destructive" aria-hidden="true">*</span>
+                </Label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    id="emp-prenom"
+                    autoFocus
+                    value={draft.prenom}
+                    onChange={(ev) => setDraft((d) => ({ ...d, prenom: ev.target.value }))}
+                    className="h-10 pl-9 text-[13.5px] max-sm:h-11"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="emp-nom" className="text-[11.5px] font-semibold text-muted-foreground">
+                  Nom <span className="text-destructive" aria-hidden="true">*</span>
+                </Label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    id="emp-nom"
+                    value={draft.nom}
+                    onChange={(ev) => setDraft((d) => ({ ...d, nom: ev.target.value }))}
+                    className="h-10 pl-9 text-[13.5px] max-sm:h-11"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-2.5">
+            <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-primary">
+              <KeyRound className="size-4 text-accent" aria-hidden="true" />
+              Connexion
+            </h3>
+            <div className="space-y-1">
+              <Label htmlFor="emp-identifiant" className="text-[11.5px] font-semibold text-muted-foreground">
+                Identifiant <span className="text-destructive" aria-hidden="true">*</span>
+              </Label>
+              <div className="relative">
+                <AtSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  id="emp-identifiant"
+                  value={draft.identifiant}
+                  onChange={(ev) => {
+                    setIdentifiantTouched(true);
+                    setDraft((d) => ({ ...d, identifiant: ev.target.value }));
+                  }}
+                  placeholder="prenom.nom"
+                  className="h-10 pl-9 text-[13.5px] max-sm:h-11"
+                />
+              </div>
+              <p className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
+                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                {isEdit
+                  ? `C'est avec cet identifiant que ${draft.prenom || "la personne"} se connecte — prévenez-la s'il change.`
+                  : !identifiantTouched
+                    ? "Proposé à partir du prénom et du nom — modifiable."
+                    : "Minuscules, chiffres, points ou tirets uniquement — doit commencer par une lettre."}
+              </p>
+            </div>
+
+            {!isEdit && (
+              <p className="flex items-start gap-1.5 text-[11.5px] text-muted-foreground">
+                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                À l'enregistrement, un lien d'accès à usage unique est créé : {draft.prenom || "la personne"} choisit elle-même son mot de passe.
+              </p>
+            )}
+
+            <div className="space-y-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="emp-email" className="text-[11.5px] font-semibold text-muted-foreground">
+                  Email <span className="text-destructive" aria-hidden="true">*</span>
+                </Label>
+                {mode?.kind === "edit" && draft.email.trim() === mode.employe.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim()) && (
+                  <button
+                    type="button"
+                    disabled={envoiEnCours}
+                    onClick={() => void envoyerAcces(mode.employe)}
+                    className="inline-flex items-center gap-1 text-[11.5px] font-bold text-primary underline underline-offset-2 disabled:opacity-50"
+                  >
+                    <Mail className="size-3.5" aria-hidden="true" />
+                    {envoiEnCours ? "Création du lien…" : "Lien d'accès"}
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  id="emp-email"
+                  type="email"
+                  required
+                  value={draft.email}
+                  onChange={(ev) => setDraft((d) => ({ ...d, email: ev.target.value }))}
+                  placeholder="prenom@societe.tn"
+                  className="h-10 pl-9 text-[13.5px] max-sm:h-11"
+                />
+              </div>
+            </div>
+          </section>
+
+          {error && (
+            <p role="alert" className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
+              {error}
+            </p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-[18px] py-3 max-sm:flex-col-reverse max-sm:items-stretch [&>button]:max-sm:h-12">
+          <span className={cn("mr-auto text-xs max-sm:mr-0 max-sm:text-center", isEdit ? (modifie || probleme ? "font-bold text-warning" : "text-muted-foreground") : probleme ? "font-bold text-warning" : "text-muted-foreground")}>
+            {isEdit
+              ? modifie
+                ? (probleme ?? "Modifications non enregistrées")
+                : "Aucune modification en attente"
+              : (probleme ?? "Prêt à être ajouté")}
+          </span>
+          <Button type="button" variant="outline" disabled={busy} onClick={fermerFormulaire}>
+            Annuler
+          </Button>
+          <Button type="submit" variant="ledger" className="gap-2" disabled={busy || (isEdit && !modifie)}>
+            {isEdit ? <Save className="size-4" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
+            {isEdit ? "Enregistrer" : draft.delegue ? "Ajouter le délégué" : "Ajouter le responsable"}
+          </Button>
+        </div>
+      </form>
+    </>
+  );
+}
+
+/** Vue « accès créé » : le lien à usage unique, dans la même carte (remplace la fenêtre qui s'ouvrait par-dessus). */
+export function AccesCreeVue({ comptes }: { comptes: ComptesSociete }) {
+  const { lienAcces: acces, setLienAcces, openAdd, societe, mode } = comptes;
+  if (!acces) return null;
+  const creation = acces.but !== "reset" && mode === null;
+  return (
+    <>
+      <EnteteVue
+        onRetour={() => setLienAcces(null)}
+        titre={acces.but === "reset" ? "Nouveau mot de passe" : "Accès créé"}
+        sousTitre={societe ? `Société ${societe.raisonSociale}` : acces.nom}
+      />
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[18px] py-4">
+        {creation && <FilEtapes etape={2} />}
+        <div className="flex flex-col items-center gap-2 text-center">
+          <span className="grid size-12 place-items-center rounded-full bg-success/10 text-success">
+            <CheckCircle2 className="size-6" aria-hidden="true" />
+          </span>
+          <p className="text-[13.5px] text-foreground">
+            {acces.but === "reset" ? (
+              <>Nouveau lien pour <b>{acces.nom}</b>.</>
+            ) : (
+              <><b>{acces.nom}</b> est ajouté. Il ouvre ce lien et choisit lui-même son mot de passe.</>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Le lien ne fonctionne qu'une fois et expire ({acces.but === "reset" ? "24 heures" : "72 heures"}).
+          </p>
+        </div>
+        <LienAccesCorps acces={acces} />
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-[18px] py-3 max-sm:flex-col-reverse max-sm:items-stretch [&>button]:max-sm:h-12">
+        {creation && (
+          <Button
+            type="button"
+            variant="outline"
+            className="mr-auto gap-2 max-sm:mr-0"
+            onClick={() => {
+              setLienAcces(null);
+              openAdd();
+            }}
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            Ajouter un autre
+          </Button>
+        )}
+        <Button type="button" variant="ledger" onClick={() => setLienAcces(null)}>
+          Terminer
+        </Button>
+      </div>
+    </>
   );
 }

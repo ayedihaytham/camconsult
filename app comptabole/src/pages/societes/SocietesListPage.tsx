@@ -17,6 +17,7 @@ import {
   Trash2,
   Eye,
   Building2,
+  Check,
   ListChecks,
   Send,
   User,
@@ -84,6 +85,8 @@ import type { Collecte, Societe, SocieteTheme, Statut } from "@/types";
 import { SocieteFormSheet, type SocieteFormValues } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
+import { BandeExercice } from "@/components/layout/BandeExercice";
+import { useUi } from "@/store/ui";
 import "./societes-registre.css";
 
 function BulkActionsMenu({
@@ -179,14 +182,20 @@ function SocietesFilterControls({
   );
 }
 
+type Densite = "compact" | "aere";
+
 function SocietesUtilityMenu({
   table,
   onExport,
   onPrint,
+  densite,
+  onDensite,
 }: {
   table: TanstackTable<Societe>;
   onExport: (format: ExportFormat) => void;
   onPrint: () => void;
+  densite: Densite;
+  onDensite: (densite: Densite) => void;
 }) {
   const hideableColumns = table
     .getAllColumns()
@@ -241,6 +250,48 @@ function SocietesUtilityMenu({
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Settings2 className="size-4" />
+            Densité des lignes
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {([["compact", "Compacte"], ["aere", "Confortable"]] as const).map(([valeur, libelle]) => (
+              <DropdownMenuCheckboxItem key={valeur} checked={densite === valeur} onCheckedChange={() => onDensite(valeur)}>
+                {libelle}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Statut d'une société : une pastille ; pour qui peut modifier, un clic ouvre le choix du statut (sans passer par la fiche). */
+function StatutRapide({ societe, modifiable, onChange }: { societe: Societe; modifiable: boolean; onChange: (statut: Statut) => void }) {
+  const pastille = <span className="reg-pastille" data-statut={societe.statut}>{STATUT_LABELS[societe.statut]}</span>;
+  if (!modifiable) return pastille;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Statut de ${societe.raisonSociale} : ${STATUT_LABELS[societe.statut]}. Modifier`}
+          className="reg-pastille-btn"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {pastille}
+          <ChevronDown className="size-3 opacity-0 transition-opacity group-hover/ligne:opacity-60" aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+        {(Object.keys(STATUT_LABELS) as Statut[]).map((statut) => (
+          <DropdownMenuItem key={statut} onClick={() => statut !== societe.statut && onChange(statut)}>
+            <span className="reg-pastille" data-statut={statut}>{STATUT_LABELS[statut]}</span>
+            {statut === societe.statut && <Check className="ml-auto size-4" aria-hidden="true" />}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -774,7 +825,15 @@ export function SocietesListPage() {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Statut" />
       ),
-      cell: ({ row }) => <span className="reg-pastille" data-statut={row.original.statut}>{STATUT_LABELS[row.original.statut]}</span>,
+      cell: ({ row }) => (
+        <StatutRapide
+          societe={row.original}
+          modifiable={canEdit}
+          onChange={(statut) => {
+            void updateSociete(row.original.id, { statut }).then(() => toast.success(`Statut : ${STATUT_LABELS[statut]}`, { description: row.original.raisonSociale }));
+          }}
+        />
+      ),
       meta: { label: "Statut", icon: CircleDot, headerClassName: "w-[100px]" },
     },
     {
@@ -821,6 +880,38 @@ export function SocietesListPage() {
     (themeFilter !== "all" ? 1 : 0) + (statutFilter !== "all" ? 1 : 0);
   const isMobileSelectionActive = mobileSelectionMode || selectedIds.length > 0;
 
+  // L'exercice et le circuit s'affichent en pied du bandeau : la rangée globale du haut s'efface tant que la page est ouverte.
+  const setBandeauIntegre = useUi((s) => s.setBandeauIntegre);
+  useEffect(() => {
+    setBandeauIntegre(true);
+    return () => setBandeauIntegre(false);
+  }, [setBandeauIntegre]);
+  const [densite, setDensite] = useState<Densite>(() => {
+    try {
+      return window.localStorage.getItem("societes:densite") === "aere" ? "aere" : "compact";
+    } catch {
+      return "compact";
+    }
+  });
+  const changerDensite = (valeur: Densite) => {
+    setDensite(valeur);
+    try {
+      window.localStorage.setItem("societes:densite", valeur);
+    } catch {
+      /* stockage bloqué : le choix n'est pas gardé */
+    }
+  };
+  // Onglets de statut, au même niveau que la recherche (une seule barre d'outils au lieu de deux rangées).
+  const onglets = (
+    <div className="reg-seg" role="tablist" aria-label="Statut des sociétés">
+      {([["all", "Toutes", rows.length], ["actif", "Actives", rows.filter((x) => x.statut === "actif").length], ["en_attente", "En attente", rows.filter((x) => x.statut === "en_attente").length]] as const).map(([valeur, libelle, n]) => (
+        <button key={valeur} type="button" role="tab" aria-selected={statutFilter === valeur} onClick={() => setStatutFilter(valeur)}>
+          {libelle} <span>{n}</span>
+        </button>
+      ))}
+    </div>
+  );
+
   const renderSearchFilter = (className?: string) => (
     <LedgerSearchFilter
       value={search}
@@ -849,35 +940,33 @@ export function SocietesListPage() {
     <OperationalLedgerPage
       className={cn(
         "societes-ledger-page flex-1",
+        densite === "compact" ? "societes-dense" : "societes-aere",
         canEdit && !isMobileSelectionActive && "ledger-fab-clearance lg:pb-0",
         selectedIds.length > 0 && "ledger-selection-clearance lg:pb-0",
       )}
     >
+      {/* Bandeau et tableau forment UN bloc : même cadre, même ombre, aucun espace entre eux. */}
+      <div className="reg-bloc">
       <PageHeaderBar
         title="Sociétés"
         description={`${rows.length} dossier${rows.length > 1 ? "s" : ""} client${rows.length > 1 ? "s" : ""} · ${isAdmin ? "registre du cabinet" : "sociétés auxquelles vous avez accès"}`}
         action={canEdit ? { label: "Nouvelle société", onClick: startCreate } : undefined}
+        pied={<BandeExercice integree />}
       />
-
-      <div className="reg-onglets" role="tablist" aria-label="Statut des sociétés">
-        {([["all", "Toutes", rows.length], ["actif", "Actives", rows.filter((x) => x.statut === "actif").length], ["en_attente", "En attente", rows.filter((x) => x.statut === "en_attente").length]] as const).map(([valeur, libelle, n]) => (
-          <button key={valeur} type="button" role="tab" aria-selected={statutFilter === valeur} className="reg-onglet" onClick={() => setStatutFilter(valeur)}>
-            {libelle} <span>{n}</span>
-          </button>
-        ))}
-      </div>
 
       <LedgerWorkSurface className="societes-ledger-surface">
       {selectedIds.length === 0 && (
         <OperationalLedgerToolbar
           label="Outils du registre des sociétés"
-          search={renderSearchFilter("max-w-none")}
+          search={<div className="flex min-w-0 items-center gap-3">{onglets}<div className="min-w-0 flex-1">{renderSearchFilter("max-w-none")}</div></div>}
           resultCount={!isDataLoading ? `${filtered.length} société${filtered.length > 1 ? "s" : ""}` : undefined}
           tools={<>
             <SocietesUtilityMenu
               table={table}
               onExport={handleExport}
               onPrint={handlePrint}
+              densite={densite}
+              onDensite={changerDensite}
             />
           </>}
         />
@@ -885,6 +974,7 @@ export function SocietesListPage() {
 
       {!isMobileSelectionActive && (
         <OperationalMobileUtility label="Recherche et filtres du registre des sociétés">
+          <div className="mb-2 overflow-x-auto">{onglets}</div>
           {renderSearchFilter()}
         </OperationalMobileUtility>
       )}
@@ -932,6 +1022,8 @@ export function SocietesListPage() {
                 table={table}
                 onExport={handleExport}
                 onPrint={handlePrint}
+                densite={densite}
+                onDensite={changerDensite}
               />
             </>
           )}
@@ -996,7 +1088,7 @@ export function SocietesListPage() {
           footer={<OperationalLedgerFooter table={table} itemLabel="sociétés" />}
           getRowClassName={(row) =>
             cn(
-              `ledger-row--${row.original.statut}`,
+              `ledger-row--${row.original.statut} group/ligne`,
               selectedIds.includes(row.original.id) && "bg-accent/[0.14] hover:bg-accent/[0.18]",
             )
           }
@@ -1087,6 +1179,7 @@ export function SocietesListPage() {
       )}
       </div>
       </LedgerWorkSurface>
+      </div>
 
       {canEdit && !isMobileSelectionActive && (
         <OperationalFab label="Ajouter une société" onClick={startCreate} />
@@ -1143,6 +1236,10 @@ export function SocietesListPage() {
         onOpenDossiers={(societe) => {
           setViewOpen(false);
           navigate(`/structuration?societe=${societe.id}`);
+        }}
+        onCreerCollecte={(societe) => {
+          setViewOpen(false);
+          navigate(`/collectes?nouvelle=${societe.id}`);
         }}
       />
 

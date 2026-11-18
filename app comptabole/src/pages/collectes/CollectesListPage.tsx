@@ -107,6 +107,21 @@ export function CollectesListPage() {
   }, [fetchList]);
 
   // Choisir un mois dans la bande d'exercice montre toutes ses collectes, quel que soit leur statut.
+  // « Créer la première collecte » depuis la fiche d'une société (?nouvelle=<société>) : ouvre la création, société déjà choisie.
+  const [societeNouvelle, setSocieteNouvelle] = useState<string | undefined>(undefined);
+  const nouvelleParam = params.get("nouvelle");
+  useEffect(() => {
+    if (!nouvelleParam) return;
+    if (canCreate) {
+      setSocieteNouvelle(nouvelleParam);
+      setCreateOpen(true);
+    }
+    const reste = new URLSearchParams(params);
+    reste.delete("nouvelle");
+    setParams(reste, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nouvelleParam, canCreate]);
+
   const moisCle = params.get("mois");
   useEffect(() => {
     if (moisCle) { vueChoisie.current = true; setVue("toutes"); }
@@ -287,7 +302,7 @@ export function CollectesListPage() {
       </section>
 
       {canCreate && <OperationalFab label="Nouvelle collecte" onClick={() => setCreateOpen(true)} />}
-      {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} defaultSocieteId={societeActive?.id} onCreate={async (data, prerempli) => {
+      {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} defaultSocieteId={societeNouvelle ?? societeActive?.id} onCreate={async (data, prerempli) => {
         const collecte = await create(data);
         // Grand-livre importé à la création : chaque tableau détecté est rempli et enregistré avant d'ouvrir la collecte.
         const echecs: string[] = [];

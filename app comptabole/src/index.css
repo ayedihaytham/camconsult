@@ -1853,8 +1853,9 @@
 @media (max-width: 1399px) { .topbar-reprise__texte small { display: none; } }
 @media (max-width: 1179px) { .topbar-reprise { display: none; } }
 
-.bande-exercice { display: flex; min-height: 46px; flex: none; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 6px 18px; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--card)); }
-.bande-exercice__fil { display: flex; min-width: 0; flex: 1 1 220px; align-items: center; }
+.bande-exercice { display: flex; min-height: 46px; flex: none; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 6px 12px; background: hsl(var(--sheet)); position: sticky; top: 0; z-index: 20; }
+@media (min-width: 640px) { .bande-exercice { padding-inline: 16px; } }
+.bande-exercice__fil { display: flex; min-width: 0; flex: 1 1 120px; align-items: center; }
 .bande-exercice__mois { display: none; align-items: center; gap: 12px; }
 @media (min-width: 1280px) { .bande-exercice__mois { display: flex; } }
 .bande-exercice__titre { font-size: 10.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: hsl(var(--muted-foreground)); white-space: nowrap; }
@@ -1895,7 +1896,7 @@
 
 /* Petit écran : la bande reste en une ligne qui défile (fil d'Ariane, puis circuit des collectes) ; les mois n'apparaissent qu'à partir de 1280 px. */
 @media (max-width: 1023px) {
-  .bande-exercice { flex-wrap: nowrap; overflow-x: auto; gap: 14px; padding: 6px 12px; scrollbar-width: none; }
+  .bande-exercice { flex-wrap: nowrap; overflow-x: auto; gap: 14px; scrollbar-width: none; }
   .bande-exercice::-webkit-scrollbar { display: none; }
   .bande-exercice__fil { flex: 0 0 auto; min-width: max-content; }
   .bande-exercice__circuit { display: flex; flex: none; }
@@ -1904,3 +1905,21 @@
 
 /* Maquette : la bande d'exercice ne répète pas le titre d'une page de premier niveau (il est dans l'en-tête marine) ; le fil d'Ariane reste pour les sous-pages. */
 .bande-exercice__fil ol:has(> li:only-child) { display: none; }
+
+/* Variante intégrée au bandeau marine (page Sociétés) : mêmes éléments, teintes claires sur fond sombre, pas de ligne flottante. */
+.bande-exercice--integree { position: static; z-index: auto; min-height: 0; padding: 9px 20px; background: transparent; }
+.bande-exercice--integree .bande-exercice__mois { display: none; }
+@media (min-width: 1280px) { .bande-exercice--integree .bande-exercice__mois { display: flex; } }
+.bande-exercice--integree .bande-exercice__titre { color: #9fb6d3; }
+.bande-exercice--integree .bande-exercice__mois ol { background: rgba(255, 255, 255, .1); }
+.bande-exercice--integree .bande-exercice__mois li button { color: #dbe6f4; }
+.bande-exercice--integree .bande-exercice__mois li[data-etat="avenir"] button { color: rgba(219, 230, 244, .5); }
+.bande-exercice--integree .bande-exercice__mois li button:hover { background: rgba(255, 255, 255, .14); }
+.bande-exercice--integree .bande-exercice__mois li[data-etat="courant"] button,
+.bande-exercice--integree .bande-exercice__mois li[data-etat="courant"] button:hover { background: hsl(var(--accent)); color: hsl(var(--primary)); }
+.bande-exercice--integree .bande-exercice__circuit { margin-left: auto; }
+.bande-exercice--integree .bande-selecteur { border-color: rgba(159, 182, 211, .3); background: rgba(255, 255, 255, .08); }
+.bande-exercice--integree .bande-selecteur__valeur { color: #fff; }
+.bande-exercice--integree .bande-selecteur__fleche { color: #cfdbea; }
+.bande-exercice--integree .bande-selecteur__fleche:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+@media (max-width: 1023px) { .bande-exercice--integree { padding: 9px 16px; } }

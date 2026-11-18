@@ -44,6 +44,7 @@ export function PageHeaderBar({
   eyebrow,
   visibleTitle,
   tourTarget,
+  pied,
 }: {
   title: string;
   description?: ReactNode;
@@ -62,6 +63,8 @@ export function PageHeaderBar({
   visibleTitle?: string;
   /** Repère de la visite guidée posé sur l'en-tête. */
   tourTarget?: string;
+  /** Rangée collée au bas du bandeau (ex. l'exercice et le circuit des collectes). */
+  pied?: ReactNode;
 }) {
   const barreComplete = useBarreComplete();
   const boutons = actions ?? (action && (
@@ -123,6 +126,7 @@ export function PageHeaderBar({
           <div className="page-head-actions page-head-actions--bar no-print">{boutons}</div>
         )}
       </div>
+      {pied && <div className="page-head-pied">{pied}</div>}
     </header>
   );
 }

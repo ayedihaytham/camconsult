@@ -12,6 +12,10 @@ interface UiState {
   paletteOpen: boolean;
   setPaletteOpen: (v: boolean) => void;
 
+  /** La page affiche la rangée Exercice dans son propre bandeau : la rangée globale du haut s'efface. Jamais persisté. */
+  bandeauIntegre: boolean;
+  setBandeauIntegre: (v: boolean) => void;
+
   /** Compteur global de messages non lus (badge sidenav) */
   unreadMessages: number;
   setUnreadMessages: (n: number) => void;
@@ -26,6 +30,9 @@ export const useUi = create<UiState>()(
 
       paletteOpen: false,
       setPaletteOpen: (v) => set({ paletteOpen: v }),
+
+      bandeauIntegre: false,
+      setBandeauIntegre: (v) => set({ bandeauIntegre: v }),
 
       unreadMessages: 0,
       setUnreadMessages: (n) => set({ unreadMessages: n }),

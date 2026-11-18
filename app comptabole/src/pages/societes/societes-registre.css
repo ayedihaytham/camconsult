@@ -20,3 +20,33 @@
 /* Nom de société sur une ligne, colonne assez large (maquette) ; les titres de colonnes ne portent pas d'icône. */
 .reg-nom { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reg-code { white-space: nowrap; }
+
+/* Onglets de statut dans la barre d'outils (une seule rangée avec la recherche). */
+.reg-seg { display: inline-flex; flex: none; gap: 2px; padding: 3px; border-radius: 11px; background: hsl(var(--sheet)); }
+.reg-seg button { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: hsl(var(--muted-foreground)); white-space: nowrap; transition: background-color .15s, color .15s; }
+.reg-seg button span { margin-left: 4px; font-size: 12px; font-weight: 700; }
+.reg-seg button:hover { color: hsl(var(--primary)); }
+.reg-seg button[aria-selected="true"] { background: #fff; color: hsl(var(--primary)); box-shadow: 0 1px 3px hsl(var(--primary) / .15); }
+.reg-seg button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+
+/* Statut modifiable d'un clic. */
+.reg-pastille-btn { display: inline-flex; align-items: center; gap: 4px; border-radius: 99px; }
+.reg-pastille-btn:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+
+/* Densité : compacte par défaut (plus de lignes à l'écran), confortable au choix. Les valeurs longues ne passent plus à la ligne. */
+.societes-ledger-table td { vertical-align: middle; }
+.societes-dense .societes-ledger-table tbody td { padding-top: 7px; padding-bottom: 7px; }
+.societes-dense .societes-ledger-table tbody td .reg-texte { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.societes-aere .societes-ledger-table tbody td { padding-top: 14px; padding-bottom: 14px; }
+
+/* Actions de ligne : visibles au survol et au clavier (toujours visibles sur écran tactile). */
+@media (hover: hover) and (pointer: fine) {
+  .societes-ledger-table tbody td:last-child > div { opacity: .35; transition: opacity .12s; }
+  .societes-ledger-table tbody tr:hover td:last-child > div,
+  .societes-ledger-table tbody tr:focus-within td:last-child > div { opacity: 1; }
+}
+
+/* Un seul bloc : le bandeau marine est l'en-tête du tableau (même largeur, mêmes angles, une seule ombre). */
+.reg-bloc { overflow: hidden; border-radius: 16px; background: hsl(var(--card)); box-shadow: 0 1px 2px hsl(var(--primary) / .08), 0 16px 34px -18px hsl(var(--primary) / .5); }
+.reg-bloc .page-head { margin: 0; border-radius: 0; box-shadow: none; }
+.reg-bloc .ledger-work-surface { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }

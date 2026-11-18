@@ -14,27 +14,30 @@ function rendre(list: Collecte[]) {
   render(<MemoryRouter><CollectesClientPage list={list} loading={false} societeNom="ha" /></MemoryRouter>);
 }
 
+/** Les cartes de collectes : on écarte les mois de la rangée Exercice, qui est maintenant dans l'en-tête de la page. */
+const cartes = () => screen.getAllByRole("listitem").filter((li) => !li.closest(".bande-exercice"));
+
 describe("page Collecte de pièces du responsable de société", () => {
   it("dit la société une fois, nomme les collectes sans période et met ce qu'il doit faire en premier", () => {
     rendre([collecte("a", "transmis"), collecte("b", "a_corriger")]);
     expect(screen.getAllByText(/ha ·/)).toHaveLength(1);
-    const cartes = screen.getAllByRole("listitem");
-    expect(cartes[0].textContent).toContain("À corriger");
-    expect(cartes[0].textContent).toContain("Collecte du 10 octobre 2026");
-    expect(cartes[1].textContent).toContain("En attente du cabinet");
+    const liste = cartes();
+    expect(liste[0].textContent).toContain("À corriger");
+    expect(liste[0].textContent).toContain("Collecte du 10 octobre 2026");
+    expect(liste[1].textContent).toContain("En attente du cabinet");
     expect(screen.getAllByText(/tableaux transmis/)).toHaveLength(2);
   });
 
   it("garde les archives repliées derrière un bouton", () => {
     rendre([collecte("a", "brouillon"), collecte("z", "archive")]);
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(cartes()).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: /Voir les collectes archivées \(1\)/ }));
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(cartes()).toHaveLength(2);
   });
 
   it("ne montre pas une collecte que le cabinet n'a pas envoyée (aucun tableau demandé)", () => {
     rendre([collecte("a", "brouillon", { tableauxDemandes: 0, tableauxTransmis: 0 }), collecte("b", "transmis")]);
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(cartes()).toHaveLength(1);
     expect(screen.queryByText("À compléter", { selector: "span" })).toBeNull();
     cleanup();
     rendre([collecte("a", "brouillon", { tableauxDemandes: 0, tableauxTransmis: 0 })]);

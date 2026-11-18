@@ -85,8 +85,6 @@ import type { Collecte, Societe, SocieteTheme, Statut } from "@/types";
 import { SocieteFormSheet, type SocieteFormValues } from "./SocieteFormSheet";
 import { SocieteViewSheet } from "./SocieteViewSheet";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
-import { BandeExercice } from "@/components/layout/BandeExercice";
-import { useUi } from "@/store/ui";
 import "./societes-registre.css";
 
 function BulkActionsMenu({
@@ -880,12 +878,6 @@ export function SocietesListPage() {
     (themeFilter !== "all" ? 1 : 0) + (statutFilter !== "all" ? 1 : 0);
   const isMobileSelectionActive = mobileSelectionMode || selectedIds.length > 0;
 
-  // L'exercice et le circuit s'affichent en pied du bandeau : la rangée globale du haut s'efface tant que la page est ouverte.
-  const setBandeauIntegre = useUi((s) => s.setBandeauIntegre);
-  useEffect(() => {
-    setBandeauIntegre(true);
-    return () => setBandeauIntegre(false);
-  }, [setBandeauIntegre]);
   const [densite, setDensite] = useState<Densite>(() => {
     try {
       return window.localStorage.getItem("societes:densite") === "aere" ? "aere" : "compact";
@@ -951,7 +943,6 @@ export function SocietesListPage() {
         title="Sociétés"
         description={`${rows.length} dossier${rows.length > 1 ? "s" : ""} client${rows.length > 1 ? "s" : ""} · ${isAdmin ? "registre du cabinet" : "sociétés auxquelles vous avez accès"}`}
         action={canEdit ? { label: "Nouvelle société", onClick: startCreate } : undefined}
-        pied={<BandeExercice integree />}
       />
 
       <LedgerWorkSurface className="societes-ledger-surface">

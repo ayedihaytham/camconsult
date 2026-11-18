@@ -22,7 +22,7 @@ export function MobileFab({
       size="icon"
       className={cn(
         "fixed right-4 z-40 size-14 rounded-full shadow-lg lg:hidden",
-        "bottom-[calc(1rem+env(safe-area-inset-bottom))]",
+        "bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-[calc(1rem+env(safe-area-inset-bottom))]",
         className,
       )}
       aria-label={label}

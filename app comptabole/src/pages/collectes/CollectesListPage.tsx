@@ -230,6 +230,7 @@ export function CollectesListPage() {
 
   return (
     <div className={`flex min-w-0 flex-1 flex-col ${canCreate ? "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0" : ""}`}>
+      <div className="reg-bloc">
       <PageHeaderBar
         title="Collectes de pièces"
         description="Suivi des pièces à collecter auprès de vos clients, tableau par tableau"
@@ -300,6 +301,7 @@ export function CollectesListPage() {
           <CollectesRegistre key={resetKey} collectes={filtered} socNom={socNom} onDelete={isAdmin || canManageCollaborateurs ? setToDelete : undefined} />
         )}
       </section>
+      </div>
 
       {canCreate && <OperationalFab label="Nouvelle collecte" onClick={() => setCreateOpen(true)} />}
       {canCreate && <CollecteFormDrawer open={createOpen} onOpenChange={setCreateOpen} defaultSocieteId={societeNouvelle ?? societeActive?.id} onCreate={async (data, prerempli) => {

@@ -1,7 +1,7 @@
 import { type ComponentProps, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useConversations, useData, useNotifications, useTaches } from "@/store/data";
+import { useData, useNotifications } from "@/store/data";
 import { useAuth } from "@/store/auth";
 import { useSocieteActive } from "@/hooks/useSocieteActive";
 import { useSocieteActiveStore } from "@/store/societeActive";
@@ -21,7 +21,7 @@ import {
 import { useNavigationGroups } from "./useNavigationGroups";
 import { SidebarNavigation } from "./SidebarNavigation";
 import { PagesRecentes } from "./MenuFluide";
-import { unreadMessageCount } from "./navigation";
+import { useCompteursMenu } from "./useCompteursMenu";
 
 /** Bloc utilisateur du pied du menu (maquette) : initiales, nom et fonction du compte connecté. */
 function SidebarUtilisateur() {
@@ -67,32 +67,19 @@ function SidebarDossier() {
 }
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
-  const { isAdmin, employeId, poste } = usePermissions();
+  const { poste } = usePermissions();
   const { pathname } = useLocation();
   const markNotificationsRead = useData((s) => s.markNotificationsRead);
-  const conversations = useConversations(
-    isAdmin ? "me" : (employeId ?? "me"),
-  );
   const unreadNotifications = useNotifications().filter(
     (notification) => !notification.lu,
   );
   const groups = useNavigationGroups();
-  const taches = useTaches();
-  const collectes = useCollectes((state) => state.list);
   const fetchCollectes = useCollectes((state) => state.fetchList);
   const equipe = poste !== "societe_employe";
   useEffect(() => {
     if (equipe) void fetchCollectes().catch(() => undefined);
   }, [equipe, fetchCollectes]);
-  const compteurs = {
-    taches: taches.filter((t) => t.statut !== "termine").length,
-    collectes: collectes.filter((c) => c.statut === "transmis").length,
-  };
-  const unreadMessages = unreadMessageCount(
-    conversations,
-    isAdmin,
-    employeId,
-  );
+  const { compteurs, unreadMessages } = useCompteursMenu();
 
   // La pastille rouge du menu (et le badge de la cloche) ne se dissipait
   // qu'en cliquant explicitement une notification ou « Tout marquer lu » —

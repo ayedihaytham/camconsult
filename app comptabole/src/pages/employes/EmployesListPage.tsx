@@ -787,6 +787,7 @@ export function EmployesListPage() {
         mobileSelecting && "ledger-selection-clearance lg:pb-0",
       )}
     >
+      <div className="reg-bloc">
       <PageHeaderBar
         title="Équipe"
         titleId="team-ledger-title"
@@ -966,6 +967,7 @@ export function EmployesListPage() {
       )}
       </div>
       </LedgerWorkSurface>
+      </div>
 
       {!mobileSelecting && (
         <OperationalFab

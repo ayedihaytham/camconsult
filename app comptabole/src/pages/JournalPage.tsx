@@ -234,6 +234,7 @@ export function JournalPage() {
 
   return (
     <div className="flex flex-1 flex-col">
+      <div className="reg-bloc">
       <PageHeaderBar
         title="Journal"
         description="Historique des actions sensibles (créations, modifications, suppressions, connexions)."
@@ -339,6 +340,7 @@ export function JournalPage() {
           <DataTablePagination table={table} itemLabel="actions" variant="mobile" />
         }
       />
+      </div>
     </div>
   );
 }

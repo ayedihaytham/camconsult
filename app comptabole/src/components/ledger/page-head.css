@@ -53,3 +53,13 @@
 /* Rangée collée au bas du bandeau : pleine largeur, séparée par un filet clair. */
 .page-head-pied { margin: 14px -20px -14px; border-top: 1px solid rgba(159, 182, 211, .22); background: rgba(255, 255, 255, .05); }
 @media (max-width: 639px) { .page-head-pied { margin: 12px -16px -14px; } }
+
+/* Bandeau et premier tableau/carte en UN bloc : même cadre, même ombre, aucun espace entre eux. Les pages entourent le bandeau et la carte d'un <div class="reg-bloc">. */
+.reg-bloc { overflow: hidden; margin-bottom: 12px; border-radius: 16px; background: hsl(var(--card)); box-shadow: 0 1px 2px hsl(var(--primary) / .08), 0 16px 34px -18px hsl(var(--primary) / .5); }
+.reg-bloc > .page-head { margin: 0; border-radius: 0; box-shadow: none; }
+.reg-bloc > :not(.page-head) { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.reg-bloc .ledger-work-surface { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+/* Lignes de tableau plus compactes dans un bloc (le tableau des sociétés a sa propre densité réglable). */
+.reg-bloc .ledger-work-table tbody td { padding-top: 8px; padding-bottom: 8px; }
+/* Barre d'outils du Journal dans le bloc : marges comme les autres barres d'outils. */
+.reg-bloc > [data-tour="journal-filters"] { padding: 8px 12px; border-bottom: 1px solid hsl(var(--border) / .8); }

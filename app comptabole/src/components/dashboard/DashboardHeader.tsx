@@ -27,7 +27,6 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
     : societeNom ? "Tâches, collectes et échéances de ce client." : "Reprendre, avancer et préparer les prochaines transmissions.";
   if (vueCabinet(role)) {
     // Vue cabinet (maquette) : bloc marine « Bonjour … » avec les quatre chiffres du jour.
-    const enRetard = data.deadlines.filter((d) => d.bucket === "overdue").length;
     return (
       <PageHeaderBar
         tourTarget="dashboard-summary"
@@ -35,12 +34,6 @@ export function DashboardHeader({ salutation, dateLabel, data, loading, role, ca
         visibleTitle={salutation}
         eyebrow={dateLabel}
         description={societeNom ? "Vue limitée à cette société" : undefined}
-        metrics={[
-          { label: "en retard", value: loading ? "…" : enRetard, tone: "destructive" },
-          { label: "à examiner", value: loading ? "…" : data.collectionCounts.transmis },
-          { label: "à corriger", value: loading ? "…" : data.collectionCounts.a_corriger, tone: "warning" },
-          { label: "messages non lus", value: data.unreadMessages.length },
-        ]}
       />
     );
   }

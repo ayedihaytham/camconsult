@@ -9,6 +9,7 @@ import { TourProvider } from "@/components/tour/TourProvider";
 import { useSocieteRouteSync } from "@/hooks/useSocieteActive";
 import { useSuiviReprise } from "@/store/reprise";
 import { BandeExercice } from "./BandeExercice";
+import { BarreOnglets } from "./sidebar/BarreOnglets";
 import { useConfig } from "@/store/config";
 
 const EDGE_TO_EDGE_REGISTERS = new Set(["/societes", "/employes", "/collectes", "/taches", "/etats-financiers"]);
@@ -17,7 +18,7 @@ export function AppLayout() {
   const { pathname } = useLocation();
   const collapsed = useUi((state) => state.collapsed);
   const setCollapsed = useUi((state) => state.setCollapsed);
-  const bandeauIntegre = useUi((state) => state.bandeauIntegre);
+  const bandeauIntegre = useUi((state) => state.bandeauIntegre > 0);
   const edgeToEdgeMobile = EDGE_TO_EDGE_REGISTERS.has(pathname);
   const environnement = useConfig((s) => s.environnement);
   useSocieteRouteSync();
@@ -41,7 +42,7 @@ export function AppLayout() {
           <Topbar />
           {/* Feuille claire posée sur le cadre marine (menu + barre du haut) ; son filet doré rappelle la signature du cabinet. */}
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--sheet))] before:pointer-events-none before:absolute before:left-[30px] before:top-0 before:z-10 before:hidden before:h-[2px] before:w-[72px] before:bg-accent lg:rounded-tl-[22px] print:overflow-visible print:rounded-none">
-          <div className="flex flex-1 flex-col overflow-y-auto bg-[hsl(var(--sheet))] print-full">
+          <div className="flex flex-1 flex-col overflow-y-auto bg-[hsl(var(--sheet))] max-lg:pb-[calc(4rem+env(safe-area-inset-bottom,0px))] print-full">
           {/* Dans la zone qui défile : même largeur utile que le bandeau et le tableau (la barre de défilement ne passe plus dessous), et reste en haut. */}
           {!bandeauIntegre && <BandeExercice />}
           {/* flex-1 (flex-grow) plutôt que min-h-full (%) : une chaîne de
@@ -53,7 +54,7 @@ export function AppLayout() {
               data-tour="page-workspace"
               className={cn(
                 "authenticated-page-shell flex w-full min-w-0 flex-1 flex-col",
-                edgeToEdgeMobile ? "px-0 pt-0 pb-2 sm:p-4" : "p-3 sm:p-4",
+                edgeToEdgeMobile ? "authenticated-page-shell--bord-a-bord px-0 pt-0 pb-2 sm:p-4" : "p-3 sm:p-4",
               )}
             >
               <Outlet />
@@ -61,6 +62,7 @@ export function AppLayout() {
           </div>
           </div>
         </SidebarInset>
+        <BarreOnglets />
         {/* Le bouton « Aide » est retiré pour le moment : la visite guidée sera proposée à la première visite. */}
       </SidebarProvider>
     </TourProvider>

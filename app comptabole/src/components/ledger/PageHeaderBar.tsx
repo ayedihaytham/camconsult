@@ -1,4 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { useInRouterContext } from "react-router-dom";
+import { BandeExercice } from "@/components/layout/BandeExercice";
+import { useUi } from "@/store/ui";
 import { Plus } from "lucide-react";
 import { SqueletteOr } from "./Chargement";
 import { cn } from "@/lib/utils";
@@ -63,10 +66,20 @@ export function PageHeaderBar({
   visibleTitle?: string;
   /** Repère de la visite guidée posé sur l'en-tête. */
   tourTarget?: string;
-  /** Rangée collée au bas du bandeau (ex. l'exercice et le circuit des collectes). */
+  /** Rangée collée au bas du bandeau. Par défaut : l'exercice et le circuit des collectes (la rangée globale du haut s'efface). `null` : aucune rangée. */
   pied?: ReactNode;
 }) {
   const barreComplete = useBarreComplete();
+  // Hors application (tests, aperçus), pas de rangée d'exercice : elle a besoin du routeur.
+  const dansRouteur = useInRouterContext();
+  const avecExercice = dansRouteur && pied === undefined;
+  const ajusterBandeau = useUi((s) => s.ajusterBandeauIntegre);
+  // Avant l'affichage : la rangée globale du haut disparaît dès le premier rendu de la page (pas de saut).
+  useLayoutEffect(() => {
+    if (!avecExercice) return;
+    ajusterBandeau(1);
+    return () => ajusterBandeau(-1);
+  }, [avecExercice, ajusterBandeau]);
   const boutons = actions ?? (action && (
     <button
       data-tour="page-primary-action"
@@ -126,7 +139,7 @@ export function PageHeaderBar({
           <div className="page-head-actions page-head-actions--bar no-print">{boutons}</div>
         )}
       </div>
-      {pied && <div className="page-head-pied">{pied}</div>}
+      {avecExercice ? <div className="page-head-pied"><BandeExercice integree /></div> : pied ? <div className="page-head-pied">{pied}</div> : null}
     </header>
   );
 }

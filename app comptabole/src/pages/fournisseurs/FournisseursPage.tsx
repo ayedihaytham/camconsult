@@ -47,6 +47,7 @@ export function FournisseursPage() {
 
   return (
     <div className="fournisseurs-page flex flex-1 flex-col gap-3">
+      <div className="reg-bloc">
       <PageHeaderBar title="Fournisseurs" description="Choisissez une société pour suivre les factures d'achat de ses fournisseurs et leurs règlements." />
 
       <div className="overflow-hidden rounded-xl border border-border bg-card" data-tour="fournisseurs-societes">
@@ -161,6 +162,7 @@ export function FournisseursPage() {
             )}
           </>
         )}
+      </div>
       </div>
     </div>
   );

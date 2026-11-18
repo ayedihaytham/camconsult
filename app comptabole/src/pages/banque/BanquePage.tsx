@@ -47,6 +47,7 @@ export function BanquePage() {
 
   return (
     <div className="banque-page flex flex-1 flex-col gap-3">
+      <div className="reg-bloc">
       <PageHeaderBar title="Suivi bancaire" description="Choisissez une société pour suivre ses comptes bancaires et rapprocher les paiements de ses fournisseurs." />
 
       <div className="overflow-hidden rounded-xl border border-border bg-card" data-tour="banque-societes">
@@ -162,6 +163,7 @@ export function BanquePage() {
             )}
           </>
         )}
+      </div>
       </div>
     </div>
   );

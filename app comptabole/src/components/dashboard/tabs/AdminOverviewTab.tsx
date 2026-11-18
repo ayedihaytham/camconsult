@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-r
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WorkspaceLoading } from "../WorkspaceSection";
 import { TriageDashboard } from "../TriageDashboard";
+import { AdminVueEnsemble } from "./AdminVueEnsemble";
 import { AdminMessageRows, AdminTeamRows, CollecteCircuit, collecteStatutLabel } from "../AdminBureauCards";
 import { TACHE_STATUT_LABELS } from "@/types";
 import { cn, formatDate, toTitleCase } from "@/lib/utils";
@@ -50,6 +51,7 @@ export function AdminOverviewTab({ data, loading, error, canUseMessaging, now = 
 
   return (
     <div className="admin-overview admin-bureau">
+      <AdminVueEnsemble data={data} loading={loading} error={error} canUseMessaging={canUseMessaging} now={now} />
       {unavailable ? <p className="bureau-verdict is-muted" data-tour="dashboard-resume">{loading ? "Le suivi sera complété après chargement." : "Le suivi des collectes est indisponible."}</p>
         : attention.length ? <Link to="/?tab=attention" className="bureau-verdict is-alert" data-tour="dashboard-resume">
           <AlertTriangle aria-hidden="true" /><strong>{attention.length} point{attention.length > 1 ? "s" : ""} demande{attention.length > 1 ? "nt" : ""} votre attention</strong><span>· {attention[0].title}</span>

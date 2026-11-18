@@ -115,23 +115,28 @@ export function PagesRecentes({ groups }: { groups: NavGroup[] }) {
 
   // Seules les entrées encore visibles pour ce compte, hors page affichée.
   const visibles = new Set(groups.flatMap((g) => g.items.flatMap((i) => (i.children ? i.children.map((c) => c.label) : [i.label]))));
+  // Icône de chaque page (une sous-page reprend celle de son menu parent).
+  const icones = new Map(groups.flatMap((g) => g.items.flatMap((i) => (i.children ? i.children.map((c) => [c.label, i.icon] as const) : [[i.label, i.icon] as const]))));
   const autres = recentes.filter((p) => visibles.has(p.label) && !isRouteActive(pathname, p.to)).slice(0, 3);
   if (autres.length === 0) return null;
 
   return (
-    <nav aria-label="Pages récentes" className="signature-sidebar__recents shrink-0 px-3 pb-1 pt-2 group-data-[collapsible=icon]:hidden">
-      <p className="px-1 pb-1 text-[0.62rem] font-bold uppercase tracking-[0.16em] text-[#7F95AA]">Récents</p>
-      <div className="flex flex-wrap gap-1.5">
-        {autres.map((p) => (
+    <nav aria-label="Pages récentes" className="signature-sidebar__recents flex shrink-0 items-center gap-1.5 px-4 pb-1 pt-3 group-data-[collapsible=icon]:hidden">
+      <p className="mr-1 text-[0.62rem] font-bold uppercase tracking-[0.16em] text-[#7F95AA]">Récents</p>
+      {autres.map((p) => {
+        const Icone = icones.get(p.label);
+        return (
           <NavLink
             key={p.label}
             to={p.to}
-            className="inline-flex max-w-full items-center truncate rounded-full border border-[rgba(254,244,232,.16)] px-2.5 py-1 text-[11.5px] font-semibold text-[#DCE6F2] transition-colors hover:border-sidebar-primary hover:bg-[rgba(254,244,232,.08)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary"
+            title={p.label}
+            className="grid size-[30px] place-items-center rounded-[9px] bg-[rgba(254,244,232,.08)] text-[#DCE6F2] transition-colors hover:bg-[rgba(254,244,232,.16)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary"
           >
-            {p.label}
+            {Icone ? <Icone className="size-4" aria-hidden="true" /> : <span aria-hidden="true" className="text-[11px] font-bold">{p.label[0]}</span>}
+            <span className="sr-only">{p.label}</span>
           </NavLink>
-        ))}
-      </div>
+        );
+      })}
     </nav>
   );
 }

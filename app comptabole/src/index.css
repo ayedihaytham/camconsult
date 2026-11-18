@@ -1960,3 +1960,12 @@
   .authenticated-page-shell--bord-a-bord .reg-bloc { border-radius: 0; }
   .authenticated-page-shell--bord-a-bord .reg-bloc { margin-bottom: 0; }
 }
+
+/* Menu latéral : trois zones nettes. Plaque de marque fixe (fond éclairci, filet or qui s'estompe, losange central), navigation seule à défiler, pied fixe séparé par un filet. */
+@layer components {
+  .signature-sidebar__brand-cap { position: relative; background: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / .02)); }
+  .signature-sidebar__brand-cap::after { content: ""; position: absolute; inset: auto 0 0 0; height: 1px; background: linear-gradient(90deg, transparent, hsl(var(--accent)) 50%, transparent); opacity: .7; pointer-events: none; }
+  .signature-sidebar__brand-cap::before { content: ""; position: absolute; left: 50%; bottom: -3px; z-index: 1; width: 5px; height: 5px; background: hsl(var(--accent)); transform: translateX(-50%) rotate(45deg); pointer-events: none; }
+  .signature-sidebar__content { padding-top: 4px; }
+  [data-sidebar="footer"] { border-top: 1px solid rgb(255 255 255 / .1); }
+}

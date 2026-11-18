@@ -104,7 +104,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" className="signature-sidebar border-r-0" {...props}>
-      <SidebarHeader className="signature-sidebar__brand-cap h-[60px] shrink-0 gap-0 p-0">
+      <SidebarHeader className="signature-sidebar__brand-cap h-[76px] shrink-0 gap-0 p-0">
         <SidebarMenu className="h-full gap-0 p-2">
           <SidebarMenuItem className="h-full">
             <SidebarMenuButton

@@ -350,7 +350,7 @@ export function Messenger({
         <div className={cn("space-y-3 p-4", avecFiltres ? "pb-0" : "border-b border-border")}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="font-display text-lg font-extrabold text-primary">Conversations</h2>
+              <h2 className="font-serif text-xl font-semibold text-primary">Conversations</h2>
               <p className="text-xs text-muted-foreground">
                 {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
               </p>
@@ -463,7 +463,7 @@ export function Messenger({
                             </span>
                           )}
                         </span>
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        <span className="mt-0.5 block truncate text-[10.5px] font-semibold uppercase tracking-[0.04em] text-primary/70">
                           {conversation.secondary}
                         </span>
                         <span className="mt-1 flex min-w-0 items-center gap-2">
@@ -524,7 +524,7 @@ export function Messenger({
 
               <ConversationAvatar {...activeConversation} size="large" />
               <div className="min-w-0 flex-1">
-                <h2 className="truncate text-sm font-semibold text-foreground sm:text-base">
+                <h2 className="truncate font-serif text-base font-semibold text-primary sm:text-lg">
                   {activeConversation.name}
                 </h2>
                 <p className="truncate text-xs text-muted-foreground">
@@ -677,7 +677,7 @@ export function Messenger({
                                   <div
                                     className={cn(
                                       "rounded-2xl px-3.5 py-2 text-sm",
-                                      message.isMine ? "bg-primary text-primary-foreground" : "bg-primary/[0.07] text-foreground",
+                                      message.isMine ? "bg-primary text-primary-foreground" : "border border-border bg-card text-foreground",
                                       finDeBloc && (message.isMine ? "rounded-br-md" : "rounded-bl-md"),
                                     )}
                                   >
@@ -870,7 +870,7 @@ export function Messenger({
                 {mentionnables && mentionnables.length > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1 rounded-lg bg-[#FBF3DD] px-2.5 text-xs font-bold text-[#8a5a0b] hover:bg-[#F7EBC8] hover:text-[#8a5a0b]" aria-label="Mentionner une personne" title="Mentionner une personne">
+                      <Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1 rounded-lg bg-primary/[0.06] px-2.5 text-xs font-bold text-primary hover:bg-primary/10 hover:text-primary" aria-label="Mentionner une personne" title="Mentionner une personne">
                         @ <span className="hidden 2xl:inline">Mentionner</span>
                       </Button>
                     </DropdownMenuTrigger>
@@ -885,7 +885,7 @@ export function Messenger({
                   </DropdownMenu>
                 )}
                 {onCreerTache && (
-                  <Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1 rounded-lg bg-[#E8F4EC] px-2.5 text-xs font-bold text-[#1D5D41] hover:bg-[#D9EDE0] hover:text-[#1D5D41]" onClick={onCreerTache} aria-label="Créer une tâche à partir de ce message" title="Créer une tâche à partir de ce message">
+                  <Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1 rounded-lg bg-primary/[0.06] px-2.5 text-xs font-bold text-primary hover:bg-primary/10 hover:text-primary" onClick={onCreerTache} aria-label="Créer une tâche à partir de ce message" title="Créer une tâche à partir de ce message">
                     ☑ <span className="hidden 2xl:inline">Créer une tâche</span>
                   </Button>
                 )}

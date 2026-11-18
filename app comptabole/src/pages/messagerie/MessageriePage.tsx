@@ -390,6 +390,7 @@ export function MessageriePage() {
     );
   }
 
+  const nonLusTotal = conversations.reduce((s, c) => s + (c.nonLus ?? 0), 0);
   const avecMessages = new Set(messages.map((message) => message.conversationId));
   const cabinetEnLigne = useData((state) => state.enLigneIds).includes("admin");
   const conversationItems: MessengerConversationItem[] =
@@ -544,15 +545,13 @@ export function MessageriePage() {
 
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] min-h-[28rem] min-w-0 flex-col sm:h-[calc(100dvh-7rem)]">
-      <PageHeaderBar
-        title="Messagerie"
-        description={
-          isAdmin
-            ? "Échanges avec les collaborateurs, liés aux dossiers clients."
-            : "Échange avec le responsable du cabinet."
-        }
-        className="shrink-0"
-      />
+      <header className="mb-3 flex shrink-0 flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h1 className="font-serif text-2xl font-semibold text-primary">Messagerie</h1>
+        <p className="min-w-0 flex-1 text-[13px] text-muted-foreground">
+          {isAdmin ? "Échanges avec les collaborateurs, liés aux dossiers clients." : "Échange avec le responsable du cabinet."}
+        </p>
+        {nonLusTotal > 0 && <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-primary">{nonLusTotal} non lu{nonLusTotal > 1 ? "s" : ""}</span>}
+      </header>
 
       <Messenger
         conversations={conversationItems}

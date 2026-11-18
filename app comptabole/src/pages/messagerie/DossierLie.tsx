@@ -38,8 +38,8 @@ function delai(echeance: string | null | undefined): { texte: string; retard: bo
 /** Bande « dossier lié » sous l'en-tête du fil : société, collecte et son état, bouton pour l'ouvrir. */
 export function BandeDossier({ societeNom, collecte, route }: { societeNom: string; collecte: Collecte | null; route: string | null }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/10 border-l-4 border-l-[#2A6DBF] bg-card px-3.5 py-2.5">
-      <FolderOpen className="size-[18px] shrink-0 text-[#2A6DBF]" aria-hidden="true" />
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/10 border-l-4 border-l-accent bg-card px-3.5 py-2.5">
+      <FolderOpen className="size-[18px] shrink-0 text-accent" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="text-[10.5px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">Dossier lié</p>
         <p className="truncate text-sm font-bold text-primary">{societeNom}{collecte ? ` · Collecte ${collecte.periode}` : ""}</p>
@@ -61,15 +61,15 @@ export function PanneauDossier({ societeNom, collecte, taches, route }: { societ
   const transmis = collecte?.tableauxTransmis ?? 0;
   const valides = collecte?.tableauxValides ?? 0;
   const tuiles: { cle: string; n: number; libelle: string; trait: string }[] = [
-    { cle: "a-remplir", n: Math.max(0, demandes - transmis - valides), libelle: "À remplir", trait: "border-t-[#7A8CA0]" },
-    { cle: "a-examiner", n: transmis, libelle: "À examiner", trait: "border-t-[#2A6DBF]" },
-    { cle: "valides", n: valides, libelle: "Validés", trait: "border-t-[#246549]" },
+    { cle: "a-remplir", n: Math.max(0, demandes - transmis - valides), libelle: "À remplir", trait: "border-t-[#7284a1]" },
+    { cle: "a-examiner", n: transmis, libelle: "À examiner", trait: "border-t-primary" },
+    { cle: "valides", n: valides, libelle: "Validés", trait: "border-t-accent" },
   ];
   return (
     <>
       <div>
         <p className="text-[10.5px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">{collecte ? "Collecte liée" : "Dossier"}</p>
-        <p className="mt-1 font-display text-lg font-extrabold leading-tight text-primary">{collecte ? collecte.periode : societeNom}</p>
+        <p className="mt-1 font-serif text-xl font-semibold leading-tight text-primary">{collecte ? collecte.periode : societeNom}</p>
         {collecte && <p className="text-xs text-muted-foreground">{societeNom}</p>}
         {d && <p className={cn("mt-0.5 text-[12.5px] font-bold", d.retard ? "text-destructive" : "text-muted-foreground")}>{d.texte}{collecte?.echeance ? ` · ${formatDate(collecte.echeance)}` : ""}</p>}
       </div>
@@ -78,7 +78,7 @@ export function PanneauDossier({ societeNom, collecte, taches, route }: { societ
         <div className="grid grid-cols-3 gap-2">
           {tuiles.map((t) => (
             <div key={t.cle} className={cn("rounded-[10px] border border-primary/10 border-t-[3px] px-2.5 py-2", t.trait)}>
-              <p className="font-display text-xl font-extrabold leading-none tabular-nums text-primary">{t.n}</p>
+              <p className="font-serif text-xl font-semibold leading-none tabular-nums text-primary">{t.n}</p>
               <p className="mt-1 text-[11.5px] text-muted-foreground">{t.libelle}</p>
             </div>
           ))}
@@ -95,7 +95,7 @@ export function PanneauDossier({ societeNom, collecte, taches, route }: { societ
           <ul className="space-y-2">
             {taches.slice(0, 4).map((t) => (
               <li key={t.id} className="flex items-start gap-2">
-                <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", t.statut === "en_cours" ? "bg-[#2A6DBF]" : "bg-[#7A8CA0]")} aria-hidden="true" />
+                <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", t.statut === "en_cours" ? "bg-primary" : "bg-[#7284a1]")} aria-hidden="true" />
                 <span className="min-w-0">
                   <span className="block truncate text-[12.5px] font-bold text-primary" title={t.titre}>{t.titre}</span>
                   <span className="block text-[11.5px] text-muted-foreground">{t.statut === "en_cours" ? "En cours" : "À faire"}{t.finPrevue ? ` · ${formatDate(t.finPrevue)}` : ""}</span>
@@ -107,7 +107,7 @@ export function PanneauDossier({ societeNom, collecte, taches, route }: { societ
       </div>
 
       {collecte && route && (
-        <Link to={route} className="mt-auto inline-flex h-10 items-center justify-center rounded-lg bg-primary text-[13px] font-bold text-primary-foreground transition-colors hover:bg-primary/90">
+        <Link to={route} className="mt-auto inline-flex h-10 items-center justify-center rounded-lg bg-accent text-[13px] font-bold text-primary transition-[filter] hover:brightness-105">
           {collecte.statut === "transmis" ? "Examiner la collecte" : "Ouvrir la collecte"}
         </Link>
       )}

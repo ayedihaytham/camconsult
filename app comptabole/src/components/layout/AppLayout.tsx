@@ -27,7 +27,7 @@ export function AppLayout() {
   return (
     <TourProvider>
       {environnement === "test" && (
-        <div role="status" className="no-print pointer-events-none fixed bottom-3 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-[#C9A96A] px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#0B2545] shadow-md">
+        <div role="status" className="no-print pointer-events-none fixed bottom-[4.75rem] left-3 z-[60] rounded-full bg-[#C9A96A] px-2.5 py-px text-[9.5px] lg:bottom-0.5 lg:left-[17rem] font-extrabold uppercase tracking-[0.14em] text-[#0B2545] shadow-md">
           Environnement de test
         </div>
       )}
@@ -44,7 +44,7 @@ export function AppLayout() {
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--sheet))] before:pointer-events-none before:absolute before:left-[30px] before:top-0 before:z-10 before:hidden before:h-[2px] before:w-[72px] before:bg-accent lg:rounded-tl-[22px] print:overflow-visible print:rounded-none">
           <div className="flex flex-1 flex-col overflow-y-auto bg-[hsl(var(--sheet))] max-lg:pb-[calc(4rem+env(safe-area-inset-bottom,0px))] print-full">
           {/* Dans la zone qui défile : même largeur utile que le bandeau et le tableau (la barre de défilement ne passe plus dessous), et reste en haut. */}
-          {!bandeauIntegre && <BandeExercice />}
+          {!bandeauIntegre && pathname !== "/messagerie" && <BandeExercice />}
           {/* flex-1 (flex-grow) plutôt que min-h-full (%) : une chaîne de
               flex-grow calée sur des tailles déjà définies ailleurs, jamais
               un pourcentage — plus fiable pour qu'une page courte remplisse

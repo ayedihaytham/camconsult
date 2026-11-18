@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ZoneNavigation } from "./MenuFluide";
 import type { AppNotification } from "@/types";
 import {
   DropdownMenu,
@@ -34,12 +35,12 @@ import {
 } from "./navigation";
 
 /** Page active (maquette) : fond doré translucide, texte ivoire, barre dorée à gauche (en menu réduit, seule l'icône garde la teinte). */
-const NAV_ITEM_CLASS = "relative text-[#C5D3E0] hover:bg-[rgba(254,244,232,.07)] hover:text-white data-[active=true]:bg-[rgba(201,169,106,.16)] data-[active=true]:font-semibold data-[active=true]:text-[#FEF4E8] data-[active=true]:hover:bg-[rgba(201,169,106,.24)] data-[active=true]:hover:text-[#FEF4E8] data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-2 data-[active=true]:before:bottom-2 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-r data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-[''] group-data-[collapsible=icon]:data-[active=true]:before:hidden";
+const NAV_ITEM_CLASS = "relative z-[1] text-[#C5D3E0] transition-colors duration-200 hover:bg-[rgba(254,244,232,.07)] hover:text-white data-[active=true]:bg-transparent data-[active=true]:font-semibold data-[active=true]:text-[#FEF4E8] data-[active=true]:hover:bg-transparent data-[active=true]:hover:text-[#FEF4E8] data-[active=true]:[&>svg]:text-sidebar-primary";
 
 /** Page parente d'un sous-menu : reste sur le fond marine ; c'est sa sous-page active qui porte la pastille (en menu réduit, c'est elle qui l'a). */
-const PARENT_ITEM_CLASS = "relative text-sidebar-foreground/80 hover:bg-[rgba(254,244,232,.07)] hover:text-white data-[active=true]:bg-transparent data-[active=true]:font-semibold data-[active=true]:text-white data-[active=true]:hover:bg-white/10 data-[active=true]:[&>svg:first-child]:text-sidebar-primary group-data-[collapsible=icon]:data-[active=true]:bg-white group-data-[collapsible=icon]:data-[active=true]:text-sidebar-deep group-data-[collapsible=icon]:data-[active=true]:hover:bg-white";
+const PARENT_ITEM_CLASS = "relative z-[1] text-sidebar-foreground/80 transition-colors duration-200 hover:bg-[rgba(254,244,232,.07)] hover:text-white data-[active=true]:bg-transparent data-[active=true]:font-semibold data-[active=true]:text-white data-[active=true]:hover:bg-white/10 data-[active=true]:[&>svg:first-child]:text-sidebar-primary";
 
-const SUB_ITEM_CLASS = "relative text-sidebar-muted hover:bg-[rgba(254,244,232,.07)] hover:text-white data-[active=true]:bg-[rgba(201,169,106,.16)] data-[active=true]:font-semibold data-[active=true]:text-[#FEF4E8] data-[active=true]:hover:bg-[rgba(201,169,106,.24)] data-[active=true]:hover:text-[#FEF4E8] data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-2 data-[active=true]:before:bottom-2 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-r data-[active=true]:before:bg-sidebar-primary data-[active=true]:before:content-[''] group-data-[collapsible=icon]:data-[active=true]:before:hidden";
+const SUB_ITEM_CLASS = "relative z-[1] text-sidebar-muted transition-colors duration-200 hover:bg-[rgba(254,244,232,.07)] hover:text-white data-[active=true]:bg-transparent data-[active=true]:font-semibold data-[active=true]:text-[#FEF4E8] data-[active=true]:hover:bg-transparent data-[active=true]:hover:text-[#FEF4E8] data-[active=true]:[&>svg]:text-sidebar-primary";
 
 interface SidebarNavigationProps {
   groups: NavGroup[];
@@ -88,7 +89,7 @@ export function SidebarNavigation({
   }, [pathname, groups, setOpenMobile]);
 
   return (
-    <>
+    <ZoneNavigation cle={[pathname, [...groupesFermes].join(","), openGroupId ?? "", isCollapsedDesktop ? "r" : "o"].join("|")}>
       {groups.map((group, groupIndex) => {
         const cleGroupe = group.label ?? "Overview";
         const replie = groupesFermes.has(cleGroupe) && !isCollapsedDesktop;
@@ -325,7 +326,7 @@ export function SidebarNavigation({
         </SidebarGroup>
         );
       })}
-    </>
+    </ZoneNavigation>
   );
 }
 

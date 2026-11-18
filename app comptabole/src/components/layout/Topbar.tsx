@@ -53,9 +53,9 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 bg-sidebar text-sidebar-foreground no-print">
-      <div className="flex h-[60px] items-center gap-2 px-3 lg:px-5">
+      <div className="topbar-rangee flex h-[60px] items-center gap-2 px-3 lg:px-5">
         <SidebarTrigger
-          className="h-9 w-9 shrink-0 text-sidebar-foreground hover:bg-white/10 hover:text-white"
+          className="topbar-ctrl topbar-ctrl--icone shrink-0 border-transparent bg-transparent"
           aria-label="Afficher ou réduire le menu"
         />
 
@@ -65,7 +65,7 @@ export function Topbar() {
         </div>
         <div className="min-w-0 flex-1 lg:hidden" />
 
-        <div className="ml-auto flex shrink-0 items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <div className="hidden items-center gap-2 pr-1 lg:flex">
             <RechercheBouton />
             <RepriseBouton />
@@ -77,7 +77,7 @@ export function Topbar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className="relative ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-primary transition-shadow hover:ring-4 hover:ring-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+                className="relative ml-1 flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-accent text-primary transition-shadow hover:ring-4 hover:ring-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
                 aria-label={`Menu du compte de ${nom}`}
               >
                 <span className="text-xs font-bold tracking-wide">{initiales}</span>
@@ -183,7 +183,7 @@ function NotificationBell() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="relative flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/85 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+          className="topbar-ctrl topbar-ctrl--icone relative"
           onClick={demanderPermissionNotifications}
           aria-label="Notifications"
         >

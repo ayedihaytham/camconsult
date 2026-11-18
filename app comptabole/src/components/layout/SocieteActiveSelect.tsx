@@ -53,9 +53,9 @@ export function SocieteActiveSelect() {
           type="button"
           aria-label={active ? `Société active : ${active.raisonSociale}. Changer de société` : "Choisir la société sur laquelle travailler"}
           className={cn(
-            "flex h-9 min-w-0 max-w-[9.5rem] items-center gap-2 rounded-lg px-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar sm:max-w-[16rem]",
-            open ? "bg-white/12" : "hover:bg-white/10",
-            active ? "font-semibold text-accent" : "text-sidebar-foreground/90",
+            "topbar-ctrl min-w-0 max-w-[9.5rem] gap-2 px-3 text-[13px] sm:max-w-[16rem]",
+            open && "topbar-ctrl--ouvert",
+            active ? "font-semibold text-accent" : "text-[#c5d3e0]",
           )}
         >
           {active ? (

@@ -27,7 +27,7 @@ export function TourHelpButton() {
           aria-expanded={invitation ? bubble : undefined}
           title="Aide"
           onClick={() => (invitation ? setBubble((open) => !open) : lancer())}
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-white/20 bg-white/5 text-sidebar-foreground/90 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+          className="topbar-ctrl topbar-ctrl--icone relative"
         >
           <CircleHelp className="h-[18px] w-[18px]" aria-hidden="true" />
           {invitation && <span className="absolute -right-0.5 -top-0.5 size-[9px] rounded-full bg-accent ring-2 ring-sidebar motion-safe:animate-pulse" aria-hidden="true" />}

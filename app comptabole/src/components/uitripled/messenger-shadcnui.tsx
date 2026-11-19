@@ -17,6 +17,7 @@ import {
   Plus,
   Search,
   Send,
+  SendHorizontal,
   Smile,
   Trash2,
   Zap,
@@ -346,7 +347,7 @@ export function Messenger({
   }, [requeteCommande, reponsesRapides, mentionnables, onCreerTache, onDraftChange]);
   const paletteOuverte = commandes.length > 0;
   // Avec le panneau du dossier à droite, le fil est étroit : les outils n'affichent leur nom que sur très grand écran.
-  const etiquetteOutil = panneauDroit ? "hidden min-[1800px]:inline" : "hidden sm:inline";
+  const etiquetteOutil = "hidden sm:inline";
   useEffect(() => setPaletteIdx(0), [requeteCommande]);
 
   useEffect(() => {
@@ -385,7 +386,7 @@ export function Messenger({
                 type="search"
                 value={search}
                 onChange={(event) => onSearchChange(event.target.value)}
-                placeholder="Rechercher une conversation..."
+                placeholder="Rechercher…"
                 className="h-10 w-full rounded-[10px] bg-card pl-9"
               />
             </div>
@@ -409,7 +410,7 @@ export function Messenger({
           </p>
 
           {avecFiltres && (
-            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="group" aria-label="Filtrer les conversations">
+            <div className="flex flex-wrap gap-1.5 pb-2" role="group" aria-label="Filtrer les conversations">
               {FILTRES.map((f) => {
                 const total = conversations.filter(f.garde).length;
                 return (
@@ -793,7 +794,7 @@ export function Messenger({
 
             <form data-tour="messages-composer"
               onSubmit={handleSubmit}
-              className="bg-background px-3 pb-3 pr-16 pt-1 sm:px-5 sm:pb-4 sm:pr-16"
+              className={cn("bg-background px-3 pb-3 pt-1 sm:px-5 sm:pb-4", !panneauDroit && "pr-16 sm:pr-16")}
               aria-label="Écrire un message"
             >
               {contexteSaisie && (
@@ -803,7 +804,7 @@ export function Messenger({
                 </p>
               )}
               {reponsesRapides && reponsesRapides.length > 0 && (
-                <div className="mb-2 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Réponses prêtes">
+                <div className="mb-2 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] sm:flex-wrap sm:overflow-visible" role="group" aria-label="Réponses prêtes">
                   <span className="mr-0.5 flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground" aria-hidden="true">
                     <span className="grid size-4 place-items-center rounded-full bg-accent text-primary"><Zap className="size-2.5" /></span>
                     <span className="hidden sm:inline">Réponses prêtes</span>
@@ -971,18 +972,20 @@ export function Messenger({
                     </Button>
                   )}
 
-                  <span className={cn("ml-auto mr-2 hidden whitespace-nowrap text-[11px] text-muted-foreground", panneauDroit ? "min-[1800px]:inline" : "md:inline")}>
+                  <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <span className={cn("hidden whitespace-nowrap text-[11px] text-muted-foreground", panneauDroit ? "min-[1700px]:inline" : "md:inline")}>
                     <kbd className="rounded bg-muted px-1.5 py-px font-sans text-[10.5px] font-semibold text-primary/80">/</kbd> commandes
                   </span>
                   <Button
                     type="submit"
-                    className={cn("h-9 shrink-0 gap-2 rounded-[11px] px-4 font-bold max-sm:w-10 max-sm:px-0", !draft.trim() && !attachment && "bg-muted text-muted-foreground")}
+                    className={cn("h-9 shrink-0 gap-2 rounded-[11px] px-4 font-bold shadow-none max-sm:w-10 max-sm:px-0", !draft.trim() && !attachment ? "bg-[#e6eaf1] text-[#7284a1] opacity-100 disabled:opacity-100" : "bg-primary text-primary-foreground hover:bg-primary/90")}
                     disabled={!draft.trim() && !attachment}
                     aria-label="Envoyer"
                   >
                     <span className="hidden sm:inline" aria-hidden="true">Envoyer</span>
-                    <Send className={cn("h-4 w-4", (draft.trim() || attachment) && "text-accent")} aria-hidden="true" />
+                    <SendHorizontal className={cn("h-4 w-4", (draft.trim() || attachment) && "text-accent")} aria-hidden="true" />
                   </Button>
+                  </div>
                 </div>
               </div>
               <p className="mt-1.5 hidden text-[11px] text-muted-foreground sm:block">Entrée pour envoyer · Maj + Entrée pour aller à la ligne</p>

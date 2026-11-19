@@ -48,6 +48,7 @@ export function PageHeaderBar({
   visibleTitle,
   tourTarget,
   pied,
+  complement,
 }: {
   title: string;
   description?: ReactNode;
@@ -68,6 +69,8 @@ export function PageHeaderBar({
   tourTarget?: string;
   /** Rangée collée au bas du bandeau. Par défaut : l'exercice et le circuit des collectes (la rangée globale du haut s'efface). `null` : aucune rangée. */
   pied?: ReactNode;
+  /** Rangée sous le titre, avant celle de l'exercice : état, échéance, actions propres à la page (ex. une collecte). */
+  complement?: ReactNode;
 }) {
   const barreComplete = useBarreComplete();
   // Hors application (tests, aperçus), pas de rangée d'exercice : elle a besoin du routeur.
@@ -139,6 +142,7 @@ export function PageHeaderBar({
           <div className="page-head-actions page-head-actions--bar no-print">{boutons}</div>
         )}
       </div>
+      {complement && <div className="page-head-complement">{complement}</div>}
       {avecExercice ? <div className="page-head-pied"><BandeExercice integree /></div> : pied ? <div className="page-head-pied">{pied}</div> : null}
     </header>
   );

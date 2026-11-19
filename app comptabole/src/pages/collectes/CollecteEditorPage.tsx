@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { LedgerCompactHeader } from "@/components/ledger/LedgerCompactHeader";
+import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -284,7 +284,6 @@ export function CollecteEditorPage() {
     !archivee &&
     (canManageCollaborateurs || sectionRecapStatut(collecte, key) !== "none");
   const rows = checklistRows(collecte);
-  const recus = rows.filter((r) => r.recu).length;
   const codeSociete = societes.find((so) => so.id === collecte.societeId)?.code ?? "";
 
   function requestTab(next: string, forcer = false, target?: { ordre: number | null; col: string | null }) {
@@ -435,12 +434,12 @@ export function CollecteEditorPage() {
 
   return (
     <div>
-      <LedgerCompactHeader
+      <div className="reg-bloc">
+      <PageHeaderBar
         tourTarget="collecte-identity"
-        eyebrow="Clients & travail"
+        eyebrow="Collecte de pièces · Clients & travail"
         title={socNom}
-        description={[codeSociete, collecte.periode.trim(), "Collecte de pièces"].filter(Boolean).join(" · ")}
-        metrics={[]}
+        description={[codeSociete, collecte.periode.trim() ? `Collecte de ${collecte.periode.trim().charAt(0).toLowerCase()}${collecte.periode.trim().slice(1)}` : "Collecte de pièces"].filter(Boolean).join(" · ")}
         actions={<>
             {!isClient && (
               <DropdownMenu>
@@ -485,10 +484,10 @@ export function CollecteEditorPage() {
               </DropdownMenu>
             )}
             <Button variant="outline" size="sm" className="min-h-9 gap-1.5 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" disabled={savingDraft} onClick={() => requestTab("__back__")}>
-              <LogOut className="size-4" /> Quitter
+              <LogOut className="size-4" /> Retour aux collectes
             </Button>
         </>}
-      >
+        complement={<>
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
             <span className="inline-flex items-center gap-2 text-xs font-semibold">
               <span aria-hidden="true" className={cn("size-2 rounded-full", validee ? "bg-success" : collecte.statut === "a_corriger" || enRetard ? "bg-warning" : archivee ? "bg-primary-foreground/50" : "bg-accent")} />
@@ -497,14 +496,6 @@ export function CollecteEditorPage() {
             {collecte.envoiParLignes && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-foreground/25 px-2.5 py-0.5 text-xs font-medium text-primary-foreground" title="Chaque ligne complète part au cabinet à l'enregistrement">
                 <Layers className="size-3.5" aria-hidden="true" /> Envoi par lignes
-              </span>
-            )}
-            {!isClient && (
-              <span className="inline-flex items-center gap-2 text-xs text-primary-foreground/85">
-                <strong className="font-semibold tabular-nums text-primary-foreground">{recus}/{rows.length}</strong> pièces reçues
-                <span role="progressbar" aria-label="Pièces reçues" aria-valuemin={0} aria-valuemax={rows.length} aria-valuenow={recus} className="h-1.5 w-20 overflow-hidden rounded-full bg-primary-foreground/20 sm:w-24">
-                  <span className="block h-full rounded-full bg-accent" style={{ width: `${rows.length ? Math.round((recus / rows.length) * 100) : 0}%` }} />
-                </span>
               </span>
             )}
             {collecte.echeance && (
@@ -530,7 +521,8 @@ export function CollecteEditorPage() {
             )}
           </div>
         )}
-      </LedgerCompactHeader>
+        </>}
+      />
       {(savingDraft || draftError) && (
         <p role={draftError ? "alert" : "status"} aria-live="polite" className={cn("mt-2 rounded-lg border px-3 py-2 text-xs", draftError ? "border-destructive/25 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary")}>
           {draftError ? "Le brouillon n’a pas été enregistré. Restez sur ce tableau et réessayez." : "Enregistrement en cours…"}
@@ -544,7 +536,7 @@ export function CollecteEditorPage() {
 
       <ApercuExportDialog />
       <Tabs value={tab} onValueChange={requestTab}>
-        <div className="mt-2 min-w-0 rounded-lg border border-border bg-card">
+        <div className="min-w-0 bg-card">
           <CollecteWorkNavigation
             collecte={collecte}
             active={tab}
@@ -928,30 +920,31 @@ export function CollecteEditorPage() {
                     />
                   </div>
                 ) : (
-                  <ul className="divide-y divide-border">
-                    {journal.map((entry) => (
-                      <li
-                        key={entry.id}
-                        className="flex items-start gap-3 px-3 py-2.5"
-                      >
-                        <History className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-foreground">
-                            {entry.label}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {entry.actor} · {formatRelative(entry.at)}
-                          </p>
-                        </div>
-                      </li>
+                  <div className="px-5 py-4">
+                    {groupeParJour(journal).map((jour) => (
+                      <section key={jour.cle} aria-label={jour.libelle} className="mb-4 last:mb-0">
+                        <h3 className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{jour.libelle}</h3>
+                        <ol className="relative ml-1.5 space-y-3.5 border-l border-border pl-5">
+                          {jour.entrees.map((entry) => (
+                            <li key={entry.id} className="relative">
+                              <span aria-hidden="true" className={cn("absolute -left-[26px] top-[5px] size-[9px] rounded-full border-2 bg-card", tonJournal(entry.label))} />
+                              <p className="text-sm font-semibold text-foreground">{entry.label}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {entry.actor} · {new Date(entry.at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                              </p>
+                            </li>
+                          ))}
+                        </ol>
+                      </section>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </TabsContent>
             )}
           </main>
         </div>
       </Tabs>
+      </div>
 
       {!isClient && editable && (
         <ImportGrandLivreDialog open={livreOpen} onOpenChange={setLivreOpen} collecte={collecte} editableTab={editableTab} brouillonOuvert={dirtyTableau} />
@@ -1098,6 +1091,31 @@ export function CollecteEditorPage() {
   );
 }
 
+/** Couleur du point d'une action de l'historique : or pour une transmission, terracotta pour un renvoi, marine sinon. */
+function tonJournal(label: string): string {
+  if (/renvoy/i.test(label)) return "border-[#A8402B]";
+  if (/transmis/i.test(label)) return "border-accent";
+  return "border-primary";
+}
+
+/** Regroupe les actions par jour (« Aujourd'hui », « Hier », sinon la date), les plus récentes d'abord. */
+function groupeParJour<T extends { at: string }>(entrees: T[]): Array<{ cle: string; libelle: string; entrees: T[] }> {
+  const cle = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const aujourdhui = new Date();
+  const hier = new Date();
+  hier.setDate(hier.getDate() - 1);
+  const groupes = new Map<string, { cle: string; libelle: string; entrees: T[] }>();
+  for (const e of [...entrees].sort((a, b) => b.at.localeCompare(a.at))) {
+    const date = new Date(e.at);
+    const k = cle(date);
+    const libelle = k === cle(aujourdhui) ? "Aujourd'hui" : k === cle(hier) ? "Hier" : date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    const g = groupes.get(k) ?? { cle: k, libelle, entrees: [] };
+    g.entrees.push(e);
+    groupes.set(k, g);
+  }
+  return [...groupes.values()];
+}
+
 function SectionHeader({
   title,
   description,
@@ -1108,11 +1126,11 @@ function SectionHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="relative flex min-h-14 flex-wrap items-center gap-2 border-b border-border px-4 py-2 before:absolute before:inset-y-4 before:left-0 before:w-px before:bg-primary after:absolute after:bottom-0 after:left-0 after:h-px after:w-8 after:bg-accent">
+    <div className="flex min-h-14 flex-wrap items-center gap-2 border-b-[3px] border-double border-border bg-card px-5 py-3">
       <div className="min-w-0 flex-1">
-        <h2 className="text-base font-bold text-primary">{title}</h2>
+        <h2 className="font-serif text-xl font-semibold leading-tight text-primary">{title}</h2>
         {description && (
-          <p className="max-w-3xl text-xs leading-snug text-muted-foreground">{description}</p>
+          <p className="max-w-3xl text-[12.5px] leading-snug text-muted-foreground">{description}</p>
         )}
       </div>
       {action}

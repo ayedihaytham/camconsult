@@ -93,7 +93,7 @@ function CarteCollecte({ collecte, rang, now, onOuvrir, onDelete, nomSociete }: 
           type="button"
           onClick={onOuvrir}
           aria-label={`${action(collecte)} la collecte ${nomSociete} — ${titreCollecte(collecte)}`}
-          className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-[0.8125rem] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3.5 text-[0.8125rem] font-bold text-primary transition-[filter] hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {action(collecte)} la collecte
           <ArrowRight className="size-3.5" aria-hidden="true" />

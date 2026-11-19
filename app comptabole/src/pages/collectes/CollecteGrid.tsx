@@ -1,4 +1,5 @@
 import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
+import "./collecte-grille.css";
 import { BellRing, Check, ChevronRight, FilePlus, FileUp, LoaderCircle, MoreHorizontal, Paperclip, Plus, Save, Send, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -708,7 +709,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
   const totalTtc: number | null = def.columns.some((c) => c.key === "montant_ttc") ? derived.reduce((t, r) => t + cellNumber(r.montant_ttc), 0) : null;
 
   const commands = (
-    (!readOnly || exportActions) && <div aria-label="Commandes du tableau" className={cn("flex min-w-0 shrink-0 items-center gap-1.5", groupes.length === 0 && "lg:w-full lg:flex-wrap [&>button]:lg:flex-1")}>
+    (!readOnly || exportActions) && <div aria-label="Commandes du tableau" className={cn("flex min-w-0 shrink-0 items-center gap-1.5", groupes.length === 0 && "lg:w-full lg:flex-wrap")}>
               {canAdd && (def.plageNumeros && rows.length === 0 ? null : groupes.length === 0 ? ajoutLigne() : null)}
               {canAdd && def.groupe && groupes.length >= 1 && (
                 <Button type="button" variant="outline" size="icon" className={commandButtonClass}
@@ -735,9 +736,9 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
                 </Button>
               )}
               {exportActions && (
-                <div data-tour="collecte-export-sticky" className={cn("shrink-0", groupes.length === 0 && exportButtons && "lg:flex lg:flex-[3_1_0%]")}>
+                <div data-tour="collecte-export-sticky" className="shrink-0">
                   {groupes.length === 0 && exportButtons && (
-                    <div className="hidden flex-1 items-center gap-1.5 lg:flex [&>button]:flex-1">
+                    <div className="hidden items-center gap-1.5 lg:flex">
                       {exportButtons}
                     </div>
                   )}
@@ -806,7 +807,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
         <section
           data-tour="collecte-sticky-tools"
           aria-label="Suivi et actions du tableau"
-          className="sticky top-0 z-30 overflow-hidden rounded-lg border border-primary/20 border-l-4 border-l-primary bg-card bg-[linear-gradient(hsl(var(--primary)/0.07),hsl(var(--primary)/0.07))] shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)] [&_button.bg-background]:border-primary/25 [&_button.bg-background]:bg-card [&_button.bg-background]:font-semibold [&_button.bg-background]:text-primary"
+          className="sticky top-0 z-30 overflow-hidden rounded-xl border border-border bg-[#FBF8F1] [&_button.bg-background]:border-border [&_button.bg-background]:bg-card [&_button.bg-background]:font-semibold [&_button.bg-background]:text-primary"
         >
           {groupes.length > 0 && (
             <div className="flex min-w-0 items-center gap-3 bg-muted/30 px-3 py-2 md:px-4">
@@ -981,7 +982,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
 
       {/* Sur grand écran le tableau occupe exactement la largeur disponible, sans défilement horizontal : les colonnes
           se répartissent selon leur largeur de modèle. Sous 1024 px, il garde un défilement de secours. */}
-      <div className="mt-1 overflow-x-auto rounded-lg border border-input bg-card shadow-[0_1px_2px_rgba(11,37,69,0.06),0_6px_18px_-12px_rgba(11,37,69,0.35)] lg:overflow-x-visible">
+      <div className="collecte-grille mt-1 overflow-x-auto rounded-xl border border-border bg-card lg:overflow-x-visible">
         <table className="w-full text-sm lg:table-fixed">
           <colgroup className="hidden lg:table-column-group">
             <col style={{ width: 40 }} />
@@ -991,7 +992,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
             {colPiece && <col style={{ width: 56 }} />}
             {!readOnly && <col style={{ width: 40 }} />}
           </colgroup>
-          <thead className="bg-primary text-xs uppercase tracking-wide text-primary-foreground/90">
+          <thead className="border-b border-border bg-[#FBF8F1] text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
               <th className="w-10 px-2 py-2 text-left font-medium">#</th>
               {def.columns.map((c) => (
@@ -1227,7 +1228,7 @@ export const CollecteGrid = forwardRef<CollecteGridHandle, Props>(function Colle
           </tbody>
           {total !== null && rows.length > 0 && (
             <tfoot>
-              <tr className="border-t-2 border-primary bg-muted/30 font-medium">
+              <tr className="border-t-2 border-primary bg-[#FBF8F1] font-medium">
                 <td colSpan={nbCols} className="px-3 py-2.5">
                   <div className="flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1">
                     <span className="text-muted-foreground">{totalLabel}</span>

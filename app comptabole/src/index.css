@@ -790,9 +790,13 @@
   color: hsl(var(--primary));
 }
 
-/* Playfair affiche par défaut des chiffres elzéviriens (« 05 » ressemble à « o5 ») : chiffres alignés partout. */
+/* Playfair affiche par défaut des chiffres elzéviriens (« 05 » ressemble à « o5 », « 3 » descend sous la ligne) : chiffres alignés partout,
+   y compris sur les titres posés avec font-family dans les feuilles de style (Synthèse, bandeaux, volets). */
 .font-serif,
-[class*="font-serif"] {
+[class*="font-serif"],
+.ve h2, .ve-chemise__nombre b, .ve-groupe h3 button b, .ve-circuit b, .ve-carte__entete h2,
+.synthese-entete h1, .synthese-priorite h2,
+.page-head-title, .page-head-fig dd {
   font-feature-settings: "lnum" 1;
 }
 

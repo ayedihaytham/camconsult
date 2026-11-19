@@ -765,11 +765,11 @@ describe("Collecte : espace limité du responsable de société", () => {
     expect(screen.getByRole("button", { name: /Enregistrer et transférer au cabinet/ })).toBeTruthy();
   });
 
-  it("propose Quitter, qui ramène à la liste des collectes", () => {
+  it("propose « Retour aux collectes », qui ramène à la liste des collectes", () => {
     devenirClient();
     collecte.sections = [sectionOuverte as never];
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: /Quitter/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Retour aux collectes/ }));
     expect(screen.getByText("Liste des collectes")).toBeTruthy();
   });
 
@@ -779,7 +779,7 @@ describe("Collecte : espace limité du responsable de société", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Ajouter une ligne" }));
     fireEvent.change(document.querySelectorAll<HTMLInputElement>("tbody tr[data-row] input")[1], { target: { value: "REM-1" } });
-    fireEvent.click(screen.getByRole("button", { name: /Quitter/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Retour aux collectes/ }));
     await waitFor(() => expect(saveLignes).toHaveBeenCalledOnce());
     expect(await screen.findByText("Liste des collectes")).toBeTruthy();
   });
@@ -829,7 +829,7 @@ describe("Collecte : espace limité du responsable de société", () => {
     renderPage();
     const bandeau = document.querySelector('[data-tour="collecte-identity"]') as HTMLElement;
     expect(within(bandeau).getByRole("button", { name: "Outils" })).toBeTruthy();
-    expect(within(bandeau).getByRole("button", { name: "Quitter" })).toBeTruthy();
+    expect(within(bandeau).getByRole("button", { name: "Retour aux collectes" })).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Sections du dossier", hidden: true });
     const noms = within(nav).getAllByRole("button", { hidden: true }).map((b) => b.textContent ?? "");
     expect(noms.slice(0, 3)).toEqual(["Checklist", "Récap", "Documents"]);

@@ -625,8 +625,8 @@ export function MessageriePage() {
       {societeDuFil && (
         <Sheet open={dossierOuvert} onOpenChange={setDossierOuvert}>
           <SheetContent side="bottom" className="max-h-[88dvh]">
-            <SheetHeader><SheetTitle>{societeDuFil.raisonSociale}</SheetTitle><SheetDescription className="sr-only">Dossier lié à cette conversation</SheetDescription></SheetHeader>
-            <SheetBody className="flex min-h-0 flex-col">
+            <SheetHeader className="sr-only"><SheetTitle>{societeDuFil.raisonSociale}</SheetTitle><SheetDescription>Dossier lié à cette conversation</SheetDescription></SheetHeader>
+            <SheetBody className="flex min-h-0 flex-col p-5">
               <PanneauDossier societeNom={societeDuFil.raisonSociale} collecte={collecteLiee} taches={tachesLiees} route={routeCollecte} onCreerTache={peutCreerTache ? () => { setDossierOuvert(false); setTacheOuverte({ titre: "", description: "" }); } : undefined} />
             </SheetBody>
           </SheetContent>

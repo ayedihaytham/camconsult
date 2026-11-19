@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { ChecklistRow } from "@/lib/collecte/checklist";
+import { COLLECTE_ETATS } from "@/lib/collecte/tabs";
 
 export interface SuiviPatch {
   recuManuel?: boolean;
@@ -253,8 +254,9 @@ function Comment({
 
 type Filtre = "toutes" | "attente" | "recues";
 
+/** Champs de suivi : ils se lisent comme du texte et se révèlent (cadre) au survol ou à la saisie. */
 const champSuivi =
-  "h-9 rounded-lg border border-border bg-background px-2 text-sm tabular-nums text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-transparent disabled:text-muted-foreground/70";
+  "h-9 rounded-lg border border-transparent bg-transparent px-2 text-sm font-semibold tabular-nums text-foreground transition-colors hover:border-border focus-visible:border-border focus-visible:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:font-normal disabled:text-muted-foreground/70 disabled:hover:border-transparent";
 
 interface ChampProps {
   row: ChecklistRow;
@@ -319,6 +321,23 @@ function ChampTotal({ row, devise, editable, onSaveSuivi, compact = false }: Cha
   );
 }
 
+/** Famille d'une pièce : l'état qui la regroupe (chèques, virements, traites), sinon « Autres tableaux ». */
+function familleDe(row: ChecklistRow): { cle: string; label: string } {
+  const etat = COLLECTE_ETATS.find((e) => e.code === row.etat);
+  return etat ? { cle: etat.key, label: etat.label } : { cle: "autres", label: "Autres tableaux" };
+}
+
+function regrouper(rows: ChecklistRow[]): Array<{ cle: string; label: string; rows: ChecklistRow[] }> {
+  const groupes: Array<{ cle: string; label: string; rows: ChecklistRow[] }> = [];
+  for (const row of rows) {
+    const f = familleDe(row);
+    const existant = groupes.find((g) => g.cle === f.cle);
+    if (existant) existant.rows.push(row);
+    else groupes.push({ ...f, rows: [row] });
+  }
+  return groupes;
+}
+
 export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveComment, onSaveSuivi, onMarkAll, exports, exportMenu, actions, onRemove, removable, notice }: Props) {
   const [filtre, setFiltre] = useState<Filtre>("toutes");
   const [aRetirer, setARetirer] = useState<ChecklistRow | null>(null);
@@ -354,6 +373,9 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
   const recus = rows.filter((row) => row.recu).length;
   const enAttente = rows.filter((row) => !row.recu);
   const visibles = filtre === "toutes" ? rows : rows.filter((row) => (filtre === "recues" ? row.recu : !row.recu));
+  const groupes = regrouper(visibles);
+  const totalRecu = rows.reduce((somme, row) => somme + (row.recu && row.total != null ? row.total : 0), 0);
+  const symboleDevise = devise === "EUR" ? "€" : devise === "USD" ? "$" : devise;
 
   const lien = (row: ChecklistRow) => (
     <button
@@ -372,15 +394,15 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
       disabled={!editable || row.recuAuto || !onSaveSuivi}
       aria-label={`Pièce reçue : ${row.pieceLabel}`}
       title={row.recuAuto ? "Des lignes sont saisies dans le tableau : pièce reçue d'office" : undefined}
-      className="size-11 shrink-0 rounded-md border-border data-[state=checked]:border-success data-[state=checked]:bg-success data-[state=checked]:text-white lg:size-6"
+      className="size-11 shrink-0 rounded-full border-2 border-dashed border-[#c3cbd9] bg-transparent shadow-none transition-shadow data-[state=checked]:border-solid data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-accent data-[state=checked]:shadow-[0_0_0_3px_hsl(var(--accent)/0.22)] lg:size-6 [&_svg]:size-3.5 lg:[&_svg]:size-3.5"
       onCheckedChange={(valeur) => void onSaveSuivi?.(row.onglet, { recuManuel: valeur === true }).catch(() => undefined)}
     />
   );
 
   return (
     <>
-      <section aria-label="Actions de la checklist" data-tour="collecte-checklist-tools" className="sticky top-0 z-30 mx-3 my-3 rounded-lg border border-border bg-card shadow-[0_7px_22px_-15px_rgba(11,37,69,0.4)] lg:mx-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 p-2 lg:px-3">
+      <section aria-label="Actions de la checklist" data-tour="collecte-checklist-tools" className="sticky top-0 z-30 border-b border-border bg-[#FBF8F1]">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 px-3 py-2.5 lg:px-5">
         {actions}
         {editable && onMarkAll && (
           <Button
@@ -427,9 +449,10 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/70 px-3 py-2 text-xs text-muted-foreground lg:px-5">
           <span><strong className="font-semibold tabular-nums text-foreground">{recus} / {rows.length}</strong> pièces reçues{enAttente.length > 0 && <span className="ml-2">· {enAttente.length} en attente</span>}</span>
-          {editable && <span>Enregistrement automatique</span>}
+          <span className="h-1.5 w-40 overflow-hidden rounded-full bg-border" role="img" aria-label={`${recus} pièces reçues sur ${rows.length}`}><i className="block h-full bg-success" style={{ width: `${rows.length ? (recus / rows.length) * 100 : 0}%` }} /></span>
+          {editable && <span className="ml-auto inline-flex items-center gap-1.5"><i className="size-1.5 rounded-full bg-success" aria-hidden="true" />Enregistrement automatique</span>}
         </div>
       </section>
 
@@ -437,19 +460,26 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
 
       <div className="hidden lg:block">
         <table className="w-full table-fixed text-sm">
-          <thead className="border-y border-border bg-secondary/65 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+          <thead className="border-b border-border bg-card text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
-              <th className="w-[38%] px-4 py-2.5 text-left">Tableau / réception</th>
+              <th className="w-[38%] px-5 py-2.5 text-left">Tableau / réception</th>
               <th className="w-[22%] px-2 py-2.5 text-left">Date de suivi</th>
               <th className="w-[18%] px-2 py-2.5 text-right">Total</th>
-              <th className="w-[22%] px-4 py-2.5 text-left">Commentaire</th>
+              <th className="w-[22%] px-5 py-2.5 text-left">Commentaire</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
-            {visibles.map((row) => {
-              return (
+          <tbody>
+            {groupes.flatMap((groupe) => [
+              groupes.length > 1 ? (
+                <tr key={`g-${groupe.cle}`} className="bg-[#FBF8F1]">
+                  <td colSpan={4} className="border-b border-border/70 px-5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    {groupe.label}<b className="ml-2 text-[13px] font-bold normal-case tracking-normal text-primary">{groupe.rows.length}</b>
+                  </td>
+                </tr>
+              ) : null,
+              ...groupe.rows.map((row) => (
                 <tr key={row.onglet} className="align-middle hover:bg-muted/20">
-                  <td className="px-4 py-3">
+                  <td className="border-b border-dotted border-border px-5 py-3">
                     <div className="flex items-center gap-3">
                       {coche(row)}
                       <div className="min-w-0">
@@ -459,14 +489,14 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
                       <span className="ml-auto">{boutonRetirer(row)}</span>
                     </div>
                   </td>
-                  <td className="px-2 py-3 [&>input]:max-w-44"><ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
-                  <td className="px-2 py-3 text-right"><ChampTotal row={row} devise={devise} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
-                  <td className="px-4 py-3">
+                  <td className="border-b border-dotted border-border px-2 py-3 [&>input]:max-w-44"><ChampDate row={row} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
+                  <td className="border-b border-dotted border-border px-2 py-3 text-right"><ChampTotal row={row} devise={devise} editable={editable} onSaveSuivi={onSaveSuivi} /></td>
+                  <td className="border-b border-dotted border-border px-5 py-3">
                     <Comment row={row} editable={editable} onSave={(value) => onSaveComment(row.onglet, value)} />
                   </td>
                 </tr>
-              );
-            })}
+              )),
+            ])}
             {visibles.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-6 text-center text-sm text-muted-foreground">
@@ -475,6 +505,16 @@ export function CollecteChecklist({ rows, devise, editable, onSelectTab, onSaveC
               </tr>
             )}
           </tbody>
+          {rows.length > 0 && (
+            <tfoot>
+              <tr className="bg-[#FBF8F1] text-sm font-bold text-primary">
+                <td className="border-t-2 border-primary px-5 py-3">Total des pièces reçues<span className="block text-[11px] font-medium text-muted-foreground">{recus} pièce{recus > 1 ? "s" : ""} sur {rows.length}</span></td>
+                <td className="border-t-2 border-primary" />
+                <td className="border-t-2 border-primary px-2 py-3 text-right tabular-nums">{totalRecu.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">{symboleDevise}</span></td>
+                <td className="border-t-2 border-primary" />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
       <div className="divide-y divide-border border-t border-border lg:hidden">
@@ -560,8 +600,8 @@ function MobileChecklistRow({
 function RowStatus({ row }: { row: ChecklistRow }) {
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-relaxed text-muted-foreground">
-      {row.etat && <span className="rounded-sm bg-muted px-1 py-0.5 text-[10px] font-semibold text-primary">{row.etat}</span>}
-      <span className={cn("font-medium", row.recu && "text-success")}>{row.statutLabel}</span>
+      {row.etat && <span className="rounded-[5px] bg-muted px-1.5 py-px text-[10px] font-bold tracking-wide text-primary/80">{row.etat}</span>}
+      <span className={cn("rounded-full px-2 py-px text-[11px] font-bold", row.recu ? "bg-[#e4f1ea] text-[#2f7a55]" : "bg-[#f3ead4] text-[#7a5a1d]")}>{row.statutLabel}</span>
       <span aria-hidden="true">·</span><span>{row.circuitLabel}</span>
     </p>
   );

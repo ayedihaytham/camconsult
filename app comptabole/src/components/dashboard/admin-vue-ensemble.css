@@ -2,7 +2,7 @@
    Gabarit de carte « état comptable » : repère doré en petites capitales, titre en Playfair, filet double, lignes pointillées.
    Palette : marine et ses tons, or (action), terracotta (retard seulement), ivoire (onglets). */
 .ve { --ve-marine: hsl(var(--primary)); --ve-or: hsl(var(--accent)); --ve-or2: #a98a4a; --ve-terracotta: #a8402b; --ve-gris: #e6eaf1; --ve-n70: #3b5278; --ve-n45: #7284a1; --ve-n20: #c3cbd9; --ve-ivoire: #fbf8f1;
-  display: flex; flex-direction: column; gap: 12px; font-variant-numeric: tabular-nums; }
+  display: flex; flex-direction: column; gap: 12px; font-variant-numeric: tabular-nums; font-feature-settings: "lnum" 1; }
 .ve h2 { margin: 0; font-family: "Playfair Display", Georgia, serif; font-weight: 600; color: hsl(var(--primary)); }
 
 /* ---------- Chemises de dossier (indicateurs) ---------- */

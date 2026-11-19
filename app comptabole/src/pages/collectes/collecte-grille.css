@@ -1,0 +1,19 @@
+/* Grille de saisie d'un tableau : cellules lisibles comme du texte, cadre au survol, cellule active en or. */
+.collecte-grille thead th { font-weight: 700; padding-top: 10px; padding-bottom: 10px; color: hsl(var(--muted-foreground)); }
+.collecte-grille tbody tr { border-bottom: 1px dotted hsl(var(--border)); }
+.collecte-grille tbody tr > td { border-bottom: 0; }
+.collecte-grille tbody input,
+.collecte-grille tbody textarea,
+.collecte-grille tbody button[role="combobox"] { border-color: transparent; background-color: transparent; box-shadow: none; transition: border-color .15s, background-color .15s, box-shadow .15s; }
+.collecte-grille tbody input:hover:not(:disabled):not([readonly]),
+.collecte-grille tbody button[role="combobox"]:hover:not(:disabled) { border-color: hsl(var(--border)); }
+.collecte-grille tbody input:focus-visible,
+.collecte-grille tbody button[role="combobox"]:focus-visible { border-color: hsl(var(--accent)); background-color: #fffdf8; box-shadow: 0 0 0 3px hsl(var(--accent) / .2); outline: none; }
+.collecte-grille tbody input { font-weight: 500; }
+.collecte-grille tbody input[type="number"],
+.collecte-grille tbody input[inputmode="decimal"] { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Colonnes calculées : texte plein, plus de rayures. */
+.collecte-grille tbody input[readonly] { background-image: none !important; background-color: transparent !important; font-weight: 700; color: hsl(var(--primary)); }
+/* Case à compléter : pointillé or au lieu du fond jaune. */
+.collecte-grille tbody [class*="bg-amber-50"] { background-color: transparent !important; box-shadow: none !important; border-radius: 0; border-bottom: 1.5px dotted #a98a4a !important; }
+.collecte-grille tbody [class*="bg-amber-50"]::placeholder { color: #a98a4a; font-weight: 600; }

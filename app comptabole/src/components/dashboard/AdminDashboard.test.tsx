@@ -16,15 +16,17 @@ const data = buildDashboardData(input);
 const props = { data, now: NOW, canUseMessaging: true, collectesLoading: false, collectesError: false, onRetryCollectes: () => {}, adminDataLoading: false, adminDataError: false, onRetryAdminData: () => {} };
 
 describe("Admin Dashboard briefing", () => {
-  it("shows the verdict line, the week with its day detail and four registers, without the tab rail or quick actions", () => {
+  it("shows the fused summary: indicators, portfolio, review register and week, without the former registers or tab rail", () => {
     const { container } = render(<MemoryRouter><DashboardTabs {...props} /></MemoryRouter>);
-    for (const name of ["Travail à avancer", "Échéances", "Messages", "Équipe"]) expect(screen.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /^Collectes du / })).toBeTruthy();
-    expect(container.querySelector(".bureau-verdict")).toBeTruthy();
+    for (const name of ["Synthèse", "Portefeuille clients", "Échéancier"]) expect(screen.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeTruthy();
+    expect(container.querySelectorAll(".ve-chemise")).toHaveLength(4);
+    expect(container.querySelector('[data-tour="dashboard-portefeuille"]')).toBeTruthy();
+    expect(container.querySelector('[data-tour="dashboard-triage"]')).toBeTruthy();
+    expect(container.querySelector('[data-tour="dashboard-deadline-strip"]')).toBeTruthy();
+    expect(container.querySelector(".bureau-verdict")).toBeNull();
+    expect(container.querySelector(".bureau-registres")).toBeNull();
     expect(screen.queryByRole("tab", { name: "Tâches" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Mon bureau" })).toBeNull();
-    expect(container.querySelectorAll('[data-tour="dashboard-tasks"] li')).toHaveLength(5);
-    expect(container.querySelector(".dashboard-resume")).toBeNull();
     expect(container.querySelector(".dashboard-rail")).toBeNull();
   });
 
@@ -34,13 +36,12 @@ describe("Admin Dashboard briefing", () => {
     expect(screen.getByRole("tab", { name: "Équipe" }).getAttribute("aria-selected")).toBe("true");
   });
 
-  it("keeps usable tasks and permission-gated messages while collection counts are unavailable", () => {
+  it("shows no false zero while collection counts are unavailable, and hides messages without permission", () => {
     const { container } = render(<MemoryRouter><AdminOverviewTab data={data} loading={false} error canUseMessaging={false} /></MemoryRouter>);
-    expect(container.querySelector(".bureau-verdict")?.textContent).toContain("indisponible");
-    expect(screen.getByText("Travail task-0")).toBeTruthy();
+    expect(container.querySelector(".ve-chemise b")?.textContent).toBe("…");
+    expect(screen.getByText("Le registre de révision est indisponible.")).toBeTruthy();
     expect(container.querySelector('[data-tour="dashboard-communication"]')).toBeNull();
-    expect(screen.queryByText("Messages non lus")).toBeNull();
-    expect(screen.queryByText("Aucune collecte prévue à cette date.")).toBeNull();
+    expect(screen.queryByText("Échanges clients")).toBeNull();
   });
 
   it("opens a monthly calendar from the deadline tab", () => {
@@ -70,30 +71,25 @@ describe("Admin Dashboard briefing", () => {
     const { container } = render(<MemoryRouter><DashboardTabs {...props} /></MemoryRouter>);
     const tour = getPageTour("/", session());
     expect(tour?.id).toBe("dashboard-admin");
-    tour?.steps.filter((step) => step.target !== "dashboard-summary").forEach((step) => expect(container.querySelector(`[data-tour="${step.target}"]`)).toBeTruthy());
+    tour?.steps.filter((step) => !["dashboard-summary", "dashboard-resume"].includes(String(step.target))).forEach((step) => expect(container.querySelector(`[data-tour="${String(step.target)}"]`)).toBeTruthy());
   });
 
-  it("defaults the weekday boxes to today and changes the dated previews when another day is chosen", () => {
-    const { container } = render(<MemoryRouter><DashboardTabs {...props} /></MemoryRouter>);
-    const today = screen.getByRole("button", { name: "30/09/2026, 0 collecte" });
+  it("defaults the week to today and lists the chosen day's deadlines", () => {
+    render(<MemoryRouter><DashboardTabs {...props} /></MemoryRouter>);
+    const today = screen.getByRole("button", { name: "30/09/2026, 0 échéance" });
     expect(today.getAttribute("aria-current")).toBe("date");
-    expect(screen.getByRole("button", { name: "30/09/2026, 0 collecte" }).getAttribute("aria-pressed")).toBe("true");
-    const collectionPanel = container.querySelector('[data-tour="dashboard-attention"]') as HTMLElement;
-    expect(within(collectionPanel).getByText("Aucune collecte prévue à cette date.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "01/10/2026, 1 collecte" }));
-    expect(screen.getByRole("button", { name: "01/10/2026, 1 collecte" }).getAttribute("aria-pressed")).toBe("true");
-    expect(collectionPanel.querySelector('a[href="/collectes/review"]')).toBeTruthy();
-    expect(container.querySelector('[data-tour="dashboard-transmissions"] a[href="/collectes/review"]')).toBeNull();
-    expect(screen.getByText("Travail task-0")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Sept jours suivants" }));
-    expect(screen.getByRole("button", { name: "07/10/2026, 0 collecte" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "Aujourd’hui" }));
-    expect(screen.getByRole("button", { name: "30/09/2026, 0 collecte" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Aucune échéance le 30/09/2026.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "01/10/2026, 1 échéance" }));
+    expect(screen.getByRole("button", { name: "01/10/2026, 1 échéance" }).getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector('.ve-agenda a[href="/collectes/review"]')).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "01/10/2026, 1 échéance" }));
+    expect(screen.getByRole("button", { name: "01/10/2026, 1 échéance" }).getAttribute("aria-pressed")).toBe("false");
   });
 
   it("does not show stale day counts when collections fail to load", () => {
     render(<MemoryRouter><DashboardTabs {...props} collectesError /></MemoryRouter>);
-    expect(screen.getByRole("button", { name: "01/10/2026, collectes indisponibles" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "01/10/2026, 1 collecte" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "01/10/2026, 1 échéance" })).toBeNull();
+    expect(screen.getByRole("button", { name: "01/10/2026, 0 échéance" })).toBeTruthy();
   });
+
 });

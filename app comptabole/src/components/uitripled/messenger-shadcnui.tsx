@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
+  AtSign,
   Check,
   CheckCheck,
   Download,
@@ -18,6 +19,8 @@ import {
   Send,
   Smile,
   Trash2,
+  Zap,
+  ListChecks,
   Upload,
   Users2,
   X,
@@ -146,6 +149,8 @@ interface MessengerProps {
   onToggleReaction?: (messageId: string, emoji: string) => void;
   /** Bande « dossier lié » sous l'en-tête du fil (la collecte dont on parle), affichée dans l'onglet Conversation. */
   contexte?: ReactNode;
+  /** Ligne au-dessus de la saisie : le dossier auquel on répond (ex. « Novembre 2026 »). */
+  contexteSaisie?: string;
   /** Panneau du dossier à droite du fil (écrans larges). */
   panneauDroit?: ReactNode;
   /** Réponses prêtes, proposées au-dessus de la saisie : un clic les ajoute au message. */
@@ -297,6 +302,7 @@ export function Messenger({
   onSend,
   onToggleReaction,
   contexte,
+  contexteSaisie,
   panneauDroit,
   reponsesRapides,
   mentionnables,
@@ -326,6 +332,22 @@ export function Messenger({
       .map((nom) => ({ nom: nom as string | null, items: visibles.filter((c) => c.groupe === nom) }));
   }, [visibles, avecFiltres]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [paletteIdx, setPaletteIdx] = useState(0);
+  /** Palette « / » : texte tapé après la barre oblique tant que le message ne contient qu'une commande. */
+  const requeteCommande = draft.startsWith("/") && !/\s/.test(draft) ? draft.slice(1).toLowerCase() : null;
+  const commandes = useMemo(() => {
+    const toutes: { id: string; label: string; detail: string; icone: typeof Zap; lancer: () => void }[] = [
+      ...(reponsesRapides ?? []).map((r) => ({ id: `r-${r}`, label: r, detail: "Réponse prête", icone: Zap, lancer: () => onDraftChange(r) })),
+      { id: "joindre", label: "Joindre un fichier", detail: "Depuis l'appareil", icone: Paperclip, lancer: () => { onDraftChange(""); fileInputRef.current?.click(); } },
+      ...(mentionnables && mentionnables.length > 0 ? [{ id: "mention", label: "Mentionner une personne", detail: "Équipe du cabinet", icone: AtSign, lancer: () => onDraftChange("@") }] : []),
+      ...(onCreerTache ? [{ id: "tache", label: "Créer une tâche", detail: "À partir de ce message", icone: ListChecks, lancer: () => { onDraftChange(""); onCreerTache(); } }] : []),
+    ];
+    return requeteCommande === null ? [] : toutes.filter((c) => c.label.toLowerCase().includes(requeteCommande));
+  }, [requeteCommande, reponsesRapides, mentionnables, onCreerTache, onDraftChange]);
+  const paletteOuverte = commandes.length > 0;
+  // Avec le panneau du dossier à droite, le fil est étroit : les outils n'affichent leur nom que sur très grand écran.
+  const etiquetteOutil = panneauDroit ? "hidden min-[1800px]:inline" : "hidden sm:inline";
+  useEffect(() => setPaletteIdx(0), [requeteCommande]);
 
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
@@ -347,46 +369,44 @@ export function Messenger({
         )}
         aria-label="Conversations"
       >
-        <div className={cn("space-y-3 p-4", avecFiltres ? "pb-0" : "border-b border-border")}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="font-serif text-xl font-semibold text-primary">Conversations</h2>
-              <p className="text-xs text-muted-foreground">
-                {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
-              </p>
+        <div className={cn("space-y-3 p-3.5", avecFiltres ? "pb-0" : "border-b border-border")}>
+          <h2 className="sr-only">Conversations</h2>
+          <div className="flex items-center gap-2">
+            <label htmlFor="messenger-search" className="sr-only">
+              Rechercher une conversation
+            </label>
+            <div className="relative min-w-0 flex-1">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="messenger-search"
+                type="search"
+                value={search}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Rechercher une conversation..."
+                className="h-10 w-full rounded-[10px] bg-card pl-9"
+              />
             </div>
             {canCreateGroup && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="shrink-0 border-transparent bg-accent font-bold text-primary shadow-none hover:bg-accent/90"
+                className="h-10 shrink-0 gap-1.5 border-transparent bg-accent px-3 font-bold text-primary shadow-none hover:bg-accent/90"
                 onClick={onCreateGroup}
                 aria-label="Nouveau groupe"
+                title="Nouveau groupe"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden min-[360px]:inline md:hidden lg:inline">Nouveau groupe</span>
+                <span className="hidden 2xl:inline">Groupe</span>
               </Button>
             )}
           </div>
-
-          <label htmlFor="messenger-search" className="sr-only">
-            Rechercher une conversation
-          </label>
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              id="messenger-search"
-              type="search"
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Rechercher une conversation..."
-              className="h-9 w-full bg-card pl-9"
-            />
-          </div>
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
+          </p>
 
           {avecFiltres && (
             <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="group" aria-label="Filtrer les conversations">
@@ -532,7 +552,7 @@ export function Messenger({
                 </p>
               </div>
 
-              <div role="tablist" aria-label="Contenu de la conversation" className="ml-1 flex shrink-0 items-center gap-3 sm:gap-4">
+              <div role="tablist" aria-label="Contenu de la conversation" className="ml-1 flex shrink-0 items-center gap-1 rounded-full bg-primary/[0.06] p-[3px]">
                 {([["discussion", "Conversation"], ["fichiers", "Fichiers"], ...(membres && membres.length > 0 ? [["membres", "Membres"] as const] : [])] as const).map(([valeur, libelle]) => (
                   <button
                     key={valeur}
@@ -541,8 +561,8 @@ export function Messenger({
                     aria-selected={onglet === valeur}
                     onClick={() => setOnglet(valeur)}
                     className={cn(
-                      "-mb-0.5 border-b-2 py-1.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      onglet === valeur ? "border-accent font-semibold text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+                      "rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      onglet === valeur ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-primary",
                     )}
                   >
                     {libelle}
@@ -576,7 +596,7 @@ export function Messenger({
               )}
             </header>
 
-            {contexte && onglet === "discussion" && <div className="px-3 pt-3 sm:px-6">{contexte}</div>}
+            {contexte && onglet === "discussion" && <div className={cn("px-3 pt-3 sm:px-6", panneauDroit && "xl:hidden")}>{contexte}</div>}
 
             <div data-tour="messages-thread"
               ref={messagesContainerRef}
@@ -776,25 +796,60 @@ export function Messenger({
               className="bg-background px-3 pb-3 pr-16 pt-1 sm:px-5 sm:pb-4 sm:pr-16"
               aria-label="Écrire un message"
             >
+              {contexteSaisie && (
+                <p className="mb-1.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                  <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />
+                  Répond au dossier <b className="font-semibold text-primary">{contexteSaisie}</b>
+                </p>
+              )}
               {reponsesRapides && reponsesRapides.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="Réponses prêtes">
+                <div className="mb-2 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Réponses prêtes">
+                  <span className="mr-0.5 flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground" aria-hidden="true">
+                    <span className="grid size-4 place-items-center rounded-full bg-accent text-primary"><Zap className="size-2.5" /></span>
+                    <span className="hidden sm:inline">Réponses prêtes</span>
+                  </span>
                   {reponsesRapides.map((r) => (
                     <button
                       key={r}
                       type="button"
                       onClick={() => onDraftChange(draft.trim() ? `${draft.trimEnd()} ${r}` : r)}
-                      className="rounded-full border border-primary/20 bg-card px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-[#F5F8FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary/80 transition-colors hover:border-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {r}
                     </button>
                   ))}
                 </div>
               )}
+              {paletteOuverte && (
+                <div role="listbox" aria-label="Commandes" className="mb-2 w-full max-w-[19rem] rounded-[14px] border border-border bg-card p-1.5 shadow-[0_18px_40px_-14px_hsl(var(--primary)/0.45)]">
+                  <p className="px-2 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Commandes</p>
+                  {commandes.map((c, i) => {
+                    const Icone = c.icone;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        role="option"
+                        aria-selected={i === paletteIdx}
+                        onMouseEnter={() => setPaletteIdx(i)}
+                        onClick={() => c.lancer()}
+                        className={cn("flex w-full items-center gap-2.5 rounded-[9px] p-2 text-left text-[12.5px] font-semibold text-primary", i === paletteIdx && "bg-muted shadow-[inset_3px_0_0_hsl(var(--accent))]")}
+                      >
+                        <span className="grid size-[26px] shrink-0 place-items-center rounded-lg bg-primary/[0.07]"><Icone className="size-3.5" aria-hidden="true" /></span>
+                        <span className="min-w-0"><span className="block truncate">{c.label}</span><small className="block text-[11px] font-normal text-muted-foreground">{c.detail}</small></span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {attachment && (
-                <div className="mb-2 flex min-w-0 items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-2 text-xs">
-                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate font-medium">
-                    {attachment.libelle}
+                <div className="mb-2 flex min-w-0 items-center gap-2.5 rounded-[10px] bg-muted/70 px-2.5 py-2 text-xs">
+                  <span className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-primary text-[9px] font-bold uppercase text-primary-foreground" aria-hidden="true">
+                    {(attachment.libelle.match(/\.([a-z0-9]+)$/i)?.[1] ?? "fich").slice(0, 4)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px] font-semibold">{attachment.libelle}</span>
+                    <span className="block text-[11px] text-muted-foreground">{attachment.tailleOctets ? `${tailleLisible(attachment.tailleOctets)} · ` : ""}prêt à envoyer</span>
                   </span>
                   <Button
                     type="button"
@@ -809,7 +864,7 @@ export function Messenger({
                 </div>
               )}
 
-              <div className="flex min-w-0 items-end gap-1.5 rounded-2xl border border-input bg-card p-1.5 shadow-sm transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/35 sm:gap-2">
+              <div className="min-w-0 rounded-2xl border border-input bg-card px-3.5 pb-2 pt-2 shadow-sm transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/35">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -820,76 +875,6 @@ export function Messenger({
                     event.target.value = "";
                   }}
                 />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 rounded-lg text-muted-foreground"
-                      aria-label="Joindre un fichier"
-                      title="Joindre un fichier"
-                    >
-                      <Paperclip className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    side="top"
-                    className="max-h-72 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto"
-                  >
-                    <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-                      <Upload className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      Depuis mon appareil (PC, photo, téléphone)
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger disabled={attachmentItems.length === 0}>
-                        <FolderOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        Depuis la Structuration
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="max-h-72 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto">
-                        <DropdownMenuLabel>
-                          Joindre un document de la structuration
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {attachmentItems.map((item) => (
-                          <DropdownMenuItem
-                            key={item.id}
-                            onClick={() => onSelectAttachment(item)}
-                          >
-                            <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-                            <span className="truncate">{item.label}</span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {mentionnables && mentionnables.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1 rounded-lg bg-primary/[0.06] px-2.5 text-xs font-bold text-primary hover:bg-primary/10 hover:text-primary" aria-label="Mentionner une personne" title="Mentionner une personne">
-                        @ <span className="hidden 2xl:inline">Mentionner</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" side="top" className="max-h-64 overflow-y-auto">
-                      <DropdownMenuLabel>Mentionner</DropdownMenuLabel>
-                      {mentionnables.map((nom) => (
-                        <DropdownMenuItem key={nom} onClick={() => onDraftChange(`${draft}${draft && !draft.endsWith(" ") ? " " : ""}@${nom} `)}>
-                          @{nom}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                {onCreerTache && (
-                  <Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1 rounded-lg bg-primary/[0.06] px-2.5 text-xs font-bold text-primary hover:bg-primary/10 hover:text-primary" onClick={onCreerTache} aria-label="Créer une tâche à partir de ce message" title="Créer une tâche à partir de ce message">
-                    ☑ <span className="hidden 2xl:inline">Créer une tâche</span>
-                  </Button>
-                )}
-
                 <label htmlFor="messenger-editor" className="sr-only">
                   Écrivez un message
                 </label>
@@ -898,6 +883,12 @@ export function Messenger({
                   value={draft}
                   onChange={(event) => onDraftChange(event.target.value)}
                   onKeyDown={(event) => {
+                    if (paletteOuverte) {
+                      if (event.key === "ArrowDown") { event.preventDefault(); setPaletteIdx((i) => (i + 1) % commandes.length); return; }
+                      if (event.key === "ArrowUp") { event.preventDefault(); setPaletteIdx((i) => (i - 1 + commandes.length) % commandes.length); return; }
+                      if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); commandes[paletteIdx]?.lancer(); return; }
+                      if (event.key === "Escape") { event.preventDefault(); onDraftChange(""); return; }
+                    }
                     if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
                       onSend();
@@ -905,18 +896,94 @@ export function Messenger({
                   }}
                   placeholder="Écrivez un message..."
                   rows={1}
-                  className="max-h-28 min-h-9 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 shadow-none focus-visible:ring-0"
+                  className="max-h-32 min-h-9 min-w-0 resize-none border-0 bg-transparent px-0 py-1.5 text-sm shadow-none focus-visible:ring-0"
                 />
 
-                <Button
-                  type="submit"
-                  className="shrink-0 gap-1.5 rounded-xl max-sm:w-9 max-sm:px-0"
-                  disabled={!draft.trim() && !attachment}
-                  aria-label="Envoyer"
-                >
-                  <span className="hidden sm:inline" aria-hidden="true">Envoyer</span>
-                  <Send className="h-4 w-4" aria-hidden="true" />
-                </Button>
+                <div className="mt-1 flex min-w-0 items-center gap-0.5">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 shrink-0 gap-1.5 rounded-[9px] px-2.5 text-xs font-semibold text-primary/80 hover:text-primary"
+                        aria-label="Joindre un fichier"
+                        title="Joindre un fichier"
+                      >
+                        <Paperclip className="h-4 w-4" aria-hidden="true" />
+                        <span className={etiquetteOutil}>Joindre</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      side="top"
+                      className="max-h-72 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto"
+                    >
+                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                        <Upload className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        Depuis mon appareil (PC, photo, téléphone)
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger disabled={attachmentItems.length === 0}>
+                          <FolderOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          Depuis la Structuration
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="max-h-72 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto">
+                          <DropdownMenuLabel>
+                            Joindre un document de la structuration
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          {attachmentItems.map((item) => (
+                            <DropdownMenuItem
+                              key={item.id}
+                              onClick={() => onSelectAttachment(item)}
+                            >
+                              <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+                              <span className="truncate">{item.label}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {mentionnables && mentionnables.length > 0 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 gap-1.5 rounded-[9px] px-2.5 text-xs font-semibold text-primary/80 hover:text-primary" aria-label="Mentionner une personne" title="Mentionner une personne">
+                          <AtSign className="h-4 w-4" aria-hidden="true" /> <span className={etiquetteOutil}>Mentionner</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" side="top" className="max-h-64 overflow-y-auto">
+                        <DropdownMenuLabel>Mentionner</DropdownMenuLabel>
+                        {mentionnables.map((nom) => (
+                          <DropdownMenuItem key={nom} onClick={() => onDraftChange(`${draft}${draft && !draft.endsWith(" ") ? " " : ""}@${nom} `)}>
+                            @{nom}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  {onCreerTache && (
+                    <Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 gap-1.5 rounded-[9px] px-2.5 text-xs font-semibold text-primary/80 hover:text-primary" onClick={onCreerTache} aria-label="Créer une tâche à partir de ce message" title="Créer une tâche à partir de ce message">
+                      <ListChecks className="h-4 w-4" aria-hidden="true" /> <span className={etiquetteOutil}>Créer une tâche</span>
+                    </Button>
+                  )}
+
+                  <span className={cn("ml-auto mr-2 hidden whitespace-nowrap text-[11px] text-muted-foreground", panneauDroit ? "min-[1800px]:inline" : "md:inline")}>
+                    <kbd className="rounded bg-muted px-1.5 py-px font-sans text-[10.5px] font-semibold text-primary/80">/</kbd> commandes
+                  </span>
+                  <Button
+                    type="submit"
+                    className={cn("h-9 shrink-0 gap-2 rounded-[11px] px-4 font-bold max-sm:w-10 max-sm:px-0", !draft.trim() && !attachment && "bg-muted text-muted-foreground")}
+                    disabled={!draft.trim() && !attachment}
+                    aria-label="Envoyer"
+                  >
+                    <span className="hidden sm:inline" aria-hidden="true">Envoyer</span>
+                    <Send className={cn("h-4 w-4", (draft.trim() || attachment) && "text-accent")} aria-hidden="true" />
+                  </Button>
+                </div>
               </div>
               <p className="mt-1.5 hidden text-[11px] text-muted-foreground sm:block">Entrée pour envoyer · Maj + Entrée pour aller à la ligne</p>
             </form>
@@ -973,7 +1040,7 @@ export function Messenger({
       </AnimatePresence>
 
       {panneauDroit && activeConversation && (
-        <aside className="hidden min-h-0 flex-col gap-4 overflow-y-auto border-l border-primary/10 bg-card p-4 xl:flex" aria-label="Dossier lié">
+        <aside className="hidden min-h-0 flex-col gap-4 overflow-y-auto border-l border-primary/10 bg-card p-5 xl:flex" aria-label="Dossier lié">
           {panneauDroit}
         </aside>
       )}

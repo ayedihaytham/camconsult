@@ -143,7 +143,7 @@ describe("Daily Workspace UI contract", () => {
   });
   it("the cabinet view gets a plain heading with no quick actions", () => {
     const { container } = render(<MemoryRouter><DashboardHeader salutation="Bonjour Amira" dateLabel="Mercredi" data={adminData} now={NOW} loading={false} role="admin" canAddSociete canUseMessaging /></MemoryRouter>);
-    expect(screen.getByRole("heading", { name: "Tableau de bord du cabinet" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Bonjour Amira" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Actions/ })).toBeNull();
     expect(container.querySelector('[data-tour="dashboard-summary"]')).toBeTruthy();
   });
@@ -260,7 +260,7 @@ describe("Daily Workspace UI contract", () => {
     const team = Array.from({ length: 5 }, (_, index) => ({ id: `emp-${index}`, name: `Collaborateur ${index}`, initials: `C${index}`, active: true, online: false, aFaire: index + 1, enCours: 2, done: 0, open: index + 3, total: index + 3 }));
     const overview = render(<MemoryRouter><DashboardTabs {...base} data={{ ...adminData, team }} /></MemoryRouter>);
     expect(overview.container.querySelector('[data-tour="dashboard-team"]')).toBeNull();
-    expect(overview.container.querySelectorAll(".bureau-member")).toHaveLength(3);
+    expect(overview.container.querySelectorAll(".ve-charge tbody tr")).toHaveLength(5);
     overview.unmount();
     const { container, rerender } = render(<MemoryRouter initialEntries={["/?tab=team"]}><DashboardTabs {...base} data={{ ...adminData, team }} /></MemoryRouter>);
     team.forEach((member) => expect(screen.getAllByText(member.name).length).toBeGreaterThan(0));

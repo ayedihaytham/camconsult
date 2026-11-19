@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import {
   Messenger,
@@ -72,6 +73,7 @@ export function MessageriePage() {
   const tachesListe = useTaches();
   const addTache = useData((state) => state.addTache);
   const [tacheOuverte, setTacheOuverte] = useState<{ titre: string; description: string } | null>(null);
+  const [dossierOuvert, setDossierOuvert] = useState(false);
   useEffect(() => {
     void fetchCollectes().catch(() => undefined);
   }, [fetchCollectes]);
@@ -603,8 +605,9 @@ export function MessageriePage() {
         onSelectAttachment={(item) => void handleSelectAttachment(item)}
         onRemoveAttachment={() => setAttachment(null)}
         onSend={send}
-        contexte={societeDuFil ? <BandeDossier societeNom={societeDuFil.raisonSociale} collecte={collecteLiee} route={routeCollecte} /> : undefined}
-        panneauDroit={societeDuFil ? <PanneauDossier societeNom={societeDuFil.raisonSociale} collecte={collecteLiee} taches={tachesLiees} route={routeCollecte} /> : undefined}
+        contexte={societeDuFil ? <BandeDossier societeNom={societeDuFil.raisonSociale} collecte={collecteLiee} route={routeCollecte} onDetails={() => setDossierOuvert(true)} /> : undefined}
+        panneauDroit={societeDuFil ? <PanneauDossier societeNom={societeDuFil.raisonSociale} collecte={collecteLiee} taches={tachesLiees} route={routeCollecte} onCreerTache={peutCreerTache ? () => setTacheOuverte({ titre: "", description: "" }) : undefined} /> : undefined}
+        contexteSaisie={societeDuFil && collecteLiee ? collecteLiee.periode : undefined}
         reponsesRapides={reponsesRapides}
         mentionnables={mentionnables}
         membres={membres}
@@ -618,6 +621,17 @@ export function MessageriePage() {
         }
         onToggleReaction={maCleReaction ? (id, emoji) => void toggleReaction(id, emoji, maCleReaction) : undefined}
       />
+
+      {societeDuFil && (
+        <Sheet open={dossierOuvert} onOpenChange={setDossierOuvert}>
+          <SheetContent side="bottom" className="max-h-[88dvh]">
+            <SheetHeader><SheetTitle>{societeDuFil.raisonSociale}</SheetTitle><SheetDescription className="sr-only">Dossier lié à cette conversation</SheetDescription></SheetHeader>
+            <SheetBody className="flex min-h-0 flex-col">
+              <PanneauDossier societeNom={societeDuFil.raisonSociale} collecte={collecteLiee} taches={tachesLiees} route={routeCollecte} onCreerTache={peutCreerTache ? () => { setDossierOuvert(false); setTacheOuverte({ titre: "", description: "" }); } : undefined} />
+            </SheetBody>
+          </SheetContent>
+        </Sheet>
+      )}
 
       {societeDuFil && (
         <TacheFormSheet

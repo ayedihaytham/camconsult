@@ -39,6 +39,12 @@ const RACCOURCIS_DATES = [
   { label: "1 mois", jours: 30 },
 ];
 
+/** « 7 jours » entre deux dates AAAA-MM-JJ, fin comprise. */
+function dureeJours(debut: string, fin: string): string {
+  const n = Math.round((new Date(`${fin}T12:00:00`).getTime() - new Date(`${debut}T12:00:00`).getTime()) / 86_400_000) + 1;
+  return `${n} jour${n > 1 ? "s" : ""}`;
+}
+
 export const tacheFormSchema = z.object({
   titre: z.string().trim().min(2, "Titre requis"),
   description: z.string(),
@@ -153,10 +159,10 @@ export function TacheFormSheet({
       if (!next && isSubmitting) return;
       onOpenChange(next);
     }}>
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[480px] flex-col gap-0 overflow-hidden rounded-md p-0">
-        <DialogHeader className="space-y-0 px-4 pb-2.5 pt-3.5 pr-12">
-          <DialogTitle className="font-serif text-[17px] font-semibold text-primary">{isEdit ? "Modifier la tâche" : "Nouvelle tâche"}</DialogTitle>
-          <DialogDescription className="text-xs">
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[560px] flex-col gap-0 overflow-hidden rounded-2xl p-0 max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[94dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none [&>button]:text-white [&>button]:opacity-80 [&>button:hover]:opacity-100">
+        <DialogHeader className="relative flex-col-reverse space-y-0 bg-primary px-6 pb-4 pt-[18px] pr-14 after:absolute after:bottom-0 after:left-6 after:h-[3px] after:w-14 after:rounded-t-[3px] after:bg-accent">
+          <DialogTitle className="font-serif text-[22px] font-semibold leading-tight text-white">{isEdit ? "Modifier la tâche" : "Nouvelle tâche"}</DialogTitle>
+          <DialogDescription className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-accent">
             {isEdit
               ? "Mettez à jour le contenu, la société ou l'assignation."
               : lockedSocieteId
@@ -185,7 +191,7 @@ export function TacheFormSheet({
             }
           })}
         >
-          <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 pb-3.5 pt-0.5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-5 pt-5">
             <div className="space-y-1">
               <Label htmlFor="tache-titre" className="sr-only">Titre</Label>
               <Input
@@ -198,16 +204,16 @@ export function TacheFormSheet({
                 aria-invalid={Boolean(errors.titre)}
                 aria-describedby={errors.titre ? "tache-titre-error" : undefined}
                 placeholder="Que faut-il faire ?  ex. Déclaration TVA mensuelle"
-                className="h-10 font-semibold text-primary placeholder:font-semibold"
+                className="h-12 rounded-xl border-accent/60 text-[15px] font-semibold text-primary placeholder:font-semibold focus-visible:ring-accent/35"
               />
               {errors.titre?.message && (
                 <p id="tache-titre-error" role="alert" className="text-xs text-destructive">{errors.titre.message}</p>
               )}
             </div>
 
-            <div className={cn("grid gap-2", !lockedSocieteId && "sm:grid-cols-2")}>
+            <div className={cn("grid gap-3", !lockedSocieteId && "sm:grid-cols-2")}>
               <div className={lockedSocieteId ? "hidden" : "space-y-1"}>
-                <Label htmlFor="tache-societe" className="text-[11px] font-semibold text-muted-foreground">Société <span className="text-destructive" aria-hidden="true">*</span></Label>
+                <Label htmlFor="tache-societe" className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Société <span className="text-destructive" aria-hidden="true">*</span></Label>
                 <Select
                   value={societeId}
                   disabled={isSubmitting}
@@ -239,7 +245,7 @@ export function TacheFormSheet({
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="tache-assigne" className="text-[11px] font-semibold text-muted-foreground">Assigné à</Label>
+                <Label htmlFor="tache-assigne" className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Assigné à</Label>
                 <Select
                   value={assigneId}
                   disabled={isSubmitting}
@@ -266,21 +272,21 @@ export function TacheFormSheet({
               </div>
             </div>
 
-            <div className="space-y-2.5 border-t border-dashed border-border pt-2.5">
+            <div className="space-y-4">
               <div className="space-y-1">
-                <Label htmlFor="tache-description" className="text-[11px] font-semibold text-muted-foreground">Description</Label>
+                <Label htmlFor="tache-description" className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Description</Label>
                 <Textarea
                   id="tache-description"
                   {...register("description")}
                   disabled={isSubmitting}
                   rows={1}
-                  className="min-h-10 resize-y"
+                  className="min-h-[68px] resize-y rounded-xl"
                   placeholder="Décrivez le travail à réaliser…"
                 />
               </div>
 
               <div className="space-y-1">
-                <p className="text-[11px] font-semibold leading-none text-muted-foreground">Module concerné</p>
+                <p className="text-[10.5px] font-bold uppercase leading-none tracking-[0.1em] text-muted-foreground">Module concerné</p>
                 <div role="group" aria-label="Module concerné" className="flex flex-wrap gap-1.5 pt-1">
                   {[NONE, ...(Object.keys(TACHE_MODULE_LABELS) as TacheModule[])].map((m) => (
                     <button
@@ -302,14 +308,14 @@ export function TacheFormSheet({
                 </div>
               </div>
 
-              <div className="space-y-1.5" role="group" aria-labelledby="tache-planning-title">
+              <div className="space-y-2 rounded-xl bg-muted/60 p-3.5" role="group" aria-labelledby="tache-planning-title">
                 <div className="flex items-baseline justify-between">
-                  <p id="tache-planning-title" className="text-[11px] font-semibold leading-none text-muted-foreground">Planification</p>
+                  <p id="tache-planning-title" className="text-[10.5px] font-bold uppercase leading-none tracking-[0.1em] text-muted-foreground">Planification</p>
                   {(debutPrevu || finPrevue) && (
                     <button
                       type="button"
                       disabled={isSubmitting}
-                      className="text-[11px] font-semibold text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                      className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
                       onClick={() => { setValue("debutPrevu", "", { shouldDirty: true }); setValue("finPrevue", "", { shouldDirty: true }); clearErrors(["debutPrevu", "finPrevue"]); }}
                     >
                       Effacer les dates
@@ -322,7 +328,7 @@ export function TacheFormSheet({
                       key={r.label}
                       type="button"
                       disabled={isSubmitting}
-                      className="rounded-full border border-dashed border-primary/40 bg-card px-2.5 py-1 text-[11.5px] font-semibold text-primary transition-colors hover:border-accent hover:bg-accent/15 disabled:opacity-50"
+                      className="rounded-full border border-primary/20 bg-card px-3 py-1 text-[11.5px] font-semibold text-primary transition-colors hover:border-accent hover:bg-accent/15 disabled:opacity-50"
                       onClick={() => {
                         const debut = new Date();
                         const fin = new Date();
@@ -336,16 +342,21 @@ export function TacheFormSheet({
                     </button>
                   ))}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input id="tache-debut" type="date" aria-label="Début prévu" className="h-10" {...register("debutPrevu")} disabled={isSubmitting} aria-invalid={Boolean(errors.debutPrevu)} aria-describedby={errors.debutPrevu || errors.finPrevue ? "tache-planning-error" : undefined} />
-                  <Input id="tache-fin" type="date" aria-label="Fin prévue" className="h-10" {...register("finPrevue")} disabled={isSubmitting} aria-invalid={Boolean(errors.finPrevue)} aria-describedby={errors.debutPrevu || errors.finPrevue ? "tache-planning-error" : undefined} />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Input id="tache-debut" type="date" aria-label="Début prévu" className="h-10 bg-card" {...register("debutPrevu")} disabled={isSubmitting} aria-invalid={Boolean(errors.debutPrevu)} aria-describedby={errors.debutPrevu || errors.finPrevue ? "tache-planning-error" : undefined} />
+                  <Input id="tache-fin" type="date" aria-label="Fin prévue" className="h-10 bg-card" {...register("finPrevue")} disabled={isSubmitting} aria-invalid={Boolean(errors.finPrevue)} aria-describedby={errors.debutPrevu || errors.finPrevue ? "tache-planning-error" : undefined} />
                 </div>
+                {debutPrevu && finPrevue && !planningError && (
+                  <p className="text-xs text-muted-foreground">
+                    <b className="font-semibold text-primary">{dureeJours(debutPrevu, finPrevue)}</b> · fin {new Date(`${finPrevue}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
+                  </p>
+                )}
                 {(errors.debutPrevu?.message || errors.finPrevue?.message) && <p id="tache-planning-error" role="alert" className="text-xs text-destructive">{errors.debutPrevu?.message || errors.finPrevue?.message}</p>}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/40 px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card px-6 py-3.5">
             {submitError && <p role="alert" className="w-full text-xs text-destructive">{submitError}</p>}
             <span className="mr-auto text-[11.5px] text-muted-foreground">{aideBouton}</span>
             <Button
@@ -356,7 +367,7 @@ export function TacheFormSheet({
             >
               Annuler
             </Button>
-            <Button type="submit" variant="ledger" disabled={isSubmitting || !formulaireValide}>
+            <Button type="submit" variant="ledger" className="bg-accent font-bold text-primary hover:bg-accent/90 disabled:opacity-55" disabled={isSubmitting || !formulaireValide}>
               {isSubmitting ? "Enregistrement…" : isEdit ? "Enregistrer" : "Créer la tâche"}
             </Button>
           </div>

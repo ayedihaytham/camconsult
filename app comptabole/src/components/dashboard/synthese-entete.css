@@ -1,0 +1,70 @@
+/* Synthèse du cabinet : un seul bloc marine (identité et exercice · priorité du jour · onglets de la page).
+   Marine et ses tons, or pour l'action, terracotta clair pour le retard sur fond marine. Titres en Playfair Display. */
+.synthese-entete { --se-or: hsl(var(--accent)); --se-n20: #c3cbd9; --se-n45: #7284a1; overflow: hidden; border-radius: 14px; background: hsl(var(--primary)); color: #fff; box-shadow: 0 18px 34px -24px hsl(var(--primary) / .7); }
+.synthese-entete:has(+ .hero-fusion) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.synthese-entete__haut { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; padding: 20px 26px 16px; }
+.synthese-entete__sur, .synthese-priorite__sur { margin: 0; font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--se-or); }
+.synthese-entete h1 { margin: 3px 0 0; font-family: "Playfair Display", Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.15; color: #fff; }
+.synthese-entete__sous { margin: 2px 0 0; font-size: 12px; color: var(--se-n20); }
+.synthese-exercice { width: 310px; max-width: 100%; }
+.synthese-exercice p { margin: 0 0 7px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 10px; font-size: 11.5px; color: var(--se-n20); }
+.synthese-exercice p b { font-size: 12.5px; font-weight: 600; color: #fff; }
+.synthese-exercice__jauge { height: 6px; overflow: hidden; border-radius: 6px; background: rgb(255 255 255 / .14); }
+.synthese-exercice__jauge i { display: block; height: 100%; background: linear-gradient(90deg, #8d7440, var(--se-or)); }
+.synthese-exercice__mois { display: flex; justify-content: space-between; margin-top: 5px; font-size: 9.5px; letter-spacing: .08em; color: var(--se-n45); }
+.synthese-entete__filet { height: 1px; margin: 0 26px; background: linear-gradient(90deg, transparent, hsl(var(--accent) / .55) 18%, hsl(var(--accent) / .55) 82%, transparent); }
+
+.synthese-priorite { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 20px; align-items: center; padding: 18px 26px 20px; }
+.synthese-priorite__icone { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 13px; background: hsl(var(--accent) / .15); color: var(--se-or); }
+.synthese-priorite__icone svg { width: 22px; height: 22px; }
+.synthese-priorite__icone.is-calme { background: rgb(255 255 255 / .1); color: var(--se-n20); }
+.synthese-priorite h2 { margin: 2px 0 3px; font-family: "Playfair Display", Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.2; color: #fff; }
+.synthese-priorite__texte { margin: 0; font-size: 13px; color: var(--se-n20); }
+.synthese-priorite__texte b { font-weight: 600; color: #fff; }
+.synthese-priorite__texte .est-retard { font-weight: 600; color: #f2b8a8; }
+.synthese-suivi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; font-size: 11.5px; color: var(--se-n45); }
+.synthese-suivi li { display: flex; align-items: center; gap: 6px; }
+.synthese-suivi li i { width: 9px; height: 9px; flex: none; border-radius: 50%; border: 2px solid var(--se-n45); }
+.synthese-suivi li.is-courante { font-weight: 600; color: #fff; }
+.synthese-suivi li.is-courante i { border-color: var(--se-or); background: var(--se-or); }
+.synthese-suivi li.is-faite i { border-color: var(--se-or); }
+.synthese-suivi li + li:not(.synthese-suivi__suite)::before { content: ""; width: 20px; height: 1px; background: var(--se-n45); }
+.synthese-suivi__suite { margin-left: 10px; }
+.synthese-suivi__suite a { color: var(--se-n20); }
+.synthese-suivi__suite a:hover { color: #fff; text-decoration: underline; }
+.synthese-suivi__suite b { font-weight: 600; }
+.synthese-priorite__actions { display: flex; min-width: 190px; flex-direction: column; gap: 8px; }
+.synthese-bouton { display: inline-flex; height: 42px; align-items: center; justify-content: center; gap: 8px; border-radius: 9px; padding: 0 18px; font-size: 13px; font-weight: 700; white-space: nowrap; transition: filter .2s, background-color .2s; }
+.synthese-bouton svg { width: 16px; height: 16px; }
+.synthese-bouton--principal { background: var(--se-or); color: hsl(var(--primary)); }
+.synthese-bouton--principal:hover { filter: brightness(1.06); }
+.synthese-bouton--secondaire { height: 36px; border: 1px solid rgb(255 255 255 / .28); background: transparent; color: #fff; font-size: 12.5px; font-weight: 600; }
+.synthese-bouton--secondaire:hover:not(:disabled) { background: rgb(255 255 255 / .08); }
+.synthese-bouton--secondaire:disabled { opacity: .6; }
+.synthese-bouton:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Onglets de la page : bande attachée sous le bloc marine. */
+.dashboard-workspace .synthese-entete + .hero-fusion { margin-top: 0; }
+.hero-onglets { display: flex; gap: 6px; padding: 0 20px; overflow-x: auto; border-radius: 0 0 14px 14px; background: #0e2d54; border-top: 1px solid rgb(255 255 255 / .08); scrollbar-width: none; box-shadow: 0 18px 34px -24px hsl(var(--primary) / .7); }
+.hero-onglets [role="tablist"] { display: flex; gap: 6px; }
+.hero-onglet { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 12px 10px 11px; font-size: 13px; font-weight: 600; color: #7284a1; white-space: nowrap; transition: color .2s; }
+.hero-onglet:hover { color: #fff; }
+.hero-onglet[data-state="active"] { border-bottom-color: hsl(var(--accent)); background: transparent !important; box-shadow: none !important; color: #fff; }
+.hero-onglet[data-state="inactive"] { background: transparent; }
+.hero-onglet em { font-style: normal; font-size: 10.5px; border-radius: 99px; background: rgb(255 255 255 / .1); padding: 0 7px; color: #c3cbd9; }
+.hero-onglet:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+
+@media (max-width: 767px) {
+  .synthese-entete__haut { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 16px 12px; }
+  .synthese-entete h1 { font-size: 21px; }
+  .synthese-exercice { width: auto; }
+  .synthese-exercice__mois { display: none; }
+  .synthese-entete__filet { margin: 0 16px; }
+  .synthese-priorite { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px 16px 16px; }
+  .synthese-priorite__icone { display: none; }
+  .synthese-priorite h2 { font-size: 19px; }
+  .synthese-priorite__actions { min-width: 0; }
+  .synthese-suivi__suite { margin-left: 0; }
+  .hero-onglets { padding: 0 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .synthese-bouton { transition: none; } }

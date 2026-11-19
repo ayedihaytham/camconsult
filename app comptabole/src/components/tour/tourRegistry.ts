@@ -667,15 +667,15 @@ export function getPageTour(
         { target: "dashboard-task-completed", title: "Travail terminé", body: "Les tâches terminées restent consultables ; Rouvrir les remet en cours." },
       ],
     } : {
-      id: "dashboard-admin", version: 2, title: "Tableau de bord du cabinet",
+      id: "dashboard-admin", version: 3, title: "Tableau de bord du cabinet",
       steps: [
-        { target: "dashboard-summary", title: "Votre journée", body: "L’en-tête situe la journée. Les modules s’ouvrent depuis le menu latéral et Aller à…, Ctrl K." },
-        { target: "dashboard-resume", title: "L’essentiel en une ligne", body: "Cette ligne annonce si des éléments demandent votre attention ; elle ouvre alors la liste À traiter. Sinon, tout est à jour." },
-        { target: "dashboard-deadline-strip", title: "Choisir la journée", body: "Aujourd’hui est sélectionné au départ. Chaque billet liste ses collectes avec leur statut écrit ; sélectionnez un jour pour changer le détail et les échéances qui suivent. Les tâches et messages conservent leur état actuel." },
-        { target: "dashboard-attention", title: "Suivre les collectes du jour", body: "Sous la semaine : les collectes dont l’échéance correspond à la date sélectionnée, avec leur avancement. Chaque ligne ouvre son dossier." },
-        { target: "dashboard-tasks", title: "Avancer sur le travail", body: "Registre Travail à avancer : les tâches en cours puis celles à faire sont accessibles directement." },
-        { target: "dashboard-transmissions", title: "Consulter les échéances", body: "Registre Échéances : les dates qui suivent la journée choisie sont visibles ici, avec l’avancement de chaque collecte." },
-        { target: "dashboard-communication", title: "Lire les messages", body: "Registre Messages : les messages non lus sont ceux de votre compte. Une ligne ouvre la Messagerie." },
+        { target: "dashboard-summary", title: "Votre journée", body: "Le bloc marine situe la journée et l’exercice en cours, avec le décompte avant la clôture. Les modules s’ouvrent depuis le menu latéral et Aller à…, Ctrl K." },
+        { target: "dashboard-resume", title: "La priorité du jour", body: "Le dossier qui demande votre action en premier, avec son échéance, ses tableaux reçus et l’étape de la collecte. Ouvrir le dossier, ou relancer le client si vos droits le permettent." },
+        { target: "dashboard-tabs", title: "Choisir une vue", body: "Synthèse, Portefeuille clients et Échéancier se choisissent dans la bande attachée au bloc marine." },
+        { target: "dashboard-chemises", title: "Les quatre indicateurs", body: "Retards de transmission, pièces à examiner, rejets à reprendre et échanges clients. Chaque chemise indique la part des dossiers concernés et mène à la liste correspondante." },
+        { target: "dashboard-portefeuille", title: "Le portefeuille clients", body: "Les dossiers sont rangés en trois colonnes : en retard de transmission, en révision, à jour. Chaque carte indique les collectes ouvertes, le retard et l’étape où elles se trouvent ; un clic ouvre le détail du dossier." },
+        { target: "dashboard-triage", title: "Le registre de révision", body: "Les travaux à traiter, groupés en retards, pièces à examiner et rejets. Choisir un jour de l’échéancier filtre cette liste." },
+        { target: "dashboard-deadline-strip", title: "L’échéancier de la semaine", body: "Sept jours à partir d’aujourd’hui, avec un point par collecte (terracotta si elle est en retard). Un jour sélectionné liste ses échéances et filtre le registre." },
       ],
     };
     if (new URLSearchParams(search).get("tab") === "tasks") return {

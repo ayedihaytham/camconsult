@@ -16,108 +16,83 @@ const monter = (patch = {}, props = {}) => {
   return render(<MemoryRouter><AdminOverviewTab data={data} now={NOW} loading={false} error={false} canUseMessaging {...props} /></MemoryRouter>);
 };
 
-describe("Mon bureau administrateur : semaine en billets", () => {
-  it("chaque jour liste ses collectes réelles avec leur statut écrit et un lien vers le dossier ; les jours vides restent discrets", () => {
-    const { container } = monter({ collectes: [collection("a", "2026-09-30", "transmis"), collection("b", "2026-10-02", "a_corriger")] });
-    const jours = container.querySelectorAll(".bureau-day");
-    expect(jours).toHaveLength(7);
-    expect(jours[0].querySelector('a[href="/collectes/a"]')?.textContent).toContain("À examiner");
-    expect(jours[2].querySelector('a[href="/collectes/b"]')?.textContent).toContain("À corriger");
-    expect(jours[1].querySelectorAll("a")).toHaveLength(0);
-    expect(jours[1].textContent).toContain("Rien de prévu");
-    expect(jours[0].getAttribute("class")).toContain("is-today");
+describe("Synthèse du cabinet : chemises d'indicateurs", () => {
+  it("quatre chemises à onglets : retards de transmission, pièces à examiner, rejets à reprendre, échanges clients", () => {
+    const { container } = monter({ collectes: [collection("late", "2026-09-20"), collection("rev", "2026-10-02", "transmis"), collection("fix", "2026-10-05", "a_corriger")], conversations: [conversation] });
+    const chemises = container.querySelectorAll(".ve-chemise");
+    expect(chemises).toHaveLength(4);
+    expect(Array.from(chemises).map((c) => c.querySelector(".ve-chemise__onglet")?.textContent)).toEqual(["Retards de transmission", "Pièces à examiner", "Rejets à reprendre", "Échanges clients"]);
+    expect(chemises[0].querySelector("b")?.textContent).toBe("1");
+    expect(chemises[0].textContent).toContain("100 % des 1 dossier actif");
+    expect(chemises[1].querySelector("b")?.textContent).toBe("1");
+    expect(chemises[2].querySelector("b")?.textContent).toBe("1");
   });
 
-  it("seul le dimanche est un jour de repos : le samedi reste un jour ordinaire", () => {
-    const { container } = monter();
-    const jours = container.querySelectorAll(".bureau-day");
-    expect(jours[3].getAttribute("class")).not.toContain("is-weekend");
-    expect(jours[3].textContent).toContain("Rien de prévu");
-    expect(jours[4].getAttribute("class")).toContain("is-weekend");
-    expect(jours[4].textContent).toContain("Dimanche");
-    expect(jours[4].querySelector(".bureau-day-empty")).toBeNull();
+  it("sans droit de messagerie, la chemise « Échanges clients » et sa carte disparaissent", () => {
+    const { container } = monter({}, { canUseMessaging: false });
+    expect(container.querySelectorAll(".ve-chemise")).toHaveLength(3);
+    expect(screen.queryByText("Échanges clients")).toBeNull();
   });
 
-  it("chaque billet porte le jour, le numéro et le mois ; il n'y a plus de légende de couleurs", () => {
-    const { container } = monter();
-    const jours = container.querySelectorAll(".bureau-day");
-    expect(jours[0].querySelector(".bureau-day-head strong")?.textContent).toMatch(/^\d+$/);
-    expect(jours[0].querySelector(".bureau-day-head em")?.textContent?.length).toBeGreaterThan(0);
-    expect(container.querySelector(".bureau-week-legend")).toBeNull();
-  });
-
-  it("le détail du jour choisi annonce sa date et le nombre de collectes, puis liste chaque collecte avec son avancement", () => {
-    const { container } = monter({ collectes: [collection("a", "2026-09-30", "transmis")] });
-    const detail = container.querySelector(".bureau-day-detail") as HTMLElement;
-    expect(within(detail).getByRole("heading", { name: /^Collectes du .*1 collecte$/ })).toBeTruthy();
-    const ligne = detail.querySelector('a[href="/collectes/a"]') as HTMLElement;
-    expect(ligne.textContent).toContain("Septembre 2026");
-    expect(within(ligne).getByRole("img", { name: /À examiner/ })).toBeTruthy();
-  });
-
-  it("au-delà de deux collectes un jour, le reste est résumé (« + N autres »)", () => {
-    const { container } = monter({ collectes: ["a", "b", "c", "d", "e"].map((id) => collection(id, "2026-09-30", "transmis")) });
-    expect(container.querySelectorAll(".bureau-day")[0].querySelectorAll("a")).toHaveLength(2);
-    expect(screen.getByText("+ 3 autres")).toBeTruthy();
-  });
-
-  it("indisponible : pas de collectes affichées dans le tableau, ni de faux zéro", () => {
-    const { container } = monter({ collectes: [collection("a", "2026-09-30")] }, { error: true });
-    expect(container.querySelectorAll(".bureau-event")).toHaveLength(0);
-    expect(container.querySelector(".bureau-day-empty")).toBeNull();
-    expect(screen.getAllByText("Le suivi des collectes est indisponible.").length).toBeGreaterThan(0);
+  it("indisponible : pas de faux zéro dans les chemises, ni de registre", () => {
+    const { container } = monter({ collectes: [collection("a", "2026-09-20")] }, { error: true });
+    expect(container.querySelector(".ve-chemise b")?.textContent).toBe("…");
+    expect(screen.getByText("Le registre de révision est indisponible.")).toBeTruthy();
+    expect(screen.getByText("Le portefeuille est indisponible.")).toBeTruthy();
   });
 });
 
-describe("Mon bureau administrateur : ligne de verdict", () => {
-  it("sans élément à traiter : « Tout est à jour », sans lien", () => {
-    const { container } = monter({ collectes: [] });
-    const verdict = container.querySelector(".bureau-verdict") as HTMLElement;
-    expect(verdict.textContent).toContain("Tout est à jour");
-    expect(verdict.tagName).toBe("P");
+describe("Synthèse du cabinet : portefeuille clients", () => {
+  it("range les dossiers en trois groupes par état, avec leur nombre, et la répartition en tête", () => {
+    const { container } = monter({ collectes: [collection("late", "2026-09-20"), collection("rev", "2026-10-02", "transmis")] });
+    const groupes = Array.from(container.querySelectorAll(".ve-groupe h3")).map((h) => h.textContent);
+    expect(groupes).toEqual(["En retard de transmission1", "En révision0", "À jour0"]);
+    expect(container.querySelector(".ve-repartition")?.getAttribute("aria-label")).toContain("1 en retard de transmission");
   });
 
-  it("avec un élément à traiter : la ligne l'annonce et ouvre la liste À traiter", () => {
+  it("une carte de dossier annonce ses collectes ouvertes et ouvre le détail au clic", () => {
     const { container } = monter({ collectes: [collection("late", "2026-09-20")] });
-    const verdict = container.querySelector(".bureau-verdict") as HTMLElement;
-    expect(verdict.textContent).toMatch(/demande(nt)? votre attention/);
-    expect(verdict.tagName).toBe("A");
-    expect(verdict.getAttribute("href")).toBe("/?tab=attention");
+    const carte = within(container.querySelector('[data-tour="dashboard-portefeuille"]') as HTMLElement).getByRole("button", { name: /Ouvrir le détail de Société soc-1/ });
+    expect(carte.textContent).toContain("1 collecte ouverte");
+    fireEvent.click(carte);
+    expect(within(screen.getByRole("dialog")).getByText("Circuit des collectes")).toBeTruthy();
   });
 });
 
-describe("Mon bureau administrateur : registres en tuiles", () => {
-  it("un seul registre est visible à la fois ; changer de tuile affiche l'autre, avec les compteurs réels", () => {
-    const { container } = monter({ taches: [task("t1"), task("t2", "a_faire")] });
-    const tab = (n: RegExp) => screen.getByRole("tab", { name: n });
-    expect(tab(/^Travail à avancer/).getAttribute("aria-selected")).toBe("true");
-    expect(tab(/^Travail à avancer/).textContent).toContain("2");
-    const echeances = container.querySelector('[data-tour="dashboard-transmissions"]') as HTMLElement;
-    expect(echeances.getAttribute("data-state")).toBe("inactive");
-    fireEvent.mouseDown(tab(/^Échéances/));
-    fireEvent.click(tab(/^Échéances/));
-    expect(echeances.getAttribute("data-state")).toBe("active");
-    const travail = container.querySelector('[data-tour="dashboard-tasks"]') as HTMLElement;
-    expect(within(travail).getAllByRole("link")).toHaveLength(2);
-    expect(within(travail).getByText("Travail t1")).toBeTruthy();
+describe("Synthèse du cabinet : registre de révision et échéancier", () => {
+  const collectes = [collection("late", "2026-09-20"), collection("rev", "2026-10-02", "transmis"), collection("fix", "2026-10-05", "a_corriger")];
+
+  it("le registre groupe les travaux : retards, pièces à examiner, rejets, avec le retard en jours entiers", () => {
+    const { container } = monter({ collectes });
+    const groupes = Array.from(container.querySelectorAll(".ve-table__groupe")).map((g) => g.textContent);
+    expect(groupes).toEqual(["En retard de transmission · 1", "Pièces à examiner · 1", "Rejets à reprendre · 1"]);
+    expect(container.querySelector(".ve-table__delai")?.textContent).toBe("10 jours");
   });
 
-  it("les registres Messages et Équipe suivent les droits : pas de messagerie, pas de tuile Messages ; responsable, pas de tuile Équipe", () => {
-    monter({}, { canUseMessaging: false });
-    expect(screen.queryByRole("tab", { name: /^Messages/ })).toBeNull();
-    expect(screen.getByRole("tab", { name: /^Équipe/ })).toBeTruthy();
+  it("un dossier du registre ouvre son détail dans un volet, avec l'accès au dossier", () => {
+    monter({ collectes });
+    fireEvent.click(screen.getAllByRole("button", { name: /Ouvrir le détail de/ })[0]);
+    const volet = screen.getByRole("dialog");
+    expect(within(volet).getByText("Circuit des collectes")).toBeTruthy();
+    expect(within(volet).getByRole("link", { name: /Ouvrir le dossier/ })).toBeTruthy();
+  });
+
+  it("l'échéancier compte sept jours ; choisir un jour filtre le registre, et le filtre s'efface", () => {
+    const { container } = monter({ collectes });
+    expect(container.querySelectorAll(".ve-semaine button")).toHaveLength(7);
+    fireEvent.click(screen.getByRole("button", { name: "02/10/2026, 1 échéance" }));
+    expect(container.querySelectorAll(".ve-table tbody tr:not(.ve-table__groupe)")).toHaveLength(1);
+    expect(screen.getByText(/échéance du 02\/10\/2026/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Effacer le filtre" }));
+    expect(container.querySelectorAll(".ve-table tbody tr:not(.ve-table__groupe)")).toHaveLength(3);
+  });
+
+  it("la charge de travail est réservée à l'administrateur : un responsable ne la voit pas", () => {
+    monter({ taches: [task("t1"), task("t2", "a_faire")] });
+    expect(screen.getByText("Total des tâches ouvertes")).toBeTruthy();
     cleanup();
     monter({ role: "responsable" as never });
-    expect(screen.queryByRole("tab", { name: /^Équipe/ })).toBeNull();
-  });
-
-  it("le registre Équipe s'ouvre en consultation seule", () => {
-    const { container } = monter({ conversations: [conversation] });
-    fireEvent.mouseDown(screen.getByRole("tab", { name: /^Équipe/ }));
-    fireEvent.click(screen.getByRole("tab", { name: /^Équipe/ }));
-    const equipe = container.querySelector('[role="tabpanel"][data-state="active"]') as HTMLElement;
-    expect(equipe.querySelector(".bureau-member")).toBeTruthy();
-    expect(within(equipe).queryByRole("link")).toBeNull();
+    expect(screen.queryByText("Total des tâches ouvertes")).toBeNull();
   });
 });
 

@@ -67,3 +67,30 @@ describe("Messagerie : dossier lié, réponses prêtes, tâche, membres", () => 
     expect(screen.getByRole("list", { name: "Membres de la conversation" }).textContent).toContain("Leila Benali");
   });
 });
+
+describe("Messagerie : palette « / » et ligne de contexte", () => {
+  it("« / » ouvre la palette ; Entrée lance la commande choisie sans envoyer le message", () => {
+    const onSend = vi.fn();
+    const { onCreerTache, onDraftChange } = monter({ reponsesRapides: ["Pièces bien reçues ✓"], onSend }, "/");
+    const liste = screen.getByRole("listbox", { name: "Commandes" });
+    expect(liste.textContent).toContain("Pièces bien reçues ✓");
+    expect(liste.textContent).toContain("Créer une tâche");
+    fireEvent.keyDown(screen.getByLabelText("Écrivez un message"), { key: "Enter" });
+    expect(onDraftChange).toHaveBeenCalledWith("Pièces bien reçues ✓");
+    expect(onSend).not.toHaveBeenCalled();
+    expect(onCreerTache).not.toHaveBeenCalled();
+  });
+
+  it("la palette filtre selon le texte tapé après « / » et reste fermée sans barre oblique", () => {
+    monter({ reponsesRapides: ["Pièces bien reçues ✓"] }, "/tâche");
+    expect(screen.getByRole("listbox", { name: "Commandes" }).textContent).not.toContain("Pièces bien reçues");
+    cleanup();
+    monter({ reponsesRapides: ["Pièces bien reçues ✓"] }, "Bonjour");
+    expect(screen.queryByRole("listbox", { name: "Commandes" })).toBeNull();
+  });
+
+  it("affiche le dossier auquel la saisie répond", () => {
+    monter({ contexteSaisie: "Novembre 2026" });
+    expect(screen.getByText("Novembre 2026")).toBeTruthy();
+  });
+});

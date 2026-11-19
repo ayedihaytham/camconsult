@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { cn, formatDate, toTitleCase } from "@/lib/utils";
-import { dashboardDateKey, type DashboardPortefeuilleItem, type DashboardTriageItem, type DashboardViewModel } from "@/lib/dashboard/dashboardData";
-import { etatClient, mosaique, poidsClient, type EtatClient } from "@/lib/dashboard/mosaique";
+import { COLLECTE_STATUT_LABELS } from "@/lib/collecte/tabs";
+import { cn, formatDate, formatRelative, toTitleCase } from "@/lib/utils";
+import { dashboardDateKey, type DashboardPortefeuilleItem, type DashboardTriageItem, type DashboardViewModel, type TriageGroupe } from "@/lib/dashboard/dashboardData";
+import { circuitOuvert, dossiersDeLEtat, etatClient, type EtapeOuverte, type EtatClient } from "@/lib/dashboard/portefeuille";
+import { collecteStatutLabel } from "../AdminBureauCards";
 import "../admin-vue-ensemble.css";
 
 interface Props {
@@ -30,152 +32,307 @@ function useMobile(): boolean {
   return mobile;
 }
 
-const LIBELLE_ETAT: Record<EtatClient, string> = { retard: "En retard", traiter: "À traiter", jour: "À jour" };
+const LIBELLE_ETAT: Record<EtatClient, string> = { retard: "En retard de transmission", traiter: "En révision", jour: "À jour" };
+const ETAT_SIGLE_TON: Record<EtatClient, string> = { retard: "ve-ton-retard", traiter: "ve-ton-marine", jour: "ve-ton-neutre" };
+const ETAPE_LIBELLE: Record<EtapeOuverte, string> = { brouillon: "Chez le client", transmis: "Transmise", aCorriger: "À corriger" };
+const DOSSIERS_PAR_GROUPE = 5;
 
-function delai(item: DashboardTriageItem): string {
+const sigle = (nom: string) => nom.replace(/\(.*?\)/g, "").split(/[\s&'’-]+/).filter(Boolean).slice(0, 2).map((m) => m[0]?.toUpperCase()).join("");
+const jours = (n: number) => `${n} jour${n > 1 ? "s" : ""}`;
+
+/** Retard ou échéance, en toutes lettres. */
+function delai(item: DashboardTriageItem): { texte: string; retard: boolean } {
   const d = item.daysFromToday;
-  if (d === null) return "";
-  if (d < 0) return `${-d} j de retard`;
-  if (d === 0) return "aujourd'hui";
-  if (d === 1) return "demain";
-  return `dans ${d} j`;
+  if (d === null) return { texte: "Sans échéance", retard: false };
+  if (d < 0) return { texte: jours(-d), retard: true };
+  if (d === 0) return { texte: "Aujourd'hui", retard: false };
+  if (d === 1) return { texte: "Demain", retard: false };
+  return { texte: `Dans ${jours(d)}`, retard: false };
 }
 
-const VERBE: Record<DashboardTriageItem["groupe"], string> = { retard: "Relancer", examiner: "Examiner", corriger: "Suivre la correction de" };
+const GROUPES: Array<{ groupe: TriageGroupe; titre: string }> = [
+  { groupe: "retard", titre: "En retard de transmission" },
+  { groupe: "examiner", titre: "Pièces à examiner" },
+  { groupe: "corriger", titre: "Rejets à reprendre" },
+];
+const LIGNES_VISIBLES = 8;
+
+/** En-tête commun des cartes : repère doré, titre en Playfair, précision et lien d'action, filet double. */
+function CarteEntete({ id, repere, titre, precision, lien }: { id: string; repere: string; titre: string; precision?: string; lien?: { to: string; texte: string } }) {
+  return (
+    <header className="ve-carte__entete">
+      <div className="min-w-0">
+        <small>{repere}</small>
+        <h2 id={id}>{titre}</h2>
+      </div>
+      {precision && <p>{precision}</p>}
+      {lien && <Link to={lien.to}>{lien.texte}</Link>}
+    </header>
+  );
+}
 
 /**
- * Haut de « Mon bureau » (cabinet) : le point à faire en premier, quatre indicateurs en une bande, le portefeuille en mosaïque
- * (surface = collectes ouvertes), puis santé, semaine et charge de l'équipe. Ne présente que des chiffres déjà calculés ailleurs.
+ * Synthèse du cabinet (sous le bloc marine) : quatre chemises d'indicateurs, portefeuille clients en mosaïque,
+ * registre de révision, puis échéancier, charge de travail, échanges clients et journal d'activité.
+ * Chaque information n'apparaît qu'une fois ; tout vient de chiffres déjà calculés ailleurs.
  */
 export function AdminVueEnsemble({ data, loading, error, canUseMessaging, now }: Props) {
   const mobile = useMobile();
-  const [filtre, setFiltre] = useState<"tous" | EtatClient>("tous");
+  const [ouverts, setOuverts] = useState<Record<EtatClient, boolean>>({ retard: true, traiter: false, jour: false });
+  const [etendus, setEtendus] = useState<Record<EtatClient, boolean>>({ retard: false, traiter: false, jour: false });
   const [ouvert, setOuvert] = useState<string | null>(null);
+  const [jour, setJour] = useState<string | null>(null);
+  const [toutVoir, setToutVoir] = useState(false);
   const indisponible = loading || error;
 
   const clients = useMemo(() => (indisponible ? [] : data.portefeuille.map((item) => ({ item, etat: etatClient(item) }))), [data.portefeuille, indisponible]);
   const nb = (etat: EtatClient) => clients.filter((c) => c.etat === etat).length;
   const total = clients.length;
-  const enRetard = indisponible ? 0 : data.deadlines.filter((d) => d.bucket === "overdue").length;
+  const dossiersActifs = `${total} dossier${total > 1 ? "s" : ""} actif${total > 1 ? "s" : ""}`;
   const part = (n: number) => (total > 0 ? Math.min(100, Math.round((n / total) * 100)) : 0);
   const clientsAvec = (cle: "transmis" | "aCorriger") => clients.filter((c) => c.item[cle] > 0).length;
 
-  const premier = indisponible ? null : data.triage[0] ?? null;
-
-  const segments: Array<{ cle: string; nombre: number | string; libelle: string; part: number | null; lien: string; action: string; ton?: "retard" | "attention" }> = [
-    { cle: "retard", nombre: indisponible ? "…" : enRetard, libelle: "en retard", part: part(nb("retard")), lien: "/?tab=deadlines", action: "Voir les retards", ton: "retard" },
-    { cle: "examiner", nombre: indisponible ? "…" : data.collectionCounts.transmis, libelle: "à examiner", part: part(clientsAvec("transmis")), lien: "/collectes", action: "Examiner" },
-    { cle: "corriger", nombre: indisponible ? "…" : data.collectionCounts.a_corriger, libelle: "à corriger", part: part(clientsAvec("aCorriger")), lien: "/collectes", action: "Suivre", ton: "attention" },
-    ...(canUseMessaging ? [{ cle: "messages", nombre: data.unreadMessages.length, libelle: "messages non lus", part: null, lien: "/messagerie", action: "Lire" }] : []),
+  const chemises: Array<{ cle: string; onglet: string; nombre: number | string; unite: string; repere: number | null; action: string; lien: string; ton: string }> = [
+    { cle: "retard", onglet: "Retards de transmission", nombre: indisponible ? "…" : nb("retard"), unite: "dossiers", repere: part(nb("retard")), action: "Consulter les retards", lien: "/?tab=deadlines", ton: "retard" },
+    { cle: "examiner", onglet: "Pièces à examiner", nombre: indisponible ? "…" : clientsAvec("transmis"), unite: "dossiers", repere: part(clientsAvec("transmis")), action: "Ouvrir la révision", lien: "/collectes", ton: "marine" },
+    { cle: "corriger", onglet: "Rejets à reprendre", nombre: indisponible ? "…" : clientsAvec("aCorriger"), unite: "dossiers", repere: part(clientsAvec("aCorriger")), action: "Suivre les corrections", lien: "/collectes", ton: "or" },
+    ...(canUseMessaging ? [{ cle: "messages", onglet: "Échanges clients", nombre: data.unreadMessages.length, unite: data.unreadMessages.length > 1 ? "messages non lus" : "message non lu", repere: null, action: "Ouvrir la messagerie", lien: "/messagerie", ton: "neutre" }] : []),
   ];
 
-  const tuiles = useMemo(() => {
-    const visibles = clients.filter((c) => filtre === "tous" || c.etat === filtre);
-    const ordre = { retard: 0, traiter: 1, jour: 2 } as const;
-    const tries = [...visibles].sort((a, b) => ordre[a.etat] - ordre[b.etat] || poidsClient(b.item) - poidsClient(a.item) || a.item.societeName.localeCompare(b.item.societeName, "fr"));
-    return mosaique(tries, (c) => poidsClient(c.item) + (c.etat === "retard" ? 0.5 : 0), mobile ? 100 : 160, mobile ? 120 : 90);
-  }, [clients, filtre, mobile]);
+  const groupesPortefeuille = (["retard", "traiter", "jour"] as const).map((etat) => ({ etat, dossiers: dossiersDeLEtat(indisponible ? [] : data.portefeuille, etat) }));
+  // Pour chaque dossier, le travail le plus urgent du registre donne le délai affiché.
+  const urgent = new Map<string, DashboardTriageItem>();
+  for (const t of data.triage) if (!urgent.has(t.societeId)) urgent.set(t.societeId, t);
 
   const courant = ouvert ? data.portefeuille.find((p) => p.societeId === ouvert) ?? null : null;
 
-  const jours = Array.from({ length: 7 }, (_, i) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + i));
-  const parJour = new Map<string, number>();
-  if (!indisponible) for (const d of data.deadlines) parJour.set(d.echeance, (parJour.get(d.echeance) ?? 0) + 1);
-  const prochaine = indisponible ? null : data.deadlines.filter((d) => d.bucket !== "overdue").sort((a, b) => a.echeance.localeCompare(b.echeance))[0] ?? null;
+  // Échéancier : sept jours à partir d'aujourd'hui, un point par collecte (rouge si en retard).
+  const aujourdhui = dashboardDateKey(now);
+  const semaine = Array.from({ length: 7 }, (_, i) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + i));
+  const parJour = new Map<string, typeof data.deadlines>();
+  if (!indisponible) for (const d of data.deadlines) parJour.set(d.echeance, [...(parJour.get(d.echeance) ?? []), d]);
+  const jourAgenda = jour ?? aujourdhui;
+  const agenda = parJour.get(jourAgenda) ?? [];
+  const memeMois = semaine[0].getMonth() === semaine[6].getMonth();
+  const debutSemaine = semaine[0].toLocaleDateString("fr-FR", memeMois ? { day: "numeric" } : { day: "numeric", month: "long" });
+  const finSemaine = semaine[6].toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
-  const equipe = data.role === "admin" ? [...data.team].filter((m) => m.active).sort((a, b) => b.open - a.open).slice(0, 5) : [];
-  const chargeMax = Math.max(1, ...equipe.map((m) => m.open));
+  // Registre de révision : la file de traitement, filtrée par le jour choisi à l'échéancier.
+  const file = indisponible ? [] : data.triage.filter((t) => !jour || t.echeance === jour);
+  const lignes = toutVoir ? file : file.slice(0, LIGNES_VISIBLES);
+  const restent = file.length - lignes.length;
 
-  const donut = total > 0
-    ? `conic-gradient(var(--ve-terracotta) 0 ${(nb("retard") / total) * 100}%, var(--ve-marine) 0 ${((nb("retard") + nb("traiter")) / total) * 100}%, var(--ve-gris) 0)`
-    : "var(--ve-gris)";
+  const equipe = data.role === "admin" ? data.team.filter((m) => m.active) : [];
+  const totalEnCours = equipe.reduce((s, m) => s + m.enCours, 0);
+  const totalAFaire = equipe.reduce((s, m) => s + m.aFaire, 0);
+
+  const journal = [
+    ...data.recentFiles.map((f) => ({ id: `f-${f.id}`, titre: "Document déposé", detail: `${f.societeName} · ${f.name}`, quand: f.updatedAt, to: "/structuration", or: false })),
+    ...data.collections.filter((c) => c.statut === "transmis" || c.statut === "valide").map((c) => ({ id: `c-${c.id}`, titre: `Collecte ${c.libelle.charAt(0).toLowerCase()}${c.libelle.slice(1)} ${c.statut === "valide" ? "validée" : "transmise"}`, detail: COLLECTE_STATUT_LABELS[c.statut], quand: c.updatedAt, to: c.route, or: true })),
+  ].sort((a, b) => b.quand.localeCompare(a.quand)).slice(0, 4);
 
   return (
     <div className="ve" data-tour="dashboard-vue-ensemble">
-      <section className="ve-focus" aria-label="À faire en premier">
-        <div>
-          <p className="ve-eyebrow">À faire en premier</p>
-          {indisponible ? <h2>{loading ? "Chargement du suivi…" : "Le suivi est indisponible"}</h2>
-            : premier ? <>
-              <h2>{VERBE[premier.groupe]} {premier.societeName}</h2>
-              <p className="ve-focus-detail">{premier.periode}{delai(premier) ? ` · ${delai(premier)}` : ""} · {premier.tableauxTransmis}/{premier.tableauxDemandes} tableaux transmis</p>
-            </> : <>
-              <h2>Rien d'urgent</h2>
-              <p className="ve-focus-detail">Aucune collecte ne demande d'action du cabinet pour le moment.</p>
-            </>}
-        </div>
-        {premier && <Link to={premier.route} className="ve-cta">Ouvrir le dossier <ArrowRight aria-hidden="true" /></Link>}
-      </section>
-
-      <section className="ve-k1" aria-label="Indicateurs du jour" data-count={segments.length}>
-        {segments.map((s) => (
-          <div key={s.cle} className={cn("ve-seg", s.ton && `ve-${s.ton}`)}>
-            <strong>{s.nombre}</strong>
-            <span>{s.libelle}</span>
-            {s.part !== null && !indisponible && <div className="ve-part" role="img" aria-label={`${s.part} % des ${total} dossiers`}><i style={{ width: `${s.part}%` }} /><small>{s.part} % des {total} dossiers</small></div>}
-            <Link to={s.lien}>{s.action} <ArrowRight aria-hidden="true" /></Link>
-          </div>
+      <section className="ve-chemises" aria-label="Indicateurs du portefeuille" data-count={chemises.length} data-tour="dashboard-chemises">
+        {chemises.map((c) => (
+          <article key={c.cle} className={cn("ve-chemise", `ve-ton-${c.ton}`)}>
+            <p className="ve-chemise__onglet">{c.onglet}</p>
+            <p className="ve-chemise__nombre"><b>{c.nombre}</b><span>{c.unite}</span></p>
+            <div className="ve-chemise__repere">
+              {c.repere !== null && !indisponible ? (
+                <>
+                  <div className="ve-barre" role="img" aria-label={`${c.repere} % des ${dossiersActifs}`}><i style={{ width: `${c.repere}%` }} /></div>
+                  <span>{c.repere} % des {dossiersActifs}</span>
+                </>
+              ) : c.cle === "messages" && data.unreadMessages.length > 0 ? (
+                <div className="ve-expediteurs">
+                  {data.unreadMessages.slice(0, 3).map((m) => <s key={m.id} aria-hidden="true">{m.initials}</s>)}
+                  <em>Dernier : {toTitleCase(data.unreadMessages[0].label)}</em>
+                </div>
+              ) : c.cle === "messages" ? <span>Aucun message en attente</span> : null}
+            </div>
+            <Link to={c.lien} className="ve-chemise__action"><span>{c.action}</span><ArrowRight aria-hidden="true" /></Link>
+          </article>
         ))}
       </section>
 
       <div className="ve-grille">
-        <section className="ve-carte ve-portefeuille" aria-labelledby="ve-portefeuille-titre">
-          <header>
-            <h2 id="ve-portefeuille-titre">Portefeuille</h2>
-            <div className="ve-filtres" role="group" aria-label="Filtrer les clients">
-              {([["tous", "Tous", total], ["retard", "En retard", nb("retard")], ["traiter", "À traiter", nb("traiter")], ["jour", "À jour", nb("jour")]] as const).map(([cle, lib, n]) => (
-                <button key={cle} type="button" aria-pressed={filtre === cle} onClick={() => setFiltre(cle)}>{lib} <b>{n}</b></button>
-              ))}
+        <div className="ve-principal">
+          <section className="ve-carte" aria-labelledby="ve-portefeuille-titre" data-tour="dashboard-portefeuille">
+            <header className="ve-carte__entete">
+              <div className="min-w-0"><small>Portefeuille clients</small><h2 id="ve-portefeuille-titre">Avancement des collectes par dossier</h2></div>
+              <Link to="/?tab=portefeuille">Registre complet →</Link>
+            </header>
+            <div className="ve-carte__corps">
+              {indisponible ? <p className="admin-brief-empty">{loading ? "Chargement du portefeuille…" : "Le portefeuille est indisponible."}</p>
+                : total === 0 ? <p className="admin-brief-empty">Aucune collecte en cours dans le portefeuille.</p>
+                : (
+                  <>
+                    <div className="ve-repartition" role="img" aria-label={`${nb("retard")} en retard de transmission, ${nb("traiter")} en révision, ${nb("jour")} à jour`}>
+                      <i className="ve-retard" style={{ flexGrow: nb("retard") }} /><i className="ve-traiter" style={{ flexGrow: nb("traiter") }} /><i className="ve-jour" style={{ flexGrow: nb("jour") }} />
+                    </div>
+                    <p className="ve-repartition__legende">
+                      <span className="ve-retard"><b>{nb("retard")}</b> en retard de transmission</span>
+                      <span className="ve-traiter"><b>{nb("traiter")}</b> en révision</span>
+                      <span className="ve-jour"><b>{nb("jour")}</b> à jour</span>
+                      <em>{total} dossier{total > 1 ? "s" : ""} actif{total > 1 ? "s" : ""}</em>
+                    </p>
+                    <div className="ve-groupes">
+                      {groupesPortefeuille.map(({ etat, dossiers }) => {
+                        const visibles = etendus[etat] ? dossiers : dossiers.slice(0, DOSSIERS_PAR_GROUPE);
+                        const corpsId = `ve-groupe-${etat}`;
+                        return (
+                          <section key={etat} className={cn("ve-groupe", ETAT_SIGLE_TON[etat], mobile && !ouverts[etat] && "is-ferme")} aria-labelledby={`${corpsId}-titre`}>
+                            <h3 id={`${corpsId}-titre`}>
+                              <button type="button" aria-expanded={!mobile || ouverts[etat]} aria-controls={corpsId} disabled={!mobile} onClick={() => setOuverts((o) => ({ ...o, [etat]: !o[etat] }))}>
+                                <span>{LIBELLE_ETAT[etat]}</span><b>{dossiers.length}</b><ChevronDown aria-hidden="true" />
+                              </button>
+                            </h3>
+                            <div id={corpsId} className="ve-groupe__corps">
+                              {dossiers.length === 0 ? <p className="ve-groupe__vide">Aucun dossier.</p> : visibles.map((d) => {
+                                const t = urgent.get(d.societeId);
+                                const delaiPastille = etat === "jour" ? { texte: "À jour", retard: false } : t ? delai(t) : null;
+                                const circuit = circuitOuvert(d);
+                                return (
+                                  <button key={d.societeId} type="button" className="ve-dossier" onClick={() => setOuvert(d.societeId)} aria-label={`Ouvrir le détail de ${d.societeName}`}>
+                                    <span className="ve-dossier__sigle" aria-hidden="true">{sigle(d.societeName) || "?"}</span>
+                                    <span className="ve-dossier__texte">
+                                      <b>{d.societeName}</b>
+                                      <span className="ve-dossier__meta">
+                                        {delaiPastille && <span className={cn("ve-pastille", etat === "retard" ? "ve-pastille--retard" : etat === "jour" ? "ve-pastille--jour" : "ve-pastille--revision")}>{etat === "retard" ? `${delaiPastille.texte} de retard` : delaiPastille.texte}</span>}
+                                        <small>{d.enCours === 0 ? "Aucune collecte ouverte" : `${d.enCours} collecte${d.enCours > 1 ? "s" : ""} ouverte${d.enCours > 1 ? "s" : ""}${d.enRetard > 0 ? ` · ${d.enRetard} en retard` : ""}`}</small>
+                                      </span>
+                                    </span>
+                                    {circuit.length > 0 && (
+                                      <span className="ve-circuit-trait" role="img" aria-label={circuit.map((p) => `${p.n} ${ETAPE_LIBELLE[p.etape].toLowerCase()}`).join(", ")}>
+                                        {circuit.map((p) => <i key={p.etape} data-etape={p.etape} style={{ flexGrow: p.n }} />)}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                              {dossiers.length > DOSSIERS_PAR_GROUPE && (
+                                <button type="button" className="ve-groupe__plus" onClick={() => setEtendus((e) => ({ ...e, [etat]: !e[etat] }))}>
+                                  {etendus[etat] ? "Réduire la liste" : `Voir les ${dossiers.length} dossiers →`}
+                                </button>
+                              )}
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </div>
+                    <p className="ve-circuit-legende" aria-hidden="true"><span data-etape="brouillon">Chez le client</span><span data-etape="transmis">Transmise</span><span data-etape="aCorriger">À corriger</span><em>Un trait par étape où se trouvent des collectes ouvertes</em></p>
+                  </>
+                )}
             </div>
-          </header>
-          {indisponible ? <p className="admin-brief-empty">{loading ? "Chargement du portefeuille…" : "Le portefeuille est indisponible."}</p>
-            : total === 0 ? <p className="admin-brief-empty">Aucune collecte en cours dans le portefeuille.</p>
-            : <div className="ve-mosaique" style={{ aspectRatio: mobile ? "100 / 120" : "160 / 90" }} role="list" aria-label="Clients, surface proportionnelle aux collectes ouvertes">
-              {tuiles.map(({ item: { item, etat }, x, y, w, h }) => (
-                <button key={item.societeId} type="button" role="listitem" className={`ve-tuile ve-${etat}`} data-etat={etat}
-                  style={{ left: `${x / (mobile ? 100 : 160) * 100}%`, top: `${y / (mobile ? 120 : 90) * 100}%`, width: `${w / (mobile ? 100 : 160) * 100}%`, height: `${h / (mobile ? 120 : 90) * 100}%` }}
-                  onClick={() => setOuvert(item.societeId)} aria-label={`${item.societeName}, ${LIBELLE_ETAT[etat].toLowerCase()}, ${item.enCours} collecte${item.enCours > 1 ? "s" : ""} ouverte${item.enCours > 1 ? "s" : ""}`}>
-                  <span>{item.societeName}</span>
-                  <small>{item.enCours} ouverte{item.enCours > 1 ? "s" : ""}{item.enRetard > 0 ? ` · ${item.enRetard} en retard` : ""}</small>
-                </button>
-              ))}
-            </div>}
-          <footer className="ve-legende" aria-hidden="true"><span className="ve-retard">En retard</span><span className="ve-traiter">À traiter</span><span className="ve-jour">À jour</span><em>Surface = collectes ouvertes</em></footer>
-        </section>
+          </section>
 
-        <aside className="ve-colonne">
-          <section className="ve-carte" aria-labelledby="ve-sante-titre">
-            <h2 id="ve-sante-titre">Santé du portefeuille</h2>
-            <div className="ve-sante">
-              <div className="ve-donut" style={{ background: donut }} role="img" aria-label={`${nb("jour")} dossiers à jour sur ${total}`}><b>{total ? Math.round((nb("jour") / total) * 100) : 0} %</b><span>à jour</span></div>
-              <ul>
-                <li className="ve-retard"><b>{nb("retard")}</b> en retard</li>
-                <li className="ve-traiter"><b>{nb("traiter")}</b> à traiter</li>
-                <li className="ve-jour"><b>{nb("jour")}</b> à jour</li>
+          <section className="ve-carte ve-registre" id="registre-revision" aria-labelledby="ve-registre-titre" data-tour="dashboard-triage">
+            <header className="ve-carte__entete">
+              <div className="min-w-0"><small>Registre de révision</small><h2 id="ve-registre-titre">Travaux à traiter</h2></div>
+              <p>{indisponible ? "" : `${file.length} dossier${file.length > 1 ? "s" : ""}${jour ? ` · échéance du ${formatDate(jour)}` : ""}`}</p>
+              {jour && <button type="button" className="ve-lien" onClick={() => setJour(null)}>Effacer le filtre</button>}
+            </header>
+            <div className="ve-carte__corps">
+              {indisponible ? <p className="admin-brief-empty">{loading ? "Chargement du registre…" : "Le registre de révision est indisponible."}</p>
+                : file.length === 0 ? <p className="admin-brief-empty">{jour ? "Aucun dossier à traiter pour cette échéance." : "Aucun dossier ne demande d'action du cabinet pour le moment."}</p>
+                : (
+                  <div className="ve-table-defile">
+                    <table className="ve-table">
+                      <thead><tr><th scope="col">Dossier</th><th scope="col">Période</th><th scope="col">Étape</th><th scope="col">Retard ou échéance</th></tr></thead>
+                      <tbody>
+                        {GROUPES.flatMap(({ groupe, titre }) => {
+                          const groupeLignes = lignes.filter((t) => t.groupe === groupe);
+                          if (groupeLignes.length === 0) return [];
+                          const nbGroupe = file.filter((t) => t.groupe === groupe).length;
+                          return [
+                            <tr key={`g-${groupe}`} className={cn("ve-table__groupe", groupe === "retard" && "ve-retard")}><td colSpan={4}>{titre} · {nbGroupe}</td></tr>,
+                            ...groupeLignes.map((t) => {
+                              const d = delai(t);
+                              return (
+                                <tr key={t.id}>
+                                  <td><button type="button" className="ve-table__dossier" onClick={() => setOuvert(t.societeId)} aria-label={`Ouvrir le détail de ${t.societeName}`}>{t.societeName}</button></td>
+                                  <td>{t.periode || "—"}</td>
+                                  <td><span className="ve-etape">{COLLECTE_STATUT_LABELS[t.statut]}</span></td>
+                                  <td className={cn("ve-table__delai", d.retard && "ve-retard-texte")}>{d.texte}</td>
+                                </tr>
+                              );
+                            }),
+                          ];
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              {restent > 0 && <button type="button" className="ve-pied" onClick={() => setToutVoir(true)}>Afficher les {file.length} dossiers →</button>}
+            </div>
+          </section>
+        </div>
+
+        <aside className="ve-colonne" aria-label="Suivi du cabinet">
+          <section className="ve-carte" aria-labelledby="ve-echeancier-titre" data-tour="dashboard-deadline-strip">
+            <CarteEntete id="ve-echeancier-titre" repere="Échéancier" titre={`Semaine du ${debutSemaine} au ${finSemaine}`} />
+            <div className="ve-carte__corps">
+              <ol className="ve-semaine" aria-label="Choisir un jour">
+                {semaine.map((j) => {
+                  const cle = dashboardDateKey(j);
+                  const items = parJour.get(cle) ?? [];
+                  return (
+                    <li key={cle}>
+                      <button type="button" aria-pressed={jour === cle} aria-current={cle === aujourdhui ? "date" : undefined} aria-label={`${formatDate(cle)}, ${items.length} échéance${items.length > 1 ? "s" : ""}`} className={cn(cle === aujourdhui && "is-aujourdhui")} onClick={() => setJour(jour === cle ? null : cle)}>
+                        <span>{j.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}</span>
+                        <b>{j.getDate()}</b>
+                        <em aria-hidden="true">{items.slice(0, 3).map((d, k) => <s key={k} className={cn(d.bucket === "overdue" && "ve-point-retard")} />)}</em>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+              <ul className="ve-agenda" aria-label={`Échéances du ${formatDate(jourAgenda)}`}>
+                {indisponible ? null : agenda.length === 0 ? <li className="ve-agenda__vide">Aucune échéance le {formatDate(jourAgenda)}.</li>
+                  : agenda.slice(0, 3).map((d) => <li key={d.id}><Link to={d.route}><span>{d.societeName}</span><small className={cn(d.bucket === "overdue" && "ve-retard-texte")}>{collecteStatutLabel(d).toLowerCase()}</small></Link></li>)}
               </ul>
             </div>
           </section>
 
-          <section className="ve-carte" aria-labelledby="ve-semaine-titre">
-            <h2 id="ve-semaine-titre">Cette semaine</h2>
-            <ol className="ve-semaine">
-              {jours.map((j) => {
-                const cle = dashboardDateKey(j);
-                const n = parJour.get(cle) ?? 0;
-                return <li key={cle} className={cn(n > 0 && "has", cle === dashboardDateKey(now) && "is-today")}>
-                  <span>{j.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "").slice(0, 3)}</span><b>{j.getDate()}</b><i aria-label={`${n} échéance${n > 1 ? "s" : ""}`}>{n || ""}</i>
-                </li>;
-              })}
-            </ol>
-            {prochaine && <p className="ve-suite">Prochaine échéance : <Link to={prochaine.route}>{prochaine.societeName}</Link> · {formatDate(prochaine.echeance)}</p>}
-          </section>
+          {equipe.length > 0 && (
+            <section className="ve-carte" aria-labelledby="ve-charge-titre">
+              <CarteEntete id="ve-charge-titre" repere="Charge de travail" titre="Collaborateurs du cabinet" lien={{ to: "/?tab=team", texte: "Détail →" }} />
+              <div className="ve-carte__corps">
+                <table className="ve-charge">
+                  <thead><tr><th scope="col">Collaborateur</th><th scope="col">En cours</th><th scope="col">À faire</th></tr></thead>
+                  <tbody>{equipe.slice(0, 5).map((m) => (
+                    <tr key={m.id}><td><span className={cn("ve-avatar", m.online && "is-en-ligne")} aria-hidden="true">{m.initials}</span>{toTitleCase(m.name)}</td><td>{m.enCours}</td><td>{m.aFaire}</td></tr>
+                  ))}</tbody>
+                  <tfoot><tr><td>Total des tâches ouvertes</td><td>{totalEnCours}</td><td>{totalAFaire}</td></tr></tfoot>
+                </table>
+              </div>
+            </section>
+          )}
 
-          {equipe.length > 0 && <section className="ve-carte" aria-labelledby="ve-equipe-titre">
-            <h2 id="ve-equipe-titre">Charge de l'équipe</h2>
-            <ul className="ve-equipe">
-              {equipe.map((m) => <li key={m.id}><span>{toTitleCase(m.name)}</span><div><i style={{ width: `${(m.open / chargeMax) * 100}%` }} /></div><b>{m.open}</b></li>)}
-            </ul>
-          </section>}
+          {canUseMessaging && (
+            <section className="ve-carte" aria-labelledby="ve-echanges-titre" data-tour="dashboard-communication">
+              <CarteEntete id="ve-echanges-titre" repere="Échanges clients" titre="Messages non lus" lien={{ to: "/messagerie", texte: "Ouvrir →" }} />
+              <div className="ve-carte__corps">
+                {data.unreadMessages.length === 0 ? <p className="admin-brief-empty">Aucun message non lu.</p>
+                  : <ul className="ve-messages">{data.unreadMessages.slice(0, 3).map((m) => (
+                    <li key={m.id}><Link to="/messagerie">
+                      <span className="ve-avatar" aria-hidden="true">{m.initials}</span>
+                      <span className="min-w-0"><b><i aria-hidden="true" />{toTitleCase(m.label)}<span className="sr-only"> · {m.unread} non lu{m.unread > 1 ? "s" : ""}</span></b><small>{m.preview || "Nouveau message"}</small></span>
+                      <time>{formatRelative(m.updatedAt)}</time>
+                    </Link></li>
+                  ))}</ul>}
+              </div>
+            </section>
+          )}
+
+          <section className="ve-carte" aria-labelledby="ve-journal-titre">
+            <CarteEntete id="ve-journal-titre" repere="Journal d'activité" titre="Derniers mouvements" lien={{ to: "/?tab=activity", texte: "Tout voir →" }} />
+            <div className="ve-carte__corps">
+              {journal.length === 0 ? <p className="admin-brief-empty">Aucun mouvement récent.</p>
+                : <ol className="ve-journal">{journal.map((j) => <li key={j.id} className={cn(j.or && "is-or")}><Link to={j.to}>{j.titre}<small>{j.detail} · {formatRelative(j.quand)}</small></Link></li>)}</ol>}
+            </div>
+          </section>
         </aside>
       </div>
 
@@ -193,6 +350,8 @@ const CIRCUIT: Array<{ cle: "brouillon" | "transmis" | "aCorriger" | "valide"; l
   { cle: "valide", libelle: "Validées" },
 ];
 
+const ACTION: Record<TriageGroupe, string> = { retard: "Relance à prévoir", examiner: "À examiner", corriger: "Correction attendue" };
+
 function ClientVolet({ item, triage, side }: { item: DashboardPortefeuilleItem; triage: DashboardTriageItem[]; side: "right" | "bottom" }) {
   const etat = etatClient(item);
   return (
@@ -209,7 +368,7 @@ function ClientVolet({ item, triage, side }: { item: DashboardPortefeuilleItem; 
         </ul>
         <h3 className="ve-volet-titre">À traiter</h3>
         {triage.length === 0 ? <p className="admin-brief-empty">Rien à traiter pour ce client.</p>
-          : <ul className="ve-volet-liste">{triage.map((t) => <li key={t.id}><Link to={t.route}><strong>{t.periode}</strong><span>{VERBE[t.groupe]}{delai(t) ? ` · ${delai(t)}` : ""}</span><ArrowRight aria-hidden="true" /></Link></li>)}</ul>}
+          : <ul className="ve-volet-liste">{triage.map((t) => <li key={t.id}><Link to={t.route}><strong>{t.periode}</strong><span>{ACTION[t.groupe]} · {delai(t).texte}</span><ArrowRight aria-hidden="true" /></Link></li>)}</ul>}
       </SheetBody>
       <SheetFooter>
         <Link to={item.route} className="ve-cta">Ouvrir le dossier <ArrowRight aria-hidden="true" /></Link>
@@ -217,3 +376,4 @@ function ClientVolet({ item, triage, side }: { item: DashboardPortefeuilleItem; 
     </SheetContent>
   );
 }
+

@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { TeamTab } from "@/components/dashboard/tabs/TeamTab";
 import { AdminOverviewTab } from "./tabs/AdminOverviewTab";
 import { PortefeuilleTab } from "./tabs/PortefeuilleTab";
-import "@/pages/societes/societes-registre.css";
+import "./synthese-entete.css";
 import { vueCabinet, type DashboardViewModel } from "@/lib/dashboard/dashboardData";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
@@ -98,10 +98,10 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
   /** Onglets de la maquette pour le cabinet : Vue d'ensemble · Portefeuille · Planning (les échéances). */
   const ongletsCabinet = vueCabinet(data.role) && ["overview", "portefeuille", "deadlines"].includes(value);
   const navigationCabinet = (
-    <div ref={tabRailRef} data-tour="dashboard-tabs" className="reg-onglets" >
-      <TabsList className="h-auto justify-start gap-6 rounded-none bg-transparent p-0" aria-label="Sections du tableau de bord">
-        {([["overview", "Vue d'ensemble"], ["portefeuille", "Portefeuille"], ["deadlines", "Planning"]] as const).map(([v, l]) => (
-          <TabsTrigger key={v} value={v} className="reg-onglet rounded-none border-0 bg-transparent px-0.5 shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none">{l}</TabsTrigger>
+    <div ref={tabRailRef} data-tour="dashboard-tabs" className="hero-onglets">
+      <TabsList className="h-auto justify-start gap-1.5 rounded-none bg-transparent p-0" aria-label="Sections du tableau de bord">
+        {([["overview", "Synthèse", null], ["portefeuille", "Portefeuille clients", data.portefeuille.length], ["deadlines", "Échéancier", null]] as const).map(([v, l, n]) => (
+          <TabsTrigger key={v} value={v} className="hero-onglet rounded-none shadow-none">{l}{n ? <em aria-hidden="true">{n}</em> : null}</TabsTrigger>
         ))}
       </TabsList>
     </div>
@@ -109,7 +109,7 @@ export function DashboardTabs({ data, canUseMessaging, collectesLoading, collect
   const bureau = data.role === "collaborateur" && value === "overview";
   const cabinetNotice = data.role === "admin" && (adminDataLoading || adminDataError);
   return (
-    <Tabs data-tour="dashboard-work" value={value} onValueChange={changeTab} className={`min-w-0 ${bureau ? "dashboard-bureau" : ""}`}>
+    <Tabs data-tour="dashboard-work" value={value} onValueChange={changeTab} className={`min-w-0 ${bureau ? "dashboard-bureau" : ""} ${ongletsCabinet ? "hero-fusion" : ""}`}>
       <div className="dashboard-view-column min-w-0">
       {ongletsCabinet ? navigationCabinet : navigation}
       {collectesError && <div className="dashboard-source-notice mt-4"><CollectionFailure onRetry={onRetryCollectes} /></div>}

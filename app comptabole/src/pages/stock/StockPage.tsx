@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown, Boxes, ChevronRight, Coins, Search } from "lucide-react";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
-import { PageKpiCards } from "@/components/ledger/PageKpiCards";
 import { EmptyState } from "@/components/common/EmptyState";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSocieteActive } from "@/hooks/useSocieteActive";
@@ -25,7 +24,7 @@ export function etatCours(ligne: Pick<SyntheseStock, "enDevise" | "coursManquant
 }
 
 export type FiltreStock = "toutes" | "avec" | "sans";
-export type ColonneStock = "societe" | "mouvements" | "valeur" | "dernier" | "cours";
+export type ColonneStock = "societe" | "mouvements" | "valeur" | "alertes" | "dernier" | "cours";
 
 const ordreCours = (l: SyntheseStock | undefined) => {
   const t = etatCours(l).tone;
@@ -50,6 +49,7 @@ export function listerSocietes<T extends Pick<Societe, "id" | "raisonSociale" | 
     switch (options.tri) {
       case "mouvements": return l?.mouvements ?? 0;
       case "valeur": return l?.valeur ?? 0;
+      case "alertes": return l?.alertes ?? 0;
       case "dernier": return l?.dernierLe ?? "";
       case "cours": return ordreCours(l);
       default: return s.raisonSociale;
@@ -73,7 +73,7 @@ export function ilYA(iso: string, maintenant = new Date()): string {
   return mois < 12 ? `il y a ${mois} mois` : `il y a ${Math.floor(mois / 12)} an${mois >= 24 ? "s" : ""}`;
 }
 
-const LARGEURS = [34, 12, 14, 15, 13, 12];
+const LARGEURS = [29, 10, 14, 9, 14, 13, 11];
 
 export function StockPage() {
   const navigate = useNavigate();
@@ -162,19 +162,6 @@ export function StockPage() {
         }
       />
 
-      {societes.length > 0 && (
-        <div data-tour="stock-summary">
-          <PageKpiCards
-            className="mb-0"
-            metrics={[
-              { label: total > 1 ? "Mouvements" : "Mouvement", value: total },
-              { label: coursManquants > 1 ? "Cours manquants" : "Cours manquant", value: coursManquants, tone: coursManquants > 0 ? "warning" : "default" },
-              { label: alertes > 1 ? "Alertes stock" : "Alerte stock", value: alertes, tone: alertes > 0 ? "destructive" : "default" },
-            ]}
-          />
-        </div>
-      )}
-
       <div className="overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]" data-tour="stock-societes">
         {societes.length === 0 ? (
           <EmptyState
@@ -184,35 +171,47 @@ export function StockPage() {
           />
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/80 px-3 py-2">
-              <label className="flex h-10 min-w-[14rem] flex-1 items-center gap-2 rounded-[10px] border border-border bg-muted/40 px-3 focus-within:ring-2 focus-within:ring-ring">
+            <div data-tour="stock-summary" className="stock-bande">
+              {([
+                [total > 1 ? "Mouvements" : "Mouvement", total, ""],
+                [coursManquants > 1 ? "Cours manquants" : "Cours manquant", coursManquants, coursManquants > 0 ? "is-warn" : ""],
+                [alertes > 1 ? "Alertes stock" : "Alerte stock", alertes, alertes > 0 ? "is-alerte" : ""],
+              ] as const).map(([libelle, valeur, ton]) => (
+                <div key={libelle} className={cn("stock-bande__case", ton)}>
+                  <span>{libelle}</span>
+                  <b>{valeur}</b>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/80 bg-[#FBF8F1] px-4 py-3">
+              <label className="flex h-10 min-w-[14rem] flex-1 items-center gap-2 rounded-[10px] border border-[#c3cbd9] bg-card px-3 focus-within:ring-2 focus-within:ring-ring">
                 <span className="sr-only">Rechercher une société</span>
                 <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <input type="search" value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher une société ou un matricule…" className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
               </label>
               <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground" aria-live="polite">{affichees.length} société{affichees.length > 1 ? "s" : ""}</span>
-              <div role="group" aria-label="Présentation des sociétés" className="hidden rounded-[10px] bg-muted p-[3px] lg:inline-flex">
+              <div role="group" aria-label="Présentation des sociétés" className="stock-seg hidden lg:inline-flex">
                 {([["volet", "Liste et volet"], ["tableau", "Tableau"]] as const).map(([valeur, libelle]) => (
                   <button
                     key={valeur}
                     type="button"
                     aria-pressed={vue === valeur}
                     onClick={() => changerVue(valeur)}
-                    className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", vue === valeur && "bg-card font-semibold text-primary shadow-sm")}
+                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {libelle}
                   </button>
                 ))}
               </div>
             </div>
-            <div role="group" aria-label="Filtrer les sociétés" className="flex flex-wrap items-center gap-2 border-b border-border/80 px-3 py-2.5">
+            <div role="group" aria-label="Filtrer les sociétés" className="flex flex-wrap items-center gap-2 border-b border-border/80 px-4 py-2.5">
               {([["toutes", "Toutes", societes.length], ["avec", "Avec mouvements", nbAvec], ["sans", "Sans mouvement", societes.length - nbAvec]] as const).map(([valeur, nom, n]) => (
                 <button
                   key={valeur}
                   type="button"
                   aria-pressed={filtre === valeur}
                   onClick={() => setFiltre(valeur)}
-                  className={cn("h-8 rounded-full border px-3.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", filtre === valeur ? "border-primary bg-primary text-primary-foreground" : "border-primary/15 bg-card text-primary hover:bg-[#F5F8FD]")}
+                  className={cn("h-8 rounded-full border px-3.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", filtre === valeur ? "border-primary bg-primary text-primary-foreground" : "border-[#c3cbd9] bg-card text-primary hover:bg-[#FBF8F1]")}
                 >
                   {nom} · {n}
                 </button>
@@ -234,17 +233,17 @@ export function StockPage() {
               />
             )}
             <div className={cn("overflow-x-auto", vue === "volet" && "hidden")}>
-              <table className="w-full min-w-[960px] table-fixed border-collapse text-[0.8125rem] tabular-nums">
+              <table className="stock-societes-table w-full min-w-[1040px] table-fixed border-collapse text-[0.8125rem] tabular-nums">
                 <caption className="sr-only">Stock par société</caption>
                 <colgroup>{LARGEURS.map((l, i) => <col key={i} style={{ width: `${l}%` }} />)}</colgroup>
-                <thead className="bg-[#F7F9FC] text-muted-foreground">
+                <thead className="bg-[#FBF8F1] text-muted-foreground">
                   <tr>
-                    {([["societe", "Société", "left"], ["mouvements", "Mouvements", "right"], ["valeur", "Valeur du stock", "right"], ["dernier", "Dernier mouvement", "left"], ["cours", "Cours de change", "center"]] as const).map(([colonne, titre, align]) => (
+                    {([["societe", "Société", "left"], ["mouvements", "Mouvements", "right"], ["valeur", "Valeur du stock", "right"], ["alertes", "Alertes", "right"], ["dernier", "Dernier mouvement", "left"], ["cours", "Cours de change", "center"]] as const).map(([colonne, titre, align]) => (
                       <th
                         key={colonne}
                         scope="col"
                         aria-sort={tri === colonne ? (sens === 1 ? "ascending" : "descending") : undefined}
-                        className="sticky top-0 border-b border-primary/10 px-4 py-2.5 text-left text-[0.66rem] font-bold uppercase tracking-[0.1em]"
+                        className="sticky top-0 border-b-2 border-primary px-4 py-3 text-left text-[0.66rem] font-bold uppercase tracking-[0.1em]"
                       >
                         <button type="button" onClick={() => trier(colonne)} className={cn("group/tri flex w-full items-center gap-1.5 rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", align === "right" && "justify-end", align === "center" && "justify-center")}>
                           {titre}
@@ -252,7 +251,7 @@ export function StockPage() {
                         </button>
                       </th>
                     ))}
-                    <th scope="col" className="sticky top-0 border-b border-primary-foreground/20 px-4 py-2.5"><span className="sr-only">Action</span></th>
+                    <th scope="col" className="sticky top-0 border-b-2 border-primary px-4 py-3"><span className="sr-only">Action</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -274,6 +273,7 @@ export function StockPage() {
                         </td>
                         <td className={cn(cellule, "text-right", actif ? "font-semibold" : "text-muted-foreground")}>{ligne?.mouvements ?? 0}</td>
                         <td className={cn(cellule, "text-right")}>{ligne && ligne.valeur > 0 ? montant(ligne.valeur) : <span className="text-muted-foreground/60">—</span>}</td>
+                        <td className={cn(cellule, "text-right")}>{(ligne?.alertes ?? 0) > 0 ? <span className="font-bold text-[#A8402B]">{ligne?.alertes}</span> : <span className="text-muted-foreground/60">—</span>}</td>
                         <td className={cellule}>
                           {ligne?.dernierLe ? (
                             <>
@@ -295,23 +295,25 @@ export function StockPage() {
                             type="button"
                             onClick={(e) => { e.stopPropagation(); navigate(`/stock/${s.id}`); }}
                             aria-label={`Ouvrir le stock de ${s.raisonSociale}`}
-                            className="inline-flex size-9 items-center justify-center rounded-lg border border-primary/15 text-primary transition-colors hover:bg-[#F5F8FD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#c3cbd9] px-3 text-[12.5px] font-bold text-primary transition-colors hover:bg-[#e6eaf1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
-                            <ChevronRight className="size-4" aria-hidden="true" />
+                            Ouvrir
+                            <ChevronRight className="size-3.5" aria-hidden="true" />
                           </button>
                         </td>
                       </tr>
                     );
                   })}
                   {affichees.length === 0 && (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Aucune société ne correspond.</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Aucune société ne correspond.</td></tr>
                   )}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-[#F7F9FC] font-semibold text-primary">
+                  <tr className="border-t-2 border-primary bg-[#FBF8F1] font-semibold text-primary">
                     <td className="px-4 py-2.5">Total</td>
                     <td className="px-4 py-2.5 text-right">{affichees.reduce((n, x) => n + (synthese[x.id]?.mouvements ?? 0), 0)}</td>
                     <td className="px-4 py-2.5 text-right font-medium text-muted-foreground">{(() => { const v = affichees.reduce((n, x) => n + (synthese[x.id]?.valeur ?? 0), 0); return v > 0 ? montant(v) : "—"; })()}</td>
+                    <td className={cn("px-4 py-2.5 text-right", affichees.reduce((n, x) => n + (synthese[x.id]?.alertes ?? 0), 0) > 0 && "text-[#A8402B]")}>{(() => { const a = affichees.reduce((n, x) => n + (synthese[x.id]?.alertes ?? 0), 0); return a > 0 ? a : "—"; })()}</td>
                     <td colSpan={3} className="px-4 py-2.5 font-medium text-muted-foreground">{affichees.length} société{affichees.length > 1 ? "s" : ""} affichée{affichees.length > 1 ? "s" : ""}</td>
                   </tr>
                 </tfoot>

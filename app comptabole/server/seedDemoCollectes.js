@@ -8,7 +8,7 @@ import { ENVIRONNEMENT } from "./modules.js";
 /**
  * Données de démonstration pour la Collecte de pièces, réservées à l'environnement de TEST.
  * Ajoute des sociétés fictives et des collectes à tous les états (client, à examiner, à corriger, validées, en retard), avec leurs totaux et dates
- * de suivi, notes de récap, documents, demandes de pièces, historique, collaborateurs et tâches, sans toucher aux autres données. Relançable : les lignes qu'il crée ont des identifiants fixes et sont recréées à chaque fois.
+ * de suivi, notes de récap, documents, demandes de pièces, historique, collaborateurs, tâches et mouvements de stock (achat, vente, douane, avec écarts), sans toucher aux autres données. Relançable : les lignes qu'il crée ont des identifiants fixes et sont recréées à chaque fois.
  *
  *   docker exec app-comptable-test node server/seedDemoCollectes.js
  */
@@ -42,6 +42,21 @@ const COLLECTES = [
 ].map(([s, periode, statut, echeance, nb, recus], i) => ({ id: uuid("a2000000", i + 1), societeId: SOCIETES[s].id, periode, statut, echeance: jour(echeance), nb, recus, rang: i }));
 
 const ids = (liste) => liste.map((x) => x.id);
+
+// Stock (régime suspensif) : un mouvement = achat + vente + douane d'une même marchandise ; l'écart se calcule par désignation à partir des lignes.
+// [société, nature, achat, vente, douane] ; achat/vente = [jours, n° de facture, tiers, devise, cours en dinars (0 = à saisir), [[désignation, quantité, prix unitaire]]] ou null.
+const STOCK = [
+  [4, "HOT WASHED PET FLAKES", [-96, "FA-2026-0412", "PLASTIREC SARL", "EUR", 3.352, [["HOT WASHED PET FLAKES", 20000, 0.62]]], [-71, "FV-2026-031", "RECYCLO GmbH", "EUR", 3.368, [["HOT WASHED PET FLAKES", 20000, 0.71]]], ["DUM 2026/1203", -90, "Admission temporaire", 3.351]],
+  [4, "PET PELLETS", [-84, "FA-2026-0455", "EUROPLAST SAS", "EUR", 3.361, [["PET PELLETS", 15000, 0.88], ["PET PELLETS RECYCLÉS", 4000, 0.74]]], [-52, "FV-2026-038", "POLYMERS SPA", "EUR", 3.372, [["PET PELLETS", 12500, 1.02], ["PET PELLETS RECYCLÉS", 4000, 0.9]]], ["DUM 2026/1347", -80, "Admission temporaire", 3.36]],
+  [4, "GRANULÉS PEHD", [-33, "FA-2026-0611", "POLYCHEM GmbH", "EUR", 0, [["GRANULÉS PEHD", 9000, 0.95]]], null, ["DUM 2026/1598", -30, "Admission temporaire", 3.39]],
+  [2, "COTON ÉCRU 160 G", [-110, "TX-88213", "TEXTILE ITALIA SRL", "USD", 2.968, [["COTON ÉCRU 160 G", 30000, 2.4]]], [-62, "VT-2026-017", "MODA FRANCE SAS", "USD", 2.991, [["COTON ÉCRU 160 G", 30000, 2.95]]], ["DUM 2026/0987", -104, "Perfectionnement actif", 2.969]],
+  [2, "FIL POLYESTER 150D", null, [-41, "VT-2026-024", "CONFECTION DU NORD", "USD", 0, [["FIL POLYESTER 150D", 6000, 1.8]]], null],
+  [2, "TISSU JERSEY STRETCH", [-58, "TX-88457", "TEXTILE ITALIA SRL", "USD", 2.981, [["TISSU JERSEY STRETCH", 8000, 3.1]]], [-27, "VT-2026-029", "ZARA HOME LOGISTICS", "USD", 2.994, [["TISSU JERSEY STRETCH", 7200, 3.9]]], ["DUM 2026/1411", -55, "Perfectionnement actif", 2.982]],
+  [3, "BOUTEILLES VERRE 75 CL", [-76, "FA-77410", "VERALLIA SA", "EUR", 3.356, [["BOUTEILLES VERRE 75 CL", 40000, 0.31]]], [-44, "FV-2026-012", "DOMAINES DU SAHEL", "EUR", 3.37, [["BOUTEILLES VERRE 75 CL", 40000, 0.38]]], ["DUM 2026/1221", -70, "Admission temporaire", 3.357]],
+  [3, "ÉTIQUETTES ADHÉSIVES", [-49, "FA-77688", "ETIPACK SARL", "EUR", 3.364, [["ÉTIQUETTES ADHÉSIVES", 100000, 0.021]]], [-18, "FV-2026-019", "DOMAINES DU SAHEL", "EUR", 3.378, [["ÉTIQUETTES ADHÉSIVES", 96000, 0.03]]], ["DUM 2026/1502", -45, "Admission temporaire", 3.365]],
+  [7, "ROULEMENTS À BILLES 6204", [-67, "INV-559021", "SKF EXPORT AB", "USD", 2.975, [["ROULEMENTS À BILLES 6204", 2000, 4.2]]], [-36, "FV-2026-044", "MECANORD SARL", "USD", 2.988, [["ROULEMENTS À BILLES 6204", 2000, 5.6]]], ["DUM 2026/1309", -63, "Perfectionnement actif", 2.976]],
+  [7, "PIÈCES DE FONDERIE", [-22, "INV-559874", "FONDERIE LORRAINE", "USD", 2.99, [["PIÈCES DE FONDERIE", 1200, 11.5], ["BAGUES EN BRONZE", 600, 6.2]]], [-9, "FV-2026-051", "AGRI MACHINES", "USD", 3.001, [["PIÈCES DE FONDERIE", 1000, 14.8], ["BAGUES EN BRONZE", 600, 8.1]]], ["DUM 2026/1644", -19, "Perfectionnement actif", 2.991]],
+].map(([soc, nature, achat, vente, douane], i) => ({ id: uuid("a5000000", i + 1), societeId: SOCIETES[soc].id, nature, achat, vente, douane, ordre: i + 1 }));
 
 // Collaborateurs fictifs (comptes inutilisables : mot de passe aléatoire jamais communiqué) et tâches de démonstration.
 const COLLABORATEURS = [
@@ -196,6 +211,40 @@ async function main() {
         [t.id, t.titre, "", t.societeId, t.assigneId, t.statut, heure(24 * 12 - i * 5), heure(i * 3 + 2), fait ? heure(24 * 3 + i) : null, t.module, t.debut, t.fin],
       );
     }
+    // Cours moyens mensuels de l'année en cours (dinar pour 1 EUR / 1 USD) : ajoutés seulement s'ils n'existent pas, jamais remplacés.
+    const anneeCours = new Date().getFullYear();
+    for (let mois = 1; mois <= 10; mois++) {
+      for (const [devise, base, pas] of [["EUR", 3.3, 0.012], ["USD", 2.94, 0.009]]) {
+        await client.query("insert into cours_change (devise, annee, mois, cours) values ($1,$2,$3,$4) on conflict do nothing", [devise, anneeCours, mois, Number((base + pas * mois).toFixed(3))]);
+      }
+    }
+    for (const m of STOCK) {
+      const tiers = (cote) => (cote ? cote[5].reduce((n, [, q, pu]) => n + q * pu, 0) : 0);
+      const [achat, vente] = [m.achat, m.vente];
+      const montantDevise = (cote) => Number(tiers(cote).toFixed(2));
+      await client.query(
+        `insert into stock_mouvements (id, societe_id, ordre, nature_marchandise,
+           achat_date, achat_num_facture, achat_doc_type, fournisseur, achat_devise, achat_cours, achat_montant_devise, achat_montant_tnd,
+           vente_date, vente_num_facture, vente_doc_type, client, vente_devise, vente_cours, vente_montant_devise, vente_montant_tnd,
+           douane_num_declaration, douane_date, douane_regime, douane_taux_change, douane_valeur_tnd, note, cree_le, maj_le)
+         values ($1,$2,$3,$4, $5,$6,$7,$8,$9,$10,$11,$12, $13,$14,$15,$16,$17,$18,$19,$20, $21,$22,$23,$24,$25,'',$26,$26)`,
+        [
+          m.id, m.societeId, m.ordre, m.nature,
+          achat ? jour(achat[0]) : null, achat?.[1] ?? "", achat ? "Facture" : "", achat?.[2] ?? "", achat?.[3] ?? "EUR", achat?.[4] ?? 0, montantDevise(achat), Number((montantDevise(achat) * (achat?.[4] ?? 0)).toFixed(3)),
+          vente ? jour(vente[0]) : null, vente?.[1] ?? "", vente ? "Facture" : "", vente?.[2] ?? "", vente?.[3] ?? "EUR", vente?.[4] ?? 0, montantDevise(vente), Number((montantDevise(vente) * (vente?.[4] ?? 0)).toFixed(3)),
+          m.douane?.[0] ?? "", m.douane ? jour(m.douane[1]) : null, m.douane?.[2] ?? "", m.douane?.[3] ?? 0, m.douane ? Number((montantDevise(achat) * m.douane[3]).toFixed(3)) : 0,
+          heure(24 * 30 - m.ordre * 7),
+        ],
+      );
+      for (const [categorie, cote] of [["achat", achat], ["vente", vente]]) {
+        for (const [rang, [designation, quantite, pu]] of (cote?.[5] ?? []).entries()) {
+          await client.query(
+            "insert into stock_lignes (mouvement_id, categorie, ordre, designation, quantite, prix_unitaire, montant_devise, montant_tnd) values ($1,$2,$3,$4,$5,$6,$7,$8)",
+            [m.id, categorie, rang, designation, quantite, pu, Number((quantite * pu).toFixed(2)), Number((quantite * pu * (cote[4] ?? 0)).toFixed(3))],
+          );
+        }
+      }
+    }
     for (const c of COLLECTES) {
       const onglets = Array.from({ length: c.nb }, (_, k) => ONGLETS[k % ONGLETS.length]);
       const transmet = c.statut !== "brouillon";
@@ -218,7 +267,7 @@ async function main() {
       await semerHistorique(client, c, onglets);
     }
   });
-  console.log(`[demo] ${SOCIETES.length} sociétés, ${COLLECTES.length} collectes (totaux, récap, documents, demandes de pièces, historique), ${COLLABORATEURS.length} collaborateurs et ${TACHES.length} tâches de démonstration créés.`);
+  console.log(`[demo] ${SOCIETES.length} sociétés, ${COLLECTES.length} collectes (totaux, récap, documents, demandes de pièces, historique), ${COLLABORATEURS.length} collaborateurs, ${TACHES.length} tâches et ${STOCK.length} mouvements de stock de démonstration créés.`);
 }
 
 main().then(() => pool.end()).catch(async (err) => { console.error("[demo] Échec :", err.message); await pool.end(); process.exit(1); });

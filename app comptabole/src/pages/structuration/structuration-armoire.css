@@ -72,3 +72,29 @@
   .struct-tiroirs-schema > li { position: relative; }
   .struct-tiroirs-schema > li::before { content: ""; position: absolute; left: -28px; top: 50%; width: 28px; height: 2px; background: #c3cbd9; }
 }
+
+/* Barre de contexte (maquette A) : onglets à gauche, société et année à droite sur fond crème, en une seule barre. */
+.struct-ctx { display: flex; flex-wrap: wrap; align-items: stretch; margin-bottom: 12px; overflow: hidden; border: 1px solid hsl(var(--primary) / .1); border-radius: 14px; background: hsl(var(--card)); box-shadow: 0 1px 2px hsl(var(--primary) / .05); }
+.struct-ctx__onglets { display: flex; gap: 2px; min-width: 0; padding: 0 10px; overflow-x: auto; scrollbar-width: none; }
+.struct-ctx__onglets::-webkit-scrollbar { display: none; }
+.struct-ctx__onglet { flex: none; height: 58px; padding: 0 16px; border-bottom: 3px solid transparent; font-size: 13.5px; font-weight: 600; color: hsl(var(--muted-foreground)); transition: color .12s; white-space: nowrap; }
+.struct-ctx__onglet:hover { color: hsl(var(--primary)); }
+.struct-ctx__onglet[aria-pressed="true"] { border-bottom-color: #c9a96a; color: hsl(var(--primary)); }
+.struct-ctx__onglet:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -4px; border-radius: 8px; }
+.struct-ctx__champs { display: flex; align-items: center; gap: 10px; margin-left: auto; padding: 0 14px; background: #FBF8F1; border-left: 1px solid hsl(var(--border)); }
+.struct-ctx__champs:empty { display: none; }
+.struct-champ { display: flex; align-items: center; gap: 10px; height: 46px; min-width: 285px; padding: 6px 12px 6px 8px; border: 1px solid #c3cbd9; border-radius: 12px; background: hsl(var(--card)); text-align: left; }
+.struct-champ--annee { min-width: 120px; padding-left: 14px; }
+.struct-champ > span.struct-champ__mono { display: grid !important; -webkit-line-clamp: unset;  flex: none; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: hsl(var(--primary)); color: #c9a96a; font-size: 12px; font-weight: 800; }
+.struct-champ > span.struct-champ__texte { display: flex !important; -webkit-line-clamp: unset; flex: 1; flex-direction: column; min-width: 0; line-height: 1.2; text-align: left; }
+.struct-champ__texte b { display: block; font-size: 13.5px; font-weight: 700; color: hsl(var(--primary)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.struct-champ__texte small { display: block; font-size: 11px; color: hsl(var(--muted-foreground)); }
+.struct-champ--annee .struct-champ__texte b { display: block; font-size: 14px; }
+@media (max-width: 1023px) {
+  .struct-ctx { flex-direction: column; }
+  .struct-ctx__champs { display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: 8px; margin: 0; padding: 12px; border-left: 0; border-top: 1px solid hsl(var(--border)); }
+  .struct-ctx__champs:empty { display: none; }
+  .struct-ctx__onglet { height: 48px; padding: 0 12px; font-size: 13px; }
+  .struct-champ { min-width: 0; }
+  .struct-champ--annee { padding-left: 12px; }
+}

@@ -140,12 +140,12 @@ describe("tableau récapitulatif du stock", () => {
     for (const colonne of ["N°", "Mouvement", "Écart", "Côté", "Date", "N° facture", "Client / Fournisseur", "Qté", "En devise", "Devise", "Cours", "MT TND", "Pièce", "Douane"]) {
       expect(entetes).toContain(colonne);
     }
-    // Bandeaux de groupes au-dessus des en-têtes ; aucune colonne n'est tronquée ni défilante.
+    // Bandeaux de groupes au-dessus des en-têtes ; aucune colonne n'est tronquée (le tableau ne défile que sous 1120 px de large, pour ne jamais faire chevaucher deux colonnes).
     const groupes = Array.from(document.querySelectorAll("thead tr:first-child th")).map((th) => th.textContent);
     for (const groupe of ["MOUVEMENT", "FACTURE", "MONTANTS"]) expect(groupes).toContain(groupe);
     expect(document.querySelectorAll("thead tr")).toHaveLength(2);
     expect(document.querySelector("table")?.className).toContain("table-fixed");
-    expect(document.querySelector("[data-tour='stock-register']")?.querySelector(".overflow-x-auto")).toBeNull();
+    expect(document.querySelector("table")?.className).toContain("min-w-[1120px]");
   });
 
   it("donne deux lignes à chaque mouvement : la vente puis l'achat, avec la douane à droite", () => {

@@ -1,1 +1,23 @@
 /* Page Gestion de stock : le bandeau et les tableaux suivent le style commun des modules (page-head.css, module-banner.css). */
+
+/* ── Stock (maquettes validées) : bande de chiffres, sélecteurs en pastille, tableau de gestion. ── */
+.stock-bande { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: #FBF8F1; border-bottom: 1px solid hsl(var(--border)); }
+.stock-bande__case { display: flex; flex-direction: column; gap: 2px; padding: 13px 20px; border-right: 1px dotted #c3cbd9; }
+.stock-bande__case:last-child { border-right: 0; }
+.stock-bande__case span { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.stock-bande__case b { font-family: "Playfair Display", Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.1; color: hsl(var(--primary)); font-variant-numeric: lining-nums; }
+.stock-bande__case.is-warn b { color: #b7791f; }
+.stock-bande__case.is-alerte b { color: #A8402B; }
+@media (max-width: 640px) { .stock-bande__case { padding: 11px 12px; } .stock-bande__case b { font-size: 22px; } }
+
+.stock-seg { gap: 2px; padding: 3px; border: 1px solid #c3cbd9; border-radius: 10px; background: hsl(var(--card)); }
+.stock-seg button { height: 32px; padding: 0 14px; border-radius: 7px; font-size: 13px; font-weight: 600; color: hsl(var(--primary) / .75); white-space: nowrap; transition: background-color .12s, color .12s; }
+.stock-seg button:hover { color: hsl(var(--primary)); }
+.stock-seg button[aria-pressed="true"] { background: hsl(var(--primary)); color: #fff; }
+
+.stock-societes-table thead th { background: #FBF8F1; }
+.stock-societes-table tbody td .font-semibold, .stock-societes-table tbody td p.font-semibold { color: hsl(var(--primary)); }
+
+.stock-registre__entete th { border-bottom: 1px solid #c3cbd9; }
+.stock-registre__entete tr:last-child th { border-bottom: 2px solid hsl(var(--primary)); }
+.stock-registre { scrollbar-width: thin; }

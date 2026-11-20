@@ -63,30 +63,30 @@ export const TITRES: Record<Categorie, string> = {
 /** Colonnes du tableau, dans l'ordre : largeur relative (en %) et, pour les colonnes masquables, leur clé. Les largeurs des colonnes
  * affichées sont ramenées à 100 % : le tableau occupe la largeur de la page, sans défilement horizontal. */
 const COLONNES_TABLEAU: { cle: string; largeur: number; masquable?: ColonneStock }[] = [
-  { cle: "n", largeur: 3.5 },
-  { cle: "mouvement", largeur: 13 },
-  { cle: "nmvt", largeur: 8.5 },
-  { cle: "cote", largeur: 5.5 },
-  { cle: "date", largeur: 7.5 },
-  { cle: "facture", largeur: 7.5 },
-  { cle: "tiers", largeur: 13.5 },
-  { cle: "qte", largeur: 7 },
-  { cle: "ecart", largeur: 7.5 },
-  { cle: "enDevise", largeur: 8, masquable: "devise" },
-  { cle: "devise", largeur: 5.5, masquable: "devise" },
+  { cle: "n", largeur: 3 },
+  { cle: "mouvement", largeur: 10.5 },
+  { cle: "nmvt", largeur: 9.5 },
+  { cle: "cote", largeur: 6 },
+  { cle: "date", largeur: 8 },
+  { cle: "facture", largeur: 10.5 },
+  { cle: "tiers", largeur: 12.5 },
+  { cle: "qte", largeur: 6.5 },
+  { cle: "ecart", largeur: 6.5 },
+  { cle: "enDevise", largeur: 8.5, masquable: "devise" },
+  { cle: "devise", largeur: 4.5, masquable: "devise" },
   { cle: "cours", largeur: 5.5, masquable: "cours" },
   { cle: "tnd", largeur: 8.5, masquable: "tnd" },
-  { cle: "piece", largeur: 5, masquable: "piece" },
+  { cle: "piece", largeur: 4.5, masquable: "piece" },
   { cle: "douane", largeur: 10, masquable: "douane" },
 ];
 const COLONNES_PAR_DEFAUT: Record<ColonneStock, boolean> = { cours: true, devise: true, tnd: true, piece: true, douane: false };
 
-const th = "whitespace-nowrap border-b border-primary/10 px-2 py-2.5 text-left align-middle text-[0.62rem] font-bold uppercase leading-tight tracking-[0.04em]";
+const th = "whitespace-nowrap border-b border-primary/10 px-2.5 py-3 text-left align-middle text-[0.62rem] font-bold uppercase leading-tight tracking-[0.08em]";
 const thNum = `${th} text-right`;
-const td = "px-2 py-2.5 align-middle [overflow-wrap:anywhere]";
+const td = "px-2.5 py-2.5 align-middle [overflow-wrap:anywhere]";
 const tdNum = `${td} whitespace-nowrap text-right tabular-nums`;
 /** Hauteur des cellules : serrée par défaut (deux lignes par mouvement tiennent mieux), aérée au choix. */
-const HAUTEUR = { compact: "[&>td]:py-1.5", aere: "[&>td]:py-2.5" } as const;
+const HAUTEUR = { compact: "[&>td]:py-2", aere: "[&>td]:py-3" } as const;
 const filet = "border-l border-primary/10";
 /** Filet des en-têtes marine. */
 const filetEntete = "border-l border-l-primary/10";
@@ -129,7 +129,7 @@ function CoteDebut({ m, cote, doublon, statut }: { m: StockMouvement; cote: "ven
   return (
     <>
       <td className={cn(td, fond, "")}>
-        <span className={cn("inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", v ? "bg-[#DBE8F8] text-[#1F5AA6]" : "bg-[#DDF0E5] text-[#1D5D41]")}>{v ? "Vente" : "Achat"}</span>
+        <span className={cn("inline-block min-w-[3.6rem] whitespace-nowrap rounded-md px-2 py-0.5 text-center text-xs font-bold", v ? "bg-[#E1ECF8] text-[#255A96]" : "bg-[#F4ECDA] text-[#7A5A1B]")}>{v ? "Vente" : "Achat"}</span>
       </td>
       <td className={cn(td, fond, "whitespace-nowrap tabular-nums")}>{jour(v ? m.venteDate : m.achatDate)}</td>
       <td className={cn(td, fond, "whitespace-nowrap tabular-nums text-[0.78rem] text-foreground/80")} title={doublon ? `${numero} : ce numéro de facture est déjà utilisé par un autre mouvement` : undefined}>
@@ -219,12 +219,12 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
 
   return (
     <div data-tour="stock-register">
-      <div className="hidden xl:block">
-        <table className="w-full table-fixed border-collapse text-[0.8125rem]">
+      <div className="stock-registre hidden overflow-x-auto xl:block">
+        <table className="w-full min-w-[1120px] table-fixed border-collapse text-[0.8125rem]">
           <colgroup>
             {colonnesAffichees.map((c) => <col key={c.cle} style={{ width: `${(c.largeur / sommeLargeurs) * 100}%` }} />)}
           </colgroup>
-          <thead className="bg-[#F7F9FC] text-muted-foreground">
+          <thead className="stock-registre__entete bg-[#FBF8F1] text-muted-foreground">
             <tr>
               <th scope="col" rowSpan={2} className={th}>N°</th>
               <th scope="colgroup" colSpan={2} className={cn(th, "text-center text-[0.6875rem] tracking-[0.14em]")}>MOUVEMENT</th>
@@ -263,7 +263,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
                     data-nouveau={surbrillance || undefined}
                     data-selectionne={choisi || undefined}
                     onClick={activer}
-                    className={cn(ligneClasse, "border-t-2 border-border")}
+                    className={cn(ligneClasse, "border-t border-[#c3cbd9]")}
                   >
                     <td rowSpan={hauteur} className={cn(td, "text-muted-foreground tabular-nums")}>{index + 1}</td>
                     <td rowSpan={hauteur} className={td}>
@@ -315,7 +315,7 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
             })}
           </tbody>
         </table>
-        <div data-pied-stock className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-primary/10 bg-[#F7F9FC] px-4 py-3 text-[0.8125rem] font-semibold text-primary">
+        <div data-pied-stock className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t-2 border-primary bg-[#FBF8F1] px-4 py-3 text-[0.8125rem] font-semibold text-primary">
           <span title={`${total.mouvements} mouvement${total.mouvements > 1 ? "s" : ""}`}>Total ({total.mouvements})</span>
           {sommeCote ? (
             <>

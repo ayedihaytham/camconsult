@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type ClipboardEvent as ReactClipboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, FolderOpen, Plus, Search, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { anneeDuLibelle } from "@/lib/structurationMois";
 import { cn, formatDate } from "@/lib/utils";
 import type { Noeud, Societe } from "@/types";
-import { SelecteursSocieteAnnee, useGroupeAnnee } from "./useGroupeAnnee";
+import { contexteDe, SelecteursSocieteAnnee, useGroupeAnnee } from "./useGroupeAnnee";
 import "./structuration-armoire.css";
 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
@@ -81,7 +82,7 @@ function ZoneDepot({ tiroir, actif, compact, onFichiers }: { tiroir: string; act
 const PAGE = 25;
 type Tri = { cle: "nom" | "date"; sens: 1 | -1 };
 
-export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPreview, onDeposer, actions }: {
+export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPreview, onDeposer, actions, emplacementSelecteurs }: {
   nodes: Noeud[];
   roots: Noeud[];
   getSocieteById: (id: string | null) => Societe | null;
@@ -93,6 +94,8 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
   onDeposer?: (dossier: Noeud, fichiers?: File[]) => void;
   /** Boutons de la barre (ajouter une arborescence, instancier pour toutes les sociétés) quand ils ne sont pas dans la barre du haut de la page. */
   actions?: ReactNode;
+  /** Emplacement de la barre de contexte de la page (à côté des onglets) où se placent société et année ; absent, ils s'affichent en tête du cadre. */
+  emplacementSelecteurs?: HTMLElement | null;
 }) {
   const { groupes, groupe, setChoix, annees, annee, setAnneeChoix, sansArborescence } = useGroupeAnnee(nodes, roots, getSocieteById);
   const [ouvertId, setOuvertId] = useState<string | null>(null);
@@ -179,9 +182,13 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
       }}
     >
       <div className="overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]">
-      <div className="struct-bande border-b border-border">
-        <SelecteursSocieteAnnee groupes={groupes} groupe={groupe} onGroupe={setChoix} annees={annees} annee={annee} onAnnee={setAnneeChoix} droite={actions} />
-      </div>
+      {emplacementSelecteurs ? (
+        createPortal(<SelecteursSocieteAnnee groupes={groupes} groupe={groupe} onGroupe={setChoix} annees={annees} annee={annee} onAnnee={setAnneeChoix} droite={actions} contexte={contexteDe(groupe, getSocieteById)} />, emplacementSelecteurs)
+      ) : (
+        <div className="struct-bande border-b border-border">
+          <SelecteursSocieteAnnee groupes={groupes} groupe={groupe} onGroupe={setChoix} annees={annees} annee={annee} onAnnee={setAnneeChoix} droite={actions} />
+        </div>
+      )}
 
       {armoires.length > 1 && (
         <div role="tablist" aria-label="Armoires de la société" className="flex flex-wrap gap-2 border-b border-border/80 px-3 py-2.5">

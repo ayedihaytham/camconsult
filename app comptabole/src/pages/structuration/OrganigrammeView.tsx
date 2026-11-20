@@ -1,10 +1,11 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { FileSpreadsheet, FileText, Image as ImageIcon, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { anneeDuLibelle, comptesParMois, fichiersDuMois, MOIS_COMPLETS } from "@/lib/structurationMois";
 import type { Noeud, Societe } from "@/types";
-import { SelecteursSocieteAnnee, useGroupeAnnee } from "./useGroupeAnnee";
+import { contexteDe, SelecteursSocieteAnnee, useGroupeAnnee } from "./useGroupeAnnee";
 import "./structuration-armoire.css";
 
 /**
@@ -52,6 +53,7 @@ export function OrganigrammeView({
   onOpenNode,
   onDeposer,
   actions,
+  emplacementSelecteurs,
 }: {
   nodes: Noeud[];
   roots: Noeud[];
@@ -61,6 +63,8 @@ export function OrganigrammeView({
   onDeposer?: (dossier: Noeud, fichiers?: File[]) => void;
   /** Boutons de la barre (ajouter une arborescence, instancier pour toutes les sociétés). */
   actions?: ReactNode;
+  /** Emplacement de la barre de contexte de la page (à côté des onglets) où se placent société et année ; absent, ils s'affichent en tête du cadre. */
+  emplacementSelecteurs?: HTMLElement | null;
 }) {
   // Un organigramme par société (choisie en haut) plutôt que toutes côte à côte : chaque schéma reste lisible.
   const { groupes, groupe, setChoix, annees, annee, setAnneeChoix, sansArborescence } = useGroupeAnnee(nodes, roots, getSocieteById);
@@ -102,23 +106,27 @@ export function OrganigrammeView({
 
   return (
     <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]">
-      <div className="struct-bande border-b border-border">
-        <SelecteursSocieteAnnee
-          groupes={groupes}
-          groupe={groupe}
-          onGroupe={(cle) => {
-            setChoix(cle);
-            reinitialiser();
-          }}
-          annees={annees}
-          annee={annee}
-          onAnnee={(a) => {
-            setAnneeChoix(a);
-            reinitialiser();
-          }}
-          droite={actions}
-        />
-      </div>
+      {(() => {
+        const selecteurs = (contexte: boolean) => (
+          <SelecteursSocieteAnnee
+            groupes={groupes}
+            groupe={groupe}
+            onGroupe={(cle) => {
+              setChoix(cle);
+              reinitialiser();
+            }}
+            annees={annees}
+            annee={annee}
+            onAnnee={(a) => {
+              setAnneeChoix(a);
+              reinitialiser();
+            }}
+            droite={actions}
+            contexte={contexte ? contexteDe(groupe, getSocieteById) : undefined}
+          />
+        );
+        return emplacementSelecteurs ? createPortal(selecteurs(true), emplacementSelecteurs) : <div className="struct-bande border-b border-border">{selecteurs(false)}</div>;
+      })()}
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-h-0 overflow-x-auto bg-[#F6F7FA] px-4 py-5 lg:px-7 lg:py-7">

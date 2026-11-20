@@ -362,27 +362,27 @@ export function StockSocietePage() {
           total={list.length}
           droite={
             <>
-              <div role="group" aria-label="Présentation des mouvements" className="inline-flex rounded-[10px] bg-muted p-[3px]">
+              <div role="group" aria-label="Présentation des mouvements" className="stock-seg inline-flex">
                 {([["mouvements", "Mouvements"], ["recap", "Récapitulatif"]] as const).map(([valeur, libelle]) => (
                   <button
                     key={valeur}
                     type="button"
                     aria-pressed={vue === valeur}
                     onClick={() => setVue(valeur)}
-                    className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", vue === valeur && "bg-card font-semibold text-primary shadow-sm")}
+                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {libelle}
                   </button>
                 ))}
               </div>
-              <div role="group" aria-label="Monnaie des cours et des montants" className="inline-flex rounded-[10px] bg-muted p-[3px]">
+              <div role="group" aria-label="Monnaie des cours et des montants" className="stock-seg inline-flex">
                 {([["TND", "Dinar"], ["USD", "Dollar"]] as const).map(([code, nom]) => (
                   <button
                     key={code}
                     type="button"
                     aria-pressed={base === code}
                     onClick={() => setBase(code)}
-                    className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", base === code && "bg-card font-semibold text-primary shadow-sm")}
+                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {nom}
                   </button>

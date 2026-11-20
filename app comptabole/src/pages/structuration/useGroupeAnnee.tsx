@@ -63,8 +63,17 @@ export function useGroupeAnnee(nodes: Noeud[], roots: Noeud[], getSocieteById: (
   return { groupes, groupe, setChoix, annees, annee, setAnneeChoix, sansArborescence };
 }
 
+/** Monogramme et « code · type » de la société choisie, pour la barre de contexte. */
+export function contexteDe(groupe: GroupeSociete | undefined, getSocieteById: (id: string | null) => Societe | null): { monogramme: string; detail: string } {
+  const societe = groupe ? getSocieteById(groupe.roots[0]?.societeId ?? null) : null;
+  const nom = societe?.raisonSociale ?? groupe?.label ?? "";
+  const mots = nom.replace(/\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean);
+  const monogramme = (mots.length > 1 ? mots[0][0] + mots[1][0] : (mots[0] ?? "").slice(0, 2)).toUpperCase() || "—";
+  return { monogramme, detail: societe ? [societe.code, societe.theme].filter(Boolean).join(" · ") : "" };
+}
+
 /** Barre « Société / Année » commune à l'organigramme et à la vue générale, avec des actions à droite. */
-export function SelecteursSocieteAnnee({ groupes, groupe, onGroupe, annees, annee, onAnnee, droite }: {
+export function SelecteursSocieteAnnee({ groupes, groupe, onGroupe, annees, annee, onAnnee, droite, contexte }: {
   groupes: GroupeSociete[];
   groupe: GroupeSociete | undefined;
   onGroupe: (cle: string) => void;
@@ -72,7 +81,49 @@ export function SelecteursSocieteAnnee({ groupes, groupe, onGroupe, annees, anne
   annee: number | null;
   onAnnee: (annee: number) => void;
   droite?: ReactNode;
+  /** Présentation « barre de contexte » (à côté des onglets) : monogramme, société avec son code et son type, puis l'année. */
+  contexte?: { monogramme: string; detail: string };
 }) {
+  if (contexte) {
+    return (
+      <>
+        <Select value={groupe?.cle} onValueChange={onGroupe}>
+          <SelectTrigger className="struct-champ" aria-label="Organigramme de la société">
+            <span className="struct-champ__mono" aria-hidden="true">{contexte.monogramme}</span>
+            <span className="struct-champ__texte">
+              <b><SelectValue placeholder="Aucune arborescence" /></b>
+              {contexte.detail && <small>{contexte.detail}</small>}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            {groupes.map((g) => (
+              <SelectItem key={g.cle} value={g.cle}>
+                {g.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {annees.length > 0 && (
+          <Select value={String(annee)} onValueChange={(v) => onAnnee(Number(v))}>
+            <SelectTrigger className="struct-champ struct-champ--annee" aria-label="Année de l'organigramme">
+              <span className="struct-champ__texte">
+                <small>Année</small>
+                <b><SelectValue /></b>
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              {annees.map((a) => (
+                <SelectItem key={a} value={String(a)}>
+                  {a}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {droite}
+      </>
+    );
+  }
   return (
     <div className="flex shrink-0 flex-wrap items-end gap-4 px-0 py-3">
       <div className="grid gap-1.5">

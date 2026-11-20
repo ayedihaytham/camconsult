@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { PageHeaderBar } from "@/components/ledger/PageHeaderBar";
 import { LedgerSheet } from "@/components/ledger/LedgerSheet";
-import { LedgerSegmented } from "@/components/ledger/LedgerSegmented";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -53,6 +52,7 @@ import { ArborescenceFormSheet, type ArboFormValues } from "./ArborescenceFormSh
 import { FileTree } from "./FileTree";
 import { OrganigrammeView } from "./OrganigrammeView";
 import { VueGenerale } from "./VueGenerale";
+import "./structuration-armoire.css";
 import { FileUploadDialog, type NewFichier, type SuiviEnvoi } from "./FileUploadDialog";
 import { MoveNodeDialog } from "./MoveNodeDialog";
 import { FilePreviewDialog } from "./FilePreviewDialog";
@@ -96,6 +96,8 @@ export function StructurationPage() {
   const getSocieteById = (id: string | null | undefined) =>
     societes.find((s) => s.id === id) ?? null;
   const [tab, setTab] = useState<Onglet>(initialTab);
+  // Emplacement, dans la barre de contexte, où les vues placent société et année (leur état reste dans chaque vue).
+  const [emplacementSelecteurs, setEmplacementSelecteurs] = useState<HTMLDivElement | null>(null);
   const [search, setSearch] = useState("");
   const [societeFilter, setSocieteFilter] = useState(societeParam ?? "all");
 
@@ -591,21 +593,32 @@ export function StructurationPage() {
         </DialogContent>
       </Dialog>
 
-      <div data-tour="structuration-lenses"><LedgerSegmented
-        value={tab}
-        onChange={(v) => {
-          setTab(v);
-          const next = new URLSearchParams(searchParams);
-          if (v === "generale") next.delete("vue");
-          else next.set("vue", v);
-          setSearchParams(next, { replace: true });
-        }}
-        options={[
-          { value: "generale", label: "Vue générale" },
-          { value: "organigramme", label: "Organigramme" },
-          { value: "documents", label: "Documents" },
-        ]}
-      /></div>
+      <div data-tour="structuration-lenses" className="struct-ctx">
+        <div className="struct-ctx__onglets" role="group" aria-label="Choisir une vue">
+          {([
+            { value: "generale", label: "Vue générale" },
+            { value: "organigramme", label: "Organigramme" },
+            { value: "documents", label: "Documents" },
+          ] as const).map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={tab === o.value}
+              onClick={() => {
+                setTab(o.value);
+                const next = new URLSearchParams(searchParams);
+                if (o.value === "generale") next.delete("vue");
+                else next.set("vue", o.value);
+                setSearchParams(next, { replace: true });
+              }}
+              className="struct-ctx__onglet"
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <div ref={setEmplacementSelecteurs} className="struct-ctx__champs" />
+      </div>
 
       {tab === "documents" && (
         <div data-tour="structuration-content" className="mt-3 flex flex-1 flex-col gap-3">
@@ -774,6 +787,8 @@ export function StructurationPage() {
               getSocieteById={getSocieteById}
               onOpenNode={openFolder}
               onDeposer={canAddFile ? (dossier, fichiers) => { setUploadFiles(fichiers ?? []); setUploadParent(dossier.id); } : undefined}
+
+              emplacementSelecteurs={emplacementSelecteurs}
             />
           )}
         </div>
@@ -797,6 +812,8 @@ export function StructurationPage() {
               onOpenNode={openFolder}
               onPreview={setPreviewNode}
               onDeposer={canAddFile ? (dossier, fichiers) => { setUploadFiles(fichiers); setUploadParent(dossier.id); } : undefined}
+
+              emplacementSelecteurs={emplacementSelecteurs}
             />
           )}
         </div>

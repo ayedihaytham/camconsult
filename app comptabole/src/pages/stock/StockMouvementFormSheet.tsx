@@ -537,7 +537,7 @@ export function StockMouvementFormSheet({
         </div>
 
         {/* ── Nature de la marchandise + import du document complet ──────── */}
-        <div className="shrink-0 border-b border-border bg-secondary/40 px-6 py-3 sm:px-8">
+        <div className="shrink-0 border-b border-border bg-[#FBF8F1] px-6 py-3 sm:px-8">
           <input
             ref={batchInputRef}
             type="file"
@@ -653,7 +653,7 @@ export function StockMouvementFormSheet({
                 aria-controls={`panneau-${type}`}
                 onClick={() => setOnglet(type)}
                 className={cn(
-                  "-mb-px flex min-h-11 shrink-0 items-center gap-2 border-b-[3px] px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                  "-mb-px flex min-h-12 shrink-0 items-center gap-2 border-b-[3px] px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                   onglet === type ? "border-accent text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -663,6 +663,9 @@ export function StockMouvementFormSheet({
               </button>
             );
           })}
+          <span className="ml-auto hidden shrink-0 items-center whitespace-nowrap px-3 text-xs font-semibold text-muted-foreground sm:flex" aria-live="polite">
+            {(["achat", "vente", "douane"] as const).filter(sectionComplete).length} section{(["achat", "vente", "douane"] as const).filter(sectionComplete).length > 1 ? "s" : ""} sur 3 renseignée{(["achat", "vente", "douane"] as const).filter(sectionComplete).length > 1 ? "s" : ""}
+          </span>
         </div>
 
         <div className={cn("grid min-h-0 flex-1 overflow-hidden", documentLarge ? "lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]")}>
@@ -683,7 +686,7 @@ export function StockMouvementFormSheet({
                   </span>
                 </p>
               )}
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Bloc titre="Pièce d'achat"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="Date" lu={estLu("achatDate", v.achatDate)}>
                   <Input type="date" value={v.achatDate ?? ""} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDate: e.target.value || null }, "achat", auto.current))} />
                 </Field>
@@ -693,6 +696,8 @@ export function StockMouvementFormSheet({
                 <Field label="Fournisseur" lu={estLu("fournisseur", v.fournisseur)}>
                   <Input value={v.fournisseur} onChange={(e) => set("fournisseur", e.target.value)} />
                 </Field>
+              </div></Bloc>
+              <Bloc titre="Change"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="Devise" lu={estLu("achatDevise", v.achatDevise)}>
                   <Input value={v.achatDevise} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, achatDevise: e.target.value }, "achat", auto.current))} />
                 </Field>
@@ -712,7 +717,7 @@ export function StockMouvementFormSheet({
                 <Field label="Cours (taux de change USD)" aide={<CoursUsdAide devise={v.achatDevise} cours={v.achatCoursUsd ?? 0} />}>
                   <AmountInput value={v.achatCoursUsd ?? 0} decimals={6} onValueChange={(n) => { auto.current.achatUsd = n === 0; setV((prev) => avecCoursMoyen({ ...prev, achatCoursUsd: n }, "achat", auto.current)); }} />
                 </Field>
-              </div>
+              </div></Bloc>
               <LignesEditor lues={lignesLues("achat", v.achatLignes)} lignes={v.achatLignes} cours={v.achatCours} devise={v.achatDevise} onChange={(lignes) => set("achatLignes", lignes)} />
             </section>
 
@@ -726,7 +731,7 @@ export function StockMouvementFormSheet({
                   </span>
                 </p>
               )}
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Bloc titre="Pièce de vente"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="Date" lu={estLu("venteDate", v.venteDate)}>
                   <Input type="date" value={v.venteDate ?? ""} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDate: e.target.value || null }, "vente", auto.current))} />
                 </Field>
@@ -736,6 +741,8 @@ export function StockMouvementFormSheet({
                 <Field label="Client" lu={estLu("client", v.client)}>
                   <Input value={v.client} onChange={(e) => set("client", e.target.value)} />
                 </Field>
+              </div></Bloc>
+              <Bloc titre="Change"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="Devise" lu={estLu("venteDevise", v.venteDevise)}>
                   <Input value={v.venteDevise} onChange={(e) => setV((prev) => avecCoursMoyen({ ...prev, venteDevise: e.target.value }, "vente", auto.current))} />
                 </Field>
@@ -755,13 +762,13 @@ export function StockMouvementFormSheet({
                 <Field label="Cours (taux de change USD)" aide={<CoursUsdAide devise={v.venteDevise} cours={v.venteCoursUsd ?? 0} />}>
                   <AmountInput value={v.venteCoursUsd ?? 0} decimals={6} onValueChange={(n) => { auto.current.venteUsd = n === 0; setV((prev) => avecCoursMoyen({ ...prev, venteCoursUsd: n }, "vente", auto.current)); }} />
                 </Field>
-              </div>
+              </div></Bloc>
               <LignesEditor lues={lignesLues("vente", v.venteLignes)} lignes={v.venteLignes} cours={v.venteCours} devise={v.venteDevise} onChange={(lignes) => set("venteLignes", lignes)} />
             </section>
 
             {/* ── Douane ────────────────────────── */}
             <section id="panneau-douane" role="tabpanel" aria-labelledby="onglet-douane" hidden={onglet !== "douane"} className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Bloc titre="Déclaration"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="N° Déclaration" lu={estLu("douaneNumDeclaration", v.douaneNumDeclaration)}>
                   <Input value={v.douaneNumDeclaration} onChange={(e) => set("douaneNumDeclaration", e.target.value)} />
                 </Field>
@@ -771,6 +778,8 @@ export function StockMouvementFormSheet({
                 <Field label="Type de déclaration" lu={estLu("douaneTypeDeclaration", v.douaneTypeDeclaration)}>
                   <Input value={v.douaneTypeDeclaration} onChange={(e) => set("douaneTypeDeclaration", e.target.value)} placeholder="E" />
                 </Field>
+              </div></Bloc>
+              <Bloc titre="Valeurs"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="Taux de change (TND)" lu={estLu("douaneTauxChange", v.douaneTauxChange)}>
                   <AmountInput value={v.douaneTauxChange} onValueChange={(n) => setV((prev) => avecCoursMoyen(avecCoursMoyen(avecTauxDouane(prev, n, auto.current), "achat", auto.current), "vente", auto.current))} decimals={4} />
                 </Field>
@@ -780,6 +789,8 @@ export function StockMouvementFormSheet({
                 <Field label="PTFN" lu={estLu("douanePtfn", v.douanePtfn)}>
                   <AmountInput value={v.douanePtfn} onValueChange={(n) => set("douanePtfn", n)} />
                 </Field>
+              </div></Bloc>
+              <Bloc titre="Parties"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <div className="sm:col-span-2 xl:col-span-1">
                   <Field label="Exportateur" lu={estLu("douaneExportateur", v.douaneExportateur)}>
                     <Input value={v.douaneExportateur} onChange={(e) => set("douaneExportateur", e.target.value)} />
@@ -790,7 +801,7 @@ export function StockMouvementFormSheet({
                     <Input value={v.douaneImportateur} onChange={(e) => set("douaneImportateur", e.target.value)} />
                   </Field>
                 </div>
-              </div>
+              </div></Bloc>
             </section>
 
             <Field label="Note">
@@ -818,9 +829,15 @@ export function StockMouvementFormSheet({
           </aside>
         </div>
 
-        <div className="flex shrink-0 flex-col gap-3 border-t border-border px-6 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="flex shrink-0 flex-col gap-3 border-t-2 border-primary bg-[#FBF8F1] px-6 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2">
+            {ecartConnu && (
+              <>
+                <span>Acheté <b className="tabular-nums text-primary">{quantiteAchat.toLocaleString("fr-FR", { maximumFractionDigits: 3 })}</b></span>
+                <span>Vendu <b className="tabular-nums text-primary">{quantiteVente.toLocaleString("fr-FR", { maximumFractionDigits: 3 })}</b></span>
+              </>
+            )}
+            <span className={cn("flex items-center gap-2", ecartConnu && "rounded-full px-3 py-0.5 font-semibold", ecartConnu && (ecart !== 0 ? "bg-destructive/10" : "bg-[#DDF0E5]"))}>
               <span
                 className={cn("size-2 shrink-0 rounded-[2px]", ecartConnu && ecart !== 0 ? "bg-destructive" : "bg-muted-foreground/50")}
                 aria-hidden="true"
@@ -913,6 +930,16 @@ export function StockMouvementFormSheet({
 }
 
 /** Aide sous le cours par rapport au dollar : ce qu'il représente et d'où il vient. */
+/** Bloc titré d'un formulaire de section (Pièce, Change, Valeurs…). */
+function Bloc({ titre, children }: { titre: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <h4 className="mb-3 font-['Playfair_Display',Georgia,serif] text-[15px] font-bold text-primary">{titre}</h4>
+      {children}
+    </section>
+  );
+}
+
 function CoursUsdAide({ devise, cours }: { devise: string; cours: number }) {
   const code = devise.trim().toUpperCase();
   if (!code || code === "TND") return null;

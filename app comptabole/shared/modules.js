@@ -20,7 +20,8 @@ export const MODULES = [
   { cle: "cours-change", libelle: "Cours de change", chemins: ["/cours-change"], api: ["/api/cours-change"] },
   { cle: "suivi-devise", libelle: "Suivi client devise", chemins: ["/suivi-devise"], api: ["/api/suivi-devise"] },
   { cle: "equipe", libelle: "Équipe", chemins: ["/employes"], api: ["/api/employes"] },
-  { cle: "conversions", libelle: "Conversions", chemins: ["/conversions"], api: [] },
+  // L'identité du cabinet (logo, coordonnées) sert à l'en-tête des PDF du Stock, des Collectes et des Conversions : sa route, seule, reste ouverte même si Facturation est fermée.
+  { cle: "conversions", libelle: "Conversions", chemins: ["/conversions"], api: ["/api/facturation/cabinet"] },
   { cle: "parametres", libelle: "Paramètres", chemins: ["/parametres"], api: ["/api/administrateurs"] },
   // Modules pas encore validés pour la production.
   { cle: "apurement", libelle: "Apurement TVA", chemins: ["/apurement"], api: ["/api/apurement"] },

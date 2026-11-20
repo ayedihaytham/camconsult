@@ -24,7 +24,8 @@ interface FacturationState {
   cabinet: FactureCabinet | null;
   loading: boolean;
   fetchList: () => Promise<void>;
-  fetchCabinet: () => Promise<void>;
+  /** `silencieux` : pas de message d'erreur (l'appelant gère l'échec, par exemple pour l'en-tête d'un PDF). */
+  fetchCabinet: (silencieux?: boolean) => Promise<void>;
   saveCabinet: (data: Omit<FactureCabinet, "nom">) => Promise<void>;
   create: (data: FactureInput) => Promise<Facture>;
   /** Remplace l'en-tête et les lignes d'une facture émise (numéro conservé). */
@@ -72,11 +73,12 @@ export const useFacturation = create<FacturationState>((set) => ({
   signature: null,
   ttn: null,
 
-  fetchCabinet: async () => {
+  fetchCabinet: async (silencieux = false) => {
     try {
       set({ cabinet: await api.get<FactureCabinet>("/facturation/cabinet") });
     } catch (e) {
-      fail(e);
+      if (!silencieux) fail(e);
+      else throw e;
     }
   },
 

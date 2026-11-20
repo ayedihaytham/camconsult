@@ -35,6 +35,12 @@ describe("modules par environnement", () => {
     expect(cheminOuvert(actifs, "/fournisseurs")).toBe(false);
   });
 
+  it("l'identité du cabinet (en-tête des PDF du Stock) reste lisible en production, le reste de Facturation non", () => {
+    const actifs = lireModulesActifs(MODULES_PRODUCTION.join(","));
+    expect(apiOuverte(actifs, "/api/facturation/cabinet")).toBe(true);
+    for (const fermee of ["/api/facturation", "/api/facturation/factures", "/api/facturation/cabinets"]) expect(apiOuverte(actifs, fermee), fermee).toBe(false);
+  });
+
   it("ignore les clés inconnues", () => {
     expect([...lireModulesActifs("stock, nimporte, journal")]).toEqual(["stock", "journal"]);
   });

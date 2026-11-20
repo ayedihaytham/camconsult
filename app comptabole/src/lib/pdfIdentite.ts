@@ -8,7 +8,7 @@ import { useFacturation } from "@/store/facturation";
 export async function identiteCabinetPdf() {
   const logo = await chargerLogo(typeof window === "undefined" ? "" : window.location.origin);
   try {
-    if (!useFacturation.getState().cabinet && useAuth.getState().session?.role === "admin") await useFacturation.getState().fetchCabinet();
+    if (!useFacturation.getState().cabinet && useAuth.getState().session?.role === "admin") await useFacturation.getState().fetchCabinet(true);
   } catch {
     // coordonnées indisponibles : le pied de page n'aura pas de coordonnées
   }

@@ -345,21 +345,49 @@ export function StockRecapTable({ mouvements, nouveauId, classing, onEdit, onDel
           const v = totauxCote(m.venteLignes, undefined, changeDe(m, "vente"));
           const a = totauxCote(m.achatLignes, undefined, changeDe(m, "achat"));
           return (
-            <li key={m.id} id={`mouvement-carte-${m.id}`} className={cn("px-4 py-3", nouveauId === m.id && "bg-accent/15")}>
-              <button type="button" aria-expanded={ouvert} onClick={() => basculer(m.id)} className="flex w-full items-start gap-2 text-left">
-                <ChevronRight className={cn("mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform", ouvert && "rotate-90")} aria-hidden="true" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-primary">{index + 1}. {m.natureMarchandise || "Mouvement sans nature"}</span>
-                  {cotes !== "achat" && <span className="mt-1 block text-xs text-muted-foreground">Vente · {m.client || "—"} · {v.montantTnd ? fmtMontant(v.montantTnd) : "—"} TND</span>}
-                  {cotes !== "vente" && <span className="block text-xs text-muted-foreground">Achat · {m.fournisseur || "—"} · {a.montantTnd ? fmtMontant(a.montantTnd) : "—"} TND{m.achatLignes.length > 0 && reglements?.get(m.id) && <> · <StatutReglement statut={reglements.get(m.id)} /></>}</span>}
-                </span>
-                <span className={cn("shrink-0 text-xs font-bold tabular-nums", m.ecart !== 0 ? "text-destructive" : "text-foreground")}>Écart {fmtQuantite(m.ecart)}</span>
+            <li key={m.id} id={`mouvement-carte-${m.id}`} className={cn("px-4 py-3.5", nouveauId === m.id && "bg-accent/15")}>
+              <button type="button" aria-expanded={ouvert} onClick={() => basculer(m.id)} className="flex w-full items-center gap-2.5 text-left">
+                <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-[0.7rem] font-extrabold text-accent">{index + 1}</span>
+                <span className="min-w-0 flex-1 break-words text-[0.8125rem] font-extrabold uppercase tracking-[0.03em] text-primary">{m.natureMarchandise || "Mouvement sans nature"}</span>
+                <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-[0.7rem] font-bold tabular-nums", m.ecart !== 0 ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>Écart {fmtQuantite(m.ecart)}</span>
+                <ChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition-transform", ouvert && "rotate-90")} aria-hidden="true" />
               </button>
+              <div className="mt-2.5 space-y-1.5">
+                {cotes !== "achat" && <PieceCarteMobile cote="vente" numero={m.venteNumFacture} tiers={m.client} date={m.venteDate} quantite={v.quantite} unite={uniteCommune(m.venteLignes)} montantTnd={v.montantTnd} vide={m.venteLignes.length === 0} />}
+                {cotes !== "vente" && <PieceCarteMobile cote="achat" numero={m.achatNumFacture} tiers={m.fournisseur} date={m.achatDate} quantite={a.quantite} unite={uniteCommune(m.achatLignes)} montantTnd={a.montantTnd} vide={m.achatLignes.length === 0} statut={m.achatLignes.length > 0 ? reglements?.get(m.id) : undefined} />}
+                {colonnes.douane && m.douaneNumDeclaration && <PieceCarteMobile cote="douane" numero={m.douaneNumDeclaration} tiers={m.douaneTypeDeclaration ? `Type ${m.douaneTypeDeclaration}` : ""} date={m.douaneDate} montantTnd={m.douaneValeurTnd} vide={false} />}
+              </div>
               {ouvert && <div className="mt-3"><DetailMouvement m={m} classing={classing} onPreview={onPreview} onClasser={onClasser} onEdit={onEdit} onDelete={onDelete} onRetirerCote={onRetirerCote} /></div>}
             </li>
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/** Une pièce d'un mouvement sur une carte de téléphone : côté, n° de pièce, tiers et date, quantité et montant en dinars. */
+function PieceCarteMobile({ cote, numero, tiers, date, quantite, unite, montantTnd, vide, statut }: { cote: Categorie; numero: string; tiers: string; date: string | null; quantite?: number; unite?: string; montantTnd: number; vide: boolean; statut?: StatutFacture }) {
+  const nom = cote === "vente" ? "Vente" : cote === "achat" ? "Achat" : "Douane";
+  const pastille = cote === "vente" ? "bg-[#E1ECF8] text-[#255A96]" : cote === "achat" ? "bg-[#F4ECDA] text-[#7A5A1B]" : "bg-[#DDF0E5] text-[#1D5D41]";
+  return (
+    <div className="grid grid-cols-[3.6rem_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-[10px] bg-[#FBF8F1] px-2.5 py-2 text-xs">
+      <span className={cn("rounded-md px-1.5 py-0.5 text-center text-[0.68rem] font-bold", pastille)}>{nom}</span>
+      {vide ? (
+        <span className="col-span-2 italic text-muted-foreground">{cote === "vente" ? "Aucune vente enregistrée" : "Aucun achat enregistré"}</span>
+      ) : (
+        <>
+          <span className="min-w-0">
+            <b className="block break-words font-semibold tabular-nums text-foreground">{numero || "—"}</b>
+            <small className="block break-words text-[0.7rem] text-muted-foreground">{[tiers, date ? formatDate(date) : ""].filter(Boolean).join(" · ") || "—"}</small>
+            {statut && <span className="mt-0.5 block"><StatutReglement statut={statut} /></span>}
+          </span>
+          <span className="text-right tabular-nums">
+            {quantite ? <b className="block font-bold text-primary">{fmtQuantiteUnite(quantite, unite ?? "")}</b> : null}
+            <small className="block text-[0.7rem] text-muted-foreground">{montantTnd ? `${fmtMontant(montantTnd)} TND` : "cours à saisir"}</small>
+          </span>
+        </>
+      )}
     </div>
   );
 }

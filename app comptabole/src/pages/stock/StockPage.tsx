@@ -232,7 +232,41 @@ export function StockPage() {
                 ilYA={ilYA}
               />
             )}
-            <div className={cn("overflow-x-auto", vue === "volet" && "hidden")}>
+            <ul className={cn("divide-y divide-[#eceff4] lg:hidden", vue === "volet" && "hidden")} aria-label="Stock par société">
+              {affichees.map((s) => {
+                const ligne = synthese[s.id];
+                const cours = etatCours(ligne);
+                const actif = (ligne?.mouvements ?? 0) > 0;
+                const alertes = ligne?.alertes ?? 0;
+                return (
+                  <li key={s.id}>
+                    <button type="button" onClick={() => navigate(`/stock/${s.id}`)} aria-label={`Ouvrir le stock de ${s.raisonSociale}`} className="block w-full px-4 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                      <span className="flex items-center gap-3">
+                        <span aria-hidden="true" className={cn("grid size-9 shrink-0 place-items-center rounded-lg text-[0.72rem] font-bold", actif ? "bg-primary text-accent" : "bg-muted text-muted-foreground")}>{initials(s.raisonSociale)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words text-sm font-semibold text-primary">{s.raisonSociale}</span>
+                          <span className="block text-xs text-muted-foreground">{s.theme} · {s.rne || "RNE non renseigné"}</span>
+                        </span>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      </span>
+                      <span className="mt-3 grid grid-cols-4 gap-2 rounded-[10px] bg-[#FBF8F1] px-3 py-2.5 text-xs">
+                        <span><small className="block text-[0.6rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">Mvts</small><b className={cn("tabular-nums", actif ? "text-primary" : "text-muted-foreground/60")}>{ligne?.mouvements ?? 0}</b></span>
+                        <span><small className="block text-[0.6rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">Valeur</small><b className="tabular-nums text-primary">{ligne && ligne.valeur > 0 ? montant(ligne.valeur) : <span className="text-muted-foreground/60">—</span>}</b></span>
+                        <span><small className="block text-[0.6rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">Alertes</small><b className={cn("tabular-nums", alertes > 0 ? "text-[#A8402B]" : "text-muted-foreground/60")}>{alertes > 0 ? alertes : "—"}</b></span>
+                        <span><small className="block text-[0.6rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">Cours</small>{cours.tone === "none" ? <b className="text-muted-foreground/60">—</b> : <span className={cn("inline-block whitespace-nowrap rounded-full px-2 py-px text-[0.65rem] font-bold", cours.tone === "ok" ? "bg-[#DDF0E5] text-[#1D5D41]" : "bg-[#FBEBC4] text-[#8A5A0B]")}>{cours.label}</span>}</span>
+                      </span>
+                      {ligne?.dernierLe && <span className="mt-2 block text-[0.7rem] text-muted-foreground">Dernier mouvement : {jourMois(ligne.dernierLe)} · {ilYA(ligne.dernierLe)}</span>}
+                    </button>
+                  </li>
+                );
+              })}
+              {affichees.length === 0 && <li className="px-4 py-8 text-center text-sm text-muted-foreground">Aucune société ne correspond.</li>}
+              <li className="flex justify-between bg-[#FBF8F1] px-4 py-3 text-[0.8125rem] font-semibold text-primary" style={{ borderTop: "2px solid hsl(var(--primary))" }}>
+                <span>Total</span>
+                <span className="tabular-nums">{affichees.reduce((n, x) => n + (synthese[x.id]?.mouvements ?? 0), 0)} mouvements</span>
+              </li>
+            </ul>
+            <div className={cn("overflow-x-auto max-lg:hidden", vue === "volet" && "hidden")}>
               <table className="stock-societes-table w-full min-w-[1040px] table-fixed border-collapse text-[0.8125rem] tabular-nums">
                 <caption className="sr-only">Stock par société</caption>
                 <colgroup>{LARGEURS.map((l, i) => <col key={i} style={{ width: `${l}%` }} />)}</colgroup>

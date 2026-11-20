@@ -526,11 +526,11 @@ export function StockMouvementFormSheet({
           demanderFermeture();
         }}
         className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[1600px] flex-col gap-0 overflow-hidden rounded-2xl border-primary/10 p-0 [&>button:last-child]:text-primary-foreground [&>button:last-child]:opacity-80 [&>button:last-child]:hover:opacity-100 [&>button:last-child]:focus:ring-primary-foreground/60 [&>button:last-child]:focus:ring-offset-primary">
-        <div className="shrink-0 border-b border-primary-foreground/15 bg-primary px-6 pb-4 pt-5 text-primary-foreground sm:px-8">
-          <DialogTitle className="pr-10 font-serif text-2xl font-bold text-primary-foreground">
+        <div className="shrink-0 border-b border-primary-foreground/15 bg-primary px-6 pb-3 pt-4 text-primary-foreground sm:px-8 sm:pb-4 sm:pt-5">
+          <DialogTitle className="pr-10 font-serif text-xl font-bold text-primary-foreground sm:text-2xl">
             {isEdit ? "Modifier le mouvement" : "Nouveau mouvement de stock"}
           </DialogTitle>
-          <DialogDescription className="mt-1 text-sm text-primary-foreground/80">
+          <DialogDescription className="mt-1 hidden text-sm text-primary-foreground/80 sm:block">
             Importez un PDF par section pour pré-remplir les champs : le document reste affiché à droite pour vérifier les chiffres avant d'enregistrer.
           </DialogDescription>
           {mouvement&&onOpenApurement&&(mouvement.achatNumFacture||mouvement.achatLignes.length>0)&&<Button type="button" variant="link" className="mt-1 px-0 text-primary-foreground underline-offset-4 hover:text-primary-foreground/80" disabled={busy} onClick={()=>{if(isDirty()){toast.info("Enregistrez les modifications avant d’ouvrir Apurement.");return;}onOpenChange(false);onOpenApurement(mouvement);}}>Lier à un BC en suspension</Button>}
@@ -668,8 +668,8 @@ export function StockMouvementFormSheet({
           </span>
         </div>
 
-        <div className={cn("grid min-h-0 flex-1 overflow-hidden", documentLarge ? "lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]")}>
-          <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-5 sm:px-8">
+        <div className={cn("grid min-h-0 flex-1 overflow-hidden max-lg:block max-lg:overflow-y-auto", documentLarge ? "lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]")}>
+          <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-5 max-lg:overflow-visible sm:px-8">
             {Object.keys(lus).length > 0 && (
               <p className="flex items-center gap-2 rounded-md bg-accent/15 px-3 py-2 text-xs text-foreground">
                 <span aria-hidden="true" className="size-2.5 shrink-0 rounded-sm bg-accent" />
@@ -810,7 +810,7 @@ export function StockMouvementFormSheet({
           </div>
 
           {/* ── Document de la section affichée, à côté de la saisie ──────── */}
-          <aside aria-label="Document de la section" className="min-h-0 overflow-y-auto border-t border-border bg-secondary/40 px-5 py-5 lg:border-l lg:border-t-0">
+          <aside aria-label="Document de la section" className="min-h-0 overflow-y-auto border-t border-border bg-secondary/40 px-5 py-5 max-lg:overflow-visible lg:border-l lg:border-t-0">
             {(["achat", "vente", "douane"] as const).map((type) => (
               <div key={type} hidden={onglet !== type} className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">

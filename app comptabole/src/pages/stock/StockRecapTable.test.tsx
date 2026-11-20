@@ -389,7 +389,7 @@ describe("colonnes masquables, densité et panneau de détail", () => {
     cleanup();
     render(<StockRecapTable mouvements={[ciment]} nouveauId={null} classing={null} colonnes={{ ...COLONNES, douane: true }} onEdit={vi.fn()} onDelete={vi.fn()} onPreview={vi.fn()} onClasser={vi.fn()} />);
     expect(entetes()).toContain("Douane");
-    expect(screen.getByText("447898")).toBeTruthy();
+    expect(screen.getAllByText("447898").length).toBeGreaterThan(0);
   });
 
   it("masque Cours, la devise, le montant TND ou la pièce, un à un", () => {

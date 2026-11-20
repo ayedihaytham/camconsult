@@ -8,7 +8,7 @@ import { ENVIRONNEMENT } from "./modules.js";
 /**
  * Données de démonstration pour la Collecte de pièces, réservées à l'environnement de TEST.
  * Ajoute des sociétés fictives et des collectes à tous les états (client, à examiner, à corriger, validées, en retard), avec leurs totaux et dates
- * de suivi, notes de récap, documents, demandes de pièces, historique, collaborateurs, tâches et mouvements de stock (achat, vente, douane, avec écarts), sans toucher aux autres données. Relançable : les lignes qu'il crée ont des identifiants fixes et sont recréées à chaque fois.
+ * de suivi, notes de récap, documents, demandes de pièces, historique, collaborateurs, tâches, mouvements de stock (achat, vente, douane, avec écarts) et arborescences de la Structuration (tiroirs et fichiers répartis sur l'année), sans toucher aux autres données. Relançable : les lignes qu'il crée ont des identifiants fixes et sont recréées à chaque fois.
  *
  *   docker exec app-comptable-test node server/seedDemoCollectes.js
  */
@@ -42,6 +42,22 @@ const COLLECTES = [
 ].map(([s, periode, statut, echeance, nb, recus], i) => ({ id: uuid("a2000000", i + 1), societeId: SOCIETES[s].id, periode, statut, echeance: jour(echeance), nb, recus, rang: i }));
 
 const ids = (liste) => liste.map((x) => x.id);
+
+// Structuration : pour 5 sociétés, un dossier de la société, son armoire « Comptabilité générale <année> » et huit tiroirs ; des fichiers y sont rangés
+// sous le mois de leur date d'ajout. [société, tiroir, nom du fichier, format, taille, mois (1 à 12), jour]
+const ANNEE = new Date().getFullYear();
+const TIROIRS = ["achat", "banque", "caisse", "cnss", "divers", "dmi", "juridique", "vente"];
+const FICHIERS_STRUCTURATION = [
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((m) => [4, "banque", `Relevé BIAT — ${["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre"][m - 1]} ${ANNEE}`, "pdf", `${380 + m * 6} Ko`, m, 4]),
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].flatMap((m) => [[4, "achat", `Facture fournisseur FA-${ANNEE}-${String(m).padStart(2, "0")}01`, "pdf", `${120 + m * 9} Ko`, m, 9], [4, "vente", `Facture client FV-${ANNEE}-${String(m).padStart(2, "0")}01`, "pdf", `${140 + m * 7} Ko`, m, 17]]),
+  [4, "achat", `Bordereau de douane DUM ${ANNEE}/1203`, "pdf", "212 Ko", 8, 21], [4, "caisse", "État de caisse — juin", "xlsx", "58 Ko", 6, 30], [4, "caisse", "État de caisse — septembre", "xlsx", "61 Ko", 9, 29],
+  [4, "cnss", "Déclaration CNSS — T1", "pdf", "96 Ko", 4, 12], [4, "cnss", "Déclaration CNSS — T2", "pdf", "99 Ko", 7, 12], [4, "juridique", "Statuts mis à jour", "pdf", "1,2 Mo", 2, 3], [4, "juridique", "PV d'assemblée générale", "pdf", "640 Ko", 6, 18], [4, "divers", "Courrier de l'administration fiscale", "pdf", "180 Ko", 5, 22],
+  [2, "achat", "Facture TEXTILE ITALIA TX-88213", "pdf", "168 Ko", 3, 8], [2, "achat", "Facture TEXTILE ITALIA TX-88457", "pdf", "174 Ko", 9, 11], [2, "vente", "Facture MODA FRANCE VT-017", "pdf", "151 Ko", 8, 14], [2, "banque", "Relevé STB — août", "pdf", "402 Ko", 8, 5], [2, "banque", "Relevé STB — septembre", "pdf", "398 Ko", 9, 5], [2, "caisse", "État de caisse — octobre", "xlsx", "55 Ko", 10, 28],
+  [3, "achat", "Facture VERALLIA 77410", "pdf", "190 Ko", 6, 10], [3, "vente", "Facture DOMAINES DU SAHEL FV-012", "pdf", "175 Ko", 7, 25], [3, "banque", "Relevé BH — juillet", "pdf", "410 Ko", 7, 3], [3, "divers", "Certificat d'origine", "pdf", "132 Ko", 7, 26],
+  [7, "achat", "Invoice SKF 559021", "pdf", "205 Ko", 7, 7], [7, "vente", "Facture MECANORD FV-044", "pdf", "160 Ko", 9, 14], [7, "juridique", "Contrat de distribution", "pdf", "2,1 Mo", 4, 2], [7, "banque", "Relevé UIB — octobre", "pdf", "395 Ko", 10, 6],
+  [0, "achat", "Facture hébergement serveurs", "pdf", "98 Ko", 10, 13], [0, "vente", "Facture prestation de développement", "pdf", "110 Ko", 10, 20], [0, "banque", "Relevé ATB — octobre", "pdf", "388 Ko", 10, 4], [0, "juridique", "Registre de commerce", "pdf", "720 Ko", 1, 15],
+];
+const STRUCTURATION_SOCIETES = [...new Set(FICHIERS_STRUCTURATION.map((f) => f[0]))];
 
 // Stock (régime suspensif) : un mouvement = achat + vente + douane d'une même marchandise ; l'écart se calcule par désignation à partir des lignes.
 // [société, nature, achat, vente, douane] ; achat/vente = [jours, n° de facture, tiers, devise, cours en dinars (0 = à saisir), [[désignation, quantité, prix unitaire]]] ou null.
@@ -245,6 +261,32 @@ async function main() {
         }
       }
     }
+    // Structuration : dossier de la société > armoire de l'année > tiroirs, puis les fichiers (les identifiants sont fixes ; la suppression des sociétés efface tout).
+    let numNoeud = 0;
+    const nouveauNoeud = () => uuid("a6000000", ++numNoeud);
+    const noeud = (id, libelle, type, societeId, parentId, creeLe, format = null, taille = null, dataUrl = null) =>
+      client.query(
+        "insert into noeuds (id, libelle, description, type, societe_id, parent_id, format, taille, data_url, maj_le, cree_le) values ($1,$2,'',$3,$4,$5,$6,$7,$8,$9,$9)",
+        [id, libelle, type, societeId, parentId, format, taille, dataUrl, creeLe],
+      );
+    for (const soc of STRUCTURATION_SOCIETES) {
+      const racine = nouveauNoeud();
+      const armoire = nouveauNoeud();
+      await noeud(racine, SOCIETES[soc].raison, "dossier", SOCIETES[soc].id, null, `${ANNEE}-01-02`);
+      await noeud(armoire, `Comptabilité générale ${ANNEE}`, "dossier", SOCIETES[soc].id, racine, `${ANNEE}-01-02`);
+      const tiroirs = new Map();
+      for (const nom of TIROIRS) {
+        const id = nouveauNoeud();
+        tiroirs.set(nom, id);
+        await noeud(id, nom, "dossier", SOCIETES[soc].id, armoire, `${ANNEE}-01-02`);
+      }
+      for (const [s2, tiroir, nom, format, taille, mois, j] of FICHIERS_STRUCTURATION) {
+        if (s2 !== soc) continue;
+        const date = new Date(Date.UTC(ANNEE, mois - 1, j, 12));
+        if (date.getTime() > Date.now()) continue; // pas de fichier daté dans le futur
+        await noeud(nouveauNoeud(), `${nom}.${format}`, "fichier", SOCIETES[soc].id, tiroirs.get(tiroir), date.toISOString().slice(0, 10), format, taille, format === "pdf" ? PDF : null);
+      }
+    }
     for (const c of COLLECTES) {
       const onglets = Array.from({ length: c.nb }, (_, k) => ONGLETS[k % ONGLETS.length]);
       const transmet = c.statut !== "brouillon";
@@ -267,7 +309,7 @@ async function main() {
       await semerHistorique(client, c, onglets);
     }
   });
-  console.log(`[demo] ${SOCIETES.length} sociétés, ${COLLECTES.length} collectes (totaux, récap, documents, demandes de pièces, historique), ${COLLABORATEURS.length} collaborateurs, ${TACHES.length} tâches et ${STOCK.length} mouvements de stock de démonstration créés.`);
+  console.log(`[demo] ${SOCIETES.length} sociétés, ${COLLECTES.length} collectes (totaux, récap, documents, demandes de pièces, historique), ${COLLABORATEURS.length} collaborateurs, ${TACHES.length} tâches, ${STOCK.length} mouvements de stock et ${STRUCTURATION_SOCIETES.length} arborescences de démonstration créés.`);
 }
 
 main().then(() => pool.end()).catch(async (err) => { console.error("[demo] Échec :", err.message); await pool.end(); process.exit(1); });

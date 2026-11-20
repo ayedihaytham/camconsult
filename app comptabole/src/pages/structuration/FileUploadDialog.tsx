@@ -14,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
-  MAX_INLINE_FILE_BYTES,
+  MAX_FICHIER_STRUCTURATION_BYTES,
+  LIBELLE_LIMITE_STRUCTURATION as LIMITE_STRUCTURATION,
   fileExtension,
   formatFileSize,
   readFileAsDataUrl,
@@ -109,7 +110,7 @@ export function FileUploadDialog({
     const result: NewFichier[] = [];
     const lire = async (blob: Blob, nom: string, dossiers?: string[]) => {
       let dataUrl: string | undefined;
-      if (blob.size <= MAX_INLINE_FILE_BYTES) {
+      if (blob.size <= MAX_FICHIER_STRUCTURATION_BYTES) {
         try {
           dataUrl = await readFileAsDataUrl(blob);
         } catch {
@@ -165,9 +166,9 @@ export function FileUploadDialog({
       accepte = false;
     }
     if (accepte !== false && skippedContent > 0) {
-      toast.warning(
-        `${skippedContent} fichier(s) > 2 Mo : enregistrés sans contenu (référence seule).`,
-      );
+      toast.warning(skippedContent > 1 ? `${skippedContent} fichiers volumineux` : "Fichier volumineux", {
+        description: `${skippedContent > 1 ? "Ces fichiers dépassent" : "Ce fichier dépasse"} ${LIMITE_STRUCTURATION} : ${skippedContent > 1 ? "ils sont classés" : "il est classé"}, mais son contenu n'est pas conservé (référence seule). Déposez une version allégée pour pouvoir le lire.`,
+      });
     }
     setBusy(false);
     setAvancement(null);
@@ -213,7 +214,7 @@ export function FileUploadDialog({
               <span className="font-semibold text-foreground underline underline-offset-2">parcourez</span>
             </p>
             <p className="text-xs text-muted-foreground">
-              Le contenu des fichiers &le; 2 Mo est conservé (téléchargeable). Une archive .zip est décompressée dans un dossier du même nom.
+              Le contenu des fichiers &le; {LIMITE_STRUCTURATION} est conservé (consultable et téléchargeable). Une archive .zip est décompressée dans un dossier du même nom.
             </p>
             <input
               ref={inputRef}

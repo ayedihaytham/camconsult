@@ -1,0 +1,40 @@
+/* Notifications (maquette A) : carte blanche à liseré et pastille d'icône de la couleur du type, repère en capitales, titre, phrase, actions soulignées en or. */
+[data-sonner-toast].cc-toast {
+  --cc-c: #2f6fb5; --cc-bg: #e1ecf8; --cc-eb: none;
+  position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: start; gap: 12px;
+  padding: 14px 40px 14px 18px; overflow: hidden; border: 1px solid #dfe3ea; border-radius: 12px; background: #fff; color: #0b2545;
+  box-shadow: 0 10px 28px -14px rgba(11, 37, 69, .35), 0 1px 2px rgba(11, 37, 69, .06);
+  font-family: inherit;
+}
+[data-sonner-toast].cc-toast::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--cc-c); }
+[data-sonner-toast].cc-toast[data-type="success"] { --cc-c: #2f7a55; --cc-bg: #ddf0e5; --cc-eb: "Succès"; }
+[data-sonner-toast].cc-toast[data-type="warning"] { --cc-c: #b7791f; --cc-bg: #fbebc4; --cc-eb: "À savoir"; }
+[data-sonner-toast].cc-toast[data-type="error"] { --cc-c: #a8402b; --cc-bg: #f6e6e1; --cc-eb: "Erreur"; }
+[data-sonner-toast].cc-toast[data-type="info"] { --cc-c: #2f6fb5; --cc-bg: #e1ecf8; --cc-eb: "Information"; }
+[data-sonner-toast].cc-toast[data-type="loading"] { --cc-c: #7284a1; --cc-bg: #e6eaf1; --cc-eb: "En cours"; }
+[data-sonner-toast].cc-toast:not([data-type]),
+[data-sonner-toast].cc-toast[data-type="default"] { --cc-c: #c9a96a; --cc-bg: #f4ecda; }
+
+[data-sonner-toast].cc-toast [data-icon] { grid-column: 1; grid-row: 1 / span 2; width: 36px; height: 36px; margin: 0; border-radius: 10px; background: var(--cc-bg); color: var(--cc-c); display: grid; place-items: center; }
+[data-sonner-toast].cc-toast [data-icon] > svg { width: 18px; height: 18px; }
+[data-sonner-toast].cc-toast:not(:has([data-icon])) { grid-template-columns: minmax(0, 1fr); padding-left: 20px; }
+[data-sonner-toast].cc-toast [data-content] { grid-column: 2; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+[data-sonner-toast].cc-toast:not(:has([data-icon])) [data-content] { grid-column: 1; }
+[data-sonner-toast].cc-toast [data-content]::before { content: var(--cc-eb, none); order: -1; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--cc-c); }
+[data-sonner-toast].cc-toast [data-title] { font-size: 14px; font-weight: 700; line-height: 1.35; color: #0b2545; }
+[data-sonner-toast].cc-toast [data-description] { font-size: 12.5px; line-height: 1.45; color: #3b5278; }
+
+/* Actions : liens soulignés en or (principale en marine, secondaire plus discrète). */
+[data-sonner-toast].cc-toast [data-button] { grid-column: 2; justify-self: start; height: auto; margin: 4px 14px 0 0; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 12.5px; font-weight: 700; color: #0b2545; text-decoration: underline; text-decoration-color: #c9a96a; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+[data-sonner-toast].cc-toast [data-button][data-cancel] { color: #7284a1; font-weight: 600; text-decoration: none; }
+[data-sonner-toast].cc-toast [data-button]:hover { color: #0b2545; }
+[data-sonner-toast].cc-toast [data-button]:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; border-radius: 3px; }
+
+/* Fermeture : croix discrète en haut à droite. */
+[data-sonner-toast].cc-toast [data-close-button] { position: absolute; top: 10px; right: 10px; left: auto; transform: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: transparent; color: #7284a1; }
+[data-sonner-toast].cc-toast [data-close-button]:hover { background: #e6eaf1; color: #0b2545; }
+
+/* Mobile : cartes pleine largeur au-dessus de la barre de navigation du bas. */
+@media (max-width: 600px) {
+  [data-sonner-toast].cc-toast { padding-right: 38px; }
+}

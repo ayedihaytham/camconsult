@@ -77,7 +77,7 @@ export function FilePreviewDialog({
           ) : !dataUrl ? (
             <div className="flex flex-col items-center gap-2 px-4 py-16 text-center text-sm text-muted-foreground">
               <FileWarning className="h-7 w-7" />
-              Contenu non conservé (fichier &gt; 2 Mo). Aperçu indisponible.
+              Ce fichier a été enregistré sans son contenu (fichier volumineux). Déposez-le à nouveau, avec une taille de 8 Mo au plus, pour pouvoir le lire.
             </div>
           ) : isImage ? (
             <div className="flex h-full min-h-0 items-center justify-center p-3">

@@ -1,22 +1,18 @@
 import { Toaster as Sonner } from "sonner";
+import "./notifications.css";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
+/** Notifications du cabinet : carte à liseré et pastille d'icône par type (voir notifications.css). */
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       position="bottom-right"
+      closeButton
+      mobileOffset={{ bottom: 76, left: 12, right: 12 }}
       toastOptions={{
         classNames: {
-          toast:
-            "group toast group-[.toaster]:bg-card group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-pop group-[.toaster]:rounded-md",
-          description: "group-[.toast]:text-muted-foreground",
-          actionButton:
-            "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-          cancelButton:
-            "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
-          success: "group-[.toaster]:[&_[data-icon]]:text-success",
-          error: "group-[.toaster]:[&_[data-icon]]:text-destructive",
+          toast: "cc-toast",
         },
       }}
       {...props}

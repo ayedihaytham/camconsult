@@ -21,6 +21,11 @@ export function fileExtension(name: string): string {
 /** Limite de contenu stocké en base64 (localStorage) — 2 Mo. */
 export const MAX_INLINE_FILE_BYTES = 2 * 1024 * 1024;
 
+/** Limite de contenu conservé pour les fichiers de la Structuration et des collectes : 8 Mo (≈ 10,7 Mo une fois encodé en base64, sous les 15 Mo du
+ * proxy, les 24 Mo d'Express et les 12 M de caractères d'une pièce jointe de message : un document de la Structuration reste joignable à un message). */
+export const MAX_FICHIER_STRUCTURATION_BYTES = 8 * 1024 * 1024;
+export const LIBELLE_LIMITE_STRUCTURATION = "8 Mo";
+
 export function readFileAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

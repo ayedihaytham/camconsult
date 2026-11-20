@@ -527,7 +527,7 @@ export function FileTree({
                         <DropdownMenuItem
                           onClick={() =>
                             toast.info(
-                              "Contenu non conservé (fichier > 2 Mo) — référence seule.",
+                              "Contenu non conservé (fichier volumineux) — référence seule. Redéposez-le (8 Mo au plus) pour le télécharger.",
                             )
                           }
                         >

@@ -291,7 +291,7 @@ export function MessageriePage() {
     });
     if (!dataUrl) {
       toast.warning(
-        "Ce document dépasse 2 Mo dans la Structuration : joint en référence seule, non téléchargeable depuis la messagerie.",
+        "Ce document n'a pas de contenu dans la Structuration (fichier volumineux) : joint en référence seule, non téléchargeable depuis la messagerie.",
       );
     }
   }

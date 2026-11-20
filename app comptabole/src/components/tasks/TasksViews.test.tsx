@@ -38,3 +38,39 @@ describe("vues des tâches", () => {
     expect(todoColumn.textContent).toContain("Contrôle TVA");
   });
 });
+
+describe("vue par défaut et choix mémorisé par appareil", () => {
+  const mobile = () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: true, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+  };
+  beforeEach(() => window.localStorage.clear());
+  const pressed = (nom: string) => screen.getByRole("button", { name: nom }).getAttribute("aria-pressed");
+
+  it("ordinateur : le Kanban est la vue par défaut et les quatre vues sont proposées", () => {
+    mount();
+    expect(pressed("Kanban")).toBe("true");
+    for (const nom of ["Liste", "Chronologie", "Kanban", "Tableau"]) expect(screen.getByRole("button", { name: nom })).toBeTruthy();
+  });
+
+  it("mobile : la Liste est la vue par défaut, sans Tableau ni Chronologie", () => {
+    mobile();
+    mount();
+    expect(pressed("Liste")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Tableau" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Chronologie" })).toBeNull();
+  });
+
+  it("le choix est gardé séparément pour l'ordinateur et pour le mobile", () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "Tableau" }));
+    expect(window.localStorage.getItem("taches-vue-bureau")).toBe("table");
+    cleanup();
+    mount();
+    expect(pressed("Tableau")).toBe("true");
+    cleanup();
+    mobile();
+    mount();
+    expect(pressed("Liste")).toBe("true");
+  });
+});

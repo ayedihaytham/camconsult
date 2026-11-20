@@ -83,6 +83,9 @@ export interface TaskPlanning {
 }
 
 /** Planning lisible d'une carte : où on en est entre le début et la fin prévus. `null` quand la tâche n'est pas planifiée. */
+/** « 1 jour », « 8 jours » : les durées s'écrivent en toutes lettres. */
+const jours = (n: number) => `${n} jour${n > 1 ? "s" : ""}`;
+
 export function getTaskPlanning(task: Tache, today = new Date()): TaskPlanning | null {
   if (!task.debutPrevu || !task.finPrevue) return null;
   const debut = jourUtc(task.debutPrevu);
@@ -97,11 +100,11 @@ export function getTaskPlanning(task: Tache, today = new Date()): TaskPlanning |
       tone: "ok",
     };
   }
-  if (now < debut) return { plage, progress: 0, label: `Débute dans ${Math.round((debut - now) / JOUR_MS)} j`, tone: "muted" };
-  if (now > fin) return { plage, progress: 100, label: `Fin dépassée de ${Math.round((now - fin) / JOUR_MS)} j`, tone: "bad" };
+  if (now < debut) return { plage, progress: 0, label: `Débute dans ${jours(Math.round((debut - now) / JOUR_MS))}`, tone: "muted" };
+  if (now > fin) return { plage, progress: 100, label: `Fin dépassée de ${jours(Math.round((now - fin) / JOUR_MS))}`, tone: "bad" };
   const restant = Math.round((fin - now) / JOUR_MS);
   const progress = Math.min(100, Math.max(0, Math.round(((now - debut) / Math.max(fin - debut, JOUR_MS)) * 100)));
-  return { plage, progress, label: restant === 0 ? "Fin aujourd'hui" : `Fin dans ${restant} j`, tone: restant <= 3 ? "warn" : "muted" };
+  return { plage, progress, label: restant === 0 ? "Fin aujourd'hui" : `Fin dans ${jours(restant)}`, tone: restant <= 3 ? "warn" : "muted" };
 }
 
 /** Initiales d'une société pour son carré : « 05-I CARGO LINE » → « IC ». */

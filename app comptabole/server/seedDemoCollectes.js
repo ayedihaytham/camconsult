@@ -1,12 +1,14 @@
 import "dotenv/config";
 import { ensureSchema } from "./ensureSchema.js";
+import { randomBytes } from "node:crypto";
+import { hashPassword } from "./passwords.js";
 import { pool, withTransaction } from "./db.js";
 import { ENVIRONNEMENT } from "./modules.js";
 
 /**
  * Données de démonstration pour la Collecte de pièces, réservées à l'environnement de TEST.
  * Ajoute des sociétés fictives et des collectes à tous les états (client, à examiner, à corriger, validées, en retard), avec leurs totaux et dates
- * de suivi, notes de récap, documents, demandes de pièces et historique, sans toucher aux autres données. Relançable : les lignes qu'il crée ont des identifiants fixes et sont recréées à chaque fois.
+ * de suivi, notes de récap, documents, demandes de pièces, historique, collaborateurs et tâches, sans toucher aux autres données. Relançable : les lignes qu'il crée ont des identifiants fixes et sont recréées à chaque fois.
  *
  *   docker exec app-comptable-test node server/seedDemoCollectes.js
  */
@@ -40,6 +42,25 @@ const COLLECTES = [
 ].map(([s, periode, statut, echeance, nb, recus], i) => ({ id: uuid("a2000000", i + 1), societeId: SOCIETES[s].id, periode, statut, echeance: jour(echeance), nb, recus, rang: i }));
 
 const ids = (liste) => liste.map((x) => x.id);
+
+// Collaborateurs fictifs (comptes inutilisables : mot de passe aléatoire jamais communiqué) et tâches de démonstration.
+const COLLABORATEURS = [
+  ["Mansouri", "Lina", "Assistante", "lina.demo"], ["Kallel", "Rim", "Assistante", "rim.demo"], ["Chaabane", "Walid", "Stagiaire", "walid.demo"], ["Trabelsi", "Sana", "Gestionnaire de paie", "sana.demo"],
+].map(([nom, prenom, type, identifiant], i) => ({ id: uuid("a3000000", i + 1), nom, prenom, type, identifiant }));
+
+// [titre, société, collaborateur (null = non assignée), statut, début (jours), fin (jours), module]
+const TACHES = [
+  ["Relancer les pièces manquantes d'octobre", 0, 0, "en_cours", -6, 1, "collectes"], ["Contrôler la déclaration de TVA d'octobre", 1, 3, "a_faire", 0, 6, null],
+  ["Préparer le rapprochement bancaire", 2, 1, "en_cours", -4, 2, "collectes"], ["Classer les justificatifs du mois", 3, 2, "a_faire", 0, 9, "structuration"],
+  ["Réviser les comptes fournisseurs", 4, 0, "en_cours", -8, -1, null], ["Répondre aux questions du client sur la facture 2026-114", 5, 1, "a_faire", 0, 3, "messagerie"],
+  ["Préparer la déclaration CNSS du trimestre", 6, 3, "a_faire", 2, 12, null], ["Mettre à jour le dossier permanent", 7, null, "a_faire", 0, 20, "structuration"],
+  ["Vérifier les écritures de paie de novembre", 8, 3, "en_cours", -2, 4, null], ["Contrôler les factures d'export", 9, 2, "en_cours", -3, 5, "collectes"],
+  ["Préparer le bordereau de remise des chèques", 10, 1, "a_faire", 1, 7, "collectes"], ["Analyser les écarts de trésorerie", 11, 0, "a_faire", 3, 15, null],
+  ["Valider le grand livre auxiliaire", 0, 0, "termine", -20, -12, null], ["Archiver les pièces validées de septembre", 1, 2, "termine", -18, -10, "structuration"],
+  ["Préparer le reporting de direction", 2, 3, "termine", -25, -15, null], ["Finaliser la révision des immobilisations", 3, 0, "termine", -30, -21, null],
+  ["Relancer le client pour le relevé de la BIAT", 4, 1, "a_faire", -4, -2, "collectes"], ["Préparer la clôture mensuelle", 5, null, "a_faire", 5, 18, null],
+  ["Contrôler les règlements clients", 6, 2, "en_cours", -5, 3, null], ["Mettre à jour les provisions", 7, 3, "a_faire", 6, 25, null],
+].map(([titre, soc, collab, statut, debut, fin, module], i) => ({ id: uuid("a4000000", i + 1), titre, societeId: SOCIETES[soc].id, assigneId: collab === null ? null : COLLABORATEURS[collab].id, statut, debut: jour(debut), fin: jour(fin), module }));
 
 const TOTAUX = [1250, 18420.5, 74960.25, 41305, 212884.9, 9870.125, 56300, 3120.75, 128450, 8250.5];
 const COMMENTAIRES = ["Carnet n° 4 — 25 feuilles", "", "Reçu par e-mail", "", "Relevé de la BIAT", "Scan complet", "", "Pièces classées par mois"];
@@ -149,6 +170,8 @@ async function semerHistorique(client, c, onglets) {
 async function main() {
   await ensureSchema();
   await withTransaction(async (client) => {
+    await client.query("delete from taches where id = any($1::uuid[])", [ids(TACHES)]);
+    await client.query("delete from employes where id = any($1::uuid[])", [ids(COLLABORATEURS)]);
     await client.query("delete from collectes where id = any($1::uuid[])", [ids(COLLECTES)]);
     await client.query("delete from societes where id = any($1::uuid[])", [ids(SOCIETES)]);
     for (const s of SOCIETES) {
@@ -156,6 +179,21 @@ async function main() {
         `insert into societes (id, raison_sociale, rne, tva, theme, code, statut, telephone, email, adresse, cree_le)
          values ($1,$2,$3,$4,$5,$6,'actif','+216 70 000 000',$7,'Tunis, Tunisie',now() - interval '90 days')`,
         [s.id, s.raison, `RNE-${s.code}`, `TN${s.code.slice(5)}`, s.theme, s.code, `contact@${s.code.toLowerCase()}.test`],
+      );
+    }
+    for (const e of COLLABORATEURS) {
+      await client.query(
+        `insert into employes (id, nom, prenom, identifiant, mot_de_passe, mdp_hash, type, role, email, statut, societes_assignees, permissions, cree_le)
+         values ($1,$2,$3,$4,'',$5,$6,'collaborateur',$7,'actif',$8::jsonb,$9::jsonb,now() - interval '60 days')`,
+        [e.id, e.nom, e.prenom, e.identifiant, await hashPassword(randomBytes(18).toString("hex")), e.type, `${e.identifiant}@demo.test`, JSON.stringify(ids(SOCIETES)), JSON.stringify({ consulterDossiers: true, deposerFichiers: true, modifierSocietes: false, supprimer: false, messagerie: true })],
+      );
+    }
+    for (const [i, t] of TACHES.entries()) {
+      const fait = t.statut === "termine";
+      await client.query(
+        `insert into taches (id, titre, description, societe_id, assigne_id, statut, cree_par, cree_le, maj_le, termine_le, module, debut_prevu, fin_prevue)
+         values ($1,$2,$3,$4,$5,$6,'Mohamed Ayedi',$7,$8,$9,$10,$11,$12)`,
+        [t.id, t.titre, "", t.societeId, t.assigneId, t.statut, heure(24 * 12 - i * 5), heure(i * 3 + 2), fait ? heure(24 * 3 + i) : null, t.module, t.debut, t.fin],
       );
     }
     for (const c of COLLECTES) {
@@ -180,7 +218,7 @@ async function main() {
       await semerHistorique(client, c, onglets);
     }
   });
-  console.log(`[demo] ${SOCIETES.length} sociétés et ${COLLECTES.length} collectes de démonstration créées (totaux, récap, documents, demandes de pièces, historique).`);
+  console.log(`[demo] ${SOCIETES.length} sociétés, ${COLLECTES.length} collectes (totaux, récap, documents, demandes de pièces, historique), ${COLLABORATEURS.length} collaborateurs et ${TACHES.length} tâches de démonstration créés.`);
 }
 
 main().then(() => pool.end()).catch(async (err) => { console.error("[demo] Échec :", err.message); await pool.end(); process.exit(1); });

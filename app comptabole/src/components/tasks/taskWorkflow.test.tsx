@@ -62,10 +62,10 @@ describe("planning d'une carte", () => {
   });
 
   it("dit où on en est entre le début et la fin prévus", () => {
-    expect(getTaskPlanning(planifiee("en_cours", "2026-10-10", "2026-10-20"), aujourdhui)).toMatchObject({ plage: "10 – 20 oct.", label: "Fin dans 8 j", tone: "muted", progress: 20 });
-    expect(getTaskPlanning(planifiee("en_cours", "2026-10-10", "2026-10-14"), aujourdhui)).toMatchObject({ label: "Fin dans 2 j", tone: "warn" });
-    expect(getTaskPlanning(planifiee("en_cours", "2026-10-01", "2026-10-09"), aujourdhui)).toMatchObject({ label: "Fin dépassée de 3 j", tone: "bad", progress: 100 });
-    expect(getTaskPlanning(planifiee("a_faire", "2026-10-14", "2026-10-24"), aujourdhui)).toMatchObject({ label: "Débute dans 2 j", progress: 0 });
+    expect(getTaskPlanning(planifiee("en_cours", "2026-10-10", "2026-10-20"), aujourdhui)).toMatchObject({ plage: "10 – 20 oct.", label: "Fin dans 8 jours", tone: "muted", progress: 20 });
+    expect(getTaskPlanning(planifiee("en_cours", "2026-10-10", "2026-10-14"), aujourdhui)).toMatchObject({ label: "Fin dans 2 jours", tone: "warn" });
+    expect(getTaskPlanning(planifiee("en_cours", "2026-10-01", "2026-10-09"), aujourdhui)).toMatchObject({ label: "Fin dépassée de 3 jours", tone: "bad", progress: 100 });
+    expect(getTaskPlanning(planifiee("a_faire", "2026-10-14", "2026-10-24"), aujourdhui)).toMatchObject({ label: "Débute dans 2 jours", progress: 0 });
   });
 
   it("une tâche terminée n'est jamais en retard", () => {

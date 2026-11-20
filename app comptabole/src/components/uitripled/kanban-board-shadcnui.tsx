@@ -88,6 +88,46 @@ interface TasksKanbanProps {
   onResetFilters: () => void;
 }
 
+type VueTaches = "kanban" | "list" | "gantt" | "table";
+type Appareil = "mobile" | "bureau";
+const VUES_PAR_APPAREIL: Record<Appareil, VueTaches[]> = { bureau: ["list", "gantt", "kanban", "table"], mobile: ["list", "kanban"] };
+const VUE_PAR_DEFAUT: Record<Appareil, VueTaches> = { bureau: "kanban", mobile: "list" };
+const cleVue = (appareil: Appareil) => `taches-vue-${appareil}`;
+
+/** Vue choisie sur cet appareil (mémoire du navigateur), ou rien. */
+function lireVue(appareil: Appareil): VueTaches | undefined {
+  try {
+    const v = window.localStorage.getItem(cleVue(appareil));
+    return v && (VUES_PAR_APPAREIL[appareil] as string[]).includes(v) ? (v as VueTaches) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function ecrireVue(appareil: Appareil, vue: VueTaches) {
+  try {
+    window.localStorage.setItem(cleVue(appareil), vue);
+  } catch {
+    /* stockage bloqué : le choix n'est pas gardé */
+  }
+}
+
+/** Téléphone ou tablette étroite (moins de 1024 px) ou ordinateur ; connu dès le premier affichage (pas de saut de vue). */
+function useAppareilTaches(): Appareil {
+  const lire = (): Appareil => (typeof window !== "undefined" && (window.matchMedia?.("(max-width: 1023px)").matches ?? window.innerWidth < 1024) ? "mobile" : "bureau");
+  const [appareil, setAppareil] = useState<Appareil>(lire);
+  useEffect(() => {
+    const mql = window.matchMedia?.("(max-width: 1023px)");
+    const suivre = () => setAppareil(lire());
+    mql?.addEventListener("change", suivre);
+    window.addEventListener("resize", suivre);
+    return () => {
+      mql?.removeEventListener("change", suivre);
+      window.removeEventListener("resize", suivre);
+    };
+  }, []);
+  return appareil;
+}
+
 export function TasksKanban({
   tasks,
   hasAnyTasks,
@@ -110,7 +150,16 @@ export function TasksKanban({
 }: TasksKanbanProps) {
   const [activeTask, setActiveTask] = useState<PresentedTask | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [view, setView] = useState<"kanban" | "list" | "gantt" | "table">("list");
+  const appareil = useAppareilTaches();
+  const [choixVues, setChoixVues] = useState<Partial<Record<Appareil, VueTaches>>>(() => ({ mobile: lireVue("mobile"), bureau: lireVue("bureau") }));
+  // Ordinateur : Kanban par défaut, les quatre vues. Mobile : Liste groupée par défaut ; le Tableau et la Chronologie (vues « document ») restent sur ordinateur.
+  const vuesPermises = VUES_PAR_APPAREIL[appareil];
+  const choisie = choixVues[appareil];
+  const view: VueTaches = choisie && vuesPermises.includes(choisie) ? choisie : VUE_PAR_DEFAUT[appareil];
+  const setView = (vue: VueTaches) => {
+    setChoixVues((c) => ({ ...c, [appareil]: vue }));
+    ecrireVue(appareil, vue);
+  };
   const [mobileStatus, setMobileStatus] = useState<TacheStatut>("a_faire");
   const [statusOverrides, setStatusOverrides] = useState<
     Record<string, TacheStatut>
@@ -409,7 +458,7 @@ export function TasksKanban({
         <OperationalMobileUtility label="Recherche et filtres des tâches">
           {renderSearchFilter()}
         </OperationalMobileUtility>
-        <div className="task-views-toolbar" data-tour="tasks-views"><div className="task-view-options" role="group" aria-label="Vue des tâches">{([{ id: "list", label: "Liste" }, { id: "gantt", label: "Chronologie" }, { id: "kanban", label: "Kanban" }, { id: "table", label: "Tableau" }] as const).map(({ id, label }) => <button key={id} type="button" className="task-view-tab" aria-pressed={view === id} onClick={() => { setView(id); setActiveTask(null); }}>{label}</button>)}</div><span className="text-xs tabular-nums text-muted-foreground">{filteredTasks.length} tâche{filteredTasks.length > 1 ? "s" : ""}</span></div>
+        <div className="task-views-toolbar" data-tour="tasks-views"><div className="task-view-options" role="group" aria-label="Vue des tâches">{([{ id: "list", label: "Liste" }, { id: "gantt", label: "Chronologie" }, { id: "kanban", label: "Kanban" }, { id: "table", label: "Tableau" }] as const).filter(({ id }) => vuesPermises.includes(id)).map(({ id, label }) => <button key={id} type="button" className="task-view-tab" aria-pressed={view === id} onClick={() => { setView(id); setActiveTask(null); }}>{label}</button>)}</div><span className="text-xs tabular-nums text-muted-foreground">{filteredTasks.length} tâche{filteredTasks.length > 1 ? "s" : ""}</span></div>
         <div data-tour="tasks-board" className="min-w-0">
           {filteredTasks.length === 0 ? <TasksEmptyState message={emptyMessage} /> : view === "gantt" ? <TaskGanttView tasks={filteredTasks} {...taskActions} /> : view === "list" ? <TaskListView table={taskTable} emptyMessage={emptyMessage} {...taskActions} /> : view === "table" ? <TaskTableView table={taskTable} emptyMessage={emptyMessage} {...taskActions} /> : kanbanBoard}
         </div>

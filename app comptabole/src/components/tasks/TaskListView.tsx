@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { Table } from "@tanstack/react-table";
+import { ChevronDown } from "lucide-react";
 import {
   OperationalContentHeader,
   OperationalLedgerFooter,
@@ -22,6 +24,9 @@ const STATUS_RULE: Record<TacheStatut, string> = {
   en_cours: "bg-primary/60",
   termine: "bg-success",
 };
+
+/** Liseré et compteur de chaque groupe : mêmes tons que les colonnes du Kanban. */
+const REPERE_GROUPE: Record<TacheStatut, string> = { a_faire: "#7284a1", en_cours: "hsl(var(--accent))", termine: "#2f7a55" };
 
 export interface TaskListGroup {
   status: TacheStatut;
@@ -52,6 +57,9 @@ export function TaskListView({
   const visibleTasks = table.getRowModel().rows.map((row) => row.original);
   const allFilteredTasks = table.getPrePaginationRowModel().rows.map((row) => row.original);
   const groups = groupTaskListPage(visibleTasks, allFilteredTasks);
+  // Sur téléphone, les groupes se déplient d'un appui (les terminées sont repliées au départ) ; sur ordinateur ils restent ouverts.
+  const [replies, setReplies] = useState<Set<TacheStatut>>(() => new Set<TacheStatut>(["termine"]));
+  const basculer = (status: TacheStatut) => setReplies((precedent) => { const suivant = new Set(precedent); if (suivant.has(status)) suivant.delete(status); else suivant.add(status); return suivant; });
 
   return (
     <div className="task-work-register min-w-0">
@@ -64,19 +72,23 @@ export function TaskListView({
         <section key={group.status} aria-labelledby={`task-list-${group.status}`}>
           <header
             className={cn(
-              "flex min-h-10 items-center gap-2 bg-[#FBF9F3] px-4 sm:px-5",
+              "flex min-h-10 items-center gap-2 border-t-[3px] bg-[#FBF9F3] px-4 sm:px-5",
               index > 0 && "mt-3",
             )}
+            style={{ borderTopColor: REPERE_GROUPE[group.status] }}
           >
             <span className={cn("hidden", STATUS_RULE[group.status])} aria-hidden="true" />
-            <h3 id={`task-list-${group.status}`} className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-primary">
-              {STATUS_LABELS[group.status]}
+            <h3 id={`task-list-${group.status}`} className="flex-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-primary">
+              <button type="button" aria-expanded={!replies.has(group.status)} onClick={() => basculer(group.status)} className="flex w-full items-center gap-2 text-left max-lg:min-h-11 lg:pointer-events-none">
+                {STATUS_LABELS[group.status]}
+                <ChevronDown className={cn("ml-auto size-4 text-muted-foreground transition-transform lg:hidden", replies.has(group.status) && "-rotate-90")} aria-hidden="true" />
+              </button>
             </h3>
-            <span className="text-[11px] font-bold text-primary">
+            <span className="font-serif text-lg font-semibold tabular-nums" style={{ color: REPERE_GROUPE[group.status] }}>
               {group.totalCount}
             </span>
           </header>
-          <div>
+          <div className={cn(replies.has(group.status) && "max-lg:hidden")}>
             {group.tasks.map((presented) => {
               const task = presented.task;
               return (

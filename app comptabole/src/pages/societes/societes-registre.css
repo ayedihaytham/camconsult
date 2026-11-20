@@ -50,3 +50,55 @@
 .reg-bloc { overflow: hidden; border-radius: 16px; background: hsl(var(--card)); box-shadow: 0 1px 2px hsl(var(--primary) / .08), 0 16px 34px -18px hsl(var(--primary) / .5); }
 .reg-bloc .page-head { margin: 0; border-radius: 0; box-shadow: none; }
 .reg-bloc .ledger-work-surface { margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+
+/* ── Tableau de gestion (maquette validée) : en-tête ivoire à filet marine, noms en entier, chiffres alignés, total en pied. ── */
+.societes-ledger-page .ledger-work-surface .ledger-work-table table.ledger-table-density { min-width: 960px; }
+.societes-ledger-page .ledger-work-surface .ledger-work-table thead th { background: #FBF8F1; border-bottom: 2px solid hsl(var(--primary)); color: hsl(var(--muted-foreground)); }
+.societes-ledger-page .reg-nom { overflow: visible; text-overflow: clip; white-space: normal; line-height: 1.3; font-weight: 600; }
+.societes-ledger-page .societes-ledger-table tbody td .reg-texte { white-space: normal; overflow: visible; }
+.societes-ledger-page .societes-ledger-table tbody td { vertical-align: middle; }
+.societes-ledger-page .reg-code { color: hsl(var(--primary) / .8); }
+.reg-col-num .reg-num, .reg-num { font-variant-numeric: tabular-nums lining-nums; font-feature-settings: "lnum" 1; font-weight: 700; font-size: 14px; color: hsl(var(--primary)); }
+.reg-num--zero { color: #b6bfce; font-weight: 600; }
+.reg-num--retard { color: #A8402B; }
+.societes-ledger-page th.reg-col-num > *, .societes-ledger-page th.reg-col-num button { justify-content: flex-end; }
+.societes-ledger-page .reg-col-num { padding-right: 22px; }
+.reg-ouvrir { height: 32px; padding: 0 13px; border: 1px solid #c3cbd9; border-radius: 8px; background: hsl(var(--card)); font-size: 12.5px; font-weight: 700; color: hsl(var(--primary)); white-space: nowrap; transition: background-color .12s, border-color .12s; }
+.reg-ouvrir:hover { background: #e6eaf1; border-color: hsl(var(--primary) / .4); }
+.reg-ouvrir:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .societes-ledger-table tbody td:last-child > div { opacity: 1 !important; }
+}
+
+/* Ligne de total */
+.reg-total { align-items: center; gap: 28px; padding: 12px 16px; background: #FBF8F1; border-top: 2px solid hsl(var(--primary)); font-size: 13px; font-weight: 700; color: hsl(var(--primary)); display: flex; }
+.reg-total__libelle { margin-right: auto; }
+.reg-total__chiffre { font-weight: 600; color: hsl(var(--muted-foreground)); }
+.reg-total__chiffre b { font-weight: 800; color: hsl(var(--primary)); font-variant-numeric: tabular-nums lining-nums; font-size: 14px; }
+.reg-total__chiffre--retard b { color: #A8402B; }
+.reg-total.hidden { display: none; }
+@media (min-width: 1024px) { .reg-total.hidden.lg\:flex { display: flex; } .reg-total.lg\:hidden { display: none; } }
+
+/* Barre d'outils : une seule bande ivoire, contrôles de même hauteur et mêmes angles. */
+.societes-ledger-page .ledger-work-surface .operational-ledger-toolbar { background: #FBF8F1; padding: 12px 16px; }
+.societes-ledger-page .reg-seg { padding: 3px; gap: 2px; height: 42px; align-items: center; border: 1px solid #c3cbd9; border-radius: 10px; background: hsl(var(--card)); }
+.societes-ledger-page .reg-seg button { height: 34px; padding: 0 14px; border-radius: 7px; color: hsl(var(--primary) / .75); }
+.societes-ledger-page .reg-seg button[aria-selected="true"] { background: hsl(var(--primary)); color: #fff; box-shadow: none; }
+.societes-ledger-page .reg-seg button[aria-selected="true"] span { color: rgba(255, 255, 255, .85); }
+.societes-ledger-page .ledger-work-surface .operational-ledger-toolbar .border-input { height: 42px; border-radius: 10px; }
+.societes-ledger-page .ledger-work-surface .operational-ledger-toolbar input { height: 100%; background: transparent; }
+.societes-ledger-page .operational-ledger-toolbar button { border-radius: 10px; }
+.societes-ledger-page .operational-ledger-toolbar .reg-seg button { border-radius: 7px; }
+
+/* Mobile : tableau resserré (Société, Dossiers, Retard), la ligne s'ouvre au toucher. */
+.reg-mobile-entete { display: grid; grid-template-columns: minmax(0, 1fr) 62px 62px 32px; gap: 0; padding: 9px 12px 9px 16px; background: #FBF8F1; border-bottom: 2px solid hsl(var(--primary)); font-size: 9.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: hsl(var(--primary) / .75); }
+.reg-mobile-entete span:nth-child(n+2) { text-align: right; }
+.reg-mobile-ligne { display: grid; grid-template-columns: minmax(0, 1fr) 62px 62px 32px; align-items: center; gap: 0; padding: 11px 12px 11px 16px; border-bottom: 1px solid #eceff4; min-width: 0; }
+.reg-mobile-ligne:has(> [role="checkbox"]) { grid-template-columns: 28px minmax(0, 1fr) 62px 62px; }
+.reg-mobile-ligne__nom { min-width: 0; }
+.reg-mobile-ligne__nom button { display: block; max-width: 100%; text-align: left; }
+.reg-mobile-ligne__nom b { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.3; color: hsl(var(--primary)); overflow-wrap: anywhere; }
+.reg-mobile-ligne__nom small { display: block; margin-top: 2px; font-size: 11px; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.reg-mobile-ligne > .reg-num { text-align: right; }
+.reg-mobile-ligne:nth-child(n) .reg-num { padding-right: 4px; }
+@media (min-width: 1024px) { .reg-mobile-entete { display: none; } }

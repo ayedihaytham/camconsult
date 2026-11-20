@@ -1,24 +1,18 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { FileSpreadsheet, FileText, FolderTree, Image as ImageIcon } from "lucide-react";
+import { FileSpreadsheet, FileText, Image as ImageIcon, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { THEME_BAR } from "@/lib/societeTheme";
-import { anneeDuLibelle, comptesParMois, fichiersDuMois, MOIS_COMPLETS, MOIS_COURTS } from "@/lib/structurationMois";
+import { anneeDuLibelle, comptesParMois, fichiersDuMois, MOIS_COMPLETS } from "@/lib/structurationMois";
 import type { Noeud, Societe } from "@/types";
 import { SelecteursSocieteAnnee, useGroupeAnnee } from "./useGroupeAnnee";
+import "./structuration-armoire.css";
 
 /**
- * Organigramme d'UNE société à la fois (sélecteur en haut) : un arbre vertical qui tient toujours dans la largeur de l'écran.
- * Société, puis année, puis une ligne par dossier avec ses 12 mois sur la même ligne (un fichier est rangé sous le mois de sa
- * date d'ajout). Un clic sur un mois affiche ses fichiers dans le volet de droite, sans quitter le schéma ni faire défiler la page.
+ * Organigramme d'UNE société à la fois (sélecteur en haut) : un schéma de gauche à droite, Société → Armoire (le dossier de l'année) → Tiroirs.
+ * Chaque tiroir porte sa jauge et son nombre de fichiers ; un clic sur un tiroir affiche à droite ses douze mois (un fichier est rangé sous le mois
+ * de sa date d'ajout), puis les fichiers du mois choisi, sans quitter le schéma.
  */
-const GENERIC_BAR = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"];
-
-interface MoisChoisi {
-  node: Noeud;
-  mois: number;
-  annee: number | null;
-}
+const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 
 function countDescendants(id: string, nodes: Noeud[]): { dossiers: number; fichiers: number } {
   let dossiers = 0;
@@ -37,8 +31,6 @@ function countDescendants(id: string, nodes: Noeud[]): { dossiers: number; fichi
   return { dossiers, fichiers };
 }
 
-const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
-
 function fileIcon(format: string | undefined) {
   const f = (format ?? "").toLowerCase();
   if (/^(xlsx?|csv|ods)$/.test(f)) return FileSpreadsheet;
@@ -46,175 +38,217 @@ function fileIcon(format: string | undefined) {
   return FileText;
 }
 
+interface Armoire {
+  root: Noeud;
+  annuel: Noeud;
+  annee: number | null;
+  tiroirs: { dossier: Noeud; fichiers: number }[];
+}
+
 export function OrganigrammeView({
   nodes,
   roots,
   getSocieteById,
   onOpenNode,
+  onDeposer,
   actions,
 }: {
   nodes: Noeud[];
   roots: Noeud[];
   getSocieteById: (id: string | null) => Societe | null;
   onOpenNode: (n: Noeud) => void;
+  /** Dépose des fichiers dans un tiroir (sans fichiers : ouvre le choix de fichiers) ; absent, le bouton « Déposer » n'est pas proposé. */
+  onDeposer?: (dossier: Noeud, fichiers?: File[]) => void;
   /** Boutons de la barre (ajouter une arborescence, instancier pour toutes les sociétés). */
   actions?: ReactNode;
 }) {
   // Un organigramme par société (choisie en haut) plutôt que toutes côte à côte : chaque schéma reste lisible.
   const { groupes, groupe, setChoix, annees, annee, setAnneeChoix, sansArborescence } = useGroupeAnnee(nodes, roots, getSocieteById);
-  const [moisChoisi, setMoisChoisi] = useState<MoisChoisi | null>(null);
+  const [tiroirId, setTiroirId] = useState<string | null>(null);
+  const [mois, setMois] = useState<number | null>(null);
 
-  const fichiersDuChoix = moisChoisi ? fichiersDuMois(moisChoisi.node.id, nodes, moisChoisi.annee, moisChoisi.mois) : [];
+  const armoires: Armoire[] = useMemo(
+    () =>
+      (groupe?.roots ?? []).flatMap((root) =>
+        nodes
+          .filter((n) => n.parentId === root.id && n.type === "dossier" && (annee === null || (anneeDuLibelle(n.libelle) ?? annee) === annee))
+          .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }))
+          .map((annuel) => ({
+            root,
+            annuel,
+            annee: annee ?? anneeDuLibelle(annuel.libelle),
+            tiroirs: nodes
+              .filter((n) => n.parentId === annuel.id && n.type === "dossier")
+              .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }))
+              .map((dossier) => ({ dossier, fichiers: countDescendants(dossier.id, nodes).fichiers })),
+          })),
+      ),
+    [groupe, nodes, annee],
+  );
+
+  // Tiroir affiché à droite : celui que l'on a cliqué ; sinon le premier qui contient des fichiers, ou le premier de la liste.
+  const tous = armoires.flatMap((a) => a.tiroirs.map((t) => ({ ...t, armoire: a })));
+  const choisi = tous.find((t) => t.dossier.id === tiroirId) ?? tous.find((t) => t.fichiers > 0) ?? tous[0] ?? null;
+  const comptes = useMemo(() => (choisi ? comptesParMois(choisi.dossier.id, nodes, choisi.armoire.annee) : new Array<number>(12).fill(0)), [choisi, nodes]);
+  const fichiersDuChoix = choisi && mois !== null ? fichiersDuMois(choisi.dossier.id, nodes, choisi.armoire.annee, mois) : [];
+  const maintenant = new Date();
+  const maxFichiers = Math.max(1, ...tous.map((t) => t.fichiers));
+  const maxMois = Math.max(1, ...comptes);
+
+  const reinitialiser = () => {
+    setTiroirId(null);
+    setMois(null);
+  };
 
   return (
-    <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-xl border border-border bg-card lg:h-[calc(100dvh-15rem)]">
-      <SelecteursSocieteAnnee
-        groupes={groupes}
-        groupe={groupe}
-        onGroupe={(cle) => {
-          setChoix(cle);
-          setMoisChoisi(null);
-        }}
-        annees={annees}
-        annee={annee}
-        onAnnee={(a) => {
-          setAnneeChoix(a);
-          setMoisChoisi(null);
-        }}
-        droite={actions}
-      />
+    <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]">
+      <div className="struct-bande border-b border-border">
+        <SelecteursSocieteAnnee
+          groupes={groupes}
+          groupe={groupe}
+          onGroupe={(cle) => {
+            setChoix(cle);
+            reinitialiser();
+          }}
+          annees={annees}
+          annee={annee}
+          onAnnee={(a) => {
+            setAnneeChoix(a);
+            reinitialiser();
+          }}
+          droite={actions}
+        />
+      </div>
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="min-h-0 overflow-y-auto px-4 py-3">
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-h-0 overflow-x-auto bg-[#F6F7FA] px-4 py-5 lg:px-7 lg:py-7">
           {sansArborescence && <p className="py-3 text-sm text-muted-foreground">La société active n'a pas encore d'arborescence : choisissez une autre société ou créez-en une.</p>}
-          {(groupe?.roots ?? []).map((root, i) => {
+          {armoires.map(({ root, annuel, tiroirs }) => {
             const societe = getSocieteById(root.societeId);
-            const barre = societe ? THEME_BAR[societe.theme] : GENERIC_BAR[i % GENERIC_BAR.length];
             const { dossiers, fichiers } = countDescendants(root.id, nodes);
-            const enfants = nodes
-              .filter((n) => n.parentId === root.id && n.type === "dossier" && (annee === null || (anneeDuLibelle(n.libelle) ?? annee) === annee))
-              .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }));
+            const totalArmoire = tiroirs.reduce((t, x) => t + x.fichiers, 0);
             return (
-              <div key={root.id} className="mb-4 last:mb-0">
-                <div className="flex flex-wrap items-baseline gap-x-4 border-b border-border py-2">
-                  <span className={cn("mr-2 inline-block h-4 w-1 self-center rounded-full", barre)} aria-hidden="true" />
-                  <button type="button" onClick={() => onOpenNode(root)} className="flex items-center gap-2 text-base font-bold uppercase hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <FolderTree className="size-4 text-muted-foreground" aria-hidden="true" />
-                    {root.libelle}
+              <div key={annuel.id} className="struct-schema">
+                <div className="struct-schema__niveaux">
+                  <button type="button" onClick={() => onOpenNode(root)} className="struct-boite struct-boite--societe focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Ouvrir le dossier de la société">
+                    <span className="struct-boite__eb">Société</span>
+                    <b>{root.libelle}</b>
+                    <small>{societe ? `${societe.code} · ${societe.theme}` : `${pluriel(dossiers, "dossier")} · ${pluriel(fichiers, "fichier")}`}</small>
                   </button>
-                  <span className="text-sm text-muted-foreground">{pluriel(dossiers, "dossier")} · {pluriel(fichiers, "fichier")}</span>
+                  <span className="struct-lien" aria-hidden="true" />
+                  <button type="button" onClick={() => onOpenNode(annuel)} className="struct-boite struct-boite--armoire focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Ouvrir l'armoire">
+                    <span className="struct-boite__eb">Armoire</span>
+                    <b>{annuel.libelle}</b>
+                    <small>{pluriel(tiroirs.length, "tiroir")} · {pluriel(totalArmoire, "fichier")}</small>
+                  </button>
+                  <span className="struct-lien struct-lien--branche" aria-hidden="true" />
                 </div>
-                {enfants.map((annuel) => (
-                  <BrancheAnnee key={annuel.id} dossier={annuel} nodes={nodes} annee={annee ?? anneeDuLibelle(annuel.libelle)} moisChoisi={moisChoisi} onOpenNode={onOpenNode} onChoisirMois={setMoisChoisi} />
-                ))}
-                {enfants.length === 0 && <p className="py-3 text-sm text-muted-foreground">Aucun dossier pour cette année.</p>}
+                {tiroirs.length === 0 ? (
+                  <p className="py-3 text-sm text-muted-foreground">Aucun tiroir : ajoutez des dossiers à ce dossier d'année.</p>
+                ) : (
+                  <ul className="struct-tiroirs-schema" aria-label={`Tiroirs de ${annuel.libelle}`}>
+                    {tiroirs.map(({ dossier, fichiers: nb }) => {
+                      const actif = choisi?.dossier.id === dossier.id;
+                      return (
+                        <li key={dossier.id}>
+                          <button
+                            type="button"
+                            aria-pressed={actif}
+                            aria-label={`Tiroir ${dossier.libelle}, ${pluriel(nb, "fichier")}`}
+                            onClick={() => {
+                              setTiroirId(dossier.id);
+                              setMois(null);
+                            }}
+                            onDoubleClick={() => onOpenNode(dossier)}
+                            className={cn("struct-carte-tiroir focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", actif && "is-actif")}
+                          >
+                            <span className="struct-carte-tiroir__nom">{dossier.libelle}</span>
+                            <i className="struct-carte-tiroir__jauge" aria-hidden="true">
+                              <b style={{ width: `${Math.round((nb / maxFichiers) * 100)}%` }} />
+                            </i>
+                            <span className={cn("struct-carte-tiroir__nb", nb === 0 && "is-zero")}>{nb}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
             );
           })}
+          {armoires.length === 0 && !sansArborescence && <p className="py-3 text-sm text-muted-foreground">Aucun dossier pour cette année.</p>}
         </div>
 
-        <aside aria-label="Fichiers du mois" className="min-h-0 overflow-y-auto border-t border-border bg-card px-4 py-4 lg:border-l lg:border-t-0">
-          {moisChoisi ? (
+        <aside aria-label="Détail du tiroir" className="min-h-0 border-t border-border bg-card lg:border-l lg:border-t-0">
+          {choisi ? (
             <>
-              <h3 className="text-base font-bold uppercase">
-                {moisChoisi.node.libelle} · {MOIS_COMPLETS[moisChoisi.mois]}{moisChoisi.annee ? ` ${moisChoisi.annee}` : ""}
-              </h3>
-              {fichiersDuChoix.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">Aucun fichier ce mois-ci.</p>
-              ) : (
-                <ul className="mt-2 divide-y divide-border text-sm">
-                  {fichiersDuChoix.map((f) => {
-                    const Icone = fileIcon(f.format);
-                    return (
-                      <li key={f.id} className="flex items-center gap-2 py-1.5">
-                        <Icone className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        <span className="min-w-0 break-words uppercase">{f.libelle}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
+              <div className="border-b border-border px-5 pb-3 pt-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tiroir</p>
+                <h3 className="struct-titre text-xl leading-tight text-primary">{choisi.dossier.libelle}</h3>
+                <p className="text-xs text-muted-foreground">{pluriel(choisi.fichiers, "fichier")} · {choisi.armoire.annuel.libelle}</p>
+              </div>
+              <ul className="px-5 py-1.5" aria-label={`Mois de ${choisi.dossier.libelle}`}>
+                {MOIS_COMPLETS.map((nom, i) => {
+                  const n = comptes[i];
+                  const actuel = choisi.armoire.annee === maintenant.getFullYear() && i === maintenant.getMonth();
+                  return (
+                    <li key={nom}>
+                      <button
+                        type="button"
+                        aria-pressed={mois === i}
+                        title={`${nom} : ${pluriel(n, "fichier")}`}
+                        aria-label={`${nom} : ${pluriel(n, "fichier")}`}
+                        onClick={() => setMois(i)}
+                        className={cn("struct-mois focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", mois === i && "is-actif", actuel && "is-courant")}
+                      >
+                        <span className="struct-mois__nom">{nom}</span>
+                        <i className="struct-mois__jauge" aria-hidden="true">
+                          <b style={{ width: `${Math.round((n / maxMois) * 100)}%` }} />
+                        </i>
+                        <span className={cn("struct-mois__nb", n === 0 && "is-zero")}>{n === 0 ? "Aucun" : pluriel(n, "fichier")}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {mois !== null && (
+                <div className="border-t border-border px-5 py-3" aria-label="Fichiers du mois" role="region">
+                  <h4 className="text-sm font-bold text-primary">
+                    {choisi.dossier.libelle} · {MOIS_COMPLETS[mois]}{choisi.armoire.annee ? ` ${choisi.armoire.annee}` : ""}
+                  </h4>
+                  {fichiersDuChoix.length === 0 ? (
+                    <p className="mt-1 text-sm text-muted-foreground">Aucun fichier ce mois-ci.</p>
+                  ) : (
+                    <ul className="mt-1 divide-y divide-border text-sm">
+                      {fichiersDuChoix.map((f) => {
+                        const Icone = fileIcon(f.format);
+                        return (
+                          <li key={f.id} className="flex items-center gap-2 py-1.5">
+                            <Icone className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            <span className="min-w-0 break-words">{f.libelle}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               )}
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => onOpenNode(moisChoisi.node)}>
-                Ouvrir le dossier
-              </Button>
+              <div className="flex flex-wrap gap-2 border-t border-border px-5 py-3.5">
+                {onDeposer && (
+                  <Button type="button" variant="ledger" size="sm" className="flex-1" aria-label={`Déposer dans ${choisi.dossier.libelle}`} onClick={() => onDeposer(choisi.dossier)}>
+                    <Plus className="size-4" aria-hidden="true" /> Déposer dans {choisi.dossier.libelle}
+                  </Button>
+                )}
+                <Button type="button" variant="outline" size="sm" onClick={() => onOpenNode(choisi.dossier)}>
+                  Ouvrir le dossier
+                </Button>
+              </div>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">Cliquez un mois pour voir ses fichiers ici, sans quitter le schéma.</p>
+            <p className="px-5 py-5 text-sm text-muted-foreground">Choisissez un tiroir pour voir ses mois et ses fichiers ici, sans quitter le schéma.</p>
           )}
         </aside>
       </div>
     </div>
-  );
-}
-
-/** Un dossier d'année (« Comptabilité générale 2026 ») : son titre, puis une ligne par dossier avec ses 12 mois. */
-function BrancheAnnee({ dossier, nodes, annee, moisChoisi, onOpenNode, onChoisirMois }: {
-  dossier: Noeud;
-  nodes: Noeud[];
-  annee: number | null;
-  moisChoisi: MoisChoisi | null;
-  onOpenNode: (n: Noeud) => void;
-  onChoisirMois: (m: MoisChoisi) => void;
-}) {
-  const dossiers = nodes.filter((n) => n.parentId === dossier.id && n.type === "dossier").sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }));
-  return (
-    <div className="ml-3 border-l border-border pl-3">
-      <div className="flex flex-wrap items-baseline gap-x-4 py-2">
-        <button type="button" onClick={() => onOpenNode(dossier)} className="text-sm font-bold uppercase hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {dossier.libelle}
-        </button>
-        <span className="text-xs text-muted-foreground">{pluriel(dossiers.length, "dossier")}</span>
-      </div>
-      <ul>
-        {dossiers.map((d) => (
-          <LigneDossier key={d.id} dossier={d} nodes={nodes} annee={annee} moisChoisi={moisChoisi} onOpenNode={onOpenNode} onChoisirMois={onChoisirMois} />
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** Une ligne : le nom du dossier, son nombre de fichiers et les 12 mois. */
-function LigneDossier({ dossier, nodes, annee, moisChoisi, onOpenNode, onChoisirMois }: {
-  dossier: Noeud;
-  nodes: Noeud[];
-  annee: number | null;
-  moisChoisi: MoisChoisi | null;
-  onOpenNode: (n: Noeud) => void;
-  onChoisirMois: (m: MoisChoisi) => void;
-}) {
-  const comptes = useMemo(() => comptesParMois(dossier.id, nodes, annee), [dossier.id, nodes, annee]);
-  const fichiers = useMemo(() => countDescendants(dossier.id, nodes).fichiers, [dossier.id, nodes]);
-  return (
-    <li className="grid items-center gap-x-3 gap-y-1.5 border-t border-border py-1.5 md:grid-cols-[11rem_minmax(0,1fr)]">
-      <div className="flex min-w-0 items-baseline gap-2 pl-2">
-        <button type="button" onClick={() => onOpenNode(dossier)} className="truncate text-sm font-semibold uppercase hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Ouvrir le dossier">
-          {dossier.libelle}
-        </button>
-        <span className="shrink-0 text-xs text-muted-foreground">{pluriel(fichiers, "fichier")}</span>
-      </div>
-      <ul className="grid grid-cols-6 gap-1 lg:grid-cols-12" aria-label={`Mois de ${dossier.libelle}`}>
-        {MOIS_COURTS.map((m, i) => {
-          const choisi = moisChoisi?.node.id === dossier.id && moisChoisi.mois === i;
-          return (
-            <li key={m}>
-              <button
-                type="button"
-                aria-pressed={choisi}
-                title={`${MOIS_COMPLETS[i]} : ${pluriel(comptes[i], "fichier")}`}
-                onClick={() => onChoisirMois({ node: dossier, mois: i, annee })}
-                className={cn(
-                  "w-full rounded border px-0.5 py-1 text-center text-[11px] font-semibold tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  comptes[i] > 0 ? "border-success/40 bg-success/10 text-success hover:bg-success/20" : "border-border bg-secondary/40 text-muted-foreground hover:bg-secondary",
-                  choisi && "ring-2 ring-accent",
-                )}
-              >
-                {m}{comptes[i] > 0 ? ` · ${comptes[i]}` : ""}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </li>
   );
 }

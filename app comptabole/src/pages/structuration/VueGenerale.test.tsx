@@ -178,3 +178,47 @@ describe("vue générale : plusieurs armoires", () => {
     expect(screen.queryByRole("tablist", { name: "Armoires de la société" })).toBeNull();
   });
 });
+
+describe("vue générale : coller et glisser des fichiers", () => {
+  const fichier = new File(["x"], "releve.pdf", { type: "application/pdf" });
+  const collage = { clipboardData: { files: [fichier], items: [], types: ["Files"] } };
+
+  it("coller dans la zone de dépôt (Ctrl + V ou clic droit → Coller) dépose dans le tiroir ouvert", () => {
+    const onDeposer = vi.fn();
+    afficher({ onDeposer });
+    fireEvent.paste(screen.getByRole("textbox", { name: /Zone de dépôt du tiroir achat/ }), collage);
+    expect(onDeposer).toHaveBeenCalledTimes(1);
+    expect(onDeposer).toHaveBeenCalledWith(NODES[2], [fichier]);
+  });
+
+  it("Ctrl + V n'importe où dans la vue dépose dans le tiroir ouvert ; un champ de saisie garde son collage de texte", () => {
+    const onDeposer = vi.fn();
+    afficher({ onDeposer });
+    fireEvent.click(screen.getByRole("tab", { name: "Tiroir vente, 0 fichier" }));
+    fireEvent.paste(document.body, collage);
+    expect(onDeposer).toHaveBeenCalledTimes(1);
+    expect(onDeposer).toHaveBeenLastCalledWith(NODES[3], [fichier]);
+    fireEvent.paste(screen.getByRole("textbox", { name: "Chercher un fichier" }), collage);
+    expect(onDeposer).toHaveBeenCalledTimes(1);
+  });
+
+  it("un collage sans fichier (texte) ne dépose rien, et sans droit de dépôt la zone n'existe pas", () => {
+    const onDeposer = vi.fn();
+    afficher({ onDeposer });
+    fireEvent.paste(document.body, { clipboardData: { files: [], items: [], types: ["text/plain"] } });
+    expect(onDeposer).not.toHaveBeenCalled();
+    cleanup();
+    afficher();
+    expect(screen.queryByRole("textbox", { name: /Zone de dépôt/ })).toBeNull();
+  });
+
+  it("des fichiers lâchés ailleurs dans la vue (hors du tableau) vont dans le tiroir ouvert, une seule fois", () => {
+    const onDeposer = vi.fn();
+    afficher({ onDeposer });
+    fireEvent.drop(screen.getByRole("button", { name: "Ajouter une arborescence" }), { dataTransfer: { files: [fichier], types: ["Files"] } });
+    expect(onDeposer).toHaveBeenCalledTimes(1);
+    expect(onDeposer).toHaveBeenCalledWith(NODES[2], [fichier]);
+    fireEvent.drop(screen.getByRole("region", { name: "Contenu du tiroir achat" }), { dataTransfer: { files: [fichier], types: ["Files"] } });
+    expect(onDeposer).toHaveBeenCalledTimes(2);
+  });
+});

@@ -636,7 +636,7 @@ export function StructurationPage() {
               onSelectedIdsChange={setSelectedIds}
               afficherSociete={filtreSocieteUtile}
               barre={
-                <div data-tour="structuration-search" className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+                <div data-tour="structuration-search" className="flex flex-wrap items-center gap-2 border-b border-border bg-[#FBF8F1] p-3">
                   <div className="relative min-w-[12rem] max-w-[460px] flex-1">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -644,10 +644,10 @@ export function StructurationPage() {
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder="Rechercher un dossier ou un fichier"
                       aria-label="Rechercher un dossier ou un fichier"
-                      className="h-10 bg-muted/40 pl-9"
+                      className="h-10 rounded-[10px] bg-card pl-9"
                     />
                   </div>
-                  <div role="group" aria-label="Type d'élément" className="flex items-center gap-1">
+                  <div role="group" aria-label="Type d'élément" className="flex items-center gap-0.5 rounded-[10px] border border-[#c3cbd9] bg-card p-[3px]">
                     {([
                       ["all", "Tout"],
                       ["dossier", "Dossiers"],
@@ -659,10 +659,10 @@ export function StructurationPage() {
                         aria-pressed={typeFilter === valeur}
                         onClick={() => setTypeFilter(valeur)}
                         className={cn(
-                          "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
+                          "h-8 rounded-[7px] px-3.5 text-xs font-semibold transition-colors",
                           typeFilter === valeur
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+                            ? "bg-primary text-primary-foreground"
+                            : "text-primary/75 hover:bg-secondary hover:text-primary",
                         )}
                       >
                         {libelle}
@@ -773,6 +773,7 @@ export function StructurationPage() {
               roots={roots}
               getSocieteById={getSocieteById}
               onOpenNode={openFolder}
+              onDeposer={canAddFile ? (dossier, fichiers) => { setUploadFiles(fichiers ?? []); setUploadParent(dossier.id); } : undefined}
             />
           )}
         </div>

@@ -218,12 +218,12 @@ export function FileTree({
       : {};
 
   return (
-    <div className="overflow-hidden rounded-sm border border-border bg-card">
+    <div className="overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]">
     {barre}
-    <div className="grid lg:grid-cols-[240px_1fr]">
+    <div className="grid lg:grid-cols-[300px_1fr]">
       {/* Colonne arbre */}
-      <div className="min-w-0 border-b border-border bg-muted/40 p-2 lg:border-b-0 lg:border-r">
-        {canCreate && <div className="flex items-center justify-between px-2 py-1.5">
+      <div className="hidden min-w-0 border-b border-border bg-[#FBF8F1] lg:block lg:border-b-0 lg:border-r">
+        {canCreate && <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Dossiers
           </span>
@@ -242,16 +242,16 @@ export function FileTree({
           onClick={() => onNavigate(null)}
           {...dropProps(null, "root")}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-secondary",
-            currentId === null && "bg-accent/15 font-semibold",
+            "flex w-full items-center gap-2 border-b border-dotted border-[#c3cbd9] px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-card/70",
+            currentId === null && "bg-card font-bold shadow-[inset_3px_0_0_#c9a96a]",
             dropTarget === "root" && "ring-2 ring-accent",
           )}
         >
           <Home className="h-4 w-4 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate text-left uppercase">{nomRacine}</span>
-          <span className="text-xs font-normal text-muted-foreground">{totalFichiers}</span>
+          <span className="min-w-0 flex-1 break-words text-left uppercase leading-snug">{nomRacine}</span>
+          <span className="text-xs font-bold tabular-nums text-muted-foreground">{totalFichiers}</span>
         </button>
-        <div className="mt-1 space-y-0.5">
+        <div>
           {childrenOf(null)
             .filter((n) => n.type === "dossier")
             .map((n) => (
@@ -274,7 +274,7 @@ export function FileTree({
       {/* Colonne contenu */}
       <div className="min-w-0">
         {/* Fil d'Ariane */}
-        <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-3 text-sm">
+        <div className="flex flex-wrap items-center gap-1 border-b border-border bg-card px-4 py-3 text-sm">
           <button
             onClick={() => onNavigate(null)}
             className="flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -290,7 +290,7 @@ export function FileTree({
                 className={cn(
                   "rounded px-1.5 py-0.5 uppercase transition-colors hover:bg-secondary",
                   n.id === currentId
-                    ? "font-medium text-foreground"
+                    ? "font-bold text-primary"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -392,6 +392,14 @@ export function FileTree({
               </div>
             );
           })()}
+          <div className="hidden items-center gap-3 border-b-2 border-primary bg-[#FBF8F1] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground sm:flex" aria-hidden="true">
+            {onSelectedIdsChange && canDelete && <span className="w-4 shrink-0" />}
+            <span className="min-w-0 flex-1">Nom</span>
+            <span className="w-16 shrink-0">Type</span>
+            <span className="w-24 shrink-0 text-right">Taille</span>
+            <span className="w-28 shrink-0 pl-3">Modifié</span>
+            <span className="w-[76px] shrink-0" />
+          </div>
           <ul>
             {currentChildren.map((n, i) => {
               const isFolder = n.type === "dossier";
@@ -405,12 +413,8 @@ export function FileTree({
                   {...dragProps(n)}
                   {...(isFolder ? dropProps(n.id, n.id) : {})}
                   className={cn(
-                    "group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-secondary/50",
-                    i === currentChildren.length - 1
-                      ? ""
-                      : (i + 1) % 5 === 0
-                        ? "border-b-[1.5px] border-rule-strong"
-                        : "border-b border-border",
+                    "group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[#FBF8F1]",
+                    i === currentChildren.length - 1 ? "" : "border-b border-[#eceff4]",
                     canEdit && "cursor-grab active:cursor-grabbing",
                     dragId === n.id && "opacity-40",
                     isDropHere && "bg-accent/10 ring-1 ring-inset ring-accent",
@@ -431,14 +435,14 @@ export function FileTree({
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
                     {isFolder ? (
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/15">
-                        <Folder className="h-4 w-4 fill-amber-300 text-amber-500" />
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15">
+                        <Folder className="h-4 w-4 fill-accent/60 text-accent" />
                       </span>
                     ) : (
                       <FileTypeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium uppercase text-foreground">
+                      <span className="block break-words text-sm font-semibold uppercase leading-snug text-primary">
                         {n.libelle}
                       </span>
                       {(resultats || (afficherSociete && n.parentId === null)) && (
@@ -459,14 +463,15 @@ export function FileTree({
                     </span>
                   </button>
 
-                  {!isFolder && n.format && (
-                    <span className="hidden shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground sm:block">
-                      {n.format}
-                    </span>
-                  )}
+                  <span className="hidden w-16 shrink-0 text-xs font-semibold uppercase text-muted-foreground sm:block">
+                    {isFolder ? "Dossier" : n.format ?? "—"}
+                  </span>
 
-                  <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
-                    {!isFolder && n.taille ? `${n.taille} · ` : ""}
+                  <span className="hidden w-24 shrink-0 text-right text-xs tabular-nums text-muted-foreground sm:block">
+                    {!isFolder && n.taille ? n.taille : "—"}
+                  </span>
+
+                  <span className="hidden w-28 shrink-0 pl-3 text-xs tabular-nums text-muted-foreground sm:block">
                     {formatDate(n.majLe)}
                   </span>
 
@@ -481,6 +486,7 @@ export function FileTree({
                       <Eye className="h-4 w-4" />
                     </Button>
                   )}
+                  {isFolder && <span className="size-8 shrink-0" aria-hidden="true" />}
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -610,11 +616,11 @@ function TreeBranch({
         {...dragProps(node)}
         {...dropProps(node.id, node.id)}
         className={cn(
-          "flex min-w-0 items-center rounded-md text-sm transition-colors hover:bg-secondary",
-          active && (compteur ? "bg-accent/15 font-semibold" : "bg-secondary font-medium"),
+          "flex min-w-0 items-center border-b border-dotted border-[#c3cbd9] text-sm transition-colors hover:bg-card/70",
+          active && (compteur ? "bg-card font-bold shadow-[inset_3px_0_0_#c9a96a]" : "bg-secondary font-medium"),
           dropTarget === node.id && "ring-2 ring-inset ring-accent",
         )}
-        style={{ paddingLeft: depth * 12 }}
+        style={{ paddingLeft: 10 + depth * 14 }}
       >
         <button
           onClick={() => setOpen((o) => !o)}
@@ -636,12 +642,12 @@ function TreeBranch({
           className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pr-2 text-left"
         >
           {active ? (
-            <FolderOpen className="h-4 w-4 shrink-0 fill-amber-300 text-amber-500" />
+            <FolderOpen className="h-4 w-4 shrink-0 fill-accent/60 text-accent" />
           ) : (
-            <Folder className="h-4 w-4 shrink-0 fill-amber-300 text-amber-500" />
+            <Folder className="h-4 w-4 shrink-0 fill-accent/60 text-accent" />
           )}
-          <span className="min-w-0 flex-1 truncate uppercase">{node.libelle}</span>
-          {compteur && <span className="text-xs font-normal text-muted-foreground">{compteur(node.id)}</span>}
+          <span className="min-w-0 flex-1 break-words uppercase leading-snug">{node.libelle}</span>
+          {compteur && <span className="text-xs font-bold tabular-nums text-muted-foreground">{compteur(node.id)}</span>}
         </button>
       </div>
       {open &&

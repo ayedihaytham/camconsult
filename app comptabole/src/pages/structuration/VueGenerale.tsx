@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ClipboardEvent as ReactClipboardEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, FolderOpen, Plus, Search, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { anneeDuLibelle } from "@/lib/structurationMois";
 import { cn, formatDate } from "@/lib/utils";
 import type { Noeud, Societe } from "@/types";
 import { SelecteursSocieteAnnee, useGroupeAnnee } from "./useGroupeAnnee";
+import "./structuration-armoire.css";
 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 
@@ -24,6 +25,55 @@ function fichiersDe(dossier: Noeud, nodes: Noeud[]): { fichier: Noeud; sous: Noe
 }
 
 const aDesFichiers = (e: DataTransfer | null) => Boolean(e && Array.from(e.types).includes("Files"));
+
+/** Fichiers d'un collage (Ctrl + V ou clic droit → Coller) : fichiers copiés depuis l'explorateur, ou capture d'écran / image du presse-papiers. */
+export function fichiersDuPressePapiers(data: DataTransfer | null): File[] {
+  if (!data) return [];
+  const liste = Array.from(data.files ?? []);
+  if (liste.length > 0) return liste;
+  return Array.from(data.items ?? []).flatMap((item) => {
+    const fichier = item.kind === "file" ? item.getAsFile() : null;
+    return fichier ? [fichier] : [];
+  });
+}
+
+/** Zone de dépôt du tiroir : on y glisse des fichiers, ou on les colle (Ctrl + V ; clic droit → Coller, menu natif du navigateur).
+ * C'est un champ de saisie bloqué : le navigateur propose « Coller » dans son menu contextuel, et le collage ne dépose jamais de texte. */
+function ZoneDepot({ tiroir, actif, compact, onFichiers }: { tiroir: string; actif: boolean; compact: boolean; onFichiers: (fichiers: File[]) => void }) {
+  return (
+    <div
+      role="textbox"
+      aria-label={`Zone de dépôt du tiroir ${tiroir} : glissez des fichiers ici ou collez-les`}
+      aria-multiline="false"
+      tabIndex={0}
+      contentEditable
+      suppressContentEditableWarning
+      spellCheck={false}
+      onPaste={(e: ReactClipboardEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const fichiers = fichiersDuPressePapiers(e.clipboardData);
+        if (fichiers.length > 0) onFichiers(fichiers);
+      }}
+      onBeforeInput={(e) => e.preventDefault()}
+      onCut={(e) => e.preventDefault()}
+      onKeyDown={(e) => {
+        if (e.ctrlKey || e.metaKey || e.key === "Tab" || e.key === "Escape") return;
+        e.preventDefault();
+      }}
+      className={cn(
+        "flex cursor-copy select-none items-center gap-3 rounded-xl border-2 border-dashed bg-[#FBF8F1] text-muted-foreground caret-transparent outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring/40",
+        compact ? "mx-4 mb-3 px-4 py-2.5" : "mt-2 justify-center px-4 py-6 text-center",
+        actif ? "border-accent bg-accent/15 text-primary" : "border-input",
+      )}
+    >
+      <UploadCloud className="size-5 shrink-0 text-accent" aria-hidden="true" />
+      <span className="text-[12.5px]" contentEditable={false}>
+        <b className="font-semibold text-primary">Glissez des fichiers ici</b>, ou collez-les : copiez-les sur votre ordinateur, puis <kbd className="rounded border border-border bg-card px-1 text-[11px]">Ctrl</kbd> + <kbd className="rounded border border-border bg-card px-1 text-[11px]">V</kbd> ou clic droit → <b className="font-semibold text-primary">Coller</b>.
+      </span>
+    </div>
+  );
+}
 
 /** Vue générale de l'arborescence d'une société : la société a une ou plusieurs armoires (ses dossiers d'année) ; chaque dossier d'une armoire est un tiroir.
  * Les tiroirs sont des onglets (avec leur nombre de fichiers) ; sous les onglets, les dossiers suspendus (sous-dossiers) du tiroir filtrent un tableau de ses fichiers,
@@ -76,6 +126,29 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
   // Une seule armoire à la fois (celle que l'on choisit ; sinon la première qui contient des fichiers) : la page ne s'allonge pas avec le nombre d'armoires.
   const armoireVisible = armoires.find((a) => a.annuel.id === armoireId) ?? armoires.find((a) => a.tiroirs.some((t) => t.fichiers.length > 0)) ?? armoires[0] ?? null;
 
+  // Tiroir ouvert (même règle que l'affichage) : c'est lui qui reçoit les fichiers collés ou déposés hors de sa zone.
+  const tiroirCourant = armoireVisible
+    ? armoireVisible.tiroirs.find((t) => t.dossier.id === ouvertId) ?? armoireVisible.tiroirs.find((t) => t.fichiers.length > 0) ?? armoireVisible.tiroirs[0] ?? null
+    : null;
+
+  // Ctrl + V n'importe où dans la vue (hors d'un champ de saisie et d'une fenêtre ouverte) : les fichiers collés vont dans le tiroir ouvert.
+  useEffect(() => {
+    if (!onDeposer || !tiroirCourant) return;
+    const dossier = tiroirCourant.dossier;
+    const surCollage = (e: ClipboardEvent) => {
+      if (e.defaultPrevented) return;
+      const cible = e.target as HTMLElement | null;
+      if (cible?.closest("input, textarea, select, [contenteditable]")) return;
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
+      const fichiers = fichiersDuPressePapiers(e.clipboardData);
+      if (fichiers.length === 0) return;
+      e.preventDefault();
+      onDeposer(dossier, fichiers);
+    };
+    document.addEventListener("paste", surCollage);
+    return () => document.removeEventListener("paste", surCollage);
+  }, [onDeposer, tiroirCourant]);
+
   function choisir(id: string) {
     setOuvertId(id);
     setSousId(null);
@@ -89,9 +162,26 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
   );
 
   return (
-    <div>
-      <SelecteursSocieteAnnee groupes={groupes} groupe={groupe} onGroupe={setChoix} annees={annees} annee={annee} onAnnee={setAnneeChoix} droite={actions} />
+    <div
+      onDragOver={(e) => {
+        if (!onDeposer || e.defaultPrevented || !tiroirCourant || !aDesFichiers(e.dataTransfer)) return;
+        e.preventDefault();
+        setSurvol("depot");
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSurvol(null);
+      }}
+      onDrop={(e) => {
+        if (!onDeposer || e.defaultPrevented || !tiroirCourant || !aDesFichiers(e.dataTransfer)) return;
+        e.preventDefault();
+        setSurvol(null);
+        onDeposer(tiroirCourant.dossier, Array.from(e.dataTransfer.files));
+      }}
+    >
       <div className="overflow-hidden rounded-[14px] border border-primary/10 bg-card shadow-[0_1px_2px_hsl(var(--primary)/0.05),0_12px_32px_-18px_hsl(var(--primary)/0.18)]">
+      <div className="struct-bande border-b border-border">
+        <SelecteursSocieteAnnee groupes={groupes} groupe={groupe} onGroupe={setChoix} annees={annees} annee={annee} onAnnee={setAnneeChoix} droite={actions} />
+      </div>
 
       {armoires.length > 1 && (
         <div role="tablist" aria-label="Armoires de la société" className="flex flex-wrap gap-2 border-b border-border/80 px-3 py-2.5">
@@ -126,11 +216,12 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
         // Le tiroir choisi reste celui de l'utilisateur ; sinon le premier rempli, ou le premier de la liste.
         const choisi = tiroirs.find((t) => t.dossier.id === ouvertId) ?? tiroirs.find((t) => t.fichiers.length > 0) ?? tiroirs[0] ?? null;
         return (
-          <section key={annuel.id} aria-label={`Armoire ${annuel.libelle}`}>
+          <section key={annuel.id} aria-label={`Armoire ${annuel.libelle}`} className="struct-armoire">
+            <div className="struct-armoire__gauche">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-3 pt-4">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Armoire</p>
-                <h2 className="font-display text-xl font-extrabold leading-tight text-primary">{annuel.libelle}</h2>
+                <h2 className="struct-titre text-xl leading-tight text-primary">{annuel.libelle}</h2>
                 <p className="text-xs text-muted-foreground">{pluriel(tiroirs.length, "tiroir")} · {pluriel(total, "fichier")}</p>
               </div>
               {champRecherche}
@@ -139,7 +230,7 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
               <p className="px-4 py-6 text-sm text-muted-foreground">Aucun tiroir : ajoutez des dossiers à ce dossier d'année.</p>
             ) : (
               <>
-                <div role="tablist" aria-label={`Tiroirs de ${annuel.libelle}`} className="flex gap-0.5 overflow-x-auto border-y border-primary/10 bg-[#F4F7FB] px-3 pt-2 [scrollbar-width:thin]" data-testid="structuration-onglets">
+                <div role="tablist" aria-orientation="vertical" aria-label={`Tiroirs de ${annuel.libelle}`} className="struct-tiroirs" data-testid="structuration-onglets">
                   {tiroirs.map(({ dossier, fichiers }) => {
                     const k = fichiers.length;
                     const trouve = q !== "" && fichiers.some((f) => f.fichier.libelle.toLowerCase().includes(q));
@@ -167,20 +258,25 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
                           onDeposer(dossier, Array.from(e.dataTransfer.files));
                         }}
                         className={cn(
-                          "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3.5 py-2.5 text-[0.8125rem] uppercase tracking-[0.06em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                          actif ? "bg-card font-bold text-primary shadow-[0_-1px_0_hsl(var(--primary)/0.1)]" : "text-muted-foreground hover:text-primary",
+                          "struct-tiroir focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                          actif && "is-actif",
                           trouve && "ring-2 ring-inset ring-accent",
                           q !== "" && !trouve && "opacity-40",
                           survol === dossier.id && "bg-accent/25",
                         )}
                       >
-                        {dossier.libelle}
-                        <em className={cn("text-[0.6875rem] font-bold not-italic tabular-nums", k > 0 ? "text-success" : "text-muted-foreground/70")}>{k}</em>
+                        <span className="struct-tiroir__nom">{dossier.libelle}</span>
+                        <em className={cn("struct-tiroir__nb", k === 0 && "is-zero")}>{k}</em>
+                        <i className="struct-tiroir__jauge" aria-hidden="true"><b style={{ width: `${Math.round((k / Math.max(1, ...tiroirs.map((x) => x.fichiers.length))) * 100)}%` }} /></i>
                       </button>
                     );
                   })}
                 </div>
-
+              </>
+            )}
+            </div>
+            {tiroirs.length > 0 && (
+              <div className="struct-armoire__droite">
                 {choisi && (() => {
                   const { dossier, fichiers } = choisi;
                   const sousDossiers = nodes.filter((n) => n.parentId === dossier.id && n.type === "dossier").sort((a, b) => a.libelle.localeCompare(b.libelle, "fr", { numeric: true }));
@@ -220,6 +316,7 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
                         onDeposer(dossier, Array.from(e.dataTransfer.files));
                       }}
                     >
+                      <h3 className="struct-titre px-4 pt-3 text-lg text-primary">Tiroir {dossier.libelle}</h3>
                       <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                         {sousDossiers.length > 0 && (
                           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Dossiers suspendus">
@@ -256,16 +353,16 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
                         </span>
                       </div>
 
+                      {onDeposer && liste.length > 0 && (
+                        <ZoneDepot tiroir={dossier.libelle} actif={survol === "depot"} compact onFichiers={(fichiers) => onDeposer(dossier, fichiers)} />
+                      )}
                       {liste.length === 0 ? (
                         <div className="px-4 pb-4">
                           <p className="py-1 text-sm text-muted-foreground">
                             {q !== "" ? "Aucun fichier ne correspond à la recherche." : `Ce tiroir est vide${sousActif ? " pour ce dossier" : ""}.${onDeposer ? " Déposez un fichier pour commencer le classement." : ""}`}
                           </p>
                           {onDeposer && q === "" && (
-                            <div className="mt-2 grid place-items-center gap-1 rounded-xl border-2 border-dashed border-input bg-background/60 px-3 py-6 text-center">
-                              <UploadCloud className="size-6 text-accent" aria-hidden="true" />
-                              <span className="text-[12.5px] text-muted-foreground">Glissez des fichiers ici, ou utilisez « Déposer »</span>
-                            </div>
+                            <ZoneDepot tiroir={dossier.libelle} actif={survol === "depot"} compact={false} onFichiers={(fichiers) => onDeposer(dossier, fichiers)} />
                           )}
                         </div>
                       ) : (
@@ -326,7 +423,7 @@ export function VueGenerale({ nodes, roots, getSocieteById, onOpenNode, onPrevie
                     </section>
                   );
                 })()}
-              </>
+              </div>
             )}
           </section>
         );

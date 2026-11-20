@@ -371,7 +371,28 @@ export function Messenger({
         aria-label="Conversations"
       >
         <div className={cn("space-y-3 p-3.5", avecFiltres ? "pb-0" : "border-b border-border")}>
-          <h2 className="sr-only">Conversations</h2>
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
+              </p>
+              <h2 className="font-['Playfair_Display',Georgia,serif] text-[22px] font-semibold leading-tight text-primary">Messages</h2>
+            </div>
+            {canCreateGroup && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10 shrink-0 gap-1.5 border-transparent bg-accent px-3 font-bold text-primary shadow-none hover:bg-accent/90"
+                onClick={onCreateGroup}
+                aria-label="Nouveau groupe"
+                title="Nouveau groupe"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Groupe</span>
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <label htmlFor="messenger-search" className="sr-only">
               Rechercher une conversation
@@ -390,27 +411,10 @@ export function Messenger({
                 className="h-10 w-full rounded-[10px] bg-card pl-9"
               />
             </div>
-            {canCreateGroup && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-10 shrink-0 gap-1.5 border-transparent bg-accent px-3 font-bold text-primary shadow-none hover:bg-accent/90"
-                onClick={onCreateGroup}
-                aria-label="Nouveau groupe"
-                title="Nouveau groupe"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden 2xl:inline">Groupe</span>
-              </Button>
-            )}
           </div>
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            {conversations.length} conversation{conversations.length === 1 ? "" : "s"}
-          </p>
 
           {avecFiltres && (
-            <div className="flex flex-wrap gap-1.5 pb-2" role="group" aria-label="Filtrer les conversations">
+            <div className="-mx-3.5 flex gap-1 overflow-x-auto border-b border-border px-3.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Filtrer les conversations">
               {FILTRES.map((f) => {
                 const total = conversations.filter(f.garde).length;
                 return (
@@ -420,12 +424,12 @@ export function Messenger({
                     aria-pressed={filtre === f.value}
                     onClick={() => setFiltre(f.value)}
                     className={cn(
-                      "shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      filtre === f.value ? "border-primary bg-primary font-bold text-primary-foreground" : "border-primary/15 bg-card font-semibold text-primary hover:bg-primary/5",
+                      "-mb-px flex-1 shrink-0 whitespace-nowrap border-b-[2.5px] px-1 pb-2.5 pt-2 text-center text-[12.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      filtre === f.value ? "border-accent text-primary" : "border-transparent text-muted-foreground hover:text-primary",
                     )}
                   >
                     {f.label}
-                    <span className="ml-1 font-semibold tabular-nums opacity-80">{total}</span>
+                    <span className={cn("ml-0.5 text-xs font-bold tabular-nums", f.value === "non_lues" && total > 0 ? "rounded-full bg-accent px-1.5 py-px text-primary" : "opacity-80")}>{total}</span>
                   </button>
                 );
               })}

@@ -148,7 +148,7 @@ const TOURS = {
   },
   taches: {
     id: "taches",
-    version: 2,
+    version: 3,
     title: "Tâches",
     steps: [
       {
@@ -162,19 +162,9 @@ const TOURS = {
         body: "La recherche et les filtres réduisent la liste des tâches affichées.",
       },
       {
-        target: "tasks-views",
-        title: "Choisir une vue",
-        body: "Kanban suit les statuts, Liste compare les tâches et Gantt affiche leurs dates prévues. Les recherches et filtres sont partagés.",
-      },
-      {
         target: "tasks-board",
         title: "Suivre l’avancement",
         body: "Déplacez une tâche par sa poignée ou utilisez ses actions. Votre rôle détermine les changements autorisés.",
-      },
-      {
-        target: "tasks-gantt",
-        title: "Planifier le travail",
-        body: "Les barres correspondent au début et à la fin prévus. Les tâches sans dates restent dans Non planifiées ; leur gestionnaire peut définir la période.",
       },
       {
         target: "page-primary-action",

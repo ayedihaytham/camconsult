@@ -15,21 +15,15 @@ function mount(onStatusChange = vi.fn().mockResolvedValue(undefined)) {
   return render(<TasksKanban tasks={tasks} hasAnyTasks activeFilterCount={0} societes={[]} collaborateurs={[]} collaboratorPresence={new Map()} description="Travail du cabinet" summary={{ open: 2, todo: 1, doing: 1, done: 0 }} canManage canEditTask={() => true} canChangeStatus={() => true} onStatusChange={onStatusChange} onCreate={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} filterControls={null} filterKey="all" onResetFilters={vi.fn()} />);
 }
 describe("vues des tâches", () => {
-  it("partage la recherche entre Kanban, Liste et Tableau", () => {
+  it("filtre le Kanban par la recherche", () => {
     mount();
     fireEvent.change(screen.getAllByLabelText("Rechercher une tâche")[0], { target: { value: "TVA" } });
-    fireEvent.click(screen.getByRole("button", { name: "Tableau" }));
     expect(screen.getAllByText("Contrôle TVA").length).toBeGreaterThan(0);
     expect(screen.queryByText("Rapprochement bancaire")).toBeNull();
-    expect(screen.getByRole("button", { name: "Tableau" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "Liste" }));
-    expect(screen.getAllByText("Contrôle TVA").length).toBeGreaterThan(0);
-    expect(screen.getAllByLabelText("Rechercher une tâche")[0].getAttribute("value")).toBe("TVA");
   });
   it("sépare les poignées de déplacement des actions et restaure le statut après un échec", async () => {
     const onStatusChange = vi.fn().mockRejectedValue(new Error("Connexion"));
     const { container } = mount(onStatusChange);
-    fireEvent.click(screen.getByRole("button", { name: "Kanban" }));
     expect(screen.getByRole("button", { name: "Déplacer la tâche : Contrôle TVA" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Passer en cours : Contrôle TVA" }));
     await waitFor(() => expect(onStatusChange).toHaveBeenCalledWith(tasks[0], "en_cours"));
@@ -45,32 +39,24 @@ describe("vue par défaut et choix mémorisé par appareil", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
   };
   beforeEach(() => window.localStorage.clear());
-  const pressed = (nom: string) => screen.getByRole("button", { name: nom }).getAttribute("aria-pressed");
 
-  it("ordinateur : le Kanban est la vue par défaut et Liste, Kanban et Tableau sont proposés, sans Chronologie", () => {
-    mount();
-    expect(pressed("Kanban")).toBe("true");
-    for (const nom of ["Liste", "Kanban", "Tableau"]) expect(screen.getByRole("button", { name: nom })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Chronologie" })).toBeNull();
+  it("ordinateur : le Kanban est la seule vue, sans onglets", () => {
+    const { container } = mount();
+    expect(container.querySelector(".task-board-column")).toBeTruthy();
+    for (const nom of ["Liste", "Kanban", "Tableau", "Chronologie"]) expect(screen.queryByRole("button", { name: nom })).toBeNull();
   });
 
-  it("mobile : seule la Liste est proposée", () => {
+  it("mobile : la Liste groupée est la seule vue, sans onglets", () => {
     mobile();
-    mount();
-    expect(pressed("Liste")).toBe("true");
-    for (const nom of ["Kanban", "Tableau", "Chronologie"]) expect(screen.queryByRole("button", { name: nom })).toBeNull();
+    const { container } = mount();
+    expect(container.querySelector(".task-board-column")).toBeNull();
+    for (const nom of ["Liste", "Kanban", "Tableau", "Chronologie"]) expect(screen.queryByRole("button", { name: nom })).toBeNull();
+    expect(screen.getAllByText("Contrôle TVA").length).toBeGreaterThan(0);
   });
 
-  it("le choix est gardé séparément pour l'ordinateur et pour le mobile", () => {
-    mount();
-    fireEvent.click(screen.getByRole("button", { name: "Tableau" }));
-    expect(window.localStorage.getItem("taches-vue-bureau")).toBe("table");
-    cleanup();
-    mount();
-    expect(pressed("Tableau")).toBe("true");
-    cleanup();
-    mobile();
-    mount();
-    expect(pressed("Liste")).toBe("true");
+  it("un ancien choix mémorisé (Tableau) est ignoré", () => {
+    window.localStorage.setItem("taches-vue-bureau", "table");
+    const { container } = mount();
+    expect(container.querySelector(".task-board-column")).toBeTruthy();
   });
 });

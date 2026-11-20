@@ -24,9 +24,7 @@ import {
 } from "lucide-react";
 import type { ColumnDef, Table as TanstackTable } from "@tanstack/react-table";
 import { LedgerRowMenu } from "@/components/ledger/LedgerRowMenu";
-import { LedgerRowIcons } from "@/components/ledger/LedgerRowIcons";
 import { OperationalFab } from "@/components/ledger/OperationalFab";
-import { StatutDot } from "@/components/ledger/StatusDot";
 import { LedgerSearchFilter } from "@/components/ledger/LedgerSearchFilter";
 import {
   LedgerWorkSurface,
@@ -267,6 +265,17 @@ function SocietesUtilityMenu({
 }
 
 /** Statut d'une société : une pastille ; pour qui peut modifier, un clic ouvre le choix du statut (sans passer par la fiche). */
+/** Ligne de total du registre : toutes les sociétés du filtre en cours, pas seulement la page affichée. */
+function TotalRegistre({ total, dossiers, retards, className }: { total: number; dossiers: number; retards: number; className?: string }) {
+  return (
+    <div className={cn("reg-total", className)} aria-label="Total du registre">
+      <span className="reg-total__libelle">Total — {total} société{total > 1 ? "s" : ""}</span>
+      <span className="reg-total__chiffre"><b>{dossiers}</b> dossier{dossiers > 1 ? "s" : ""}</span>
+      <span className={cn("reg-total__chiffre", retards > 0 && "reg-total__chiffre--retard")}><b>{retards}</b> en retard</span>
+    </div>
+  );
+}
+
 function StatutRapide({ societe, modifiable, onChange }: { societe: Societe; modifiable: boolean; onChange: (statut: Statut) => void }) {
   const pastille = <span className="reg-pastille" data-statut={societe.statut}>{STATUT_LABELS[societe.statut]}</span>;
   if (!modifiable) return pastille;
@@ -315,14 +324,6 @@ export function SocietesListPage() {
   const employes = useData((s) => s.employes);
   const taches = useTaches();
   const isDataLoading = useData((s) => !s.hydrated);
-  const contactCount = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const e of employes) {
-      if (e.role === "societe_employe" && e.societeId)
-        m.set(e.societeId, (m.get(e.societeId) ?? 0) + 1);
-    }
-    return m;
-  }, [employes]);
   const voitTaches = isAdmin || isCollaborateur;
   const noeuds = useNoeuds();
   const collectes = useCollectes((state) => state.list);
@@ -645,6 +646,12 @@ export function SocietesListPage() {
     ];
   }
 
+  // Dossiers en cours et retards d'une société (mêmes sources que l'ancienne colonne « Dossiers en cours »).
+  const dossiersDe = (s: Societe) => (voitTaches ? collectesEnCours.get(s.id)?.enCours ?? 0 : dossiersParSociete.get(s.id) ?? 0);
+  const retardDe = (s: Societe) => (voitTaches ? collectesEnCours.get(s.id)?.enRetard ?? 0 : 0);
+  const totalDossiers = filtered.reduce((n, s) => n + dossiersDe(s), 0);
+  const totalRetards = filtered.reduce((n, s) => n + retardDe(s), 0);
+
   const columns: ColumnDef<Societe>[] = [
     {
       id: "selection",
@@ -699,7 +706,7 @@ export function SocietesListPage() {
       cell: ({ row }) => (
         <span className="reg-nom">{row.original.raisonSociale}</span>
       ),
-      meta: { label: "Société", icon: Building2, headerClassName: "w-[220px]", cellClassName: "max-w-[220px]" },
+      meta: { label: "Société", icon: Building2, headerClassName: "w-[26%]" },
     },
     {
       id: "code",
@@ -713,21 +720,21 @@ export function SocietesListPage() {
       accessorFn: (societe) => societe.rne,
       header: ({ column }) => <DataTableColumnHeader column={column} title="RNE" />,
       cell: ({ row }) => <span className="reg-code">{row.original.rne || "—"}</span>,
-      meta: { label: "RNE", icon: CircleDot, headerClassName: "w-[130px]" },
+      meta: { label: "RNE", icon: CircleDot, headerClassName: "w-[125px]" },
     },
     {
       id: "type",
       accessorFn: (societe) => societe.theme,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
       cell: ({ row }) => <span className="reg-texte">{row.original.theme}</span>,
-      meta: { label: "Type", icon: Building2, headerClassName: "w-[120px]" },
+      meta: { label: "Type", icon: Building2, headerClassName: "w-[145px]" },
     },
     {
       id: "tva",
       accessorFn: (societe) => societe.tva,
       header: ({ column }) => <DataTableColumnHeader column={column} title="TVA" />,
       cell: ({ row }) => <span className="reg-texte">{row.original.tva || "—"}</span>,
-      meta: { label: "TVA", icon: CircleDot, headerClassName: "w-[100px]" },
+      meta: { label: "TVA", icon: CircleDot, headerClassName: "w-[90px]" },
     },
     {
       id: "contactCle",
@@ -801,22 +808,27 @@ export function SocietesListPage() {
     },
     {
       id: "dossiers",
-      accessorFn: (societe) => collectesEnCours.get(societe.id)?.enCours ?? dossiersParSociete.get(societe.id) ?? 0,
+      accessorFn: (societe) => dossiersDe(societe),
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Dossiers en cours" />
+        <DataTableColumnHeader column={column} title="Dossiers" />
       ),
       cell: ({ row }) => {
-        const st = collectesEnCours.get(row.original.id);
-        const classeurs = dossiersParSociete.get(row.original.id) ?? 0;
-        const enCours = st?.enCours ?? 0;
-        return (
-          <span className="reg-dossiers">
-            <b>{voitTaches ? enCours : classeurs}</b>
-            {voitTaches && (st?.enRetard ?? 0) > 0 && <em className="is-retard"> · {st!.enRetard} en retard</em>}
-          </span>
-        );
+        const n = dossiersDe(row.original);
+        return <span className={cn("reg-num", n === 0 && "reg-num--zero")}>{n}</span>;
       },
-      meta: { label: "Dossiers en cours", icon: FolderOpen, headerClassName: "w-[140px]" },
+      meta: { label: "Dossiers", icon: FolderOpen, headerClassName: "w-[90px] text-right reg-col-num", cellClassName: "text-right reg-col-num" },
+    },
+    {
+      id: "enRetard",
+      accessorFn: (societe) => retardDe(societe),
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="En retard" />
+      ),
+      cell: ({ row }) => {
+        const n = retardDe(row.original);
+        return n > 0 ? <span className="reg-num reg-num--retard">{n}</span> : <span className="reg-num reg-num--zero">—</span>;
+      },
+      meta: { label: "En retard", icon: AlertCircle, headerClassName: "w-[90px] text-right reg-col-num", cellClassName: "text-right reg-col-num" },
     },
     {
       accessorKey: "statut",
@@ -832,7 +844,7 @@ export function SocietesListPage() {
           }}
         />
       ),
-      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-[100px]" },
+      meta: { label: "Statut", icon: CircleDot, headerClassName: "w-[110px]" },
     },
     {
       id: "actions",
@@ -843,16 +855,19 @@ export function SocietesListPage() {
         const s = row.original;
         return (
           <div
-            className="flex items-center justify-end"
+            className="flex items-center justify-end gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
-            <LedgerRowIcons actions={societeMenuActions(s)} />
+            <button type="button" className="reg-ouvrir" onClick={() => openView(s)} aria-label={`Ouvrir la fiche de ${s.raisonSociale}`}>
+              Ouvrir
+            </button>
+            <LedgerRowMenu actions={societeMenuActions(s)} />
           </div>
         );
       },
       meta: {
-        headerClassName: "w-[200px]",
-        cellClassName: "w-[200px]",
+        headerClassName: "w-[120px]",
+        cellClassName: "w-[120px]",
       },
     },
   ];
@@ -1067,6 +1082,11 @@ export function SocietesListPage() {
         </div>
       )}
 
+      <div className="reg-mobile-entete lg:hidden" aria-hidden="true">
+        <span>Société</span>
+        <span>Dossiers</span>
+        <span>Retard</span>
+      </div>
       <div>
         <DataTable
           className="ledger-work-table societes-ledger-table bg-transparent [&>div:last-child]:space-y-0"
@@ -1076,7 +1096,7 @@ export function SocietesListPage() {
           table={table}
           emptyMessage={emptyMessage}
           isLoading={isDataLoading}
-          footer={<OperationalLedgerFooter table={table} itemLabel="sociétés" />}
+          footer={<><TotalRegistre className="hidden lg:flex" total={filtered.length} dossiers={totalDossiers} retards={totalRetards} /><OperationalLedgerFooter table={table} itemLabel="sociétés" /></>}
           getRowClassName={(row) =>
             cn(
               `ledger-row--${row.original.statut} group/ligne`,
@@ -1086,85 +1106,47 @@ export function SocietesListPage() {
           onRowClick={(row) => openView(row.original)}
           mobileRow={(row) => {
             const s = row.original;
-            const contacts = contactCount.get(s.id) ?? 0;
-            const tasks = openTaskCount.get(s.id) ?? 0;
             const selected = selectedIds.includes(s.id);
+            const dossiers = dossiersDe(s);
+            const retards = retardDe(s);
             return (
               <article
                 data-state={selected ? "selected" : undefined}
-                className="relative min-w-0 border-b border-border/80 px-3 py-3 sm:px-1 data-[state=selected]:bg-accent/[0.09] data-[state=selected]:before:absolute data-[state=selected]:before:inset-y-2 data-[state=selected]:before:left-0 data-[state=selected]:before:w-px data-[state=selected]:before:bg-accent"
+                className="reg-mobile-ligne data-[state=selected]:bg-accent/[0.12]"
               >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  {isMobileSelectionActive && (
-                    <Checkbox
-                      checked={selected}
-                      onCheckedChange={() =>
-                        setSelectedIds((ids) =>
-                          selected
-                            ? ids.filter((id) => id !== s.id)
-                            : [...ids, s.id],
-                        )
-                      }
-                      aria-label={`Sélectionner ${s.raisonSociale}`}
-                      className="shrink-0"
-                    />
+                {isMobileSelectionActive && (
+                  <Checkbox
+                    checked={selected}
+                    onCheckedChange={() =>
+                      setSelectedIds((ids) => (selected ? ids.filter((id) => id !== s.id) : [...ids, s.id]))
+                    }
+                    aria-label={`Sélectionner ${s.raisonSociale}`}
+                    className="shrink-0 self-center"
+                  />
+                )}
+                <div className="reg-mobile-ligne__nom">
+                  {isMobileSelectionActive ? (
+                    <b>{s.raisonSociale}</b>
+                  ) : (
+                    <button type="button" onClick={() => openView(s)} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <b>{s.raisonSociale}</b>
+                    </button>
                   )}
-                  <span
-                    className={cn(
-                      "flex size-8 shrink-0 items-center justify-center rounded-lg border text-[10px] font-bold tracking-wide",
-                      "border-border bg-muted text-primary",
-                    )}
-                    aria-hidden
-                  >
-                    {s.raisonSociale.slice(0, 2).toUpperCase()}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    {isMobileSelectionActive ? (
-                      <p className="break-words text-sm font-semibold text-foreground">
-                        {s.raisonSociale}
-                      </p>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => openView(s)}
-                        className="block max-w-full break-words text-left text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        {s.raisonSociale}
-                      </button>
-                    )}
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {s.theme} · {s.rne || "RNE non renseigné"}
-                    </p>
-                  </div>
-                  {!isMobileSelectionActive && (
-                    <div className="shrink-0">
-                      <LedgerRowMenu actions={societeMenuActions(s)} />
-                    </div>
-                  )}
+                  <small>
+                    {s.code} · {s.theme}
+                  </small>
                 </div>
-                <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-xs text-muted-foreground">
-                  <div
-                    className={cn(
-                      "flex min-w-0 items-center gap-2",
-                      isMobileSelectionActive ? "pl-[66px]" : "pl-[42px]",
-                    )}
-                  >
-                    <span className="truncate">
-                      {contacts === 0 ? "Aucun contact" : "Contact clé non désigné"}
-                    </span>
-                    {voitTaches && (
-                      <span className="shrink-0 tabular-nums">
-                        {tasks} tâche{tasks === 1 ? "" : "s"}
-                      </span>
-                    )}
-                  </div>
-                  <StatutDot statut={s.statut} />
-                </div>
+                <span className={cn("reg-num", dossiers === 0 && "reg-num--zero")}>{dossiers}</span>
+                <span className={cn("reg-num", retards > 0 ? "reg-num--retard" : "reg-num--zero")}>{retards > 0 ? retards : "—"}</span>
+                {!isMobileSelectionActive && <LedgerRowMenu actions={societeMenuActions(s)} />}
               </article>
             );
           }}
         />
       </div>
+      {!isDataLoading && filtered.length > 0 && (
+        <TotalRegistre className="lg:hidden" total={filtered.length} dossiers={totalDossiers} retards={totalRetards} />
+      )}
       {!isDataLoading && filtered.length > 0 && (
         <OperationalMobilePagination table={table} itemLabel="sociétés" />
       )}

@@ -90,7 +90,7 @@ interface TasksKanbanProps {
 
 type VueTaches = "kanban" | "list" | "gantt" | "table";
 type Appareil = "mobile" | "bureau";
-const VUES_PAR_APPAREIL: Record<Appareil, VueTaches[]> = { bureau: ["list", "kanban", "table"], mobile: ["list"] };
+const VUES_PAR_APPAREIL: Record<Appareil, VueTaches[]> = { bureau: ["kanban"], mobile: ["list"] };
 const VUE_PAR_DEFAUT: Record<Appareil, VueTaches> = { bureau: "kanban", mobile: "list" };
 const cleVue = (appareil: Appareil) => `taches-vue-${appareil}`;
 
@@ -152,7 +152,7 @@ export function TasksKanban({
   const [searchQuery, setSearchQuery] = useState("");
   const appareil = useAppareilTaches();
   const [choixVues, setChoixVues] = useState<Partial<Record<Appareil, VueTaches>>>(() => ({ mobile: lireVue("mobile"), bureau: lireVue("bureau") }));
-  // Ordinateur : Kanban par défaut, les quatre vues. Mobile : Liste groupée par défaut ; le Tableau et la Chronologie (vues « document ») restent sur ordinateur.
+  // Ordinateur : Kanban seul. Mobile : Liste groupée seule. Les autres vues (Tableau, Chronologie) gardent leur logique mais ne sont plus proposées.
   const vuesPermises = VUES_PAR_APPAREIL[appareil];
   const choisie = choixVues[appareil];
   const view: VueTaches = choisie && vuesPermises.includes(choisie) ? choisie : VUE_PAR_DEFAUT[appareil];
@@ -458,7 +458,7 @@ export function TasksKanban({
         <OperationalMobileUtility label="Recherche et filtres des tâches">
           {renderSearchFilter()}
         </OperationalMobileUtility>
-        <div className="task-views-toolbar" data-tour="tasks-views"><div className="task-view-options" role="group" aria-label="Vue des tâches">{([{ id: "list", label: "Liste" }, { id: "gantt", label: "Chronologie" }, { id: "kanban", label: "Kanban" }, { id: "table", label: "Tableau" }] as const).filter(({ id }) => vuesPermises.includes(id)).map(({ id, label }) => <button key={id} type="button" className="task-view-tab" aria-pressed={view === id} onClick={() => { setView(id); setActiveTask(null); }}>{label}</button>)}</div><span className="text-xs tabular-nums text-muted-foreground">{filteredTasks.length} tâche{filteredTasks.length > 1 ? "s" : ""}</span></div>
+        {vuesPermises.length > 1 && <div className="task-views-toolbar" data-tour="tasks-views"><div className="task-view-options" role="group" aria-label="Vue des tâches">{([{ id: "list", label: "Liste" }, { id: "gantt", label: "Chronologie" }, { id: "kanban", label: "Kanban" }, { id: "table", label: "Tableau" }] as const).filter(({ id }) => vuesPermises.includes(id)).map(({ id, label }) => <button key={id} type="button" className="task-view-tab" aria-pressed={view === id} onClick={() => { setView(id); setActiveTask(null); }}>{label}</button>)}</div><span className="text-xs tabular-nums text-muted-foreground">{filteredTasks.length} tâche{filteredTasks.length > 1 ? "s" : ""}</span></div>}
         <div data-tour="tasks-board" className="min-w-0">
           {filteredTasks.length === 0 ? <TasksEmptyState message={emptyMessage} /> : view === "gantt" ? <TaskGanttView tasks={filteredTasks} {...taskActions} /> : view === "list" ? <TaskListView table={taskTable} emptyMessage={emptyMessage} {...taskActions} /> : view === "table" ? <TaskTableView table={taskTable} emptyMessage={emptyMessage} {...taskActions} /> : kanbanBoard}
         </div>

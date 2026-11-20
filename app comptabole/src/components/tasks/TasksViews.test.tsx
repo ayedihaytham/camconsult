@@ -15,13 +15,13 @@ function mount(onStatusChange = vi.fn().mockResolvedValue(undefined)) {
   return render(<TasksKanban tasks={tasks} hasAnyTasks activeFilterCount={0} societes={[]} collaborateurs={[]} collaboratorPresence={new Map()} description="Travail du cabinet" summary={{ open: 2, todo: 1, doing: 1, done: 0 }} canManage canEditTask={() => true} canChangeStatus={() => true} onStatusChange={onStatusChange} onCreate={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} filterControls={null} filterKey="all" onResetFilters={vi.fn()} />);
 }
 describe("vues des tâches", () => {
-  it("partage la recherche entre Kanban, Liste et Chronologie", () => {
+  it("partage la recherche entre Kanban, Liste et Tableau", () => {
     mount();
     fireEvent.change(screen.getAllByLabelText("Rechercher une tâche")[0], { target: { value: "TVA" } });
-    fireEvent.click(screen.getByRole("button", { name: "Chronologie" }));
-    expect(screen.getByText("Contrôle TVA")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Tableau" }));
+    expect(screen.getAllByText("Contrôle TVA").length).toBeGreaterThan(0);
     expect(screen.queryByText("Rapprochement bancaire")).toBeNull();
-    expect(screen.getByRole("button", { name: "Chronologie" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Tableau" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Liste" }));
     expect(screen.getAllByText("Contrôle TVA").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Rechercher une tâche")[0].getAttribute("value")).toBe("TVA");
@@ -47,18 +47,18 @@ describe("vue par défaut et choix mémorisé par appareil", () => {
   beforeEach(() => window.localStorage.clear());
   const pressed = (nom: string) => screen.getByRole("button", { name: nom }).getAttribute("aria-pressed");
 
-  it("ordinateur : le Kanban est la vue par défaut et les quatre vues sont proposées", () => {
+  it("ordinateur : le Kanban est la vue par défaut et Liste, Kanban et Tableau sont proposés, sans Chronologie", () => {
     mount();
     expect(pressed("Kanban")).toBe("true");
-    for (const nom of ["Liste", "Chronologie", "Kanban", "Tableau"]) expect(screen.getByRole("button", { name: nom })).toBeTruthy();
+    for (const nom of ["Liste", "Kanban", "Tableau"]) expect(screen.getByRole("button", { name: nom })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Chronologie" })).toBeNull();
   });
 
-  it("mobile : la Liste est la vue par défaut, sans Tableau ni Chronologie", () => {
+  it("mobile : seule la Liste est proposée", () => {
     mobile();
     mount();
     expect(pressed("Liste")).toBe("true");
-    expect(screen.queryByRole("button", { name: "Tableau" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Chronologie" })).toBeNull();
+    for (const nom of ["Kanban", "Tableau", "Chronologie"]) expect(screen.queryByRole("button", { name: nom })).toBeNull();
   });
 
   it("le choix est gardé séparément pour l'ordinateur et pour le mobile", () => {

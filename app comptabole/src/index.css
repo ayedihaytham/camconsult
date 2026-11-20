@@ -1931,7 +1931,13 @@
 .bande-exercice--integree .bande-selecteur__valeur { color: #fff; }
 .bande-exercice--integree .bande-selecteur__fleche { color: #cfdbea; }
 .bande-exercice--integree .bande-selecteur__fleche:hover { background: rgba(255, 255, 255, .14); color: #fff; }
-@media (max-width: 1023px) { .bande-exercice--integree { padding: 9px 16px; } }
+@media (max-width: 1023px) {
+  .bande-exercice--integree { padding: 9px 16px; flex-wrap: wrap; overflow-x: visible; gap: 8px 12px; }
+  .bande-exercice--integree .bande-exercice__fil { min-width: 0; flex: 1 1 100%; }
+  .bande-exercice--integree .bande-exercice__selecteur { flex: 1 1 auto; min-width: 0; }
+  .bande-exercice--integree .bande-exercice__circuit { flex: 1 1 100%; flex-wrap: wrap; margin-left: 0; }
+  .bande-exercice--integree .bande-statut { flex: 1 1 auto; justify-content: center; padding: 0 10px; }
+}
 
 /* La rangée de contrôles se pose sur la ligne basse de la barre, comme le texte des onglets de dossiers (au lieu d'être centrée plus haut). */
 @media (min-width: 1024px) {

@@ -90,7 +90,7 @@ interface TasksKanbanProps {
 
 type VueTaches = "kanban" | "list" | "gantt" | "table";
 type Appareil = "mobile" | "bureau";
-const VUES_PAR_APPAREIL: Record<Appareil, VueTaches[]> = { bureau: ["list", "gantt", "kanban", "table"], mobile: ["list", "kanban"] };
+const VUES_PAR_APPAREIL: Record<Appareil, VueTaches[]> = { bureau: ["list", "kanban", "table"], mobile: ["list"] };
 const VUE_PAR_DEFAUT: Record<Appareil, VueTaches> = { bureau: "kanban", mobile: "list" };
 const cleVue = (appareil: Appareil) => `taches-vue-${appareil}`;
 

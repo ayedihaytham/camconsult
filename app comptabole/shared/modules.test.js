@@ -19,16 +19,16 @@ describe("modules par environnement", () => {
 
   it("production : seuls les modules validés sont ouverts", () => {
     const actifs = lireModulesActifs(MODULES_PRODUCTION.join(","));
-    for (const ouvert of ["/", "/taches", "/messagerie", "/societes", "/collectes/12", "/structuration", "/stock", "/journal", "/cours-change", "/suivi-devise/x", "/employes", "/conversions", "/parametres", "/login", "/profil"])
+    for (const ouvert of ["/", "/taches", "/messagerie", "/societes", "/collectes/12", "/structuration", "/stock", "/journal", "/cours-change", "/suivi-devise/x", "/employes", "/conversions", "/parametres", "/bordereaux", "/souche-cheques", "/ma-souche", "/login", "/profil"])
       expect(cheminOuvert(actifs, ouvert), ouvert).toBe(true);
-    for (const ferme of ["/facturation", "/honoraires", "/apurement/x", "/fournisseurs", "/banque", "/etat-swift", "/etats-financiers/1", "/bordereaux", "/souche-cheques", "/ma-souche", "/simulation-paie", "/grille-affectat"])
+    for (const ferme of ["/facturation", "/honoraires", "/apurement/x", "/fournisseurs", "/banque", "/etat-swift", "/etats-financiers/1", "/simulation-paie", "/grille-affectat"])
       expect(cheminOuvert(actifs, ferme), ferme).toBe(false);
   });
 
   it("production : l'API des modules fermés répond 403, sauf celle dont un module ouvert dépend", () => {
     const actifs = lireModulesActifs(MODULES_PRODUCTION.join(","));
     expect(apiOuverte(actifs, "/api/stock/synthese")).toBe(true);
-    for (const fermee of ["/api/facturation", "/api/honoraires", "/api/apurement/achats", "/api/bordereaux", "/api/balances", "/api/souche-cheques", "/api/ttn"])
+    for (const fermee of ["/api/facturation", "/api/honoraires", "/api/apurement/achats", "/api/balances", "/api/grille-affectat", "/api/ttn"])
       expect(apiOuverte(actifs, fermee), fermee).toBe(false);
     // Stock → fournisseurs et banque ; Collectes → État SWIFT : leurs pages sont fermées, leur API reste lisible par ces modules.
     for (const dependance of ["/api/fournisseurs", "/api/banque", "/api/etat-swift"]) expect(apiOuverte(actifs, dependance), dependance).toBe(true);

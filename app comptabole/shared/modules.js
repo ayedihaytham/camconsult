@@ -23,6 +23,8 @@ export const MODULES = [
   // L'identité du cabinet (logo, coordonnées) sert à l'en-tête des PDF du Stock, des Collectes et des Conversions : sa route, seule, reste ouverte même si Facturation est fermée.
   { cle: "conversions", libelle: "Conversions", chemins: ["/conversions"], api: ["/api/facturation/cabinet"] },
   { cle: "parametres", libelle: "Paramètres", chemins: ["/parametres"], api: ["/api/administrateurs"] },
+  { cle: "bordereaux", libelle: "Bordereaux", chemins: ["/bordereaux"], api: ["/api/bordereaux"] },
+  { cle: "souche-cheques", libelle: "Souche de chèques", chemins: ["/souche-cheques", "/ma-souche"], api: ["/api/souche-cheques"] },
   // Modules pas encore validés pour la production.
   { cle: "apurement", libelle: "Apurement TVA", chemins: ["/apurement"], api: ["/api/apurement"] },
   { cle: "facturation", libelle: "Facturation", chemins: ["/facturation"], api: ["/api/facturation", "/api/ttn", "/api/signature"] },
@@ -32,13 +34,11 @@ export const MODULES = [
   { cle: "etat-swift", libelle: "État SWIFT", chemins: ["/etat-swift"], api: ["/api/etat-swift"], dependants: ["collectes"] },
   { cle: "etats-financiers", libelle: "États financiers", chemins: ["/etats-financiers"], api: ["/api/balances", "/api/notes", "/api/immobilisations"] },
   { cle: "affectat", libelle: "Paramétrage AFFECTAT", chemins: ["/grille-affectat"], api: ["/api/grille-affectat"] },
-  { cle: "bordereaux", libelle: "Bordereaux", chemins: ["/bordereaux"], api: ["/api/bordereaux"] },
-  { cle: "souche-cheques", libelle: "Souche de chèques", chemins: ["/souche-cheques", "/ma-souche"], api: ["/api/souche-cheques"] },
   { cle: "simulation-paie", libelle: "Simulation de paie", chemins: ["/simulation-paie"], api: [] },
 ];
 
 /** Modules ouverts en production (validés en test) : c'est la valeur par défaut du fichier docker-compose de production. */
-export const MODULES_PRODUCTION = MODULES.slice(0, 13).map((m) => m.cle);
+export const MODULES_PRODUCTION = MODULES.slice(0, 15).map((m) => m.cle);
 
 /** « a,b,c » → Set des clés connues ; null = tous les modules (variable vide ou « * »). */
 export function lireModulesActifs(valeur) {

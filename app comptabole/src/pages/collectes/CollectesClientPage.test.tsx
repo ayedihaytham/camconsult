@@ -43,4 +43,10 @@ describe("page Collecte de pièces du responsable de société", () => {
     rendre([collecte("a", "brouillon", { tableauxDemandes: 0, tableauxTransmis: 0 })]);
     expect(screen.getByText(/Aucune collecte pour le moment/)).toBeTruthy();
   });
+
+  it("montre une collecte où le cabinet n'a demandé que des pièces", () => {
+    rendre([collecte("a", "brouillon", { tableauxDemandes: 0, tableauxTransmis: 0, piecesDemandees: 2 })]);
+    expect(cartes()).toHaveLength(1);
+    expect(screen.getByText("2 pièces demandées par le cabinet")).toBeTruthy();
+  });
 });

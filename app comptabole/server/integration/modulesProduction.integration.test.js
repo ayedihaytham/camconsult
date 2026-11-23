@@ -26,7 +26,10 @@ describe.skipIf(!actif)("intégration PostgreSQL : modules ouverts en production
   it("annonce l'environnement et la liste des modules ouverts, sans authentification", async () => {
     const r = await fetch(`${serveur.base}/api/config`);
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ environnement: "production", modulesActifs: MODULES.split(",") });
+    const config = await r.json();
+    expect(config).toMatchObject({ environnement: "production", modulesActifs: MODULES.split(",") });
+    // En production sans ALLOW_DATA_RESET, l'écran grise la restauration et la réinitialisation.
+    expect(typeof config.donneesModifiables).toBe("boolean");
   });
 
   it("les modules ouverts répondent", async () => {

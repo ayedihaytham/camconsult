@@ -231,6 +231,8 @@ export interface Collecte {
   tableauxValides?: number;
   /** Tableaux que le cabinet a envoyés au client (Récap) ou que le client a déjà transmis, hors tableaux tenus par le cabinet. */
   tableauxDemandes?: number;
+  /** Pièces que le cabinet a demandées au client dans cette collecte (une collecte n'ayant que des pièces demandées existe aussi pour lui). */
+  piecesDemandees?: number;
   tableauxArchives?: number;
   periode: string;
   statut: CollecteStatut;

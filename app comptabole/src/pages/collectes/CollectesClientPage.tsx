@@ -19,8 +19,8 @@ const STATUT: Record<CollecteStatut, { label: string; tone: string; action: stri
 /** Page Collecte de pièces du responsable de société : une carte par collecte, la société dite une seule fois dans le bandeau. */
 export function CollectesClientPage({ list, loading, societeNom }: { list: Collecte[]; loading: boolean; societeNom: string | null }) {
   const [archivesOuvertes, setArchivesOuvertes] = useState(false);
-  // Seules les collectes dont le cabinet a demandé au moins un tableau existent pour le responsable de société.
-  const demandees = useMemo(() => list.filter((c) => (c.tableauxDemandes ?? 0) > 0), [list]);
+  // Seules les collectes dont le cabinet a demandé au moins un tableau ou une pièce existent pour le responsable de société (le serveur applique la même règle).
+  const demandees = useMemo(() => list.filter((c) => (c.tableauxDemandes ?? 0) > 0 || (c.piecesDemandees ?? 0) > 0), [list]);
   const actives = useMemo(
     () => demandees.filter((c) => c.statut !== "archive").sort((a, b) => STATUT[a.statut].rank - STATUT[b.statut].rank || b.majLe.localeCompare(a.majLe)),
     [demandees],
@@ -89,7 +89,7 @@ function CollecteCard({ collecte, mise }: { collecte: Collecte; mise: boolean })
             <p className="mb-1.5 text-xs text-muted-foreground"><strong className="font-semibold tabular-nums text-foreground">{faits}</strong> / {demandes} tableau{demandes > 1 ? "x" : ""} transmis</p>
             <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${progress ?? 0}%` }} /></div>
           </>
-        ) : <p className="text-xs text-muted-foreground">Aucun tableau demandé pour le moment</p>}
+        ) : <p className="text-xs text-muted-foreground">{(collecte.piecesDemandees ?? 0) > 0 ? `${collecte.piecesDemandees} pièce${(collecte.piecesDemandees ?? 0) > 1 ? "s" : ""} demandée${(collecte.piecesDemandees ?? 0) > 1 ? "s" : ""} par le cabinet` : "Aucun tableau demandé pour le moment"}</p>}
       </div>
       <Button variant={collecte.statut === "a_corriger" || collecte.statut === "brouillon" ? "default" : "outline"} className="min-h-11 gap-2 md:justify-self-end" onClick={ouvrir} aria-label={`${statut.action} la collecte ${nom}`}>
         {statut.action}<ArrowRight className="size-4" aria-hidden="true" />

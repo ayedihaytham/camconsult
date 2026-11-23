@@ -240,13 +240,13 @@ export function CollectesListPage() {
 
       <section aria-label="Registre des collectes" className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/80 px-3 py-2">
-          <div className="min-w-0 flex-1 sm:min-w-[16rem]">{search}</div>
+          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1 sm:min-w-[16rem]">{search}</div>
           {moisAffiche && (
             <button type="button" onClick={() => setParams({})} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-bold capitalize text-primary-foreground" aria-label={`Retirer le filtre du mois ${moisAffiche}`}>
               {moisAffiche} <X className="size-3.5" aria-hidden="true" />
             </button>
           )}
-          <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground" aria-live="polite">{[...new Set(filtered.map((c) => c.societeId))].length} société{[...new Set(filtered.map((c) => c.societeId))].length > 1 ? "s" : ""} · {filtered.length} collecte{filtered.length > 1 ? "s" : ""}</span>
+          <span className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:inline" aria-live="polite">{[...new Set(filtered.map((c) => c.societeId))].length} société{[...new Set(filtered.map((c) => c.societeId))].length > 1 ? "s" : ""} · {filtered.length} collecte{filtered.length > 1 ? "s" : ""}</span>
           <div role="group" aria-label="Affichage des collectes" className="inline-flex rounded-[10px] bg-muted p-[3px]">
             {([["volet", "Liste et volet"], ["tableau", "Tableau"], ["pipeline", "Pipeline"]] as const).map(([valeur, label]) => (
               <button key={valeur} type="button" aria-pressed={(affichage === "volet" && !grandEcran ? "tableau" : affichage) === valeur} onClick={() => changerAffichage(valeur)} className={cn("h-8 rounded-[7px] px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", (affichage === "volet" && !grandEcran ? "tableau" : affichage) === valeur && "bg-card font-semibold text-primary shadow-sm", valeur === "volet" && "max-lg:hidden")}>{label}</button>

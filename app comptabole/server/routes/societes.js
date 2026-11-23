@@ -56,6 +56,9 @@ societesRouter.post("/", requireEdit, async (req, res) => {
   if (!parsed.success)
     return res.status(400).json({ error: parsed.error.issues[0].message });
   const v = parsed.data;
+  // Le code est calculé par le navigateur : deux créations simultanées pourraient donner le même ; on le refuse plutôt que de dédoubler le dossier.
+  if ((await query("select 1 from societes where lower(code) = lower($1) limit 1", [v.code])).rows.length > 0)
+    return res.status(409).json({ error: `Le code ${v.code} est déjà utilisé par une autre société : réessayez pour obtenir le suivant.` });
   const { rows } = await query(
     `insert into societes (${COLS}) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning *`,
     [v.raisonSociale, v.rne, v.tva, v.theme, v.code, v.statut, v.telephone, v.email, v.adresse, v.adresseRue, v.ville, v.codePostal, v.pays || "TN"],
@@ -79,6 +82,8 @@ societesRouter.patch("/:id", requireEdit, async (req, res) => {
   if (!merged.success)
     return res.status(400).json({ error: merged.error.issues[0].message });
   const v = { ...societeDto(existing), ...merged.data };
+  if (v.code.toLowerCase() !== String(existing.code).toLowerCase() && (await query("select 1 from societes where lower(code) = lower($1) and id <> $2 limit 1", [v.code, existing.id])).rows.length > 0)
+    return res.status(409).json({ error: `Le code ${v.code} est déjà utilisé par une autre société.` });
   const { rows } = await query(
     `update societes set raison_sociale=$1, rne=$2, tva=$3, theme=$4, code=$5,
        statut=$6, telephone=$7, email=$8, adresse=$9, adresse_rue=$10, ville=$11, code_postal=$12, pays=$13

@@ -296,9 +296,10 @@ collectesRouter.get("/", async (req, res) => {
   // Un compte de société cliente ne voit une collecte que si le cabinet lui a demandé (Récap) ou renvoyé au moins un tableau : une collecte
   // créée mais pas encore envoyée, ou vide, n'existe pas pour lui.
   // Une pièce demandée par le cabinet suffit aussi à la faire exister pour lui (il doit pouvoir y répondre).
-  const avecPieces = new Set(
-    (await query("select distinct collecte_id from collecte_demandes_pieces where collecte_id = any($1::uuid[])", [rows.map((r) => r.id)])).rows.map((r) => r.collecte_id),
+  const piecesParCollecte = new Map(
+    (await query("select collecte_id, count(*)::int as n from collecte_demandes_pieces where collecte_id = any($1::uuid[]) group by collecte_id", [rows.map((r) => r.id)])).rows.map((r) => [r.collecte_id, r.n]),
   );
+  const avecPieces = new Set(piecesParCollecte.keys());
   const visibles = estClient(req.session) ? rows.filter((r) => (comptes.get(r.id)?.demandes_client ?? 0) > 0 || avecPieces.has(r.id)) : rows;
   res.json(
     visibles.map((r) => ({
@@ -307,6 +308,7 @@ collectesRouter.get("/", async (req, res) => {
       tableauxValides: comptes.get(r.id)?.valides ?? 0,
       tableauxArchives: comptes.get(r.id)?.archives ?? 0,
       tableauxDemandes: comptes.get(r.id)?.demandes ?? 0,
+      piecesDemandees: piecesParCollecte.get(r.id) ?? 0,
     })),
   );
 });

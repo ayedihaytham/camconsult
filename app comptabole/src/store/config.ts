@@ -5,6 +5,7 @@ import { cheminOuvert } from "../../shared/modules.js";
 interface ConfigServeur {
   environnement: string;
   modulesActifs: string[] | null;
+  donneesModifiables?: boolean;
 }
 
 interface ConfigState {
@@ -12,6 +13,8 @@ interface ConfigState {
   environnement: string;
   /** null : tous les modules sont ouverts (test, développement). */
   modulesActifs: string[] | null;
+  /** false : le serveur refuse la restauration et la réinitialisation des données (production). */
+  donneesModifiables: boolean;
   charger: () => Promise<void>;
 }
 
@@ -20,10 +23,11 @@ export const useConfig = create<ConfigState>((set) => ({
   chargee: false,
   environnement: "developpement",
   modulesActifs: null,
+  donneesModifiables: true,
   charger: async () => {
     try {
       const c = await api.get<ConfigServeur>("/config");
-      set({ chargee: true, environnement: c.environnement, modulesActifs: c.modulesActifs });
+      set({ chargee: true, environnement: c.environnement, modulesActifs: c.modulesActifs, donneesModifiables: c.donneesModifiables ?? true });
     } catch {
       // Serveur injoignable : l'écran de connexion gère l'erreur ; le serveur refuse de toute façon un module fermé.
       set({ chargee: true });

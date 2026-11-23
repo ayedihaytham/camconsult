@@ -118,7 +118,7 @@ export function PiecesDemandees({ collecte, isClient, peutDemander, lectureSeule
                       <span className={cn("mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg", fournie ? "bg-success/10 text-success" : "bg-warning/10 text-warning")}>
                         {fournie ? <CheckCircle2 className="size-4" aria-hidden="true" /> : <Clock className="size-4" aria-hidden="true" />}
                       </span>
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 max-sm:basis-[calc(100%-3rem)]">
                         {d.tiers && <p className="text-xs font-bold uppercase tracking-wide text-primary">{d.tiers}</p>}
                         <p className="whitespace-pre-line text-sm text-foreground">{d.texte}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
@@ -145,7 +145,7 @@ export function PiecesDemandees({ collecte, isClient, peutDemander, lectureSeule
                           </ul>
                         )}
                       </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
+                      <div className="flex shrink-0 items-center gap-1.5 max-sm:w-full max-sm:pl-11">
                         {isClient && !lectureSeule && (
                           <Button type="button" size="sm" variant={fournie ? "outline" : "default"} className="h-8 gap-1.5 text-xs font-semibold" onClick={() => setReponseA(d)}>
                             <UploadCloud className="size-3.5" aria-hidden="true" />

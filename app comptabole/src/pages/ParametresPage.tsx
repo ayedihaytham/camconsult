@@ -12,6 +12,7 @@ import { generatePassword, scorePassword } from "@/lib/password";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/store/auth";
 import { useData } from "@/store/data";
+import { useConfig } from "@/store/config";
 import { api } from "@/lib/api";
 import { cn, formatNumber } from "@/lib/utils";
 
@@ -136,6 +137,7 @@ function ChampMotDePasse({
 export function ParametresPage() {
   const { session, changeCredentials, updateAdminProfile } = useAuth();
   const data = useData();
+  const donneesModifiables = useConfig((s) => s.donneesModifiables);
 
   // ── Profil affiché ─────────────────────────────────
   const [profilNom, setProfilNom] = useState(session?.nom ?? "");
@@ -405,8 +407,8 @@ export function ParametresPage() {
                     Exporter
                   </Button>
                 </Action>
-                <Action titre="Importer une sauvegarde" texte="Remplace les données actuelles par le contenu du fichier.">
-                  <Button variant="outline" onClick={() => fileRef.current?.click()}>
+                <Action titre="Importer une sauvegarde" texte={donneesModifiables ? "Remplace les données actuelles par le contenu du fichier." : "Désactivée sur ce serveur : la restauration est réservée à l'exploitation."}>
+                  <Button variant="outline" disabled={!donneesModifiables} title={donneesModifiables ? undefined : "Désactivé sur ce serveur"} onClick={() => fileRef.current?.click()}>
                     <Upload className="h-4 w-4 text-accent" />
                     Importer
                   </Button>
@@ -420,7 +422,7 @@ export function ParametresPage() {
                 titre="Réinitialiser toutes les données"
                 texte="Supprime TOUTES les données métier : sociétés, employés, dossiers, fichiers, messages, collectes, stock, factures, honoraires, suivi fournisseur et bancaire, virements SWIFT, souches et suivis en devise. Le compte administrateur est conservé. Désactivée en production sauf autorisation du serveur ; il faudra taper « RÉINITIALISER » pour confirmer."
               >
-                <Button variant="destructive" onClick={() => setResetOpen(true)}>
+                <Button variant="destructive" disabled={!donneesModifiables} title={donneesModifiables ? undefined : "Désactivé sur ce serveur"} onClick={() => setResetOpen(true)}>
                   <RotateCcw className="h-4 w-4" />
                   Tout réinitialiser
                 </Button>

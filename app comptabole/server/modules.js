@@ -20,5 +20,7 @@ export function garderModules(req, res, next) {
 
 /** GET /api/config : de quoi adapter l'interface (menu, pages, bandeau « test »). Aucune donnée sensible. */
 export function configPublique(_req, res) {
-  res.json({ environnement: ENVIRONNEMENT, modulesActifs: MODULES_ACTIFS ? [...MODULES_ACTIFS] : null });
+  // Restauration et réinitialisation des données : refusées par le serveur en production sans ALLOW_DATA_RESET ; l'écran grise alors les deux boutons.
+  const donneesModifiables = !(process.env.NODE_ENV === "production" && process.env.ALLOW_DATA_RESET !== "true");
+  res.json({ environnement: ENVIRONNEMENT, modulesActifs: MODULES_ACTIFS ? [...MODULES_ACTIFS] : null, donneesModifiables });
 }

@@ -226,29 +226,17 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
   const feuilleVisible = active ? retenues(active, seulementTableaux).length > 0 : false;
 
   return (
-    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start">
-      <div className="grid min-w-0 gap-4">
+    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-stretch">
+      <div className="grid min-w-0 gap-4 lg:grid-rows-[auto_1fr]">
         <LedgerSheet>
           <EtapeEntete numero={1} titre="Déposer les fichiers" aide="Les fichiers restent dans cette page : ils disparaissent à sa fermeture." />
           <div className="p-[18px]">
             <ZoneDepot accept=".xlsx,.xls" extensions={["xlsx", "xls"]} types=".xlsx / .xls" compact={items.length > 0} occupe={occupe} libelleOccupe="Conversion en cours…" onFiles={(f) => void convertir(f)} />
           </div>
-        </LedgerSheet>
         {items.length > 0 && (
-          <LedgerSheet className="conv-file">
+          <div className="conv-file border-t border-border">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-[18px] py-3">
               <h2 className="text-[0.86rem] font-bold text-foreground">File de conversion <span className="font-normal text-muted-foreground">· {items.length}</span></h2>
-              <div className="flex flex-wrap gap-2">
-                <TelechargerTout
-                  formats={FORMATS_SORTIE}
-                  valeur={formatGroupe}
-                  onValeur={setFormatGroupe}
-                  onTelecharger={() => void toutTelecharger()}
-                  disabled={prets.length < 2}
-                  title={prets.length < 2 ? "Disponible à partir de deux fichiers convertis" : "Télécharge chaque fichier dans le format choisi"}
-                />
-                <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
-              </div>
             </div>
             <ul className="divide-y divide-border">
               {items.map((item) => (
@@ -290,8 +278,9 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
                 </li>
               ))}
             </ul>
-          </LedgerSheet>
+          </div>
         )}
+        </LedgerSheet>
 
         <LedgerSheet>
           <EtapeEntete numero={2} titre="Choisir ce qui est converti" aide="Seul le nécessaire est converti : les tableaux. Les titres, adresses, mentions et lignes isolées qui les entourent sont laissés de côté." />
@@ -330,13 +319,13 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
       </div>
 
       <div className="min-w-0 lg:self-stretch">
-      <LedgerSheet data-tour="conversions-results" className="min-w-0 lg:sticky lg:top-3">
+      <LedgerSheet data-tour="conversions-results" className="min-w-0 lg:h-full">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-[#FBF8F1] px-[18px] py-3">
           <div className="flex items-center gap-3"><span className="conv-etape__num" aria-hidden="true">3</span><h2 className="conv-etape__titre">Aperçu</h2></div>
-          <LedgerSegmented<Mode> value={mode} onChange={setMode} ariaLabel="Mode d'aperçu" options={[{ value: "pdf", label: "PDF" }, { value: "both", label: "Côte à côte" }, { value: "xls", label: "Excel" }]} />
+          <div role="group" aria-label="Mode d'aperçu" className="conv-seg">{[{ value: "pdf", label: "PDF" }, { value: "both", label: "Côte à côte" }, { value: "xls", label: "Excel" }].map((o) => <button key={o.value} type="button" aria-pressed={mode === o.value} onClick={() => setMode(o.value as Mode)}>{o.label}</button>)}</div>
         </div>
         {active && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-[18px] py-2.5" role="group" aria-label="Télécharger le fichier affiché">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border bg-[#FBF8F1] px-[18px] py-2.5" role="group" aria-label="Télécharger le fichier affiché">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Télécharger</span>
             <Button type="button" variant="outline" size="sm" aria-label="Télécharger le PDF affiché" onClick={() => void telecharger([active])}>
               <Download className="h-3.5 w-3.5" /> PDF
@@ -396,6 +385,25 @@ export function ExcelVersPdf({ onStats }: { onStats: (s: StatsConversion) => voi
         )}
       </LedgerSheet>
       </div>
+      {items.length > 0 && (
+        <LedgerSheet className="conv-pied lg:col-span-2">
+          <div className="flex flex-wrap items-center gap-3 px-[18px] py-3.5">
+            <div className="min-w-0 flex-1 basis-48">
+              <p className="text-sm font-bold text-primary">{prets.length} fichier{prets.length > 1 ? "s" : ""} prêt{prets.length > 1 ? "s" : ""}</p>
+              <p className="text-xs text-muted-foreground">{items.length} dans la file · format du téléchargement groupé</p>
+            </div>
+            <TelechargerTout
+            formats={FORMATS_SORTIE}
+            valeur={formatGroupe}
+            onValeur={setFormatGroupe}
+            onTelecharger={() => void toutTelecharger()}
+            disabled={prets.length < 2}
+            title={prets.length < 2 ? "Disponible à partir de deux fichiers convertis" : "Télécharge chaque fichier dans le format choisi"}
+            />
+            <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
+          </div>
+        </LedgerSheet>
+      )}
 
     </div>
   );

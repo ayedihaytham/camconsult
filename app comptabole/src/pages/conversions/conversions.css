@@ -20,4 +20,25 @@
 .conv-etape__titre { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 16px; font-weight: 700; line-height: 1.25; color: hsl(var(--primary)); }
 .conv-etape__aide { margin: 1px 0 0; font-size: 12px; color: hsl(var(--muted-foreground)); line-height: 1.4; }
 .conv-file ul > li > div { flex-wrap: wrap; row-gap: 8px; }
-.conv-file ul > li > div > .min-w-0 { flex: 1 1 10rem; }
+.conv-file ul > li > div > .min-w-0 { flex: 1 1 calc(100% - 3rem); }
+.conv-file ul > li > div > button:first-of-type { margin-left: 2rem; }
+.conv-file ul > li > div > button:last-child { margin-left: auto; }
+
+/* Sélecteur de l'aperçu : pastilles, l'actif en marine (comme les autres pages). */
+.conv-seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid #c3cbd9; border-radius: 10px; background: hsl(var(--card)); }
+.conv-seg button { height: 30px; padding: 0 13px; border-radius: 7px; font-size: 12.5px; font-weight: 600; color: hsl(var(--primary) / .75); white-space: nowrap; transition: background-color .12s, color .12s; }
+.conv-seg button:hover { color: hsl(var(--primary)); }
+.conv-seg button[aria-pressed="true"] { background: hsl(var(--primary)); color: #fff; }
+.conv-seg button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+
+/* Cases à cocher de la page : carré marine avec coche or. */
+.conv-page [role="checkbox"] { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid #c3cbd9; background: hsl(var(--card)); box-shadow: none; }
+.conv-page [role="checkbox"][data-state="checked"], .conv-page [role="checkbox"][aria-checked="true"] { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: #c9a96a; }
+.conv-page [role="checkbox"] svg { color: #c9a96a; }
+
+/* Liste des tableaux et file : lignes pointillées sur fond ivoire. */
+.conv-page .conv-file ul > li { border-color: #c3cbd9; }
+
+/* Pied : « n fichiers prêts », format du lot, Tout télécharger, Vider la liste. */
+.conv-pied { background: #FBF8F1; }
+.conv-file ul > li:first-child { border-top: 0; }

@@ -25,7 +25,7 @@ export function ConversionsPage() {
   }
 
   return (
-    <div>
+    <div className="conv-page">
       <SignatureLedgerBanner
         icon={FileOutput}
         eyebrow="Outils · Fichiers"

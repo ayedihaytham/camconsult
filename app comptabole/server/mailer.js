@@ -19,6 +19,10 @@ function getTransport() {
       port: Number(process.env.SMTP_PORT || 465),
       // 465 = SSL implicite ; 587 = STARTTLS (secure: false, upgrade en TLS après connexion).
       secure: Number(process.env.SMTP_PORT || 465) === 465,
+      // L'envoi est attendu par la création d'un accès : un serveur de messagerie lent ne doit pas bloquer l'écran de l'équipe (le lien reste affiché).
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,

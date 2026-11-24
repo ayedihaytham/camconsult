@@ -67,11 +67,22 @@ describe.skipIf(!actif)("intégration PostgreSQL : envoi par lignes d'une collec
       }, { timeout: 5000, interval: 100 });
     });
 
-    it("sans l'option, « envoyee » est ignoré : rien n'est envoyé", async () => {
+    it("sans l'option, « envoyee » est ignoré : rien n'est envoyé (tableau demandé par le cabinet)", async () => {
       const c = await collecte(false);
+      expect((await admin("POST", `/api/collectes/${c.id}/sections/${ONGLET}/recap/send`, { count: 1 })).status).toBe(200);
       const r = await client("PUT", `/api/collectes/${c.id}/lignes/${ONGLET}`, { lignes: [ligne(1, { envoyee: true })] });
       expect(r.status).toBe(200);
       expect(r.json.lignes[0].envoyeeLe).toBeNull();
+    });
+
+    it("sans l'option, la société ne peut ni remplir ni transmettre un tableau que le cabinet ne lui a pas demandé ; avec l'option, elle le peut", async () => {
+      const c = await collecte(false);
+      const ecrire = await client("PUT", `/api/collectes/${c.id}/lignes/${ONGLET}`, { lignes: [ligne(1)] });
+      expect(ecrire.status).toBe(403);
+      expect((await client("POST", `/api/collectes/${c.id}/sections/${ONGLET}/transmettre`, {})).status).toBe(403);
+      expect((await admin("GET", `/api/collectes/${c.id}`)).json.lignes.filter((l) => l.onglet === ONGLET)).toHaveLength(0);
+      const parLignes = await collecte(true);
+      expect((await client("PUT", `/api/collectes/${parLignes.id}/lignes/${ONGLET}`, { lignes: [ligne(1)] })).status).toBe(200);
     });
 
     it("le cabinet ne marque pas de lignes comme envoyées par la société, et garde l'état des lignes envoyées quand il enregistre", async () => {

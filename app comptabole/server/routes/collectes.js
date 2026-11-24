@@ -226,6 +226,15 @@ async function isOngletLocked(session, collecte, onglet) {
   return (row?.recap_statut ?? "none") !== "envoye";
 }
 
+/** Le cabinet n'a pas demandé ce tableau au client : jamais envoyé par le Récap et toujours à l'état de brouillon. L'écran ne le montre pas au client ;
+ * le serveur le lui refuse aussi (écriture, transmission). Exceptions : la souche de chèques, remplie par la société elle-même, et une collecte
+ * « envoi par lignes », où la société complète ses tableaux sans Récap préalable. */
+async function tableauNonDemande(session, collecte, onglet) {
+  if (session.poste !== "societe_employe" || onglet === "souche_cheques" || collecte.envoi_par_lignes) return false;
+  const row = (await query("select statut, recap_statut from collecte_sections where collecte_id=$1 and onglet=$2", [collecte.id, onglet])).rows[0];
+  return sectionStatutDe(collecte, row) === "brouillon" && (row?.recap_statut ?? "none") === "none";
+}
+
 /** Recalcule le statut de la collecte d'après ses tableaux : tous archivés -> archivée (elle passe d'elle-même dans les archives) ;
  * tous validés/archivés -> validée ; au moins un transmis ->
  * transmise (à examiner) ; au moins un à corriger -> à corriger ; sinon brouillon. Une collecte archivée n'est pas touchée. */
@@ -663,6 +672,8 @@ collectesRouter.put("/:id/lignes/:onglet", async (req, res) => {
   // La souche est remplie par la société ; le cabinet la consulte et complète « État des chèques émis ».
   if (onglet === "souche_cheques" && !estClient(req.session))
     return res.status(403).json({ error: "La souche est remplie par la société : complétez « État des chèques émis »" });
+  if (await tableauNonDemande(req.session, c, onglet))
+    return res.status(403).json({ error: "Ce tableau ne vous a pas été demandé par le cabinet" });
   if (await isOngletLocked(req.session, c, onglet))
     return res.status(400).json({ error: "Ce tableau est verrouillé" });
 
@@ -1056,6 +1067,7 @@ collectesRouter.post("/:id/sections/:onglet/transmettre", async (req, res) => {
   if (req.session.poste !== "societe_employe" || !canEdit(req.session, ctx.c.societe_id))
     return res.status(403).json({ error: "Réservé au client de la société" });
   if (CABINET_SEUL.includes(ctx.onglet)) return res.status(400).json({ error: "Ce tableau est tenu par le cabinet" });
+  if (await tableauNonDemande(req.session, ctx.c, ctx.onglet)) return res.status(403).json({ error: "Ce tableau ne vous a pas été demandé par le cabinet" });
   if (!SECTION_OUVERTES.includes(ctx.statut)) return res.status(400).json({ error: "Ce tableau est déjà transmis" });
   const incomplet = req.body?.incomplet === true;
   await changerSection(req, res, ctx, { depuis: SECTION_OUVERTES, vers: "transmis", journal: incomplet ? "Transmis (incomplet)" : "Transmis" });

@@ -22,6 +22,7 @@ import { detailPourCopie, diagnostic, diagnostiquerErreurPdf, type DiagnosticCon
 import { lirePdfParOcr, relireMontantsParColonnes } from "@/lib/ocrPdf";
 import { cn } from "@/lib/utils";
 import { TelechargerTout } from "./TelechargerTout";
+import { EtapeEntete } from "./EtapeEntete";
 import { ZoneDepot } from "./ZoneDepot";
 import { ColonnesDialog } from "./ColonnesDialog";
 import { useIdentiteCabinet } from "./useIdentiteCabinet";
@@ -242,21 +243,98 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
     <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start">
       <div className="grid min-w-0 gap-4">
         <LedgerSheet>
-          <div className="border-b border-border px-[18px] py-3">
-            <h2 className="text-[0.86rem] font-bold text-foreground">Fichiers à convertir</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Tous les PDF sont acceptés : le texte est lu directement, et un PDF scanné ou photographié est lu par reconnaissance de caractères (à vérifier).</p>
-          </div>
+          <EtapeEntete numero={1} titre="Déposer les fichiers" aide="Tous les PDF sont acceptés : le texte est lu directement, et un PDF scanné ou photographié est lu par reconnaissance de caractères (à vérifier)." />
           <div className="p-[18px]">
-            <ZoneDepot accept=".pdf,application/pdf" extensions={["pdf"]} types=".pdf" occupe={occupe} libelleOccupe="Lecture en cours…" onFiles={(f) => void convertir(f)} />
+            <ZoneDepot accept=".pdf,application/pdf" extensions={["pdf"]} types=".pdf" compact={items.length > 0} occupe={occupe} libelleOccupe="Lecture en cours…" onFiles={(f) => void convertir(f)} />
           </div>
         </LedgerSheet>
+        {items.length > 0 && (
+          <LedgerSheet className="conv-file">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-[18px] py-3">
+              <h2 className="text-[0.86rem] font-bold text-foreground">File de conversion <span className="font-normal text-muted-foreground">· {items.length}</span></h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <TelechargerTout
+                  formats={FORMATS_PDF_VERS_EXCEL}
+                  valeur={formatGroupe}
+                  onValeur={setFormatGroupe}
+                  onTelecharger={() => void toutTelecharger()}
+                  disabled={items.filter((i) => i.status === "ok").length < 2}
+                  title={items.filter((i) => i.status === "ok").length < 2 ? "Disponible à partir de deux fichiers convertis" : "Télécharge chaque fichier dans le format choisi"}
+                />
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
+              </div>
+            </div>
+            <ul className="divide-y divide-border">
+              {items.map((item) => (
+                <li key={item.id}>
+                  <div
+                    role={item.status === "ok" ? "button" : undefined}
+                    tabIndex={item.status === "ok" ? 0 : undefined}
+                    onClick={() => { if (item.status === "ok") { setActiveId(item.id); setActiveSheet(0); } }}
+                    onKeyDown={(e) => { if (item.status === "ok" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setActiveId(item.id); setActiveSheet(0); } }}
+                    className={cn("flex flex-wrap items-center gap-3 border-l-4 px-[18px] py-2.5", item.status === "ok" ? "cursor-pointer border-l-success hover:bg-accent/10" : item.status === "erreur" ? "border-l-destructive" : "border-l-accent", activeId === item.id && "bg-accent/15")}
+                  >
+                    {item.status === "ok" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" /> : item.status === "erreur" ? <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" /> : <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
+                      <p className={cn("text-xs", item.status === "erreur" ? "text-destructive" : item.ocr ? "font-medium text-foreground" : "text-muted-foreground")}>{item.detail}</p>
+                    </div>
+                    {item.status === "ok" && (
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); telechargerEcritures(item); }}>
+                          <FileText className="h-3.5 w-3.5" /> Écritures (.txt)
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); telechargerTexte(item); }}>
+                          <FileText className="h-3.5 w-3.5" /> Texte brut (.txt)
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telechargerPdf(item); }}>
+                          <Download className="h-3.5 w-3.5" /> Télécharger le PDF
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telecharger(item); }}>
+                          <FileSpreadsheet className="h-3.5 w-3.5" /> Télécharger l'Excel
+                        </Button>
+                      </div>
+                    )}
+                    {item.status === "erreur" && item.diagnostic && (
+                      <Button type="button" variant="ghost" size="sm" aria-expanded={!replies.includes(item.id)} onClick={(e) => { e.stopPropagation(); setReplies((r) => (r.includes(item.id) ? r.filter((x) => x !== item.id) : [...r, item.id])); }}>
+                        {replies.includes(item.id) ? "Voir le problème" : "Masquer le problème"}
+                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !replies.includes(item.id) && "rotate-180")} aria-hidden="true" />
+                      </Button>
+                    )}
+                    {item.status === "erreur" && (
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); reessayer(item); }}>
+                        <RotateCcw className="h-3.5 w-3.5" /> Réessayer
+                      </Button>
+                    )}
+                    <Button type="button" variant="ghost" size="icon" className="size-8" aria-label={`Retirer ${item.name}`} onClick={(e) => { e.stopPropagation(); retirer(item.id); }}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                    {item.status === "erreur" && item.diagnostic && !replies.includes(item.id) && (
+                      <div className="grid basis-full gap-3 rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-xs sm:ml-7 sm:basis-[calc(100%-1.75rem)]" onClick={(e) => e.stopPropagation()}>
+                        <div>
+                          <p className="font-semibold text-foreground">Cause</p>
+                          <p className="mt-0.5 text-muted-foreground">{item.diagnostic.cause}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">Que faire</p>
+                          <ol className="mt-0.5 list-decimal space-y-1 pl-4 text-muted-foreground">{item.diagnostic.solutions.map((solution) => <li key={solution}>{solution}</li>)}</ol>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => void copierDetail(item)}>
+                            <Copy className="h-3.5 w-3.5" /> Copier le détail
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </LedgerSheet>
+        )}
 
         <LedgerSheet>
-          <div className="border-b border-border px-[18px] py-3">
-            <h2 className="flex items-center gap-2 text-[0.86rem] font-bold text-foreground">
-              <FileSpreadsheet className="h-4 w-4 text-accent" aria-hidden="true" /> Options de l'Excel
-            </h2>
-          </div>
+          <EtapeEntete numero={2} titre="Options de l'Excel" aide="Ce qui est repris dans le classeur produit." />
           <div className="grid gap-4 p-[18px] text-sm">
             <label className="flex cursor-pointer items-start gap-2.5">
               <Checkbox checked={tableauSeul} onCheckedChange={(c) => setTableauSeul(Boolean(c))} className="mt-0.5" />
@@ -298,8 +376,8 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
 
       <div className="min-w-0 lg:self-stretch">
       <LedgerSheet data-tour="conversions-results" className="min-w-0 lg:sticky lg:top-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-[18px] py-3">
-          <h2 className="text-[0.86rem] font-bold text-foreground">Aperçu</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-[#FBF8F1] px-[18px] py-3">
+          <div className="flex items-center gap-3"><span className="conv-etape__num" aria-hidden="true">3</span><h2 className="conv-etape__titre">Aperçu</h2></div>
           <LedgerSegmented<Mode> value={mode} onChange={setMode} ariaLabel="Mode d'aperçu" options={[{ value: "pdf", label: "PDF" }, { value: "both", label: "Côte à côte" }, { value: "xls", label: "Excel" }]} />
         </div>
         {active && (
@@ -402,90 +480,6 @@ export function PdfVersExcel({ onStats }: { onStats: (s: StatsConversion) => voi
       </LedgerSheet>
       </div>
 
-      {items.length > 0 && (
-        <LedgerSheet className="lg:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-[18px] py-3">
-            <h2 className="text-[0.86rem] font-bold text-foreground">File de conversion</h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <TelechargerTout
-                formats={FORMATS_PDF_VERS_EXCEL}
-                valeur={formatGroupe}
-                onValeur={setFormatGroupe}
-                onTelecharger={() => void toutTelecharger()}
-                disabled={items.filter((i) => i.status === "ok").length < 2}
-                title={items.filter((i) => i.status === "ok").length < 2 ? "Disponible à partir de deux fichiers convertis" : "Télécharge chaque fichier dans le format choisi"}
-              />
-              <Button type="button" variant="ghost" size="sm" onClick={() => { setItems([]); setActiveId(null); }}>Vider la liste</Button>
-            </div>
-          </div>
-          <ul className="divide-y divide-border">
-            {items.map((item) => (
-              <li key={item.id}>
-                <div
-                  role={item.status === "ok" ? "button" : undefined}
-                  tabIndex={item.status === "ok" ? 0 : undefined}
-                  onClick={() => { if (item.status === "ok") { setActiveId(item.id); setActiveSheet(0); } }}
-                  onKeyDown={(e) => { if (item.status === "ok" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setActiveId(item.id); setActiveSheet(0); } }}
-                  className={cn("flex flex-wrap items-center gap-3 border-l-4 px-[18px] py-2.5", item.status === "ok" ? "cursor-pointer border-l-success hover:bg-accent/10" : item.status === "erreur" ? "border-l-destructive" : "border-l-accent", activeId === item.id && "bg-accent/15")}
-                >
-                  {item.status === "ok" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" /> : item.status === "erreur" ? <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" /> : <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                    <p className={cn("text-xs", item.status === "erreur" ? "text-destructive" : item.ocr ? "font-medium text-foreground" : "text-muted-foreground")}>{item.detail}</p>
-                  </div>
-                  {item.status === "ok" && (
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); telechargerEcritures(item); }}>
-                        <FileText className="h-3.5 w-3.5" /> Écritures (.txt)
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); telechargerTexte(item); }}>
-                        <FileText className="h-3.5 w-3.5" /> Texte brut (.txt)
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telechargerPdf(item); }}>
-                        <Download className="h-3.5 w-3.5" /> Télécharger le PDF
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void telecharger(item); }}>
-                        <FileSpreadsheet className="h-3.5 w-3.5" /> Télécharger l'Excel
-                      </Button>
-                    </div>
-                  )}
-                  {item.status === "erreur" && item.diagnostic && (
-                    <Button type="button" variant="ghost" size="sm" aria-expanded={!replies.includes(item.id)} onClick={(e) => { e.stopPropagation(); setReplies((r) => (r.includes(item.id) ? r.filter((x) => x !== item.id) : [...r, item.id])); }}>
-                      {replies.includes(item.id) ? "Voir le problème" : "Masquer le problème"}
-                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !replies.includes(item.id) && "rotate-180")} aria-hidden="true" />
-                    </Button>
-                  )}
-                  {item.status === "erreur" && (
-                    <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); reessayer(item); }}>
-                      <RotateCcw className="h-3.5 w-3.5" /> Réessayer
-                    </Button>
-                  )}
-                  <Button type="button" variant="ghost" size="icon" className="size-8" aria-label={`Retirer ${item.name}`} onClick={(e) => { e.stopPropagation(); retirer(item.id); }}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                  {item.status === "erreur" && item.diagnostic && !replies.includes(item.id) && (
-                    <div className="grid basis-full gap-3 rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-xs sm:ml-7 sm:basis-[calc(100%-1.75rem)]" onClick={(e) => e.stopPropagation()}>
-                      <div>
-                        <p className="font-semibold text-foreground">Cause</p>
-                        <p className="mt-0.5 text-muted-foreground">{item.diagnostic.cause}</p>
-                      </div>
-                      <div>
-                        <p className="font-semibold text-foreground">Que faire</p>
-                        <ol className="mt-0.5 list-decimal space-y-1 pl-4 text-muted-foreground">{item.diagnostic.solutions.map((solution) => <li key={solution}>{solution}</li>)}</ol>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => void copierDetail(item)}>
-                          <Copy className="h-3.5 w-3.5" /> Copier le détail
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </LedgerSheet>
-      )}
       {active && (
         <ColonnesDialog open={colonnesOuvert} onOpenChange={setColonnesOuvert} pages={active.pages} onValider={(choix) => setColonnesParId((c) => ({ ...c, [active.id]: choix }))} />
       )}

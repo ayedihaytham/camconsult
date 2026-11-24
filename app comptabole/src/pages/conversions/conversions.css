@@ -1,0 +1,23 @@
+/* Conversions (maquette A) : parcours en trois étapes, barre unique onglets + compteurs. */
+.conv-barre { display: flex; flex-wrap: wrap; align-items: stretch; margin-top: 12px; overflow: hidden; border: 1px solid hsl(var(--primary) / .1); border-radius: 14px; background: hsl(var(--card)); box-shadow: 0 1px 2px hsl(var(--primary) / .05); }
+.conv-stats { display: flex; margin: 0 0 0 auto; background: #FBF8F1; border-left: 1px solid hsl(var(--border)); }
+.conv-stats > div { padding: 8px 20px; border-right: 1px dotted #c3cbd9; }
+.conv-stats > div:last-child { border-right: 0; }
+.conv-stats dt { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.conv-stats dd { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.1; color: hsl(var(--primary)); font-variant-numeric: lining-nums; }
+.conv-stats .is-ok dd { color: #2f7a55; }
+.conv-stats .is-erreur dd { color: #A8402B; }
+.conv-stats .is-zero dd { color: #b6bfce; }
+@media (max-width: 767px) {
+  .conv-barre { flex-direction: column; }
+  .conv-stats { margin: 0; border-left: 0; border-top: 1px solid hsl(var(--border)); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .conv-stats > div { padding: 8px 10px; }
+  .conv-stats dd { font-size: 19px; }
+  .conv-stats dt { letter-spacing: .06em; font-size: 9px; }
+}
+.conv-etape { display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-bottom: 1px solid hsl(var(--border)); background: #FBF8F1; }
+.conv-etape__num { display: grid; flex: none; place-items: center; width: 26px; height: 26px; border-radius: 999px; background: hsl(var(--primary)); color: #c9a96a; font-size: 12px; font-weight: 800; }
+.conv-etape__titre { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 16px; font-weight: 700; line-height: 1.25; color: hsl(var(--primary)); }
+.conv-etape__aide { margin: 1px 0 0; font-size: 12px; color: hsl(var(--muted-foreground)); line-height: 1.4; }
+.conv-file ul > li > div { flex-wrap: wrap; row-gap: 8px; }
+.conv-file ul > li > div > .min-w-0 { flex: 1 1 10rem; }

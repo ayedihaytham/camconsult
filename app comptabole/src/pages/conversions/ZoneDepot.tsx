@@ -16,10 +16,12 @@ interface Props {
   /** Texte affiché à la fin de la phrase, ex. « .xlsx / .xls ». */
   types: string;
   onFiles: (fichiers: File[]) => void;
+  /** Bandeau réduit : des fichiers sont déjà déposés, la zone ne sert plus qu'à en ajouter. */
+  compact?: boolean;
 }
 
 /** Zone de dépôt commune aux deux conversions : clic ou glisser-déposer, plusieurs fichiers, tri par extension. */
-export function ZoneDepot({ accept, extensions, occupe, libelleOccupe, types, onFiles }: Props) {
+export function ZoneDepot({ accept, extensions, occupe, libelleOccupe, types, onFiles, compact = false }: Props) {
   const [survol, setSurvol] = useState(false);
 
   function recevoir(liste: File[]) {
@@ -46,16 +48,16 @@ export function ZoneDepot({ accept, extensions, occupe, libelleOccupe, types, on
         if (!occupe) recevoir(Array.from(e.dataTransfer.files));
       }}
       className={cn(
-        "flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-input bg-secondary/20 px-4 py-8 text-center transition-colors focus-within:ring-2 focus-within:ring-ring hover:border-accent hover:bg-accent/10",
+        compact ? "flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-input bg-[#FBF8F1] px-3 py-3 text-center transition-colors" : "flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-input bg-[#FBF8F1] px-4 py-8 text-center transition-colors focus-within:ring-2 focus-within:ring-ring hover:border-accent hover:bg-accent/10",
         survol && "border-accent bg-accent/10",
         occupe && "cursor-wait opacity-70",
       )}
     >
-      <Upload className="h-7 w-7 text-accent" aria-hidden="true" />
+      {compact ? <Upload className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" /> : <span className="grid size-11 place-items-center rounded-xl bg-primary text-accent"><Upload className="h-5 w-5" aria-hidden="true" /></span>}
       <p className="text-sm font-semibold text-primary">
-        {occupe ? libelleOccupe : <>Glissez vos fichiers ici ou cliquez pour les choisir <span className="underline underline-offset-2">{types}</span></>}
+        {occupe ? libelleOccupe : compact ? <>Ajouter d'autres fichiers <span className="font-normal text-muted-foreground">· {types}</span></> : <>Glissez vos fichiers ici ou cliquez pour les choisir <span className="underline underline-offset-2">{types}</span></>}
       </p>
-      <p className="text-xs text-muted-foreground">Jusqu'à {MAX_FICHIERS} fichiers · la conversion démarre tout de suite</p>
+      {!compact && <p className="text-xs text-muted-foreground">Jusqu'à {MAX_FICHIERS} fichiers · la conversion démarre tout de suite</p>}
       <input
         type="file"
         accept={accept}
